@@ -132,24 +132,21 @@ void TheoryUF::propagate(Effort level) {
       TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
       Debug("uf") << "TheoryUF::propagate(): propagating " << literal << std::endl;
       bool satValue;
-      if (!d_valuation.hasSatValue(literal, satValue)) {
+      Node normalized = Rewriter::rewrite(literal);
+      if (!d_valuation.hasSatValue(normalized, satValue) || satValue) {
         d_out->propagate(literal);
       } else {
-        if (!satValue) {
-          Debug("uf") << "TheoryUF::propagate(): in conflict" << std::endl;
-          Node negatedLiteral;
-          std::vector<TNode> assumptions;
-          if (literal != d_false) {
-            negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
-            assumptions.push_back(negatedLiteral);
-          }
-          explain(literal, assumptions);
-          d_conflictNode = mkAnd(assumptions);
-          d_conflict = true;
-          break;
-        } else {
-          Debug("uf") << "TheoryUF::propagate(): already asserted" << std::endl;
+        Debug("uf") << "TheoryUF::propagate(): in conflict, normalized = " << normalized << std::endl;
+        Node negatedLiteral;
+        std::vector<TNode> assumptions;
+        if (normalized != d_false) {
+          negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
+          assumptions.push_back(negatedLiteral);
         }
+        explain(literal, assumptions);
+        d_conflictNode = mkAnd(assumptions);
+        d_conflict = true;
+        break;
       }
     }
   }
@@ -196,20 +193,18 @@ bool TheoryUF::propagate(TNode literal) {
   }
 
   // See if the literal has been asserted already
+  Node normalized = Rewriter::rewrite(literal);
   bool satValue = false;
-  bool isAsserted = literal == d_false || d_valuation.hasSatValue(literal, satValue);
+  bool isAsserted = normalized == d_false || d_valuation.hasSatValue(normalized, satValue);
 
   // If asserted, we're done or in conflict
   if (isAsserted) {
-    if (satValue) {
-      Debug("uf") << "TheoryUF::propagate(" << literal << ") => already known" << std::endl;
-      return true;
-    } else {
-      Debug("uf") << "TheoryUF::propagate(" << literal << ") => conflict" << std::endl;
+    if (!satValue) {
+      Debug("uf") << "TheoryUF::propagate(" << literal << ", normalized = " << normalized << ") => conflict" << std::endl;
       std::vector<TNode> assumptions;
       Node negatedLiteral;
-      if (literal != d_false) {
-        negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
+      if (normalized != d_false) {
+        negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
         assumptions.push_back(negatedLiteral);
       }
       explain(literal, assumptions);
@@ -217,6 +212,8 @@ bool TheoryUF::propagate(TNode literal) {
       d_conflict = true;
       return false;
     }
+    // Propagate even if already known in SAT - could be a new equation between shared terms
+    // (terms that weren't shared when the literal was asserted!)
   }
 
   // Nothing, just enqueue it for propagation and mark it as asserted already
@@ -396,12 +393,21 @@ void TheoryUF::ppStaticLearn(TNode n, NodeBuilder<>& learned) {
 }/* TheoryUF::ppStaticLearn() */
 
 EqualityStatus TheoryUF::getEqualityStatus(TNode a, TNode b) {
+
+  Node equality = a.eqNode(b);
+  Node rewrittenEquality = Rewriter::rewrite(equality);
+  if (rewrittenEquality.isConst()) {
+    if (!rewrittenEquality.getConst<bool>()) {
+      return EQUALITY_FALSE;
+    }
+  }
+
   if (d_equalityEngine.areEqual(a, b)) {
     // The terms are implied to be equal
     return EQUALITY_TRUE;
   }
   if (d_equalityEngine.areDisequal(a, b)) {
-    // The rems are implied to be dis-equal
+    // The terms are implied to be dis-equal
     return EQUALITY_FALSE;
   }
   // All other terms we interpret as dis-equal in the model
@@ -413,17 +419,19 @@ void TheoryUF::addSharedTerm(TNode t) {
   d_equalityEngine.addTriggerTerm(t);
 }
 
-void TheoryUF::computeCareGraph(CareGraph& careGraph) {
+void TheoryUF::computeCareGraph() {
 
   if (d_sharedTerms.size() > 0) {
 
-    std::vector<CarePair> currentPairs;
+    vector< pair<TNode, TNode> > currentPairs;
 
     // Go through the function terms and see if there are any to split on
     unsigned functionTerms = d_functionsTerms.size();
     for (unsigned i = 0; i < functionTerms; ++ i) {
+
       TNode f1 = d_functionsTerms[i];
       Node op = f1.getOperator();
+
       for (unsigned j = i + 1; j < functionTerms; ++ j) {
 
         TNode f2 = d_functionsTerms[j];
@@ -462,24 +470,43 @@ void TheoryUF::computeCareGraph(CareGraph& careGraph) {
             break;
           }
 
-	    	  if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
-	    	    // Not connected to shared terms, we don't care
-	    	    continue;
-	    	  }
-
           if (eqStatusUf == EQUALITY_TRUE) {
-            // We don't neeed this one
+            // We don't need this one
             Debug("uf::sharing") << "TheoryUf::computeCareGraph(): equal" << std::endl;
             continue;
           }
 
+          if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
+            // Not connected to shared terms, we don't care
+            continue;
+          }
+
+          // Get representative trigger terms
+          TNode x_shared = d_equalityEngine.getTriggerTermRepresentative(x);
+          TNode y_shared = d_equalityEngine.getTriggerTermRepresentative(y);
+
+          EqualityStatus eqStatusDomain = d_valuation.getEqualityStatus(x_shared, y_shared);
+          switch (eqStatusDomain) {
+          case EQUALITY_FALSE_AND_PROPAGATED:
+          case EQUALITY_FALSE:
+          case EQUALITY_FALSE_IN_MODEL:
+            somePairIsDisequal = true;
+            continue;
+            break;
+          default:
+            break;
+            // nothing
+          }
+
           // Otherwise, we need to figure it out
           Debug("uf::sharing") << "TheoryUf::computeCareGraph(): adding to care-graph" << std::endl;
-          currentPairs.push_back(CarePair(x, y, THEORY_UF));
+          currentPairs.push_back(make_pair(x_shared, y_shared));
         }
 
         if (!somePairIsDisequal) {
-          careGraph.insert(careGraph.end(), currentPairs.begin(), currentPairs.end());
+          for (unsigned i = 0; i < currentPairs.size(); ++ i) {
+            addCarePair(currentPairs[i].first, currentPairs[i].second);
+          }
         }
       }
     }

@@ -343,27 +343,27 @@ bool TheoryArrays::propagate(TNode literal)
   }
 
   // See if the literal has been asserted already
+  Node normalized = Rewriter::rewrite(literal);
   bool satValue = false;
-  bool isAsserted = literal == d_false || d_valuation.hasSatValue(literal, satValue);
+  bool isAsserted = normalized == d_false || d_valuation.hasSatValue(normalized, satValue);
 
   // If asserted, we're done or in conflict
   if (isAsserted) {
-    if (satValue) {
-      Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(" << literal << ") => already known" << std::endl;
-      return true;
-    } else {
-      Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(" << literal << ") => conflict" << std::endl;
-      d_conflict = true;
+    if (!satValue) {
+      Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(" << literal << ", normalized = " << normalized << ") => conflict" << std::endl;
       std::vector<TNode> assumptions;
       Node negatedLiteral;
-      if (literal != d_false) {
-        negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
+      if (normalized != d_false) {
+        negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
         assumptions.push_back(negatedLiteral);
       }
       explain(literal, assumptions);
       d_conflictNode = mkAnd(assumptions);
+      d_conflict = true;
       return false;
     }
+    // Propagate even if already known in SAT - could be a new equation between shared terms
+    // (terms that weren't shared when the literal was asserted!)
   }
 
   // Nothing, just enqueue it for propagation and mark it as asserted already
@@ -495,24 +495,21 @@ void TheoryArrays::propagate(Effort e)
       TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
       Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(): propagating " << literal << std::endl;
       bool satValue;
-      if (!d_valuation.hasSatValue(literal, satValue)) {
-          d_out->propagate(literal);
+      Node normalized = Rewriter::rewrite(literal);
+      if (!d_valuation.hasSatValue(normalized, satValue) || satValue) {
+        d_out->propagate(literal);
       } else {
-        if (!satValue) {
-          Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(): in conflict" << std::endl;
-          Node negatedLiteral;
-          std::vector<TNode> assumptions;
-          if (literal != d_false) {
-            negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
-            assumptions.push_back(negatedLiteral);
-          }
-          explain(literal, assumptions);
-          d_conflictNode = mkAnd(assumptions);
-          d_conflict = true;
-          break;
-        } else {
-          Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(): already asserted" << std::endl;
+        Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(): in conflict, normalized = " << normalized << std::endl;
+        Node negatedLiteral;
+        std::vector<TNode> assumptions;
+        if (normalized != d_false) {
+          negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
+          assumptions.push_back(negatedLiteral);
         }
+        explain(literal, assumptions);
+        d_conflictNode = mkAnd(assumptions);
+        d_conflict = true;
+        break;
       }
     }
   }

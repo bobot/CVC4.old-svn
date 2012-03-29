@@ -98,6 +98,21 @@ class TheoryEngine {
    */
   context::CDO<theory::Theory::Set> d_activeTheories;
 
+  // NotifyClass: template helper class for Shared Terms Database
+  class NotifyClass :public SharedTermsDatabase::SharedTermsNotifyClass {
+    TheoryEngine& d_theoryEngine;
+  public:
+    NotifyClass(TheoryEngine& engine): d_theoryEngine(engine) {}
+    ~NotifyClass() {}
+
+    void notify(TNode literal, TNode original, theory::TheoryId theory) {
+      d_theoryEngine.propagateSharedLiteral(literal, original, theory);
+    }
+  };
+
+  // Instance of NotifyClass
+  NotifyClass d_notify;
+
   /**
    * The database of shared terms.
    */
@@ -194,28 +209,28 @@ class TheoryEngine {
     }
 
     void conflict(TNode conflictNode) throw(AssertionException) {
-      Trace("theory") << "EngineOutputChannel<" << d_theory << ">::conflict(" << conflictNode << ")" << std::endl;
+      Trace("theory::conflict") << "EngineOutputChannel<" << d_theory << ">::conflict(" << conflictNode << ")" << std::endl;
       ++ d_statistics.conflicts;
       d_engine->d_outputChannelUsed = true;
       d_engine->conflict(conflictNode, d_theory);
     }
 
     void propagate(TNode literal) throw(AssertionException) {
-      Trace("theory") << "EngineOutputChannel<" << d_theory << ">::propagate(" << literal << ")" << std::endl;
+      Trace("theory::propagate") << "EngineOutputChannel<" << d_theory << ">::propagate(" << literal << ")" << std::endl;
       ++ d_statistics.propagations;
       d_engine->d_outputChannelUsed = true;
       d_engine->propagate(literal, d_theory);
     }
 
     void propagateAsDecision(TNode literal) throw(AssertionException) {
-      Trace("theory") << "EngineOutputChannel<" << d_theory << ">::propagateAsDecision(" << literal << ")" << std::endl;
+      Trace("theory::propagate") << "EngineOutputChannel<" << d_theory << ">::propagateAsDecision(" << literal << ")" << std::endl;
       ++ d_statistics.propagationsAsDecisions;
       d_engine->d_outputChannelUsed = true;
       d_engine->propagateAsDecision(literal, d_theory);
     }
 
     theory::LemmaStatus lemma(TNode lemma, bool removable = false) throw(TypeCheckingExceptionPrivate, AssertionException) {
-      Trace("theory") << "EngineOutputChannel<" << d_theory << ">::lemma(" << lemma << ")" << std::endl;
+      Trace("theory::lemma") << "EngineOutputChannel<" << d_theory << ">::lemma(" << lemma << ")" << std::endl;
       ++ d_statistics.lemmas;
       d_engine->d_outputChannelUsed = true;
       return d_engine->lemma(lemma, false, removable);
@@ -296,32 +311,55 @@ class TheoryEngine {
     return theory::Theory::setContains(theory, d_activeTheories);
   }
 
-  struct SharedEquality {
+  struct SharedLiteral {
     /** The node/theory pair for the assertion */
+    /** THEORY_LAST indicates this is a SAT literal and should be sent to the SAT solver */
     NodeTheoryPair toAssert;
-    /** This is the node/theory pair that we will use to explain it */
-    NodeTheoryPair toExplain;
+    /** This is the node that we will use to explain it */
+    Node toExplain;
 
-    SharedEquality(TNode assertion, TNode original, theory::TheoryId sendingTheory, theory::TheoryId receivingTheory)
+    SharedLiteral(TNode assertion, TNode original, theory::TheoryId receivingTheory)
     : toAssert(assertion, receivingTheory),
-      toExplain(original, sendingTheory)
+      toExplain(original)
     { }
-  };/* struct SharedEquality */
+  };/* struct SharedLiteral */
 
   /**
-   * Map from equalities asserted to a theory, to the theory that can explain them.
+   * Map from nodes to theories.
    */
-  typedef context::CDHashMap<NodeTheoryPair, NodeTheoryPair, NodeTheoryPairHashFunction> SharedAssertionsMap;
+  typedef context::CDHashMap<Node, theory::TheoryId, NodeHashFunction> SharedLiteralsInMap;
 
   /**
-   * A map from asserted facts to where they came from (for explanations).
+   * All shared literals asserted to theory engine.
+   * Maps from literal to the theory that sent the literal (THEORY_LAST means sent from SAT).
    */
-  SharedAssertionsMap d_sharedAssertions;
+  SharedLiteralsInMap d_sharedLiteralsIn;
 
   /**
-   * Assert a shared equalities propagated by theories.
+   * Map from literals asserted by theory engine to literal that can explain
    */
-  void assertSharedEqualities();
+  typedef context::CDHashMap<NodeTheoryPair, Node, NodeTheoryPairHashFunction> SharedLiteralsOutMap;
+
+  /**
+   * All shared literals asserted to theories from theory engine.
+   * Maps from literal/theory pair to literal that can explain this assertion.
+   */
+  SharedLiteralsOutMap d_sharedLiteralsOut;
+
+  /**
+   * Shared literals queud up to be asserted to the individual theories.
+   */
+  std::vector<SharedLiteral> d_propagatedSharedLiterals;
+
+  void propagateSharedLiteral(TNode literal, TNode original, theory::TheoryId theory)
+  {
+    d_propagatedSharedLiterals.push_back(SharedLiteral(literal, original, theory));
+  }
+
+  /**
+   * Assert the shared literals that are queued up to the theories.
+   */
+  void outputSharedLiterals();
 
   /**
    * Literals that are propagated by the theory. Note that these are TNodes.
@@ -334,11 +372,6 @@ class TheoryEngine {
    * The index of the next literal to be propagated by a theory.
    */
   context::CDO<unsigned> d_propagatedLiteralsIndex;
-
-  /**
-   * Shared term equalities that should be asserted to the individual theories.
-   */
-  std::vector<SharedEquality> d_propagatedEqualities;
 
   /**
    * Decisions that are requested via propagateAsDecision().  The theory
@@ -418,6 +451,9 @@ class TheoryEngine {
       negated ? additionalLemmas[0].notNode() : additionalLemmas[0];
     return theory::LemmaStatus(finalForm, d_userContext->getLevel());
   }
+
+  /** Time spent in theory combination */
+  TimerStat d_combineTheoriesTime;
 
 public:
 
@@ -565,6 +601,7 @@ public:
 
   void getPropagatedLiterals(std::vector<TNode>& literals) {
     for (; d_propagatedLiteralsIndex < d_propagatedLiterals.size(); d_propagatedLiteralsIndex = d_propagatedLiteralsIndex + 1) {
+      Debug("getPropagatedLiterals") << "TheoryEngine::getPropagatedLiterals: propagating: " << d_propagatedLiterals[d_propagatedLiteralsIndex] << std::endl;
       literals.push_back(d_propagatedLiterals[d_propagatedLiteralsIndex]);
     }
   }
@@ -586,7 +623,39 @@ public:
   bool properPropagation(TNode lit) const;
   bool properExplanation(TNode node, TNode expl) const;
 
+  enum ExplainTaskKind {
+    // Literal sent out from the theory engine
+    SHARED_LITERAL_OUT,
+    // Explanation produced by a theory
+    THEORY_EXPLANATION,
+    // Explanation produced by the shared terms database
+    SHARED_DATABASE_EXPLANATION
+  };
+
+  struct ExplainTask {
+    Node node;
+    ExplainTaskKind kind;
+    theory::TheoryId theory;
+    ExplainTask(Node n, ExplainTaskKind k, theory::TheoryId tid = theory::THEORY_LAST) :
+      node(n), kind(k), theory(tid) {}
+    bool operator == (const ExplainTask& other) const {
+      return node == other.node && kind == other.kind && theory == other.theory;
+    }
+  };
+
+  struct ExplainTaskHashFunction {
+    size_t operator () (const ExplainTask& task) const {
+      size_t hash = 0;
+      hash = 0x9e3779b9 + NodeHashFunction().operator()(task.node);
+      hash ^= 0x9e3779b9 + task.kind + (hash << 6) + (hash >> 2);
+      hash ^= 0x9e3779b9 + task.theory + (hash << 6) + (hash >> 2);
+      return hash;
+    }
+  };
+
   Node getExplanation(TNode node);
+
+  Node explain(ExplainTask toExplain);
 
   Node getValue(TNode node);
 

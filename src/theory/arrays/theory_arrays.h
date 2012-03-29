@@ -230,7 +230,7 @@ class TheoryArrays : public Theory {
   class NotifyClass {
     TheoryArrays& d_arrays;
   public:
-    NotifyClass(TheoryArrays& uf): d_arrays(uf) {}
+    NotifyClass(TheoryArrays& arrays): d_arrays(arrays) {}
 
     bool notify(TNode propagation) {
       Debug("arrays") << spaces(d_arrays.getContext()->getLevel()) << "NotifyClass::notify(" << propagation << ")" << std::endl;
@@ -247,7 +247,7 @@ class TheoryArrays : public Theory {
         }
       }
       // Propagate equality between shared terms
-      Node equality = Rewriter::rewriteEquality(theory::THEORY_ARRAY, t1.eqNode(t2));
+      Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
       d_arrays.propagate(equality);
     }
   };
