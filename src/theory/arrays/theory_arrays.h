@@ -115,6 +115,8 @@ class TheoryArrays : public Theory {
   IntStat d_numExplain;
   /** calls to non-linear */
   IntStat d_numNonLinear;
+  /** splits on array variables */
+  IntStat d_numSharedArrayVarSplits;
   /** time spent in check() */
   TimerStat d_checkTimer;
 
@@ -188,11 +190,24 @@ class TheoryArrays : public Theory {
   /////////////////////////////////////////////////////////////////////////////
 
   private:
+
+  class MayEqualNotifyClass {
+  public:
+    bool notify(TNode propagation) { return true; }
+    void notify(TNode t1, TNode t2) { }
+  };
+
+  /** The notify class for d_mayEqualEqualityEngine */
+  MayEqualNotifyClass d_mayEqualNotify;
+
+  /** Equaltity engine for determining if two arrays might be equal */
+  uf::EqualityEngine<MayEqualNotifyClass> d_mayEqualEqualityEngine;
+
   public:
 
   void addSharedTerm(TNode t);
   EqualityStatus getEqualityStatus(TNode a, TNode b);
-  //  void computeCareGraph(CareGraph& careGraph);
+  void computeCareGraph();
   bool isShared(TNode t)
     { return (d_sharedArrays.find(t) != d_sharedArrays.end()); }
 
@@ -284,6 +299,8 @@ class TheoryArrays : public Theory {
   context::CDHashSet<RowLemmaType, RowLemmaTypeHashFunction > d_RowAlreadyAdded;
 
   context::CDHashMap<TNode, bool, TNodeHashFunction> d_sharedArrays;
+  context::CDO<bool> d_sharedTerms;
+  context::CDList<TNode> d_reads;
   std::hash_map<TNode, Node, TNodeHashFunction> d_diseqCache;
 
   // List of nodes that need permanent references in this context

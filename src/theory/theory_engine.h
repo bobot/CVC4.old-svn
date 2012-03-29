@@ -338,13 +338,13 @@ class TheoryEngine {
   /**
    * Map from literals asserted by theory engine to literal that can explain
    */
-  typedef context::CDHashMap<NodeTheoryPair, Node, NodeTheoryPairHashFunction> SharedLiteralsOutMap;
+  typedef context::CDHashMap<NodeTheoryPair, Node, NodeTheoryPairHashFunction> AssertedLiteralsOutMap;
 
   /**
-   * All shared literals asserted to theories from theory engine.
+   * All literals asserted to theories from theory engine.
    * Maps from literal/theory pair to literal that can explain this assertion.
    */
-  SharedLiteralsOutMap d_sharedLiteralsOut;
+  AssertedLiteralsOutMap d_assertedLiteralsOut;
 
   /**
    * Shared literals queud up to be asserted to the individual theories.

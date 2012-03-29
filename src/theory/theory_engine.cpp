@@ -53,7 +53,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_hasShutDown(false),
   d_incomplete(context, false),
   d_sharedLiteralsIn(context),
-  d_sharedLiteralsOut(context),
+  d_assertedLiteralsOut(context),
   d_propagatedLiterals(context),
   d_propagatedLiteralsIndex(context, 0),
   d_decisionRequests(context),
@@ -221,10 +221,10 @@ void TheoryEngine::outputSharedLiterals() {
   for (unsigned i = 0; i < d_propagatedSharedLiterals.size(); ++ i) {
     const SharedLiteral& eq = d_propagatedSharedLiterals[i];
     // Check if the theory already got this one
-    if (d_sharedLiteralsOut.find(eq.toAssert) == d_sharedLiteralsOut.end()) {
+    if (d_assertedLiteralsOut.find(eq.toAssert) == d_assertedLiteralsOut.end()) {
       Debug("sharing") << "TheoryEngine::outputSharedLiterals(): asserting " << eq.toAssert.node << " to " << eq.toAssert.theory << std::endl;
       Debug("sharing") << "TheoryEngine::outputSharedLiterals(): orignal " << eq.toExplain << std::endl;
-      d_sharedLiteralsOut[eq.toAssert] = eq.toExplain;
+      d_assertedLiteralsOut[eq.toAssert] = eq.toExplain;
       if (eq.toAssert.theory == theory::THEORY_LAST) {
         d_propagatedLiterals.push_back(eq.toAssert.node);
       } else {
@@ -611,9 +611,9 @@ void TheoryEngine::assertFact(TNode node)
 
   // Assert the fact to the appropriate theory and mark it active
   Theory* theory = theoryOf(atom);
+  d_assertedLiteralsOut[NodeTheoryPair(node, theory->getId())] = Node();
   theory->assertFact(node, true);
   markActive(Theory::setInsert(theory->getId()));
-
 }
 
 void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
@@ -660,7 +660,7 @@ void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
       // If there is a literal, propagate it to SAT
       if (d_propEngine->hasValue(normalizedLiteral, value)) {
         // if we are propagting something that already has a sat value we better be the same
-        Debug("theory") << "literal " << literal << " (" << normalizedLiteral << ") propagated by " << theory << " but already has a sat value " << (value ? "true" : "false") << std::endl;
+        Debug("theory") << "literal " << literal << ", normalized = " << normalizedLiteral << ", propagated by " << theory << " but already has a sat value " << (value ? "true" : "false") << std::endl;
         Assert(value);
       } else {
         SharedLiteral sharedLiteral(normalizedLiteral, literal, theory::THEORY_LAST);
@@ -711,11 +711,11 @@ Node TheoryEngine::getExplanation(TNode node) {
   //This is true if atom is a shared assertion
   bool sharedLiteral = false;
 
-  SharedLiteralsOutMap::iterator find;
+  AssertedLiteralsOutMap::iterator find;
   // "find" will have a value when sharedAssertion is true
   if (d_sharedTermsExist && atom.getKind() == kind::EQUAL) {
-    find = d_sharedLiteralsOut.find(NodeTheoryPair(node, theory::THEORY_LAST));
-    sharedLiteral = (find != d_sharedLiteralsOut.end());
+    find = d_assertedLiteralsOut.find(NodeTheoryPair(node, theory::THEORY_LAST));
+    sharedLiteral = (find != d_assertedLiteralsOut.end());
   }
 
   // Get the explanation
@@ -792,13 +792,14 @@ Node TheoryEngine::explain(ExplainTask toExplain)
 
             // toExplain.node contains explanation from theory, toExplain.theory contains theory that produced explanation
           case THEORY_EXPLANATION: {
-            SharedLiteralsOutMap::iterator find = d_sharedLiteralsOut.find(NodeTheoryPair(toExplain.node, toExplain.theory));
-            if (find != d_sharedLiteralsOut.end()) {
-              explainQueue.push_back(ExplainTask((*find).second, SHARED_LITERAL_OUT));
-            }
-            else {
+            AssertedLiteralsOutMap::iterator find = d_assertedLiteralsOut.find(NodeTheoryPair(toExplain.node, toExplain.theory));
+            Assert(find != d_assertedLiteralsOut.end());
+            if ((*find).second.isNull()) {
               Assert(d_propEngine->isSatLiteral(toExplain.node));
               satAssertions.insert(toExplain.node);
+            }
+            else {
+              explainQueue.push_back(ExplainTask((*find).second, SHARED_LITERAL_OUT));
             }
             break;
           }
