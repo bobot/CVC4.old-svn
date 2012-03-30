@@ -816,9 +816,10 @@ Node TheoryEngine::explain(ExplainTask toExplain)
             // toExplain.node contains explanation from theory, toExplain.theory contains theory that produced explanation
           case THEORY_EXPLANATION: {
             AssertedLiteralsOutMap::iterator find = d_assertedLiteralsOut.find(NodeTheoryPair(toExplain.node, toExplain.theory));
-            Assert(find != d_assertedLiteralsOut.end());
-            if ((*find).second.isNull()) {
+            if (find == d_assertedLiteralsOut.end() || (*find).second.isNull()) {
+              bool value;
               Assert(d_propEngine->isSatLiteral(toExplain.node));
+              Assert(d_propEngine->hasValue(toExplain.node, value) && value);
               satAssertions.insert(toExplain.node);
             }
             else {
