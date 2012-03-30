@@ -113,10 +113,13 @@ public:
   Bitblaster(context::Context* c); 
   ~Bitblaster();
   void assertToSat(TNode node);
-  bool solve();
+  bool solve(bool quick_solve = false);
   void bitblast(TNode node);
   void getConflict(std::vector<TNode>& conflict); 
-  void dumpDimacs(const std::string& file); 
+  void dumpDimacs(const std::string& file);
+  void addAtom(TNode atom); 
+  bool getPropagations(std::vector<TNode>& propagations);
+  void explainPropagation(TNode atom, std::vector<Node>& explanation);
 private:
 
   

@@ -36,7 +36,8 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
     d_context(c),
     d_assertions(c),
     d_bitblaster(new Bitblaster(c) ),
-    d_statistics()
+    d_statistics(),
+    d_propagatedAtoms(c)
   {
     d_true = utils::mkTrue();
   }
@@ -61,26 +62,39 @@ TheoryBV::Statistics::~Statistics() {
 
 void TheoryBV::preRegisterTerm(TNode node) {
   BVDebug("bitvector-preregister") << "TheoryBV::preRegister(" << node << ")" << std::endl;
+  if (node.getKind() == kind::EQUAL ||
+      node.getKind() == kind::BITVECTOR_ULT ||
+      node.getKind() == kind::BITVECTOR_ULE ||
+      node.getKind() == kind::BITVECTOR_SLT ||
+      node.getKind() == kind::BITVECTOR_SLE) {
+    d_bitblaster->addAtom(node); 
+  }
+      
   //marker literal: bitblast all terms before we start
-  //d_bitblaster->bitblast(node); 
+  d_bitblaster->bitblast(node); 
 }
 
 void TheoryBV::check(Effort e) {
-  if (fullEffort(e) && !done()) {
-    //if(standardEffortOrMore(e) && !done()) {  
+  // don't do anything for QUICK_CHECK
+  //if(fullEffort(e) && !done()) {
+  if (standardEffortOrMore(e)) {
+    bool quick_solve = !fullEffort(e); 
     BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
+    BVDebug("bitvector")<< "TheoryBV::check quick_solve " << quick_solve << std::endl;
     std::vector<TNode> assertions;
-      
+    
     while (!done()) {
       TNode assertion = get();
-      BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n"; 
-      d_bitblaster->bitblast(assertion); 
-      d_bitblaster->assertToSat(assertion); 
+      if (d_propagatedAtoms.count(assertion) == 0) {
+        BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n"; 
+        //d_bitblaster->bitblast(assertion);
+        d_bitblaster->assertToSat(assertion);
+      }
     }
-
+    
     TimerStat::CodeTimer codeTimer(d_statistics.d_solveTimer);
-    //gd_bitblaster->dumpDimacs("sat_input"); 
-    bool res = d_bitblaster->solve();
+    //bitblaster->dumpDimacs("sat_input"); 
+    bool res = d_bitblaster->solve(quick_solve);
     if (res == false) {
       std::vector<TNode> conflictAtoms;
       d_bitblaster->getConflict(conflictAtoms);
@@ -88,10 +102,11 @@ void TheoryBV::check(Effort e) {
       
       Node conflict = mkConjunction(conflictAtoms);
       d_out->conflict(conflict);
-      BVDebug("bitvector") << "TheoryBV::check returns conflict. \n ";
+      BVDebug("bitvector") << "TheoryBV::check returns conflict: " <<conflict <<" \n ";
       return; 
     }
   }
+  
 }
 
 
@@ -111,15 +126,58 @@ Node TheoryBV::getValue(TNode n) {
   }
 }
 
-Node TheoryBV::explain(TNode node) {
-  BVDebug("bitvector") << "TheoryBV::explain(" << node << ")" << std::endl;
+void TheoryBV::presolve() {
+  // add as lemmas things propagated without any assumptions just
+  // from term definitions
 
-  TNode equality = node.getKind() == kind::NOT ? node[0] : node;
-  Assert(equality.getKind() == kind::EQUAL);
-  Assert(0); 
-  return node; 
+  // should have no assumptions
+  d_bitblaster->solve();
 
+  std::vector<TNode> propagations;
+  d_bitblaster->getPropagations(propagations);
+  if (propagations.size()) {
+    Node lemma = utils::mkAnd(propagations);
+    BVDebug("bitvector") << "TheoryBV::presolve "<< lemma << "\n"; 
+    d_out->lemma(lemma);
+  }
 }
+
+void TheoryBV::propagate(Effort e) {
+  std::vector<TNode> propagations;
+
+  d_bitblaster->getPropagations(propagations);
+  for (unsigned i = 0; i < propagations.size(); ++i) {
+    if(d_valuation.getSatValue(propagations[i]) == Node::null()) {
+      BVDebug("bitvector") << "TheoryBV::propagate " <<  propagations[i] <<"\n"; 
+      d_out->propagate(propagations[i]);
+      d_propagatedAtoms.insert(propagations[i]); 
+    }
+  }
+}
+
+Node TheoryBV::explain(TNode n) {
+  BVDebug("bitvector") << "TheoryBV::explain node " <<  n <<"\n";
+  std::vector<Node> explanation;
+  d_bitblaster->explainPropagation(n, explanation);
+  Node exp;
+
+  Assert (explanation.size() > 0);
+  
+  exp = utils::mkAnd(explanation);
+  
+  BVDebug("bitvector") << "TheoryBV::explain with " <<  exp <<"\n";
+  return exp;
+}
+
+// Node TheoryBV::explain(TNode node) {
+//   BVDebug("bitvector") << "TheoryBV::explain(" << node << ")" << std::endl;
+
+//   TNode equality = node.getKind() == kind::NOT ? node[0] : node;
+//   Assert(equality.getKind() == kind::EQUAL);
+//   Assert(0); 
+//   return node; 
+
+// }
 
 // Node TheoryBV::preprocessTerm(TNode term) {
 //   return term; //d_staticEqManager.find(term);

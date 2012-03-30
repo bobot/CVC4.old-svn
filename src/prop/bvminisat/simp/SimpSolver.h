@@ -55,7 +55,7 @@ class SimpSolver : public Solver {
 
     // Solving:
     //
-    bool    solve       (const vec<Lit>& assumps, bool do_simp = true, bool turn_off_simp = false);
+  bool    solve       (const vec<Lit>& assumps, bool qcheck = false, bool do_simp = true, bool turn_off_simp = false);
     lbool   solveLimited(const vec<Lit>& assumps, bool do_simp = true, bool turn_off_simp = false);
     bool    solve       (                     bool do_simp = true, bool turn_off_simp = false);
     bool    solve       (Lit p       ,        bool do_simp = true, bool turn_off_simp = false);       
@@ -185,8 +185,16 @@ inline bool SimpSolver::solve        (                     bool do_simp, bool tu
 inline bool SimpSolver::solve        (Lit p       ,        bool do_simp, bool turn_off_simp)  { budgetOff(); assumptions.clear(); assumptions.push(p); return solve_(do_simp, turn_off_simp) == l_True; }
 inline bool SimpSolver::solve        (Lit p, Lit q,        bool do_simp, bool turn_off_simp)  { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); return solve_(do_simp, turn_off_simp) == l_True; }
 inline bool SimpSolver::solve        (Lit p, Lit q, Lit r, bool do_simp, bool turn_off_simp)  { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); assumptions.push(r); return solve_(do_simp, turn_off_simp) == l_True; }
-inline bool SimpSolver::solve        (const vec<Lit>& assumps, bool do_simp, bool turn_off_simp){ 
-    budgetOff(); assumps.copyTo(assumptions); return solve_(do_simp, turn_off_simp) == l_True; }
+inline bool SimpSolver::solve        (const vec<Lit>& assumps, bool qsolve, bool do_simp, bool turn_off_simp){
+  quick_solve = qsolve;
+  budgetOff(); assumps.copyTo(assumptions);
+  current_assumptions.clear();
+  for(unsigned i = 0; i < assumptions.size(); ++i) {
+    current_assumptions.insert(var(assumptions[i])); 
+  }
+  
+  return solve_(do_simp, turn_off_simp) == l_True;
+}
 
 inline lbool SimpSolver::solveLimited (const vec<Lit>& assumps, bool do_simp, bool turn_off_simp){ 
     assumps.copyTo(assumptions); return solve_(do_simp, turn_off_simp); }

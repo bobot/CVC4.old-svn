@@ -27,7 +27,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "prop/bvminisat/mtl/Alg.h"
 #include "prop/bvminisat/utils/Options.h"
 
-
+#include <ext/hash_set>
 namespace BVMinisat {
 
 //=================================================================================================
@@ -56,7 +56,7 @@ public:
     // Solving:
     //
     bool    simplify     ();                        // Removes already satisfied clauses.
-    bool    solve        (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions.
+    bool    solve        (const vec<Lit>& assumps, bool solve_effort = false); // Search for a model that respects a given set of assumptions.
     lbool   solveLimited (const vec<Lit>& assumps); // Search for a model that respects a given set of assumptions (With resource constraints).
     bool    solve        ();                        // Search without assumptions.
     bool    solve        (Lit p);                   // Search for a model that respects a single assumption.
@@ -138,7 +138,8 @@ public:
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
 
-     
+    bool quick_solve;              // No decisions, just propagations from assumptions
+  
 protected:
 
     // Helper structures:
@@ -187,6 +188,16 @@ protected:
     int                 simpDB_assigns;   // Number of top-level assignments since last execution of 'simplify()'.
     int64_t             simpDB_props;     // Remaining number of propagations that must be made before next execution of 'simplify()'.
     vec<Lit>            assumptions;      // Current set of assumptions provided to solve by the user.
+    bool isAssumption(Var p); 
+public:
+    vec<Lit>            marker_literals; // all the literals representing the atoms we are interested in
+    vec<Lit> theory_propagations; // marker literals implied at level 0
+     __gnu_cxx::hash_set<Var> current_assumptions;
+     
+    void checkForTheoryPropagations();
+    void explainPropagation(Lit p, vec<Lit>& explanation);
+
+protected:
     Heap<VarOrderLt>    order_heap;       // A priority queue of variables ordered with respect to the variable activity.
     double              progress_estimate;// Set by 'search()'.
     bool                remove_satisfied; // Indicates whether possibly inefficient linear scan for satisfied clauses should be performed in 'simplify'.
@@ -354,7 +365,18 @@ inline bool     Solver::solve         ()                    { budgetOff(); assum
 inline bool     Solver::solve         (Lit p)               { budgetOff(); assumptions.clear(); assumptions.push(p); return solve_() == l_True; }
 inline bool     Solver::solve         (Lit p, Lit q)        { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); return solve_() == l_True; }
 inline bool     Solver::solve         (Lit p, Lit q, Lit r) { budgetOff(); assumptions.clear(); assumptions.push(p); assumptions.push(q); assumptions.push(r); return solve_() == l_True; }
-inline bool     Solver::solve         (const vec<Lit>& assumps){ budgetOff(); assumps.copyTo(assumptions); return solve_() == l_True; }
+
+inline bool     Solver::solve         (const vec<Lit>& assumps, bool solve_effort) {
+  quick_solve = solve_effort;
+  budgetOff();
+  assumps.copyTo(assumptions);
+  current_assumptions.clear();
+  for(unsigned i = 0; i < assumptions.size(); ++i) {
+    current_assumptions.insert(var(assumptions[i])); 
+  }
+  return solve_() == l_True;
+
+}
 inline lbool    Solver::solveLimited  (const vec<Lit>& assumps){ assumps.copyTo(assumptions); return solve_(); }
 inline bool     Solver::okay          ()      const   { return ok; }
 

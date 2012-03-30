@@ -95,6 +95,30 @@ void Bitblaster::bbAtom(TNode node) {
   d_bitblastedAtoms.insert(node); 
 }
 
+void Bitblaster::addAtom(TNode atom) {
+  d_cnfStream->ensureLiteral(atom);
+  SatLiteral lit = d_cnfStream->getLiteral(atom);
+  d_satSolver->addMarkerLiteral(lit); 
+}
+bool Bitblaster::getPropagations(std::vector<TNode>& propagations) {
+  std::vector<SatLiteral> propagated_literals;
+  if (d_satSolver->getPropagations(propagated_literals)) {
+    for (unsigned i = 0; i < propagated_literals.size(); ++i) {
+      propagations.push_back(d_cnfStream->getNode(propagated_literals[i])); 
+    }
+    return true;
+  }
+  return false;
+}
+
+void Bitblaster::explainPropagation(TNode atom, std::vector<Node>& explanation) {
+  std::vector<SatLiteral> literal_explanation;
+  d_satSolver->explainPropagation(d_cnfStream->getLiteral(atom), literal_explanation);
+  for (unsigned i = 0; i < literal_explanation.size(); ++i) {
+    explanation.push_back(d_cnfStream->getNode(literal_explanation[i])); 
+  }
+}
+
 
 void Bitblaster::bbTerm(TNode node, Bits& bits) {
   if (hasBBTerm(node)) {
@@ -225,10 +249,10 @@ void Bitblaster::assertToSat(TNode lit) {
  * @return true for sat, and false for unsat
  */
  
-bool Bitblaster::solve() {
+bool Bitblaster::solve(bool quick_solve) {
   Trace("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n";
   
-  return SatValTrue == d_satSolver->solve(d_assertedAtoms); 
+  return SatValTrue == d_satSolver->solve(d_assertedAtoms, quick_solve); 
 }
 
 void Bitblaster::getConflict(std::vector<TNode>& conflict) {

@@ -24,6 +24,7 @@
 #include "theory/theory.h"
 #include "context/context.h"
 #include "context/cdlist.h"
+#include "context/cdhashset.h"
 #include "theory/bv/theory_bv_utils.h"
 #include "util/stats.h"
 
@@ -54,7 +55,10 @@ private:
   /** Bitblaster */
   Bitblaster* d_bitblaster; 
   Node d_true;
-    
+
+  /** Context dependent set of things we propagated */
+  context::CDHashSet<TNode, TNodeHashFunction> d_propagatedAtoms;
+  
 public:
 
   TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
@@ -62,11 +66,12 @@ public:
 
   void preRegisterTerm(TNode n);
 
+  void presolve();
   //void registerTerm(TNode n) { }
 
   void check(Effort e);
 
-  void propagate(Effort e) { }
+  void propagate(Effort e);
 
   Node explain(TNode n);
 

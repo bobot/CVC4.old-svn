@@ -65,6 +65,25 @@ void MinisatSatSolver::addClause(SatClause& clause, bool removable) {
   d_minisat->addClause(minisat_clause);
 }
 
+void MinisatSatSolver::addMarkerLiteral(SatLiteral lit) {
+  d_minisat->marker_literals.push(toMinisatLit(lit)); 
+}
+
+bool MinisatSatSolver::getPropagations(std::vector<SatLiteral>& propagations) {
+  for (unsigned i = 0; i < d_minisat->theory_propagations.size(); ++i) {
+    propagations.push_back(toSatLiteral(d_minisat->theory_propagations[i])); 
+  }
+  return propagations.size() > 0; 
+}
+
+void MinisatSatSolver::explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) {
+  BVMinisat::vec<BVMinisat::Lit> minisat_explanation;
+  d_minisat->explainPropagation(toMinisatLit(lit), minisat_explanation);
+  toSatClause(minisat_explanation, explanation); 
+}
+
+
+
 SatVariable MinisatSatSolver::newVar(bool freeze){
   return d_minisat->newVar(true, true, freeze);
 }
@@ -99,7 +118,7 @@ SatLiteralValue MinisatSatSolver::solve(long unsigned int& resource){
   return result;
 }
 
-SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assumptions){
+SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assumptions, bool quick_solve){
   ++d_solveCount;
   ++d_statistics.d_statCallsToSolve;
 
@@ -125,9 +144,10 @@ SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assu
   // assump[n - 1] = temp; 
   
   begin = clock(); 
-  SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump));
+  SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump, quick_solve));
   end = clock();
-  cerr << "MinisatSatSolver::solve second call to solve(assump) time "<< end - begin <<"\n";
+  // cerr << "MinisatSatSolver::solve second call to solve(assump) time "<< end - begin <<"\n";
+  // cerr << "MinisatSatSolver::solve quick_solve "<< quick_solve <<"\n";
   d_statistics.d_statSolveTime = d_statistics.d_statSolveTime.getData() + (end - begin)/(double)CLOCKS_PER_SEC; 
   return result;
 }
@@ -152,13 +172,11 @@ void MinisatSatSolver::getUnsatCore(SatClause& unsatCore) {
 }
 
 SatLiteralValue MinisatSatSolver::value(SatLiteral l){
-    Unimplemented();
-    return SatValUnknown; 
+  return toSatLiteralValue(d_minisat->value(toMinisatLit(l)));
 }
 
 SatLiteralValue MinisatSatSolver::modelValue(SatLiteral l){
-    Unimplemented();
-    return SatValUnknown; 
+  return toSatLiteralValue(d_minisat->modelValue(toMinisatLit(l)));
 }
 
 void MinisatSatSolver::unregisterVar(SatLiteral lit) {

@@ -403,6 +403,36 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
     return true;
 }
 
+bool Solver::isAssumption(Var p) {
+  for (int i = 0; i < assumptions.size(); ++i) {
+    if (var(assumptions[i]) == p)
+      return true;
+  }
+  return false; 
+}
+
+void Solver::explainPropagation(Lit p, vec<Lit>& explanation) {
+  // todo assert last call was sat
+  vec<Lit> queue;
+  queue.push(p);
+
+  while(queue.size() > 0) {
+    Lit l = queue.last();
+    queue.pop();
+    
+    if (reason(var(l)) == CRef_Undef) {
+      if (isAssumption(var(l))) {
+        explanation.push(l);
+      }
+    } else {
+      Clause& c = ca[reason(var(l))];
+      for (int i = 1; i < c.size(); ++i) {
+        queue.push(~c[i]); 
+      }
+    }
+  }
+  
+}
 
 /*_________________________________________________________________________________________________
 |
@@ -688,6 +718,15 @@ lbool Solver::search(int nof_conflicts)
                 // Reduce the set of learnt clauses:
                 reduceDB();
 
+            // if we have already asserted all the assumptions
+            if (decisionLevel() == assumptions.size()) {
+              checkForTheoryPropagations(); 
+              if (quick_solve) {
+
+                return l_True;
+              }
+            }
+            //std::cerr << "BVMinisat:: quick_solve "<< quick_solve<<" \n";                 
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
                 // Perform user provided assumption:
@@ -703,7 +742,7 @@ lbool Solver::search(int nof_conflicts)
                     break;
                 }
             }
-
+            
             if (next == lit_Undef){
                 // New variable decision:
                 decisions++;
@@ -720,6 +759,22 @@ lbool Solver::search(int nof_conflicts)
         }
     }
 }
+
+void Solver::checkForTheoryPropagations() {
+  theory_propagations.clear();
+  unsigned size = current_assumptions.size();
+  for (unsigned i = 0; i < marker_literals.size(); ++i) {
+    Lit p = marker_literals[i];
+    if(current_assumptions.find(var(p)) == current_assumptions.end()) {
+      if (value(p) == l_True) {
+        theory_propagations.push(p);
+      } else if (value(p) == l_False) {
+        theory_propagations.push(~p); 
+      }
+    }
+  }
+}
+
 
 
 double Solver::progressEstimate() const
@@ -767,6 +822,8 @@ static double luby(double y, int x){
 // NOTE: assumptions passed in member-variable 'assumptions'.
 lbool Solver::solve_()
 {
+  theory_propagations.clear(); 
+  
   Debug("bvminisat") <<"BVMinisat::Solving learned clauses " << learnts.size() <<"\n";
   Debug("bvminisat") <<"BVMinisat::Solving assumptions " << assumptions.size() <<"\n"; 
     model.clear();

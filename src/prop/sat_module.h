@@ -136,13 +136,19 @@ public:
 
 class BVSatSolverInterface: public SatSolverInterface {
 public:
-  virtual SatLiteralValue solve(const context::CDList<SatLiteral> & assumptions) = 0;
+  virtual SatLiteralValue solve(const context::CDList<SatLiteral> & assumptions, bool quick_solve = false) = 0;
 
   virtual void markUnremovable(SatLiteral lit) = 0;
 
   virtual void getUnsatCore(SatClause& unsatCore) = 0;
 
   virtual void dumpDimacs(const std::string& file, const context::CDList<SatLiteral>& assumptions) = 0;
+
+  virtual void addMarkerLiteral(SatLiteral lit) = 0; 
+
+  virtual bool getPropagations(std::vector<SatLiteral>& propagations) = 0;
+
+  virtual void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0; 
 }; 
 
 
@@ -177,7 +183,7 @@ public:
 
   SatLiteralValue solve();
   SatLiteralValue solve(long unsigned int&);
-  SatLiteralValue solve(const context::CDList<SatLiteral> & assumptions);
+  SatLiteralValue solve(const context::CDList<SatLiteral> & assumptions, bool quick_solve = false);
   void getUnsatCore(SatClause& unsatCore); 
   
   SatLiteralValue value(SatLiteral l);
@@ -199,6 +205,13 @@ public:
   static void  toMinisatClause(SatClause& clause, BVMinisat::vec<BVMinisat::Lit>& minisat_clause);
   static void  toSatClause    (BVMinisat::vec<BVMinisat::Lit>& clause, SatClause& sat_clause); 
 
+  void addMarkerLiteral(SatLiteral lit);
+
+  bool getPropagations(std::vector<SatLiteral>& propagations);
+
+  void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation);
+
+  
   class Statistics {
   public:
     ReferenceStat<uint64_t> d_statStarts, d_statDecisions;
