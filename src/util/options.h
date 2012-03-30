@@ -246,6 +246,11 @@ struct CVC4_PUBLIC Options {
    */
   bool miniscopeQuantFreeVar;
 
+  /** 
+   * Whether to prenex quantifiers
+   */
+  bool prenexQuant;
+
   /**
    * Whether to use finite model find heuristic
    */

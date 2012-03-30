@@ -24,7 +24,6 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
 //#define QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
-#define QUANTIFIERS_DO_PRENEX
 
 bool QuantifiersRewriter::isClause( Node n ){
   if( isLiteral( n ) ){
@@ -108,17 +107,89 @@ void QuantifiersRewriter::computeArgs( std::vector< Node >& args, std::vector< N
   }
 }
 
-Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node n, Node ipl ){
+Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, std::vector< Node >& exArgs, bool pol ){
+  if( body.getKind()==FORALL ){
+    //must rename each variable that already exists
+    std::vector< Node > old_vars;
+    std::vector< Node > vars;
+    bool varChanged = false;
+    for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
+      if( std::find( args.begin(), args.end(), body[0][i] )!=args.end() ||
+          std::find( exArgs.begin(), exArgs.end(), body[0][i] )!=exArgs.end() ){
+        vars.push_back( NodeManager::currentNM()->mkVar( body[0][i].getType() ) );
+        varChanged = true;
+      }else{
+        vars.push_back( body[0][i] );
+      }
+      old_vars.push_back( body[0][i] );
+    }
+    Node newBody = body[1];
+    if( varChanged ){
+      newBody = newBody.substitute( old_vars.begin(), old_vars.end(), vars.begin(), vars.end() );
+    }
+    if( pol ){
+      args.insert( args.end(), vars.begin(), vars.end() );
+    }else{
+      exArgs.insert( exArgs.end(), vars.begin(), vars.end() );
+    }
+    return newBody;
+  }else if( body.getKind()==ITE || body.getKind()==XOR || body.getKind()==IFF ){
+    return Node::null();
+  }else{
+    Assert( body.getKind()!=EXISTS );
+    bool childrenChanged = false;
+    std::vector< Node > newChildren;
+    for( int i=0; i<(int)body.getNumChildren(); i++ ){
+      bool newPol = ( body.getKind()==NOT || ( body.getKind()==IMPLIES && i==0 ) ) ? !pol : pol;
+      Node n = computePrenex( body[i], args, exArgs, newPol );
+      if( n.isNull() ){
+        return Node::null();
+      }else{
+        newChildren.push_back( n );
+        if( n!=body[i] ){
+          childrenChanged = true;
+        }
+      }
+    }
+    if( childrenChanged ){
+      return NodeManager::currentNM()->mkNode( body.getKind(), newChildren );
+    }else{
+      return body;
+    }
+  }
+}
+
+Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args ){
+  std::vector< Node > exArgs;
+  Node newBody = computePrenex( body, args, exArgs, true );
+  if( !newBody.isNull() ){
+    if( !exArgs.empty() ){
+      std::vector< Node > args;
+      args.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, exArgs ) );
+      args.push_back( newBody.getKind()==NOT ? newBody[0] : newBody.notNode() );
+      newBody = NodeManager::currentNM()->mkNode(kind::FORALL, args );
+      newBody = newBody.notNode();
+    }
+    return newBody;
+  }else{
+    return body;
+  }
+}
+
+Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node body, Node ipl ){
+  if( doPrenex() ){
+    //compute the new body
+    body = computePrenex( body, args );
+  }
   std::vector< Node > children;
-  computeArgs( args, children, n );
+  computeArgs( args, children, body );
   if( children.empty() ){
-    return n;
+    return body;
   }else{
     std::vector< Node > args;
     args.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, children ) );
-    args.push_back( n );
+    args.push_back( body );
     if( !ipl.isNull() ){ 
-      //must determine patterns that we can use DO_THIS?
       args.push_back( ipl );
     }
     return NodeManager::currentNM()->mkNode(kind::FORALL, args );
@@ -147,103 +218,6 @@ void QuantifiersRewriter::setNestedQuantifiers( Node n, Node q ){
     setNestedQuantifiers( n[i], q );
   }
 }
-
-//Node QuantifiersRewriter::mkPredicate( std::vector< Node >& args, Node body, NodeBuilder<>& defs ){
-  //std::cout << "do rewrite " << body << std::endl;
-  //if( isLiteral( body ) ){
-  //  return body;
-  //}else{
-  //  //make a boolean predicate representing this term
-  //  std::vector< Node > activeArgs;
-  //  computeArgs( args, activeArgs, body );
-  //  std::vector< TypeNode > argTypes;
-  //  for( int i=0; i<(int)activeArgs.size(); i++ ){
-  //    argTypes.push_back( activeArgs[i].getType() );
-  //  }
-  //  TypeNode typ = NodeManager::currentNM()->mkFunctionType( argTypes, NodeManager::currentNM()->booleanType() );
-  //  Node op = NodeManager::currentNM()->mkVar( typ );
-  //  std::vector< Node > retArgs;
-  //  retArgs.push_back( op );
-  //  retArgs.insert( retArgs.end(), activeArgs.begin(), activeArgs.end() );
-  //  Node retVal = NodeManager::currentNM()->mkNode( APPLY_UF, retArgs );
-  //  
-  //  Node n = NodeManager::currentNM()->mkNode(EQUAL, retVal, body );
-  //  defs << rewriteQuant( activeArgs, n, defs, isNested );
-
-    ////add quantifier definitions for retVal
-    //switch( tn.getKind() ){
-    //case OR:
-    //{
-    //  NodeBuilder<> bodTot( kind::OR );
-    //  for( int i=0; i<(int)tn.getNumChildren(); i++ ){
-    //    NodeBuilder<> bod( kind::OR );
-    //    bod << tn[i].notNode();
-    //    bod << retVal;
-    //    Node n = bod;
-    //    activeArgs.push_back( n );
-    //    nb << NodeManager::currentNM()->mkNode(kind::FORALL, activeArgs );
-    //    activeArgs.pop_back();
-    //    bodTot << tn[i];
-    //  }
-    //  bodTot << retVal.notNode();
-    //  Node n = bodTot;
-    //  activeArgs.push_back( n );
-    //  nb << NodeManager::currentNM()->mkNode(kind::FORALL, activeArgs );
-    //  activeArgs.pop_back();
-    //}
-    //  break;
-    //case AND:
-    //{
-    //  NodeBuilder<> bodTot( kind::OR );
-    //  for( int i=0; i<(int)tn.getNumChildren(); i++ ){
-    //    NodeBuilder<> bod( kind::OR );
-    //    bod << tn[i];
-    //    bod << retVal.notNode();
-    //    Node n = bod;
-    //    activeArgs.push_back( n );
-    //    nb << NodeManager::currentNM()->mkNode(kind::FORALL, activeArgs );
-    //    activeArgs.pop_back();
-    //    bodTot << tn[i].notNode();
-    //  }
-    //  bodTot << retVal;
-    //  Node n = bodTot;
-    //  activeArgs.push_back( n );
-    //  nb << NodeManager::currentNM()->mkNode(kind::FORALL, activeArgs );
-    //  activeArgs.pop_back();
-    //}
-    //  break;
-    //case IMPLIES:
-    //{
-
-    //}
-    //  break;
-    //case EQUAL:
-    //case IFF:
-    //{
-    //  for( int i=0; i<4; i++ ){
-    //    NodeBuilder<> bod( kind::OR );
-    //    bod << ( ( i==0 || i==3 ) ? retVal.notNode() : retVal );
-    //    bod << ( i%2==0 ? tn[0] : tn[0].notNode() );
-    //    bod << ( i>=2 ? tn[1] : tn[1].notNode() );
-    //    Node n = bod;
-    //    activeArgs.push_back( n );
-    //    nb << NodeManager::currentNM()->mkNode(kind::FORALL, activeArgs );
-    //    activeArgs.pop_back();
-    //  }
-    //}
-    //  break;
-    //case XOR:
-    //  
-    //  break;
-    //case ITE:
-    //  
-    //  break;
-    //default:
-    //  break;
-    //}
-    //return retVal;
-  //}
-//}
 
 Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, NodeBuilder<>& defs, Node ipl, 
                                         bool isNested, bool isExists ){
@@ -326,7 +300,7 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
         }
       }else{
         if( !isNested && doMiniscopingAndExt() ){
-          if( body.getKind()==IFF || body.getKind()==EQUAL ){
+          if( body.getKind()==IFF ){
             Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[0], body[1] ), defs, ipl );
             Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[1], body[0] ), defs, ipl );
             return NodeManager::currentNM()->mkNode( AND, n1, n2 );
@@ -374,9 +348,5 @@ bool QuantifiersRewriter::doMiniscopingAndExt(){
 }
 
 bool QuantifiersRewriter::doPrenex(){
-#ifdef QUANTIFIERS_DO_PRENEX
-  return true;
-#else
-  return false;
-#endif
+  return Options::current()->prenexQuant;
 }

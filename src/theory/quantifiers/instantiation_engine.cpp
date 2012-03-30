@@ -203,7 +203,9 @@ void InstantiationEngine::check( Theory::Effort e ){
       }
     }else{
       if( e==Theory::EFFORT_LAST_CALL ){
-        debugSat( SAT_CBQI );
+        if( Options::current()->cbqi ){
+          debugSat( SAT_CBQI );
+        }
       }
     }
 #ifdef IE_PRINT_PROCESS_TIMES
@@ -338,6 +340,7 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
           }
         }
       }
+      Debug("cbqi-debug") << "Set instanatiation constant attribute on " << n << std::endl;
       InstConstantAttribute ica;
       n.setAttribute(ica,f);
     }

@@ -39,14 +39,16 @@ public:
 private:
   static void computeArgs( std::map< Node, bool >& active, Node n );
   static void computeArgs( std::vector< Node >& args, std::vector< Node >& activeArgs, Node n );
-  static Node mkForAll( std::vector< Node >& args, Node n, Node ipl );
+  static Node computePrenex( Node body, std::vector< Node >& args, std::vector< Node >& exArgs, bool pol );
+  static Node computePrenex( Node body, std::vector< Node >& args );
+  static Node mkForAll( std::vector< Node >& args, Node body, Node ipl );
   static bool hasArg( std::vector< Node >& args, Node n );
 
   static void setNestedQuantifiers( Node n, Node q );
 public:
 
   static RewriteResponse postRewrite(TNode in) {
-    Debug("quantifiers-rewrite") << "post-rewriting " << in << std::endl;
+    Debug("quantifiers-rewrite-debug") << "post-rewriting " << in << std::endl;
     if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
       std::vector< Node > args;
       for( int i=0; i<(int)in[0].getNumChildren(); i++ ){
@@ -68,10 +70,11 @@ public:
         NodeBuilder<> defs(kind::AND);
         Node n = rewriteQuant( args, in[ 1 ], defs, ipl, 
                                in.hasAttribute(NestedQuantAttribute()), in.getKind()==kind::EXISTS );
-        Debug("quantifiers-rewrite") << "Rewrite " << in << " to " << n << std::endl;
-        //if( in!=n ){
-        //  std::cout << "rewrite " << in << " to " << n << std::endl;
-        //}
+        if( in!=n ){
+          Debug("quantifiers-rewrite") << "rewrite " << in << std::endl;
+          Debug("quantifiers-rewrite") << " to " << std::endl;
+          Debug("quantifiers-rewrite") << n << std::endl;
+        }
         return RewriteResponse(REWRITE_DONE, n );
       //}
     }
@@ -79,7 +82,7 @@ public:
   }
 
   static RewriteResponse preRewrite(TNode in) {
-    Debug("quantifiers-rewrite") << "pre-rewriting " << in << std::endl;
+    Debug("quantifiers-rewrite-debug") << "pre-rewriting " << in << std::endl;
     if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
       if( !in.hasAttribute(NestedQuantAttribute()) ){
         setNestedQuantifiers( in[ 1 ], in );

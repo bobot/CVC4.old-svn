@@ -71,25 +71,32 @@ int Instantiator::doInstantiation( Node f, Theory::Effort effort, int e, int lim
     int origLemmas = d_quantEngine->getNumLemmasWaiting();
     int status = process( f, effort, e, limitInst );
     if( limitInst<=0 || (d_quantEngine->getNumLemmasWaiting()-origLemmas)<limitInst ){
-      for( int i=0; i<(int)d_instStrategies.size(); i++ ){
-        if( isActiveStrategy( d_instStrategies[i] ) ){
-          Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
-          //call the instantiation strategy's process method
-          int s_limitInst = limitInst>0 ? limitInst-(d_quantEngine->getNumLemmasWaiting()-origLemmas) : 0;
-          int s_status = d_instStrategies[i]->doInstantiation( f, effort, e, s_limitInst );
-          Debug("inst-engine-inst") << "  -> status is " << s_status << std::endl;
-          if( limitInst>0 && (d_quantEngine->getNumLemmasWaiting()-origLemmas)>=limitInst ){
-            Assert( (d_quantEngine->getNumLemmasWaiting()-origLemmas)==limitInst );
-            i = (int)d_instStrategies.size();
-            status = InstStrategy::STATUS_UNKNOWN;
+      if( d_instStrategies.empty() ){
+        Debug("inst-engine-inst") << "There are no instantiation strategies allocated." << std::endl;
+      }else{
+        for( int i=0; i<(int)d_instStrategies.size(); i++ ){
+          if( isActiveStrategy( d_instStrategies[i] ) ){
+            Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
+            //call the instantiation strategy's process method
+            int s_limitInst = limitInst>0 ? limitInst-(d_quantEngine->getNumLemmasWaiting()-origLemmas) : 0;
+            int s_status = d_instStrategies[i]->doInstantiation( f, effort, e, s_limitInst );
+            Debug("inst-engine-inst") << "  -> status is " << s_status << std::endl;
+            if( limitInst>0 && (d_quantEngine->getNumLemmasWaiting()-origLemmas)>=limitInst ){
+              Assert( (d_quantEngine->getNumLemmasWaiting()-origLemmas)==limitInst );
+              i = (int)d_instStrategies.size();
+              status = InstStrategy::STATUS_UNKNOWN;
+            }else{
+              InstStrategy::updateStatus( status, s_status );
+            }
           }else{
-            InstStrategy::updateStatus( status, s_status );
+            Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " is not active." << std::endl;
           }
         }
       }
     }
     return status;
   }else{
+    Debug("inst-engine-inst") << "We have no constraints from this quantifier." << std::endl;
     return InstStrategy::STATUS_SAT;
   }
 }

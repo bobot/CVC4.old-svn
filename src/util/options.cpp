@@ -110,6 +110,7 @@ Options::Options() :
   ufSymmetryBreakerSetByUser(false),
   miniscopeQuant(true),
   miniscopeQuantFreeVar(true),
+  prenexQuant(false),
   finiteModelFind(false),
   efficientEMatching(false),
   literalMatchMode(LITERAL_MATCH_NONE),
@@ -190,6 +191,7 @@ Additional CVC4 options:\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
    --disable-miniscope-quant     disable miniscope quantifiers\n\
    --disable-miniscope-quant-fv  disable miniscope quantifiers for ground subformulas\n\
+   --prenex-quant         enable prenexing of quantifiers\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --efficient-e-matching use efficient E-matching\n\
    --literal-matching=MODE  choose literal matching mode\n\
@@ -373,6 +375,7 @@ enum OptionValue {
   DISABLE_SYMMETRY_BREAKER,
   DISABLE_MINISCOPE_QUANT,
   DISABLE_MINISCOPE_QUANT_FV,
+  PRENEX_QUANT,
   FINITE_MODEL_FIND,
   EFFICIENT_E_MATCHING,
   LITERAL_MATCHING,
@@ -469,6 +472,7 @@ static struct option cmdlineOptions[] = {
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { "disable-miniscope-quant", no_argument, NULL, DISABLE_MINISCOPE_QUANT },
   { "disable-miniscope-quant-fv", no_argument, NULL, DISABLE_MINISCOPE_QUANT_FV },
+  { "prenex-quant", no_argument, NULL, PRENEX_QUANT },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
@@ -837,6 +841,9 @@ throw(OptionException) {
       break;
     case DISABLE_MINISCOPE_QUANT_FV:
       miniscopeQuantFreeVar = false;
+      break;
+    case PRENEX_QUANT:
+      prenexQuant = true;
       break;
     case FINITE_MODEL_FIND:
       finiteModelFind = true;

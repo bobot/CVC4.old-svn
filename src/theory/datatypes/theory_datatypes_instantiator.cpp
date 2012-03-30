@@ -32,8 +32,12 @@ Instantiator( c, ie, th ){
 
 void InstantiatorTheoryDatatypes::assertNode( Node assertion ){
   Debug("quant-datatypes-assert") << "InstantiatorTheoryDatatypes::check: " << assertion << std::endl;
-  if( assertion.hasAttribute(InstConstantAttribute()) ){
-    setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+  if( Options::current()->cbqi ){
+    if( assertion.hasAttribute(InstConstantAttribute()) ){
+      setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+    }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
+      setHasConstraintsFrom( assertion[0].getAttribute(InstConstantAttribute()) );
+    }
   }
 }
 

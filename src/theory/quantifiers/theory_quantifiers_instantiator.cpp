@@ -32,8 +32,14 @@ Instantiator( c, ie, th ){
 
 void InstantiatorTheoryQuantifiers::assertNode( Node assertion ){
   Debug("quant-quant-assert") << "InstantiatorTheoryQuantifiers::check: " << assertion << std::endl;
-  if( assertion.hasAttribute(InstConstantAttribute()) ){
-    setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+  if( Options::current()->cbqi ){
+    if( assertion.hasAttribute(InstConstantAttribute()) ){
+      Debug("quant-quant-assert") << "   -> has constraints from " << assertion.getAttribute(InstConstantAttribute()) << std::endl;
+      setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+    }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
+      Debug("quant-quant-assert") << "   -> has constraints from " << assertion[0].getAttribute(InstConstantAttribute()) << std::endl;
+      setHasConstraintsFrom( assertion[0].getAttribute(InstConstantAttribute()) );
+    }
   }
 }
 
