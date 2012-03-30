@@ -91,8 +91,11 @@ private:
   // List of allocated NotifyList* objects
   std::vector<NotifyList*> d_allocatedNL;
 
-  // Size of d_allocatedNL
-  context::CDO<unsigned> d_allocatedNLSize;
+  // Total number of allocated NotifyList* objects
+  unsigned d_allocatedNLSize;
+
+  // Size of portion of d_allocatedNL that is currently in use
+  context::CDO<unsigned> d_allocatedNLNext;
 
   /** This method removes all the un-necessary stuff from the maps */
   void backtrack();
@@ -114,6 +117,9 @@ private:
   /** Equaltity engine */
   theory::uf::EqualityEngine<EENotifyClass> d_equalityEngine;
 
+  /** Attach a new notify list to an equivalence class representative */
+  NotifyList* getNewNotifyList();
+
   /** Method called by equalityEngine when a becomes equal to b */
   void mergeSharedTerms(TNode a, TNode b);
 
@@ -123,10 +129,7 @@ private:
 public:
 
   SharedTermsDatabase(SharedTermsNotifyClass& notify, context::Context* context);
-  ~SharedTermsDatabase() throw(AssertionException)
-  {
-    StatisticsRegistry::unregisterStat(&d_statSharedTerms);
-  }
+  ~SharedTermsDatabase() throw(AssertionException);
   
   /**
    * Add a shared term to the database. The shared term is a subterm of the atom and 

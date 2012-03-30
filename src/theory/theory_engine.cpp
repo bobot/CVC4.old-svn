@@ -772,6 +772,7 @@ Node TheoryEngine::explain(ExplainTask toExplain)
   std::deque<ExplainTask> explainQueue;
   // TODO: benchmark whether this helps
   std::hash_set<ExplainTask, ExplainTaskHashFunction> explained;
+  bool value;
 
   // No need to explain "true"
   explained.insert(ExplainTask(NodeManager::currentNM()->mkConst<bool>(true), SHARED_DATABASE_EXPLANATION));
@@ -801,6 +802,7 @@ Node TheoryEngine::explain(ExplainTask toExplain)
               TheoryId id = (*it).second;
               if (id == theory::THEORY_LAST) {
                 Assert(d_propEngine->isSatLiteral(toExplain.node));
+                Assert(d_propEngine->hasValue(toExplain.node, value) && value);
                 satAssertions.insert(toExplain.node);
                 break;
               }
@@ -817,7 +819,6 @@ Node TheoryEngine::explain(ExplainTask toExplain)
           case THEORY_EXPLANATION: {
             AssertedLiteralsOutMap::iterator find = d_assertedLiteralsOut.find(NodeTheoryPair(toExplain.node, toExplain.theory));
             if (find == d_assertedLiteralsOut.end() || (*find).second.isNull()) {
-              bool value;
               Assert(d_propEngine->isSatLiteral(toExplain.node));
               Assert(d_propEngine->hasValue(toExplain.node, value) && value);
               satAssertions.insert(toExplain.node);
@@ -835,6 +836,7 @@ Node TheoryEngine::explain(ExplainTask toExplain)
             TheoryId id = d_sharedLiteralsIn[toExplain.node];
             if (id == theory::THEORY_LAST) {
               Assert(d_propEngine->isSatLiteral(toExplain.node));
+              Assert(d_propEngine->hasValue(toExplain.node, value) && value);
               satAssertions.insert(toExplain.node);
             }
             else {

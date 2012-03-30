@@ -30,7 +30,7 @@ SharedTermsDatabase::SharedTermsDatabase(SharedTermsNotifyClass& notify, context
     d_alreadyNotifiedMap(context),
     d_sharedNotify(notify),
     d_termToNotifyList(context),
-    d_allocatedNLSize(context, 0),
+    d_allocatedNLNext(context, 0),
     d_EENotify(*this),
     d_equalityEngine(d_EENotify, context, "SharedTermsDatabase")
 {
@@ -41,6 +41,15 @@ SharedTermsDatabase::SharedTermsDatabase(SharedTermsNotifyClass& notify, context
   d_equalityEngine.addTerm(d_true);
   d_equalityEngine.addTerm(d_false);
   d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
+}
+
+
+SharedTermsDatabase::~SharedTermsDatabase() throw(AssertionException)
+{
+  StatisticsRegistry::unregisterStat(&d_statSharedTerms);
+  for (unsigned i = 0; i < d_allocatedNLSize; ++i) {
+    d_allocatedNL[i]->deleteSelf();
+  }
 }
 
 
@@ -87,11 +96,6 @@ void SharedTermsDatabase::backtrack() {
     } 
   }
   d_addedSharedTerms.resize(d_addedSharedTermsSize);
-  // TODO: put these on a free list?
-  while (d_allocatedNL.size() > d_allocatedNLSize) {
-    d_allocatedNL.back()->deleteSelf();
-    d_allocatedNL.pop_back();
-  }
 }
 
 Theory::Set SharedTermsDatabase::getTheoriesToNotify(TNode atom, TNode term) const {
@@ -123,6 +127,23 @@ Theory::Set SharedTermsDatabase::getNotifiedTheories(TNode term) const {
 }
 
 
+SharedTermsDatabase::NotifyList* SharedTermsDatabase::getNewNotifyList()
+{
+  NotifyList* retval;
+  if (d_allocatedNLSize == d_allocatedNLNext) {
+    retval = new (true) NotifyList(d_context);
+    d_allocatedNL.push_back(retval);
+    d_allocatedNLNext = ++d_allocatedNLSize;
+  }
+  else {
+    retval = d_allocatedNL[d_allocatedNLNext];
+    d_allocatedNLNext = d_allocatedNLNext + 1;
+  }
+  Assert(retval->empty());
+  return retval;
+}
+
+
 void SharedTermsDatabase::mergeSharedTerms(TNode a, TNode b)
 {
   // Note: a is the new representative
@@ -132,9 +153,7 @@ void SharedTermsDatabase::mergeSharedTerms(TNode a, TNode b)
 
   TermToNotifyList::iterator it = d_termToNotifyList.find(a);
   if (it == d_termToNotifyList.end()) {
-    pnlLeft = new (true) NotifyList(d_context);
-    d_allocatedNL.push_back(pnlLeft);
-    d_allocatedNLSize = d_allocatedNLSize + 1;
+    pnlLeft = getNewNotifyList();
     d_termToNotifyList[a] = pnlLeft;
   }
   else {
