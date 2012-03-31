@@ -23,7 +23,8 @@
 
 #include <utility>
 #include <functional>
-
+#include "context/context.h"
+#include "context/cdo.h"
 namespace CVC4 {
 
 
@@ -68,7 +69,6 @@ inline InputIterator find_if_unique(InputIterator first, InputIterator last, Pre
   match2 = std::find_if(++match2, last, pred);
   return (match2 == last) ? match : last;
 }
-
 
 }/* CVC4 namespace */
 

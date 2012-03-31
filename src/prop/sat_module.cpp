@@ -66,12 +66,12 @@ void MinisatSatSolver::addClause(SatClause& clause, bool removable) {
 }
 
 void MinisatSatSolver::addMarkerLiteral(SatLiteral lit) {
-  d_minisat->marker_literals.push(toMinisatLit(lit)); 
+  d_minisat->atom_vars.push(BVMinisat::var(toMinisatLit(lit))); 
 }
 
 bool MinisatSatSolver::getPropagations(std::vector<SatLiteral>& propagations) {
-  for (unsigned i = 0; i < d_minisat->theory_propagations.size(); ++i) {
-    propagations.push_back(toSatLiteral(d_minisat->theory_propagations[i])); 
+  for (unsigned i = 0; i < d_minisat->atom_propagations.size(); ++i) {
+    propagations.push_back(toSatLiteral(d_minisat->atom_propagations[i])); 
   }
   return propagations.size() > 0; 
 }
@@ -118,36 +118,27 @@ SatLiteralValue MinisatSatSolver::solve(long unsigned int& resource){
   return result;
 }
 
-SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assumptions, bool quick_solve){
+SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assumptions, bool only_bcp){
   ++d_solveCount;
   ++d_statistics.d_statCallsToSolve;
 
   Debug("sat::minisat") << "Solve with assumptions ";
   context::CDList<SatLiteral>::const_iterator it = assumptions.begin();
   BVMinisat::vec<BVMinisat::Lit> assump; 
+
   for(; it!= assumptions.end(); ++it) {
     SatLiteral lit = *it;
     Debug("sat::minisat") << lit <<" "; 
     assump.push(toMinisatLit(lit)); 
   }
+  
   Debug("sat::minisat") <<"\n";
 
   clock_t begin, end;
-  // begin = clock();
-  // d_minisat->solve(assump);
-  // end = clock();
-  // cerr << "MinisatSatSolver::solve first call to solve(assump) time "<< end - begin <<"\n";
-
-  // BVMinisat::Lit temp = assump[0];
-  // int n = assump.size(); 
-  // assump[0] = assump[n - 1];
-  // assump[n - 1] = temp; 
-  
-  begin = clock(); 
-  SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump, quick_solve));
+  begin = clock();
+  d_minisat->setOnlyBCP(only_bcp); 
+  SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump));
   end = clock();
-  // cerr << "MinisatSatSolver::solve second call to solve(assump) time "<< end - begin <<"\n";
-  // cerr << "MinisatSatSolver::solve quick_solve "<< quick_solve <<"\n";
   d_statistics.d_statSolveTime = d_statistics.d_statSolveTime.getData() + (end - begin)/(double)CLOCKS_PER_SEC; 
   return result;
 }

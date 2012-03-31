@@ -48,6 +48,7 @@ CnfStream::CnfStream(SatSolverInterface *satSolver, Registrar* registrar, bool f
   d_satSolver(satSolver),
   d_fullLitToNodeMap(fullLitToNodeMap),
   d_registrar(registrar) {
+  
 }
 
 void CnfStream::recordTranslation(TNode node, bool alwaysRecord) {

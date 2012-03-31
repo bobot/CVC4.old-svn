@@ -24,6 +24,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/Solver.h"
 #include <iostream>
 #include "util/output.h"
+#include "util/utility.h"
 
 using namespace BVMinisat;
 
@@ -112,6 +113,7 @@ Solver::Solver() :
   , conflict_budget    (-1)
   , propagation_budget (-1)
   , asynch_interrupt   (false)
+  , only_bcp(false)
 {}
 
 
@@ -403,36 +405,6 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
     return true;
 }
 
-bool Solver::isAssumption(Var p) {
-  for (int i = 0; i < assumptions.size(); ++i) {
-    if (var(assumptions[i]) == p)
-      return true;
-  }
-  return false; 
-}
-
-void Solver::explainPropagation(Lit p, vec<Lit>& explanation) {
-  // todo assert last call was sat
-  vec<Lit> queue;
-  queue.push(p);
-
-  while(queue.size() > 0) {
-    Lit l = queue.last();
-    queue.pop();
-    
-    if (reason(var(l)) == CRef_Undef) {
-      if (isAssumption(var(l))) {
-        explanation.push(l);
-      }
-    } else {
-      Clause& c = ca[reason(var(l))];
-      for (int i = 1; i < c.size(); ++i) {
-        queue.push(~c[i]); 
-      }
-    }
-  }
-  
-}
 
 /*_________________________________________________________________________________________________
 |
@@ -718,15 +690,14 @@ lbool Solver::search(int nof_conflicts)
                 // Reduce the set of learnt clauses:
                 reduceDB();
 
-            // if we have already asserted all the assumptions
             if (decisionLevel() == assumptions.size()) {
-              checkForTheoryPropagations(); 
-              if (quick_solve) {
-
+              // if we are done asserting all the assumptions and propagating
+              checkForAtomPropagations();
+              if (only_bcp) {
                 return l_True;
               }
             }
-            //std::cerr << "BVMinisat:: quick_solve "<< quick_solve<<" \n";                 
+            
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
                 // Perform user provided assumption:
@@ -742,7 +713,7 @@ lbool Solver::search(int nof_conflicts)
                     break;
                 }
             }
-            
+
             if (next == lit_Undef){
                 // New variable decision:
                 decisions++;
@@ -759,22 +730,6 @@ lbool Solver::search(int nof_conflicts)
         }
     }
 }
-
-void Solver::checkForTheoryPropagations() {
-  theory_propagations.clear();
-  unsigned size = current_assumptions.size();
-  for (unsigned i = 0; i < marker_literals.size(); ++i) {
-    Lit p = marker_literals[i];
-    if(current_assumptions.find(var(p)) == current_assumptions.end()) {
-      if (value(p) == l_True) {
-        theory_propagations.push(p);
-      } else if (value(p) == l_False) {
-        theory_propagations.push(~p); 
-      }
-    }
-  }
-}
-
 
 
 double Solver::progressEstimate() const
@@ -822,12 +777,13 @@ static double luby(double y, int x){
 // NOTE: assumptions passed in member-variable 'assumptions'.
 lbool Solver::solve_()
 {
-  theory_propagations.clear(); 
-  
   Debug("bvminisat") <<"BVMinisat::Solving learned clauses " << learnts.size() <<"\n";
   Debug("bvminisat") <<"BVMinisat::Solving assumptions " << assumptions.size() <<"\n"; 
     model.clear();
     conflict.clear();
+    // clear propagations queue
+    atom_propagations.clear();
+    
     if (!ok) return l_False;
 
     solves++;
@@ -865,8 +821,73 @@ lbool Solver::solve_()
         ok = false;
 
     cancelUntil(0);
+    if (status == l_False) {
+      atom_propagations.clear(); 
+    }
     return status;
 }
+
+//=================================================================================================
+// Bitvector propagations
+// 
+
+void Solver::checkForAtomPropagations() {
+  // this can be improved a lot
+  assert (decisionLevel() == assumptions.size()); 
+
+  // can be called multiple times per solve if unsat
+  atom_propagations.clear(); 
+  assumptions_vars.clear();
+
+  for(int i = 0; i < assumptions.size(); ++i) {
+    assumptions_vars.insert(var(assumptions[i])); 
+  }
+
+  for (int i = 0; i < atom_vars.size(); ++i) {
+    // if the variable is not a current assumption
+    if (assumptions_vars.find(atom_vars[i]) == assumptions_vars.end()) {
+      Lit l = mkLit(atom_vars[i], false);
+      
+      if (value(l) == l_True) {
+        atom_propagations.push(l); 
+      } else if(value(l) == l_False) {
+        atom_propagations.push(~l); 
+      } 
+    }
+  }
+}
+
+
+void Solver::explainPropagation(Lit p, vec<Lit>& explanation) {
+  // TODO: assert last call was sat
+  vec<Lit> queue;
+  queue.push(p);
+
+  __gnu_cxx::hash_set<Var> visited; 
+  visited.insert(var(p)); 
+  while(queue.size() > 0) {
+    Lit l = queue.last();
+    queue.pop();
+    if (reason(var(l)) == CRef_Undef) {
+      // if it is an assumption
+      if (assumptions_vars.count(var(l))) {
+        explanation.push(l);
+        visited.insert(var(l)); 
+      }
+    } else {
+      Clause& c = ca[reason(var(l))];
+      for (int i = 1; i < c.size(); ++i) {
+        if (visited.count(var(c[i])) == 0) {
+          queue.push(~c[i]);
+          visited.insert(var(c[i])); 
+        }
+      }
+    }
+  }
+  
+}
+
+  
 
 //=================================================================================================
 // Writing CNF to DIMACS:
@@ -929,13 +950,13 @@ void Solver::toDimacs(FILE* f, const vec<Lit>& assumps)
         }
 
     // Assumptions are added as unit clauses:
-    cnt += assumptions.size();
+    cnt += assumps.size();
 
     fprintf(f, "p cnf %d %d\n", max, cnt);
 
-    for (int i = 0; i < assumptions.size(); i++){
-        assert(value(assumptions[i]) != l_False);
-        fprintf(f, "%s%d 0\n", sign(assumptions[i]) ? "-" : "", mapVar(var(assumptions[i]), map, max)+1);
+    for (int i = 0; i < assumps.size(); i++){
+        assert(value(assumps[i]) != l_False);
+        fprintf(f, "%s%d 0\n", sign(assumps[i]) ? "-" : "", mapVar(var(assumps[i]), map, max)+1);
     }
 
     for (int i = 0; i < clauses.size(); i++)
@@ -997,4 +1018,3 @@ void Solver::garbageCollect()
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
 }
-

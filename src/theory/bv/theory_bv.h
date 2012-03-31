@@ -42,7 +42,6 @@ class Bitblaster;
 
 class TheoryBV : public Theory {
 
-public:
 
 private:
 
@@ -56,9 +55,14 @@ private:
   Bitblaster* d_bitblaster; 
   Node d_true;
 
-  /** Context dependent set of things we propagated */
-  context::CDHashSet<TNode, TNodeHashFunction> d_propagatedAtoms;
+  /** Context dependent set of atoms we already propagated */
+  context::CDHashSet<TNode, TNodeHashFunction> d_propagationQueueSet;
+  context::CDHashSet<TNode, TNodeHashFunction> d_alreadyPropagatedSet;
+  context::CDList<TNode> d_propagationQueue;
+  context::CDO<int> d_propagationHead;
   
+  bool inPropagationQueue(TNode node);
+  bool hasBeenPropagated(TNode node); 
 public:
 
   TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);

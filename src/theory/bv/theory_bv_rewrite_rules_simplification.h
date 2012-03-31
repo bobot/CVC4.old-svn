@@ -948,22 +948,18 @@ Node RewriteRule<BBPlusNeg>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<BBPlusNeg>(" << node << ")" << std::endl;
 
   std::vector<Node> children;
-  std::vector<Node> neg_children;
+  unsigned neg_count = 0; 
   for(unsigned i = 0; i < node.getNumChildren(); ++i) {
     if (node[i].getKind() == kind::BITVECTOR_NEG) {
-      neg_children.push_back(node[i][0]);
+      ++neg_count; 
+      children.push_back(utils::mkNode(kind::BITVECTOR_NOT, node[i][0]));
     } else {
       children.push_back(node[i]); 
     }
   }
+  Assert(neg_count!= 0); 
+  children.push_back(utils::mkConst(utils::getSize(node), neg_count)); 
 
-  Node neg_sum  = utils::mkSortedNode(kind::BITVECTOR_PLUS, neg_children);
-
-  if (children.size() == 0) {
-    return neg_sum; 
-  }
-  
-  children.push_back(neg_sum); 
   return utils::mkSortedNode(kind::BITVECTOR_PLUS, children); 
 }
 

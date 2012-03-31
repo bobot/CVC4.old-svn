@@ -32,12 +32,15 @@ using namespace std;
 using namespace CVC4::theory::bv::utils;
 
 TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation)
-  : Theory(THEORY_BV, c, u, out, valuation), 
+  : Theory(THEORY_BV, c, u, out, valuation),
     d_context(c),
     d_assertions(c),
     d_bitblaster(new Bitblaster(c) ),
     d_statistics(),
-    d_propagatedAtoms(c)
+    d_propagationQueueSet(c),
+    d_alreadyPropagatedSet(c),
+    d_propagationQueue(c),
+    d_propagationHead(c, 0)
   {
     d_true = utils::mkTrue();
   }
@@ -76,25 +79,25 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 void TheoryBV::check(Effort e) {
   // don't do anything for QUICK_CHECK
-  //if(fullEffort(e) && !done()) {
   if (standardEffortOrMore(e)) {
-    bool quick_solve = !fullEffort(e); 
+
     BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
-    BVDebug("bitvector")<< "TheoryBV::check quick_solve " << quick_solve << std::endl;
-    std::vector<TNode> assertions;
-    
     while (!done()) {
       TNode assertion = get();
-      if (d_propagatedAtoms.count(assertion) == 0) {
+      // make sure we do not assert things we propagated 
+      if (!hasBeenPropagated(assertion)) {
         BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n"; 
-        //d_bitblaster->bitblast(assertion);
         d_bitblaster->assertToSat(assertion);
       }
     }
     
     TimerStat::CodeTimer codeTimer(d_statistics.d_solveTimer);
-    //bitblaster->dumpDimacs("sat_input"); 
-    bool res = d_bitblaster->solve(quick_solve);
+    //printFacts(BVDebug("bitvector")); 
+    
+    // in standard effort we only do boolean constraint propagation 
+    bool only_do_bcp = !fullEffort(e); 
+    bool res = d_bitblaster->solve(only_do_bcp);
+
     if (res == false) {
       std::vector<TNode> conflictAtoms;
       d_bitblaster->getConflict(conflictAtoms);
@@ -131,28 +134,53 @@ void TheoryBV::presolve() {
   // from term definitions
 
   // should have no assumptions
-  d_bitblaster->solve();
+  // d_bitblaster->solve();
 
-  std::vector<TNode> propagations;
-  d_bitblaster->getPropagations(propagations);
-  if (propagations.size()) {
-    Node lemma = utils::mkAnd(propagations);
-    BVDebug("bitvector") << "TheoryBV::presolve "<< lemma << "\n"; 
-    d_out->lemma(lemma);
-  }
+  // std::vector<TNode> propagations;
+  // d_bitblaster->getPropagations(propagations);
+  // if (propagations.size()) {
+  //   Node lemma = utils::mkAnd(propagations);
+  //   BVDebug("bitvector") << "TheoryBV::presolve "<< lemma << "\n"; 
+  //   d_out->lemma(lemma);
+  // }
+}
+
+
+bool TheoryBV::inPropagationQueue(TNode node) {
+  return d_propagationQueueSet.count(node); 
+}
+
+bool TheoryBV::hasBeenPropagated(TNode node) {
+  return d_alreadyPropagatedSet.count(node); 
 }
 
 void TheoryBV::propagate(Effort e) {
-  std::vector<TNode> propagations;
+  BVDebug("bitvector") << "TheoryBV::propagate() \n";
 
+  // get new propagations from the sat solver
+  std::vector<TNode> propagations; 
   d_bitblaster->getPropagations(propagations);
   for (unsigned i = 0; i < propagations.size(); ++i) {
-    if(d_valuation.getSatValue(propagations[i]) == Node::null()) {
-      BVDebug("bitvector") << "TheoryBV::propagate " <<  propagations[i] <<"\n"; 
-      d_out->propagate(propagations[i]);
-      d_propagatedAtoms.insert(propagations[i]); 
+    TNode node = propagations[i];
+    // if we haven't already added this to the propagation queue
+    if (!inPropagationQueue(node)) {
+      Assert (!hasBeenPropagated(node));
+      d_propagationQueue.push_back(node);
+      d_propagationQueueSet.insert(node); 
     }
   }
+
+  // propagate the facts on the propagation queue
+  for (unsigned i = d_propagationHead; i < d_propagationQueue.size(); ++i) {
+    TNode node = d_propagationQueue[i];
+    BVDebug("bitvector") << "TheoryBV::propagate    " << node <<" \n";
+    Assert(d_valuation.getSatValue(node) == Node::null());
+    Assert(!hasBeenPropagated(node)); 
+    d_out->propagate(node);
+    d_alreadyPropagatedSet.insert(node); 
+  }
+
+  d_propagationHead = d_propagationQueue.size(); 
 }
 
 Node TheoryBV::explain(TNode n) {
@@ -161,7 +189,9 @@ Node TheoryBV::explain(TNode n) {
   d_bitblaster->explainPropagation(n, explanation);
   Node exp;
 
-  Assert (explanation.size() > 0);
+  if (explanation.size() == 0) {
+    return utils::mkTrue(); 
+  }
   
   exp = utils::mkAnd(explanation);
   
@@ -169,19 +199,6 @@ Node TheoryBV::explain(TNode n) {
   return exp;
 }
 
-// Node TheoryBV::explain(TNode node) {
-//   BVDebug("bitvector") << "TheoryBV::explain(" << node << ")" << std::endl;
-
-//   TNode equality = node.getKind() == kind::NOT ? node[0] : node;
-//   Assert(equality.getKind() == kind::EQUAL);
-//   Assert(0); 
-//   return node; 
-
-// }
-
-// Node TheoryBV::preprocessTerm(TNode term) {
-//   return term; //d_staticEqManager.find(term);
-// }
 
 Theory::PPAssertStatus TheoryBV::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
   switch(in.getKind()) {
