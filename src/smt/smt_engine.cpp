@@ -291,6 +291,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
     setTimeLimit(Options::current()->cumulativeMillisecondLimit, true);
   }
 
+  d_propEngine->assertFormula(NodeManager::currentNM()->mkConst<bool>(true));
 }
 
 void SmtEngine::shutdown() {
