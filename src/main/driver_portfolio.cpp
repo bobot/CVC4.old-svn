@@ -177,8 +177,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
    * -> Start a couple of timers
    * -> Processing of options, including thread specific ones
    * -> Statistics related stuff
-   * -> Pre-portfolio processing (cnf-ication etc)
-   * -> Create ExprManager, parse commands, duplicate exprMgrs using export
+   * -> Parse input
+   * -> Preprocess (cnf-ication etc)
+   * -> Duplicate exprMgrs using export
    * -> Create smtEngines
    * -> Lemma sharing init
    * -> Run portfolio, exit/print stats etc.
@@ -394,8 +395,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
   RegisterStatistic* statFilenameReg =
     new RegisterStatistic(&driverStatisticsRegistry, &s_statFilename);
 
-
-  /************************ Pre-portfolio processing ************************/
+  /**************************** Parse input *******************************/
 
   // Create the expression manager
   ExprManager* exprMgr = new ExprManager(options);
@@ -441,12 +441,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
     delete parser;
   }
 
-  SmtEngine *smt = new SmtEngine(exprMgr);
+  /************************ Preprocess (CNF-ication) ************************/
 
-  // CNF-ify the output and get a generate a new command sequence to be fed
-  // to each portolio solver
-  Options options_cnfify = options;
-  options_cnfify.preprocessOnly = true;
+  SmtEngine *smt = new SmtEngine(exprMgr);
 
   // save dump related options
   std::ostream& orig_dump_os = Dump.getStream();
@@ -457,30 +454,32 @@ int runCvc4(int argc, char *argv[], Options& options) {
   Dump.setTags(std::set<std::string>(cnfify_dump_tags,cnfify_dump_tags+3));
 
   // do the preprocessing
+  Options options_cnfify = options;
+  options_cnfify.preprocessOnly = true;
+  options_cnfify.out = &CVC4::null_os;
   doCommand(*smt, seq, options_cnfify);
 
+  // store cnf-ied benchmark
+  delete seq;
   seq = Dump.getCommands().clone();   // This can be huge. Should try avoiding another clone!
-  Dump.disableCommands();
+
   // restore dump related options
   Dump.setStream(orig_dump_os);
   Dump.setTags(orig_dump_tags);
 
-  cout << seq << endl;
-  delete seq;
-
   // get rid of stuff we created just for this preprocessing
   delete smt;
-  delete exprMgr;
 
-  return 0;
+  // disable stuff (saving as command seq) not needed anymore
+  Dump.clear();
+  Dump.disableCommands();
 
-  /****************** ExprManager + CommandParsing + Export *****************/
+
+  /****************** Command Seq Export *****************/
 
   // Create the expression manager
   ExprManager* exprMgrs[numThreads];
-  exprMgrs[0] = new ExprManager(threadOptions[0]);
-  exprMgr = exprMgrs[0]; // to avoid having to change code which uses that
-
+  exprMgrs[0] = exprMgr;               // use the same ExprMgr used to create seq
 
   /* Duplication, Individualisation */
   ExprManagerMapCollection* vmaps[numThreads]; // vmaps[0] is generally empty
@@ -729,12 +728,13 @@ Result doSmt(SmtEngine &smt, Command *cmd, Options &options) {
     //   *options.err << "Statistics printing of my thread complete " << endl;
     // }
 
-    return status ? smt.getStatusOfLastCommand() : Result::SAT_UNKNOWN;
+    return status ? smt.getStatusOfLastCommand() : 
+      Result(Result::SAT_UNKNOWN, Result::UNKNOWN_REASON);
   } catch(OptionException& e) {
     *pOptions->out << "unknown" << endl;
     cerr << "CVC4 Error:" << endl << e << endl;
     printUsage(*pOptions);
-    return Result::SAT_UNKNOWN;
+    return Result(Result::SAT_UNKNOWN, Result::UNKNOWN_REASON);
   } catch(Exception& e) {
 #ifdef CVC4_COMPETITION_MODE
     *pOptions->out << "unknown" << endl;
@@ -743,7 +743,7 @@ Result doSmt(SmtEngine &smt, Command *cmd, Options &options) {
     if(pOptions->statistics) {
       pStatistics->flushInformation(*pOptions->err);
     }
-    return Result::SAT_UNKNOWN;
+    return Result(Result::SAT_UNKNOWN, Result::UNKNOWN_REASON);
   } catch(bad_alloc) {
 #ifdef CVC4_COMPETITION_MODE
     *pOptions->out << "unknown" << endl;
@@ -752,13 +752,13 @@ Result doSmt(SmtEngine &smt, Command *cmd, Options &options) {
     if(pOptions->statistics) {
       pStatistics->flushInformation(*pOptions->err);
     }
-    return Result::SAT_UNKNOWN;
+    return Result(Result::SAT_UNKNOWN, Result::UNKNOWN_REASON);
   } catch(...) {
 #ifdef CVC4_COMPETITION_MODE
     *pOptions->out << "unknown" << endl;
 #endif
     *pOptions->err << "CVC4 threw an exception of unknown type." << endl;
-    return Result::SAT_UNKNOWN;
+    return Result(Result::SAT_UNKNOWN, Result::UNKNOWN_REASON);
   }
 }
 
