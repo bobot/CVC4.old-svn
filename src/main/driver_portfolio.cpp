@@ -177,6 +177,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
    * -> Start a couple of timers
    * -> Processing of options, including thread specific ones
    * -> Statistics related stuff
+   * -> Pre-portfolio processing (cnf-ication etc)
    * -> Create ExprManager, parse commands, duplicate exprMgrs using export
    * -> Create smtEngines
    * -> Lemma sharing init
@@ -394,12 +395,10 @@ int runCvc4(int argc, char *argv[], Options& options) {
     new RegisterStatistic(&driverStatisticsRegistry, &s_statFilename);
 
 
-  /****************** ExprManager + CommandParsing + Export *****************/
+  /************************ Pre-portfolio processing ************************/
 
   // Create the expression manager
-  ExprManager* exprMgrs[numThreads];
-  exprMgrs[0] = new ExprManager(threadOptions[0]);
-  ExprManager* exprMgr = exprMgrs[0]; // to avoid having to change code which uses that
+  ExprManager* exprMgr = new ExprManager(options);
 
   // Parse commands until we are done
   Command* cmd;
@@ -442,8 +441,46 @@ int runCvc4(int argc, char *argv[], Options& options) {
     delete parser;
   }
 
-  exprMgr = NULL;               // don't want to use that variable
-                                // after this point
+  SmtEngine *smt = new SmtEngine(exprMgr);
+
+  // CNF-ify the output and get a generate a new command sequence to be fed
+  // to each portolio solver
+  Options options_cnfify = options;
+  options_cnfify.preprocessOnly = true;
+
+  // save dump related options
+  std::ostream& orig_dump_os = Dump.getStream();
+  std::set<std::string> orig_dump_tags = Dump.getTags();
+  // set our own
+  std::string cnfify_dump_tags[3] = {"benchmark", "declarations", "clauses"};
+  Dump.setStream(nullCvc4Stream);
+  Dump.setTags(std::set<std::string>(cnfify_dump_tags,cnfify_dump_tags+3));
+
+  // do the preprocessing
+  doCommand(*smt, seq, options_cnfify);
+
+  seq = Dump.getCommands().clone();   // This can be huge. Should try avoiding another clone!
+  Dump.disableCommands();
+  // restore dump related options
+  Dump.setStream(orig_dump_os);
+  Dump.setTags(orig_dump_tags);
+
+  cout << seq << endl;
+  delete seq;
+
+  // get rid of stuff we created just for this preprocessing
+  delete smt;
+  delete exprMgr;
+
+  return 0;
+
+  /****************** ExprManager + CommandParsing + Export *****************/
+
+  // Create the expression manager
+  ExprManager* exprMgrs[numThreads];
+  exprMgrs[0] = new ExprManager(threadOptions[0]);
+  exprMgr = exprMgrs[0]; // to avoid having to change code which uses that
+
 
   /* Duplication, Individualisation */
   ExprManagerMapCollection* vmaps[numThreads]; // vmaps[0] is generally empty

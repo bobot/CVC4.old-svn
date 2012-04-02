@@ -99,6 +99,7 @@ public:
   void disableCommands() {
     if(d_commands != NULL) {
       delete d_commands;
+      d_commands = NULL;   /* Doesn't happen automatically, gosh! */
     } else {
       // What should we do here? Crash, raise exception or just...
       // ...ignore for now
@@ -106,7 +107,10 @@ public:
     }
   }
   DumpC() { d_commands = new CommandSequence(); }
-  ~DumpC() { if(d_commands != NULL) delete d_commands; }
+  ~DumpC() { 
+    if(d_commands != NULL) 
+      delete d_commands;
+  }
 
   void declareVar(Expr e, std::string comment) {
     if(isOn("declarations")) {
@@ -130,6 +134,9 @@ public:
 
   std::ostream& setStream(std::ostream& os) { DumpOut.setStream(os); return os; }
   std::ostream& getStream() { return DumpOut.getStream(); }
+
+  std::set<std::string> getTags() { return d_tags; }
+  void setTags(const std::set<std::string> tags) { d_tags = tags; }
 };/* class DumpC */
 
 /** The dump singleton */

@@ -391,7 +391,7 @@ Command* CommandSequence::exportTo(ExprManager* exprManager, ExprManagerMapColle
   return seq;
 }
 
-Command* CommandSequence::clone() const {
+CommandSequence* CommandSequence::clone() const {
   CommandSequence* seq = new CommandSequence();
   for(const_iterator i = begin(); i != end(); ++i) {
     seq->addCommand((*i)->clone());

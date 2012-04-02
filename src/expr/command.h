@@ -616,7 +616,7 @@ public:
   iterator end() throw();
 
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
-  Command* clone() const;
+  CommandSequence* clone() const;
 };/* class CommandSequence */
 
 class CVC4_PUBLIC DeclarationSequence : public CommandSequence {
