@@ -38,6 +38,8 @@ StatisticsRegistry* StatisticsRegistry::current() {
 }
 
 void StatisticsRegistry::registerStat(Stat* s) throw(AssertionException) {
+
+  Trace("stats")  << "Registered " << s->getName() << NodeManager::currentNM()->getStatisticsRegistry()->getName() << std::endl;
 #ifdef CVC4_STATISTICS_ON
   StatSet& registeredStats = NodeManager::currentNM()->getStatisticsRegistry()->d_registeredStats;
   AlwaysAssert(registeredStats.find(s) == registeredStats.end(),
@@ -48,6 +50,7 @@ void StatisticsRegistry::registerStat(Stat* s) throw(AssertionException) {
 
 void StatisticsRegistry::registerStat_(Stat* s) throw(AssertionException)
 {
+  Trace("stats")  << "Registered_ " << s->getName() << this->getName() << std::endl;
 #ifdef CVC4_STATISTICS_ON
   AlwaysAssert(d_registeredStats.find(s) == d_registeredStats.end());
   d_registeredStats.insert(s);
@@ -55,6 +58,7 @@ void StatisticsRegistry::registerStat_(Stat* s) throw(AssertionException)
 }/* StatisticsRegistry::registerStat_() */
 
 void StatisticsRegistry::unregisterStat(Stat* s) throw(AssertionException) {
+  Trace("stats")  << "UnRegistered " << s->getName() << NodeManager::currentNM()->getStatisticsRegistry()->getName() << std::endl;
 #ifdef CVC4_STATISTICS_ON
   StatSet& registeredStats = NodeManager::currentNM()->getStatisticsRegistry()->d_registeredStats;
   AlwaysAssert(registeredStats.find(s) != registeredStats.end(),
@@ -64,6 +68,7 @@ void StatisticsRegistry::unregisterStat(Stat* s) throw(AssertionException) {
 }/* StatisticsRegistry::unregisterStat() */
 
 void StatisticsRegistry::unregisterStat_(Stat* s) throw(AssertionException) {
+  Trace("stats")  << "UnRegistered_ " << s->getName() << this->getName() << std::endl;
 #ifdef CVC4_STATISTICS_ON
   AlwaysAssert(d_registeredStats.find(s) != d_registeredStats.end());
   d_registeredStats.erase(s);
