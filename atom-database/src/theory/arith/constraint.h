@@ -21,31 +21,40 @@
  **  - and a ConstraintType.
  **
  ** Literals:
- **   The constraint may also keep track of a node corresponding to the Constraint.
+ **   The constraint may also keep track of a node corresponding to the
+ **   Constraint.
  **   This can be accessed by getLiteral() in O(1) if it has been set.
- **   This node must be in normal form and may be used for communication with the TheoryEngine.
+ **   This node must be in normal form and may be used for communication with
+ **   the TheoryEngine.
  **
  ** In addition, Constraints keep track of the following:
  **  - A Constrain that is the negation of the Constraint.
- **  - An iterator into a set of Constraints for the ArithVar sorted by DeltaRational value.
- **  - A context dependent internal proof of the node that can be used for explanations.
- **  - Whether an equality/disequality has been split in the user context via a lemma.
+ **  - An iterator into a set of Constraints for the ArithVar sorted by
+ **    DeltaRational value.
+ **  - A context dependent internal proof of the node that can be used for
+ **    explanations.
+ **  - Whether an equality/disequality has been split in the user context via a
+ **    lemma.
  **  - Whether a constraint, be be used in explanations sent to the context
  **
  ** Looking up constraints:
- **  - All of the Constraints with associated nodes in the ConstraintDatabase can be accessed via
- **    a single hashtable lookup until the Constraint is removed.
- **  - Nodes that have not been associated to a constraints can be inserted/associated to existing nodes in O(log n) time.
+ **  - All of the Constraints with associated nodes in the ConstraintDatabase can
+ **    be accessed via a single hashtable lookup until the Constraint is removed.
+ **  - Nodes that have not been associated to a constraints can be
+ **    inserted/associated to existing nodes in O(log n) time.
  **
  ** Implications:
  **  - A Constraint can be used to find unate implications.
- **  - A unate implication is an implication based purely on the ArithVar matching and the DeltaRational value.
+ **  - A unate implication is an implication based purely on the ArithVar matching
+ **    and the DeltaRational value.
  **    (implies (<= x c) (<= x d)) given c <= d
  **  - This is done using the iterator into the sorted set of constraints.
- **  - Given a tight constraint and previous tightest constraint, this will efficiently propagate internally.
+ **  - Given a tight constraint and previous tightest constraint, this will
+ **    efficiently propagate internally.
  **
  ** Additing and Removing Constraints
- **  - Adding Constraints takes O(log n) time where n is the number of constraints associated with the ArithVar.
+ **  - Adding Constraints takes O(log n) time where n is the number of
+ **    constraints associated with the ArithVar.
  **  - Removing Constraints takes O(1) time.
  **
  ** Internals:
@@ -79,7 +88,8 @@ namespace arith {
 
 /**
  * The types of constraints.
- * The convex constraints are the constraints are LowerBound, Equality, and UpperBound.
+ * The convex constraints are the constraints are LowerBound, Equality,
+ * and UpperBound.
  */
 enum ConstraintType {LowerBound, Equality, UpperBound, Disequality};
 
@@ -97,7 +107,10 @@ class ConstraintDatabase;
 typedef size_t ProofId;
 static ProofId ProofIdSentinel = std::numeric_limits<ProofId>::max();
 
-/** A ValueCollection binds together convex constraints that have the same delta rational value. */
+/**
+ * A ValueCollection binds together convex constraints that have the same
+ * DeltaRational value.
+ */
 class ValueCollection {
 private:
 
@@ -168,7 +181,6 @@ public:
 
   void push_into(std::vector<Constraint>& vec) const;
 
-
   Constraint nonNull() const;
 
   ArithVar getVariable() const;
@@ -179,9 +191,10 @@ public:
  * A Map of ValueCollections sorted by the associated DeltaRational values.
  *
  * Discussion:
- * While it is more natural to consider this a set, this cannot be a set as in sets
- * the type of both iterator and const_iterator in sets are "constant iterators".
- * We require iterators that dereference to ValueCollection&.
+ * While it is more natural to consider this a set, this cannot be a set as in
+ * sets the type of both iterator and const_iterator in sets are
+ * "constant iterators".  We require iterators that dereference to
+ * ValueCollection&.
  *
  * See:
  * http://gcc.gnu.org/onlinedocs/libstdc++/ext/lwg-defects.html#103
@@ -293,7 +306,8 @@ private:
 
   /**
    * Upon destruction this sets the d_proof field back to ProofIdSentinel.
-   * While a constraint has a proof in the current sat context, it cannot be destroyed.
+   * While a constraint has a proof in the current sat context, it cannot be
+   * destroyed.
    */
   class ProofWatch {
   private:
@@ -314,7 +328,8 @@ private:
 
   /**
    * Upon destruction this sets the d_preregistered field back to false.
-   * While a constraint has been preregistered in the current sat context, it cannot be destroyed.
+   * While a constraint has been preregistered in the current sat context,
+   * it cannot be destroyed.
    */
   class PreregisteredWatch {
   private:
@@ -334,7 +349,8 @@ private:
 
   /**
    * Upon destruction this sets the d_split field back to false.
-   * While a constraint has been split in the current user context, it cannot be destroyed.
+   * While a constraint has been split in the current user context, it cannot
+   * be destroyed.
    */
   class SplitWatch {
   private:
@@ -364,7 +380,10 @@ private:
   /** Returns true if the node is safe to garbage collect. */
   bool safeToGarbageCollect() const;
 
-  /** Returns true if the node correctly corresponds to the constraint that is being set.*/
+  /**
+   * Returns true if the node correctly corresponds to the constraint that is
+   * being set.
+   */
   bool sanityChecking(Node n) const;
 
   /** Returns a reference to the map for d_variable. */
@@ -490,8 +509,8 @@ private:
 
   /**
    * Proof Lists.
-   * Proofs are lists of valid constraints terminated by the first smaller sentinel value
-   * in the proof list.
+   * Proofs are lists of valid constraints terminated by the first smaller
+   * sentinel value in the proof list.
    * The proof at p in d_proofs[p] of length n is
    *  (NullConstraint, d_proofs[p-(n-1)], ... , d_proofs[p-1], d_proofs[p])
    * The proof at p corresponds to the conjunction:
@@ -501,7 +520,8 @@ private:
    *  (implies (and x_i) c)
    * where (and x_i) is the proof at c.d_proofs.
    *
-   * Constraints are pointers so this list is designed not to require any destruction.
+   * Constraints are pointers so this list is designed not to require any
+   * destruction.
    */
   context::CDList<Constraint> d_proofs;
 
@@ -520,13 +540,15 @@ private:
 
     /**
      * Contains the exact list of atoms that have been preregistered.
-     * This is a pointer as it must be destroyed before the elements of d_varDatabases.
+     * This is a pointer as it must be destroyed before the elements of
+     * d_varDatabases.
      */
     context::CDList<ConstraintValue::PreregisteredWatch> d_preregisteredWatches;
 
     /**
      * Contains the exact list of atoms that have been preregistered.
-     * This is a pointer as it must be destroyed before the elements of d_varDatabases.
+     * This is a pointer as it must be destroyed before the elements of
+     * d_varDatabases.
      */
     context::CDList<ConstraintValue::SplitWatch> d_splitWatches;
     Watches(context::Context* satContext, context::Context* userContext);
