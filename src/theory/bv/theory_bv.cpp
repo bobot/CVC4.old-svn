@@ -79,7 +79,7 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 void TheoryBV::check(Effort e) {
   if (e == EFFORT_STANDARD) {
-    std::cerr << "TheoryBV::check " << e << "\n"; 
+    BVDebug("bitvector") << "TheoryBV::check " << e << "\n"; 
     BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
     while (!done()) {
       TNode assertion = get();
@@ -101,7 +101,7 @@ void TheoryBV::check(Effort e) {
   }
 
   if (e == EFFORT_FULL) {
-    std::cerr << "TheoryBV::check " << e << "\n";
+    BVDebug("bitvector") << "TheoryBV::check " << e << "\n";
     // in standard effort we only do boolean constraint propagation 
     bool ok = d_bitblaster->solve(false);
     if (!ok) {

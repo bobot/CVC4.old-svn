@@ -159,7 +159,7 @@ SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assu
   d_minisat->setOnlyBCP(only_bcp); 
   SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump));
   end = clock();
-  std::cerr << "MinisatSatSolver::Solve " << only_bcp <<" " << end - begin << "\n"; 
+  //std::cerr << "MinisatSatSolver::Solve " << only_bcp <<" " << end - begin << "\n"; 
   d_statistics.d_statSolveTime = d_statistics.d_statSolveTime.getData() + (end - begin)/(double)CLOCKS_PER_SEC; 
   return result;
 }
