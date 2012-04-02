@@ -862,10 +862,9 @@ void Solver::explainPropagation(Lit p, vec<Lit>& explanation) {
     Lit l = queue.last();
     queue.pop();
     if (reason(var(l)) == CRef_Undef) {
-      // if it is an assumption
-      if (assumptions_vars.count(var(l))) {
+      if (marker[var(l)]) {
         explanation.push(l);
-        visited.insert(var(l)); 
+        visited.insert(var(l));
       }
     } else {
       Clause& c = ca[reason(var(l))];
