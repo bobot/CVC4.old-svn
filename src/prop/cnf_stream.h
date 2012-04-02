@@ -52,6 +52,8 @@ public:
 
   typedef __gnu_cxx::hash_map<SatLiteral, Node, SatLiteralHashFunction> NodeCache2;
 
+  typedef __gnu_cxx::hash_map<TNode, TNode, TNodeHashFunction> NodeCache3;
+
   /** Per node translation information */
   struct TranslationInfo {
     bool recorded;
@@ -77,6 +79,13 @@ protected:
    * "sat_var_" Nodes created.
    */
   NodeCache2 d_nodeCacheSatVar;
+
+
+  /**
+   * Map between theoryAtoms and sat_var created for the
+   * "preprocess-then-split" approach
+   */
+  NodeCache3 d_nodeCacheTheoryAtoms;
 
   /**
    * True if the lit-to-Node map should be kept for all lits, not just
@@ -224,6 +233,11 @@ public:
   TNode getNode(const SatLiteral& literal);
 
   /**
+   * Get the node for the purpose of exporting
+   */
+  TNode getNodeForExport(const SatLiteral& literal);
+
+  /**
    * Get the "sat_var_" node that is represented by the given SatLiteral.
    * @param literal the literal from the sat solver
    * @return the actual node
@@ -272,6 +286,11 @@ public:
    * Removes all the translation information of clauses that have the given associated assert level.
    */
   void removeClausesAboveLevel(int level);
+
+  /**
+   *
+   */
+  void addMapping(TNode bv, TNode n);
 
 };/* class CnfStream */
 

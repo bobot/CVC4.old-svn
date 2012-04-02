@@ -200,6 +200,12 @@ public:
   Result checkSat(unsigned long& millis, unsigned long& resource);
 
   /**
+   * Only exists to pass information from MappingCommand::invoke to
+   * cnfStream
+   */ 
+  void addMapping(TNode bv, TNode e);
+
+  /**
    * Get the value of a boolean variable.
    *
    * @return mkConst<true>, mkConst<false>, or Node::null() if

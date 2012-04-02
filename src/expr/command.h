@@ -624,6 +624,20 @@ public:
   ~DeclarationSequence() throw() {}
 };/* class DeclarationSequence */
 
+class CVC4_PUBLIC MappingCommand : public Command {
+protected:
+  Expr d_boolvar;
+  Expr d_expr;
+public:
+  MappingCommand(const Expr& be, const Expr& e) throw();
+  ~MappingCommand() throw() {}
+  Expr getBoolvar() const throw();
+  Expr getExpr() const throw();
+  void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class MappingCommand */
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__COMMAND_H */

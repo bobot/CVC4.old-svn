@@ -252,6 +252,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable)
         } else return ok;
       } else {
         CRef cr = ca.alloc(assertionLevel, ps, false);
+
         clauses_persistent.push(cr);
 	attachClause(cr);
         
@@ -981,6 +982,10 @@ lbool Solver::search(int nof_conflicts)
             int max_level = analyze(confl, learnt_clause, backtrack_level);
             cancelUntil(backtrack_level);
 
+            SatClause c;
+            DPLLMinisatSatSolver::toSatClause(learnt_clause, c);
+            proxy->notifyNewLemma( c );
+
             // Assert the conflict clause and the asserting literal
             if (learnt_clause.size() == 1) {
                 uncheckedEnqueue(learnt_clause[0]);
@@ -993,7 +998,7 @@ lbool Solver::search(int nof_conflicts)
                 attachClause(cr);
                 claBumpActivity(ca[cr]);
                 uncheckedEnqueue(learnt_clause[0], cr);
-
+                
                 PROOF( ProofManager::getSatProof()->endResChain(cr); )
             }
 

@@ -172,6 +172,11 @@ Result PropEngine::checkSat(unsigned long& millis, unsigned long& resource) {
   return Result(result == SatValTrue ? Result::SAT : Result::UNSAT);
 }
 
+void PropEngine::addMapping(TNode bv, TNode e)
+{
+  d_cnfStream->addMapping(bv, e);
+}
+
 Node PropEngine::getValue(TNode node) const {
   Assert(node.getType().isBoolean());
   Assert(d_cnfStream->hasLiteral(node));

@@ -127,7 +127,7 @@ void TheoryProxy::notifyNewLemma(SatClause& lemma) {
     } else {
       NodeBuilder<> b(kind::OR);
       for(unsigned i = 0, i_end = lemma.size(); i < i_end; ++i) {
-        b << d_cnfStream->getNode(lemma[i]);
+        b << d_cnfStream->getNodeForExport(lemma[i]);
       }
       Node n = b;
 

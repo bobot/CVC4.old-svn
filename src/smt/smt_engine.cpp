@@ -1092,6 +1092,10 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
   return r;
 }
 
+void SmtEngine::addMapping(const Expr& bv, const Expr& e) {
+  d_propEngine->addMapping(bv.getTNode(),e.getTNode());
+}
+
 Result SmtEngine::query(const BoolExpr& e) {
 
   Assert(!e.isNull());

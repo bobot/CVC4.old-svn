@@ -102,6 +102,7 @@ public:
   {}
 
   void notifyNewLemma(Expr lemma) {
+    //cout << "Ever called?" << endl;
     if(Debug.isOn("disable-lemma-sharing")) return;
     const Options *options = Options::current();
     if(options->sharingFilterByLength >= 0) { // 0 would mean no-sharing effectively
@@ -570,6 +571,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
                                        vmaps[i]->d_from, vmaps[i]->d_to);
     }
   }
+
+  for(int i = 0; i<numThreads; ++i)
+    exprMgrs[i]->setOptions(threadOptions[i]);
 
   /************************** End of initialization ***********************/
 

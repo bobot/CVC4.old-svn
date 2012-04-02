@@ -294,6 +294,12 @@ public:
   Result checkSat(const BoolExpr& e = BoolExpr());
 
   /**
+   * This is here just to pass it to the CNF-stream the infomration in
+   * MappingCommand
+   */
+  void addMapping(const Expr& bv, const Expr& e);
+
+  /**
    * Simplify a formula without doing "much" work.  Does not involve
    * the SAT Engine in the simplification, but uses the current
    * assertions and the current partial model, if one has been

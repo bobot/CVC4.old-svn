@@ -183,7 +183,8 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
     d_translationCache[node].literal = lit;
     d_translationCache[node.notNode()].literal = ~lit;
 
-    if(Dump.isOn("clauses") && theoryLiteral == false ) {
+    if(Dump.isOn("clauses")) {
+      
       // Name new boolean var
       stringstream kss;
       NodeManager* nm = NodeManager::currentNM();
@@ -198,11 +199,13 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
 
       // for dumping
       Dump("clauses") << DeclareFunctionCommand(kss.str(), nm->booleanType().toType() );
-      Dump("clauses") << AssertCommand( BoolExpr(n.toExpr()) );
-
-      // remember in (the SatVar) node cache, so we can use these nodes 
-      d_nodeCacheSatVar[lit] = sat_var_node;
-      d_nodeCacheSatVar[~lit] = sat_var_node.notNode();
+      if(theoryLiteral == true) {
+        Dump("clauses") << MappingCommand( sat_var_node.toExpr(), node.toExpr() );
+      } else{
+        // remember in (the SatVar) node cache, so we can use these nodes 
+        d_nodeCacheSatVar[lit] = sat_var_node;
+        d_nodeCacheSatVar[~lit] = sat_var_node.notNode();
+      }
     }
   } else {
     // We already have a literal
@@ -882,6 +885,29 @@ void CnfStream::moveToBaseLevel(TNode node) {
     ++ child;
   }
 }
+
+void CnfStream::addMapping(TNode bv, TNode n)
+{
+  Debug("mapping") << bv << " " << bv.getKind() << " " << n << " " << n.getKind() << endl;
+  newLiteral(bv);
+  d_nodeCacheTheoryAtoms[n] = bv;
+}
+
+TNode CnfStream::getNodeForExport(const SatLiteral& literal)
+{
+
+  TNode ret = getNode(literal);
+  NodeCache3::iterator find = d_nodeCacheTheoryAtoms.find(ret);
+  if(find == d_nodeCacheTheoryAtoms.end()) //don't find it
+    return ret;                  //then can't help
+  else                           //else
+    return find->second;         //return the variable corresponding
+                                 //the theoryLiteral, which should be
+                                 //in the var mapping
+
+}
+
+
 
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */

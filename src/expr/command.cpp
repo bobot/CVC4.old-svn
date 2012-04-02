@@ -24,6 +24,7 @@
 #include <exception>
 
 #include "expr/command.h"
+#include "expr/expr_manager_scope.h"
 #include "smt/smt_engine.h"
 #include "smt/bad_option_exception.h"
 #include "util/output.h"
@@ -1080,5 +1081,62 @@ std::ostream& operator<<(std::ostream& out,
     return out << "SetBenchmarkStatusCommand::[UNKNOWNSTATUS!]";
   }
 }
+
+
+
+/* class MappingCommand */
+
+MappingCommand::MappingCommand(const Expr& bv, const Expr& e ) throw() :
+  d_boolvar(bv), d_expr(e) {
+
+  // TODO : Add an assert here making sure that bv is actually of
+  // booleanType, and maybe even that it is a variable.
+
+  //  Assert(bv.d_nv.getType() = 
+
+  // Another ASSUMPTION / Understanding: 
+  //
+  //    That we will have a mapping of d_boolvar in other threads
+  //    through variableMap, as, they are variables!
+}
+
+Expr MappingCommand::getBoolvar() const throw() {
+  return d_boolvar;
+}
+
+Expr MappingCommand::getExpr() const throw() {
+  return d_expr;
+}
+
+void MappingCommand::invoke(SmtEngine* smtEngine) throw() {
+  ExprManagerScope ems(*d_expr.getExprManager());
+
+  // Create the booleanType "sat_var_" node, and iff assertion
+  // NodeBuilder<> b(kind::IFF);
+  // b << d_boolvar << d_expr;
+  // Node n(b);
+  
+  smtEngine->addMapping(d_boolvar, d_expr);
+  /*** Figure out later what exactly to do ***/
+
+  // try {
+  //   smtEngine->assertFormula(d_expr);
+  //   d_commandStatus = CommandSuccess::instance();
+  // } catch(exception& e) {
+  //   d_commandStatus = new CommandFailure(e.what());
+  // }
+}
+
+Command* MappingCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  // Ideally, the d_boolexpr should already be in the other solver
+  // And possibly even the d_expr -- don't know.
+  return new MappingCommand(d_boolvar.exportTo(exprManager, variableMap), d_expr.exportTo(exprManager, variableMap));
+}
+
+Command* MappingCommand::clone() const {
+  return new MappingCommand(d_boolvar, d_expr);
+}
+
+
 
 }/* CVC4 namespace */
