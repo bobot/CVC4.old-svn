@@ -1076,7 +1076,7 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
   // Dump the query if requested
   if(Dump.isOn("benchmark")) {
     // the expr already got dumped out if assertion-dumping is on
-    Dump("benchmark") << CheckSatCommand();
+    Dump("benchmark") << CheckSatCommand(Expr());
   }
 
   // Pop the context
@@ -1133,7 +1133,7 @@ Result SmtEngine::query(const BoolExpr& e) {
   // Dump the query if requested
   if(Dump.isOn("benchmark")) {
     // the expr already got dumped out if assertion-dumping is on
-    Dump("benchmark") << CheckSatCommand();
+    Dump("benchmark") << QueryCommand(d_exprManager->mkConst(false));
   }
 
   // Pop the context
