@@ -82,13 +82,13 @@ private:
   void explain(TNode literal, std::vector<TNode>& assumptions);
 
   /** Literals to propagate */
-  context::CDList_BE<Node> d_literalsToPropagate;
+  context::CDList<Node> d_literalsToPropagate;
 
   /** Index of the next literal to propagate */
   context::CDO<unsigned> d_literalsToPropagateIndex;
 
   /** All the function terms that the theory has seen */
-  context::CDList_BE<TNode> d_functionsTerms;
+  context::CDList<TNode> d_functionsTerms;
 
   /** True node for predicates = true */
   Node d_true;

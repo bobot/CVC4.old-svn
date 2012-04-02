@@ -306,7 +306,7 @@ void TheoryUFTim::check(Effort level) {
   }
 
   if(standardEffortOrMore(level)) {
-    for(CDList_BE<Node>::const_iterator diseqIter = d_disequality.begin();
+    for(CDList<Node>::const_iterator diseqIter = d_disequality.begin();
         diseqIter != d_disequality.end();
         ++diseqIter) {
 

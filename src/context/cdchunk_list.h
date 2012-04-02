@@ -90,7 +90,7 @@ protected:
     const T* list() const { return d_list; }
     T& operator[](size_t i) { return d_list[i]; }
     const T& operator[](size_t i) const { return d_list[i]; }
-  };/* struct CDChunkList<T, ContextMemoryAllocator<T> >::ListSegment */
+  };/* struct CDChunkList<T>::ListSegment */
 
   /**
    * The first segment of list memory.

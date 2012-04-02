@@ -92,7 +92,7 @@ class CVC4_PUBLIC SmtEngine {
   typedef context::CDHashMap<Node, smt::DefinedFunction, NodeHashFunction>
     DefinedFunctionMap;
   /** The type of our internal assertion list */
-  typedef context::CDList_BE<Expr> AssertionList;
+  typedef context::CDList<Expr> AssertionList;
   /** The type of our internal assignment set */
   typedef context::CDHashSet<Node, NodeHashFunction> AssignmentSet;
 

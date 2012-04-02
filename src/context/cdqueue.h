@@ -39,9 +39,9 @@ class CDQueue;
 
 /** We don't define a template with Allocator for the first implementation */
 template <class T, class CleanUp, class Allocator>
-class CDQueue : public CDList_BE<T, CleanUp, Allocator> {
+class CDQueue : public CDList<T, CleanUp, Allocator> {
 private:
-  typedef CDList_BE<T, CleanUp, Allocator> ParentType;
+  typedef CDList<T, CleanUp, Allocator> ParentType;
 
 protected:
 

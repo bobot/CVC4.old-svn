@@ -54,7 +54,7 @@ namespace CVC4 {
 namespace theory {
 namespace arrays {
 
-typedef context::CDList_BE<TNode> CTNodeList;
+typedef context::CDList<TNode> CTNodeList;
 
 struct TNodeQuadHashFunction {
   size_t operator()(const quad<CVC4::TNode, CVC4::TNode, CVC4::TNode, CVC4::TNode>& q ) const {

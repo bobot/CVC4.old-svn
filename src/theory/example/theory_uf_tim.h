@@ -54,7 +54,7 @@ private:
    * are not in this list.
    * This will probably be phased out in future version.
    */
-  context::CDList_BE<Node> d_assertions;
+  context::CDList<Node> d_assertions;
 
   /**
    * List of pending equivalence class merges.
@@ -63,13 +63,13 @@ private:
    * Must keep a hard link because new equality terms are created and appended
    * to this list.
    */
-  context::CDList_BE<Node> d_pending;
+  context::CDList<Node> d_pending;
 
   /** Index of the next pending equality to merge. */
   context::CDO<unsigned> d_currentPendingIdx;
 
   /** List of all disequalities this theory has seen. */
-  context::CDList_BE<Node> d_disequality;
+  context::CDList<Node> d_disequality;
 
   /**
    * List of all of the terms that are registered in the current context.
@@ -80,7 +80,7 @@ private:
    * current implementation as well as making ECAttr() not context dependent.
    * Soft links used both in ECData, and Link.
    */
-  context::CDList_BE<Node> d_registered;
+  context::CDList<Node> d_registered;
 
 public:
 

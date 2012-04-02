@@ -78,7 +78,7 @@ class Bitblaster {
   TermDefMap                   d_termCache;
   AtomSet                      d_bitblastedAtoms;
   
-  context::CDList_BE<prop::SatLiteral>  d_assertedAtoms; /**< context dependent list storing the atoms
+  context::CDList<prop::SatLiteral>  d_assertedAtoms; /**< context dependent list storing the atoms
                                                        currently asserted by the DPLL SAT solver. */
 
   /// helper methods

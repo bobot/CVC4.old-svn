@@ -74,9 +74,9 @@ SatValue MinisatSatSolver::solve(long unsigned int& resource){
   return result;
 }
 
-SatValue MinisatSatSolver::solve(const context::CDList_BE<SatLiteral> & assumptions){
+SatValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assumptions){
   Debug("sat::minisat") << "Solve with assumptions ";
-  context::CDList_BE<SatLiteral>::const_iterator it = assumptions.begin();
+  context::CDList<SatLiteral>::const_iterator it = assumptions.begin();
   BVMinisat::vec<BVMinisat::Lit> assump;
   for(; it!= assumptions.end(); ++it) {
     SatLiteral lit = *it;

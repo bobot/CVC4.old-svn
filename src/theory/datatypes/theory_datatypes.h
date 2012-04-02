@@ -46,8 +46,8 @@ private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 
   /** for debugging */
-  context::CDList_BE<Node> d_currAsserts;
-  context::CDList_BE<Node> d_currEqualities;
+  context::CDList<Node> d_currAsserts;
+  context::CDList<Node> d_currEqualities;
 
   /** keeps track of all selectors we care about, value is whether they have been collapsed */
   BoolMap d_selectors;

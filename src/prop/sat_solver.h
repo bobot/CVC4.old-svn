@@ -194,7 +194,7 @@ public:
 
 class BVSatSolverInterface: public SatSolver {
 public:
-  virtual SatValue solve(const context::CDList_BE<SatLiteral> & assumptions) = 0;
+  virtual SatValue solve(const context::CDList<SatLiteral> & assumptions) = 0;
 
   virtual void markUnremovable(SatLiteral lit) = 0;
 

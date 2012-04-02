@@ -144,7 +144,7 @@ private:
    * These can not be TNodes as some atoms (such as equalities) are sent
    * across theories without being stored in a global map.
    */
-  context::CDList_BE<Assertion> d_facts;
+  context::CDList<Assertion> d_facts;
 
   /** Index into the head of the facts list */
   context::CDO<unsigned> d_factsHead;
@@ -194,7 +194,7 @@ protected:
   /**
    * A list of shared terms that the theory has.
    */
-  context::CDList_BE<TNode> d_sharedTerms;
+  context::CDList<TNode> d_sharedTerms;
 
   /**
    * Construct a Theory.
@@ -658,7 +658,7 @@ public:
    *
    * @return the iterator to the beginning of the fact queue
    */
-  context::CDList_BE<Assertion>::const_iterator facts_begin() const {
+  context::CDList<Assertion>::const_iterator facts_begin() const {
     return d_facts.begin();
   }
 
@@ -668,7 +668,7 @@ public:
    *
    * @return the iterator to the end of the fact queue
    */
-  context::CDList_BE<Assertion>::const_iterator facts_end() const {
+  context::CDList<Assertion>::const_iterator facts_end() const {
     return d_facts.end();
   }
 
@@ -678,7 +678,7 @@ public:
    *
    * @return the iterator to the beginning of the shared terms list
    */
-  context::CDList_BE<TNode>::const_iterator shared_terms_begin() const {
+  context::CDList<TNode>::const_iterator shared_terms_begin() const {
     return d_sharedTerms.begin();
   }
 
@@ -688,7 +688,7 @@ public:
    *
    * @return the iterator to the end of the shared terms list
    */
-  context::CDList_BE<TNode>::const_iterator shared_terms_end() const {
+  context::CDList<TNode>::const_iterator shared_terms_end() const {
     return d_sharedTerms.end();
   }
 

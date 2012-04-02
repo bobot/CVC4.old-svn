@@ -50,7 +50,7 @@ public:
 };
 
 template <class T, class CleanUp = DefaultCleanUp<T>, class Allocator = std::allocator<T> >
-class CDList_BE;
+class CDList;
 
 }/* CVC4::context namespace */
 }/* CVC4 namespace */

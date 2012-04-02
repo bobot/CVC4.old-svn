@@ -107,7 +107,7 @@ size_t DioSolver::allocateVariableInPool() {
 
 
 bool DioSolver::debugEqualityInInputEquations(Node eq){
-  typedef context::CDList_BE<InputConstraint>::const_iterator const_iterator;
+  typedef context::CDList<InputConstraint>::const_iterator const_iterator;
   const_iterator i=d_inputConstraints.begin(), end = d_inputConstraints.end();
   for(; i != end; ++i){
     Node reason_i = (*i).d_reason;

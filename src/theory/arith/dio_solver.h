@@ -54,7 +54,7 @@ private:
     TrailIndex d_trailPos;
     InputConstraint(Node reason, TrailIndex pos) : d_reason(reason), d_trailPos(pos) {}
   };
-  context::CDList_BE<InputConstraint> d_inputConstraints;
+  context::CDList<InputConstraint> d_inputConstraints;
 
   /**
    * This is the next input constraint to handle.
@@ -98,12 +98,12 @@ private:
       d_eq(eq), d_proof(p), d_minimalMonomial(d_eq.getPolynomial().selectAbsMinimum())
     {}
   };
-  context::CDList_BE<Constraint> d_trail;
+  context::CDList<Constraint> d_trail;
 
   /** Compare by d_minimal. */
   struct TrailMinimalCoefficientOrder {
-    const context::CDList_BE<Constraint>& d_trail;
-    TrailMinimalCoefficientOrder(const context::CDList_BE<Constraint>& trail):
+    const context::CDList<Constraint>& d_trail;
+    TrailMinimalCoefficientOrder(const context::CDList<Constraint>& trail):
       d_trail(trail)
     {}
 
@@ -130,7 +130,7 @@ private:
       d_fresh(f), d_eliminated(e), d_constraint(c)
     {}
   };
-  context::CDList_BE<Substitution> d_subs;
+  context::CDList<Substitution> d_subs;
 
   /**
    * This is the queue of constraints to be processed in the current context level.
@@ -142,7 +142,7 @@ private:
    * - If the element is (+ constant (+ [(* coeff var)] )), then the gcd(coeff) = 1
    */
   std::deque<TrailIndex> d_currentF;
-  context::CDList_BE<TrailIndex> d_savedQueue;
+  context::CDList<TrailIndex> d_savedQueue;
   context::CDO<size_t> d_savedQueueIndex;
 
   context::CDO<bool> d_conflictHasBeenRaised;

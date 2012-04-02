@@ -83,7 +83,7 @@ private:
     }
   };/* class CDVector<T>::HistoryListCleanUp */
 
-  typedef CDList_BE< HistoryElement,  HistoryListCleanUp > HistoryVector;
+  typedef CDList< HistoryElement,  HistoryListCleanUp > HistoryVector;
   HistoryVector d_history;
 
   Context* d_context;

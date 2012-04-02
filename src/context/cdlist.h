@@ -48,7 +48,7 @@ namespace context {
  *    operator=, and memcpy.
  */
 template <class T, class CleanUpT, class AllocatorT>
-class CDList_BE : public ContextObj {
+class CDList : public ContextObj {
 public:
 
   /** The value type with which this CDList<> was instantiated. */
@@ -104,7 +104,7 @@ protected:
    * d_sizeAlloc are not copied: only the base class information and
    * d_size are needed in restore.
    */
-  CDList_BE(const CDList_BE<T, CleanUp, Allocator>& l) :
+  CDList(const CDList<T, CleanUp, Allocator>& l) :
     ContextObj(l),
     d_list(NULL),
     d_size(l.d_size),
@@ -168,7 +168,7 @@ private:
    * ContextMemoryManager.
    */
   ContextObj* save(ContextMemoryManager* pCMM) {
-    ContextObj* data = new(pCMM) CDList_BE<T, CleanUp, Allocator>(*this);
+    ContextObj* data = new(pCMM) CDList<T, CleanUp, Allocator>(*this);
     Debug("cdlist") << "save " << this
                     << " at level " << this->getContext()->getLevel()
                     << " size at " << this->d_size
@@ -190,7 +190,7 @@ protected:
                     << " data == " << data
                     << " call dtor == " << this->d_callDestructor
                     << " d_list == " << this->d_list << std::endl;
-    truncateList(((CDList_BE<T, CleanUp, Allocator>*)data)->d_size);
+    truncateList(((CDList<T, CleanUp, Allocator>*)data)->d_size);
     Debug("cdlist") << "restore " << this
                     << " level " << this->getContext()->getLevel()
                     << " size back to " << this->d_size
@@ -225,7 +225,7 @@ public:
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList_BE(Context* context,
+  CDList(Context* context,
             bool callDestructor = true,
             const CleanUp& cleanup = CleanUp(),
             const Allocator& alloc = Allocator()) :
@@ -241,7 +241,7 @@ public:
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList_BE(bool allocatedInCMM,
+  CDList(bool allocatedInCMM,
             Context* context,
             bool callDestructor = true,
             const CleanUp& cleanup = CleanUp(),
@@ -258,7 +258,7 @@ public:
   /**
    * Destructor: delete the list
    */
-  ~CDList_BE() throw(AssertionException) {
+  ~CDList() throw(AssertionException) {
     this->destroy();
 
     if(this->d_callDestructor) {
@@ -324,7 +324,7 @@ public:
    * Access to the ith item in the list.
    */
   const T& operator[](size_t i) const {
-    Assert(i < d_size, "index out of bounds in CDList_BE::operator[]");
+    Assert(i < d_size, "index out of bounds in CDList::operator[]");
     return d_list[i];
   }
 
@@ -332,12 +332,12 @@ public:
    * Returns the most recent item added to the list.
    */
   const T& back() const {
-    Assert(d_size > 0, "CDList_BE::back() called on empty list");
+    Assert(d_size > 0, "CDList::back() called on empty list");
     return d_list[d_size - 1];
   }
 
   /**
-   * Iterator for CDList_BE class.  It has to be const because we don't
+   * Iterator for CDList class.  It has to be const because we don't
    * allow items in the list to be changed.  It's a straightforward
    * wrapper around a pointer.  Note that for efficiency, we implement
    * only prefix increment and decrement.  Also note that it's OK to
@@ -349,7 +349,7 @@ public:
 
     const_iterator(T const* it) : d_it(it) {}
 
-    friend class CDList_BE<T, CleanUp, Allocator>;
+    friend class CDList<T, CleanUp, Allocator>;
 
   public:
 
@@ -396,7 +396,7 @@ public:
       T& operator*() {
         return *d_t;
       }
-    };/* class CDList_BE<>::const_iterator::Proxy */
+    };/* class CDList<>::const_iterator::Proxy */
 
     /** Postfix increment: returns Proxy with the old value. */
     Proxy operator++(int) {
@@ -412,7 +412,7 @@ public:
       return e;
     }
 
-  };/* class CDList_BE<>::const_iterator */
+  };/* class CDList<>::const_iterator */
 
   /**
    * Returns an iterator pointing to the first item in the list.
@@ -427,16 +427,16 @@ public:
   const_iterator end() const {
     return const_iterator(static_cast<T const*>(d_list) + d_size);
   }
-};/* class CDList_BE<> */
+};/* class CDList<> */
 
 
 template <class T, class CleanUp>
-class CDList_BE <T, CleanUp, ContextMemoryAllocator<T> > : public ContextObj {
+class CDList <T, CleanUp, ContextMemoryAllocator<T> > : public ContextObj {
   /* CDList is incompatible for use with a ContextMemoryAllocator.
    * Consider using CDChunkList<T> instead.
    *
    * Explanation:
-   * If ContextMemoryAllocator is used, if d_list grows at a deeper context level
+   * If ContextMemoryAllocator is used and d_list grows at a deeper context level
    * the reallocated will be reallocated in a context memory regaion that can be
    * detroyed on pop. To support this, a full copy of d_list would have to be made.
    * As this is unacceptable for performance in other situations, we do not do
