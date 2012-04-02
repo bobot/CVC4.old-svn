@@ -50,6 +50,8 @@ public:
   /** Cache of what nodes have been registered to a literal. */
   typedef __gnu_cxx::hash_map<SatLiteral, TNode, SatLiteralHashFunction> NodeCache;
 
+  typedef __gnu_cxx::hash_map<SatLiteral, Node, SatLiteralHashFunction> NodeCache2;
+
   /** Per node translation information */
   struct TranslationInfo {
     bool recorded;
@@ -69,6 +71,12 @@ protected:
 
   TranslationCache d_translationCache;
   NodeCache d_nodeCache;
+
+  /**
+   * Map between sat literals and the corresponding booleanType
+   * "sat_var_" Nodes created.
+   */
+  NodeCache2 d_nodeCacheSatVar;
 
   /**
    * True if the lit-to-Node map should be kept for all lits, not just
@@ -214,6 +222,13 @@ public:
    * @return the actual node
    */
   TNode getNode(const SatLiteral& literal);
+
+  /**
+   * Get the "sat_var_" node that is represented by the given SatLiteral.
+   * @param literal the literal from the sat solver
+   * @return the actual node
+   */
+  TNode getSatVarNode(const SatLiteral& literal);
 
   /**
    * Returns true if the node has been cached in the translation cache.

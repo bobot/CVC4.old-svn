@@ -74,14 +74,14 @@ void CnfStream::assertClause(TNode node, SatClause& c) {
   Debug("cnf") << "Inserting into stream " << c << endl;
   if(Dump.isOn("clauses")) {
     if(c.size() == 1) {
-      Dump("clauses") << AssertCommand(BoolExpr(getNode(c[0]).toExpr()));
+      Dump("clauses") << AssertCommand(BoolExpr(getSatVarNode(c[0]).toExpr()));
     } else {
       Assert(c.size() > 1);
       NodeBuilder<> b(kind::OR);
-      for(unsigned i = 0; i < c.size(); ++i) {
-        b << getNode(c[i]);
+      for(unsigned int i = 0; i < c.size(); ++i) {
+        b << getSatVarNode(c[i]);
       }
-      Node n = b;
+      Node n(b);
       Dump("clauses") << AssertCommand(BoolExpr(n.toExpr()));
     }
   }
@@ -129,6 +129,8 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
       // Store backward-mappings
       d_nodeCache[lit] = n;
       d_nodeCache[~lit] = n.notNode();
+
+      // TODO : What should go here w.r.t. nodeCacheSatVar ?
     }
     return;
   }
@@ -158,6 +160,8 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
     // Store backward-mappings
     d_nodeCache[lit] = n;
     d_nodeCache[~lit] = n.notNode();
+
+    // TODO : What should go here w.r.t. nodeCacheSatVar ?
   } else {
     // We have a theory atom or variable.
     lit = convertAtom(n);
@@ -178,6 +182,28 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
     lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
     d_translationCache[node].literal = lit;
     d_translationCache[node.notNode()].literal = ~lit;
+
+    if(Dump.isOn("clauses")) {
+      // Name new boolean var
+      stringstream kss;
+      NodeManager* nm = NodeManager::currentNM();
+      kss << "sat_var_" << lit.getSatVariable();
+
+      // Create the booleanType "sat_var_" node, and iff assertion
+      NodeBuilder<> b(kind::IFF);
+      Node sat_var_node = nm->mkVar(kss.str(), nm->booleanType());
+      b << sat_var_node << node;
+
+      Node n(b);
+
+      // for dumping
+      Dump("clauses") << DeclareFunctionCommand(kss.str(), nm->booleanType().toType() );
+      Dump("clauses") << AssertCommand( BoolExpr(n.toExpr()) );
+
+      // remember in (the SatVar) node cache, so we can use these nodes 
+      d_nodeCacheSatVar[lit] = sat_var_node;
+      d_nodeCacheSatVar[~lit] = sat_var_node.notNode();
+    }
   } else {
     // We already have a literal
     lit = getLiteral(node);
@@ -218,6 +244,15 @@ TNode CnfStream::getNode(const SatLiteral& literal) {
   Assert(find != d_nodeCache.end());
   Assert(d_translationCache.find(find->second) != d_translationCache.end());
   Debug("cnf") << "getNode(" << literal << ") => " << find->second << endl;
+  return find->second;
+}
+
+TNode CnfStream::getSatVarNode(const SatLiteral& literal) {
+  Debug("cnf") << "getSatVarNode(" << literal << ")" << endl;
+  NodeCache2::iterator find = d_nodeCacheSatVar.find(literal);
+  Assert(find != d_nodeCacheSatVar.end());
+  // Assert(d_translationCache.find(find->second) != d_translationCache.end());
+  Debug("cnf") << "getSatVarNode(" << literal << ") => " << find->second << endl;
   return find->second;
 }
 
