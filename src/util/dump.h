@@ -23,6 +23,7 @@
 
 #include "util/output.h"
 #include "expr/command.h"
+#include "util/Assert.h"
 
 namespace CVC4 {
 
@@ -47,13 +48,13 @@ public:
 #endif /* CVC4_PORTFOLIO */
   { }
 
-  CVC4dumpstream(std::ostream& os, CommandSequence& commands) throw()
+  CVC4dumpstream(std::ostream& os, CommandSequence *commands) throw()
 #if defined(CVC4_DUMPING) && !defined(CVC4_MUZZLE) && defined(CVC4_PORTFOLIO)
-    : d_os(&os), d_commands(&commands)
+    : d_os(&os), d_commands(commands)
 #elif defined(CVC4_DUMPING) && !defined(CVC4_MUZZLE)
     : d_os(&os)
 #elif defined(CVC4_PORTFOLIO)
-    : d_commands(&commands)
+    : d_commands(commands)
 #endif /* CVC4_PORTFOLIO */
   { }
 
@@ -75,7 +76,7 @@ public:
 /** The dump class */
 class CVC4_PUBLIC DumpC {
   std::set<std::string> d_tags;
-  CommandSequence d_commands;
+  CommandSequence *d_commands;
 
 public:
   CVC4dumpstream operator()(const char* tag) {
@@ -93,8 +94,19 @@ public:
     }
   }
 
-  void clear() { d_commands.clear(); }
-  const CommandSequence& getCommands() const { return d_commands; }
+  void clear() { if(d_commands != NULL) d_commands->clear(); }
+  const CommandSequence& getCommands() const { return *d_commands; }
+  void disableCommands() {
+    if(d_commands != NULL) {
+      delete d_commands;
+    } else {
+      // What should we do here? Crash, raise exception or just...
+      // ...ignore for now
+      Assert(false, "Should not call this function twice, or if command sequence not being used");     // or may be not
+    }
+  }
+  DumpC() { d_commands = new CommandSequence(); }
+  ~DumpC() { if(d_commands != NULL) delete d_commands; }
 
   void declareVar(Expr e, std::string comment) {
     if(isOn("declarations")) {
