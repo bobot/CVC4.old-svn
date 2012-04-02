@@ -213,7 +213,7 @@ private:
    * already substituted for PB versions at solve() time and won't
    * appear here.
    */
-  SubstitutionMap d_pbSubstitutions;
+  SubstitutionMap* d_pbSubstitutions;
 
   /** Counts the number of notifyRestart() calls to the theory. */
   uint32_t d_restartsCounter;

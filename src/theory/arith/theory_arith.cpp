@@ -60,7 +60,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   Theory(THEORY_ARITH, c, u, out, valuation),
   d_hasDoneWorkSinceCut(false),
   d_atomsInContext(c),
-  d_learner(d_pbSubstitutions),
+  d_learner(*d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
   d_constantIntegerVariables(c),
   d_diseq(c),
@@ -68,7 +68,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_tableau(),
   d_linEq(d_partialModel, d_tableau, d_basicVarModelUpdateCallBack),
   d_diosolver(c),
-  d_pbSubstitutions(u),
+  d_pbSubstitutions(new SubstitutionMap(u)),
   d_restartsCounter(0),
   d_rowHasBeenAdded(false),
   d_tableauResetDensity(1.6),
@@ -339,7 +339,7 @@ void TheoryArith::addSharedTerm(TNode n){
 Node TheoryArith::ppRewrite(TNode atom) {
   Debug("arith::preprocess") << "arith::preprocess() : " << atom << endl;
 
-  Node a = d_pbSubstitutions.apply(atom);
+  Node a = d_pbSubstitutions->apply(atom);
 
   if (a != atom) {
     Debug("pb") << "arith::preprocess() : after pb substitutions: " << a << endl;
