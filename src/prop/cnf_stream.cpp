@@ -27,7 +27,7 @@
 #include "util/output.h"
 #include "expr/command.h"
 #include "expr/expr.h"
-#include "prop/sat.h"
+#include "prop/theory_proxy.h"
 
 #include <queue>
 
@@ -44,7 +44,7 @@ namespace CVC4 {
 namespace prop {
 
 
-CnfStream::CnfStream(SatSolverInterface *satSolver, Registrar* registrar, bool fullLitToNodeMap) :
+CnfStream::CnfStream(SatSolver *satSolver, Registrar* registrar, bool fullLitToNodeMap) :
   d_satSolver(satSolver),
   d_fullLitToNodeMap(fullLitToNodeMap),
   d_registrar(registrar) {
@@ -66,7 +66,7 @@ void CnfStream::recordTranslation(TNode node, bool alwaysRecord) {
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(SatSolverInterface* satSolver, Registrar* registrar, bool fullLitToNodeMap) :
+TseitinCnfStream::TseitinCnfStream(SatSolver* satSolver, Registrar* registrar, bool fullLitToNodeMap) :
   CnfStream(satSolver, registrar, fullLitToNodeMap) {
 }
 

@@ -396,14 +396,19 @@ void TheoryUF::ppStaticLearn(TNode n, NodeBuilder<>& learned) {
 }/* TheoryUF::ppStaticLearn() */
 
 EqualityStatus TheoryUF::getEqualityStatus(TNode a, TNode b) {
+
+  // Check for equality (simplest)
   if (d_equalityEngine.areEqual(a, b)) {
     // The terms are implied to be equal
     return EQUALITY_TRUE;
   }
+
+  // Check for disequality
   if (d_equalityEngine.areDisequal(a, b)) {
-    // The rems are implied to be dis-equal
+    // The terms are implied to be dis-equal
     return EQUALITY_FALSE;
   }
+
   // All other terms we interpret as dis-equal in the model
   return EQUALITY_FALSE_IN_MODEL;
 }
@@ -413,17 +418,19 @@ void TheoryUF::addSharedTerm(TNode t) {
   d_equalityEngine.addTriggerTerm(t);
 }
 
-void TheoryUF::computeCareGraph(CareGraph& careGraph) {
+void TheoryUF::computeCareGraph() {
 
   if (d_sharedTerms.size() > 0) {
 
-    std::vector<CarePair> currentPairs;
+    vector< pair<TNode, TNode> > currentPairs;
 
     // Go through the function terms and see if there are any to split on
     unsigned functionTerms = d_functionsTerms.size();
     for (unsigned i = 0; i < functionTerms; ++ i) {
+
       TNode f1 = d_functionsTerms[i];
       Node op = f1.getOperator();
+
       for (unsigned j = i + 1; j < functionTerms; ++ j) {
 
         TNode f2 = d_functionsTerms[j];
@@ -462,24 +469,43 @@ void TheoryUF::computeCareGraph(CareGraph& careGraph) {
             break;
           }
 
-	    	  if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
-	    	    // Not connected to shared terms, we don't care
-	    	    continue;
-	    	  }
-
           if (eqStatusUf == EQUALITY_TRUE) {
-            // We don't neeed this one
+            // We don't need this one
             Debug("uf::sharing") << "TheoryUf::computeCareGraph(): equal" << std::endl;
             continue;
           }
 
+          if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
+            // Not connected to shared terms, we don't care
+            continue;
+          }
+
+          // Get representative trigger terms
+          TNode x_shared = d_equalityEngine.getTriggerTermRepresentative(x);
+          TNode y_shared = d_equalityEngine.getTriggerTermRepresentative(y);
+
+          EqualityStatus eqStatusDomain = d_valuation.getEqualityStatus(x_shared, y_shared);
+          switch (eqStatusDomain) {
+          case EQUALITY_FALSE_AND_PROPAGATED:
+          case EQUALITY_FALSE:
+          case EQUALITY_FALSE_IN_MODEL:
+            somePairIsDisequal = true;
+            continue;
+            break;
+          default:
+            break;
+            // nothing
+          }
+
           // Otherwise, we need to figure it out
           Debug("uf::sharing") << "TheoryUf::computeCareGraph(): adding to care-graph" << std::endl;
-          currentPairs.push_back(CarePair(x, y, THEORY_UF));
+          currentPairs.push_back(make_pair(x_shared, y_shared));
         }
 
         if (!somePairIsDisequal) {
-          careGraph.insert(careGraph.end(), currentPairs.begin(), currentPairs.end());
+          for (unsigned i = 0; i < currentPairs.size(); ++ i) {
+            addCarePair(currentPairs[i].first, currentPairs[i].second);
+          }
         }
       }
     }

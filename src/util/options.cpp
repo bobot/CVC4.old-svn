@@ -35,6 +35,7 @@
 #include "util/options.h"
 #include "util/output.h"
 #include "util/dump.h"
+#include "prop/sat_solver_factory.h"
 
 #include "cvc4autoconfig.h"
 
@@ -78,6 +79,7 @@ Options::Options() :
   lazyDefinitionExpansion(false),
   printWinner(false),
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
+  simplificationModeSetByUser(false),
   doStaticLearning(true),
   interactive(false),
   interactiveSetByUser(false),
@@ -95,7 +97,6 @@ Options::Options() :
   replayFilename(""),
   replayStream(NULL),
   replayLog(NULL),
-  variableRemovalEnabled(false),
   arithPropagation(true),
   satRandomFreq(0.0),
   satRandomSeed(91648253),// Minisat's default value
@@ -164,6 +165,7 @@ Additional CVC4 options:\n\
    --debug | -d           debug something (e.g. -d arith), can repeat\n\
    --show-debug-tags      show all avalable tags for debugging\n\
    --show-trace-tags      show all avalable tags for tracing\n\
+   --show-sat-solvers     show all available SAT solvers\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
    --print-expr-types     print types with variables when printing exprs\n\
    --lazy-definition-expansion expand define-funs/LAMBDAs lazily\n\
@@ -178,7 +180,6 @@ Additional CVC4 options:\n\
    --random-seed=S        sets the random seed for the sat solver\n\
    --restart-int-base=I   sets the base restart interval for the sat solver (I=25 by default)\n\
    --restart-int-inc=F    sets the restart interval increase factor for the sat solver (F=3.0 by default)\n\
-   --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
@@ -192,7 +193,6 @@ Portfolio specific options:\n\
 ";
 
 
-#warning "Change CL options as --disable-variable-removal cannot do anything currently."
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -330,6 +330,7 @@ enum OptionValue {
   USE_MMAP,
   SHOW_DEBUG_TAGS,
   SHOW_TRACE_TAGS,
+  SHOW_SAT_SOLVERS,
   SHOW_CONFIG,
   STRICT_PARSING,
   DEFAULT_EXPR_DEPTH,
@@ -355,7 +356,6 @@ enum OptionValue {
   RANDOM_SEED,
   SAT_RESTART_FIRST,
   SAT_RESTART_INC,
-  ARITHMETIC_VARIABLE_REMOVAL,
   ARITHMETIC_PROPAGATION,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
@@ -407,6 +407,7 @@ static struct option cmdlineOptions[] = {
   { "no-theory-registration", no_argument, NULL, NO_THEORY_REGISTRATION },
   { "show-debug-tags", no_argument  , NULL, SHOW_DEBUG_TAGS },
   { "show-trace-tags", no_argument  , NULL, SHOW_TRACE_TAGS },
+  { "show-sat-solvers", no_argument  , NULL, SHOW_SAT_SOLVERS },
   { "show-config", no_argument      , NULL, SHOW_CONFIG },
   { "segv-nospin", no_argument      , NULL, SEGV_NOSPIN },
   { "help"       , no_argument      , NULL, 'h'         },
@@ -447,7 +448,6 @@ static struct option cmdlineOptions[] = {
   { "restart-int-base", required_argument, NULL, SAT_RESTART_FIRST },
   { "restart-int-inc", required_argument, NULL, SAT_RESTART_INC },
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
-  { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
   { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
@@ -680,10 +680,13 @@ throw(OptionException) {
     case SIMPLIFICATION_MODE:
       if(!strcmp(optarg, "batch")) {
         simplificationMode = SIMPLIFICATION_MODE_BATCH;
+        simplificationModeSetByUser = true;
       } else if(!strcmp(optarg, "incremental")) {
         simplificationMode = SIMPLIFICATION_MODE_INCREMENTAL;
+        simplificationModeSetByUser = true;
       } else if(!strcmp(optarg, "none")) {
         simplificationMode = SIMPLIFICATION_MODE_NONE;
+        simplificationModeSetByUser = true;
       } else if(!strcmp(optarg, "help")) {
         puts(simplificationHelp.c_str());
         exit(1);
@@ -789,10 +792,6 @@ throw(OptionException) {
 #else /* CVC4_REPLAY */
       throw OptionException("The replay feature was disabled in this build of CVC4.");
 #endif /* CVC4_REPLAY */
-      break;
-
-    case ARITHMETIC_VARIABLE_REMOVAL:
-      variableRemovalEnabled = false;
       break;
 
     case ARITHMETIC_PROPAGATION:
@@ -941,6 +940,21 @@ throw(OptionException) {
       exit(0);
       break;
 
+    case SHOW_SAT_SOLVERS:
+    {
+      vector<string> solvers;
+      prop::SatSolverFactory::getSolverIds(solvers);
+      printf("Available SAT solvers: ");
+      for (unsigned i = 0; i < solvers.size(); ++ i) {
+        if (i > 0) {
+          printf(", ");
+        }
+        printf("%s", solvers[i].c_str());
+      }
+      printf("\n");
+      exit(0);
+      break;
+    }
     case SHOW_CONFIG:
       fputs(Configuration::about().c_str(), stdout);
       printf("\n");

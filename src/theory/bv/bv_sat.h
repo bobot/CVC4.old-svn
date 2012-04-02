@@ -37,7 +37,7 @@
 #include "util/stats.h"
 #include "bitblast_strategies.h"
 
-#include "prop/sat_module.h"
+#include "prop/sat_solver.h"
 
 namespace CVC4 {
 
@@ -79,7 +79,7 @@ class Bitblaster {
   AtomSet                      d_bitblastedAtoms;
   
   context::CDList<prop::SatLiteral>  d_assertedAtoms; /**< context dependent list storing the atoms
-                                              currently asserted by the DPLL SAT solver. */
+                                                       currently asserted by the DPLL SAT solver. */
 
   /// helper methods
   bool          hasBBAtom(TNode node);    

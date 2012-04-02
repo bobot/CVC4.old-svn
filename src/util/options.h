@@ -123,6 +123,8 @@ struct CVC4_PUBLIC Options {
 
   /** When/whether to perform nonclausal simplifications. */
   SimplificationMode simplificationMode;
+  /** Whether the user set the nonclausal simplification mode. */
+  bool simplificationModeSetByUser;
 
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
@@ -175,9 +177,6 @@ struct CVC4_PUBLIC Options {
 
   /** Log to write replay instructions to; NULL if not logging. */
   std::ostream* replayLog;
-
-  /** Determines whether arithmetic will try to variables. */
-  bool variableRemovalEnabled;
 
   /** Turn on and of arithmetic propagation. */
   bool arithPropagation;

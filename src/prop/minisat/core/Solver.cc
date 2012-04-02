@@ -25,8 +25,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "prop/minisat/mtl/Sort.h"
 #include "prop/minisat/core/Solver.h"
 
-#include "prop/sat.h"
-#include "prop/sat_module.h"
+#include "prop/theory_proxy.h"
+#include "prop/minisat/minisat.h"
 #include "util/output.h"
 #include "expr/command.h"
 #include "proof/proof_manager.h"
@@ -179,9 +179,9 @@ CRef Solver::reason(Var x) {
 
     // Get the explanation from the theory
     SatClause explanation_cl;
-    proxy->explainPropagation(DPLLMinisatSatSolver::toSatLiteral(l), explanation_cl);
+    proxy->explainPropagation(MinisatSatSolver::toSatLiteral(l), explanation_cl);
     vec<Lit> explanation;
-    DPLLMinisatSatSolver::toMinisatClause(explanation_cl, explanation); 
+    MinisatSatSolver::toMinisatClause(explanation_cl, explanation); 
 
     // Sort the literals by trail index level
     lemma_lt lt(*this);
@@ -344,7 +344,7 @@ void Solver::cancelUntil(int level) {
         int currentLevel = decisionLevel();
         for(int i = variables_to_register.size() - 1; i >= 0 && variables_to_register[i].level > currentLevel; --i) {
           variables_to_register[i].level = currentLevel;
-          proxy->variableNotify(DPLLMinisatSatSolver::toSatVariable(variables_to_register[i].var));
+          proxy->variableNotify(MinisatSatSolver::toSatVariable(variables_to_register[i].var));
         }
     }
 }
@@ -362,7 +362,7 @@ Lit Solver::pickBranchLit()
     Lit nextLit;
 
 #ifdef CVC4_REPLAY
-    nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextReplayDecision());
+    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextReplayDecision());
 
     if (nextLit != lit_Undef) {
       return nextLit;
@@ -370,7 +370,7 @@ Lit Solver::pickBranchLit()
 #endif /* CVC4_REPLAY */
 
     // Theory requests
-    nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
     while (nextLit != lit_Undef) {
       if(value(var(nextLit)) == l_Undef) {
         Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
@@ -378,7 +378,7 @@ Lit Solver::pickBranchLit()
       } else {
         Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit << " but it already has an assignment" << std::endl;
       }
-      nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
     }
 
     Var next = var_Undef;
@@ -643,7 +643,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     }
     if (theory[var(p)]) {
       // Enqueue to the theory
-      proxy->enqueueTheoryLiteral(DPLLMinisatSatSolver::toSatLiteral(p));
+      proxy->enqueueTheoryLiteral(MinisatSatSolver::toSatLiteral(p));
     }
 }
 
@@ -709,7 +709,7 @@ void Solver::propagateTheory() {
   proxy->theoryPropagate(propagatedLiteralsClause);
 
   vec<Lit> propagatedLiterals;
-  DPLLMinisatSatSolver::toMinisatClause(propagatedLiteralsClause, propagatedLiterals); 
+  MinisatSatSolver::toMinisatClause(propagatedLiteralsClause, propagatedLiterals); 
 
   int oldTrailSize = trail.size();
   Debug("minisat") << "old trail size is " << oldTrailSize << ", propagating " << propagatedLiterals.size() << " lits..." << std::endl;
@@ -983,7 +983,7 @@ lbool Solver::search(int nof_conflicts)
             cancelUntil(backtrack_level);
 
             SatClause c;
-            DPLLMinisatSatSolver::toSatClause(learnt_clause, c);
+            MinisatSatSolver::toSatClause(learnt_clause, c);
             proxy->notifyNewLemma( c );
 
             // Assert the conflict clause and the asserting literal
@@ -1084,7 +1084,7 @@ lbool Solver::search(int nof_conflicts)
                 }
 
 #ifdef CVC4_REPLAY
-                proxy->logDecision(DPLLMinisatSatSolver::toSatLiteral(next));
+                proxy->logDecision(MinisatSatSolver::toSatLiteral(next));
 #endif /* CVC4_REPLAY */
             }
 
