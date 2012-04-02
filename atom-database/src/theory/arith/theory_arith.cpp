@@ -157,7 +157,12 @@ TheoryArith::Statistics::~Statistics(){
 }
 
 /* procedure AssertLower( x_i >= c_i ) */
-Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original){
+Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, Constraint constraint){
+  Assert(constraint != NullConstraint);
+  Assert(x_i == constraint->getVariable());
+  Assert(c_i == constraint->getValue());
+  Assert(original == constraint->getLiteral());
+
   Debug("arith") << "AssertLower(" << x_i << " " << c_i << ")"<< std::endl;
 
   if(isInteger(x_i)){
@@ -195,7 +200,7 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original){
     }
   }
 
-  d_partialModel.setLowerConstraint(x_i,original, NullConstraint);
+  d_partialModel.setLowerConstraint(x_i,original, constraint);
   d_partialModel.setLowerBound(x_i, c_i);
 
   d_updatedBounds.softAdd(x_i);
@@ -214,8 +219,13 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original){
 }
 
 /* procedure AssertUpper( x_i <= c_i) */
-Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original){
+Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original, Constraint constraint){
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
+  AssertArgument(constraint != NullConstraint,
+                 "AssertUpper() called on a NullConstraint.");
+  Assert(x_i == constraint->getVariable());
+  Assert(c_i == constraint->getValue());
+  Assert(original == constraint->getLiteral());
 
   if(isInteger(x_i)){
     c_i = DeltaRational(c_i.floor());
@@ -254,7 +264,7 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original){
     }
   }
 
-  d_partialModel.setUpperConstraint(x_i,original, NullConstraint);
+  d_partialModel.setUpperConstraint(x_i,original, constraint);
   d_partialModel.setUpperBound(x_i, c_i);
 
   d_updatedBounds.softAdd(x_i);
@@ -273,10 +283,16 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original){
 }
 
 
-/* procedure AssertLower( x_i == c_i ) */
-Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode original){
+/* procedure AssertEquality( x_i == c_i ) */
+Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode original, Constraint constraint){
 
   Debug("arith") << "AssertEquality(" << x_i << " " << c_i << ")"<< std::endl;
+
+  AssertArgument(constraint != NullConstraint,
+                 "AssertUpper() called on a NullConstraint.");
+  Assert(x_i == constraint->getVariable());
+  Assert(c_i == constraint->getValue());
+  Assert(original == constraint->getLiteral());
 
   int cmpToLB = d_partialModel.cmpToLowerBound(x_i, c_i);
   int cmpToUB = d_partialModel.cmpToUpperBound(x_i, c_i);
@@ -313,10 +329,10 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
   // Don't bother to check whether x_i != c_i is in d_diseq
   // The a and (not a) should never be on the fact queue
 
-  d_partialModel.setLowerConstraint(x_i,original, NullConstraint);
+  d_partialModel.setLowerConstraint(x_i,original, constraint);
   d_partialModel.setLowerBound(x_i, c_i);
 
-  d_partialModel.setUpperConstraint(x_i,original, NullConstraint);
+  d_partialModel.setUpperConstraint(x_i,original, constraint);
   d_partialModel.setUpperBound(x_i, c_i);
 
 
@@ -348,7 +364,8 @@ Node TheoryArith::ppRewrite(TNode atom) {
     Debug("pb") << "arith::preprocess() : after pb substitutions and rewriting: "
                 << a << endl;
     Debug("arith::preprocess") << "arith::preprocess() :"
-                               << "after pb substitutions and rewriting: " << a << endl;
+                               << "after pb substitutions and rewriting: "
+                               << a << endl;
   }
 
   if (a.getKind() == kind::EQUAL) {
@@ -611,7 +628,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
     c->setPreregistered();
   }
 
-  Debug("arith::preregister") << "end arith::preRegisterTerm(" << n <<")" << endl;
+  Debug("arith::preregister") << "end arith::preRegisterTerm("<< n <<")" << endl;
 }
 
 
@@ -820,45 +837,47 @@ Node TheoryArith::callDioSolver(){
 }
 
 Node TheoryArith::assertionCases(TNode assertion){
-  Constraint c = d_constraintDatabase.lookup(assertion);
+  Constraint constraint = d_constraintDatabase.lookup(assertion);
 
   Kind simpleKind = simplifiedKind(assertion);
   Assert(simpleKind != UNDEFINED_KIND);
-  Assert(c != NullConstraint || simpleKind == EQUAL || simpleKind == DISTINCT );
+  Assert(constraint != NullConstraint ||
+         simpleKind == EQUAL ||
+         simpleKind == DISTINCT );
   if(simpleKind == EQUAL || simpleKind == DISTINCT){
     Node eq = (simpleKind == DISTINCT) ? assertion[0] : assertion;
 
     if(!isSetup(eq)){
       //The previous code was equivalent to:
       setupAtom(eq, false);
-      //We can try:
-      //setupAtom(eq, true);
       addToContext(eq);
-      c = d_constraintDatabase.lookup(assertion);
+      constraint = d_constraintDatabase.lookup(assertion);
     }
   }
-  Assert(c != NullConstraint);
+  Assert(constraint != NullConstraint);
 
   ArithVar x_i = determineLeftVariable(assertion, simpleKind);
   DeltaRational c_i = determineRightConstant(assertion, simpleKind);
 
-  Assert(c->getVariable() == x_i);
-  Assert(c->getValue() == c_i);
+  Assert(constraint->getVariable() == x_i);
+  Assert(constraint->getValue() == c_i);
 
   Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
                               <<"(" << assertion
                               << " \\-> "
                               << x_i<<" "<< simpleKind <<" "<< c_i << ")" << std::endl;
 
+  Debug("arith::constraint") << "arith constraint " << constraint << std::endl;
+
   switch(simpleKind){
   case LEQ:
   case LT:
-    return  AssertUpper(x_i, c_i, assertion);
+    return  AssertUpper(x_i, c_i, assertion, constraint);
   case GEQ:
   case GT:
-    return AssertLower(x_i, c_i, assertion);
+    return AssertLower(x_i, c_i, assertion, constraint);
   case EQUAL:
-    return AssertEquality(x_i, c_i, assertion);
+    return AssertEquality(x_i, c_i, assertion, constraint);
   case DISTINCT:
     {
       d_diseq.insert(assertion);
