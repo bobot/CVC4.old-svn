@@ -242,7 +242,11 @@ void CheckSatCommand::printResult(std::ostream& out) const throw() {
 }
 
 Command* CheckSatCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
-  CheckSatCommand* c = new CheckSatCommand(d_expr.exportTo(exprManager, variableMap));
+  CheckSatCommand* c;
+  if(d_expr.isNull())
+    c = new CheckSatCommand(Expr());
+  else
+   c = new CheckSatCommand(d_expr.exportTo(exprManager, variableMap));
   c->d_result = d_result;
   return c;
 }
@@ -344,11 +348,13 @@ CommandSequence::CommandSequence() throw() :
 
 CommandSequence::~CommandSequence() throw() {
   for(unsigned i = d_index; i < d_commandSequence.size(); ++i) {
+    Debug("commandseq") << (void*)(this) << " deleting "<< (void*)(d_commandSequence[i]) <<  " '" << d_commandSequence[i] << "'" << endl;
     delete d_commandSequence[i];
   }
 }
 
 void CommandSequence::addCommand(Command* cmd) throw() {
+  Debug("commandseq") << (void*)(this) << " adding '" << cmd << "'" << endl;
   d_commandSequence.push_back(cmd);
 }
 
