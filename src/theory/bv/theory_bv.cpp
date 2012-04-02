@@ -70,11 +70,9 @@ void TheoryBV::preRegisterTerm(TNode node) {
       node.getKind() == kind::BITVECTOR_ULE ||
       node.getKind() == kind::BITVECTOR_SLT ||
       node.getKind() == kind::BITVECTOR_SLE) {
+    d_bitblaster->bitblast(node);
     d_bitblaster->addAtom(node); 
   }
-      
-  //marker literal: bitblast all terms before we start
-  d_bitblaster->bitblast(node); 
 }
 
 void TheoryBV::check(Effort e) {
@@ -168,8 +166,8 @@ void TheoryBV::propagate(Effort e) {
   d_bitblaster->getPropagations(propagations);
 
   // propagate the facts on the propagation queue
-  for (unsigned i = d_propagationHead; i < d_propagationQueue.size(); ++i) {
-    TNode node = d_propagationQueue[i];
+  for (unsigned i = 0; i < propagations.size(); ++ i) {
+    TNode node = propagations[i];
     BVDebug("bitvector") << "TheoryBV::propagate    " << node <<" \n";
     if (d_valuation.getSatValue(node) == Node::null()) {
       d_out->propagate(node);
@@ -177,7 +175,6 @@ void TheoryBV::propagate(Effort e) {
     }
   }
 
-  d_propagationHead = d_propagationQueue.size(); 
 }
 
 Node TheoryBV::explain(TNode n) {

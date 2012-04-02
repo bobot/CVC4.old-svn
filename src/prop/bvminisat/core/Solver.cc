@@ -478,20 +478,9 @@ lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
   assumptions.push(p);
   conflict.clear();
 
-  // make a fake decision
-  if (value(p) == l_True) {
-    // Dummy decision level:
-    newDecisionLevel();
-  } else if (value(p) == l_False) {
-    analyzeFinal(~p, conflict);
-    return l_False;
-  } else {
-    only_bcp = true;
-    return search(100*assumptions.size());
-  }
-
-  // no conflict
-  return l_True;
+  // runt the propagation
+  only_bcp = true;
+  return search(100*assumptions.size());
 }
 
 /*_________________________________________________________________________________________________
