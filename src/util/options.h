@@ -255,8 +255,14 @@ struct CVC4_PUBLIC Options {
   /** 
    * In multi-threaded setting print output of each thread at the
    * end of run, separated by a divider ("----").
-   **/
+   */
   bool separateOutput;
+
+  /**
+   * For portfolio driver, preprocess before creating doing multiple
+   * solves
+   */
+  bool preprocessFirst;
 
   /** Filter depending on length of lemma */
   int sharingFilterByLength;

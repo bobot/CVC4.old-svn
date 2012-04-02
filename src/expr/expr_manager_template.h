@@ -125,6 +125,8 @@ public:
   /** Get this node manager's options */
   const Options* getOptions() const;
 
+  void setOptions(const Options& options);
+
   /** Get the type for booleans */
   BooleanType booleanType() const;
 

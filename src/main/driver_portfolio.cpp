@@ -443,38 +443,48 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   /************************ Preprocess (CNF-ication) ************************/
 
-  SmtEngine *smt = new SmtEngine(exprMgr);
+  if(options.preprocessFirst) {
 
-  // save dump related options
-  std::ostream& orig_dump_os = Dump.getStream();
-  std::set<std::string> orig_dump_tags = Dump.getTags();
-  // set our own
-  std::string cnfify_dump_tags[3] = {"benchmark", "declarations", "clauses"};
-  Dump.setStream(nullCvc4Stream);
-  Dump.setTags(std::set<std::string>(cnfify_dump_tags,cnfify_dump_tags+3));
+    Debug("preprocessFirst") << "Cnf-ying" << endl;
 
-  // do the preprocessing
-  Options options_cnfify = options;
-  options_cnfify.preprocessOnly = true;
-  options_cnfify.out = &CVC4::null_os;
-  doCommand(*smt, seq, options_cnfify);
+    Options options_cnfify = options;
+    options_cnfify.preprocessOnly = true;
+    options_cnfify.out = &CVC4::null_os;
+    exprMgr->setOptions(options_cnfify);
 
-  // store cnf-ied benchmark
-  delete seq;
-  seq = Dump.getCommands().clone();   // This can be huge. Should try avoiding another clone!
+    // save dump related options
+    std::ostream& orig_dump_os = Dump.getStream();
+    std::set<std::string> orig_dump_tags = Dump.getTags();
 
-  // restore dump related options
-  Dump.setStream(orig_dump_os);
-  Dump.setTags(orig_dump_tags);
+    // set our own
+    std::string cnfify_dump_tags[3] = {"benchmark", "declarations", "clauses"};
+    Dump.setStream(nullCvc4Stream);
+    Dump.setTags(std::set<std::string>(cnfify_dump_tags,cnfify_dump_tags+3));
 
-  // get rid of stuff we created just for this preprocessing
-  delete smt;
+    // do the preprocessing
+    SmtEngine *smt = new SmtEngine(exprMgr);
+    doCommand(*smt, seq, options_cnfify);
 
-  // disable stuff (saving as command seq) not needed anymore
-  Dump.clear();
-  Dump.disableCommands();
+    // store cnf-ied benchmark
+    delete seq;
+    seq = Dump.getCommands().clone();   // This can be huge. Should try avoiding another clone!
 
+    // restore dump related options
+    Dump.setStream(orig_dump_os);
+    Dump.setTags(orig_dump_tags);
 
+    // get rid of stuff we created just for this preprocessing
+    delete smt;
+
+    // disable stuff (saving as command seq) not needed anymore
+    Dump.clear();
+    Dump.disableCommands();
+
+    exprMgr->setOptions(threadOptions[0]);
+
+    Debug("preprocessFirst") << seq << endl;
+
+  }
   /****************** Command Seq Export *****************/
 
   // Create the expression manager

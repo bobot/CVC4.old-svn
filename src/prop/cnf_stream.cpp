@@ -183,7 +183,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
     d_translationCache[node].literal = lit;
     d_translationCache[node.notNode()].literal = ~lit;
 
-    if(Dump.isOn("clauses")) {
+    if(Dump.isOn("clauses") && theoryLiteral == false ) {
       // Name new boolean var
       stringstream kss;
       NodeManager* nm = NodeManager::currentNM();
@@ -250,10 +250,17 @@ TNode CnfStream::getNode(const SatLiteral& literal) {
 TNode CnfStream::getSatVarNode(const SatLiteral& literal) {
   Debug("cnf") << "getSatVarNode(" << literal << ")" << endl;
   NodeCache2::iterator find = d_nodeCacheSatVar.find(literal);
-  Assert(find != d_nodeCacheSatVar.end());
+
+  TNode n;
+
+  if( find == d_nodeCacheSatVar.end() )
+    n = getNode(literal);
+  else
+    n = find->second;
+
   // Assert(d_translationCache.find(find->second) != d_translationCache.end());
-  Debug("cnf") << "getSatVarNode(" << literal << ") => " << find->second << endl;
-  return find->second;
+  Debug("cnf") << "getSatVarNode(" << literal << ") => " << n << endl;
+  return n;
 }
 
 SatLiteral CnfStream::convertAtom(TNode node) {

@@ -115,6 +115,7 @@ Options::Options() :
   threadArgv(),
   thread_id(-1),
   separateOutput(false),
+  preprocessFirst(true),
   sharingFilterByLength(-1)
 {
 }
@@ -182,9 +183,12 @@ Additional CVC4 options:\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
-   --threads=N            sets the number of solver threads\n\
+\n\
+Portfolio specific options:\n\
+   --threads=N            sets the number of solver threads (default: 2)\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
+   --preprocess-first     toggle preprocessing before splitting (default: true)\n\
 ";
 
 
@@ -361,6 +365,7 @@ enum OptionValue {
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
   PORTFOLIO_FILTER_LENGTH,
+  PORTFOLIO_PREPROCESS_FIRST,
   TIME_LIMIT,
   TIME_LIMIT_PER,
   RESOURCE_LIMIT,
@@ -450,6 +455,7 @@ static struct option cmdlineOptions[] = {
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
+  { "preprocess-first", no_argument, NULL, PORTFOLIO_PREPROCESS_FIRST },
   { "tlimit"     , required_argument, NULL, TIME_LIMIT  },
   { "tlimit-per" , required_argument, NULL, TIME_LIMIT_PER },
   { "rlimit"     , required_argument, NULL, RESOURCE_LIMIT       },
@@ -983,6 +989,10 @@ throw(OptionException) {
     case PORTFOLIO_FILTER_LENGTH:
       sharingFilterByLength = atoi(optarg);
       break; 
+
+    case PORTFOLIO_PREPROCESS_FIRST:
+      preprocessFirst = not preprocessFirst;
+      break;
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.

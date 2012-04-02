@@ -60,7 +60,7 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
   BVDebug("bitvector-preregister") << "TheoryBV::preRegister(" << node << ")" << std::endl;
   //marker literal: bitblast all terms before we start
-  d_bitblaster->bitblast(node); 
+  //  d_bitblaster->bitblast(node); 
 }
 
 void TheoryBV::check(Effort e) {

@@ -276,6 +276,11 @@ public:
     return &d_options;
   }
 
+  /** Set this node manager's options */
+  void setOptions(const Options &options) {
+    d_options = options;
+  }
+
   /** Get this node manager's statistics registry */
   StatisticsRegistry* getStatisticsRegistry() const {
     return d_statisticsRegistry;
