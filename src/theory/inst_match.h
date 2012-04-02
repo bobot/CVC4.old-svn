@@ -284,25 +284,27 @@ private:
   std::vector< InstMatch > d_partial;
   /** eq class */
   Node d_eq_class;
+  /** for arithmetic matching */
+  std::map< Node, Node > d_arith_coeffs;
   /** initialize pattern */
   void initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe );
   void initializePattern( Node pat, QuantifiersEngine* qe );
-  /** for arithmetic */
-  bool initializePatternArithmetic( Node n );
-  bool getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe );
 public:
   enum {
+    //options for producing matches
     MATCH_GEN_DEFAULT = 0,     
     MATCH_GEN_EFFICIENT_E_MATCH,   //generate matches via Efficient E-matching for SMT solvers
+    //others (internally used)
+    MATCH_GEN_INTERNAL_ARITHMETIC,
+    MATCH_GEN_INTERNAL_ERROR,
   };
-private:
-  /** for arithmetic matching */
-  std::map< Node, Node > d_arith_coeffs;
 private:
   /** get the next match.  must call d_cg->reset( ... ) before using. 
       only valid for use where !d_match_pattern.isNull().
   */
   bool getNextMatch2( InstMatch& m, QuantifiersEngine* qe );
+  /** for arithmetic */
+  bool getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe );
 public:
   /** get the match against ground term or formula t.
       d_match_mattern and t should have the same shape.

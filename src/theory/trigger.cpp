@@ -262,7 +262,8 @@ bool Trigger::isUsableTrigger( std::vector< Node >& nodes, Node f ){
 bool Trigger::isUsable( Node n, Node f ){
   if( n.getAttribute(InstConstantAttribute())==f ){
     if( n.getKind()!=APPLY_UF && n.getKind()!=INST_CONSTANT ){
-      return false;
+      std::map< Node, Node > coeffs;
+      return getPatternArithmetic( n, coeffs );
     }else{
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
         if( !isUsable( n[i], f ) ){
@@ -277,8 +278,8 @@ bool Trigger::isUsable( Node n, Node f ){
 }
 
 bool Trigger::isUsableTrigger( Node n, Node f ){
-  return n.getAttribute(InstConstantAttribute())==f && n.getKind()==APPLY_UF;
-  //return n.hasAttribute(InstConstantAttribute()) && n.getKind()==APPLY_UF && isUsable( n, f );
+  //return n.getAttribute(InstConstantAttribute())==f && n.getKind()==APPLY_UF;
+  return n.getAttribute(InstConstantAttribute())==f && isUsable( n, f );
 }
 /** filter all nodes that have instances */
 void Trigger::filterInstances( std::vector< Node >& nodes ){
@@ -460,3 +461,40 @@ void Trigger::getVarContains( std::vector< Node >& pats, std::map< Node, std::ve
   }
 }
 
+bool Trigger::getPatternArithmetic( Node n, std::map< Node, Node >& coeffs ){
+  if( n.getKind()==PLUS ){
+    Assert( coeffs.empty() );
+    NodeBuilder<> t(kind::PLUS);
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( n[i].hasAttribute(InstConstantAttribute()) ){
+        if( n[i].getKind()==INST_CONSTANT ){
+          coeffs[ n[i] ] = Node::null();
+        }else if( !getPatternArithmetic( n[i], coeffs ) ){
+          coeffs.clear();
+          return false;
+        }
+      }else{
+        t << n[i];
+      }
+    }
+    if( t.getNumChildren()==0 ){
+      coeffs[ Node::null() ] = NodeManager::currentNM()->mkConst( Rational(0) );
+    }else if( t.getNumChildren()==1 ){
+      coeffs[ Node::null() ]  = t.getChild( 0 );
+    }else{
+      coeffs[ Node::null() ]  = t;
+    }
+    return true;
+  }else if( n.getKind()==MULT ){
+    if( n[0].getKind()==INST_CONSTANT ){
+      Assert( !n[1].hasAttribute(InstConstantAttribute()) );
+      coeffs[ n[0] ] = n[1];
+      return true;
+    }else if( n[1].getKind()==INST_CONSTANT ){
+      Assert( !n[0].hasAttribute(InstConstantAttribute()) );
+      coeffs[ n[1] ] = n[0];
+      return true;
+    }
+  }
+  return false;
+}

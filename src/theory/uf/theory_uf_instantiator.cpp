@@ -540,6 +540,8 @@ void InstantiatorTheoryUf::preRegisterTerm( Node t ){
   }
   if( t.hasAttribute(InstConstantAttribute()) ){
     setHasConstraintsFrom( t.getAttribute(InstConstantAttribute()) );
+  }else if( t.getKind()==NOT && t[0].hasAttribute(InstConstantAttribute()) ){
+    setHasConstraintsFrom( t[0].getAttribute(InstConstantAttribute()) );
   }
 }
 

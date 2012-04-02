@@ -141,6 +141,8 @@ public:
   static bool isVariableSubsume( Node n1, Node n2 );
   /** get var contains */
   static void getVarContains( std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains );
+  /** get pattern arithmetic */
+  static bool getPatternArithmetic( Node n, std::map< Node, Node >& coeffs );
 
   inline void toStream(std::ostream& out) const {
     out << "TRIGGER( ";

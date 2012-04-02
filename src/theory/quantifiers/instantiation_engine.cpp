@@ -245,6 +245,8 @@ void InstantiationEngine::registerQuantifier( Node f ){
       //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
       //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
       //d_out->dependentDecision( quant, cel );
+      //unless it is pure arithmetic, UF instantiator will deal with this quantifier
+
     }else{
       Node ceBody = getQuantifiersEngine()->getSubstitutedNode( f[1], f );
       getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
@@ -274,7 +276,7 @@ void InstantiationEngine::assertNode( Node n ){
   }
 }
 
-bool hasApplyUf( Node f ){
+bool InstantiationEngine::hasApplyUf( Node f ){
   if( f.getKind()==APPLY_UF ){
     return true;
   }else{
@@ -286,20 +288,23 @@ bool hasApplyUf( Node f ){
     return false;
   }
 }
+bool InstantiationEngine::hasNonArithmeticVariable( Node f ){
+  for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+    TypeNode tn = f[0][i].getType();
+    if( !tn.isInteger() && !tn.isReal() ){
+      return true;
+    }
+  }
+  return false;
+}
 
 bool InstantiationEngine::doCbqi( Node f ){
   if( Options::current()->cbqiSetByUser ){
     return Options::current()->cbqi;
   }else if( Options::current()->cbqi ){
     //if quantifier has a non-arithmetic variable, then do not use cbqi
-    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-      TypeNode tn = f[0][i].getType();
-      if( !tn.isInteger() && !tn.isReal() ){
-        return false;
-      }
-    }
     //if quantifier has an APPLY_UF term, then do not use cbqi
-    return !hasApplyUf( f[1] );
+    return !hasNonArithmeticVariable( f ) && !hasApplyUf( f[1] );
   }else{
     return false;
   }
@@ -344,6 +349,8 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
       InstConstantAttribute ica;
       n.setAttribute(ica,f);
     }
+  }else{
+    Debug("cbqi-debug") << "Already has attribute " << n << std::endl;
   }
 }
 void InstantiationEngine::computePhaseReqs( Node n, Node f, bool polarity ){

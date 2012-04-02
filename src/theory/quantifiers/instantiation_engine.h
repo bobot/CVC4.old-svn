@@ -41,6 +41,9 @@ private:
   /** status of instantiation round (one of InstStrategy::STATUS_*) */
   int d_inst_round_status;
 private:
+  /** helper functions */
+  bool hasNonArithmeticVariable( Node f );
+  bool hasApplyUf( Node f );
   /** whether to do CBQI for quantifier f */
   bool doCbqi( Node f );
 private:
