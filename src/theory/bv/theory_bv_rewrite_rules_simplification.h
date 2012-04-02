@@ -732,7 +732,7 @@ Node RewriteRule<MultPow2>::apply(Node node) {
   for(unsigned i = 0; i < node.getNumChildren(); ++i) {
     unsigned exp = utils::isPow2Const(node[i]);
     if (exp) {
-      exponent += exp;
+      exponent += exp - 1;
     }
     else {
       children.push_back(node[i]); 
