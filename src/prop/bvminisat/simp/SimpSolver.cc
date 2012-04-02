@@ -128,8 +128,8 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
     else if (verbosity >= 1)
         printf("===============================================================================\n");
 
-    if (result == l_True)
-        extendModel();
+    //if (result == l_True)
+      //extendModel();
 
     if (do_simp)
         // Unfreeze the assumptions that were frozen:

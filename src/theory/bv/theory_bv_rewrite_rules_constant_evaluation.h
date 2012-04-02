@@ -283,24 +283,24 @@ Node RewriteRule<EvalUlt>::apply(Node node) {
   return utils::mkFalse();
 }
 
-// template<> inline
-// bool RewriteRule<EvalSlt>::applies(Node node) {
-//   return (node.getKind() == kind::BITVECTOR_SLT &&
-//           utils::isBVGroundTerm(node));
-// }
+template<> inline
+bool RewriteRule<EvalSlt>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_SLT &&
+          utils::isBVGroundTerm(node));
+}
 
-// template<> inline
-// Node RewriteRule<EvalSlt>::apply(Node node) {
-//   BVDebug("bv-rewrite") << "RewriteRule<EvalSlt>(" << node << ")" << std::endl;
-//   BitVector a = node[0].getConst<BitVector>();
-//   BitVector b = node[1].getConst<BitVector>();
+template<> inline
+Node RewriteRule<EvalSlt>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<EvalSlt>(" << node << ")" << std::endl;
+  BitVector a = node[0].getConst<BitVector>();
+  BitVector b = node[1].getConst<BitVector>();
 
-//   if (a.signedLessThan(b)) {
-//     return utils::mkTrue();
-//   }
-//   return utils::mkFalse();
+  if (a.signedLessThan(b)) {
+    return utils::mkTrue();
+  }
+  return utils::mkFalse();
 
-// }
+}
 
 template<> inline
 bool RewriteRule<EvalUle>::applies(Node node) {
@@ -320,23 +320,23 @@ Node RewriteRule<EvalUle>::apply(Node node) {
   return utils::mkFalse();
 }
 
-// template<> inline
-// bool RewriteRule<EvalSle>::applies(Node node) {
-//   return (node.getKind() == kind::BITVECTOR_SLE &&
-//           utils::isBVGroundTerm(node));
-// }
+template<> inline
+bool RewriteRule<EvalSle>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_SLE &&
+          utils::isBVGroundTerm(node));
+}
 
-// template<> inline
-// Node RewriteRule<EvalSle>::apply(Node node) {
-//   BVDebug("bv-rewrite") << "RewriteRule<EvalSle>(" << node << ")" << std::endl;
-//   BitVector a = node[0].getConst<BitVector>();
-//   BitVector b = node[1].getConst<BitVector>();
+template<> inline
+Node RewriteRule<EvalSle>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<EvalSle>(" << node << ")" << std::endl;
+  BitVector a = node[0].getConst<BitVector>();
+  BitVector b = node[1].getConst<BitVector>();
 
-//   if (a.signedLessThanEq(b)) {
-//     return utils::mkTrue(); 
-//   }
-//   return utils::mkFalse();
-// }
+  if (a.signedLessThanEq(b)) {
+    return utils::mkTrue(); 
+  }
+  return utils::mkFalse();
+}
 
 template<> inline
 bool RewriteRule<EvalExtract>::applies(Node node) {

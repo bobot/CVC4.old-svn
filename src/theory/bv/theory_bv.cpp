@@ -79,8 +79,9 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 void TheoryBV::check(Effort e) {
   // don't do anything for QUICK_CHECK
+  //if (fullEffort(e)) {
   if (standardEffortOrMore(e)) {
-
+    std::cerr << "TheoryBV::check " << e << "\n"; 
     BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
     while (!done()) {
       TNode assertion = get();
@@ -134,15 +135,16 @@ void TheoryBV::presolve() {
   // from term definitions
 
   // should have no assumptions
-  // d_bitblaster->solve();
-
-  // std::vector<TNode> propagations;
-  // d_bitblaster->getPropagations(propagations);
-  // if (propagations.size()) {
-  //   Node lemma = utils::mkAnd(propagations);
-  //   BVDebug("bitvector") << "TheoryBV::presolve "<< lemma << "\n"; 
-  //   d_out->lemma(lemma);
-  // }
+  d_bitblaster->solve();
+  
+  std::vector<TNode> propagations;
+  d_bitblaster->getPropagations(propagations);
+  if (propagations.size()) {
+    Node lemma = utils::mkAnd(propagations);
+    BVDebug("bitvector") << "TheoryBV::presolve facts "<< propagations.size() << "\n" << lemma <<"\n";
+    std::cerr << "TheoryBV::presolve facts "<< propagations.size() << "\n"; 
+    d_out->lemma(lemma);
+  }
 }
 
 

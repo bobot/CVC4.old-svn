@@ -88,7 +88,12 @@ RewriteResponse TheoryBVRewriter::RewriteUlt(TNode node, bool preregister) {
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSlt(TNode node, bool preregister){
-  return RewriteResponse(REWRITE_DONE, node);
+  Node resultNode = LinearRewriteStrategy
+    < RewriteRule < EvalSlt >
+      >::apply(node);
+
+  return RewriteResponse(REWRITE_DONE, resultNode); 
+
   // Node resultNode = LinearRewriteStrategy
   //   < RewriteRule < SltEliminate >
   //     // a <_s b ==> a + 2^{n-1} <_u b + 2^{n-1}
@@ -109,13 +114,11 @@ RewriteResponse TheoryBVRewriter::RewriteUle(TNode node, bool preregister){
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSle(TNode node, bool preregister){
-  return RewriteResponse(REWRITE_DONE, node);
-  
-  //  Node resultNode = LinearRewriteStrategy
-  //   < RewriteRule<SleEliminate>
-  //     >::apply(node);
+  Node resultNode = LinearRewriteStrategy
+    < RewriteRule < EvalSle >
+      >::apply(node);
 
-  // return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  return RewriteResponse(REWRITE_DONE, resultNode); 
 }
 
 RewriteResponse TheoryBVRewriter::RewriteUgt(TNode node, bool preregister){

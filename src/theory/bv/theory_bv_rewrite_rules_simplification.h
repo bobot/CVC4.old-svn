@@ -712,31 +712,37 @@ Node RewriteRule<MultZero>::apply(Node node) {
 
 template<> inline
 bool RewriteRule<MultPow2>::applies(Node node) {
-  return (node.getKind() == kind::BITVECTOR_MULT &&
-          (utils::isPow2Const(node[0]) ||
-           utils::isPow2Const(node[1])));
+  if (node.getKind() != kind::BITVECTOR_MULT)
+    return false;
+
+  for(unsigned i = 0; i < node.getNumChildren(); ++i) {
+    if (utils::isPow2Const(node[i])) {
+      return true; 
+    }
+  }
+  return false; 
 }
 
 template<> inline
 Node RewriteRule<MultPow2>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<MultPow2>(" << node << ")" << std::endl;
-  Node a;
-  unsigned power;
-  power = utils::isPow2Const(node[0]);
 
-  if (power != 0) {
-    a = node[1];
-    // isPow2Const returns the power + 1
-    --power;
-  } else {
-    power = utils::isPow2Const(node[1]);
-    Assert(power != 0); 
-    a = node[0];
-    power--; 
+  std::vector<Node>  children;
+  unsigned exponent = 0; 
+  for(unsigned i = 0; i < node.getNumChildren(); ++i) {
+    unsigned exp = utils::isPow2Const(node[i]);
+    if (exp) {
+      exponent += exp;
+    }
+    else {
+      children.push_back(node[i]); 
+    }
   }
 
-  Node extract = utils::mkExtract(a, utils::getSize(node) - power - 1, 0);
-  Node zeros = utils::mkConst(power, 0);
+  Node a = utils::mkSortedNode(kind::BITVECTOR_MULT, children); 
+
+  Node extract = utils::mkExtract(a, utils::getSize(node) - exponent - 1, 0);
+  Node zeros = utils::mkConst(exponent, 0);
   return utils::mkConcat(extract, zeros); 
 }
 
