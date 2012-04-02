@@ -24,6 +24,7 @@
 #include <stdint.h> 
 #include "util/options.h"
 #include "util/stats.h"
+#include "context/cdo.h"
 #include "context/cdlist.h"
 
 // DPLLT Minisat
@@ -136,8 +137,6 @@ public:
 
 class BVSatSolverInterface: public SatSolverInterface {
 public:
-  virtual SatLiteralValue solve(const context::CDList<SatLiteral> & assumptions, bool quick_solve = false) = 0;
-
   virtual void markUnremovable(SatLiteral lit) = 0;
 
   virtual void getUnsatCore(SatClause& unsatCore) = 0;
@@ -148,7 +147,11 @@ public:
 
   virtual bool getPropagations(std::vector<SatLiteral>& propagations) = 0;
 
-  virtual void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0; 
+  virtual void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0;
+
+  virtual SatLiteralValue assertAssumptionAndPropagate(SatLiteral lit) = 0;
+
+  virtual void popAssumption() = 0;
 }; 
 
 
@@ -167,13 +170,21 @@ public:
 // toodo add ifdef
 
 
-class MinisatSatSolver: public BVSatSolverInterface {
+class MinisatSatSolver: public BVSatSolverInterface, public context::ContextNotifyObj {
   BVMinisat::SimpSolver* d_minisat; 
-  MinisatSatSolver();
-  unsigned d_solveCount; 
+  unsigned d_solveCount;
+
+  unsigned d_assertionsCount;
+  context::CDO<unsigned> d_assertionsRealCount;
+
+  context::CDO<unsigned> d_lastPropagation;
+
 public:
-  ~MinisatSatSolver();
+  ~MinisatSatSolver() throw(AssertionException);
+  MinisatSatSolver(context::Context* mainSatContext);
   void addClause(SatClause& clause, bool removable);
+
+  void notify();
 
   SatVariable newVar(bool theoryAtom = false);
 
@@ -207,11 +218,16 @@ public:
 
   void addMarkerLiteral(SatLiteral lit);
 
+
+
   bool getPropagations(std::vector<SatLiteral>& propagations);
 
   void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation);
 
+  SatLiteralValue assertAssumptionAndPropagate(SatLiteral lit);
   
+  void popAssumption();
+
   class Statistics {
   public:
     ReferenceStat<uint64_t> d_statStarts, d_statDecisions;
@@ -308,7 +324,7 @@ public:
 
 class SatSolverFactory {
 public:
-  static  MinisatSatSolver*      createMinisat();
+  static  MinisatSatSolver*      createMinisat(context::Context* mainSatContext);
   static  DPLLMinisatSatSolver*  createDPLLMinisat(); 
 }; 
 

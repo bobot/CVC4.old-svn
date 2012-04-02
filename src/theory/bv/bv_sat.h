@@ -112,7 +112,7 @@ public:
 public:
   Bitblaster(context::Context* c); 
   ~Bitblaster();
-  void assertToSat(TNode node);
+  bool assertToSat(TNode node);
   bool solve(bool quick_solve = false);
   void bitblast(TNode node);
   void getConflict(std::vector<TNode>& conflict); 

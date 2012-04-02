@@ -44,14 +44,18 @@ string SatLiteral::toString() {
   return os.str(); 
 }
 
-MinisatSatSolver::MinisatSatSolver() :
+MinisatSatSolver::MinisatSatSolver(context::Context* mainSatContext)
+: context::ContextNotifyObj(mainSatContext, false),
   d_minisat(new BVMinisat::SimpSolver()),
-  d_solveCount(0)
+  d_solveCount(0),
+  d_assertionsCount(0),
+  d_assertionsRealCount(mainSatContext, 0),
+  d_lastPropagation(mainSatContext, 0)
 {
   d_statistics.init(d_minisat); 
 }
 
-MinisatSatSolver::~MinisatSatSolver() {
+MinisatSatSolver::~MinisatSatSolver() throw(AssertionException) {
   delete d_minisat; 
 }
 
@@ -66,12 +70,12 @@ void MinisatSatSolver::addClause(SatClause& clause, bool removable) {
 }
 
 void MinisatSatSolver::addMarkerLiteral(SatLiteral lit) {
-  d_minisat->atom_vars.push(BVMinisat::var(toMinisatLit(lit))); 
+  d_minisat->addMarkerLiteral(BVMinisat::var(toMinisatLit(lit)));
 }
 
 bool MinisatSatSolver::getPropagations(std::vector<SatLiteral>& propagations) {
-  for (unsigned i = 0; i < d_minisat->atom_propagations.size(); ++i) {
-    propagations.push_back(toSatLiteral(d_minisat->atom_propagations[i])); 
+  for (; d_lastPropagation < d_minisat->atom_propagations.size(); d_lastPropagation = d_lastPropagation + 1) {
+    propagations.push_back(toSatLiteral(d_minisat->atom_propagations[d_lastPropagation]));
   }
   return propagations.size() > 0; 
 }
@@ -82,6 +86,22 @@ void MinisatSatSolver::explainPropagation(SatLiteral lit, std::vector<SatLiteral
   toSatClause(minisat_explanation, explanation); 
 }
 
+SatLiteralValue MinisatSatSolver::assertAssumptionAndPropagate(SatLiteral lit) {
+  d_assertionsCount ++;
+  d_assertionsRealCount = d_assertionsRealCount + 1;
+  return toSatLiteralValue(d_minisat->assertAssertAssumptionAndPropagate(toMinisatLit(lit)));
+}
+
+void MinisatSatSolver::notify() {
+  while (d_assertionsCount > d_assertionsRealCount) {
+    popAssumption();
+    d_assertionsCount --;
+  }
+}
+
+void MinisatSatSolver::popAssumption() {
+  d_minisat->popAssumption();
+}
 
 
 SatVariable MinisatSatSolver::newVar(bool freeze){
@@ -97,7 +117,7 @@ void MinisatSatSolver::interrupt(){
 }
 
 SatLiteralValue MinisatSatSolver::solve(){
-  return toSatLiteralValue(d_minisat->solve()); 
+  return toSatLiteralValue(d_minisat->solve());
 }
 
 SatLiteralValue MinisatSatSolver::solve(long unsigned int& resource){
@@ -516,8 +536,8 @@ void DPLLMinisatSatSolver::Statistics::init(Minisat::SimpSolver* d_minisat){
   
  */
 
-MinisatSatSolver* SatSolverFactory::createMinisat() {
-  return new MinisatSatSolver(); 
+MinisatSatSolver* SatSolverFactory::createMinisat(context::Context* mainSatContext) {
+  return new MinisatSatSolver(mainSatContext);
 }
 
 DPLLMinisatSatSolver* SatSolverFactory::createDPLLMinisat(){

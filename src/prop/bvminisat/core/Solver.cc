@@ -52,7 +52,7 @@ static DoubleOption  opt_var_decay         (_cat, "var-decay",   "The variable a
 static DoubleOption  opt_clause_decay      (_cat, "cla-decay",   "The clause activity decay factor",              0.999,    DoubleRange(0, false, 1, false));
 static DoubleOption  opt_random_var_freq   (_cat, "rnd-freq",    "The frequency with which the decision heuristic tries to choose a random variable", 0, DoubleRange(0, true, 1, true));
 static DoubleOption  opt_random_seed       (_cat, "rnd-seed",    "Used by the random variable selection",         91648253, DoubleRange(0, false, HUGE_VAL, false));
-static IntOption     opt_ccmin_mode        (_cat, "ccmin-mode",  "Controls conflict clause minimization (0=none, 1=basic, 2=deep)", 2, IntRange(0, 2));
+static IntOption     opt_ccmin_mode        (_cat, "ccmin-mode",  "Controls conflict clause minimization (0=none, 1=basic, 2=deep)", 0, IntRange(2, 2));
 static IntOption     opt_phase_saving      (_cat, "phase-saving", "Controls the level of phase saving (0=none, 1=limited, 2=full)", 2, IntRange(0, 2));
 static BoolOption    opt_rnd_init_act      (_cat, "rnd-init",    "Randomize the initial activity", false);
 static BoolOption    opt_luby_restart      (_cat, "luby",        "Use the Luby restart sequence", true);
@@ -136,6 +136,7 @@ Var Solver::newVar(bool sign, bool dvar)
     watches  .init(mkLit(v, true ));
     assigns  .push(l_Undef);
     vardata  .push(mkVarData(CRef_Undef, 0));
+    marker   .push(0);
     //activity .push(0);
     activity .push(rnd_init_act ? drand(random_seed) * 0.00001 : 0);
     seen     .push(0);
@@ -232,9 +233,16 @@ void Solver::cancelUntil(int level) {
                 polarity[x] = sign(trail[c]);
             insertVarOrder(x); }
         qhead = trail_lim[level];
+
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
-    } }
+
+        atom_propagations.shrink(atom_propagations.size() - atom_propagations_lim[level]);
+        atom_propagations_lim.shrink(atom_propagations_lim.size() - level);
+    }
+
+
+}
 
 
 //=================================================================================================
@@ -451,8 +459,48 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
+    if (marker[var(p)] && decisionLevel() <= assumptions.size() && from != CRef_Undef) {
+      atom_propagations.push(p);
+    }
 }
 
+void Solver::popAssumption() {
+  if (assumptions.size() == decisionLevel()) {
+    cancelUntil(decisionLevel() - 1);
+  }
+  assumptions.pop();
+  conflict.clear();
+}
+
+lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
+
+  // add to the assumptions
+  assumptions.push(p);
+
+  // make a fake decision
+  if (value(p) == l_True) {
+    // Dummy decision level:
+    newDecisionLevel();
+  } else if (value(p) == l_False) {
+    analyzeFinal(~p, conflict);
+    return l_False;
+  } else {
+    // add to the queue
+    uncheckedEnqueue(p);
+    // propagate
+    CRef confl = propagate();
+    if (confl != CRef_Undef) {
+        // if in conflict, remember and return false
+        conflicts++;
+        if (decisionLevel() == 0) return l_False;
+        analyzeFinal(p, conflict);
+        return l_False;
+    }
+  }
+
+  // no conflict
+  return l_True;
+}
 
 /*_________________________________________________________________________________________________
 |
@@ -689,14 +737,6 @@ lbool Solver::search(int nof_conflicts)
             if (learnts.size()-nAssigns() >= max_learnts)
                 // Reduce the set of learnt clauses:
                 reduceDB();
-
-            if (decisionLevel() == assumptions.size()) {
-              // if we are done asserting all the assumptions and propagating
-              checkForAtomPropagations();
-              if (only_bcp) {
-                return l_True;
-              }
-            }
             
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
@@ -781,8 +821,6 @@ lbool Solver::solve_()
   Debug("bvminisat") <<"BVMinisat::Solving assumptions " << assumptions.size() <<"\n"; 
     model.clear();
     conflict.clear();
-    // clear propagations queue
-    atom_propagations.clear();
     
     if (!ok) return l_False;
 
@@ -830,33 +868,6 @@ lbool Solver::solve_()
 //=================================================================================================
 // Bitvector propagations
 // 
-
-void Solver::checkForAtomPropagations() {
-  // this can be improved a lot
-  assert (decisionLevel() == assumptions.size()); 
-
-  // can be called multiple times per solve if unsat
-  atom_propagations.clear(); 
-  assumptions_vars.clear();
-
-  for(int i = 0; i < assumptions.size(); ++i) {
-    assumptions_vars.insert(var(assumptions[i])); 
-  }
-
-  for (int i = 0; i < atom_vars.size(); ++i) {
-    // if the variable is not a current assumption
-    if (assumptions_vars.find(atom_vars[i]) == assumptions_vars.end()) {
-      Lit l = mkLit(atom_vars[i], false);
-      
-      if (value(l) == l_True) {
-        atom_propagations.push(l); 
-      } else if(value(l) == l_False) {
-        atom_propagations.push(~l); 
-      } 
-    }
-  }
-}
-
 
 void Solver::explainPropagation(Lit p, vec<Lit>& explanation) {
   // TODO: assert last call was sat

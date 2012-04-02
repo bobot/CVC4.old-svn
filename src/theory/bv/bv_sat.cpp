@@ -58,7 +58,7 @@ Bitblaster::Bitblaster(context::Context* c) :
     d_assertedAtoms(c),
     d_statistics()
   {
-    d_satSolver = prop::SatSolverFactory::createMinisat();
+    d_satSolver = prop::SatSolverFactory::createMinisat(c);
     d_cnfStream = new TseitinCnfStream(d_satSolver, new NullRegistrar());
 
     // initializing the bit-blasting strategies
@@ -219,7 +219,7 @@ void Bitblaster::bitblast(TNode node) {
  * 
  */
  
-void Bitblaster::assertToSat(TNode lit) {
+bool Bitblaster::assertToSat(TNode lit) {
   // strip the not
   TNode atom; 
   if (lit.getKind() == kind::NOT) {
@@ -239,7 +239,11 @@ void Bitblaster::assertToSat(TNode lit) {
   BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat asserting node: " << atom <<"\n";
   BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat with literal:   " << markerLit << "\n";  
 
+  SatLiteralValue ret = d_satSolver->assertAssumptionAndPropagate(markerLit);
+
   d_assertedAtoms.push_back(markerLit);
+
+  return ret == prop::SatValTrue;
 }
 
 /** 
@@ -252,7 +256,7 @@ void Bitblaster::assertToSat(TNode lit) {
 bool Bitblaster::solve(bool quick_solve) {
   Trace("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n";
   
-  return SatValTrue == d_satSolver->solve(d_assertedAtoms, quick_solve); 
+  return SatValTrue == d_satSolver->solve();
 }
 
 void Bitblaster::getConflict(std::vector<TNode>& conflict) {

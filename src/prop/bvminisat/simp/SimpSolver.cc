@@ -99,7 +99,7 @@ Var SimpSolver::newVar(bool sign, bool dvar, bool freeze) {
 
 lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 {
-
+    cancelUntil(0);
   
     vec<Var> extra_frozen;
     lbool    result = l_True;

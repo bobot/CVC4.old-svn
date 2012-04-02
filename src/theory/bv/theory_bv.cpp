@@ -78,9 +78,7 @@ void TheoryBV::preRegisterTerm(TNode node) {
 }
 
 void TheoryBV::check(Effort e) {
-  // don't do anything for QUICK_CHECK
-  //if (fullEffort(e)) {
-  if (standardEffortOrMore(e)) {
+  if (e == EFFORT_STANDARD) {
     std::cerr << "TheoryBV::check " << e << "\n"; 
     BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
     while (!done()) {
@@ -88,22 +86,28 @@ void TheoryBV::check(Effort e) {
       // make sure we do not assert things we propagated 
       if (!hasBeenPropagated(assertion)) {
         BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n"; 
-        d_bitblaster->assertToSat(assertion);
+        bool ok = d_bitblaster->assertToSat(assertion);
+        if (!ok) {
+          std::vector<TNode> conflictAtoms;
+          d_bitblaster->getConflict(conflictAtoms);
+          d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
+          Node conflict = mkConjunction(conflictAtoms);
+          d_out->conflict(conflict);
+          BVDebug("bitvector") << "TheoryBV::check returns conflict: " <<conflict <<" \n ";
+          return;
+        }
       }
     }
-    
-    TimerStat::CodeTimer codeTimer(d_statistics.d_solveTimer);
-    //printFacts(BVDebug("bitvector")); 
-    
-    // in standard effort we only do boolean constraint propagation 
-    bool only_do_bcp = !fullEffort(e); 
-    bool res = d_bitblaster->solve(only_do_bcp);
+  }
 
-    if (res == false) {
+  if (e == EFFORT_FULL) {
+    std::cerr << "TheoryBV::check " << e << "\n";
+    // in standard effort we only do boolean constraint propagation 
+    bool ok = d_bitblaster->solve(false);
+    if (!ok) {
       std::vector<TNode> conflictAtoms;
       d_bitblaster->getConflict(conflictAtoms);
       d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
-      
       Node conflict = mkConjunction(conflictAtoms);
       d_out->conflict(conflict);
       BVDebug("bitvector") << "TheoryBV::check returns conflict: " <<conflict <<" \n ";
