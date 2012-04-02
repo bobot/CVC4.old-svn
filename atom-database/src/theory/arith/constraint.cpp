@@ -278,7 +278,6 @@ ConstraintValue::~ConstraintValue() {
 void ConstraintValue::setPreregistered() {
   Assert(!isPreregistered());
   d_database->pushPreregisteredWatch(this);
-  d_preregistered = true;
 }
 
 bool ConstraintValue::isSelfExplaining() const {
@@ -388,10 +387,7 @@ Node ConstraintValue::split(){
 
 
   eq->d_database->pushSplitWatch(eq);
-  eq->d_split = true;
-
   diseq->d_database->pushSplitWatch(diseq);
-  diseq->d_split = true;
 
   return lemma;
 }
@@ -515,8 +511,7 @@ void ConstraintValue::markAsTrue(){
 #warning "this may be too strict"
   Assert(hasLiteral());
   Assert(isPreregistered());
-  d_database->pushProofWatch(this);
-  d_proof = d_database->d_emptyProof;
+  d_database->pushProofWatch(this, d_database->d_emptyProof);
 }
 
 void ConstraintValue::markAsTrue(Constraint imp){
@@ -526,8 +521,7 @@ void ConstraintValue::markAsTrue(Constraint imp){
   d_database->d_proofs.push_back(NullConstraint);
   d_database->d_proofs.push_back(imp);
   ProofId proof = d_database->d_proofs.size();
-  d_database->pushProofWatch(this);
-  d_proof = proof;
+  d_database->pushProofWatch(this, proof);
 }
 
 void ConstraintValue::markAsTrue(Constraint impA, Constraint impB){
@@ -540,8 +534,7 @@ void ConstraintValue::markAsTrue(Constraint impA, Constraint impB){
   d_database->d_proofs.push_back(impB);
   ProofId proof = d_database->d_proofs.size();
 
-  d_database->pushProofWatch(this);
-  d_proof = proof;
+  d_database->pushProofWatch(this, proof);
 }
 
 void ConstraintValue::markAsTrue(const vector<Constraint>& a){
@@ -555,8 +548,7 @@ void ConstraintValue::markAsTrue(const vector<Constraint>& a){
 
   ProofId proof = d_database->d_proofs.size();
 
-  d_database->pushProofWatch(this);
-  d_proof = proof;
+  d_database->pushProofWatch(this, proof);
 }
 
 SortedConstraintMap& ConstraintValue::constraintSet(){
@@ -679,24 +671,23 @@ Node ConstraintValue::explain() const{
       return antecedent->explain();
     }else{
       NodeBuilder<> nb(AND);
-      recExplain(nb, this);
+      recExplain(nb, this, d_database->d_proofs);
       return nb;
     }
   }
 }
 
-void ConstraintValue::recExplain(NodeBuilder<>& nb, const ConstraintValue * const c){
+void ConstraintValue::recExplain(NodeBuilder<>& nb, const ConstraintValue * const c, const CDConstraintList& d_proofs){
   Assert(c->hasProof());
 
   if(c->isSelfExplaining()){
     nb << c->getLiteral();
   }else{
     ProofId p = c->d_proof;
-    const context::CDList<Constraint>& d_proofs = c->d_database->d_proofs;
     Constraint antecedent = d_proofs[p];
     
     for(; antecedent != NullConstraint; antecedent = d_proofs[--p] ){
-      recExplain(nb, antecedent);
+      recExplain(nb, antecedent, d_proofs);
     }
   }
 }

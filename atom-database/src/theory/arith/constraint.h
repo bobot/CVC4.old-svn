@@ -100,6 +100,8 @@ class ConstraintValue;
 typedef ConstraintValue* Constraint;
 static Constraint NullConstraint = NULL;
 
+typedef context::CDList<Constraint> CDConstraintList;
+
 typedef __gnu_cxx::hash_map<Node, Constraint, NodeHashFunction> NodetoConstraintMap;
 
 class ConstraintDatabase;
@@ -304,69 +306,94 @@ private:
    */
   void initialize(ConstraintDatabase* db, SortedConstraintMapIterator v, Constraint negation);
 
-  /**
-   * Upon destruction this sets the d_proof field back to ProofIdSentinel.
-   * While a constraint has a proof in the current sat context, it cannot be
-   * destroyed.
-   */
-  class ProofWatch {
-  private:
-    Constraint d_constraint;
+  /* /\** */
+  /*  * Upon destruction this sets the d_proof field back to ProofIdSentinel. */
+  /*  * While a constraint has a proof in the current sat context, it cannot be */
+  /*  * destroyed. */
+  /*  *\/ */
+  /* class ProofWatch { */
+  /* private: */
+  /*   Constraint d_constraint; */
+  /* public: */
+  /*   ProofWatch(Constraint c) : d_constraint(c) { */
+  /*     //This is done only to allow for the the destructor of the stack local */
+  /*     // variable to have the assertion in the destructor hold. */
+  /*     // This must be additionally set after the stack local has been destructed. */
+  /*     Assert(d_constraint->d_proof = 1); */
+  /*   } */
+  /*   ~ProofWatch(){ */
+  /*     Assert(d_constraint->d_proof != ProofIdSentinel); */
+  /*     //This does not hold on the destruction of the stack local =( */
+  /*     d_constraint->d_proof = ProofIdSentinel; */
+  /*   } */
+  /* }; */
+  class ProofCleanup {
   public:
-    ProofWatch(Constraint c) : d_constraint(c) {
-      //This is done only to allow for the the destructor of the stack local
-      // variable to have the assertion in the destructor hold.
-      // This must be additionally set after the stack local has been destructed.
-      Assert(d_constraint->d_proof = 1);
-    }
-    ~ProofWatch(){
-      Assert(d_constraint->d_proof != ProofIdSentinel);
-      //This does not hold on the destruction of the stack local =(
-      d_constraint->d_proof = ProofIdSentinel;
+    inline void operator()(Constraint* p){
+      Constraint constraint = *p;
+      Assert(constraint->d_proof != ProofIdSentinel);
+      constraint->d_proof = ProofIdSentinel;
     }
   };
 
-  /**
-   * Upon destruction this sets the d_preregistered field back to false.
-   * While a constraint has been preregistered in the current sat context,
-   * it cannot be destroyed.
-   */
-  class PreregisteredWatch {
-  private:
-    Constraint d_constraint;
+  /* /\** */
+  /*  * Upon destruction this sets the d_preregistered field back to false. */
+  /*  * While a constraint has been preregistered in the current sat context, */
+  /*  * it cannot be destroyed. */
+  /*  *\/ */
+  /* class PreregisteredWatch { */
+  /* private: */
+  /*   Constraint d_constraint; */
+  /* public: */
+  /*   PreregisteredWatch(Constraint c) : d_constraint(c) { */
+  /*     //This is done only to allow for the the destructor of the stack local */
+  /*     // variable to have the assertion in the destructor hold. */
+  /*     // This must be additionally set after the stack local has been destructed. */
+  /*     Assert(d_constraint->d_preregistered = true); */
+  /*   } */
+  /*   ~PreregisteredWatch(){ */
+  /*     Assert(d_constraint->d_preregistered); */
+  /*     d_constraint->d_preregistered = false; */
+  /*   } */
+  /* }; */
+  class PreregisteredCleanup {
   public:
-    PreregisteredWatch(Constraint c) : d_constraint(c) {
-      //This is done only to allow for the the destructor of the stack local
-      // variable to have the assertion in the destructor hold.
-      // This must be additionally set after the stack local has been destructed.
-      Assert(d_constraint->d_preregistered = true);
-    }
-    ~PreregisteredWatch(){
-      Assert(d_constraint->d_preregistered);
-      d_constraint->d_preregistered = false;
+    inline void operator()(Constraint* p){
+      Constraint constraint = *p;
+      Assert(constraint->d_preregistered);
+      constraint->d_preregistered = false;
     }
   };
 
-  /**
-   * Upon destruction this sets the d_split field back to false.
-   * While a constraint has been split in the current user context, it cannot
-   * be destroyed.
-   */
-  class SplitWatch {
-  private:
-    Constraint d_constraint;
-  public:
-    SplitWatch(Constraint c) : d_constraint(c){
-      //This is done only to allow for the the destructor of the stack local
-      // variable to have the assertion in the destructor hold.
-      // This must be additionally set after the stack local has been destructed.
-      Assert(d_constraint->d_split = true);
-    }
-    ~SplitWatch(){
-      Assert(d_constraint->d_split);
-      //This does not hold on the destruction of the stack local =(
+  /* /\** */
+  /*  * Upon destruction this sets the d_split field back to false. */
+  /*  * While a constraint has been split in the current user context, it cannot */
+  /*  * be destroyed. */
+  /*  *\/ */
+  /* class SplitWatch { */
+  /* private: */
+  /*   Constraint d_constraint; */
+  /* public: */
+  /*   SplitWatch(Constraint c) : d_constraint(c){ */
+  /*     //This is done only to allow for the the destructor of the stack local */
+  /*     // variable to have the assertion in the destructor hold. */
+  /*     // This must be additionally set after the stack local has been destructed. */
+  /*     Assert(d_constraint->d_split = true); */
+  /*   } */
+  /*   ~SplitWatch(){ */
+  /*     Assert(d_constraint->d_split); */
+  /*     //This does not hold on the destruction of the stack local =( */
 
-      d_constraint->d_split = false;
+  /*     d_constraint->d_split = false; */
+  /*   } */
+  /* }; */
+
+  class SplitCleanup {
+  public:
+    inline void operator()(Constraint* p){
+      Constraint constraint = *p;
+      Assert(constraint->d_split);
+      constraint->d_split = false;
     }
   };
 
@@ -375,7 +402,7 @@ private:
    * Pushes back an explanation that is acceptable to send to the sat solver.
    * nb is assumed to be an AND.
    */
-  static void recExplain(NodeBuilder<>& nb, const ConstraintValue* const c);
+  static void recExplain(NodeBuilder<>& nb, const ConstraintValue* const c, const CDConstraintList& proofs);
 
   /** Returns true if the node is safe to garbage collect. */
   bool safeToGarbageCollect() const;
@@ -523,10 +550,14 @@ private:
    * Constraints are pointers so this list is designed not to require any
    * destruction.
    */
-  context::CDList<Constraint> d_proofs;
+  CDConstraintList d_proofs;
 
   /** This is a special empty proof that is always a member of the list. */
   ProofId d_emptyProof;
+
+  typedef context::CDList<Constraint, ConstraintValue::ProofCleanup> ProofCleanupList;
+  typedef context::CDList<Constraint, ConstraintValue::PreregisteredCleanup> PreregisteredList;
+  typedef context::CDList<Constraint, ConstraintValue::SplitCleanup> SplitList;
 
   /**
    * The watch lists are collected together as they need to be garbage collected
@@ -536,35 +567,41 @@ private:
     /**
      * Contains the exact list of atoms that have a proof.
      */
-    context::CDList<ConstraintValue::ProofWatch> d_proofWatches;
+    ProofCleanupList d_proofWatches;
 
     /**
      * Contains the exact list of atoms that have been preregistered.
      * This is a pointer as it must be destroyed before the elements of
      * d_varDatabases.
      */
-    context::CDList<ConstraintValue::PreregisteredWatch> d_preregisteredWatches;
+    PreregisteredList d_preregisteredWatches;
 
     /**
      * Contains the exact list of atoms that have been preregistered.
      * This is a pointer as it must be destroyed before the elements of
      * d_varDatabases.
      */
-    context::CDList<ConstraintValue::SplitWatch> d_splitWatches;
+    SplitList d_splitWatches;
     Watches(context::Context* satContext, context::Context* userContext);
   };
   Watches* d_watches;
   
   void pushPreregisteredWatch(Constraint c){
-    d_watches->d_preregisteredWatches.push_back(ConstraintValue::PreregisteredWatch(c));
+    Assert(!c->d_preregistered);
+    c->d_preregistered = true;
+    d_watches->d_preregisteredWatches.push_back(c);
   }
   
   void pushSplitWatch(Constraint c){
-    d_watches->d_splitWatches.push_back(ConstraintValue::SplitWatch(c));
+    Assert(!c->d_split);
+    c->d_split = true;
+    d_watches->d_splitWatches.push_back(c);
   }
 
-  void pushProofWatch(Constraint c){
-    d_watches->d_proofWatches.push_back(ConstraintValue::ProofWatch(c));
+  void pushProofWatch(Constraint c, ProofId pid){
+    Assert(c->d_proof == ProofIdSentinel);
+    c->d_proof = pid;
+    d_watches->d_proofWatches.push_back(c);
   }
 
   /** Returns true if all of the entries of the vector are empty. */
