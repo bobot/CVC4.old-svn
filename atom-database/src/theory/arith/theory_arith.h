@@ -172,13 +172,6 @@ private:
   Comparison mkIntegerEqualityFromAssignment(ArithVar v);
 
   /**
-   * If ArithVar v maps to the node n in d_removednode,
-   * then n = (= asNode(v) rhs) where rhs is a term that
-   * can be used to determine the value of n using getValue().
-   */
-  std::map<ArithVar, Node> d_removedRows;
-
-  /**
    * List of all of the inequalities asserted in the current context.
    */
   context::CDHashSet<Node, NodeHashFunction> d_diseq;
@@ -252,7 +245,15 @@ private:
   /** This implements the Simplex decision procedure. */
   SimplexDecisionProcedure d_simplex;
 
+
+  /** The constraint database associated with the theory. */
   ConstraintDatabase d_constraintDatabase;
+
+  /** Internal model value for the atom */
+  bool getDeltaAtomValue(TNode n);
+
+  /** Internal model value for the node */
+  DeltaRational getDeltaValue(TNode n);
 
 public:
   TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
@@ -422,12 +423,6 @@ private:
    */
   bool entireStateIsConsistent();
 
-  /**
-   * Permanently removes a variable from the problem.
-   * The caller guarentees the saftey of this removal!
-   */
-  void permanentlyRemoveVariable(ArithVar v);
-
   bool isImpliedUpperBound(ArithVar var, Node exp);
   bool isImpliedLowerBound(ArithVar var, Node exp);
 
@@ -454,7 +449,6 @@ private:
     TimerStat d_simplifyTimer;
     TimerStat d_staticLearningTimer;
 
-    IntStat d_permanentlyRemovedVariables;
     TimerStat d_presolveTime;
 
     IntStat d_externalBranchAndBounds;

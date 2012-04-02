@@ -23,7 +23,7 @@
 
 
 #include "expr/node.h"
-#include "prop/sat_module.h"
+#include "prop/sat_solver.h"
 
 namespace CVC4 {
 
@@ -60,7 +60,8 @@ Node DefaultSgeBB(TNode node, Bitblaster* bb);
 
 /// other modes
 Node AdderUltBB(TNode node, Bitblaster* bb);
-
+Node SltBB(TNode node, Bitblaster* bb);
+Node SleBB(TNode node, Bitblaster* bb); 
 
 
 /** 
