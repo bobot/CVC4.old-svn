@@ -88,8 +88,12 @@ private:
   SharedChannel<channelFormat>* d_sharedChannel;
   expr::pickle::MapPickler d_pickler;
 
+  IntStat d_statTotal;
+  IntStat d_statFiltrate;
+  IntStat d_statBlocked;
+  IntStat d_statFiltrateBlocked;
+
 public:
-  int cnt;
   PortfolioLemmaOutputChannel(string tag,
                               SharedChannel<channelFormat> *c,
                               ExprManager* em,
@@ -97,19 +101,40 @@ public:
                               VarMap& from) :
     d_tag(tag),
     d_sharedChannel(c),
-    d_pickler(em, to, from)
-    ,cnt(0)
-  {}
+    d_pickler(em, to, from),
+    d_statTotal("portfolio::lemmachannel::total", 0),
+    d_statFiltrate("portfolio::lemmachannel::filtrate", 0),
+    d_statBlocked("portfolio::lemmachannel::blocked",0),
+    d_statFiltrateBlocked("portfolio::lemmachannel::filtrate_blocked",0)
+  {
+    em->getStatisticsRegistry()->registerStat_(&d_statTotal);
+    em->getStatisticsRegistry()->registerStat_(&d_statFiltrate);
+    em->getStatisticsRegistry()->registerStat_(&d_statBlocked);
+    em->getStatisticsRegistry()->registerStat_(&d_statFiltrateBlocked);
+  }
 
   void notifyNewLemma(Expr lemma) {
     //cout << "Ever called?" << endl;
     if(Debug.isOn("disable-lemma-sharing")) return;
     const Options *options = Options::current();
+
+    ++d_statTotal;
+
     if(options->sharingFilterByLength >= 0) { // 0 would mean no-sharing effectively
-      if( int(lemma.getNumChildren()) > options->sharingFilterByLength)
+      if( int(lemma.getNumChildren()) > options->sharingFilterByLength) {
+
+        if(options->statistics) {    // just to collect stats, try pickling
+          expr::pickle::Pickle pkl;
+          try{
+            d_pickler.toPickle(lemma, pkl);
+          } catch(expr::pickle::PicklingException& p) {
+            ++d_statBlocked;
+          }
+        } // end of if(options->stats)
         return;
+      }
     }
-    ++cnt;
+    ++d_statFiltrate;
     Trace("sharing") << d_tag << ": " << lemma << std::endl;
     expr::pickle::Pickle pkl;
     try{
@@ -120,6 +145,8 @@ public:
       }
     }catch(expr::pickle::PicklingException& p){
       Trace("sharing::blocked") << lemma << std::endl;
+      ++d_statFiltrateBlocked;
+      ++d_statBlocked;
     }
   }
 

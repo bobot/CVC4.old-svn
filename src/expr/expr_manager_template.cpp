@@ -790,6 +790,10 @@ Type ExprManager::getType(Expr e, bool check) throw (TypeCheckingException) {
   return t;
 }
 
+StatisticsRegistry* ExprManager::getStatisticsRegistry() const{
+  return getNodeManager()->getStatisticsRegistry();
+}
+
 Expr ExprManager::mkVar(const std::string& name, Type type) {
   NodeManagerScope nms(d_nodeManager);
   Node* n = d_nodeManager->mkVarPtr(name, *type.d_typeNode);

@@ -23,6 +23,7 @@
 
 #include <vector>
 
+#include "util/stats.h"
 #include "expr/kind.h"
 #include "expr/type.h"
 #include "expr/expr.h"
@@ -101,6 +102,8 @@ private:
   ExprManager& operator=(const ExprManager&) CVC4_UNDEFINED;
 
 public:
+
+  StatisticsRegistry* getStatisticsRegistry() const;
 
   /**
    * Creates an expression manager with default options.
