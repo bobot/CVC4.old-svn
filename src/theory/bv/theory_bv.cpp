@@ -139,16 +139,16 @@ void TheoryBV::presolve() {
   // from term definitions
 
   // should have no assumptions
-  d_bitblaster->solve();
+  // d_bitblaster->solve();
   
-  std::vector<TNode> propagations;
-  d_bitblaster->getPropagations(propagations);
-  if (propagations.size()) {
-    Node lemma = utils::mkAnd(propagations);
-    BVDebug("bitvector") << "TheoryBV::presolve facts "<< propagations.size() << "\n" << lemma <<"\n";
-    std::cerr << "TheoryBV::presolve facts "<< propagations.size() << "\n"; 
-    d_out->lemma(lemma);
-  }
+//  std::vector<TNode> propagations;
+//  d_bitblaster->getPropagations(propagations);
+//  if (propagations.size()) {
+//    Node lemma = utils::mkAnd(propagations);
+//    BVDebug("bitvector") << "TheoryBV::presolve facts "<< propagations.size() << "\n" << lemma <<"\n";
+//    std::cerr << "TheoryBV::presolve facts "<< propagations.size() << "\n";
+//    d_out->lemma(lemma);
+//  }
 }
 
 
@@ -166,24 +166,15 @@ void TheoryBV::propagate(Effort e) {
   // get new propagations from the sat solver
   std::vector<TNode> propagations; 
   d_bitblaster->getPropagations(propagations);
-  for (unsigned i = 0; i < propagations.size(); ++i) {
-    TNode node = propagations[i];
-    // if we haven't already added this to the propagation queue
-    if (!inPropagationQueue(node)) {
-      Assert (!hasBeenPropagated(node));
-      d_propagationQueue.push_back(node);
-      d_propagationQueueSet.insert(node); 
-    }
-  }
 
   // propagate the facts on the propagation queue
   for (unsigned i = d_propagationHead; i < d_propagationQueue.size(); ++i) {
     TNode node = d_propagationQueue[i];
     BVDebug("bitvector") << "TheoryBV::propagate    " << node <<" \n";
-    Assert(d_valuation.getSatValue(node) == Node::null());
-    Assert(!hasBeenPropagated(node)); 
-    d_out->propagate(node);
-    d_alreadyPropagatedSet.insert(node); 
+    if (d_valuation.getSatValue(node) == Node::null()) {
+      d_out->propagate(node);
+      d_alreadyPropagatedSet.insert(node);
+    }
   }
 
   d_propagationHead = d_propagationQueue.size(); 

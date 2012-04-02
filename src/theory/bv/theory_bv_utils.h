@@ -318,6 +318,8 @@ inline Node mkConjunction(const std::vector<TNode>& nodes) {
   std::vector<TNode>::const_iterator it_end = nodes.end();
   while (it != it_end) {
     TNode current = *it;
+
+    std::cerr << current << std::endl;
     if (current != mkTrue()) {
       Assert(isBVPredicate(current));
       expandedNodes.push_back(current);

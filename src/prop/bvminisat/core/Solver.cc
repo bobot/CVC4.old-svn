@@ -236,12 +236,12 @@ void Solver::cancelUntil(int level) {
 
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
-
-        atom_propagations.shrink(atom_propagations.size() - atom_propagations_lim[level]);
-        atom_propagations_lim.shrink(atom_propagations_lim.size() - level);
     }
 
-
+    if (level < atom_propagations_lim.size()) {
+      atom_propagations.shrink(atom_propagations.size() - atom_propagations_lim[level]);
+      atom_propagations_lim.shrink(atom_propagations_lim.size() - level);
+    }
 }
 
 
@@ -465,17 +465,18 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
 }
 
 void Solver::popAssumption() {
-  if (assumptions.size() == decisionLevel()) {
-    cancelUntil(decisionLevel() - 1);
-  }
   assumptions.pop();
   conflict.clear();
+  cancelUntil(assumptions.size());
 }
 
 lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
 
+  assert(assumptions.size() == decisionLevel());
+
   // add to the assumptions
   assumptions.push(p);
+  conflict.clear();
 
   // make a fake decision
   if (value(p) == l_True) {
@@ -485,17 +486,8 @@ lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
     analyzeFinal(~p, conflict);
     return l_False;
   } else {
-    // add to the queue
-    uncheckedEnqueue(p);
-    // propagate
-    CRef confl = propagate();
-    if (confl != CRef_Undef) {
-        // if in conflict, remember and return false
-        conflicts++;
-        if (decisionLevel() == 0) return l_False;
-        analyzeFinal(p, conflict);
-        return l_False;
-    }
+    only_bcp = true;
+    return search(100*assumptions.size());
   }
 
   // no conflict
@@ -754,7 +746,12 @@ lbool Solver::search(int nof_conflicts)
                 }
             }
 
-            if (next == lit_Undef){
+            if (next == lit_Undef) {
+
+                if (only_bcp) {
+                  return l_True;
+                }
+
                 // New variable decision:
                 decisions++;
                 next = pickBranchLit();
@@ -817,8 +814,9 @@ static double luby(double y, int x){
 // NOTE: assumptions passed in member-variable 'assumptions'.
 lbool Solver::solve_()
 {
-  Debug("bvminisat") <<"BVMinisat::Solving learned clauses " << learnts.size() <<"\n";
-  Debug("bvminisat") <<"BVMinisat::Solving assumptions " << assumptions.size() <<"\n"; 
+    Debug("bvminisat") <<"BVMinisat::Solving learned clauses " << learnts.size() <<"\n";
+    Debug("bvminisat") <<"BVMinisat::Solving assumptions " << assumptions.size() <<"\n";
+
     model.clear();
     conflict.clear();
     
@@ -850,7 +848,6 @@ lbool Solver::solve_()
     if (verbosity >= 1)
         printf("===============================================================================\n");
 
-
     if (status == l_True){
         // Extend & copy model:
         // model.growTo(nVars());
@@ -858,10 +855,6 @@ lbool Solver::solve_()
     }else if (status == l_False && conflict.size() == 0)
         ok = false;
 
-    cancelUntil(0);
-    if (status == l_False) {
-      atom_propagations.clear(); 
-    }
     return status;
 }
 

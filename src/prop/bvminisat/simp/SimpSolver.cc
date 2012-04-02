@@ -99,6 +99,12 @@ Var SimpSolver::newVar(bool sign, bool dvar, bool freeze) {
 
 lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 {
+    vec<Lit> atom_propagations_backup;
+    atom_propagations.moveTo(atom_propagations_backup);
+    vec<int> atom_propagations_lim_backup;
+    atom_propagations_lim.moveTo(atom_propagations_lim_backup);
+
+    only_bcp = false;
     cancelUntil(0);
   
     vec<Var> extra_frozen;
@@ -128,8 +134,8 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
     else if (verbosity >= 1)
         printf("===============================================================================\n");
 
-    //if (result == l_True)
-      //extendModel();
+    atom_propagations_backup.moveTo(atom_propagations);
+    atom_propagations_lim_backup.moveTo(atom_propagations_lim);
 
     if (do_simp)
         // Unfreeze the assumptions that were frozen:

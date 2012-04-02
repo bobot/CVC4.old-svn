@@ -181,6 +181,7 @@ void MinisatSatSolver::getUnsatCore(SatClause& unsatCore) {
   for (int i = 0; i < d_minisat->conflict.size(); ++i) {
     unsatCore.push_back(toSatLiteral(d_minisat->conflict[i])); 
   }
+  d_minisat->conflict.clear();
 }
 
 SatLiteralValue MinisatSatSolver::value(SatLiteral l){
