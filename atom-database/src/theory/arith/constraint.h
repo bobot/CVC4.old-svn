@@ -430,6 +430,10 @@ public:
     return d_value;
   }
 
+  Constraint getNegation() const {
+    return d_negation;
+  }
+
   bool isEquality() const{
     return d_type == Equality;
   }
@@ -499,20 +503,39 @@ public:
 
   static Constraint makeNegation(ArithVar v, ConstraintType t, const DeltaRational& r);
 
+  const ValueCollection& getValueCollection() const;
+
+  void selfExplaining();
+
+  /**
+   * Marks the node as having a proof a.
+   * Adds the node the database's propagation queue.
+   */
+  void propagate(Constraint a);
+  void propagate(Constraint a, Constraint b);
+  void propagate(const std::vector<Constraint>& b);
+
+private:
   /**
    * Marks the node as having a proof and being selfExplaining.
    * Neither the node nor its negation can have a proof.
+   * This is internal!
    */
   void markAsTrue();
 
-  /** Marks the node as having a proof a. */
+public:
+#warning "Do not check in"
+  /**
+   * Marks the node as having a proof a.
+   * This is safe if the node does not have
+   */
   void markAsTrue(Constraint a);
+
   void markAsTrue(Constraint a, Constraint b);
   void markAsTrue(const std::vector<Constraint>& b);
 
-  const ValueCollection& getValueCollection() const;
-
 private:
+
   /** If the node has a proof do nothing, otherwise mark the node.*/
   void internalPropagate(Constraint a);
 

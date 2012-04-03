@@ -172,7 +172,6 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, 
   if(cmpToUB > 0){ //  c_i < \lowerbound(x_i)
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
-    //d_out->conflict(conflict);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     ++(d_statistics.d_statAssertLowerConflicts);
     return conflict;
@@ -183,12 +182,17 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, 
 
     const ValueCollection& vc = constraint->getValueCollection();
     if(vc.hasDisequality()){
+      Assert(vc.hasEquality());
+      const Constraint eq = vc.getEquality();
       const Constraint diseq = vc.getDisequality();
       if(diseq->isTrue()){
         const Constraint ub = vc.getUpperBound();
         Node conflict = disequalityConflict(diseq->explain(), ub->explain(), original);
         cout << " assert lower conflict " << conflict << endl;
         return conflict;
+      }else if(!eq->isTrue()){
+        cout << "lb == ub, propagate eq" << eq << endl;
+        eq->propagate(constraint, d_partialModel.getUBC(x_i));
       }
     }
   }
@@ -244,12 +248,17 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original, 
 
     const ValueCollection& vc = constraint->getValueCollection();
     if(vc.hasDisequality()){
+      Assert(vc.hasEquality());
       const Constraint diseq = vc.getDisequality();
+      const Constraint eq = vc.getEquality();
       if(diseq->isTrue()){
         const Constraint ub = vc.getUpperBound();
         Node conflict = disequalityConflict(diseq->explain(), ub->explain(), original);
         cout << " assert upper conflict " << conflict << endl;
         return conflict;
+      }else if(eq->isTrue()){
+        cout << "lb == ub, propagate eq" << eq << endl;
+        eq->propagate(constraint, d_partialModel.getLBC(x_i));
       }
     }
 
@@ -386,8 +395,16 @@ Node TheoryArith::AssertDisequality(ArithVar x_i, DeltaRational& c_i, TNode orig
       return disequalityConflict(original, lbNode, ubNode);
     }else if(lb->isTrue()){
       cout << "propagate UpperBound " << constraint << lb << ub << endl;
+      const Constraint negUb = ub->getNegation();
+      if(!negUb->isTrue()){
+        negUb->propagate(constraint, lb);
+      }
     }else if(ub->isTrue()){
       cout << "propagate LowerBound " << constraint << lb << ub << endl;
+      const Constraint negLb = lb->getNegation();
+      if(!negLb->isTrue()){
+        negLb->propagate(constraint, ub);
+      }
     }
   }
 
@@ -969,7 +986,7 @@ Node TheoryArith::assertionCases(TNode assertion){
 
   if(!constraint->hasProof()){
     Debug("arith::constraint") << "marking as true " << constraint << endl;
-    constraint->markAsTrue();
+    constraint->selfExplaining();
   }else{
     Debug("arith::constraint") << "already true " << constraint << endl;
   }
@@ -1283,6 +1300,10 @@ void TheoryArith::propagate(Effort e) {
     propagateCandidates();
   }else{
     clearUpdates();
+  }
+
+  while(d_constraintDatabase.hasMorePropagations()){
+    cout << "dropping propagations" << d_constraintDatabase.nextPropagation() << endl;
   }
 
   while(d_propManager.hasMorePropagations()){

@@ -612,6 +612,24 @@ Constraint ConstraintDatabase::lookup(TNode literal) const{
   }
 }
 
+void ConstraintValue::selfExplaining(){
+  markAsTrue();
+}
+
+void ConstraintValue::propagate(Constraint a){
+  markAsTrue(a);
+  d_database->d_toPropagate.push(this);
+}
+
+void ConstraintValue::propagate(Constraint a, Constraint b){
+  markAsTrue(a);
+  d_database->d_toPropagate.push(this);
+}
+
+void ConstraintValue::propagate(const std::vector<Constraint>& b){
+  markAsTrue(b);
+  d_database->d_toPropagate.push(this);
+}
 
 void ConstraintValue::markAsTrue(){
   Assert(truthIsUnknown());
