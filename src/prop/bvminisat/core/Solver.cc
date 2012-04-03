@@ -465,6 +465,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
 }
 
 void Solver::popAssumption() {
+  marker[var(assumptions.last())] = 1;
   assumptions.pop();
   conflict.clear();
   cancelUntil(assumptions.size());
@@ -473,10 +474,12 @@ void Solver::popAssumption() {
 lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
 
   assert(assumptions.size() == decisionLevel());
+  assert(marker[var(p)] == 1);
 
   // add to the assumptions
   assumptions.push(p);
   conflict.clear();
+  marker[var(p)] = 2;
 
   // runt the propagation
   only_bcp = true;
@@ -862,7 +865,7 @@ void Solver::explainPropagation(Lit p, vec<Lit>& explanation) {
     Lit l = queue.last();
     queue.pop();
     if (reason(var(l)) == CRef_Undef) {
-      if (marker[var(l)]) {
+      if (marker[var(l)] == 2) {
         explanation.push(l);
         visited.insert(var(l));
       }
