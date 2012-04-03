@@ -69,6 +69,7 @@ int InstStrategyCheckCESolved::process( Node f, Theory::Effort effort, int e, in
       }
       d_solved[f] = false;
     } 
+    Debug("quant-uf-strategy") << "done." << std::endl;
   }
   return STATUS_UNKNOWN;
 }

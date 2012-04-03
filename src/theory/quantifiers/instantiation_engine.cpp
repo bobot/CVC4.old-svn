@@ -345,12 +345,12 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
           }
         }
       }
-      Debug("cbqi-debug") << "Set instanatiation constant attribute on " << n << std::endl;
+      if( n.getKind()==FORALL ){
+        Debug("cbqi-debug") << "Set instantiation constant attribute on " << n << std::endl;
+      }
       InstConstantAttribute ica;
       n.setAttribute(ica,f);
     }
-  }else{
-    Debug("cbqi-debug") << "Already has attribute " << n << std::endl;
   }
 }
 void InstantiationEngine::computePhaseReqs( Node n, Node f, bool polarity ){

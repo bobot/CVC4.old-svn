@@ -25,6 +25,44 @@ using namespace CVC4::theory::quantifiers;
 
 //#define QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
 
+RewriteResponse QuantifiersRewriter::postRewrite(TNode in) {
+  Debug("quantifiers-rewrite-debug") << "post-rewriting " << in << std::endl;
+  if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
+    std::vector< Node > args;
+    for( int i=0; i<(int)in[0].getNumChildren(); i++ ){
+      args.push_back( in[0][i] );
+    }
+    Node ipl;
+    if( in.getNumChildren()==3 ){
+      ipl = in[2];
+    }
+    //if( in.hasAttribute(NestedQuantAttribute()) ){
+    //  Debug("quantifiers-rewrite") << "It is a nested quantifier." << std::endl;
+    //  if( in.getKind()==kind::EXISTS ){
+    //    args.push_back( in[in.getNumChildren()-1].notNode() );
+    //    Node n = NodeManager::currentNM()->mkNode(kind::FORALL, args );
+    //    Debug("quantifiers-rewrite") << "Rewrite " << in << " to " << n.notNode() << std::endl;
+    //    return RewriteResponse(REWRITE_DONE, n.notNode() );
+    //  }
+    //}else{
+      NodeBuilder<> defs(kind::AND);
+      Node n = rewriteQuant( args, in[ 1 ], defs, ipl, 
+                              in.hasAttribute(NestedQuantAttribute()), in.getKind()==kind::EXISTS );
+      if( in!=n ){
+        Debug("quantifiers-rewrite") << "rewrite " << in << std::endl;
+        Debug("quantifiers-rewrite") << " to " << std::endl;
+        Debug("quantifiers-rewrite") << n << std::endl;
+        if( in.hasAttribute(InstConstantAttribute()) ){
+          InstConstantAttribute ica;
+          n.setAttribute(ica,in.getAttribute(InstConstantAttribute()) );
+        }
+      }
+      return RewriteResponse(REWRITE_DONE, n );
+    //}
+  }
+  return RewriteResponse(REWRITE_DONE, in);
+}
+
 bool QuantifiersRewriter::isClause( Node n ){
   if( isLiteral( n ) ){
     return true;
@@ -223,8 +261,8 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
                                         bool isNested, bool isExists ){
   //std::cout << "rewrite quant " << body << std::endl;
   if( isExists ){
-    Node retVal = rewriteQuant( args, body.notNode(), defs, ipl, isNested );
-    return retVal.notNode();
+    Node retVal = rewriteQuant( args, body.getKind()==NOT ? body[0] : body.notNode(), defs, ipl, isNested );
+    return retVal.getKind()==NOT ? retVal[0] : retVal.notNode();
   }else{
     if( body.getKind()==FORALL ){
       //combine arguments
@@ -245,7 +283,7 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
           if( doMiniscopingNoFreeVar() ){
             NodeBuilder<> t(kind::OR);
             for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
-              t <<  body[0][i].notNode();
+              t <<  ( body[0][i].getKind()==NOT  ? body[0][i][0] : body[0][i].notNode() );
             }
             Node quant = t;
             return rewriteQuant( args, quant, defs, ipl );
@@ -254,7 +292,7 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
           if( doMiniscopingAnd() ){
             NodeBuilder<> t(kind::AND);
             for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
-              Node trm = ( body[0].getKind()==IMPLIES && i==0 ) ? body[0][i] : body[0][i].notNode();
+              Node trm = ( body[0].getKind()==IMPLIES && i==0 ) ? body[0][i] : ( body[0][i].getKind()==NOT  ? body[0][i][0] : body[0][i].notNode() );
               t << rewriteQuant( args, trm, defs, ipl );
             }
             Node retVal = t;
@@ -289,7 +327,7 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
         if( !isNested && doMiniscopingNoFreeVar() ){
           NodeBuilder<> tb(kind::OR);
           for( int i=0; i<(int)body.getNumChildren(); i++ ){
-            Node trm = ( body.getKind()==IMPLIES && i==0 ) ? body[i].notNode() : body[i];
+            Node trm = ( body.getKind()==IMPLIES && i==0 ) ? ( body[i].getKind()==NOT ? body[i][0] : body[i].notNode() ) : body[i];
             if( hasArg( args, body[i] ) ){
               tb << trm;
             }else{

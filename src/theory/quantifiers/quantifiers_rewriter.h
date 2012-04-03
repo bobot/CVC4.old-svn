@@ -22,6 +22,7 @@
 #define __CVC4__THEORY__QUANTIFIERS__QUANTIFIERS_REWRITER_H
 
 #include "theory/rewriter.h"
+#include "theory/quantifiers_engine.h"
 
 namespace CVC4 {
 namespace theory {
@@ -47,39 +48,7 @@ private:
   static void setNestedQuantifiers( Node n, Node q );
 public:
 
-  static RewriteResponse postRewrite(TNode in) {
-    Debug("quantifiers-rewrite-debug") << "post-rewriting " << in << std::endl;
-    if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
-      std::vector< Node > args;
-      for( int i=0; i<(int)in[0].getNumChildren(); i++ ){
-        args.push_back( in[0][i] );
-      }
-      Node ipl;
-      if( in.getNumChildren()==3 ){
-        ipl = in[2];
-      }
-      //if( in.hasAttribute(NestedQuantAttribute()) ){
-      //  Debug("quantifiers-rewrite") << "It is a nested quantifier." << std::endl;
-      //  if( in.getKind()==kind::EXISTS ){
-      //    args.push_back( in[in.getNumChildren()-1].notNode() );
-      //    Node n = NodeManager::currentNM()->mkNode(kind::FORALL, args );
-      //    Debug("quantifiers-rewrite") << "Rewrite " << in << " to " << n.notNode() << std::endl;
-      //    return RewriteResponse(REWRITE_DONE, n.notNode() );
-      //  }
-      //}else{
-        NodeBuilder<> defs(kind::AND);
-        Node n = rewriteQuant( args, in[ 1 ], defs, ipl, 
-                               in.hasAttribute(NestedQuantAttribute()), in.getKind()==kind::EXISTS );
-        if( in!=n ){
-          Debug("quantifiers-rewrite") << "rewrite " << in << std::endl;
-          Debug("quantifiers-rewrite") << " to " << std::endl;
-          Debug("quantifiers-rewrite") << n << std::endl;
-        }
-        return RewriteResponse(REWRITE_DONE, n );
-      //}
-    }
-    return RewriteResponse(REWRITE_DONE, in);
-  }
+  static RewriteResponse postRewrite(TNode in);
 
   static RewriteResponse preRewrite(TNode in) {
     Debug("quantifiers-rewrite-debug") << "pre-rewriting " << in << std::endl;

@@ -364,7 +364,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
 
 /** get match (not modulo equality) */
 bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe ){
-  Debug("matching") << "Matching " << t << " " << d_match_pattern << " ("
+  Debug("matching") << "Matching " << t << " against pattern " << d_match_pattern << " ("
                     << m.d_map.size() << ")" << ", " << d_children.size() << std::endl;
   Assert( !d_match_pattern.isNull() );
   if( d_matchPolicy==MATCH_GEN_INTERNAL_ARITHMETIC ){
@@ -387,10 +387,10 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
         if( d_match_pattern[i].getKind()==INST_CONSTANT ){
           if( !partial[0].setMatch( q, d_match_pattern[i], t[i] ) ){
             //match is in conflict
-            Debug("matching") << "Match in conflict " << t[i] << " and "
-                              << d_match_pattern[i] << " because "
-                              << partial[0].d_map[d_match_pattern[i]]
-                              << std::endl;
+            Debug("matching-debug") << "Match in conflict " << t[i] << " and "
+                                    << d_match_pattern[i] << " because "
+                                    << partial[0].d_map[d_match_pattern[i]]
+                                    << std::endl;
             return false;
           }
         }
