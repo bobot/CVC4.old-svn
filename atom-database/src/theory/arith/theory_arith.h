@@ -174,7 +174,9 @@ private:
   /**
    * List of all of the inequalities asserted in the current context.
    */
-  context::CDHashSet<Node, NodeHashFunction> d_diseq;
+  //context::CDHashSet<Node, NodeHashFunction> d_diseq;
+  context::CDQueue<Constraint> d_diseqQueue;
+
 
   /**
    * Manages information about the assignment and upper and lower bounds on

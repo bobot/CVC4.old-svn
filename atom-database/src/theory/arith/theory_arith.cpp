@@ -63,7 +63,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
   d_constantIntegerVariables(c),
-  d_diseq(c),
+  d_diseqQueue(c, false),
   d_partialModel(c, d_differenceManager),
   d_tableau(),
   d_linEq(d_partialModel, d_tableau, d_basicVarModelUpdateCallBack),
@@ -180,17 +180,16 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, 
     if(isInteger(x_i)){
       d_constantIntegerVariables.push_back(x_i);
     }
-    //check to make sure x_i != c_i has not been asserted
-    Node left  = d_arithvarNodeMap.asNode(x_i);
 
-    // if lowerbound and upperbound are equal, then the infinitesimal must be 0
-    Assert(c_i.getInfinitesimalPart().isZero());
-    Node right = mkRationalNode(c_i.getNoninfinitesimalPart());
-
-    Node diseq = left.eqNode(right).notNode();
-    if (d_diseq.find(diseq) != d_diseq.end()) {
-      Node ub = d_partialModel.getUpperConstraint(x_i);
-      return disequalityConflict(diseq, ub , original);
+    const ValueCollection& vc = constraint->getValueCollection();
+    if(vc.hasDisequality()){
+      const Constraint diseq = vc.getDisequality();
+      if(diseq->isTrue()){
+        const Constraint ub = vc.getUpperBound();
+        Node conflict = disequalityConflict(diseq->explain(), ub->explain(), original);
+        cout << " assert lower conflict " << conflict << endl;
+        return conflict;
+      }
     }
   }
 
@@ -243,18 +242,29 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original, 
       d_constantIntegerVariables.push_back(x_i);
     }
 
-    //check to make sure x_i != c_i has not been asserted
-    Node left  = d_arithvarNodeMap.asNode(x_i);
-
-    // if lowerbound and upperbound are equal, then the infinitesimal must be 0
-    Assert(c_i.getInfinitesimalPart().isZero());
-    Node right = mkRationalNode(c_i.getNoninfinitesimalPart());
-
-    Node diseq = left.eqNode(right).notNode();
-    if (d_diseq.find(diseq) != d_diseq.end()) {
-      Node lb = d_partialModel.getLowerConstraint(x_i);
-      return disequalityConflict(diseq, lb , original);
+    const ValueCollection& vc = constraint->getValueCollection();
+    if(vc.hasDisequality()){
+      const Constraint diseq = vc.getDisequality();
+      if(diseq->isTrue()){
+        const Constraint ub = vc.getUpperBound();
+        Node conflict = disequalityConflict(diseq->explain(), ub->explain(), original);
+        cout << " assert upper conflict " << conflict << endl;
+        return conflict;
+      }
     }
+
+    // //check to make sure x_i != c_i has not been asserted
+    // Node left  = d_arithvarNodeMap.asNode(x_i);
+
+    // // if lowerbound and upperbound are equal, then the infinitesimal must be 0
+    // Assert(c_i.getInfinitesimalPart().isZero());
+    // Node right = mkRationalNode(c_i.getNoninfinitesimalPart());
+
+    // Node diseq = left.eqNode(right).notNode();
+    // if (d_diseq.find(diseq) != d_diseq.end()) {
+    //   Node lb = d_partialModel.getLowerConstraint(x_i);
+    //   return disequalityConflict(diseq, lb , original);
+    // }
   }
 
   d_partialModel.setUpperConstraint(x_i,original, constraint);
@@ -359,22 +369,62 @@ Node TheoryArith::AssertDisequality(ArithVar x_i, DeltaRational& c_i, TNode orig
   Assert(!constraint->hasLiteral() || original == constraint->getLiteral());
   Assert(!isInteger(x_i) || c_i.isIntegral());
 
-  d_diseq.insert(original);
-
-  // Check if it conflicts with the the bounds
-
-  ArithVar lhsVar = x_i;
-  const DeltaRational& rhsValue = c_i;
-  if (d_partialModel.hasLowerBound(lhsVar) &&
-      d_partialModel.hasUpperBound(lhsVar) &&
-      d_partialModel.getLowerBound(lhsVar) == rhsValue &&
-      d_partialModel.getUpperBound(lhsVar) == rhsValue) {
-    Node lb = d_partialModel.getLowerConstraint(lhsVar);
-    Node ub = d_partialModel.getUpperConstraint(lhsVar);
-    return disequalityConflict(original, lb, ub);
-  }else{
-    return Node::null(); 
+  if(constraint->isSplit()){
+    cout << "skipping already split " << constraint << endl;
+    return Node::null();
   }
+
+  const ValueCollection& vc = constraint->getValueCollection();
+  if(vc.hasLowerBound() && vc.hasUpperBound()){
+    const Constraint lb = vc.getLowerBound();
+    const Constraint ub = vc.getUpperBound();
+    if(lb->isTrue() && ub->isTrue()){
+      //in conflict
+      Node lbNode = lb->explain();
+      Node ubNode = ub->explain();
+      cout << "explaining" << endl;
+      return disequalityConflict(original, lbNode, ubNode);
+    }else if(lb->isTrue()){
+      cout << "propagate UpperBound " << constraint << lb << ub << endl;
+    }else if(ub->isTrue()){
+      cout << "propagate LowerBound " << constraint << lb << ub << endl;
+    }
+  }
+
+  if(c_i == d_partialModel.getAssignment(x_i)){
+    cout << "lemma now!" << endl;
+    d_out->lemma(constraint->split());
+    return Node::null();
+  }else if(d_partialModel.strictlyLessThanLowerBound(x_i, c_i)){
+    cout << "can drop as less than lb" << constraint << endl;
+  }else if(d_partialModel.strictlyGreaterThanUpperBound(x_i, c_i)){
+    cout << "can drop as less than ub" << constraint << endl;
+  }else{
+    cout << "push back" << constraint << endl;
+    d_diseqQueue.push(constraint);
+  }
+  return Node::null();
+
+  // //  d_diseq.insert(original);
+  // d_diseq.push(constraint);
+
+  // if(d_partialModel.hasLowerBound(lhsVar) &&
+  //    d_partialModel.hasUpperBound(lhsVar)){
+  //   if(d_partialModel.getLowerBound(lhsVar) == rhsValue)
+  // }
+
+  // // Check if it conflicts with the the bounds
+  // const DeltaRational& rhsValue = c_i;
+  // if (d_partialModel.hasLowerBound(lhsVar) &&
+  //     d_partialModel.hasUpperBound(lhsVar) &&
+  //     d_partialModel.getLowerBound(lhsVar) == rhsValue &&
+  //     d_partialModel.getUpperBound(lhsVar) == rhsValue) {
+  //   Node lb = d_partialModel.getLowerConstraint(lhsVar);
+  //   Node ub = d_partialModel.getUpperConstraint(lhsVar);
+  //   return disequalityConflict(original, lb, ub);
+  // }else{
+  //   return Node::null();
+  // }
 }
 
 void TheoryArith::addSharedTerm(TNode n){
@@ -407,7 +457,7 @@ Node TheoryArith::ppRewrite(TNode atom) {
                                << a << endl;
   }
 
-  if (a.getKind() == kind::EQUAL) {
+  if (a.getKind() == kind::EQUAL  && Options::current()->arithRewriteEq) {
     Node leq = NodeBuilder<2>(kind::LEQ) << a[0] << a[1];
     Node geq = NodeBuilder<2>(kind::GEQ) << a[0] << a[1];
     Node rewritten = Rewriter::rewrite(leq.andNode(geq));
@@ -899,6 +949,7 @@ Node TheoryArith::assertionCases(TNode assertion){
     }
   }
   Assert(constraint != NullConstraint);
+  Assert(!constraint->negationHasProof());
 
   ArithVar x_i = determineLeftVariable(assertion, simpleKind);
   DeltaRational c_i = determineRightConstant(assertion, simpleKind);
@@ -1100,29 +1151,67 @@ Node TheoryArith::roundRobinBranch(){
 bool TheoryArith::splitDisequalities(){
   bool splitSomething = false;
 
-  context::CDHashSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-  context::CDHashSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
-  for(; it != it_end; ++ it) {
-    TNode eq = (*it)[0];
-    Assert(eq.getKind() == kind::EQUAL);
-    TNode lhs = eq[0];
-    TNode rhs = eq[1];
-    Assert(rhs.getKind() == CONST_RATIONAL);
-    ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
-    DeltaRational lhsValue = d_partialModel.getAssignment(lhsVar);
-    DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
-    if (lhsValue == rhsValue) {
-      Debug("arith::lemma") << "Splitting on " << eq << endl;
-      Debug("arith::lemma") << "LHS value = " << lhsValue << endl;
-      Debug("arith::lemma") << "RHS value = " << rhsValue << endl;
-      Node ltNode = NodeBuilder<2>(kind::LT) << lhs << rhs;
-      Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
-      Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
-      ++(d_statistics.d_statDisequalitySplits);
-      d_out->lemma(lemma);
-      splitSomething = true;
+  vector<Constraint> save;
+
+  while(!d_diseqQueue.empty()){
+    Constraint front = d_diseqQueue.front();
+    d_diseqQueue.pop();
+
+    if(front->isSplit()){
+      cout << "split already" << endl;
+    }else{
+      cout << "not split already" << endl;
+
+      ArithVar lhsVar = front->getVariable();
+
+      const DeltaRational& lhsValue = d_partialModel.getAssignment(lhsVar);
+      const DeltaRational& rhsValue = front->getValue();
+      if(lhsValue == rhsValue){
+        Debug("arith::lemma") << "Splitting on " << front << endl;
+        Debug("arith::lemma") << "LHS value = " << lhsValue << endl;
+        Debug("arith::lemma") << "RHS value = " << rhsValue << endl;
+        Node lemma = front->split();
+        ++(d_statistics.d_statDisequalitySplits);
+        d_out->lemma(lemma);
+        splitSomething = true;
+      }else if(d_partialModel.strictlyLessThanLowerBound(lhsVar, rhsValue)){
+        cout << "can drop as less than lb" << front << endl;
+      }else if(d_partialModel.strictlyGreaterThanUpperBound(lhsVar, rhsValue)){
+        cout << "can drop as greater than ub" << front << endl;
+      }else{
+        cout << "save" << front << endl;
+        save.push_back(front);
+      }
     }
   }
+  vector<Constraint>::const_iterator i=save.begin(), i_end = save.end();
+  for(; i != i_end; ++i){
+    d_diseqQueue.push(*i);
+  }
+
+  // context::CDHashSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
+  // context::CDHashSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
+  // for(; it != it_end; ++ it) {
+  //   TNode eq = (*it)[0];
+  //   Assert(eq.getKind() == kind::EQUAL);
+  //   TNode lhs = eq[0];
+  //   TNode rhs = eq[1];
+  //   Assert(rhs.getKind() == CONST_RATIONAL);
+  //   ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
+  //   DeltaRational lhsValue = d_partialModel.getAssignment(lhsVar);
+  //   DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
+  //   if (lhsValue == rhsValue) {
+  //     Debug("arith::lemma") << "Splitting on " << eq << endl;
+  //     Debug("arith::lemma") << "LHS value = " << lhsValue << endl;
+  //     Debug("arith::lemma") << "RHS value = " << rhsValue << endl;
+  //     Node ltNode = NodeBuilder<2>(kind::LT) << lhs << rhs;
+  //     Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
+  //     Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
+  //     ++(d_statistics.d_statDisequalitySplits);
+  //     d_out->lemma(lemma);
+  //     splitSomething = true;
+  //   }
+  // }
   return splitSomething;
 }
 
@@ -1143,11 +1232,12 @@ void TheoryArith::debugPrintAssertions() {
       Debug("arith::print_assertions") << uConstr << endl;
     }
   }
-  context::CDHashSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-  context::CDHashSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
-  for(; it != it_end; ++ it) {
-    Debug("arith::print_assertions") << *it << endl;
-  }
+#warning "revisit this "
+  // context::CDHashSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
+  // context::CDHashSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
+  // for(; it != it_end; ++ it) {
+  //   Debug("arith::print_assertions") << *it << endl;
+  // }
 }
 
 void TheoryArith::debugPrintModel(){
@@ -1211,10 +1301,13 @@ void TheoryArith::propagate(Effort e) {
         Node normalized = Rewriter::rewrite(toProp);
         Node notNormalized = normalized.notNode();
 
-        if(d_diseq.find(notNormalized) == d_diseq.end()){
+#warning "revisit"
+        Constraint constraint = d_constraintDatabase.lookup(normalized);
+        if(constraint == NullConstraint){
+          cout << "null? " << endl;
           d_out->propagate(toProp);
           propagated = true;
-        }else{
+        }else if(constraint->negationHasProof()){
           Node exp = d_differenceManager.explain(toProp);
           Node lp = flattenAnd(exp.andNode(notNormalized));
           Debug("arith::propagate") << "propagate conflict" <<  lp << endl;
@@ -1222,7 +1315,23 @@ void TheoryArith::propagate(Effort e) {
 
           propagated = true;
           break;
+        }else{
+          d_out->propagate(toProp);
+          propagated = true;
         }
+
+        // if(d_diseq.find(notNormalized) == d_diseq.end()){
+        //   d_out->propagate(toProp);
+        //   propagated = true;
+        // }else{
+        //   Node exp = d_differenceManager.explain(toProp);
+        //   Node lp = flattenAnd(exp.andNode(notNormalized));
+        //   Debug("arith::propagate") << "propagate conflict" <<  lp << endl;
+        //   d_out->conflict(lp);
+
+        //   propagated = true;
+        //   break;
+        // }
       }else{
         d_out->propagate(toProp);
         propagated = true;
