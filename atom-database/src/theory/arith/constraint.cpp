@@ -86,6 +86,10 @@ std::ostream& operator<<(std::ostream& o, const ValueCollection& vc){
   return o << "}";
 }
 
+void ConstraintValue::debugPrint() const {
+  cout << *this << endl;
+}
+
 void ValueCollection::push_into(std::vector<Constraint>& vec) const {
   Debug("arith::constraint") << "push_into " << *this << endl;
   if(hasEquality()){
@@ -124,7 +128,7 @@ ValueCollection ValueCollection::mkFromConstraint(Constraint c){
   return ret;
 }
 
-bool ValueCollection::hasConstraintType(ConstraintType t) const{
+bool ValueCollection::hasConstraintOfType(ConstraintType t) const{
   switch(t){
   case LowerBound:
     return hasLowerBound();
@@ -177,19 +181,19 @@ void ValueCollection::add(Constraint c){
   }
 }
 
-Constraint ValueCollection::getConstraint(ConstraintType t) const{
+Constraint ValueCollection::getConstraintOfType(ConstraintType t) const{
   switch(t){
   case LowerBound:
-    Assert(!hasLowerBound());
+    Assert(hasLowerBound());
     return d_lowerBound;
   case Equality:
-    Assert(!hasEquality());
+    Assert(hasEquality());
     return d_equality;
   case UpperBound:
-    Assert(!hasUpperBound());
+    Assert(hasUpperBound());
     return d_upperBound;
   case Disequality:
-    Assert(!hasDisequality());
+    Assert(hasDisequality());
     return d_disequality;
   default:
     Unreachable();
@@ -275,19 +279,19 @@ ConstraintValue::~ConstraintValue() {
   }
 }
 
- 
 Constraint ConstraintValue::getCeiling() {
+  Debug("getCeiling") << "ConstraintValue::getCeiling on " << *this << endl;
   Assert(getValue().getInfinitesimalPart().sgn() > 0);
-  
+
   DeltaRational ceiling(getValue().ceiling());
-  
+
 #warning "Optimize via the iterator"
   return d_database->getConstraint(getVariable(), getType(), ceiling);
 }
 
 Constraint ConstraintValue::getFloor() {
   Assert(getValue().getInfinitesimalPart().sgn() < 0);
-  
+
   DeltaRational floor(Rational(getValue().floor()));
 
 #warning "Optimize via the iterator"
@@ -295,8 +299,14 @@ Constraint ConstraintValue::getFloor() {
 }
 
 void ConstraintValue::setPreregistered() {
+  //Only atoms are preregistered.
+  //We must mark both the atom and its negation
+
   Assert(!isPreregistered());
+  Assert(!d_negation->isPreregistered());
+
   d_database->pushPreregisteredWatch(this);
+  d_database->pushPreregisteredWatch(d_negation);
 }
 
 bool ConstraintValue::isSelfExplaining() const {
@@ -333,12 +343,39 @@ bool ConstraintValue::sanityChecking(Node n) const {
 Constraint ConstraintValue::makeNegation(ArithVar v, ConstraintType t, const DeltaRational& r){
   switch(t){
   case LowerBound:
+    {
+      Assert(r.infinitesimalSgn() >= 0);
+      if(r.infinitesimalSgn() > 0){
+        Assert(r.getInfinitesimalPart() == 1);
+        // make (not (v > r)), which is (v <= r)
+        DeltaRational dropInf(r.getNoninfinitesimalPart(), 0);
+        return new ConstraintValue(v, UpperBound, dropInf);
+      }else{
+        Assert(r.infinitesimalSgn() == 0);
+        // make (not (v >= r)), which is (v < r)
+        DeltaRational addInf(r.getNoninfinitesimalPart(), -1);
+        return new ConstraintValue(v, UpperBound, addInf);
+      }
+    }
   case UpperBound:
-    Unimplemented();
+    {
+      Assert(r.infinitesimalSgn() <= 0);
+      if(r.infinitesimalSgn() < 0){
+        Assert(r.getInfinitesimalPart() == -1);
+        // make (not (v < r)), which is (v >= r)
+        DeltaRational dropInf(r.getNoninfinitesimalPart(), 0);
+        return new ConstraintValue(v, LowerBound, dropInf);
+      }else{
+        Assert(r.infinitesimalSgn() == 0);
+        // make (not (v <= r)), which is (v > r)
+        DeltaRational addInf(r.getNoninfinitesimalPart(), 1);
+        return new ConstraintValue(v, LowerBound, addInf);
+      }
+    }
   case Equality:
-    return new Constraint(v, Disequality, r);
+    return new ConstraintValue(v, Disequality, r);
   case Disequality:
-    return new Constraint(v, Equality, r);
+    return new ConstraintValue(v, Equality, r);
   default:
     Unreachable();
     return NullConstraint;
@@ -367,18 +404,18 @@ Constraint ConstraintDatabase::getConstraint(ArithVar v, ConstraintType t, const
 
   SortedConstraintMapIterator pos = insertAttempt.first;
   ValueCollection& vc = pos->second;
-  if(vc.hasConstraint(t)){
-    return vc.getConstraint(posC->getType());
+  if(vc.hasConstraintOfType(t)){
+    return vc.getConstraintOfType(t);
   }else{
-    Constraint c = new ConstraintValue(v, type, r);
-    Constraint negC = ConstraintValue::makeNegation(v, type, r);
+    Constraint c = new ConstraintValue(v, t, r);
+    Constraint negC = ConstraintValue::makeNegation(v, t, r);
 
     SortedConstraintMapIterator negPos;
     if(t == Equality || t == Disequality){
       negPos = pos;
     }else{
       pair<SortedConstraintMapIterator, bool> negInsertAttempt;
-      negInsertAttempt = scm.insert(make_pair(neg->getValue(), ValueCollection()));
+      negInsertAttempt = scm.insert(make_pair(negC->getValue(), ValueCollection()));
       Assert(negInsertAttempt.second);
       negPos = negInsertAttempt.first;
     }
@@ -500,12 +537,10 @@ Constraint ConstraintDatabase::addAtom(TNode atom){
   // If the attempt succeeds, i points to a new empty ValueCollection
   // If the attempt fails, i points to a pre-existing ValueCollection
 
-  if(posI->second.hasConstraintType(posC->getType())){
-
-
+  if(posI->second.hasConstraintOfType(posC->getType())){
     //This is the situation where the Constraint exists, but
     //the literal has not been  associated with it.
-    Constraint hit = posI->second.getConstraint(posC->getType());
+    Constraint hit = posI->second.getConstraintOfType(posC->getType());
     Debug("arith::constraint") << "hit " << hit << endl;
     Debug("arith::constraint") << "posC " << posC << endl;
 

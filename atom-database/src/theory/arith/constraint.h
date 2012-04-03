@@ -144,7 +144,7 @@ public:
     return d_disequality != NullConstraint;
   }
 
-  bool hasConstraintType(ConstraintType t) const;
+  bool hasConstraintOfType(ConstraintType t) const;
 
   Constraint getLowerBound() const {
     Assert(hasLowerBound());
@@ -163,7 +163,7 @@ public:
     return d_disequality;
   }
 
-  Constraint getConstraint(ConstraintType t) const;
+  Constraint getConstraintOfType(ConstraintType t) const;
 
   /** Returns true if any of the constraints are non-null. */
   bool empty() const;
@@ -514,12 +514,16 @@ private:
   /** If the node has a proof do nothing, otherwise mark the node.*/
   void internalPropagate(Constraint a);
 
+  void debugPrint() const;
+
 }; /* class ConstraintValue */
 
 std::ostream& operator<<(std::ostream& o, const ConstraintValue& c);
 std::ostream& operator<<(std::ostream& o, const Constraint c);
 std::ostream& operator<<(std::ostream& o, const ConstraintType t);
 std::ostream& operator<<(std::ostream& o, const ValueCollection& c);
+
+
 
 class ConstraintDatabase {
 private:

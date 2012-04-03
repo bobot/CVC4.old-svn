@@ -158,13 +158,10 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, 
   Assert(constraint != NullConstraint);
   Assert(x_i == constraint->getVariable());
   Assert(c_i == constraint->getValue());
-  Assert(original == constraint->getLiteral());
 
   Debug("arith") << "AssertLower(" << x_i << " " << c_i << ")"<< std::endl;
 
-  if(isInteger(x_i)){
-    c_i = DeltaRational(c_i.ceiling());
-  }
+  Assert(!isInteger(x_i) || c_i.isIntegral());
 
   //TODO Relax to less than?
   if(d_partialModel.lessThanLowerBound(x_i, c_i)){
@@ -222,11 +219,10 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original, 
                  "AssertUpper() called on a NullConstraint.");
   Assert(x_i == constraint->getVariable());
   Assert(c_i == constraint->getValue());
-  Assert(original == constraint->getLiteral());
 
-  if(isInteger(x_i)){
-    c_i = DeltaRational(c_i.floor());
-  }
+  //Too strong because of rounding with integers
+  //Assert(!constraint->hasLiteral() || original == constraint->getLiteral());
+  Assert(!isInteger(x_i) || c_i.isIntegral());
 
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
 
@@ -289,7 +285,10 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
                  "AssertUpper() called on a NullConstraint.");
   Assert(x_i == constraint->getVariable());
   Assert(c_i == constraint->getValue());
-  Assert(original == constraint->getLiteral());
+
+  //Should be fine in integers
+  Assert(!constraint->hasLiteral() || original == constraint->getLiteral());
+  Assert(!isInteger(x_i) || c_i.isIntegral());
 
   int cmpToLB = d_partialModel.cmpToLowerBound(x_i, c_i);
   int cmpToUB = d_partialModel.cmpToUpperBound(x_i, c_i);
@@ -355,7 +354,10 @@ Node TheoryArith::AssertDisequality(ArithVar x_i, DeltaRational& c_i, TNode orig
                  "AssertUpper() called on a NullConstraint.");
   Assert(x_i == constraint->getVariable());
   Assert(c_i == constraint->getValue());
-  Assert(original == constraint->getLiteral());
+
+  //Should be fine in integers
+  Assert(!constraint->hasLiteral() || original == constraint->getLiteral());
+  Assert(!isInteger(x_i) || c_i.isIntegral());
 
   d_diseq.insert(original);
 
@@ -890,6 +892,11 @@ Node TheoryArith::assertionCases(TNode assertion){
       addToContext(eq);
       constraint = d_constraintDatabase.lookup(assertion);
     }
+
+    if(!constraint->isPreregistered()){
+#warning "Preregistered? Really? CanBeUsedInProofs instead?"
+      constraint->setPreregistered();
+    }
   }
   Assert(constraint != NullConstraint);
 
@@ -898,37 +905,44 @@ Node TheoryArith::assertionCases(TNode assertion){
 
   Assert(constraint->getVariable() == x_i);
   Assert(constraint->getValue() == c_i);
+  Assert(!constraint->hasLiteral() || constraint->getLiteral() == assertion);
 
   Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
                               <<"(" << assertion
                               << " \\-> "
                               << x_i<<" "<< simpleKind <<" "<< c_i << ")" << std::endl;
 
-  Debug("arith::constraint") << "arith constraint " << constraint << std::endl;
+
+  Debug("arith::constraint") << "arith constraint " << constraint << std::endl
+                             << "isPreregistered?" << constraint->isPreregistered() << std::endl;
+
+  if(!constraint->hasProof()){
+    Debug("arith::constraint") << "marking as true " << constraint << endl;
+    constraint->markAsTrue();
+  }else{
+    Debug("arith::constraint") << "already true " << constraint << endl;
+  }
 
   switch(simpleKind){
   case LT:
     if(isInteger(x_i)){
-      Constraint ceilingConstraint = constraint->getCeiling();
-      if(ceilingConstraint->isTrue()){
-        return Node::null();
+      Constraint floorConstraint = constraint->getFloor();
+      if(!floorConstraint->isTrue()){
+        floorConstraint->markAsTrue(constraint);
       }
-      ceilingConstraint->markAsTrue(constraint);
-      c_i = DeltaRational(c_i.ceiling());
-      return AssertUpper(x_i, c_i, assertion, ceilingConstraint);
+      c_i = DeltaRational(c_i.floor());
+      return AssertUpper(x_i, c_i, assertion, floorConstraint);
     }
   case LEQ:
     return AssertUpper(x_i, c_i, assertion, constraint);
   case GT:
     if(isInteger(x_i)){
-      Constraint floorConstraint = constraint->getFloor();
-      if(floorConstraint->isTrue()){
-        return Node::null();
-      }else{
-        floorConstraint->markAsTrue(constraint);
-        c_i = DeltaRational(c_i.floor());
-        return AssertUpper(x_i, c_i, assertion, floorConstraint);
+      Constraint ceilingConstraint = constraint->getCeiling();
+      if(!ceilingConstraint->isTrue()){
+        ceilingConstraint->markAsTrue(constraint);
       }
+      c_i = DeltaRational(c_i.ceiling());
+      return AssertLower(x_i, c_i, assertion, ceilingConstraint);
     }
   case GEQ:
     return AssertLower(x_i, c_i, assertion, constraint);
