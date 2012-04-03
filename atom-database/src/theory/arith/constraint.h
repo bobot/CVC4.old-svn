@@ -510,6 +510,8 @@ public:
   void markAsTrue(Constraint a, Constraint b);
   void markAsTrue(const std::vector<Constraint>& b);
 
+  const ValueCollection& getValueCollection() const;
+
 private:
   /** If the node has a proof do nothing, otherwise mark the node.*/
   void internalPropagate(Constraint a);
@@ -600,13 +602,13 @@ private:
     Watches(context::Context* satContext, context::Context* userContext);
   };
   Watches* d_watches;
-  
+
   void pushPreregisteredWatch(Constraint c){
     Assert(!c->d_preregistered);
     c->d_preregistered = true;
     d_watches->d_preregisteredWatches.push_back(c);
   }
-  
+
   void pushSplitWatch(Constraint c){
     Assert(!c->d_split);
     c->d_split = true;
@@ -657,7 +659,7 @@ public:
    * It does not look in the database for an equivalent corresponding constraint.
    */
   bool hasLiteral(TNode literal) const;
-  
+
   bool hasMorePropagations() const{
     return !d_toPropagate.empty();
   }

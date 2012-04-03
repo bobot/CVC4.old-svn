@@ -279,6 +279,10 @@ ConstraintValue::~ConstraintValue() {
   }
 }
 
+const ValueCollection& ConstraintValue::getValueCollection() const{
+  return d_variablePosition->second;
+}
+
 Constraint ConstraintValue::getCeiling() {
   Debug("getCeiling") << "ConstraintValue::getCeiling on " << *this << endl;
   Assert(getValue().getInfinitesimalPart().sgn() > 0);
