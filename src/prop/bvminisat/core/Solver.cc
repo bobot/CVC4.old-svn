@@ -872,6 +872,7 @@ void Solver::explainPropagation(Lit p, vec<Lit>& explanation) {
     } else {
       Clause& c = ca[reason(var(l))];
       for (int i = 1; i < c.size(); ++i) {
+	//assert (vardata.size() >= var(c[i])); 
         if (visited.count(var(c[i])) == 0) {
           queue.push(~c[i]);
           visited.insert(var(c[i])); 
