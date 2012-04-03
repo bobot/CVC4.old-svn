@@ -775,7 +775,9 @@ Node TheoryEngine::getExplanation(TNode node) {
   if (d_sharedTermsExist) {
     NodeBuilder<> nb(kind::AND);
     explainEqualities(theory->getId(), explanation, nb);
-    explanation = nb;
+    //AJR-hack
+    explanation = nb.getNumChildren()==1 ? nb.getChild( 0 ) : nb;
+    //AJR-hack-end
   }
 
   Assert(!explanation.isNull());

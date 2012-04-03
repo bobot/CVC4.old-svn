@@ -279,7 +279,7 @@ bool Trigger::isUsable( Node n, Node f ){
 
 bool Trigger::isUsableTrigger( Node n, Node f ){
   //return n.getAttribute(InstConstantAttribute())==f && n.getKind()==APPLY_UF;
-  return n.getAttribute(InstConstantAttribute())==f && isUsable( n, f );
+  return n.getAttribute(InstConstantAttribute())==f && isUsable( n, f ) && n.getKind()==APPLY_UF;
 }
 /** filter all nodes that have instances */
 void Trigger::filterInstances( std::vector< Node >& nodes ){

@@ -61,6 +61,7 @@ int InstStrategyCheckCESolved::process( Node f, Theory::Effort effort, int e, in
       calcSolved( f );
     }
     //check if f is counterexample-solved
+    Debug("quant-uf-strategy") << "Try CE-solved.." << std::endl;
     if( d_solved[ f ] ){
       if( d_quantEngine->addInstantiation( f, d_th->d_baseMatch[f] ) ){
         ++(d_th->d_statistics.d_instantiations_ce_solved);
@@ -606,7 +607,7 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
       return a;
     }else{
       Node rep = getRepresentative( a );
-      if( !rep.hasAttribute(InstLevelAttribute()) ){
+      if( !rep.hasAttribute(InstConstantAttribute()) ){
         //return the representative of a
         d_ground_reps[a] = rep;
         return rep;

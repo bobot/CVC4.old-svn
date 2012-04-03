@@ -292,10 +292,10 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
     uint64_t maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
       if( terms[i].hasAttribute(InstConstantAttribute()) ){
-        //std::cout << "***& Instantiate " << f << " with " << std::endl;
-        //for( int i=0; i<(int)terms.size(); i++ ){
-        //  std::cout << "   " << terms[i] << std::endl;
-        //}
+        std::cout << "***& Bad Instantiate " << f << " with " << std::endl;
+        for( int i=0; i<(int)terms.size(); i++ ){
+          std::cout << "   " << terms[i] << std::endl;
+        }
         std::cout << "Bad instantiation, unknown ";
         exit( 19 );
       }else{

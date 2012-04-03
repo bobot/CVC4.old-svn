@@ -96,18 +96,18 @@ void TheoryUF::check(Effort level) {
     //<< " (" << d_valuation.isDecision( fact ) << ")";
     Debug("uf-check") << std::endl;
     if(Options::current()->finiteModelFind ){
-      if( d_valuation.isDecision( fact ) ){
-        if( fact.getKind()==kind::CARDINALITY_CONSTRAINT ){
-          //std::cout << "Asserted " << fact << std::endl;
-          d_hasCard = true;
-        }else{
-          if( !d_hasCard ){
-            //std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
-            std::cout << "Error: constraint asserted before cardinality" << std::endl;
-            exit( 21 );
-          }
-        }
-      }
+      //if( d_valuation.isDecision( fact ) ){
+      //  if( fact.getKind()==kind::CARDINALITY_CONSTRAINT ){
+      //    //std::cout << "Asserted " << fact << std::endl;
+      //    d_hasCard = true;
+      //  }else{
+      //    if( !d_hasCard ){
+      //      //std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
+      //      std::cout << "Error: constraint asserted before cardinality" << std::endl;
+      //      exit( 21 );
+      //    }
+      //  }
+      //}
     }
     ////std::cout << "Check " << fact << std::endl;
     //Debug("uf-ajr") << "TheoryUF::check(): processing " << fact << std::endl;

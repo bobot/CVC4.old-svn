@@ -1124,7 +1124,7 @@ void StrongSolverTheoryUf::propagate( Theory::Effort level ){
   for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
     //if cardinality not asserted, propagate as decision
     if( !it->second->d_isCardinalityStrict ){
-      if( !it->second->d_is_cardinality_set ){//&& !it->second->d_is_cardinality_requested ){
+      if( !it->second->d_is_cardinality_set && !it->second->d_is_cardinality_requested ){
         //std::cout << "Cardinality issue, notify restart: ";
         //std::cout << " " << it->second->d_is_cardinality_set;
         //std::cout << " " << it->second->d_is_cardinality_requested;

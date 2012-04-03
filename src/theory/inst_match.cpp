@@ -68,7 +68,7 @@ InstMatch::InstMatch( InstMatch* m ){
 bool InstMatch::setMatch( EqualityQuery* q, Node v, Node m ){
   if( d_map.find( v )==d_map.end() ){
     d_map[v] = m;
-    Debug("matching") << "Add partial " << v << "->" << m << std::endl;
+    Debug("matching-debug") << "Add partial " << v << "->" << m << std::endl;
     return true;
   }else{
     return q->areEqual( d_map[v], m );
