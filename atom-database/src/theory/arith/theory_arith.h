@@ -373,6 +373,7 @@ private:
   Node AssertLower(ArithVar x, DeltaRational& c, TNode orig, Constraint constraint);
   Node AssertUpper(ArithVar x, DeltaRational& c, TNode orig, Constraint constraint);
   Node AssertEquality(ArithVar x, DeltaRational& c, TNode orig, Constraint constraint);
+  Node AssertDisequality(ArithVar x, DeltaRational& c, TNode orig, Constraint constraint);
 
   /** Tracks the bounds that were updated in the current round. */
   PermissiveBackArithVarSet d_updatedBounds;

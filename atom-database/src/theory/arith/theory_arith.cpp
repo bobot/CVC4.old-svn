@@ -346,6 +346,35 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
 }
 
 
+/* procedure AssertDisequality( x_i != c_i ) */
+Node TheoryArith::AssertDisequality(ArithVar x_i, DeltaRational& c_i, TNode original, Constraint constraint){
+
+  Debug("arith") << "AssertDisequality(" << x_i << " " << c_i << ")"<< std::endl;
+
+  AssertArgument(constraint != NullConstraint,
+                 "AssertUpper() called on a NullConstraint.");
+  Assert(x_i == constraint->getVariable());
+  Assert(c_i == constraint->getValue());
+  Assert(original == constraint->getLiteral());
+
+  d_diseq.insert(original);
+
+  // Check if it conflicts with the the bounds
+
+  ArithVar lhsVar = x_i;
+  const DeltaRational& rhsValue = c_i;
+  if (d_partialModel.hasLowerBound(lhsVar) &&
+      d_partialModel.hasUpperBound(lhsVar) &&
+      d_partialModel.getLowerBound(lhsVar) == rhsValue &&
+      d_partialModel.getUpperBound(lhsVar) == rhsValue) {
+    Node lb = d_partialModel.getLowerConstraint(lhsVar);
+    Node ub = d_partialModel.getUpperConstraint(lhsVar);
+    return disequalityConflict(original, lb, ub);
+  }else{
+    return Node::null(); 
+  }
+}
+
 void TheoryArith::addSharedTerm(TNode n){
   d_differenceManager.addSharedTerm(n);
   if(!n.isConst() && !isSetup(n)){
@@ -880,33 +909,14 @@ Node TheoryArith::assertionCases(TNode assertion){
   switch(simpleKind){
   case LEQ:
   case LT:
-    return  AssertUpper(x_i, c_i, assertion, constraint);
+    return AssertUpper(x_i, c_i, assertion, constraint);
   case GEQ:
   case GT:
     return AssertLower(x_i, c_i, assertion, constraint);
   case EQUAL:
     return AssertEquality(x_i, c_i, assertion, constraint);
   case DISTINCT:
-    {
-      d_diseq.insert(assertion);
-      // Check if it conflicts with the the bounds
-      TNode eq = assertion[0];
-      Assert(eq.getKind() == kind::EQUAL);
-      TNode lhs = eq[0];
-      TNode rhs = eq[1];
-      Assert(rhs.getKind() == CONST_RATIONAL);
-      ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
-      DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
-      if (d_partialModel.hasLowerBound(lhsVar) &&
-          d_partialModel.hasUpperBound(lhsVar) &&
-          d_partialModel.getLowerBound(lhsVar) == rhsValue &&
-          d_partialModel.getUpperBound(lhsVar) == rhsValue) {
-        Node lb = d_partialModel.getLowerConstraint(lhsVar);
-        Node ub = d_partialModel.getUpperConstraint(lhsVar);
-        return disequalityConflict(assertion, lb, ub);
-      }
-    }
-    return Node::null();
+    return AssertDisequality(x_i, c_i, assertion, constraint);
   default:
     Unreachable();
     return Node::null();
