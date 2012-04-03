@@ -359,11 +359,13 @@ RewriteResponse TheoryBVRewriter::RewriteNeg(TNode node, bool preregister) {
     return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
   }
   
-  if (RewriteRule<NegMult>::applies(node)) {
-    resultNode = RewriteRule<NegMult>::run<false>(node);
-    return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  if(!preregister) {
+    if (RewriteRule<NegMult>::applies(node)) {
+      resultNode = RewriteRule<NegMult>::run<false>(node);
+      return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+    }
   }
-  
+
   return RewriteResponse(REWRITE_DONE, resultNode); 
 }
 
