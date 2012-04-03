@@ -91,8 +91,10 @@ public:
 
   void setLowerConstraint(ArithVar x, TNode constraint, Constraint c);
   void setUpperConstraint(ArithVar x, TNode constraint, Constraint c);
-  TNode getLowerConstraint(ArithVar x);
-  TNode getUpperConstraint(ArithVar x);
+  TNode getLowerConstraint(ArithVar x) const;
+  TNode getUpperConstraint(ArithVar x) const;
+  Constraint getUBC(ArithVar x) const;
+  Constraint getLBC(ArithVar x) const;
 
 
   /* Initializes a variable to a safe value.*/
@@ -121,7 +123,7 @@ private:
   void zeroDifferenceDetected(ArithVar x);
 
 public:
-  bool boundsAreEqual(ArithVar x);
+  bool boundsAreEqual(ArithVar x) const;
 
   void setUpperBound(ArithVar x, const DeltaRational& r);
   void setLowerBound(ArithVar x, const DeltaRational& r);
@@ -132,8 +134,8 @@ public:
 
 
   /** Must know that the bound exists before calling this! */
-  const DeltaRational& getUpperBound(ArithVar x);
-  const DeltaRational& getLowerBound(ArithVar x);
+  const DeltaRational& getUpperBound(ArithVar x) const;
+  const DeltaRational& getLowerBound(ArithVar x) const;
   const DeltaRational& getAssignment(ArithVar x) const;
 
 
@@ -146,16 +148,16 @@ public:
    * If lowerbound = - \infty:
    *   return 1
    */
-  int cmpToLowerBound(ArithVar x, const DeltaRational& c);
+  int cmpToLowerBound(ArithVar x, const DeltaRational& c) const;
 
-  inline bool strictlyLessThanLowerBound(ArithVar x, const DeltaRational& c){
+  inline bool strictlyLessThanLowerBound(ArithVar x, const DeltaRational& c) const{
     return cmpToLowerBound(x, c) < 0;
   }
-  inline bool lessThanLowerBound(ArithVar x, const DeltaRational& c){
+  inline bool lessThanLowerBound(ArithVar x, const DeltaRational& c) const{
     return cmpToLowerBound(x, c) <= 0;
   }
 
-  inline bool strictlyGreaterThanLowerBound(ArithVar x, const DeltaRational& c){
+  inline bool strictlyGreaterThanLowerBound(ArithVar x, const DeltaRational& c) const{
     return cmpToLowerBound(x, c) > 0;
   }
 
@@ -165,37 +167,37 @@ public:
    * If upperbound = \infty:
    *   return -1
    */
-  int cmpToUpperBound(ArithVar x, const DeltaRational& c);
+  int cmpToUpperBound(ArithVar x, const DeltaRational& c) const;
 
-  inline bool strictlyLessThanUpperBound(ArithVar x, const DeltaRational& c){
+  inline bool strictlyLessThanUpperBound(ArithVar x, const DeltaRational& c) const{
     return cmpToUpperBound(x, c) < 0;
   }
 
-  inline bool lessThanUpperBound(ArithVar x, const DeltaRational& c){
+  inline bool lessThanUpperBound(ArithVar x, const DeltaRational& c) const{
     return cmpToUpperBound(x, c) <= 0;
   }
 
-  inline bool strictlyGreaterThanUpperBound(ArithVar x, const DeltaRational& c){
+  inline bool strictlyGreaterThanUpperBound(ArithVar x, const DeltaRational& c) const{
     return cmpToUpperBound(x, c) > 0;
   }
 
-  inline bool greaterThanUpperBound(ArithVar x, const DeltaRational& c){
+  inline bool greaterThanUpperBound(ArithVar x, const DeltaRational& c) const{
     return cmpToUpperBound(x, c) >= 0;
   }
 
 
-  bool strictlyBelowUpperBound(ArithVar x);
-  bool strictlyAboveLowerBound(ArithVar x);
-  bool assignmentIsConsistent(ArithVar x);
+  bool strictlyBelowUpperBound(ArithVar x) const;
+  bool strictlyAboveLowerBound(ArithVar x) const;
+  bool assignmentIsConsistent(ArithVar x) const;
 
   void printModel(ArithVar x);
 
   /** returns true iff x has both a lower and upper bound. */
-  bool hasEitherBound(ArithVar x);
-  inline bool hasLowerBound(ArithVar x){
+  bool hasEitherBound(ArithVar x) const;
+  inline bool hasLowerBound(ArithVar x) const{
     return !d_lowerConstraint[x].isNull();
   }
-  inline bool hasUpperBound(ArithVar x){
+  inline bool hasUpperBound(ArithVar x) const{
     return !d_upperConstraint[x].isNull();
   }
 
