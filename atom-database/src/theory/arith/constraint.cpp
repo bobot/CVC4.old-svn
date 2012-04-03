@@ -275,6 +275,25 @@ ConstraintValue::~ConstraintValue() {
   }
 }
 
+ 
+Constraint ConstraintValue::getCeiling() {
+  Assert(getValue().getInfinitesimalPart().sgn() > 0);
+  
+  DeltaRational ceiling(getValue().ceiling());
+  
+#warning "Optimize via the iterator"
+  return d_database->getConstraint(getVariable(), getType(), ceiling);
+}
+
+Constraint ConstraintValue::getFloor() {
+  Assert(getValue().getInfinitesimalPart().sgn() < 0);
+  
+  DeltaRational floor(Rational(getValue().floor()));
+
+#warning "Optimize via the iterator"
+  return d_database->getConstraint(getVariable(), getType(), floor);
+}
+
 void ConstraintValue::setPreregistered() {
   Assert(!isPreregistered());
   d_database->pushPreregisteredWatch(this);
@@ -311,6 +330,21 @@ bool ConstraintValue::sanityChecking(Node n) const {
   }
 }
 
+Constraint ConstraintValue::makeNegation(ArithVar v, ConstraintType t, const DeltaRational& r){
+  switch(t){
+  case LowerBound:
+  case UpperBound:
+    Unimplemented();
+  case Equality:
+    return new Constraint(v, Disequality, r);
+  case Disequality:
+    return new Constraint(v, Equality, r);
+  default:
+    Unreachable();
+    return NullConstraint;
+  }
+}
+
 ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap)
   : d_varDatabases(),
     d_toPropagate(satContext),
@@ -324,6 +358,40 @@ ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Co
   d_proofs.push_back(NullConstraint);
 }
 
+Constraint ConstraintDatabase::getConstraint(ArithVar v, ConstraintType t, const DeltaRational& r){
+  //This must always return a constraint.
+
+  SortedConstraintMap& scm = getVariableSCM(v);
+  pair<SortedConstraintMapIterator, bool> insertAttempt;
+  insertAttempt = scm.insert(make_pair(r, ValueCollection()));
+
+  SortedConstraintMapIterator pos = insertAttempt.first;
+  ValueCollection& vc = pos->second;
+  if(vc.hasConstraint(t)){
+    return vc.getConstraint(posC->getType());
+  }else{
+    Constraint c = new ConstraintValue(v, type, r);
+    Constraint negC = ConstraintValue::makeNegation(v, type, r);
+
+    SortedConstraintMapIterator negPos;
+    if(t == Equality || t == Disequality){
+      negPos = pos;
+    }else{
+      pair<SortedConstraintMapIterator, bool> negInsertAttempt;
+      negInsertAttempt = scm.insert(make_pair(neg->getValue(), ValueCollection()));
+      Assert(negInsertAttempt.second);
+      negPos = negInsertAttempt.first;
+    }
+
+    c->initialize(this, pos, negC);
+    negC->initialize(this, negPos, c);
+
+    vc.add(c);
+    negPos->second.add(negC);
+
+    return c;
+  }
+}
 bool ConstraintDatabase::emptyDatabase(const std::vector<PerVariableDatabase>& vec){
   std::vector<PerVariableDatabase>::const_iterator first = vec.begin();
   std::vector<PerVariableDatabase>::const_iterator last = vec.end();

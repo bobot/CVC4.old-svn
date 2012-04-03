@@ -907,11 +907,30 @@ Node TheoryArith::assertionCases(TNode assertion){
   Debug("arith::constraint") << "arith constraint " << constraint << std::endl;
 
   switch(simpleKind){
-  case LEQ:
   case LT:
+    if(isInteger(x_i)){
+      Constraint ceilingConstraint = constraint->getCeiling();
+      if(ceilingConstraint->isTrue()){
+        return Node::null();
+      }
+      ceilingConstraint->markAsTrue(constraint);
+      c_i = DeltaRational(c_i.ceiling());
+      return AssertUpper(x_i, c_i, assertion, ceilingConstraint);
+    }
+  case LEQ:
     return AssertUpper(x_i, c_i, assertion, constraint);
-  case GEQ:
   case GT:
+    if(isInteger(x_i)){
+      Constraint floorConstraint = constraint->getFloor();
+      if(floorConstraint->isTrue()){
+        return Node::null();
+      }else{
+        floorConstraint->markAsTrue(constraint);
+        c_i = DeltaRational(c_i.floor());
+        return AssertUpper(x_i, c_i, assertion, floorConstraint);
+      }
+    }
+  case GEQ:
     return AssertLower(x_i, c_i, assertion, constraint);
   case EQUAL:
     return AssertEquality(x_i, c_i, assertion, constraint);

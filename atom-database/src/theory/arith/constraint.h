@@ -488,7 +488,17 @@ public:
     return !hasProof() && !negationHasProof();
   }
 
-private:
+  bool isTrue() const {
+    return hasProof();
+  }
+
+  Constraint getCeiling();
+
+  Constraint getFloor();
+
+
+  static Constraint makeNegation(ArithVar v, ConstraintType t, const DeltaRational& r);
+
   /**
    * Marks the node as having a proof and being selfExplaining.
    * Neither the node nor its negation can have a proof.
@@ -500,6 +510,7 @@ private:
   void markAsTrue(Constraint a, Constraint b);
   void markAsTrue(const std::vector<Constraint>& b);
 
+private:
   /** If the node has a proof do nothing, otherwise mark the node.*/
   void internalPropagate(Constraint a);
 
@@ -658,6 +669,12 @@ public:
 
   void addVariable(ArithVar v);
   bool variableDatabaseIsSetup(ArithVar v);
+
+  /**
+   * This must always return a constraint.
+   */
+  Constraint getConstraint(ArithVar v, ConstraintType t, const DeltaRational& r);
+
 }; /* ConstraintDatabase */
 
 }/* CVC4::theory::arith namespace */
