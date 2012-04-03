@@ -288,7 +288,7 @@ Lit Solver::pickBranchLit()
 |        rest of literals. There may be others from the same level though.
 |  
 |________________________________________________________________________________________________@*/
-void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
+void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, UIP uip)
 {
     int pathC = 0;
     Lit p     = lit_Undef;
@@ -325,7 +325,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         seen[var(p)] = 0;
         pathC--;
 
-    }while (pathC > 0);
+    } while ((uip == UIP_FIRST && pathC > 0) || (uip == UIP_LAST & confl != CRef_Undef));
     out_learnt[0] = ~p;
 
     // Simplify conflict clause:
@@ -483,7 +483,7 @@ lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
 
   // runt the propagation
   only_bcp = true;
-  return search(100*assumptions.size());
+  return search(100*assumptions.size(), UIP_LAST);
 }
 
 /*_________________________________________________________________________________________________
@@ -662,7 +662,7 @@ bool Solver::simplify()
 |    all variables are decision variables, this means that the clause set is satisfiable. 'l_False'
 |    if the clause set is unsatisfiable. 'l_Undef' if the bound on number of conflicts is reached.
 |________________________________________________________________________________________________@*/
-lbool Solver::search(int nof_conflicts)
+lbool Solver::search(int nof_conflicts, UIP uip)
 {
     assert(ok);
     int         backtrack_level;
@@ -678,7 +678,7 @@ lbool Solver::search(int nof_conflicts)
             if (decisionLevel() == 0) return l_False;
 
             learnt_clause.clear();
-            analyze(confl, learnt_clause, backtrack_level);
+            analyze(confl, learnt_clause, backtrack_level, uip);
             cancelUntil(backtrack_level);
 
             if (learnt_clause.size() == 1){
