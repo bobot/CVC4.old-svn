@@ -46,7 +46,7 @@ string SatLiteral::toString() {
 
 MinisatSatSolver::MinisatSatSolver(context::Context* mainSatContext)
 : context::ContextNotifyObj(mainSatContext, false),
-  d_minisat(new BVMinisat::SimpSolver()),
+  d_minisat(new BVMinisat::SimpSolver(mainSatContext)),
   d_solveCount(0),
   d_assertionsCount(0),
   d_assertionsRealCount(mainSatContext, 0),
@@ -81,9 +81,9 @@ bool MinisatSatSolver::getPropagations(std::vector<SatLiteral>& propagations) {
 }
 
 void MinisatSatSolver::explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) {
-  BVMinisat::vec<BVMinisat::Lit> minisat_explanation;
+  std::vector<BVMinisat::Lit> minisat_explanation;
   d_minisat->explainPropagation(toMinisatLit(lit), minisat_explanation);
-  toSatClause(minisat_explanation, explanation); 
+  toSatLiteralVector(minisat_explanation, explanation);
 }
 
 SatLiteralValue MinisatSatSolver::assertAssumptionAndPropagate(SatLiteral lit) {
@@ -263,6 +263,11 @@ void MinisatSatSolver::toSatClause(BVMinisat::vec<BVMinisat::Lit>& clause,
   Assert((unsigned)clause.size() == sat_clause.size()); 
 }
 
+void MinisatSatSolver::toSatLiteralVector(std::vector<BVMinisat::Lit>& literals, std::vector<SatLiteral>& sat_literals) {
+  for (int i = 0; i < literals.size(); ++i) {
+    sat_literals.push_back(toSatLiteral(literals[i]));
+  }
+}
 
 // Satistics for MinisatSatSolver
 

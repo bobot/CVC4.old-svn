@@ -22,6 +22,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "mtl/Sort.h"
 #include "core/Solver.h"
+#include <vector>
 #include <iostream>
 #include "util/output.h"
 #include "util/utility.h"
@@ -65,7 +66,7 @@ static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction o
 // Constructor/Destructor:
 
 
-Solver::Solver() :
+Solver::Solver(CVC4::context::Context* c) :
 
     // Parameters (user settable):
     //
@@ -114,6 +115,7 @@ Solver::Solver() :
   , propagation_budget (-1)
   , asynch_interrupt   (false)
   , only_bcp(false)
+  , d_explanations(c)
 {}
 
 
@@ -298,6 +300,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, UIP uip
     out_learnt.push();      // (leave room for the asserting literal)
     int index   = trail.size() - 1;
 
+    bool done = false;
     do{
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
@@ -325,7 +328,18 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, UIP uip
         seen[var(p)] = 0;
         pathC--;
 
-    } while ((uip == UIP_FIRST && pathC > 0) || (uip == UIP_LAST && confl != CRef_Undef));
+        switch (uip) {
+        case UIP_FIRST:
+          done = pathC == 0;
+          break;
+        case UIP_LAST:
+          done = confl == CRef_Undef || (pathC == 0 && marker[var(p)] == 2);
+          break;
+        default:
+          Unreachable();
+          break;
+        }
+    } while (!done);
     out_learnt[0] = ~p;
 
     // Simplify conflict clause:
@@ -461,6 +475,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     trail.push_(p);
     if (only_bcp && marker[var(p)] == 1 && from != CRef_Undef) {
       atom_propagations.push(p);
+      storeExplanation(p);
     }
 }
 
@@ -473,7 +488,6 @@ void Solver::popAssumption() {
 
 lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
 
-  assert(assumptions.size() == decisionLevel());
   assert(marker[var(p)] == 1);
 
   // add to the assumptions
@@ -481,7 +495,7 @@ lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
   conflict.clear();
   marker[var(p)] = 2;
 
-  // runt the propagation
+  // run the propagation
   only_bcp = true;
   return search(100*assumptions.size(), UIP_LAST);
 }
@@ -670,7 +684,7 @@ lbool Solver::search(int nof_conflicts, UIP uip)
     vec<Lit>    learnt_clause;
     starts++;
 
-    for (;;){
+    for (;;) {
         CRef confl = propagate();
         if (confl != CRef_Undef){
             // CONFLICT
@@ -679,11 +693,6 @@ lbool Solver::search(int nof_conflicts, UIP uip)
 
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level, uip);
-            if (backtrack_level < assumptions.size() && uip != UIP_LAST) {
-              learnt_clause.clear();
-              analyze(confl, learnt_clause, backtrack_level, UIP_LAST);
-            }
-
             cancelUntil(backtrack_level);
 
             Lit p = learnt_clause[0];
@@ -701,6 +710,7 @@ lbool Solver::search(int nof_conflicts, UIP uip)
 
             // if an assumption, we're done
             if (assumption) {
+              newDecisionLevel();
               analyzeFinal(p, conflict);
               return l_False;
             }
@@ -868,33 +878,42 @@ lbool Solver::solve_()
 // Bitvector propagations
 // 
 
-void Solver::explainPropagation(Lit p, vec<Lit>& explanation) {
-  // TODO: assert last call was sat
-  vec<Lit> queue;
-  queue.push(p);
+void Solver::storeExplanation(Lit p) {
+  if (d_explanations.find(p) == d_explanations.end()) {
 
-  __gnu_cxx::hash_set<Var> visited; 
-  visited.insert(var(p)); 
-  while(queue.size() > 0) {
-    Lit l = queue.last();
-    queue.pop();
-    if (reason(var(l)) == CRef_Undef) {
-      if (marker[var(l)] == 2) {
-        explanation.push(l);
-        visited.insert(var(l));
-      }
-    } else {
-      Clause& c = ca[reason(var(l))];
-      for (int i = 1; i < c.size(); ++i) {
-	//assert (vardata.size() >= var(c[i])); 
-        if (visited.count(var(c[i])) == 0) {
-          queue.push(~c[i]);
-          visited.insert(var(c[i])); 
+    std::vector<Lit> explanation;
+
+    vec<Lit> queue;
+    queue.push(p);
+
+    __gnu_cxx::hash_set<Var> visited;
+    visited.insert(var(p));
+    while(queue.size() > 0) {
+      Lit l = queue.last();
+      queue.pop();
+      if (reason(var(l)) == CRef_Undef) {
+        if (marker[var(l)] == 2) {
+          explanation.push_back(l);
+          visited.insert(var(l));
+        }
+      } else {
+        Clause& c = ca[reason(var(l))];
+        for (int i = 1; i < c.size(); ++i) {
+          //assert (vardata.size() >= var(c[i]));
+          if (visited.count(var(c[i])) == 0) {
+            queue.push(~c[i]);
+            visited.insert(var(c[i]));
+          }
         }
       }
     }
+    d_explanations[p] = explanation;
   }
-  
+}
+
+void Solver::explainPropagation(Lit p, std::vector<Lit>& explanation) {
+  storeExplanation(p);
+  explanation = d_explanations[p];
 }
 
   

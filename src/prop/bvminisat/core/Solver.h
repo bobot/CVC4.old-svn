@@ -27,7 +27,10 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "prop/bvminisat/mtl/Alg.h"
 #include "prop/bvminisat/utils/Options.h"
 
+#include "context/cdhashmap.h"
+
 #include <ext/hash_set>
+#include <vector>
 
 namespace BVMinisat {
 
@@ -39,7 +42,7 @@ public:
 
     // Constructor/Destructor:
     //
-    Solver();
+    Solver(CVC4::context::Context* c);
     virtual ~Solver();
 
     // Problem specification:
@@ -154,7 +157,7 @@ public:
 
     bool only_bcp;                      // solving mode in which only boolean constraint propagation is done
     void setOnlyBCP (bool val) { only_bcp = val;}
-    void explainPropagation(Lit l, vec<Lit>& explanation);
+    void explainPropagation(Lit l, std::vector<Lit>& explanation);
 protected:
 
     // Helper structures:
@@ -243,6 +246,9 @@ protected:
       UIP_LAST
     };
 
+    CVC4::context::CDHashMap<Lit, std::vector<Lit>, LitHashFunction> d_explanations;
+
+    void     storeExplanation (Lit p);                                                 // make sure that the explanation of p is cached
     void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, UIP uip = UIP_FIRST);    // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
     bool     litRedundant     (Lit p, uint32_t abstract_levels);                       // (helper method for 'analyze()')

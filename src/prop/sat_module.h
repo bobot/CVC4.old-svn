@@ -215,6 +215,7 @@ public:
  
   static void  toMinisatClause(SatClause& clause, BVMinisat::vec<BVMinisat::Lit>& minisat_clause);
   static void  toSatClause    (BVMinisat::vec<BVMinisat::Lit>& clause, SatClause& sat_clause); 
+  static void  toSatLiteralVector    (std::vector<BVMinisat::Lit>& literals, std::vector<SatLiteral>& sat_literals);
 
   void addMarkerLiteral(SatLiteral lit);
 

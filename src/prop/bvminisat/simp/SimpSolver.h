@@ -24,6 +24,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "prop/bvminisat/mtl/Queue.h"
 #include "prop/bvminisat/core/Solver.h"
 #include "util/stats.h"
+#include "context/context.h"
 
 namespace BVMinisat {
 
@@ -34,7 +35,7 @@ class SimpSolver : public Solver {
  public:
     // Constructor/Destructor:
     //
-    SimpSolver();
+    SimpSolver(CVC4::context::Context* c);
     ~SimpSolver();
 
     // Problem specification:
