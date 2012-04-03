@@ -1,7 +1,7 @@
 (benchmark fuzzsmt
 :logic QF_BV
 :extrafuns ((v1 BitVec[9]))
-:status unknown
+:status sat
 :formula
 (let (?n1 bv0[6])
 (let (?n2 bv0[9])
