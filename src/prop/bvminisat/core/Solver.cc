@@ -451,8 +451,10 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
         Var x = var(trail[i]);
         if (seen[x]){
             if (reason(x) == CRef_Undef){
+              if (marker[x] == 2) {
                 assert(level(x) > 0);
                 out_conflict.push(~trail[i]);
+              }
             }else{
                 Clause& c = ca[reason(x)];
                 for (int j = 1; j < c.size(); j++)
