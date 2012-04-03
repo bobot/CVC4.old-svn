@@ -325,7 +325,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, UIP uip
         seen[var(p)] = 0;
         pathC--;
 
-    } while ((uip == UIP_FIRST && pathC > 0) || (uip == UIP_LAST & confl != CRef_Undef));
+    } while ((uip == UIP_FIRST && pathC > 0) || (uip == UIP_LAST && confl != CRef_Undef));
     out_learnt[0] = ~p;
 
     // Simplify conflict clause:
@@ -459,7 +459,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
-    if (marker[var(p)] && decisionLevel() <= assumptions.size() && from != CRef_Undef) {
+    if (only_bcp && marker[var(p)] == 1 && from != CRef_Undef) {
       atom_propagations.push(p);
     }
 }
@@ -679,16 +679,30 @@ lbool Solver::search(int nof_conflicts, UIP uip)
 
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level, uip);
+            if (backtrack_level < assumptions.size() && uip != UIP_LAST) {
+              learnt_clause.clear();
+              analyze(confl, learnt_clause, backtrack_level, UIP_LAST);
+            }
+
             cancelUntil(backtrack_level);
 
+            Lit p = learnt_clause[0];
+            bool assumption = marker[var(p)] == 2;
+
             if (learnt_clause.size() == 1){
-                uncheckedEnqueue(learnt_clause[0]);
+                uncheckedEnqueue(p);
             }else{
                 CRef cr = ca.alloc(learnt_clause, true);
                 learnts.push(cr);
                 attachClause(cr);
                 claBumpActivity(ca[cr]);
-                uncheckedEnqueue(learnt_clause[0], cr);
+                uncheckedEnqueue(p, cr);
+            }
+
+            // if an assumption, we're done
+            if (assumption) {
+              analyzeFinal(p, conflict);
+              return l_False;
             }
 
             varDecayActivity();
