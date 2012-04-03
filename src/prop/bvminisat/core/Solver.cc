@@ -499,7 +499,7 @@ lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
 
   // run the propagation
   only_bcp = true;
-  return search(100*assumptions.size(), UIP_LAST);
+  return search(-1, UIP_LAST);
 }
 
 /*_________________________________________________________________________________________________
@@ -712,7 +712,7 @@ lbool Solver::search(int nof_conflicts, UIP uip)
 
             // if an assumption, we're done
             if (assumption) {
-              newDecisionLevel();
+              assert(decisionLevel() < assumptions.size());
               analyzeFinal(p, conflict);
               return l_False;
             }

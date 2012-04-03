@@ -243,6 +243,7 @@ bool Bitblaster::assertToSat(TNode lit) {
 
   d_assertedAtoms.push_back(markerLit);
 
+  Assert(ret != prop::SatValUnknown);
   return ret == prop::SatValTrue;
 }
 
