@@ -236,7 +236,6 @@ void Solver::cancelUntil(int level) {
                 polarity[x] = sign(trail[c]);
             insertVarOrder(x); }
         qhead = trail_lim[level];
-
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
     }
@@ -451,7 +450,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
     for (int i = trail.size()-1; i >= trail_lim[0]; i--){
         Var x = var(trail[i]);
         if (seen[x]){
-            if (reason(x) == CRef_Undef) {
+            if (reason(x) == CRef_Undef){
               if (marker[x] == 2) {
                 assert(level(x) > 0);
                 out_conflict.push(~trail[i]);
@@ -689,7 +688,7 @@ lbool Solver::search(int nof_conflicts, UIP uip)
     vec<Lit>    learnt_clause;
     starts++;
 
-    for (;;) {
+    for (;;){
         CRef confl = propagate();
         if (confl != CRef_Undef){
             // CONFLICT
@@ -750,7 +749,7 @@ lbool Solver::search(int nof_conflicts, UIP uip)
             if (learnts.size()-nAssigns() >= max_learnts)
                 // Reduce the set of learnt clauses:
                 reduceDB();
-            
+
             Lit next = lit_Undef;
             while (decisionLevel() < assumptions.size()){
                 // Perform user provided assumption:
@@ -768,7 +767,7 @@ lbool Solver::search(int nof_conflicts, UIP uip)
                 }
             }
 
-            if (next == lit_Undef) {
+            if (next == lit_Undef){
 
                 if (only_bcp) {
                   return l_True;
@@ -841,7 +840,7 @@ lbool Solver::solve_()
 
     model.clear();
     conflict.clear();
-    
+
     if (!ok) return l_False;
 
     solves++;

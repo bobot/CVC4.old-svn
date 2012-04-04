@@ -59,7 +59,7 @@ MinisatSatSolver::~MinisatSatSolver() throw(AssertionException) {
   delete d_minisat; 
 }
 
-void MinisatSatSolver::addClause(SatClause& clause, bool removable) {
+ovoid MinisatSatSolver::addClause(SatClause& clause, bool removable) {
   Debug("sat::minisat") << "Add clause " << clause <<"\n"; 
   BVMinisat::vec<BVMinisat::Lit> minisat_clause;
   toMinisatClause(clause, minisat_clause);

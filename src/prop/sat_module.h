@@ -219,8 +219,6 @@ public:
 
   void addMarkerLiteral(SatLiteral lit);
 
-
-
   bool getPropagations(std::vector<SatLiteral>& propagations);
 
   void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation);

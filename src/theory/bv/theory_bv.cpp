@@ -205,7 +205,6 @@ Node TheoryBV::explain(TNode n) {
   return exp;
 }
 
-
 Theory::PPAssertStatus TheoryBV::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
   switch(in.getKind()) {
   case kind::EQUAL:

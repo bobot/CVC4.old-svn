@@ -155,7 +155,7 @@ enum RewriteRuleId {
 
   // rules to simplify bitblasting
   BBPlusNeg
-};
+ };
 
 
 inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {

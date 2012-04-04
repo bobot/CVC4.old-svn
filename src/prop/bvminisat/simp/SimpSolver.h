@@ -56,7 +56,7 @@ class SimpSolver : public Solver {
 
     // Solving:
     //
-  bool    solve       (const vec<Lit>& assumps, bool do_simp = true, bool turn_off_simp = false);
+    bool    solve       (const vec<Lit>& assumps, bool do_simp = true, bool turn_off_simp = false);
     lbool   solveLimited(const vec<Lit>& assumps, bool do_simp = true, bool turn_off_simp = false);
     bool    solve       (                     bool do_simp = true, bool turn_off_simp = false);
     bool    solve       (Lit p       ,        bool do_simp = true, bool turn_off_simp = false);       
