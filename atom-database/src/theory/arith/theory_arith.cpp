@@ -154,10 +154,12 @@ TheoryArith::Statistics::~Statistics(){
 }
 
 /* procedure AssertLower( x_i >= c_i ) */
-Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, Constraint constraint){
+Node TheoryArith::AssertLower(Constraint constraint){
   Assert(constraint != NullConstraint);
-  Assert(x_i == constraint->getVariable());
-  Assert(c_i == constraint->getValue());
+  Assert(constraint->isLowerBound());
+
+  ArithVar x_i = constraint->getVariable();
+  const DeltaRational& c_i = constraint->getValue();
 
   Debug("arith") << "AssertLower(" << x_i << " " << c_i << ")"<< std::endl;
 
@@ -171,7 +173,7 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, 
   int cmpToUB = d_partialModel.cmpToUpperBound(x_i, c_i);
   if(cmpToUB > 0){ //  c_i < \lowerbound(x_i)
     Node ubc = d_partialModel.getUpperConstraint(x_i);
-    Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
+    Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, constraint->explain());
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     ++(d_statistics.d_statAssertLowerConflicts);
     return conflict;
@@ -187,7 +189,7 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, 
       const Constraint diseq = vc.getDisequality();
       if(diseq->isTrue()){
         const Constraint ub = vc.getUpperBound();
-        Node conflict = disequalityConflict(diseq->explain(), ub->explain(), original);
+        Node conflict = disequalityConflict(diseq->explain(), ub->explain(), constraint->explain());
         cout << " assert lower conflict " << conflict << endl;
         return conflict;
       }else if(!eq->isTrue()){
@@ -197,7 +199,7 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, 
     }
   }
 
-  d_partialModel.setLowerConstraint(x_i,original, constraint);
+  d_partialModel.setLowerConstraint(x_i, constraint->explain(), constraint);
   d_partialModel.setLowerBound(x_i, c_i);
 
   d_updatedBounds.softAdd(x_i);
@@ -216,12 +218,14 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original, 
 }
 
 /* procedure AssertUpper( x_i <= c_i) */
-Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original, Constraint constraint){
+Node TheoryArith::AssertUpper(Constraint constraint){
+  ArithVar x_i = constraint->getVariable();
+  const DeltaRational& c_i = constraint->getValue();
+
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
   AssertArgument(constraint != NullConstraint,
                  "AssertUpper() called on a NullConstraint.");
-  Assert(x_i == constraint->getVariable());
-  Assert(c_i == constraint->getValue());
+  Assert(constraint->isUpperBound());
 
   //Too strong because of rounding with integers
   //Assert(!constraint->hasLiteral() || original == constraint->getLiteral());
@@ -237,7 +241,7 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original, 
   int cmpToLB = d_partialModel.cmpToLowerBound(x_i, c_i);
   if( cmpToLB < 0 ){ //  \upperbound(x_i) < \lowerbound(x_i)
     Node lbc = d_partialModel.getLowerConstraint(x_i);
-    Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
+    Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, constraint->explain());
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     ++(d_statistics.d_statAssertUpperConflicts);
     return conflict;
@@ -253,7 +257,7 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original, 
       const Constraint eq = vc.getEquality();
       if(diseq->isTrue()){
         const Constraint ub = vc.getUpperBound();
-        Node conflict = disequalityConflict(diseq->explain(), ub->explain(), original);
+        Node conflict = disequalityConflict(diseq->explain(), ub->explain(), constraint->explain());
         cout << " assert upper conflict " << conflict << endl;
         return conflict;
       }else if(eq->isTrue()){
@@ -276,7 +280,7 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original, 
     // }
   }
 
-  d_partialModel.setUpperConstraint(x_i,original, constraint);
+  d_partialModel.setUpperConstraint(x_i, constraint->explain(), constraint);
   d_partialModel.setUpperBound(x_i, c_i);
 
   d_updatedBounds.softAdd(x_i);
@@ -296,17 +300,16 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original, 
 
 
 /* procedure AssertEquality( x_i == c_i ) */
-Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode original, Constraint constraint){
+Node TheoryArith::AssertEquality(Constraint constraint){
+  AssertArgument(constraint != NullConstraint,
+                 "AssertUpper() called on a NullConstraint.");
+
+  ArithVar x_i = constraint->getVariable();
+  const DeltaRational& c_i = constraint->getValue();
 
   Debug("arith") << "AssertEquality(" << x_i << " " << c_i << ")"<< std::endl;
 
-  AssertArgument(constraint != NullConstraint,
-                 "AssertUpper() called on a NullConstraint.");
-  Assert(x_i == constraint->getVariable());
-  Assert(c_i == constraint->getValue());
-
   //Should be fine in integers
-  Assert(!constraint->hasLiteral() || original == constraint->getLiteral());
   Assert(!isInteger(x_i) || c_i.isIntegral());
 
   int cmpToLB = d_partialModel.cmpToLowerBound(x_i, c_i);
@@ -320,14 +323,14 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
 
   if(cmpToUB > 0){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
-    Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
+    Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, constraint->explain());
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     return conflict;
   }
 
   if(cmpToLB < 0){
     Node lbc = d_partialModel.getLowerConstraint(x_i);
-    Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
+    Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, constraint->explain());
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     return conflict;
   }
@@ -344,10 +347,10 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
   // Don't bother to check whether x_i != c_i is in d_diseq
   // The a and (not a) should never be on the fact queue
 
-  d_partialModel.setLowerConstraint(x_i,original, constraint);
+  d_partialModel.setLowerConstraint(x_i, constraint->explain(), constraint);
   d_partialModel.setLowerBound(x_i, c_i);
 
-  d_partialModel.setUpperConstraint(x_i,original, constraint);
+  d_partialModel.setUpperConstraint(x_i, constraint->explain(), constraint);
   d_partialModel.setUpperBound(x_i, c_i);
 
 
@@ -365,17 +368,16 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
 
 
 /* procedure AssertDisequality( x_i != c_i ) */
-Node TheoryArith::AssertDisequality(ArithVar x_i, DeltaRational& c_i, TNode original, Constraint constraint){
-
-  Debug("arith") << "AssertDisequality(" << x_i << " " << c_i << ")"<< std::endl;
+Node TheoryArith::AssertDisequality(Constraint constraint){
 
   AssertArgument(constraint != NullConstraint,
                  "AssertUpper() called on a NullConstraint.");
-  Assert(x_i == constraint->getVariable());
-  Assert(c_i == constraint->getValue());
+  ArithVar x_i = constraint->getVariable();
+  const DeltaRational& c_i = constraint->getValue();
+
+  Debug("arith") << "AssertDisequality(" << x_i << " " << c_i << ")"<< std::endl;
 
   //Should be fine in integers
-  Assert(!constraint->hasLiteral() || original == constraint->getLiteral());
   Assert(!isInteger(x_i) || c_i.isIntegral());
 
   if(constraint->isSplit()){
@@ -392,7 +394,7 @@ Node TheoryArith::AssertDisequality(ArithVar x_i, DeltaRational& c_i, TNode orig
       Node lbNode = lb->explain();
       Node ubNode = ub->explain();
       cout << "explaining" << endl;
-      return disequalityConflict(original, lbNode, ubNode);
+      return disequalityConflict(constraint->explain(), lbNode, ubNode);
     }else if(lb->isTrue()){
       cout << "propagate UpperBound " << constraint << lb << ub << endl;
       const Constraint negUb = ub->getNegation();
@@ -999,10 +1001,12 @@ Node TheoryArith::assertionCases(TNode assertion){
         floorConstraint->markAsTrue(constraint);
       }
       c_i = DeltaRational(c_i.floor());
-      return AssertUpper(x_i, c_i, assertion, floorConstraint);
+      //return AssertUpper(x_i, c_i, assertion, floorConstraint);
+      return AssertUpper(floorConstraint);
     }
   case LEQ:
-    return AssertUpper(x_i, c_i, assertion, constraint);
+    return AssertUpper(constraint);
+    //return AssertUpper(x_i, c_i, assertion, constraint);
   case GT:
     if(isInteger(x_i)){
       Constraint ceilingConstraint = constraint->getCeiling();
@@ -1010,14 +1014,18 @@ Node TheoryArith::assertionCases(TNode assertion){
         ceilingConstraint->markAsTrue(constraint);
       }
       c_i = DeltaRational(c_i.ceiling());
-      return AssertLower(x_i, c_i, assertion, ceilingConstraint);
+      //return AssertLower(x_i, c_i, assertion, ceilingConstraint);
+      return AssertLower(ceilingConstraint);
     }
   case GEQ:
-    return AssertLower(x_i, c_i, assertion, constraint);
+    return AssertLower(constraint);
+    //return AssertLower(x_i, c_i, assertion, constraint);
   case EQUAL:
-    return AssertEquality(x_i, c_i, assertion, constraint);
+    return AssertEquality(constraint);
+    //return AssertEquality(x_i, c_i, assertion, constraint);
   case DISTINCT:
-    return AssertDisequality(x_i, c_i, assertion, constraint);
+    return AssertDisequality(constraint);
+    //return AssertDisequality(x_i, c_i, assertion, constraint);
   default:
     Unreachable();
     return Node::null();

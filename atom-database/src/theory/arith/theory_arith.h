@@ -372,10 +372,10 @@ private:
    * a node describing this conflict is returned.
    * If this new bound is not in conflict, Node::null() is returned.
    */
-  Node AssertLower(ArithVar x, DeltaRational& c, TNode orig, Constraint constraint);
-  Node AssertUpper(ArithVar x, DeltaRational& c, TNode orig, Constraint constraint);
-  Node AssertEquality(ArithVar x, DeltaRational& c, TNode orig, Constraint constraint);
-  Node AssertDisequality(ArithVar x, DeltaRational& c, TNode orig, Constraint constraint);
+  Node AssertLower(Constraint constraint);
+  Node AssertUpper(Constraint constraint);
+  Node AssertEquality(Constraint constraint);
+  Node AssertDisequality(Constraint constraint);
 
   /** Tracks the bounds that were updated in the current round. */
   PermissiveBackArithVarSet d_updatedBounds;
