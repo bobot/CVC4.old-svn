@@ -32,8 +32,8 @@ using namespace std;
 using namespace CVC4::theory::bv::utils;
 
 
-const bool d_useEqualityEngine = false;
-const bool d_useSatPropagation = false;
+const bool d_useEqualityEngine = true;
+const bool d_useSatPropagation = true;
 
 
 TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation)
@@ -59,7 +59,7 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
       d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
 
       // The kinds we are treating as function application in congruence
-      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_CONCAT);
+      d_equalityEngine.addFunctionKind(kind::BITVECTOR_CONCAT);
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_AND);
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_OR);
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_XOR);
@@ -68,8 +68,8 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_NOR);
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_XNOR);
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_COMP);
-      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_MULT);
-      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_PLUS);
+      d_equalityEngine.addFunctionKind(kind::BITVECTOR_MULT);
+      d_equalityEngine.addFunctionKind(kind::BITVECTOR_PLUS);
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SUB);
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_NEG);
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_UDIV);
@@ -151,7 +151,8 @@ void TheoryBV::check(Effort e) {
       BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << fact << "\n"; 
 
       // If the assertion doesn't have a literal, it's a shared equality
-      Assert(assertion.isPreregistered ||
+      bool shared = !assertion.isPreregistered;
+      Assert(!shared ||
              ((fact.getKind() == kind::EQUAL && d_equalityEngine.hasTerm(fact[0]) && d_equalityEngine.hasTerm(fact[1])) ||
               (fact.getKind() == kind::NOT && fact[0].getKind() == kind::EQUAL &&
                d_equalityEngine.hasTerm(fact[0][0]) && d_equalityEngine.hasTerm(fact[0][1]))));
@@ -160,11 +161,19 @@ void TheoryBV::check(Effort e) {
       switch (fact.getKind()) {
         case kind::EQUAL:
           d_equalityEngine.addEquality(fact[0], fact[1], fact);
+          if (shared && !d_bitblaster->hasBBAtom(fact)) {
+            d_bitblaster->bitblast(fact);
+            d_bitblaster->addAtom(fact); 
+          }
           break;
         case kind::NOT:
           if (fact[0].getKind() == kind::EQUAL) {
             // Assert the dis-equality
             d_equalityEngine.addDisequality(fact[0][0], fact[0][1], fact);
+            if (shared && !d_bitblaster->hasBBAtom(fact[0])) {
+              d_bitblaster->bitblast(fact[0]);
+              d_bitblaster->addAtom(fact[0]); 
+            }
           } else {
             d_equalityEngine.addPredicate(fact[0], false, fact);
             break;
@@ -272,6 +281,10 @@ void TheoryBV::propagate(Effort e) {
   for (unsigned i = 0; i < propagations.size(); ++ i) {
     TNode node = propagations[i];
     BVDebug("bitvector") << "TheoryBV::propagate    " << node <<" \n";
+    if (!d_valuation.isSatLiteral(node)) {
+      // TODO: maybe propagate shared terms too?
+      continue;
+    }
     if (d_valuation.getSatValue(node) == Node::null()) {
       vector<Node> explanation;
       d_bitblaster->explainPropagation(node, explanation);

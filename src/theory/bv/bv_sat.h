@@ -82,7 +82,9 @@ class Bitblaster {
                                                        currently asserted by the DPLL SAT solver. */
 
   /// helper methods
+  public:
   bool          hasBBAtom(TNode node);    
+  private:
   bool          hasBBTerm(TNode node); 
   void          getBBTerm(TNode node, Bits& bits);
 

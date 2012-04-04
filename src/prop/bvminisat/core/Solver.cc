@@ -153,7 +153,10 @@ Var Solver::newVar(bool sign, bool dvar)
 
 bool Solver::addClause_(vec<Lit>& ps)
 {
-    assert(decisionLevel() == 0);
+  if (decisionLevel() > 0) {
+    cancelUntil(0);
+  }
+    
     if (!ok) return false;
 
     // Check if clause is satisfied and remove false/duplicate literals:
