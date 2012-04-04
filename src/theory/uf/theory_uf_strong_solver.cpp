@@ -1063,8 +1063,10 @@ void StrongSolverTheoryUf::assertCardinality( Node c ){
         //d_out->requirePhase( lem[0], true );
         Debug("uf-ss-fmf") << "Increment cardinality, propagate as decision " << lem[0] << std::endl;
         //std::cout << "Increment cardinality, propagate as decision " << lem[0] << std::endl;
+        Debug("uf-ss-prop-as-dec") << "Increment cardinality, propagate as decision " << lem[0] << std::endl;
         d_out->propagateAsDecision( lem[0] );
         d_conf_find[tn]->d_is_cardinality_requested = true;
+        d_conf_find[tn]->d_is_cardinality_requested_c = true;
         //std::cout << d_conf_find[tn]->getCardinality() << " ";
       }else{
         //std::cout << "Already knew no model of size " << nCard << " exists for type " << tn << std::endl;
@@ -1076,6 +1078,7 @@ void StrongSolverTheoryUf::assertCardinality( Node c ){
     Assert( d_conf_find[tn] );
     d_conf_find[tn]->d_is_cardinality_set = true;
     d_conf_find[tn]->d_is_cardinality_requested = false;
+    d_conf_find[tn]->d_is_cardinality_requested_c = false;
   }
 }
 
@@ -1130,8 +1133,10 @@ void StrongSolverTheoryUf::preRegisterType( TypeNode tn ){
       Debug("uf-ss-fmf") << "Initialize, propagate as decision " << lem[0] << std::endl;
       //std::cout << "Initialize, propagate as decision " << lem[0] << std::endl;
       //d_out->requirePhase( lem[0], true );
+      Debug("uf-ss-prop-as-dec") << "Initialize, propagate as decision " << lem[0] << std::endl;
       d_out->propagateAsDecision( lem[0] );
       d_conf_find[tn]->d_is_cardinality_requested = true;
+      d_conf_find[tn]->d_is_cardinality_requested_c = true;
     }
   }
 }
@@ -1144,7 +1149,8 @@ void StrongSolverTheoryUf::propagate( Theory::Effort level ){
   for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
     //if cardinality not asserted, propagate as decision
     if( !it->second->d_isCardinalityStrict ){
-      if( !it->second->d_is_cardinality_set && !it->second->d_is_cardinality_requested ){
+      if( !it->second->d_is_cardinality_set ){
+        //&& ( !it->second->d_is_cardinality_requested || !it->second->d_is_cardinality_requested_c ) ){
         //std::cout << "Cardinality issue, notify restart: ";
         //std::cout << " " << it->second->d_is_cardinality_set;
         //std::cout << " " << it->second->d_is_cardinality_requested;
@@ -1155,6 +1161,7 @@ void StrongSolverTheoryUf::propagate( Theory::Effort level ){
         Debug("uf-ss-prop-as-dec") << "Propagate as decision " << lem[0] << std::endl;
         d_out->propagateAsDecision( lem[0] );
         it->second->d_is_cardinality_requested = true;
+        it->second->d_is_cardinality_requested_c = true;
       }
     }
   }

@@ -32,7 +32,8 @@ RepAlphabet::RepAlphabet( RepAlphabet& ra, QuantifiersEngine* ie ){
   for( std::map< TypeNode, std::vector< Node > >::iterator it = ra.d_type_reps.begin(); it != ra.d_type_reps.end(); ++it ){
     std::vector< Node > reps;
     for( int i=0; i<(int)it->second.size(); i++ ){
-      reps.push_back( ie->getEqualityQuery()->getRepresentative( it->second[i] ) );
+      //reps.push_back( ie->getEqualityQuery()->getRepresentative( it->second[i] ) );
+      reps.push_back( it->second[i] );
     }
     set( it->first, reps );
   }
@@ -46,7 +47,22 @@ void RepAlphabet::set( TypeNode t, std::vector< Node >& reps ){
 }
 
 bool RepAlphabet::didInstantiation( RepAlphabetIterator& riter ){
+#if 1
+  for( int i=0; i<(int)riter.getNumTerms(); i++ ){
+    Node n = riter.getTerm( i );
+    TypeNode tn = n.getType();
+    if( std::find( d_type_reps[tn].begin(), d_type_reps[tn].end(), n )==d_type_reps[tn].end() ){
+      return false;
+    }
+  }
+  //std::cout << "Already did instantiation " << std::endl;
+  //for( int i=0; i<(int)riter.getNumTerms(); i++ ){
+  //  std::cout << "   " <<  riter.getTerm( i ) << std::endl;
+  //}
+  return true;
+#else
   return false;
+#endif
 }
 
 void RepAlphabetIterator::increment(){
@@ -84,9 +100,10 @@ InstStrategyFinteModelFind::InstStrategyFinteModelFind( context::Context* c, Ins
 
 }
 
-bool InstStrategyFinteModelFind::didInstantiation( RepAlphabetIterator& riter  ){
+bool InstStrategyFinteModelFind::didInstantiation( Node f, RepAlphabetIterator& riter  ){
   for( int i=0; i<(int)d_inst_group_temp.size(); i++ ){
-    if( d_inst_group_temp[i].didInstantiation( riter ) ){
+    if( std::find( d_inst_nodes[i].begin(), d_inst_nodes[i].end(), f )!=d_inst_nodes[i].end() &&
+        d_inst_group_temp[i].didInstantiation( riter ) ){
       return true;
     }
   }
@@ -95,11 +112,11 @@ bool InstStrategyFinteModelFind::didInstantiation( RepAlphabetIterator& riter  )
 
 void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort effort ){
   if( effort==Theory::EFFORT_LAST_CALL ){
-    ////translate all previous rep alphabets DO_THIS
-    //d_inst_group_temp.clear();
-    //for( int i=0; i<(int)d_inst_group.size(); i++ ){
-    //  d_inst_group_temp.push_back( RepAlphabet( d_inst_group[i], d_quantEngine ) );
-    //}
+    //translate all previous rep alphabets
+    d_inst_group_temp.clear();
+    for( int i=0; i<(int)d_inst_group.size(); i++ ){
+      d_inst_group_temp.push_back( RepAlphabet( d_inst_group[i], d_quantEngine ) );
+    }
 
     Debug("inst-fmf") << "Setting up model find, initialize representatives." << std::endl;
     RepAlphabet ra;
@@ -132,6 +149,7 @@ void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort 
       }
     }
     d_inst_group.push_back( ra );
+    d_inst_nodes.push_back( std::vector< Node >() );
   }
 }
 
@@ -139,9 +157,10 @@ int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, i
   if( effort==Theory::EFFORT_LAST_CALL ){
     Debug("inst-fmf-debug") << "Add matches for " << f << "..." << std::endl;
     RepAlphabetIterator riter( f, &d_inst_group.back() );
+    d_inst_nodes.back().push_back( f );
     bool addedLemma = false;
     while( !riter.isFinished() ){
-      while( !riter.isFinished() && didInstantiation( riter ) ){
+      while( !riter.isFinished() && didInstantiation( f, riter ) ){
         riter.increment();
       }
       //if successful, add instantiation

@@ -97,7 +97,7 @@ void TheoryUF::check(Effort level) {
     //<< " (" << d_valuation.isDecision( fact ) << ")";
     Debug("uf-check") << std::endl;
     if(Options::current()->finiteModelFind ){
-      if( d_valuation.isDecision( fact ) ){
+      if( d_valuation.isSatLiteral( fact ) && d_valuation.isDecision( fact ) ){
         if( fact.getKind()==kind::CARDINALITY_CONSTRAINT ){
           //std::cout << "Asserted " << fact << std::endl;
           d_hasCard = true;

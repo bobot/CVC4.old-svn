@@ -137,7 +137,9 @@ void InstantiationEngine::check( Theory::Effort e ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);
-    std::cout << "Run instantiation round " << e << " " << ierCounter << std::endl;
+    if( e==Theory::EFFORT_LAST_CALL ){
+      std::cout << "Run instantiation round " << e << " " << ierCounter << std::endl;
+    }
 #endif
     bool quantActive = false;
     //for each n in d_forall_asserts,
@@ -210,7 +212,9 @@ void InstantiationEngine::check( Theory::Effort e ){
     }
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-    std::cout << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
+    if( e==Theory::EFFORT_LAST_CALL ){
+      std::cout << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
+    }
 #endif
   }
 }

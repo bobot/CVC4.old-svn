@@ -59,7 +59,7 @@ public:
 class InstStrategyFinteModelFind : public InstStrategy{
 private:
   /** was the current instantiation of this already done? */
-  bool didInstantiation( RepAlphabetIterator& riter );
+  bool didInstantiation( Node f, RepAlphabetIterator& riter );
 private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_ith;
@@ -68,6 +68,7 @@ private:
   /** map of current used instantiations */
   std::vector< RepAlphabet > d_inst_group;
   std::vector< RepAlphabet > d_inst_group_temp;
+  std::vector< std::vector< Node > > d_inst_nodes;
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
   int process( Node f, Theory::Effort effort, int e, int limitInst );

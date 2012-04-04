@@ -152,13 +152,13 @@ Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, s
     std::vector< Node > vars;
     bool varChanged = false;
     for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
-      if( std::find( args.begin(), args.end(), body[0][i] )!=args.end() ||
-          std::find( exArgs.begin(), exArgs.end(), body[0][i] )!=exArgs.end() ){
+      //if( std::find( args.begin(), args.end(), body[0][i] )!=args.end() ||
+      //    std::find( exArgs.begin(), exArgs.end(), body[0][i] )!=exArgs.end() ){
         vars.push_back( NodeManager::currentNM()->mkVar( body[0][i].getType() ) );
         varChanged = true;
-      }else{
-        vars.push_back( body[0][i] );
-      }
+      //}else{
+      //  vars.push_back( body[0][i] );
+      //}
       old_vars.push_back( body[0][i] );
     }
     Node newBody = body[1];
@@ -176,7 +176,7 @@ Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, s
       return newBody;
     //}
   }else if( body.getKind()==ITE || body.getKind()==XOR || body.getKind()==IFF ){
-    return Node::null();
+    return body;
   }else{
     Assert( body.getKind()!=EXISTS );
     bool childrenChanged = false;
@@ -184,20 +184,16 @@ Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, s
     for( int i=0; i<(int)body.getNumChildren(); i++ ){
       bool newPol = ( body.getKind()==NOT || ( body.getKind()==IMPLIES && i==0 ) ) ? !pol : pol;
       Node n = computePrenex( body[i], args, exArgs, newPol );
-      if( n.isNull() ){
-        return Node::null();
-      }else{
-        newChildren.push_back( n );
-        if( n!=body[i] ){
-          childrenChanged = true;
-        }
+      newChildren.push_back( n );
+      if( n!=body[i] ){
+        childrenChanged = true;
       }
     }
     if( childrenChanged ){
       //if( body.getKind()==NOT && newChildren[0].getKind()==NOT ){
       //  return newChildren[0][0];
       //}else{
-      return NodeManager::currentNM()->mkNode( body.getKind(), newChildren );
+        return NodeManager::currentNM()->mkNode( body.getKind(), newChildren );
       //}
     }else{
       return body;
@@ -208,18 +204,14 @@ Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, s
 Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args ){
   std::vector< Node > exArgs;
   Node newBody = computePrenex( body, args, exArgs, true );
-  if( !newBody.isNull() ){
-    if( !exArgs.empty() ){
-      std::vector< Node > args;
-      args.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, exArgs ) );
-      args.push_back( newBody.getKind()==NOT ? newBody[0] : newBody.notNode() );
-      newBody = NodeManager::currentNM()->mkNode(kind::FORALL, args );
-      newBody = newBody.notNode();
-    }
-    return newBody;
-  }else{
-    return body;
+  if( !exArgs.empty() ){
+    std::vector< Node > args;
+    args.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, exArgs ) );
+    args.push_back( newBody.getKind()==NOT ? newBody[0] : newBody.notNode() );
+    newBody = NodeManager::currentNM()->mkNode(kind::FORALL, args );
+    newBody = newBody.notNode();
   }
+  return newBody;
 }
 
 Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node body, Node ipl ){
@@ -342,7 +334,11 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
               body_split << trm;
             }
           }
-          newBody = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
+          if( tb.getNumChildren()==0 ){
+            return body_split;
+          }else{
+            newBody = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
+          }
         }
       }else{
         if( !isNested && doMiniscopingAndExt() ){
