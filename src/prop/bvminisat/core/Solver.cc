@@ -842,14 +842,7 @@ lbool Solver::solve_()
     model.clear();
     conflict.clear();
 
-    ccmin_mode = 2;
-
-    // reduce the database
-    reduceDB();
-
-    // this is a new search, reset the parameters
-    restart_first = opt_restart_first;
-    restart_inc = opt_restart_inc;
+    ccmin_mode = 0;
     
     if (!ok) return l_False;
 
