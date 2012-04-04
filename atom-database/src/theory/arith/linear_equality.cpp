@@ -269,29 +269,33 @@ void LinearEqualityModule::explainNonbasics(ArithVar basic, NodeBuilder<>& outpu
     if(nonbasic == basic) continue;
 
     const Rational& a_ij = entry.getCoefficient();
-    TNode bound = TNode::null();
+    //TNode bound = TNode::null();
 
     int sgn = a_ij.sgn();
     Assert(sgn != 0);
     if(upperBound){
       if(sgn < 0){
-        bound = d_partialModel.explainLowerBound(nonbasic);
+        d_partialModel.explainLowerBound(nonbasic, output);
+        //bound = d_partialModel.explainLowerBound(nonbasic);
       }else{
         Assert(sgn > 0);
-        bound = d_partialModel.explainUpperBound(nonbasic);
+        d_partialModel.explainUpperBound(nonbasic, output);
+        //bound = d_partialModel.explainUpperBound(nonbasic);
       }
     }else{
       if(sgn < 0){
-        bound =  d_partialModel.explainUpperBound(nonbasic);
+        d_partialModel.explainUpperBound(nonbasic, output);
+        //bound =  d_partialModel.explainUpperBound(nonbasic);
       }else{
         Assert(sgn > 0);
-        bound =  d_partialModel.explainLowerBound(nonbasic);
+        d_partialModel.explainLowerBound(nonbasic, output);
+        //bound =  d_partialModel.explainLowerBound(nonbasic);
       }
     }
-    Assert(!bound.isNull());
-    Debug("arith::explainNonbasics") << "\t" << nonbasic << " " << sgn << " " << bound
-                                     << endl;
-    output << bound;
+    //Assert(!bound.isNull());
+    // Debug("arith::explainNonbasics") << "\t" << nonbasic << " " << sgn << " " << bound
+    //                                  << endl;
+    // output << bound;
   }
   Debug("arith::explainNonbasics") << "LinearEqualityModule::explainNonbasics("
                                    << basic << ") done" << endl;

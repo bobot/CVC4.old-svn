@@ -306,27 +306,6 @@ private:
    */
   void initialize(ConstraintDatabase* db, SortedConstraintMapIterator v, Constraint negation);
 
-  /* /\** */
-  /*  * Upon destruction this sets the d_proof field back to ProofIdSentinel. */
-  /*  * While a constraint has a proof in the current sat context, it cannot be */
-  /*  * destroyed. */
-  /*  *\/ */
-  /* class ProofWatch { */
-  /* private: */
-  /*   Constraint d_constraint; */
-  /* public: */
-  /*   ProofWatch(Constraint c) : d_constraint(c) { */
-  /*     //This is done only to allow for the the destructor of the stack local */
-  /*     // variable to have the assertion in the destructor hold. */
-  /*     // This must be additionally set after the stack local has been destructed. */
-  /*     Assert(d_constraint->d_proof = 1); */
-  /*   } */
-  /*   ~ProofWatch(){ */
-  /*     Assert(d_constraint->d_proof != ProofIdSentinel); */
-  /*     //This does not hold on the destruction of the stack local =( */
-  /*     d_constraint->d_proof = ProofIdSentinel; */
-  /*   } */
-  /* }; */
   class ProofCleanup {
   public:
     inline void operator()(Constraint* p){
@@ -336,26 +315,6 @@ private:
     }
   };
 
-  /* /\** */
-  /*  * Upon destruction this sets the d_preregistered field back to false. */
-  /*  * While a constraint has been preregistered in the current sat context, */
-  /*  * it cannot be destroyed. */
-  /*  *\/ */
-  /* class PreregisteredWatch { */
-  /* private: */
-  /*   Constraint d_constraint; */
-  /* public: */
-  /*   PreregisteredWatch(Constraint c) : d_constraint(c) { */
-  /*     //This is done only to allow for the the destructor of the stack local */
-  /*     // variable to have the assertion in the destructor hold. */
-  /*     // This must be additionally set after the stack local has been destructed. */
-  /*     Assert(d_constraint->d_preregistered = true); */
-  /*   } */
-  /*   ~PreregisteredWatch(){ */
-  /*     Assert(d_constraint->d_preregistered); */
-  /*     d_constraint->d_preregistered = false; */
-  /*   } */
-  /* }; */
   class PreregisteredCleanup {
   public:
     inline void operator()(Constraint* p){
@@ -364,29 +323,6 @@ private:
       constraint->d_preregistered = false;
     }
   };
-
-  /* /\** */
-  /*  * Upon destruction this sets the d_split field back to false. */
-  /*  * While a constraint has been split in the current user context, it cannot */
-  /*  * be destroyed. */
-  /*  *\/ */
-  /* class SplitWatch { */
-  /* private: */
-  /*   Constraint d_constraint; */
-  /* public: */
-  /*   SplitWatch(Constraint c) : d_constraint(c){ */
-  /*     //This is done only to allow for the the destructor of the stack local */
-  /*     // variable to have the assertion in the destructor hold. */
-  /*     // This must be additionally set after the stack local has been destructed. */
-  /*     Assert(d_constraint->d_split = true); */
-  /*   } */
-  /*   ~SplitWatch(){ */
-  /*     Assert(d_constraint->d_split); */
-  /*     //This does not hold on the destruction of the stack local =( */
-
-  /*     d_constraint->d_split = false; */
-  /*   } */
-  /* }; */
 
   class SplitCleanup {
   public:
@@ -480,6 +416,8 @@ public:
   bool isSelfExplaining() const;
 
   Node explain() const;
+
+  void explain(NodeBuilder<>& nb) const;
 
   bool hasProof() const {
     return d_proof != ProofIdSentinel;

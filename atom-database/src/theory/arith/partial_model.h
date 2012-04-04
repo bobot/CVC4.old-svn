@@ -76,18 +76,11 @@ public:
     return d_lbc[x];
   }
 
-  Node explainLowerBound(ArithVar x) const{
-    AssertArgument(hasLowerBound(x), "Must have a lower bound to explain!");
-    return getLowerBoundConstraint(x)->explain();
-  }
+  Node explainLowerBound(ArithVar x) const;
+  Node explainUpperBound(ArithVar x) const;
 
-  Node explainUpperBound(ArithVar x) const{
-    AssertArgument(hasUpperBound(x), "Must have an upperbound to explain!");
-    return getUpperBoundConstraint(x)->explain();
-  }
-
-  void explainLowerBound(ArithVar x, NodeBuilder<>& nb);
-  void explainUpperBound(ArithVar x, NodeBuilder<>& nb);
+  void explainLowerBound(ArithVar x, NodeBuilder<>& nb) const;
+  void explainUpperBound(ArithVar x, NodeBuilder<>& nb) const;
 
 
   /* Initializes a variable to a safe value.*/
@@ -113,9 +106,6 @@ public:
   }
 
   bool boundsAreEqual(ArithVar x) const;
-
-  //void setUpperBound(ArithVar x, const DeltaRational& r);
-  //void setLowerBound(ArithVar x, const DeltaRational& r);
 
   /* Sets an unsafe variable assignment */
   void setAssignment(ArithVar x, const DeltaRational& r);
