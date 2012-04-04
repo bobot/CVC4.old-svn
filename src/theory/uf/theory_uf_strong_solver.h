@@ -179,6 +179,8 @@ public:
     int d_cardinality;
     /** type */
     TypeNode d_type;
+    /** literals we have called for set depends */
+    std::map< Node, bool > d_setDepends;
   public:
     ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) : 
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ), 
@@ -275,6 +277,7 @@ public:
     IntStat d_clique_lemmas;
     IntStat d_split_lemmas;
     IntStat d_disamb_term_lemmas;
+    IntStat d_max_model_size;
     Statistics();
     ~Statistics();
   };

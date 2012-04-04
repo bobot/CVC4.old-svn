@@ -301,6 +301,10 @@ Node StrongSolverTheoryUf::ConflictFind::Region::getBestSplit(){
   //take the first split you find
   for( NodeBoolMap::iterator it = d_splits.begin(); it != d_splits.end(); ++it ){
     if( (*it).second ){
+//#if 1
+//      d_splits[ (*it).first ] = false;
+//      d_splitsSize = d_splitsSize - 1;
+//#endif
       return (*it).first;
     }
   }
@@ -788,11 +792,26 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
               Assert( s!=Node::null() && s.getKind()==EQUAL );
               s = Rewriter::rewrite( s );
               Debug("uf-ss-lemma") << "*** Split on " << s << std::endl;
+              debugPrint("uf-ss-temp");
               //std::cout << "*** Split on " << s << std::endl;
               //split on the equality s
               out->split( s );
               //tell the sat solver to explore the equals branch first
               out->requirePhase( s, true );
+//#if 1
+//              if( Options::current()->cbqi ){
+//                if( d_setDepends.find( s )==d_setDepends.end() ){
+//                  d_setDepends[ s ] = true;
+//                  for( int t=0; t<2; t++ ){
+//                    if( s[t].hasAttribute(InstConstantAttribute()) && 
+//                        ( t==0 || s[0].getAttribute(InstConstantAttribute())!=s[1].getAttribute(InstConstantAttribute()) ) ){
+//                      Node f = s[t].getAttribute(InstConstantAttribute());
+//                      d_th->getOutputChannel().dependentDecision( d_th->getQuantifiersEngine()->getCounterexampleLiteralFor( f ), s );
+//                    }
+//                  }
+//                }
+//              }
+//#endif
               addedLemma = true;
               ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
             }
@@ -1032,6 +1051,7 @@ void StrongSolverTheoryUf::assertCardinality( Node c ){
       long nCard = cc[1].getConst<Rational>().getNumerator().getLong();
       if( nCard==d_conf_find[tn]->getCardinality() ){
         Debug("uf-ss-fmf") << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
+        d_statistics.d_max_model_size.maxAssign( d_conf_find[tn]->getCardinality() + 1 );
         //std::cout << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
         //increment to next cardinality
         setCardinality( tn, d_conf_find[tn]->getCardinality() + 1, false );
@@ -1191,17 +1211,20 @@ void StrongSolverTheoryUf::debugPrint( const char* c ){
 StrongSolverTheoryUf::Statistics::Statistics():
   d_clique_lemmas("StrongSolverTheoryUf::Clique_Lemmas", 0),
   d_split_lemmas("StrongSolverTheoryUf::Split_Lemmas", 0),
-  d_disamb_term_lemmas("StrongSolverTheoryUf::Disambiguate_Term_Lemmas", 0)
+  d_disamb_term_lemmas("StrongSolverTheoryUf::Disambiguate_Term_Lemmas", 0),
+  d_max_model_size("StrongSolverTheoryUf::Max_Model_Size", 0)
 {
   StatisticsRegistry::registerStat(&d_clique_lemmas);
   StatisticsRegistry::registerStat(&d_split_lemmas);
   StatisticsRegistry::registerStat(&d_disamb_term_lemmas);
+  StatisticsRegistry::registerStat(&d_max_model_size);
 }
 
 StrongSolverTheoryUf::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_clique_lemmas);
   StatisticsRegistry::unregisterStat(&d_split_lemmas);
   StatisticsRegistry::unregisterStat(&d_disamb_term_lemmas);
+  StatisticsRegistry::unregisterStat(&d_max_model_size);
 }
 
 bool StrongSolverTheoryUf::isRelevantType( TypeNode t ){

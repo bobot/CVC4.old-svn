@@ -60,7 +60,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
       //instantiate each quantifier
       for( int q=0; q<getQuantifiersEngine()->getNumQuantifiers(); q++ ){
         Node f = getQuantifiersEngine()->getQuantifier( q );
-        Debug("inst-engine-debug") << "Instantiate " << f << "..." << std::endl;
+        Debug("inst-engine-debug") << "IE: Instantiate " << f << "..." << std::endl;
         //if this quantifier is active
         if( getQuantifiersEngine()->getActive( f ) ){
           //std::cout << "Process " << f << " " << effort << " " << e << std::endl;
@@ -146,7 +146,7 @@ void InstantiationEngine::check( Theory::Effort e ){
       if( (*i).second ) {
         Node n = (*i).first;
         Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( n );
-        if( !cel.isNull() ){
+        if( !cel.isNull() && !Options::current()->finiteModelFind ){
           bool active, value;
           bool ceValue = false;
           if( d_th->getValuation().hasSatValue( cel, value ) ){
@@ -245,8 +245,10 @@ void InstantiationEngine::registerQuantifier( Node f ){
       //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
       //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
       //d_out->dependentDecision( quant, cel );
-      //unless it is pure arithmetic, UF instantiator will deal with this quantifier
-
+      ////set has constraints from
+      //for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+      //  getQuantifiersEngine()->getTheoryEngine()->theoryOf( f[0][i] )->getInstantiator()->setHasConstraintsFrom( f );
+      //}
     }else{
       Node ceBody = getQuantifiersEngine()->getSubstitutedNode( f[1], f );
       getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
@@ -337,11 +339,13 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
       }
     }
     if( setAttr ){
-      if( !getQuantifiersEngine()->d_ce_lit[f].isNull() ){
+      if( !getQuantifiersEngine()->getCounterexampleLiteralFor( f ).isNull() ){
         if( getQuantifiersEngine()->d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
-          if( n!=getQuantifiersEngine()->d_ce_lit[f] && n.notNode()!=getQuantifiersEngine()->d_ce_lit[f] ){
-            Debug("quant-dep-dec") << "Make " << n << " dependent on " << getQuantifiersEngine()->d_ce_lit[f] << std::endl;
-            d_th->getOutputChannel().dependentDecision( getQuantifiersEngine()->d_ce_lit[f], n );
+          if( n!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) && 
+              n.notNode()!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) ){
+            Debug("quant-dep-dec") << "Make " << n << " dependent on ";
+            Debug("quant-dep-dec") << getQuantifiersEngine()->getCounterexampleLiteralFor( f ) << std::endl;
+            d_th->getOutputChannel().dependentDecision( getQuantifiersEngine()->getCounterexampleLiteralFor( f ), n );
           }
         }
       }

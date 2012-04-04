@@ -122,6 +122,11 @@ void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort 
           Debug("inst-fmf") << reps[i] << " ";
         }
         Debug("inst-fmf") << std::endl;
+        for( int i=0; i<(int)reps.size(); i++ ){
+          Debug("inst-fmf-eqc") << "   ";
+          d_ith->outputEqClass( "inst-fmf-eqc", reps[i] );
+          Debug("inst-fmf-eqc") << std::endl;
+        }
         //set them in the alphabet
         ra.set( tn, reps );
       }

@@ -170,7 +170,11 @@ Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, s
     }else{
       exArgs.insert( exArgs.end(), vars.begin(), vars.end() );
     }
-    return newBody;
+    //if( body[0].getKind()==NOT && body[0][0].getKind()==FORALL ){
+    //  return computePrenex( body[0], args, exArgs, pol );
+    //}else{
+      return newBody;
+    //}
   }else if( body.getKind()==ITE || body.getKind()==XOR || body.getKind()==IFF ){
     return Node::null();
   }else{
@@ -190,7 +194,11 @@ Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, s
       }
     }
     if( childrenChanged ){
+      //if( body.getKind()==NOT && newChildren[0].getKind()==NOT ){
+      //  return newChildren[0][0];
+      //}else{
       return NodeManager::currentNM()->mkNode( body.getKind(), newChildren );
+      //}
     }else{
       return body;
     }

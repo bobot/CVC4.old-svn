@@ -30,7 +30,7 @@ using namespace CVC4::theory::uf;
 #define USE_SINGLE_TRIGGER_BEFORE_MULTI_TRIGGER
 //#define MULTI_TRIGGER_ONLY_LAST_CALL
 #define MULTI_TRIGGER_FULL_EFFORT_HALF
-//#define MULTI_MULTI_TRIGGERS
+#define MULTI_MULTI_TRIGGERS
 
 struct sortQuantifiersForSymbol {
   QuantifiersEngine* d_qe;
@@ -108,9 +108,9 @@ int InstStrategyUserPatterns::process( Node f, Theory::Effort effort, int e, int
     for( int i=0; i<(int)d_user_gen[f].size(); i++ ){
       bool processTrigger = true;
       if( effort!=Theory::EFFORT_LAST_CALL && d_user_gen[f][i]->isMultiTrigger() ){
-#ifdef MULTI_TRIGGER_FULL_EFFORT_HALF
-        processTrigger = d_counter[f]%2==0;
-#endif
+//#ifdef MULTI_TRIGGER_FULL_EFFORT_HALF
+//        processTrigger = d_counter[f]%2==0;
+//#endif
 #ifdef MULTI_TRIGGER_ONLY_LAST_CALL
         processTrigger = false;
 #endif
@@ -215,7 +215,7 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
 }
 
 void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
-  Debug("auto-gen-trigger")  << "Generate trigger for " << f << std::endl;
+ // Debug("auto-gen-trigger") << "Generate trigger for " << f << std::endl;
   if( d_patTerms[0].find( f )==d_patTerms[0].end() ){
     //determine all possible pattern terms based on trigger term selection strategy d_tr_strategy
     d_patTerms[0][f].clear();
@@ -237,6 +237,16 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
       }
     }
     d_made_multi_trigger[f] = false;
+    Debug("auto-gen-trigger") << "Single triggers for " << f << " : " << std::endl;
+    for( int i=0; i<(int)d_patTerms[0][f].size(); i++ ){
+      Debug("auto-gen-trigger") << d_patTerms[0][f][i] << " ";
+    }
+    Debug("auto-gen-trigger") << std::endl;
+    Debug("auto-gen-trigger") << "Multi-trigger term pool for " << f << " : " << std::endl;
+    for( int i=0; i<(int)d_patTerms[1][f].size(); i++ ){
+      Debug("auto-gen-trigger") << d_patTerms[1][f][i] << " ";
+    }
+    Debug("auto-gen-trigger") << std::endl;
   }
 
   //populate candidate pattern term vector for the current trigger
@@ -258,12 +268,12 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
 #endif
 
   if( !patTerms.empty() ){
+    Debug("auto-gen-trigger") << "Generate trigger for " << f << std::endl;
     //sort terms based on relevance
     if( d_rlv_strategy==RELEVANCE_DEFAULT ){
       sortQuantifiersForSymbol sqfs;
       sqfs.d_qe = d_quantEngine;
       //sort based on # occurrences (this will cause Trigger to select rarer symbols)
-      //std::cout << "do sort" << std::endl;
       std::sort( patTerms.begin(), patTerms.end(), sqfs );
       Debug("relevant-trigger") << "Terms based on relevance: " << std::endl;
       for( int i=0; i<(int)patTerms.size(); i++ ){
@@ -289,13 +299,14 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
         return;
 #endif
         std::random_shuffle( patTerms.begin(), patTerms.end() ); //shuffle randomly
+      }else{
+        d_made_multi_trigger[f] = true;
       }
       //will possibly want to get an old trigger
       tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchOption, false, Trigger::TR_GET_OLD );
     }
     if( tr ){
       if( tr->isMultiTrigger() ){
-        d_made_multi_trigger[f] = true;
         //disable all other multi triggers 
         for( std::map< Trigger*, bool >::iterator it = d_auto_gen_trigger[f].begin(); it != d_auto_gen_trigger[f].end(); ++it ){
           if( it->first->isMultiTrigger() ){
@@ -473,6 +484,9 @@ Instantiator( c, ie, th )
   ie->setTermDatabase( d_db );
 
   if(Options::current()->finiteModelFind ){
+    if( Options::current()->cbqi ){
+      addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
+    }
     addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), ie ) );
   }else{
     if( Options::current()->cbqi ){

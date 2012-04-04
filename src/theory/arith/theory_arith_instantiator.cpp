@@ -192,6 +192,7 @@ void InstantiatorTheoryArith::assertNode( Node assertion ){
 } 
 
 void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort effort ){
+  Debug("quant-arith") << "Setting up simplex for instantiator... " << std::endl;
   d_instRows.clear();
   d_tableaux_term.clear();
   d_tableaux.clear();

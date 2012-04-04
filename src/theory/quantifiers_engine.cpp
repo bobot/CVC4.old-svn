@@ -17,6 +17,7 @@
 #include "theory/quantifiers_engine.h"
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/uf/theory_uf_strong_solver.h"
 
 using namespace std;
 using namespace CVC4;
@@ -287,7 +288,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
     //}
 
     //std::cout << "**INST" << std::endl;
-    Debug("inst-engine") << "*** Instantiate " << f << " with " << std::endl;
+    Debug("inst") << "*** Instantiate " << f << " with " << std::endl;
     //std::cout << "*** Instantiate " << f << " with " << std::endl;
     uint64_t maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
@@ -299,10 +300,10 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
         std::cout << "Bad instantiation, unknown ";
         exit( 19 );
       }else{
-        Debug("inst-engine") << "   " << terms[i];
+        Debug("inst") << "   " << terms[i];
         //std::cout << "   " << terms[i] << std::endl;
         //Debug("inst-engine") << " " << terms[i].getAttribute(InstLevelAttribute());
-        Debug("inst-engine") << std::endl;
+        Debug("inst") << std::endl;
         if( terms[i].hasAttribute(InstLevelAttribute()) ){
           if( terms[i].getAttribute(InstLevelAttribute())>maxInstLevel ){
             maxInstLevel = terms[i].getAttribute(InstLevelAttribute());

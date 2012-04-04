@@ -28,7 +28,6 @@
 #include "theory/theory.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/uf/symmetry_breaker.h"
-#include "theory/uf/theory_uf_strong_solver.h"
 
 #include "context/cdo.h"
 #include "context/cdhashset.h"
