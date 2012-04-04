@@ -170,7 +170,19 @@ void TheoryBV::propagate(Effort e) {
     TNode node = propagations[i];
     BVDebug("bitvector") << "TheoryBV::propagate    " << node <<" \n";
     if (d_valuation.getSatValue(node) == Node::null()) {
-      d_out->propagate(node);
+      vector<Node> explanation;
+      d_bitblaster->explainPropagation(node, explanation);
+      if (explanation.size() == 0) {
+        d_out->lemma(node);
+      } else {
+        NodeBuilder<> nb(kind::OR);
+        nb << node;
+        for (unsigned i = 0; i < explanation.size(); ++ i) {
+          nb << explanation[i].notNode();
+        }
+        Node lemma = nb;
+        d_out->lemma(lemma);
+      }
       d_alreadyPropagatedSet.insert(node);
     }
   }

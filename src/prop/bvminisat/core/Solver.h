@@ -305,8 +305,8 @@ protected:
 //=================================================================================================
 // Implementation of inline methods:
 
-inline CRef Solver::reason(Var x) const { return vardata[x].reason; }
-inline int  Solver::level (Var x) const { return vardata[x].level; }
+inline CRef Solver::reason(Var x) const { assert(x < vardata.size()); return vardata[x].reason; }
+inline int  Solver::level (Var x) const { assert(x < vardata.size()); return vardata[x].level; }
 
 inline void Solver::insertVarOrder(Var x) {
     if (!order_heap.inHeap(x) && decision[x]) order_heap.insert(x); }

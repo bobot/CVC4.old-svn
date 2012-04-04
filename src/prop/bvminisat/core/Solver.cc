@@ -231,6 +231,7 @@ void Solver::cancelUntil(int level) {
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
             Var      x  = var(trail[c]);
             assigns [x] = l_Undef;
+            if (marker[x] == 2) marker[x] = 1;
             if (phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
                 polarity[x] = sign(trail[c]);
             insertVarOrder(x); }
@@ -450,7 +451,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
     for (int i = trail.size()-1; i >= trail_lim[0]; i--){
         Var x = var(trail[i]);
         if (seen[x]){
-            if (reason(x) == CRef_Undef){
+            if (reason(x) == CRef_Undef) {
               if (marker[x] == 2) {
                 assert(level(x) > 0);
                 out_conflict.push(~trail[i]);
@@ -477,7 +478,6 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     trail.push_(p);
     if (only_bcp && marker[var(p)] == 1 && from != CRef_Undef) {
       atom_propagations.push(p);
-      storeExplanation(p);
     }
 }
 
@@ -495,11 +495,10 @@ lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
   // add to the assumptions
   assumptions.push(p);
   conflict.clear();
-  marker[var(p)] = 2;
 
   // run the propagation
   only_bcp = true;
-  return search(-1, UIP_LAST);
+  return search(-1, UIP_FIRST);
 }
 
 /*_________________________________________________________________________________________________
@@ -759,6 +758,7 @@ lbool Solver::search(int nof_conflicts, UIP uip)
                     analyzeFinal(~p, conflict);
                     return l_False;
                 }else{
+                    marker[var(p)] = 2;
                     next = p;
                     break;
                 }
@@ -881,41 +881,36 @@ lbool Solver::solve_()
 // 
 
 void Solver::storeExplanation(Lit p) {
-  if (d_explanations.find(p) == d_explanations.end()) {
-
-    std::vector<Lit> explanation;
-
-    vec<Lit> queue;
-    queue.push(p);
-
-    __gnu_cxx::hash_set<Var> visited;
-    visited.insert(var(p));
-    while(queue.size() > 0) {
-      Lit l = queue.last();
-      queue.pop();
-      if (reason(var(l)) == CRef_Undef) {
-        if (marker[var(l)] == 2) {
-          explanation.push_back(l);
-          visited.insert(var(l));
-        }
-      } else {
-        Clause& c = ca[reason(var(l))];
-        for (int i = 1; i < c.size(); ++i) {
-          //assert (vardata.size() >= var(c[i]));
-          if (visited.count(var(c[i])) == 0) {
-            queue.push(~c[i]);
-            visited.insert(var(c[i]));
-          }
-        }
-      }
-    }
-    d_explanations[p] = explanation;
-  }
 }
 
 void Solver::explainPropagation(Lit p, std::vector<Lit>& explanation) {
-  storeExplanation(p);
-  explanation = d_explanations[p];
+  vec<Lit> queue;
+  queue.push(p);
+
+  __gnu_cxx::hash_set<Var> visited;
+  visited.insert(var(p));
+  while(queue.size() > 0) {
+    Lit l = queue.last();
+    assert(value(l) == l_True);
+    queue.pop();
+    if (reason(var(l)) == CRef_Undef) {
+      if (marker[var(l)] == 2) {
+        explanation.push_back(l);
+        visited.insert(var(l));
+      }
+    } else {
+      Clause& c = ca[reason(var(l))];
+      for (int i = 1; i < c.size(); ++i) {
+        if (var(c[i]) >= vardata.size()) {
+          std::cerr << "BOOM" << std::endl;
+        }
+        if (visited.count(var(c[i])) == 0) {
+          queue.push(~c[i]);
+          visited.insert(var(c[i]));
+        }
+      }
+    }
+  }
 }
 
   
