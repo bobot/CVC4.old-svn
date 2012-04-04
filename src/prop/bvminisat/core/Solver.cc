@@ -498,7 +498,8 @@ lbool Solver::assertAssumption(Lit p, bool propagate) {
   // run the propagation
   if (propagate) {
     only_bcp = true;
-    return search(-1, UIP_FIRST);
+    ccmin_mode = 0; 
+    lbool result = search(-1, UIP_FIRST);
   } else {
     return l_True;
   }
@@ -841,6 +842,15 @@ lbool Solver::solve_()
     model.clear();
     conflict.clear();
 
+    ccmin_mode = 2;
+
+    // reduce the database
+    reduceDB();
+
+    // this is a new search, reset the parameters
+    restart_first = opt_restart_first;
+    restart_inc = opt_restart_inc;
+    
     if (!ok) return l_False;
 
     solves++;
