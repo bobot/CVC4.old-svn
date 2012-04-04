@@ -751,9 +751,10 @@ void TheoryArith::preRegisterTerm(TNode n) {
     }
     addToContext(n);
     Constraint c = d_constraintDatabase.lookup(n);
+    Assert(c != NullConstraint);
 
     Debug("arith::preregister") << "setup constraint" << c << endl;
-    Assert(!c->isPreregistered());
+    Assert(!c->canBePropagated());
     c->setPreregistered();
   }
 
@@ -982,14 +983,11 @@ Node TheoryArith::assertionCases(TNode assertion){
       addToContext(eq);
       constraint = d_constraintDatabase.lookup(assertion);
     }
-
-    if(!constraint->isPreregistered()){
-#warning "Preregistered? Really? CanBeUsedInProofs instead?"
-      constraint->setPreregistered();
-    }
   }
   Assert(constraint != NullConstraint);
   Assert(!constraint->negationHasProof());
+
+  constraint->setAssertedToTheTheory();
 
   ArithVar x_i = determineLeftVariable(assertion, simpleKind);
   DeltaRational c_i = determineRightConstant(assertion, simpleKind);
@@ -1004,14 +1002,13 @@ Node TheoryArith::assertionCases(TNode assertion){
                               << x_i<<" "<< simpleKind <<" "<< c_i << ")" << std::endl;
 
 
-  Debug("arith::constraint") << "arith constraint " << constraint << std::endl
-                             << "isPreregistered?" << constraint->isPreregistered() << std::endl;
+  Debug("arith::constraint") << "arith constraint " << constraint << std::endl;
 
   if(!constraint->hasProof()){
-    Debug("arith::constraint") << "marking as true " << constraint << endl;
+    Debug("arith::constraint") << "marking as constraint as self explaining " << endl;
     constraint->selfExplaining();
   }else{
-    Debug("arith::constraint") << "already true " << constraint << endl;
+    Debug("arith::constraint") << "already has proof: " << constraint->explain() << endl;
   }
 
   switch(simpleKind){

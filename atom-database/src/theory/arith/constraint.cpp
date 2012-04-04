@@ -20,7 +20,8 @@ ConstraintValue::ConstraintValue(ArithVar x,  ConstraintType t, const DeltaRatio
     d_database(NULL),
     d_literal(Node::null()),
     d_negation(NullConstraint),
-    d_preregistered(false),
+    d_canBePropagated(false),
+    d_assertedToTheTheory(false),
     d_proof(ProofIdSentinel),
     d_split(false),
     d_variablePosition()
@@ -302,19 +303,20 @@ Constraint ConstraintValue::getFloor() {
   return d_database->getConstraint(getVariable(), getType(), floor);
 }
 
-void ConstraintValue::setPreregistered() {
-  //Only atoms are preregistered.
-  //We must mark both the atom and its negation
+void ConstraintValue::setCanBePropagated() {
+  Assert(!canBePropagated());
+  d_database->pushCanBePropagatedWatch(this);
+}
 
-  Assert(!isPreregistered());
-  Assert(!d_negation->isPreregistered());
-
-  d_database->pushPreregisteredWatch(this);
-  d_database->pushPreregisteredWatch(d_negation);
+void ConstraintValue::setAssertedToTheTheory() {
+  Assert(hasLiteral());
+  Assert(!assertedToTheTheory());
+  Assert(!d_negation->assertedToTheTheory());
+  d_database->pushAssertedToTheTheoryWatch(this);
 }
 
 bool ConstraintValue::isSelfExplaining() const {
-  return d_proof != ProofIdSentinel && d_database->d_proofs[d_proof] == NullConstraint;
+  return d_proof == d_database->d_selfExplainingProof;
 }
 
 bool ConstraintValue::sanityChecking(Node n) const {
@@ -395,7 +397,7 @@ ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Co
     d_satContext(satContext),
     d_satAllocationLevel(d_satContext->getLevel())
 {
-  d_emptyProof = d_proofs.size();
+  d_selfExplainingProof = d_proofs.size();
   d_proofs.push_back(NullConstraint);
 }
 
@@ -473,7 +475,10 @@ void ConstraintDatabase::addVariable(ArithVar v){
 }
 
 bool ConstraintValue::safeToGarbageCollect() const{
-  return !isSplit() && !isPreregistered() && !hasProof();
+  return !isSplit()
+    && !canBePropagated()
+    && !hasProof()
+    && !assertedToTheTheory();
 }
 
 Node ConstraintValue::split(){
@@ -633,10 +638,9 @@ void ConstraintValue::propagate(const std::vector<Constraint>& b){
 
 void ConstraintValue::markAsTrue(){
   Assert(truthIsUnknown());
-#warning "this may be too strict"
   Assert(hasLiteral());
-  Assert(isPreregistered());
-  d_database->pushProofWatch(this, d_database->d_emptyProof);
+  Assert(assertedToTheTheory());
+  d_database->pushProofWatch(this, d_database->d_selfExplainingProof);
 }
 
 void ConstraintValue::markAsTrue(Constraint imp){
@@ -734,7 +738,8 @@ bool ConstraintDatabase::variableDatabaseIsSetup(ArithVar v){
 
 ConstraintDatabase::Watches::Watches(context::Context* satContext, context::Context* userContext):
   d_proofWatches(satContext),
-  d_preregisteredWatches(satContext),
+  d_canBePropagatedWatches(satContext),
+  d_assertedToTheTheoryWatches(satContext),
   d_splitWatches(userContext)
 {}
 

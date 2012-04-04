@@ -253,14 +253,29 @@ private:
   Constraint d_negation;
 
   /**
-   * This is true if the associated node has been preregistered.
+   * This is true if the associated node can be propagated.
+   *
+   * This should be enabled if the node has been preregistered.
+   *
    * Sat Context Dependent.
    * This is initially false.
    */
-  bool d_preregistered;
+  bool d_canBePropagated;
+
+  /**
+   * This is true if the associated node has been asserted to the theory.
+   * If this is true, the node can be used in conflicts.
+   *
+   * This should be set after the literal is dequeued by Theory::get().
+   *
+   * Sat Context Dependent.
+   * This is initially false.
+   */
+  bool d_assertedToTheTheory;
 
   /**
    * This points at the proof for the constraint in the current context.
+   *
    * Sat Context Dependent.
    * This is initially ProofIdSentinel.
    */
@@ -269,6 +284,7 @@ private:
   /**
    * True if the equality has been split.
    * Only meaningful if ContraintType == Equality.
+   *
    * User Context Dependent.
    * This is initially false.
    */
@@ -315,12 +331,21 @@ private:
     }
   };
 
-  class PreregisteredCleanup {
+  class CanBePropagatedCleanup {
   public:
     inline void operator()(Constraint* p){
       Constraint constraint = *p;
-      Assert(constraint->d_preregistered);
-      constraint->d_preregistered = false;
+      Assert(constraint->d_canBePropagated);
+      constraint->d_canBePropagated = false;
+    }
+  };
+
+  class AssertedToTheTheoryCleanup {
+  public:
+    inline void operator()(Constraint* p){
+      Constraint constraint = *p;
+      Assert(constraint->d_assertedToTheTheory);
+      constraint->d_assertedToTheTheory = false;
     }
   };
 
@@ -394,12 +419,24 @@ public:
    */
   Node split();
 
-  bool isPreregistered() const {
-    return d_preregistered;
+  bool canBePropagated() const {
+    return d_canBePropagated;
+  }
+  void setCanBePropagated();
+
+  /**
+   * Light wrapper for calling setCanBePropagated(),
+   * on this and this-d_negation.
+   */
+  void setPreregistered(){
+    setCanBePropagated();
+    d_negation->setCanBePropagated();
   }
 
-
-  void setPreregistered();
+  bool assertedToTheTheory() const {
+    return d_assertedToTheTheory;
+  }
+  void setAssertedToTheTheory();
 
 
   bool hasLiteral() const {
@@ -531,10 +568,11 @@ private:
   CDConstraintList d_proofs;
 
   /** This is a special empty proof that is always a member of the list. */
-  ProofId d_emptyProof;
+  ProofId d_selfExplainingProof;
 
   typedef context::CDList<Constraint, ConstraintValue::ProofCleanup> ProofCleanupList;
-  typedef context::CDList<Constraint, ConstraintValue::PreregisteredCleanup> PreregisteredList;
+  typedef context::CDList<Constraint, ConstraintValue::CanBePropagatedCleanup> CBPList;
+  typedef context::CDList<Constraint, ConstraintValue::AssertedToTheTheoryCleanup> ATTTCList;
   typedef context::CDList<Constraint, ConstraintValue::SplitCleanup> SplitList;
 
   /**
@@ -548,11 +586,15 @@ private:
     ProofCleanupList d_proofWatches;
 
     /**
-     * Contains the exact list of atoms that have been preregistered.
-     * This is a pointer as it must be destroyed before the elements of
-     * d_varDatabases.
+     * Contains the exact list of constraints that can be used for propagation.
      */
-    PreregisteredList d_preregisteredWatches;
+    CBPList d_canBePropagatedWatches;
+
+    /**
+     * Contains the exact list of constraints that have been asserted to the theory.
+     */
+    ATTTCList d_assertedToTheTheoryWatches;
+
 
     /**
      * Contains the exact list of atoms that have been preregistered.
@@ -564,16 +606,22 @@ private:
   };
   Watches* d_watches;
 
-  void pushPreregisteredWatch(Constraint c){
-    Assert(!c->d_preregistered);
-    c->d_preregistered = true;
-    d_watches->d_preregisteredWatches.push_back(c);
-  }
-
   void pushSplitWatch(Constraint c){
     Assert(!c->d_split);
     c->d_split = true;
     d_watches->d_splitWatches.push_back(c);
+  }
+
+  void pushCanBePropagatedWatch(Constraint c){
+    Assert(!c->d_canBePropagated);
+    c->d_canBePropagated = true;
+    d_watches->d_canBePropagatedWatches.push_back(c);
+  }
+
+  void pushAssertedToTheTheoryWatch(Constraint c){
+    Assert(!c->d_assertedToTheTheory);
+    c->d_assertedToTheTheory = true;
+    d_watches->d_assertedToTheTheoryWatches.push_back(c);
   }
 
   void pushProofWatch(Constraint c, ProofId pid){
