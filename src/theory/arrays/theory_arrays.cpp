@@ -41,7 +41,7 @@ const bool d_useArrTable = false;
 const bool d_eagerLemmas = true;
 const bool d_propagateLemmas = false;
 const bool d_preprocess = true;
-const bool d_solveWrite = false;
+const bool d_solveWrite = true;
 const bool d_useNonLinearOpt = true;
 
 
@@ -57,7 +57,7 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_ppNotify(),
   d_ppEqualityEngine(d_ppNotify, u, "theory::arrays::TheoryArraysPP"),
   d_ppFacts(u),
-  d_ppCache(u),  
+  //  d_ppCache(u),  
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
   d_mayEqualNotify(),
@@ -125,13 +125,15 @@ TheoryArrays::~TheoryArrays() {
 /////////////////////////////////////////////////////////////////////////////
 
 
-Node TheoryArrays::preprocessTerm(TNode term) {
+Node TheoryArrays::ppRewrite(TNode term) {
+  if (!d_preprocess) return term;
   switch (term.getKind()) {
     case kind::SELECT: {
       // select(store(a,i,v),j) = select(a,j)
       //    IF i != j
       if (term[0].getKind() == kind::STORE &&
-          d_ppEqualityEngine.areDisequal(term[0][1], term[1])) {
+          (d_ppEqualityEngine.areDisequal(term[0][1], term[1]) ||
+           (term[0][1].isConst() && term[1].isConst() && term[0][1] != term[1]))) {
         return NodeBuilder<2>(kind::SELECT) << term[0][0] << term[1];
       }
       break;
@@ -141,7 +143,8 @@ Node TheoryArrays::preprocessTerm(TNode term) {
       //    IF i != j and j comes before i in the ordering
       if (term[0].getKind() == kind::STORE &&
           (term[1] < term[0][1]) &&
-          d_ppEqualityEngine.areDisequal(term[1], term[0][1])) {
+          (d_ppEqualityEngine.areDisequal(term[1], term[0][1]) ||
+           (term[0][1].isConst() && term[1].isConst() && term[0][1] != term[1]))) {
         Node inner = NodeBuilder<3>(kind::STORE) << term[0][0] << term[1] << term[2];
         Node outer = NodeBuilder<3>(kind::STORE) << inner << term[0][1] << term[0][2];
         return outer;
@@ -204,7 +207,8 @@ Node TheoryArrays::preprocessTerm(TNode term) {
                 NodeBuilder<> hyp(kind::AND);
                 for (j = leftWrites - 1; j > i; --j) {
                   index_j = write_j[1];
-                  if (d_ppEqualityEngine.areDisequal(index_i, index_j)) {
+                  if (d_ppEqualityEngine.areDisequal(index_i, index_j) ||
+                      (index_i.isConst() && index_j.isConst() && index_i != index_j)) {
                     continue;
                   }
                   Node hyp2(index_i.getType() == nm->booleanType()? 
@@ -266,33 +270,6 @@ Node TheoryArrays::preprocessTerm(TNode term) {
   return term;
 }
 
-Node TheoryArrays::recursivePreprocessTerm(TNode term) {
-  unsigned nc = term.getNumChildren();
-  if (nc == 0 ||
-      (theoryOf(term) != theory::THEORY_ARRAY &&
-       term.getType() != NodeManager::currentNM()->booleanType())) {
-    return term;
-  }
-  NodeMap::iterator find = d_ppCache.find(term);
-  if (find != d_ppCache.end()) {
-    return (*find).second;
-  }
-  Trace("arrays-pp")<< "ppRewrite { " << term << endl;
-  NodeBuilder<> newNode(term.getKind());
-  unsigned i;
-  for (i = 0; i < nc; ++i) {
-    newNode << recursivePreprocessTerm(term[i]);
-  }
-  Node newTerm = Rewriter::rewrite(newNode);
-  Node newTerm2 = preprocessTerm(newTerm);
-  if (newTerm != newTerm2) {
-    newTerm = recursivePreprocessTerm(Rewriter::rewrite(newTerm2));
-  }
-  d_ppCache[term] = newTerm;
-  Trace("arrays-pp")<< "ppRewrite returning " << newTerm << "}" << endl;
-  return newTerm;
-}
-
 
 Theory::PPAssertStatus TheoryArrays::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
   switch(in.getKind()) {
@@ -324,13 +301,6 @@ Theory::PPAssertStatus TheoryArrays::ppAssert(TNode in, SubstitutionMap& outSubs
       break;
   }
   return PP_ASSERT_STATUS_UNSOLVED;
-}
-
-
-Node TheoryArrays::ppRewrite(TNode atom) {
-  if (!d_preprocess) return atom;
-  Assert(atom.getKind() == kind::EQUAL, "expected EQUAL, got %s", atom.toString().c_str());
-  return recursivePreprocessTerm(atom);
 }
 
 

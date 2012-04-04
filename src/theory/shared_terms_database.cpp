@@ -30,6 +30,7 @@ SharedTermsDatabase::SharedTermsDatabase(SharedTermsNotifyClass& notify, context
     d_alreadyNotifiedMap(context),
     d_sharedNotify(notify),
     d_termToNotifyList(context),
+    d_allocatedNLSize(0),
     d_allocatedNLNext(context, 0),
     d_EENotify(*this),
     d_equalityEngine(d_EENotify, context, "SharedTermsDatabase")

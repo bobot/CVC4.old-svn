@@ -121,9 +121,9 @@ class TheoryEngine {
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
 
   /**
-   * Cache from proprocessing of atoms.
+  * Cache for theory-preprocessing of assertions
    */
-  NodeMap d_atomPreprocessingCache;
+  NodeMap d_ppCache;
 
   /**
    * Used for "missed-t-propagations" dumping mode only.  A set of all
@@ -499,6 +499,20 @@ public:
     return d_propEngine;
   }
 
+private:
+
+  /**
+   * Helper for preprocess
+   */
+  Node ppTheoryRewrite(TNode term);
+
+public:
+
+  /**
+   * Signal the start of a new round of assertion preprocessing
+   */
+  void preprocessStart();
+
   /**
    * Runs theory specific preprocesssing on the non-Boolean parts of
    * the formula.  This is only called on input assertions, after ITEs
@@ -550,15 +564,6 @@ public:
    * theories).
    */
   void preRegister(TNode preprocessed);
-
-  /**
-   * Call the theories to perform one last rewrite on the theory atoms
-   * if they wish. This last rewrite is only performed on the input atoms.
-   * At this point it is ensured that atoms do not contain any Boolean
-   * strucure, i.e. there is no ITE nodes in them.
-   *
-   */
-  Node preCheckRewrite(TNode node);
 
   /**
    * Assert the formula to the appropriate theory.

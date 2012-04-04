@@ -31,6 +31,10 @@ using namespace CVC4::context;
 using namespace std;
 using namespace CVC4::theory::bv::utils;
 
+
+const bool d_useEqualityEngine = true;
+
+
 TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation)
   : Theory(THEORY_BV, c, u, out, valuation), 
     d_context(c),
@@ -47,12 +51,14 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
     d_true = utils::mkTrue();
     d_false = utils::mkFalse();
 
-    d_equalityEngine.addTerm(d_true);
-    d_equalityEngine.addTerm(d_false);
-    d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
+    if (d_useEqualityEngine) {
+      d_equalityEngine.addTerm(d_true);
+      d_equalityEngine.addTerm(d_false);
+      d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
 
-    // The kinds we are treating as function application in congruence
-    //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_CONCAT);
+      // The kinds we are treating as function application in congruence
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_CONCAT);
+    }
   }
 
 TheoryBV::~TheoryBV() {
@@ -79,17 +85,19 @@ void TheoryBV::preRegisterTerm(TNode node) {
   //marker literal: bitblast all terms before we start
   //d_bitblaster->bitblast(node); 
 
-  switch (node.getKind()) {
-  case kind::EQUAL:
-    // Add the terms
-    d_equalityEngine.addTerm(node);
-    // Add the trigger for equality
-    d_equalityEngine.addTriggerEquality(node[0], node[1], node);
-    d_equalityEngine.addTriggerDisequality(node[0], node[1], node.notNode());
-    break;
-  default:
-    d_equalityEngine.addTerm(node);
-    break;
+  if (d_useEqualityEngine) {
+    switch (node.getKind()) {
+      case kind::EQUAL:
+        // Add the terms
+        d_equalityEngine.addTerm(node);
+        // Add the trigger for equality
+        d_equalityEngine.addTriggerEquality(node[0], node[1], node);
+        d_equalityEngine.addTriggerDisequality(node[0], node[1], node.notNode());
+        break;
+      default:
+        d_equalityEngine.addTerm(node);
+        break;
+    }
   }
 
 }
@@ -103,6 +111,9 @@ void TheoryBV::check(Effort e) {
     TNode fact = assertion.assertion;
     d_toBitBlast.push(fact);
 
+    if (!d_useEqualityEngine) {
+      continue;
+    }
     Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::check(): processing " << fact << std::endl;
 
     // If the assertion doesn't have a literal, it's a shared equality, so we set it up
@@ -329,19 +340,23 @@ Node TheoryBV::explain(TNode node) {
 
 void TheoryBV::addSharedTerm(TNode t) {
   Debug("bitvector::sharing") << spaces(getContext()->getLevel()) << "TheoryBV::addSharedTerm(" << t << ")" << std::endl;
-  d_equalityEngine.addTriggerTerm(t);
+  if (d_useEqualityEngine) {
+    d_equalityEngine.addTriggerTerm(t);
+  }
 }
 
 
 EqualityStatus TheoryBV::getEqualityStatus(TNode a, TNode b)
 {
-  if (d_equalityEngine.areEqual(a, b)) {
-    // The terms are implied to be equal
-    return EQUALITY_TRUE;
-  }
-  if (d_equalityEngine.areDisequal(a, b)) {
-    // The terms are implied to be dis-equal
-    return EQUALITY_FALSE;
+  if (d_useEqualityEngine) {
+    if (d_equalityEngine.areEqual(a, b)) {
+      // The terms are implied to be equal
+      return EQUALITY_TRUE;
+    }
+    if (d_equalityEngine.areDisequal(a, b)) {
+      // The terms are implied to be dis-equal
+      return EQUALITY_FALSE;
+    }
   }
   return EQUALITY_UNKNOWN;
 }

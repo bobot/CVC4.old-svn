@@ -45,7 +45,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_activeTheories(context, 0),
   d_notify(*this),
   d_sharedTerms(d_notify, context),
-  d_atomPreprocessingCache(),
+  d_ppCache(),
   d_possiblePropagations(),
   d_hasPropagated(context),
   d_inConflict(context, false),
@@ -499,6 +499,43 @@ theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMa
   return solveStatus;
 }
 
+// Recursively traverse a term and call the theory rewriter on its sub-terms
+Node TheoryEngine::ppTheoryRewrite(TNode term)
+{
+  NodeMap::iterator find = d_ppCache.find(term);
+  if (find != d_ppCache.end()) {
+    return (*find).second;
+  }
+  unsigned nc = term.getNumChildren();
+  if (nc == 0) {
+    return theoryOf(term)->ppRewrite(term);
+  }
+  Trace("theory-pp") << "ppTheoryRewrite { " << term << endl;
+  NodeBuilder<> newNode(term.getKind());
+  if (term.getMetaKind() == kind::metakind::PARAMETERIZED) {
+    newNode << term.getOperator();
+  }
+  unsigned i;
+  for (i = 0; i < nc; ++i) {
+    newNode << ppTheoryRewrite(term[i]);
+  }
+  Node newTerm = Rewriter::rewrite(newNode);
+  Node newTerm2 = theoryOf(newTerm)->ppRewrite(newTerm);
+  if (newTerm != newTerm2) {
+    newTerm = ppTheoryRewrite(Rewriter::rewrite(newTerm2));
+  }
+  d_ppCache[term] = newTerm;
+  Trace("theory-pp")<< "ppTheoryRewrite returning " << newTerm << "}" << endl;
+  return newTerm;
+}
+
+
+void TheoryEngine::preprocessStart()
+{
+  d_ppCache.clear();
+}
+
+
 struct preprocess_stack_element {
   TNode node;
   bool children_added;
@@ -524,15 +561,15 @@ Node TheoryEngine::preprocess(TNode assertion) {
     Debug("theory::internal") << "TheoryEngine::preprocess(" << assertion << "): processing " << current << endl;
 
     // If node already in the cache we're done, pop from the stack
-    NodeMap::iterator find = d_atomPreprocessingCache.find(current);
-    if (find != d_atomPreprocessingCache.end()) {
+    NodeMap::iterator find = d_ppCache.find(current);
+    if (find != d_ppCache.end()) {
       toVisit.pop_back();
       continue;
     }
 
-    // If this is an atom, we preprocess it with the theory
+    // If this is an atom, we preprocess its terms with the theory ppRewriter
     if (Theory::theoryOf(current) != THEORY_BOOL) {
-      d_atomPreprocessingCache[current] = theoryOf(current)->ppRewrite(current);
+      d_ppCache[current] = ppTheoryRewrite(current);
       continue;
     }
 
@@ -544,13 +581,13 @@ Node TheoryEngine::preprocess(TNode assertion) {
         builder << current.getOperator();
       }
       for (unsigned i = 0; i < current.getNumChildren(); ++ i) {
-        Assert(d_atomPreprocessingCache.find(current[i]) != d_atomPreprocessingCache.end());
-        builder << d_atomPreprocessingCache[current[i]];
+        Assert(d_ppCache.find(current[i]) != d_ppCache.end());
+        builder << d_ppCache[current[i]];
       }
       // Mark the substitution and continue
       Node result = builder;
       Debug("theory::internal") << "TheoryEngine::preprocess(" << assertion << "): setting " << current << " -> " << result << endl;
-      d_atomPreprocessingCache[current] = result;
+      d_ppCache[current] = result;
       toVisit.pop_back();
     } else {
       // Mark that we have added the children if any
@@ -559,27 +596,28 @@ Node TheoryEngine::preprocess(TNode assertion) {
         // We need to add the children
         for(TNode::iterator child_it = current.begin(); child_it != current.end(); ++ child_it) {
           TNode childNode = *child_it;
-          NodeMap::iterator childFind = d_atomPreprocessingCache.find(childNode);
-          if (childFind == d_atomPreprocessingCache.end()) {
+          NodeMap::iterator childFind = d_ppCache.find(childNode);
+          if (childFind == d_ppCache.end()) {
             toVisit.push_back(childNode);
           }
         }
       } else {
         // No children, so we're done
         Debug("substitution::internal") << "SubstitutionMap::internalSubstitute(" << assertion << "): setting " << current << " -> " << current << endl;
-        d_atomPreprocessingCache[current] = current;
+        d_ppCache[current] = current;
         toVisit.pop_back();
       }
     }
   }
 
   // Return the substituted version
-  return d_atomPreprocessingCache[assertion];
+  return d_ppCache[assertion];
 }
 
 void TheoryEngine::assertFact(TNode node)
 {
   Trace("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
+  Trace("theory::assertFact") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
 
   d_propEngine->checkTime();
 

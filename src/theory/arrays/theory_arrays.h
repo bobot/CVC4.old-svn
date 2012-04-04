@@ -150,8 +150,8 @@ class TheoryArrays : public Theory {
   context::CDList<Node> d_ppFacts;
 
   // Cache for preprocessing of atoms.
-  typedef context::CDHashMap<Node, Node, NodeHashFunction> NodeMap;
-  NodeMap d_ppCache;
+  //  typedef context::CDHashMap<Node, Node, NodeHashFunction> NodeMap;
+  //  NodeMap d_ppCache;
 
   Node preprocessTerm(TNode term);
   Node recursivePreprocessTerm(TNode term);
