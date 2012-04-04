@@ -27,7 +27,21 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-
+ArithPartialModel::ArithPartialModel(context::Context* c)
+ : d_mapSize(0),
+   d_hasSafeAssignment(),
+   d_assignment(),
+   d_safeAssignment(),
+   d_upperBound(c),
+   d_lowerBound(c),
+   d_upperConstraint(c),
+   d_lowerConstraint(c),
+   d_ubc(c),
+   d_lbc(c),
+   d_deltaIsSafe(false),
+   d_delta(-1,1),
+   d_history()
+{ }
 
 bool ArithPartialModel::boundsAreEqual(ArithVar x) const{
   if(hasLowerBound(x) && hasUpperBound(x)){
@@ -37,31 +51,12 @@ bool ArithPartialModel::boundsAreEqual(ArithVar x) const{
   }
 }
 
-void ArithPartialModel::zeroDifferenceDetected(ArithVar x){
-  Assert(d_dm.isDifferenceSlack(x));
-  Assert(upperBoundIsZero(x));
-  Assert(lowerBoundIsZero(x));
-
-  Node lb = getLowerConstraint(x);
-  Node ub = getUpperConstraint(x);
-  Node reason = lb != ub ? lb.andNode(ub) : lb;
-  d_dm.differenceIsZero(x, reason);
-}
-
 void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
   d_deltaIsSafe = false;
 
   Debug("partial_model") << "setUpperBound(" << x << "," << r << ")" << endl;
   d_upperBound.set(x,r);
 
-  if(d_dm.isDifferenceSlack(x)){
-    int sgn = r.sgn();
-    if(sgn < 0){
-      d_dm.differenceCannotBeZero(x, getUpperConstraint(x));
-    }else if(sgn == 0 && lowerBoundIsZero(x)){
-      zeroDifferenceDetected(x);
-    }
-  }
 }
 
 void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
@@ -69,16 +64,6 @@ void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
 
   Debug("partial_model") << "setLowerBound(" << x << "," << r << ")" << endl;
   d_lowerBound.set(x,r);
-
-
-  if(d_dm.isDifferenceSlack(x)){
-    int sgn = r.sgn();
-    if(sgn > 0){
-      d_dm.differenceCannotBeZero(x, getLowerConstraint(x));
-    }else if(sgn == 0 && upperBoundIsZero(x)){
-      zeroDifferenceDetected(x);
-    }
-  }
 }
 
 void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& r){
@@ -243,32 +228,6 @@ int ArithPartialModel::cmpToUpperBound(ArithVar x, const DeltaRational& c) const
   }
 }
 
-// bool ArithPartialModel::belowLowerBound(ArithVar x, const DeltaRational& c, bool strict){
-//   if(!hasLowerBound(x)){
-//     // l = -\intfy
-//     // ? c < -\infty |-  _|_
-//     return false;
-//   }
-//   if(strict){
-//     return c < d_lowerBound[x];
-//   }else{
-//     return c <= d_lowerBound[x];
-//   }
-// }
-
-// bool ArithPartialModel::aboveUpperBound(ArithVar x, const DeltaRational& c, bool strict){
-//   if(!hasUpperBound(x)){
-//     // u = \intfy
-//     // ? c > \infty |-  _|_
-//     return false;
-//   }
-//   if(strict){
-//     return c > d_upperBound[x];
-//   }else{
-//     return c >= d_upperBound[x];
-//   }
-// }
-
 bool ArithPartialModel::equalsLowerBound(ArithVar x, const DeltaRational& c){
   if(!hasLowerBound(x)){
     return false;
@@ -303,30 +262,6 @@ bool ArithPartialModel::strictlyAboveLowerBound(ArithVar x) const{
   }
   return  d_lowerBound[x] < d_assignment[x];
 }
-
-// /**
-//  * x <= u
-//  * ? c < u
-//  */
-// bool ArithPartialModel::strictlyBelowUpperBound(ArithVar x, const DeltaRational& c){
-//   Assert(inMaps(x));
-//   if(!hasUpperBound(x)){ // u = \infty
-//     return true;
-//   }
-//   return c < d_upperBound[x];
-// }
-
-// /**
-//  * x <= u
-//  * ? c < u
-//  */
-// bool ArithPartialModel::strictlyAboveLowerBound(ArithVar x, const DeltaRational& c){
-//   Assert(inMaps(x));
-//   if(!hasLowerBound(x)){ // l = -\infty
-//     return true;
-//   }
-//   return  d_lowerBound[x] < c;
-// }
 
 bool ArithPartialModel::assignmentIsConsistent(ArithVar x) const{
   const DeltaRational& beta = getAssignment(x);

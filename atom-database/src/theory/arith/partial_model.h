@@ -28,7 +28,6 @@
 #include "theory/arith/arithvar.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/constraint.h"
-#include "theory/arith/difference_manager.h"
 
 
 #include <vector>
@@ -67,27 +66,10 @@ private:
   typedef std::vector<ArithVar> HistoryList;
   HistoryList d_history;
 
-  DifferenceManager& d_dm;
-
 
 public:
 
-  ArithPartialModel(context::Context* c, DifferenceManager& dm):
-    d_mapSize(0),
-    d_hasSafeAssignment(),
-    d_assignment(),
-    d_safeAssignment(),
-    d_upperBound(c),
-    d_lowerBound(c),
-    d_upperConstraint(c),
-    d_lowerConstraint(c),
-    d_ubc(c),
-    d_lbc(c),
-    d_deltaIsSafe(false),
-    d_delta(-1,1),
-    d_history(),
-    d_dm(dm)
-  { }
+  ArithPartialModel(context::Context* c);
 
   void setLowerConstraint(ArithVar x, TNode constraint, Constraint c);
   void setUpperConstraint(ArithVar x, TNode constraint, Constraint c);
@@ -118,9 +100,6 @@ public:
   inline bool upperBoundIsZero(ArithVar x){
     return hasUpperBound(x) && getUpperBound(x).sgn() == 0;
   }
-
-private:
-  void zeroDifferenceDetected(ArithVar x);
 
 public:
   bool boundsAreEqual(ArithVar x) const;

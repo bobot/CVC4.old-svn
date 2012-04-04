@@ -325,6 +325,8 @@ private:
    */
   bool splitDisequalities();
 
+  /** A Difference variable is known to be 0.*/
+  void zeroDifferenceDetected(ArithVar x);
 
 
   /**
