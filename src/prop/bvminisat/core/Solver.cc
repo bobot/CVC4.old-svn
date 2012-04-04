@@ -501,6 +501,17 @@ lbool Solver::assertAssertAssumptionAndPropagate(Lit p) {
   return search(-1, UIP_FIRST);
 }
 
+lbool Solver::assertAssertAssumption(Lit p) {
+
+  assert(marker[var(p)] == 1);
+
+  // add to the assumptions
+  assumptions.push(p);
+  conflict.clear();
+
+  return l_True;
+}
+
 /*_________________________________________________________________________________________________
 |
 |  propagate : [void]  ->  [Clause*]

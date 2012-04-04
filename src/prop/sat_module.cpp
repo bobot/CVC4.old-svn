@@ -92,6 +92,12 @@ SatLiteralValue MinisatSatSolver::assertAssumptionAndPropagate(SatLiteral lit) {
   return toSatLiteralValue(d_minisat->assertAssertAssumptionAndPropagate(toMinisatLit(lit)));
 }
 
+SatLiteralValue MinisatSatSolver::assertAssumption(SatLiteral lit) {
+  d_assertionsCount ++;
+  d_assertionsRealCount = d_assertionsRealCount + 1;
+  return toSatLiteralValue(d_minisat->assertAssertAssumption(toMinisatLit(lit)));
+}
+
 void MinisatSatSolver::notify() {
   while (d_assertionsCount > d_assertionsRealCount) {
     popAssumption();

@@ -67,7 +67,8 @@ public:
     bool    solve        (Lit p, Lit q);            // Search for a model that respects two assumptions.
     bool    solve        (Lit p, Lit q, Lit r);     // Search for a model that respects three assumptions.
     bool    okay         () const;                  // FALSE means solver is in a conflicting state
-    lbool   assertAssertAssumptionAndPropagate(Lit p); // Assert a new assumption and do proapgation
+    lbool   assertAssertAssumption(Lit p);          // Assert a new assumption but don't start propagation
+    lbool   assertAssertAssumptionAndPropagate(Lit p); // Assert a new assumption and do propagation
     void    popAssumption();                        // Pop an assumption
 
     void    toDimacs     (FILE* f, const vec<Lit>& assumps);            // Write CNF to file in DIMACS-format.
