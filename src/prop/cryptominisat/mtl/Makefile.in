@@ -207,6 +207,7 @@ LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MAN_DATE = @MAN_DATE@
+MAN_DATE = @MAN_DATE@
 MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
@@ -327,9 +328,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/prop/cryptominisat/mtl/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/prop/cryptominisat/mtl/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu src/prop/cryptominisat/mtl/Makefile
+	  $(AUTOMAKE) --foreign src/prop/cryptominisat/mtl/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

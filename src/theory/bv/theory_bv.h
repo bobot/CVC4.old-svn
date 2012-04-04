@@ -24,6 +24,7 @@
 #include "theory/theory.h"
 #include "context/context.h"
 #include "context/cdlist.h"
+#include "context/cdhashset.h"
 #include "theory/bv/theory_bv_utils.h"
 #include "util/stats.h"
 #include "theory/uf/equality_engine.h"
@@ -49,7 +50,6 @@ static inline std::string spaces(int level)
 
 class TheoryBV : public Theory {
 
-public:
 
 private:
 
@@ -64,6 +64,9 @@ private:
   Node d_true;
   Node d_false;
     
+  /** Context dependent set of atoms we already propagated */
+  context::CDHashSet<TNode, TNodeHashFunction> d_alreadyPropagatedSet;
+
 public:
 
   TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);

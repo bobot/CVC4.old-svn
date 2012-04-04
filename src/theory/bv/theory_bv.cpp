@@ -32,15 +32,17 @@ using namespace std;
 using namespace CVC4::theory::bv::utils;
 
 
-const bool d_useEqualityEngine = true;
+const bool d_useEqualityEngine = false;
+const bool d_useSatPropagation = false;
 
 
 TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation)
-  : Theory(THEORY_BV, c, u, out, valuation), 
+  : Theory(THEORY_BV, c, u, out, valuation),
     d_context(c),
     d_assertions(c),
     d_bitblaster(new Bitblaster(c) ),
     d_statistics(),
+    d_alreadyPropagatedSet(c),
     d_notify(*this),
     d_equalityEngine(d_notify, c, "theory::bv::TheoryBV"),
     d_conflict(c, false),
@@ -58,6 +60,35 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
 
       // The kinds we are treating as function application in congruence
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_CONCAT);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_AND);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_OR);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_XOR);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_NOT);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_NAND);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_NOR);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_XNOR);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_COMP);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_MULT);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_PLUS);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SUB);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_NEG);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_UDIV);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_UREM);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SDIV);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SREM);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SMOD);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SHL);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_LSHR);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_ASHR);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_ULT);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_ULE);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_UGT);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_UGE);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SLT);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SLE);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SGT);
+      //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SGE);
+
     }
   }
 
@@ -82,8 +113,14 @@ TheoryBV::Statistics::~Statistics() {
 
 void TheoryBV::preRegisterTerm(TNode node) {
   BVDebug("bitvector-preregister") << "TheoryBV::preRegister(" << node << ")" << std::endl;
-  //marker literal: bitblast all terms before we start
-  //d_bitblaster->bitblast(node); 
+  if (node.getKind() == kind::EQUAL ||
+      node.getKind() == kind::BITVECTOR_ULT ||
+      node.getKind() == kind::BITVECTOR_ULE ||
+      node.getKind() == kind::BITVECTOR_SLT ||
+      node.getKind() == kind::BITVECTOR_SLE) {
+    d_bitblaster->bitblast(node);
+    d_bitblaster->addAtom(node); 
+  }
 
   if (d_useEqualityEngine) {
     switch (node.getKind()) {
@@ -104,81 +141,79 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 void TheoryBV::check(Effort e) {
 
-  while (!done() && !d_conflict) 
-  {
-    // Get all the assertions
-    Assertion assertion = get();
-    TNode fact = assertion.assertion;
-    d_toBitBlast.push(fact);
+  if (e == EFFORT_STANDARD) {
+    BVDebug("bitvector") << "TheoryBV::check " << e << "\n"; 
+    BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
+    while (!done() && !d_conflict) {
+      Assertion assertion = get();
+      TNode fact = assertion.assertion;
 
-    if (!d_useEqualityEngine) {
-      continue;
-    }
-    Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::check(): processing " << fact << std::endl;
+      BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << fact << "\n"; 
 
-    // If the assertion doesn't have a literal, it's a shared equality, so we set it up
-    if (!assertion.isPreregistered) {
-      Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::check(): shared equality, setting up " << fact << std::endl;
-      if (fact.getKind() == kind::NOT) {
-        if (!d_equalityEngine.hasTerm(fact[0])) {
-          preRegisterTerm(fact[0]);
+      // If the assertion doesn't have a literal, it's a shared equality
+      Assert(assertion.isPreregistered ||
+             ((fact.getKind() == kind::EQUAL && d_equalityEngine.hasTerm(fact[0]) && d_equalityEngine.hasTerm(fact[1])) ||
+              (fact.getKind() == kind::NOT && fact[0].getKind() == kind::EQUAL &&
+               d_equalityEngine.hasTerm(fact[0][0]) && d_equalityEngine.hasTerm(fact[0][1]))));
+
+      // Notify the Equality Engine
+      switch (fact.getKind()) {
+        case kind::EQUAL:
+          d_equalityEngine.addEquality(fact[0], fact[1], fact);
+          break;
+        case kind::NOT:
+          if (fact[0].getKind() == kind::EQUAL) {
+            // Assert the dis-equality
+            d_equalityEngine.addDisequality(fact[0][0], fact[0][1], fact);
+          } else {
+            d_equalityEngine.addPredicate(fact[0], false, fact);
+            break;
+          }
+          break;
+        default:
+          d_equalityEngine.addPredicate(fact, true, fact);
+          break;
+      }
+
+      // make sure we do not assert things we propagated 
+      if (!d_conflict && d_alreadyPropagatedSet.count(fact) == 0) {
+        bool ok = d_bitblaster->assertToSat(fact, d_useSatPropagation);
+        if (!ok) {
+          std::vector<TNode> conflictAtoms;
+          d_bitblaster->getConflict(conflictAtoms);
+          d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
+          d_conflict = true;
+          d_conflictNode = mkConjunction(conflictAtoms);
+          break;
         }
-      } else if (!d_equalityEngine.hasTerm(fact)) {
-        preRegisterTerm(fact);
       }
     }
 
-    // Do the work
-    switch (fact.getKind()) {
-      case kind::EQUAL:
-        d_equalityEngine.addEquality(fact[0], fact[1], fact);
-        break;
-      case kind::NOT:
-        if (fact[0].getKind() == kind::EQUAL) {
-          // Assert the dis-equality
-          d_equalityEngine.addDisequality(fact[0][0], fact[0][1], fact);
-        } else {
-          d_equalityEngine.addPredicate(fact[0], false, fact);
-          break;
-        }
-        break;
-      default:
-        break;
+    // If in conflict, output the conflict
+    if (d_conflict) {
+      Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::check(): conflict " << d_conflictNode << std::endl;
+      d_out->conflict(d_conflictNode);
+      return;
     }
   }
 
-  // If in conflict, output the conflict
-  if (d_conflict) {
-    Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::check(): conflict " << d_conflictNode << std::endl;
-    d_out->conflict(d_conflictNode);
-    return;
-  }
+  if (e == EFFORT_FULL) {
 
-  if (fullEffort(e) && !d_toBitBlast.empty()) {
-    Trace("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
-    std::vector<TNode> assertions;
-      
-    do {
-      TNode assertion = d_toBitBlast.front();
-      d_toBitBlast.pop();
-      Trace("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n"; 
-      d_bitblaster->bitblast(assertion); 
-      d_bitblaster->assertToSat(assertion); 
-    } while (!d_toBitBlast.empty());
-
-    TimerStat::CodeTimer codeTimer(d_statistics.d_solveTimer); 
-    bool res = d_bitblaster->solve();
-    if (res == false) {
+    Assert(done() && !d_conflict);
+    BVDebug("bitvector") << "TheoryBV::check " << e << "\n";
+    // in standard effort we only do boolean constraint propagation 
+    bool ok = d_bitblaster->solve(false);
+    if (!ok) {
       std::vector<TNode> conflictAtoms;
       d_bitblaster->getConflict(conflictAtoms);
       d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
-      
       Node conflict = mkConjunction(conflictAtoms);
       d_out->conflict(conflict);
-      Trace("bitvector") << "TheoryBV::check returns conflict. \n ";
+      BVDebug("bitvector") << "TheoryBV::check returns conflict: " <<conflict <<" \n ";
       return; 
     }
   }
+
 }
 
 
@@ -198,8 +233,79 @@ Node TheoryBV::getValue(TNode n) {
   }
 }
 
-// Node TheoryBV::preprocessTerm(TNode term) {
-//   return term; //d_staticEqManager.find(term);
+
+void TheoryBV::propagate(Effort e) {
+  BVDebug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate()" << std::endl;
+
+  if (d_conflict) {
+    return;
+  }
+
+  // get new propagations from the equality engine
+  for (; d_literalsToPropagateIndex < d_literalsToPropagate.size(); d_literalsToPropagateIndex = d_literalsToPropagateIndex + 1) {
+    TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
+    BVDebug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(): propagating from equality engine: " << literal << std::endl;
+    bool satValue;
+    Node normalized = Rewriter::rewrite(literal);
+    if (!d_valuation.hasSatValue(normalized, satValue) || satValue) {
+      d_out->propagate(literal);
+    } else {
+      Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(): in conflict, normalized = " << normalized << std::endl;
+      Node negatedLiteral;
+      std::vector<TNode> assumptions;
+      if (normalized != d_false) {
+        negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
+        assumptions.push_back(negatedLiteral);
+      }
+      explain(literal, assumptions);
+      d_conflictNode = mkAnd(assumptions);
+      d_conflict = true;
+      return;
+    }
+  }
+
+  // get new propagations from the sat solver
+  std::vector<TNode> propagations; 
+  d_bitblaster->getPropagations(propagations);
+
+  // propagate the facts on the propagation queue
+  for (unsigned i = 0; i < propagations.size(); ++ i) {
+    TNode node = propagations[i];
+    BVDebug("bitvector") << "TheoryBV::propagate    " << node <<" \n";
+    if (d_valuation.getSatValue(node) == Node::null()) {
+      vector<Node> explanation;
+      d_bitblaster->explainPropagation(node, explanation);
+      if (explanation.size() == 0) {
+        d_out->lemma(node);
+      } else {
+        NodeBuilder<> nb(kind::OR);
+        nb << node;
+        for (unsigned i = 0; i < explanation.size(); ++ i) {
+          nb << explanation[i].notNode();
+        }
+        Node lemma = nb;
+        d_out->lemma(lemma);
+      }
+      d_alreadyPropagatedSet.insert(node);
+    }
+  }
+
+}
+
+// Node TheoryBV::explain(TNode n) {
+//   BVDebug("bitvector") << "TheoryBV::explain node " <<  n <<"\n";
+//   std::vector<Node> explanation;
+//   d_bitblaster->explainPropagation(n, explanation);
+//   Node exp;
+
+//   if (explanation.size() == 0) {
+//     return utils::mkTrue(); 
+//   }
+  
+//   exp = utils::mkAnd(explanation);
+  
+//   BVDebug("bitvector") << "TheoryBV::explain with " <<  exp <<"\n";
+//   return exp;
 // }
 
 Theory::PPAssertStatus TheoryBV::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
@@ -269,35 +375,6 @@ bool TheoryBV::propagate(TNode literal)
 
   return true;
 }/* TheoryBV::propagate(TNode) */
-
-
-void TheoryBV::propagate(Effort e)
-{
-  Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate()" << std::endl;
-  if (!d_conflict) {
-    for (; d_literalsToPropagateIndex < d_literalsToPropagate.size(); d_literalsToPropagateIndex = d_literalsToPropagateIndex + 1) {
-      TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
-      Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(): propagating " << literal << std::endl;
-      bool satValue;
-      Node normalized = Rewriter::rewrite(literal);
-      if (!d_valuation.hasSatValue(normalized, satValue) || satValue) {
-        d_out->propagate(literal);
-      } else {
-        Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(): in conflict, normalized = " << normalized << std::endl;
-        Node negatedLiteral;
-        std::vector<TNode> assumptions;
-        if (normalized != d_false) {
-          negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
-          assumptions.push_back(negatedLiteral);
-        }
-        explain(literal, assumptions);
-        d_conflictNode = mkAnd(assumptions);
-        d_conflict = true;
-        break;
-      }
-    }
-  }
-}
 
 
 void TheoryBV::explain(TNode literal, std::vector<TNode>& assumptions) {

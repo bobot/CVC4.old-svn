@@ -149,10 +149,6 @@ class TheoryArrays : public Theory {
   // List of facts learned by preprocessor - needed for permanent ref for benefit of d_ppEqualityEngine
   context::CDList<Node> d_ppFacts;
 
-  // Cache for preprocessing of atoms.
-  //  typedef context::CDHashMap<Node, Node, NodeHashFunction> NodeMap;
-  //  NodeMap d_ppCache;
-
   Node preprocessTerm(TNode term);
   Node recursivePreprocessTerm(TNode term);
 

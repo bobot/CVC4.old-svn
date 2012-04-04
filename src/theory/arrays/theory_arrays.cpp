@@ -685,13 +685,11 @@ void TheoryArrays::check(Effort e) {
 
     Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::check(): processing " << fact << std::endl;
 
-    // If the assertion doesn't have a literal, it's a shared equality, so we set it up
-    if (!assertion.isPreregistered) {
-      Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::check(): shared equality: " << fact << std::endl;
-      Assert((fact.getKind() == kind::EQUAL && d_equalityEngine.hasTerm(fact[0]) && d_equalityEngine.hasTerm(fact[1])) ||
-             (fact.getKind() == kind::NOT && fact[0].getKind() == kind::EQUAL &&
-              d_equalityEngine.hasTerm(fact[0][0]) && d_equalityEngine.hasTerm(fact[0][1])));
-    }
+    // If the assertion doesn't have a literal, it's a shared equality
+    Assert(assertion.isPreregistered ||
+           ((fact.getKind() == kind::EQUAL && d_equalityEngine.hasTerm(fact[0]) && d_equalityEngine.hasTerm(fact[1])) ||
+            (fact.getKind() == kind::NOT && fact[0].getKind() == kind::EQUAL &&
+             d_equalityEngine.hasTerm(fact[0][0]) && d_equalityEngine.hasTerm(fact[0][1]))));
 
     // Do the work
     switch (fact.getKind()) {
