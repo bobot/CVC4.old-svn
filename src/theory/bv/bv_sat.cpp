@@ -219,7 +219,7 @@ void Bitblaster::bitblast(TNode node) {
  * 
  */
  
-bool Bitblaster::assertToSat(TNode lit) {
+bool Bitblaster::assertToSat(TNode lit, bool propagate) {
   // strip the not
   TNode atom; 
   if (lit.getKind() == kind::NOT) {
@@ -239,7 +239,7 @@ bool Bitblaster::assertToSat(TNode lit) {
   BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat asserting node: " << atom <<"\n";
   BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat with literal:   " << markerLit << "\n";  
 
-  SatLiteralValue ret = d_satSolver->assertAssumptionAndPropagate(markerLit);
+  SatLiteralValue ret = d_satSolver->assertAssumption(markerLit, propagate);
 
   d_assertedAtoms.push_back(markerLit);
 

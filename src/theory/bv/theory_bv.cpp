@@ -83,8 +83,8 @@ void TheoryBV::check(Effort e) {
       TNode assertion = get();
       // make sure we do not assert things we propagated 
       if (!hasBeenPropagated(assertion)) {
-        BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n"; 
-        bool ok = d_bitblaster->assertToSat(assertion);
+        BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n";
+        bool ok = d_bitblaster->assertToSat(assertion, true);
         if (!ok) {
           std::vector<TNode> conflictAtoms;
           d_bitblaster->getConflict(conflictAtoms);

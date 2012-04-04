@@ -149,9 +149,7 @@ public:
 
   virtual void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0;
 
-  virtual SatLiteralValue assertAssumptionAndPropagate(SatLiteral lit) = 0;
-
-  virtual SatLiteralValue assertAssumption(SatLiteral lit) = 0;
+  virtual SatLiteralValue assertAssumption(SatLiteral lit, bool propagate) = 0;
 
   virtual void popAssumption() = 0;
 }; 
@@ -227,8 +225,7 @@ public:
 
   void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation);
 
-  SatLiteralValue assertAssumptionAndPropagate(SatLiteral lit);
-  SatLiteralValue assertAssumption(SatLiteral lit);
+  SatLiteralValue assertAssumption(SatLiteral lit, bool propagate);
   
   void popAssumption();
 

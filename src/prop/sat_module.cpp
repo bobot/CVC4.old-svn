@@ -86,16 +86,10 @@ void MinisatSatSolver::explainPropagation(SatLiteral lit, std::vector<SatLiteral
   toSatLiteralVector(minisat_explanation, explanation);
 }
 
-SatLiteralValue MinisatSatSolver::assertAssumptionAndPropagate(SatLiteral lit) {
+SatLiteralValue MinisatSatSolver::assertAssumption(SatLiteral lit, bool propagate) {
   d_assertionsCount ++;
   d_assertionsRealCount = d_assertionsRealCount + 1;
-  return toSatLiteralValue(d_minisat->assertAssertAssumptionAndPropagate(toMinisatLit(lit)));
-}
-
-SatLiteralValue MinisatSatSolver::assertAssumption(SatLiteral lit) {
-  d_assertionsCount ++;
-  d_assertionsRealCount = d_assertionsRealCount + 1;
-  return toSatLiteralValue(d_minisat->assertAssertAssumption(toMinisatLit(lit)));
+  return toSatLiteralValue(d_minisat->assertAssumption(toMinisatLit(lit), propagate));
 }
 
 void MinisatSatSolver::notify() {
