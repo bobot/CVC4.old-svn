@@ -405,8 +405,8 @@ TNode SimplexDecisionProcedure::weakestExplanation(bool aboveUpper, DeltaRationa
   int sgn = coeff.sgn();
   bool ub = aboveUpper?(sgn < 0) : (sgn > 0);
   TNode exp = ub ?
-    d_partialModel.getUpperConstraint(v) :
-    d_partialModel.getLowerConstraint(v);
+    d_partialModel.explainUpperBound(v) :
+    d_partialModel.explainLowerBound(v);
   DeltaRational bound = ub?
     d_partialModel.getUpperBound(v) :
     d_partialModel.getLowerBound(v);

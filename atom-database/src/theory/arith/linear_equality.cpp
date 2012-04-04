@@ -275,17 +275,17 @@ void LinearEqualityModule::explainNonbasics(ArithVar basic, NodeBuilder<>& outpu
     Assert(sgn != 0);
     if(upperBound){
       if(sgn < 0){
-        bound = d_partialModel.getLowerConstraint(nonbasic);
+        bound = d_partialModel.explainLowerBound(nonbasic);
       }else{
         Assert(sgn > 0);
-        bound = d_partialModel.getUpperConstraint(nonbasic);
+        bound = d_partialModel.explainUpperBound(nonbasic);
       }
     }else{
       if(sgn < 0){
-        bound =  d_partialModel.getUpperConstraint(nonbasic);
+        bound =  d_partialModel.explainUpperBound(nonbasic);
       }else{
         Assert(sgn > 0);
-        bound =  d_partialModel.getLowerConstraint(nonbasic);
+        bound =  d_partialModel.explainLowerBound(nonbasic);
       }
     }
     Assert(!bound.isNull());

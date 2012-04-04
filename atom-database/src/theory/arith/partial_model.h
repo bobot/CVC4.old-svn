@@ -49,11 +49,6 @@ private:
   std::vector<DeltaRational> d_assignment;
   std::vector<DeltaRational> d_safeAssignment;
 
-  context::CDVector<DeltaRational> d_upperBound;
-  context::CDVector<DeltaRational> d_lowerBound;
-  context::CDVector<Node> d_upperConstraint;
-  context::CDVector<Node> d_lowerConstraint;
-
   context::CDVector<Constraint> d_ubc;
   context::CDVector<Constraint> d_lbc;
 
@@ -71,12 +66,28 @@ public:
 
   ArithPartialModel(context::Context* c);
 
-  void setLowerConstraint(ArithVar x, TNode constraint, Constraint c);
-  void setUpperConstraint(ArithVar x, TNode constraint, Constraint c);
-  TNode getLowerConstraint(ArithVar x) const;
-  TNode getUpperConstraint(ArithVar x) const;
-  Constraint getUBC(ArithVar x) const;
-  Constraint getLBC(ArithVar x) const;
+  void setLowerBoundConstraint(Constraint lb);
+  void setUpperBoundConstraint(Constraint ub);
+
+  inline Constraint getUpperBoundConstraint(ArithVar x) const{
+    return d_ubc[x];
+  }
+  inline Constraint getLowerBoundConstraint(ArithVar x) const{
+    return d_lbc[x];
+  }
+
+  Node explainLowerBound(ArithVar x) const{
+    AssertArgument(hasLowerBound(x), "Must have a lower bound to explain!");
+    return getLowerBoundConstraint(x)->explain();
+  }
+
+  Node explainUpperBound(ArithVar x) const{
+    AssertArgument(hasUpperBound(x), "Must have an upperbound to explain!");
+    return getUpperBoundConstraint(x)->explain();
+  }
+
+  void explainLowerBound(ArithVar x, NodeBuilder<>& nb);
+  void explainUpperBound(ArithVar x, NodeBuilder<>& nb);
 
 
   /* Initializes a variable to a safe value.*/
@@ -101,11 +112,10 @@ public:
     return hasUpperBound(x) && getUpperBound(x).sgn() == 0;
   }
 
-public:
   bool boundsAreEqual(ArithVar x) const;
 
-  void setUpperBound(ArithVar x, const DeltaRational& r);
-  void setLowerBound(ArithVar x, const DeltaRational& r);
+  //void setUpperBound(ArithVar x, const DeltaRational& r);
+  //void setLowerBound(ArithVar x, const DeltaRational& r);
 
   /* Sets an unsafe variable assignment */
   void setAssignment(ArithVar x, const DeltaRational& r);
@@ -140,6 +150,9 @@ public:
     return cmpToLowerBound(x, c) > 0;
   }
 
+  inline bool greaterThanLowerBound(ArithVar x, const DeltaRational& c) const{
+    return cmpToLowerBound(x, c) >= 0;
+  }
   /**
    * If upperbound < \infty:
    *   return getAssignment(x).cmp(getUpperBound(x))
@@ -174,10 +187,10 @@ public:
   /** returns true iff x has both a lower and upper bound. */
   bool hasEitherBound(ArithVar x) const;
   inline bool hasLowerBound(ArithVar x) const{
-    return !d_lowerConstraint[x].isNull();
+    return d_lbc[x] != NullConstraint;
   }
   inline bool hasUpperBound(ArithVar x) const{
-    return !d_upperConstraint[x].isNull();
+    return d_ubc[x] != NullConstraint;
   }
 
   const Rational& getDelta(){
