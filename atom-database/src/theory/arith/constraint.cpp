@@ -645,7 +645,7 @@ void ConstraintValue::markAsTrue(Constraint imp){
 
   d_database->d_proofs.push_back(NullConstraint);
   d_database->d_proofs.push_back(imp);
-  ProofId proof = d_database->d_proofs.size();
+  ProofId proof = d_database->d_proofs.size() - 1;
   d_database->pushProofWatch(this, proof);
 }
 
@@ -657,13 +657,14 @@ void ConstraintValue::markAsTrue(Constraint impA, Constraint impB){
   d_database->d_proofs.push_back(NullConstraint);
   d_database->d_proofs.push_back(impA);
   d_database->d_proofs.push_back(impB);
-  ProofId proof = d_database->d_proofs.size();
+  ProofId proof = d_database->d_proofs.size() - 1;
 
   d_database->pushProofWatch(this, proof);
 }
 
 void ConstraintValue::markAsTrue(const vector<Constraint>& a){
   Assert(truthIsUnknown());
+  Assert(a.size() >= 1);
   d_database->d_proofs.push_back(NullConstraint);
   for(vector<Constraint>::const_iterator i = a.begin(), end = a.end(); i != end; ++i){
     Constraint c_i = *i;
@@ -671,7 +672,7 @@ void ConstraintValue::markAsTrue(const vector<Constraint>& a){
     d_database->d_proofs.push_back(c_i);
   }
 
-  ProofId proof = d_database->d_proofs.size();
+  ProofId proof = d_database->d_proofs.size() - 1;
 
   d_database->pushProofWatch(this, proof);
 }
