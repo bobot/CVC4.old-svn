@@ -100,7 +100,7 @@ public:
     d_explanationMap.insert(n, d_propagated.size());
     d_propagated.push_back(PropUnit(n, reason, flag));
 
-    Debug("ArithPropManager") << n  << std::endl << "<="<< reason<< std::endl;
+    Debug("APM") << n  << std::endl << "<="<< reason<< std::endl;
   }
 
   bool hasMorePropagations() const {
@@ -120,19 +120,13 @@ public:
 
 };/* class PropManager */
 
-class ArithPropManager : public PropManager {
+class APM {
 private:
   const ArithVarNodeMap& d_arithvarNodeMap;
   const ArithAtomDatabase& d_atomDatabase;
   Valuation d_valuation;
 
-public:
-  ArithPropManager(context::Context* c,
-                   const ArithVarNodeMap& map,
-                   const ArithAtomDatabase& db,
-                   Valuation v):
-    PropManager(c), d_arithvarNodeMap(map), d_atomDatabase(db), d_valuation(v)
-  {}
+  Node boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b) const;
 
   /**
    * Returns true if the node has a value in sat solver in the current context.
@@ -140,10 +134,17 @@ public:
    */
   bool isAsserted(TNode n) const;
 
-  /** Returns true if a bound was added. */
-  bool propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason);
+  bool containsLiteral(TNode n) const {
+    return d_atomDatabase.containsLiteral(n);
+  }
 
-  Node boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b) const;
+public:
+  APM(const ArithVarNodeMap& map,
+                   const ArithAtomDatabase& db,
+                   Valuation v):
+    d_arithvarNodeMap(map), d_atomDatabase(db), d_valuation(v)
+  {}
+
 
   Node strictlyWeakerLowerBound(TNode n) const{
     return d_atomDatabase.getWeakerImpliedLowerBound(n);
@@ -158,23 +159,6 @@ public:
 
   Node getBestImpliedLowerBound(ArithVar v, const DeltaRational& b) const;
   Node getBestImpliedUpperBound(ArithVar v, const DeltaRational& b) const;
-
-  bool containsLiteral(TNode n) const {
-    return d_atomDatabase.containsLiteral(n);
-  }
-
-private:
-  class Statistics {
-  public:
-    IntStat d_propagateArithVarCalls;
-    IntStat d_addedPropagation;
-    IntStat d_alreadySetSatLiteral;
-    IntStat d_alreadyPropagatedNode;
-
-    Statistics();
-    ~Statistics();
-  };
-  Statistics d_statistics;
 };
 
 }/* CVC4::theory::arith namespace */

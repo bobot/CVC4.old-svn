@@ -33,7 +33,7 @@ static const uint32_t NUM_CHECKS = 10;
 static const bool CHECK_AFTER_PIVOT = true;
 static const uint32_t VARORDER_CHECK_PERIOD = 200;
 
-SimplexDecisionProcedure::SimplexDecisionProcedure(ArithPropManager& propManager,
+SimplexDecisionProcedure::SimplexDecisionProcedure(APM& propManager,
                                                    LinearEqualityModule& linEq) :
   d_linEq(linEq),
   d_partialModel(d_linEq.getPartialModel()),

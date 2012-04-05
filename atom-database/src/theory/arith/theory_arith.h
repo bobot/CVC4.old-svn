@@ -239,7 +239,8 @@ private:
   ArithAtomDatabase d_atomDatabase;
 
   /** This manager keeps track of information needed to propagate. */
-  ArithPropManager d_propManager;
+  APM d_propManager;
+  PropManager d_theRealPropManager;
 
   /** This keeps track of difference equalities. Mostly for sharing. */
   DifferenceManager d_differenceManager;
@@ -442,6 +443,8 @@ private:
   void debugPrintAssertions();
   /** Debugging only routine. Prints the model. */
   void debugPrintModel();
+
+  bool valuationIsAsserted(TNode n) const;
 
   /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {

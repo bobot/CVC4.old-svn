@@ -74,7 +74,8 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
   d_atomDatabase(c, out),
-  d_propManager(c, d_arithvarNodeMap, d_atomDatabase, valuation),
+  d_propManager(d_arithvarNodeMap, d_atomDatabase, valuation),
+  d_theRealPropManager(c),
   d_differenceManager(c, d_constraintDatabase),
   d_simplex(d_propManager, d_linEq),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_differenceManager),
@@ -1274,9 +1275,9 @@ void TheoryArith::debugPrintModel(){
 Node TheoryArith::explain(TNode n) {
   Debug("arith::explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
 
-  if(d_propManager.isPropagated(n)){
+  if(d_theRealPropManager.isPropagated(n)){
     cout << "pm explanation" << n << endl;
-    return d_propManager.explain(n);
+    return d_theRealPropManager.explain(n);
   }else{
     Constraint c = d_constraintDatabase.lookup(n);
     if(c != NullConstraint){
@@ -1369,8 +1370,8 @@ void TheoryArith::propagate(Effort e) {
     }
   }
 
-  while(d_propManager.hasMorePropagations()){
-    const PropManager::PropUnit next = d_propManager.getNextPropagation();
+  while(d_theRealPropManager.hasMorePropagations()){
+    const PropManager::PropUnit next = d_theRealPropManager.getNextPropagation();
     bool flag = next.flag;
     TNode toProp = next.consequent;
 
@@ -1633,6 +1634,17 @@ EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
 
 }
 
+
+bool TheoryArith::valuationIsAsserted(TNode n) const{
+#warning "revisit"
+  Node satValue = d_valuation.getSatValue(n);
+  if(satValue.isNull()){
+    return false;
+  }else{
+    return true;
+  }
+}
+
 bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
   ++d_statistics.d_boundComputations;
 
@@ -1647,8 +1659,10 @@ bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
       d_propManager.getBestImpliedLowerBound(basic, bound);
 
     if(!bestImplied.isNull()){
-      bool asserted = d_propManager.isAsserted(bestImplied);
-      bool propagated = d_propManager.isPropagated(bestImplied);
+      //slightly changed
+
+      bool asserted = valuationIsAsserted(bestImplied);
+      bool propagated = d_theRealPropManager.isPropagated(bestImplied);
       if( !asserted && !propagated){
 
         NodeBuilder<> nb(kind::AND);
@@ -1658,7 +1672,7 @@ bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
           d_linEq.explainNonbasicsLowerBound(basic, nb);
         }
         Node explanation = nb;
-        d_propManager.propagate(bestImplied, explanation, false);
+        d_theRealPropManager.propagate(bestImplied, explanation, false);
         return true;
       }else{
         Debug("arith::prop") << basic << " " << asserted << " " << propagated << endl;

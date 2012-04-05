@@ -92,7 +92,7 @@ private:
   ArithPriorityQueue d_queue;
 
   /** A link to the propagation manager. This is used to generate weaker conflicts. */
-  ArithPropManager& d_propManager;
+  APM& d_propManager;
 
   /** Number of variables in the system. This is used for tuning heuristics. */
   ArithVar d_numVariables;
@@ -106,7 +106,7 @@ private:
   DeltaRational d_DELTA_ZERO;
 
 public:
-  SimplexDecisionProcedure(ArithPropManager& propManager,
+  SimplexDecisionProcedure(APM& propManager,
                            LinearEqualityModule& linEq);
 
   /**
