@@ -120,7 +120,7 @@ private:
   /** is subterm of trigger usable */
   static bool isUsable( Node n, Node f );
   /** collect all APPLY_UF pattern terms for f in n */
-  static bool collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt );
+  static bool collectPatTerms2( QuantifiersEngine* qe, Node f, Node n, std::map< Node, bool >& patMap, int tstrt );
 public:
   //different strategies for choosing trigger terms
   enum {
@@ -128,7 +128,7 @@ public:
     TS_MIN_TRIGGER,
     TS_ALL,
   };
-  static void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst = false );
+  static void collectPatTerms( QuantifiersEngine* qe, Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst = false );
 public:
   /** is usable trigger */
   static bool isUsableTrigger( std::vector< Node >& nodes, Node f );
@@ -140,9 +140,9 @@ public:
   /** variables subsume, return true if n1 contains all free variables in n2 */
   static bool isVariableSubsume( Node n1, Node n2 );
   /** get var contains */
-  static void getVarContains( std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains );
+  static void getVarContains( Node f, std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains );
   /** get pattern arithmetic */
-  static bool getPatternArithmetic( Node n, std::map< Node, Node >& coeffs );
+  static bool getPatternArithmetic( Node f, Node n, std::map< Node, Node >& coeffs );
 
   inline void toStream(std::ostream& out) const {
     out << "TRIGGER( ";

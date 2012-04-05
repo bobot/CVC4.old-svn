@@ -63,6 +63,60 @@ RewriteResponse QuantifiersRewriter::postRewrite(TNode in) {
   return RewriteResponse(REWRITE_DONE, in);
 }
 
+Node QuantifiersRewriter::computeVarElimination( Node n ){
+  std::cout << "Compute var elimination for " << n << std::endl;
+  std::map< Node, bool > args;
+  for( int i=0; i<(int)n[0].getNumChildren(); i++ ){
+    args[ n[0][i] ] = true;
+  }
+  Node body = n[1];
+  std::map< Node, bool > litPhaseReq;
+  QuantifiersEngine::computePhaseReqs( body, false, litPhaseReq );
+  std::vector< Node > vars;
+  std::vector< Node > subs;
+  for( std::map< Node, bool >::iterator it = litPhaseReq.begin(); it != litPhaseReq.end(); ++it ){
+    std::cout << "   " << it->first << " -> " << ( it->second ? "true" : "false" ) << std::endl;
+    if( it->first.getKind()==EQUAL ){
+      if( it->second ){
+        if( args.find( it->first[0] )!=args.end() && args[ it->first[0] ] ){
+          args[ it->first[0] ] = false;
+          vars.push_back( it->first[0] );
+          subs.push_back( it->first[1] );
+        }else if( args.find( it->first[1] )!=args.end() && args[ it->first[1] ] ){
+          args[ it->first[1] ] = false;
+          vars.push_back( it->first[1] );
+          subs.push_back( it->first[0] );
+        }
+      }
+    }
+  }
+  if( !vars.empty() ){
+    //remake with eliminated nodes
+    std::vector< Node > argsVec;
+    for( std::map< Node, bool >::iterator it = args.begin(); it != args.end(); ++it ){
+      if( it->second ){
+        argsVec.push_back( it->first );
+      }
+    }
+    body = body.substitute( vars.begin(), vars.end(), subs.begin(), subs.end() );
+    if( argsVec.empty() ){
+      return body;
+    }else{
+      //make the forall node
+      std::vector< Node > childrenVec;
+      childrenVec.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, argsVec ) );
+      childrenVec.push_back( body );
+      if( n.getNumChildren()==3 ){ 
+        Node ipl = n[2].substitute( vars.begin(), vars.end(), subs.begin(), subs.end() );
+        childrenVec.push_back( ipl );
+      }
+      return NodeManager::currentNM()->mkNode(kind::FORALL, childrenVec );
+    }
+  }else{
+    return n;
+  }
+}
+
 bool QuantifiersRewriter::isClause( Node n ){
   if( isLiteral( n ) ){
     return true;
@@ -230,7 +284,18 @@ Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node body, Node i
     if( !ipl.isNull() ){ 
       args.push_back( ipl );
     }
-    return NodeManager::currentNM()->mkNode(kind::FORALL, args );
+    Node n = NodeManager::currentNM()->mkNode(kind::FORALL, args );
+    if( doVarElimination() ){
+      Node prev = n;
+      //check if any variable can be eliminated
+      n = computeVarElimination( n );
+      if( prev!=n ){
+        Debug("quantifiers-rewrite-var-elim") << "var elimination: rewrite " << prev << std::endl;
+        Debug("quantifiers-rewrite") << " to " << std::endl;
+        Debug("quantifiers-rewrite") << n << std::endl;
+      }
+    }
+    return n;
   }
 }
 
@@ -391,4 +456,9 @@ bool QuantifiersRewriter::doMiniscopingAndExt(){
 
 bool QuantifiersRewriter::doPrenex(){
   return Options::current()->prenexQuant;
+}
+
+bool QuantifiersRewriter::doVarElimination(){
+  //return false; 
+  return Options::current()->varElimQuant;
 }

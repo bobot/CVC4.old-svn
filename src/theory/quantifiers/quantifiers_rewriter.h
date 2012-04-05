@@ -44,8 +44,8 @@ private:
   static Node computePrenex( Node body, std::vector< Node >& args );
   static Node mkForAll( std::vector< Node >& args, Node body, Node ipl );
   static bool hasArg( std::vector< Node >& args, Node n );
-
   static void setNestedQuantifiers( Node n, Node q );
+  static Node computeVarElimination( Node n );
 public:
 
   static RewriteResponse postRewrite(TNode in);
@@ -77,6 +77,7 @@ public:
   static bool doMiniscopingAnd();
   static bool doMiniscopingAndExt();
   static bool doPrenex();
+  static bool doVarElimination();
 };/* class QuantifiersRewriter */
 
 }/* CVC4::theory::quantifiers namespace */

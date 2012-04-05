@@ -221,12 +221,12 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
     d_patTerms[0][f].clear();
     d_patTerms[1][f].clear();
     std::vector< Node > patTermsF;
-    Trigger::collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTermsF, d_tr_strategy, true );
+    Trigger::collectPatTerms( d_quantEngine, f, d_quantEngine->getCounterexampleBody( f ), patTermsF, d_tr_strategy, true );
     //extend to literal matching
     d_quantEngine->getPhaseReqTerms( f, patTermsF );
     //sort into single/multi triggers
     std::map< Node, std::vector< Node > > varContains;
-    Trigger::getVarContains( patTermsF, varContains );
+    Trigger::getVarContains( f, patTermsF, varContains );
     for( std::map< Node, std::vector< Node > >::iterator it = varContains.begin(); it != varContains.end(); ++it ){
       if( it->second.size()==f[0].getNumChildren() ){
         d_patTerms[0][f].push_back( it->first );

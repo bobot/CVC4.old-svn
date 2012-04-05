@@ -37,12 +37,13 @@ private:
   InstantiatorTheoryArith* d_th;
   /** */
   int d_counter;
+  /** negative one */
+  Node d_negOne;
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
   int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
-  InstStrategySimplex( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) : 
-      InstStrategy( ie ), d_th( th ), d_counter( 0 ){}
+  InstStrategySimplex( InstantiatorTheoryArith* th, QuantifiersEngine* ie );
   ~InstStrategySimplex(){}
   /** identify */
   std::string identify() const { return std::string("Simplex"); }

@@ -111,7 +111,9 @@ Options::Options() :
   miniscopeQuant(true),
   miniscopeQuantFreeVar(true),
   prenexQuant(false),
+  varElimQuant(false),
   finiteModelFind(false),
+  fmfRegionSat(false),
   efficientEMatching(false),
   literalMatchMode(LITERAL_MATCH_NONE),
   cbqi(false),
@@ -192,7 +194,9 @@ Additional CVC4 options:\n\
    --disable-miniscope-quant     disable miniscope quantifiers\n\
    --disable-miniscope-quant-fv  disable miniscope quantifiers for ground subformulas\n\
    --prenex-quant         enable prenexing of quantifiers\n\
+   --var-elim-quant       enable variable elimination of quantifiers\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
+   --use-fmf-region-sat   use region-based SAT heuristic for fmf\n\
    --efficient-e-matching use efficient E-matching\n\
    --literal-matching=MODE  choose literal matching mode\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [on by default only for arithmetic]\n\
@@ -376,7 +380,9 @@ enum OptionValue {
   DISABLE_MINISCOPE_QUANT,
   DISABLE_MINISCOPE_QUANT_FV,
   PRENEX_QUANT,
+  VAR_ELIM_QUANT,
   FINITE_MODEL_FIND,
+  FMF_REGION_SAT,
   EFFICIENT_E_MATCHING,
   LITERAL_MATCHING,
   ENABLE_CBQI,
@@ -473,7 +479,9 @@ static struct option cmdlineOptions[] = {
   { "disable-miniscope-quant", no_argument, NULL, DISABLE_MINISCOPE_QUANT },
   { "disable-miniscope-quant-fv", no_argument, NULL, DISABLE_MINISCOPE_QUANT_FV },
   { "prenex-quant", no_argument, NULL, PRENEX_QUANT },
+  { "var-elim-quant", no_argument, NULL, VAR_ELIM_QUANT },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
+  { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
@@ -845,8 +853,14 @@ throw(OptionException) {
     case PRENEX_QUANT:
       prenexQuant = true;
       break;
+    case VAR_ELIM_QUANT:
+      varElimQuant = true;
+      break;
     case FINITE_MODEL_FIND:
       finiteModelFind = true;
+      break;
+    case FMF_REGION_SAT:
+      fmfRegionSat = true;
       break;
     case EFFICIENT_E_MATCHING:
       efficientEMatching = true;

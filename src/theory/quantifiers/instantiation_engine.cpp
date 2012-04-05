@@ -137,9 +137,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);
-    if( e==Theory::EFFORT_LAST_CALL ){
-      std::cout << "Run instantiation round " << e << " " << ierCounter << std::endl;
-    }
+    std::cout << "Run instantiation round " << e << " " << ierCounter << std::endl;
 #endif
     bool quantActive = false;
     //for each n in d_forall_asserts,
@@ -212,9 +210,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     }
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-    if( e==Theory::EFFORT_LAST_CALL ){
-      std::cout << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
-    }
+    std::cout << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
 #endif
   }
 }
@@ -235,7 +231,7 @@ void InstantiationEngine::registerQuantifier( Node f ){
       getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
       // set attributes, mark all literals in the body of n as dependent on cel
       registerLiterals( ceLit, f );
-      computePhaseReqs( ceBody, f, false );
+      getQuantifiersEngine()->generatePhaseReqs( f );
       //require any decision on cel to be phase=true
       d_th->getOutputChannel().requirePhase( ceLit, true );
       Debug("cbqi-debug") << "Require phase " << ceLit << " = true." << std::endl;
@@ -254,11 +250,9 @@ void InstantiationEngine::registerQuantifier( Node f ){
       //  getQuantifiersEngine()->getTheoryEngine()->theoryOf( f[0][i] )->getInstantiator()->setHasConstraintsFrom( f );
       //}
     }else{
-      Node ceBody = getQuantifiersEngine()->getSubstitutedNode( f[1], f );
-      getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
-      getQuantifiersEngine()->addTermToDatabase( ceBody, true );
+      getQuantifiersEngine()->addTermToDatabase( getQuantifiersEngine()->getOrCreateCounterexampleBody( f ), true );
       //compute phase requirements
-      computePhaseReqs( ceBody, f, false );
+      getQuantifiersEngine()->generatePhaseReqs( f );
       //need to tell which instantiators will be responsible
       //by default, just chose the UF instantiator
       getQuantifiersEngine()->getInstantiator( theory::THEORY_UF )->setHasConstraintsFrom( f );
@@ -358,82 +352,6 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
       }
       InstConstantAttribute ica;
       n.setAttribute(ica,f);
-    }
-  }
-}
-void InstantiationEngine::computePhaseReqs( Node n, Node f, bool polarity ){
-  std::map< Node, int > phaseReqs;
-  computePhaseReqs2( n, polarity, phaseReqs );
-  Debug("inst-engine-phase-req") << "Phase requirements for " << f << ":" << std::endl;
-  //std::cout << "Phase requirements for " << f << ":" << std::endl;
-  for( std::map< Node, int >::iterator it = phaseReqs.begin(); it != phaseReqs.end(); ++it ){
-    if( it->second==1 ){
-      getQuantifiersEngine()->d_phase_reqs[f][ it->first ] = true;
-    }else if( it->second==-1 ){
-      getQuantifiersEngine()->d_phase_reqs[f][ it->first ] = false;
-    }
-    if( it->second!=0 ){
-      Debug("inst-engine-phase-req") << "   " << it->first << " -> " << it->second << std::endl;
-      //std::cout << "   " << it->first << " -> " << it->second << std::endl;
-    }
-  }
-  //now, compute if any patterns are equality required
-  for( std::map< Node, bool >::iterator it = getQuantifiersEngine()->d_phase_reqs[f].begin(); 
-       it != getQuantifiersEngine()->d_phase_reqs[f].end(); ++it ){
-    if( it->second ){
-      if( it->first.getKind()==EQUAL ){
-        if( it->first[0].hasAttribute(InstConstantAttribute()) ){
-          if( !it->first[1].hasAttribute(InstConstantAttribute()) ){
-            getQuantifiersEngine()->d_phase_reqs_equality[f][ it->first[0] ] = it->first[1];
-            Debug("inst-engine-phase-req") << "      " << it->first[0] << " == " << it->first[1] << std::endl;
-            //std::cout << "      " << it->first[0] << " == " << it->first[1] << std::endl;
-          }
-        }else if( it->first[1].hasAttribute(InstConstantAttribute()) ){
-          getQuantifiersEngine()->d_phase_reqs_equality[f][ it->first[1] ] = it->first[0];
-            Debug("inst-engine-phase-req") << "      " << it->first[1] << " == " << it->first[0] << std::endl;
-          //std::cout << "      " << it->first[1] << " == " << it->first[0] << std::endl;
-        }
-
-      }
-    }else{
-    
-    }
-  }
-  
-}
-
-
-void InstantiationEngine::computePhaseReqs2( Node n, bool polarity, std::map< Node, int >& phaseReqs ){
-  bool newReqPol = false;
-  bool newPolarity;
-  if( n.getKind()==NOT ){
-    newReqPol = true;
-    newPolarity = !polarity;
-  }else if( n.getKind()==OR || n.getKind()==IMPLIES ){
-    if( !polarity ){
-      newReqPol = true;
-      newPolarity = false;
-    }
-  }else if( n.getKind()==AND ){
-    if( polarity ){
-      newReqPol = true;
-      newPolarity = true;
-    }
-  }else{
-    int val = polarity ? 1 : -1;
-    if( phaseReqs.find( n )==phaseReqs.end() ){
-      phaseReqs[n] = val;
-    }else if( val!=phaseReqs[n] ){
-      phaseReqs[n] = 0;
-    }
-  }
-  if( newReqPol ){
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      if( n.getKind()==IMPLIES && i==0 ){
-        computePhaseReqs2( n[i], !newPolarity, phaseReqs );
-      }else{
-        computePhaseReqs2( n[i], newPolarity, phaseReqs );
-      }
     }
   }
 }

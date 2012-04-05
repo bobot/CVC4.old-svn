@@ -819,31 +819,31 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
         }
         if( !addedLemma ){
           Debug("uf-ss") << "No splits added." << std::endl;
-#ifdef USE_REGION_SAT
-          //otherwise, try to disambiguate individual terms
-          if( !disambiguateTerms( out ) ){
-            //no disequalities can be propagated
-            //we are in a situation where it suffices to apply a coloring to equivalence classes
-            //due to our invariants, we know no coloring conflicts will occur between regions, and thus
-            //  we are SAT in this case.
-            Debug("uf-ss-sat") << "SAT: regions = " << getNumRegions() << std::endl;
-            //std::cout << "Model size for " << d_type << " is " << d_cardinality << ", regions = " << getNumRegions() << std::endl;
-            debugPrint("uf-ss-sat");
-          }
-#else
-          //naive strategy. combine the first two valid regions
-          int regIndex = -1;
-          for( int i=0; i<(int)d_regions_index; i++ ){
-            if( d_regions[i]->d_valid ){
-              if( regIndex==-1 ){
-                regIndex = i;
-              }else{
-                combineRegions( regIndex, i );
-                check( level, out );
+          if( Options::current()->fmfRegionSat ){
+            //otherwise, try to disambiguate individual terms
+            if( !disambiguateTerms( out ) ){
+              //no disequalities can be propagated
+              //we are in a situation where it suffices to apply a coloring to equivalence classes
+              //due to our invariants, we know no coloring conflicts will occur between regions, and thus
+              //  we are SAT in this case.
+              Debug("uf-ss-sat") << "SAT: regions = " << getNumRegions() << std::endl;
+              //std::cout << "Model size for " << d_type << " is " << d_cardinality << ", regions = " << getNumRegions() << std::endl;
+              debugPrint("uf-ss-sat");
+            }
+          }else{
+            //naive strategy. combine the first two valid regions
+            int regIndex = -1;
+            for( int i=0; i<(int)d_regions_index; i++ ){
+              if( d_regions[i]->d_valid ){
+                if( regIndex==-1 ){
+                  regIndex = i;
+                }else{
+                  combineRegions( regIndex, i );
+                  check( level, out );
+                }
               }
             }
           }
-#endif
         }
       }
     }

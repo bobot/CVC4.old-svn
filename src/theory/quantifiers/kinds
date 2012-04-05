@@ -15,8 +15,6 @@ operator FORALL 2:3 "universally quantified formula"
 
 operator EXISTS 2:3 "existentially quantified formula"
 
-operator NO_COUNTEREXAMPLE 1 "no counterexample literal"
-
 variable INST_CONSTANT "instantiation constant"
 
 sort BOUND_VAR_LIST_TYPE \
@@ -42,7 +40,6 @@ operator INST_PATTERN_LIST 1: "instantiation pattern list"
 
 typerule FORALL ::CVC4::theory::quantifiers::QuantifierForallTypeRule 
 typerule EXISTS ::CVC4::theory::quantifiers::QuantifierExistsTypeRule 
-typerule NO_COUNTEREXAMPLE ::CVC4::theory::quantifiers::QuantifierNoCounterexampleTypeRule 
 typerule BOUND_VAR_LIST ::CVC4::theory::quantifiers::QuantifierBoundVarListTypeRule 
 typerule INST_PATTERN ::CVC4::theory::quantifiers::QuantifierInstPatternTypeRule 
 typerule INST_PATTERN_LIST ::CVC4::theory::quantifiers::QuantifierInstPatternListTypeRule 

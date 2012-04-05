@@ -252,9 +252,21 @@ struct CVC4_PUBLIC Options {
   bool prenexQuant;
 
   /**
+   * Whether to variable-eliminate quantifiers.
+   * For example, forall x y. ( P( x, y ) V x != c ) will be rewritten to
+   *   forall y. P( c, y )
+   */
+  bool varElimQuant;
+
+  /**
    * Whether to use finite model find heuristic
    */
   bool finiteModelFind;
+
+  /** 
+   * Whether to use region-based SAT for finite model finding 
+   */
+  bool fmfRegionSat;
 
   /** 
    * Whether to use efficient E-matching 

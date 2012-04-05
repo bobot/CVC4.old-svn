@@ -80,7 +80,6 @@ Node TheoryQuantifiers::getValue(TNode n) {
   switch(n.getKind()) {
   case FORALL:
   case EXISTS:
-  case NO_COUNTEREXAMPLE:
     bool value;
     if( d_valuation.hasSatValue( n, value ) ){
       return NodeManager::currentNM()->mkConst(value);
@@ -103,17 +102,11 @@ void TheoryQuantifiers::check(Effort e) {
     case kind::FORALL:
       assertUniversal( assertion );
       break;
-    case kind::NO_COUNTEREXAMPLE:
-      assertCounterexample( assertion );
-      break;
     case kind::NOT:
       {
         switch( assertion[0].getKind()) {
         case kind::FORALL:
           assertExistential( assertion );
-          break;
-        case kind::NO_COUNTEREXAMPLE:
-          assertCounterexample( assertion );
           break;
         default:
           Unhandled(assertion[0].getKind());
@@ -160,15 +153,15 @@ void TheoryQuantifiers::assertExistential( Node n ){
   }
 }
 
-void TheoryQuantifiers::assertCounterexample( Node n ){
-  if( n.getKind()==NO_COUNTEREXAMPLE ){
-    Debug("quantifiers") << n[0] << " is valid in current context." << std::endl;
-    d_counterexample_asserts[ n[0] ] = true;
-  }else{
-    Assert( n.getKind()==NOT );
-    d_counterexample_asserts[ n[0][0] ] = false;
-  }
-}
+//void TheoryQuantifiers::assertCounterexample( Node n ){
+//  if( n.getKind()==NO_COUNTEREXAMPLE ){
+//    Debug("quantifiers") << n[0] << " is valid in current context." << std::endl;
+//    d_counterexample_asserts[ n[0] ] = true;
+//  }else{
+//    Assert( n.getKind()==NOT );
+//    d_counterexample_asserts[ n[0][0] ] = false;
+//  }
+//}
 
 bool TheoryQuantifiers::flipDecision(){
 #ifndef USE_FLIP_DECISION
@@ -206,9 +199,9 @@ bool TheoryQuantifiers::restart(){
   }
 }
 
-Node TheoryQuantifiers::explain( TNode n ){
-  return d_quantEngine->explain( n );
-}
+//Node TheoryQuantifiers::explain( TNode n ){
+//  return d_quantEngine->explain( n );
+//}
 
 void TheoryQuantifiers::performCheck(Effort e){
   d_quantEngine->check( e );

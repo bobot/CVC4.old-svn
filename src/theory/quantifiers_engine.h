@@ -44,6 +44,10 @@ typedef expr::Attribute<InstLevelAttributeId, uint64_t> InstLevelAttribute;
 struct InstVarNumAttributeId {};
 typedef expr::Attribute<InstVarNumAttributeId, uint64_t> InstVarNumAttribute;
 
+struct BoundVarAttributeId {};
+typedef expr::Attribute<BoundVarAttributeId, bool> BoundVarAttribute;
+
+
 namespace theory {
 
 class InstStrategyList;
@@ -206,6 +210,8 @@ private:
   std::map< Node, std::vector< Node > > d_skolem_constants;
   /** map from universal quantifiers to their skolemized body */
   std::map< Node, Node > d_skolem_body;
+  /** map from universal quantifiers to their bound body */
+  std::map< Node, Node > d_bound_body;
   /** instantiation constants to universal quantifiers */
   std::map< Node, Node > d_inst_constants_map;
   /** map from universal quantifiers to the list of instantiation constants */
@@ -228,6 +234,8 @@ private:
   std::map< Node, std::map< Node, Node > > d_phase_reqs_disequality;
   /** free variable for instantiation constant type */
   std::map< TypeNode, Node > d_free_vars;
+  /** bound variable for variable types */
+  std::map< TypeNode, Node > d_bound_vars;
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
   /** term database */
@@ -243,10 +251,14 @@ private:
   /** compute symbols */
   void computeSymbols( Node n, std::vector< Node >& syms );
 private:
+  /** helper functions compute phase requirements */
+  static void computePhaseReqs2( Node n, bool polarity, std::map< Node, int >& phaseReqs );
   /** set instantiation level attr */
   void setInstantiationLevelAttr( Node n, uint64_t level );
   /** set instantiation constant attr */
   void setInstantiationConstantAttr( Node n, Node f );
+  /** make instantiation constants for */
+  void makeInstantiationConstantsFor( Node f );
 public:
   QuantifiersEngine(context::Context* c, TheoryEngine* te);
   ~QuantifiersEngine();
@@ -269,7 +281,6 @@ public:
   void registerPattern( std::vector<Node> & pattern);
   /** assert (universal) quantifier */
   void assertNode( Node f );
-  Node explain(TNode n);
 public:
   /** add lemma lem */
   bool addLemma( Node lem );
@@ -304,10 +315,14 @@ public:
 public:
   /** get the ce body f[e/x] */
   Node getCounterexampleBody( Node f ) { return d_counterexample_body[ f ]; }
+  /** get or create the ce body f[e/x] */
+  Node getOrCreateCounterexampleBody( Node f );
   /** get the corresponding counterexample literal for quantified formula node n */
   Node getCounterexampleLiteralFor( Node f ) { return d_ce_lit.find( f )==d_ce_lit.end() ? Node::null() : d_ce_lit[ f ]; }
   /** get the skolemized body f[e/x] */
   Node getSkolemizedBody( Node f );
+  /** get the bound body */
+  Node getBoundBody( Node f );
   /** set active */
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */
@@ -318,6 +333,10 @@ public:
   bool getPhaseReq( Node f, Node lit ) { return d_phase_reqs[f].find( lit )==d_phase_reqs[f].end() ? false : d_phase_reqs[f][ lit ]; }
   /** get term req terms */
   void getPhaseReqTerms( Node f, std::vector< Node >& nodes );
+  /** helper functions compute phase requirements */
+  static void computePhaseReqs( Node n, bool polarity, std::map< Node, bool >& phaseReqs );
+  /** compute phase requirements */
+  void generatePhaseReqs( Node f );
 public:
   /** returns node n with bound vars of f replaced by instantiation constants of f
       node n : is the futur pattern
@@ -336,6 +355,8 @@ public:
                              const std::vector<Node> & nvars);
   /** get free variable for instantiation constant */
   Node getFreeVariableForInstConstant( Node n );
+  /** get bound variable for variable */
+  Node getBoundVariableForVariable( Node n );
 public:
   /** has owner */
   bool hasOwner( Node f ) { return d_owner.find( f )!=d_owner.end(); }

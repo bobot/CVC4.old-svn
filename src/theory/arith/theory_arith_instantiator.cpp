@@ -31,6 +31,11 @@ using namespace CVC4::theory::arith;
 
 #define USE_ARITH_INSTANTIATION
 
+InstStrategySimplex::InstStrategySimplex( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) : 
+    InstStrategy( ie ), d_th( th ), d_counter( 0 ){
+  d_negOne = NodeManager::currentNM()->mkConst( Rational(-1) );
+}
+
 void InstStrategySimplex::processResetInstantiationRound( Theory::Effort effort ){
   d_counter++;
 }
@@ -42,9 +47,11 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
     //std::cout << f << std::endl;
     //std::cout << "Num inst rows = " << d_th->d_instRows[f].size() << std::endl;
     //std::cout << "Num inst constants = " << d_quantEngine->getNumInstantiationConstants( f ) << std::endl;
+    Debug("quant-arith-simplex") << "InstStrategySimplex check " << f << ", rows = " << d_th->d_instRows[f].size() << std::endl;
     for( int j=0; j<(int)d_th->d_instRows[f].size(); j++ ){
       ArithVar x = d_th->d_instRows[f][j];
       if( !d_th->d_ceTableaux[x].empty() ){
+        Debug("quant-arith-simplex") << "Check row " << x << std::endl;
         //instantiation row will be A*e + B*t = beta,
         // where e is a vector of terms , and t is vector of ground terms.
         // Say one term in A*e is coeff*e_i, where e_i is an instantiation constant
@@ -54,8 +61,8 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
         Node var = d_th->d_ceTableaux[x].begin()->first;
         if( var.getType().isInteger() ){
           std::map< Node, Node >::iterator it = d_th->d_ceTableaux[x].begin();
-          //must be sure that coefficent is one
-          while( !var.isNull() && !d_th->d_ceTableaux[x][var].isNull() ){
+          //try to find coefficent that is +/- 1
+          while( !var.isNull() && !d_th->d_ceTableaux[x][var].isNull() && d_th->d_ceTableaux[x][var]!=d_negOne ){
             ++it;
             if( it==d_th->d_ceTableaux[x].end() ){
               var = Node::null();
@@ -63,9 +70,13 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
               var = it->first;
             }
           }
+          //otherwise, try one that divides all ground term coefficients? DO_THIS
         }
         if( !var.isNull() ){
+          Debug("quant-arith-simplex") << "Instantiate with var " << var << std::endl;
           d_th->doInstantiation( f, d_th->d_tableaux_term[x], x, m, var );
+        }else{
+          Debug("quant-arith-simplex") << "Could not find var." << std::endl;
         }
         ////choose a new variable based on alternation strategy
         //int index = d_counter%(int)d_th->d_ceTableaux[x].size();
@@ -215,6 +226,7 @@ void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort eff
       if( f!=Node::null() ){
         d_instRows[f].push_back( x );
         //this theory has constraints from f
+        Debug("quant-arith") << "Has constraints from " << f << std::endl;
         setHasConstraintsFrom( f );
         //set tableaux term
         if( t.getNumChildren()==0 ){
@@ -354,13 +366,18 @@ bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, I
   Node beta = getTableauxValue( x, minus_delta );
   Node instVal = NodeManager::currentNM()->mkNode( MINUS, beta, term );
   if( !d_ceTableaux[x][var].isNull() ){
-    Assert( !var.getType().isInteger() );
-    Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_ceTableaux[x][var].getConst<Rational>() );
-    instVal = NodeManager::currentNM()->mkNode( MULT, coeff, instVal );
+    if( var.getType().isInteger() ){
+      Assert( d_ceTableaux[x][var]==NodeManager::currentNM()->mkConst( Rational(-1) ) );
+      instVal = NodeManager::currentNM()->mkNode( MULT, d_ceTableaux[x][var], instVal );
+    }else{
+      Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_ceTableaux[x][var].getConst<Rational>() );
+      instVal = NodeManager::currentNM()->mkNode( MULT, coeff, instVal );
+    }
   }
   instVal = Rewriter::rewrite( instVal );
   //use as instantiation value for var
   m.d_map[ var ] = instVal;
+  Debug("quant-arith") << "Add instantiation " << m << std::endl;
   return d_quantEngine->addInstantiation( f, m, true );
 }
 

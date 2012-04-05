@@ -160,9 +160,10 @@ int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, i
     d_inst_nodes.back().push_back( f );
     bool addedLemma = false;
     while( !riter.isFinished() ){
-      while( !riter.isFinished() && didInstantiation( f, riter ) ){
-        riter.increment();
-      }
+      //while( !riter.isFinished() && didInstantiation( f, riter ) ){
+      //  riter.increment();
+      //}
+      bool didInst = didInstantiation( f, riter );
       //if successful, add instantiation
       if( !riter.isFinished() ){
         InstMatch m;
@@ -172,6 +173,9 @@ int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, i
         m.debugPrint("inst-fmf-debug");
         if( d_quantEngine->addInstantiation( f, m ) ){
           addedLemma = true;
+          if( didInst ){
+            std::cout << "Bad Inst: " << f << " " << m << std::endl;
+          }
         }
       }
     }

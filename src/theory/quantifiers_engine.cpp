@@ -171,15 +171,8 @@ std::vector<Node> QuantifiersEngine::createInstVariable( std::vector<Node> & var
   return inst_constant;
 }
 
-
-void QuantifiersEngine::registerQuantifier( Node f ){
-  if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
-    if( Options::current()->finiteModelFind ){
-      ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( f );
-    }
-    ++(d_statistics.d_num_quant);
-    Assert( f.getKind()==FORALL );
-    d_quants.push_back( f );
+void QuantifiersEngine::makeInstantiationConstantsFor( Node f ){
+  if( d_inst_constants.find( f )==d_inst_constants.end() ){
     Debug("quantifiers-engine") << "Instantiation constants for " << f << " : " << std::endl;
     for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
       d_vars[f].push_back( f[0][i] );
@@ -192,6 +185,21 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       InstVarNumAttribute ivna;
       ic.setAttribute(ivna,i);
     }
+  }
+}
+
+void QuantifiersEngine::registerQuantifier( Node f ){
+  if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
+    if( Options::current()->finiteModelFind ){
+      ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( f );
+    }
+    ++(d_statistics.d_num_quant);
+    Assert( f.getKind()==FORALL );
+    //register quantifier
+    d_quants.push_back( f );
+    //make instantiation constants for f
+    makeInstantiationConstantsFor( f );
+    //compute symbols in f
     std::vector< Node > syms;
     computeSymbols( f[1], syms );
     d_syms[f].insert( d_syms[f].begin(), syms.begin(), syms.end() );
@@ -228,14 +236,6 @@ void QuantifiersEngine::assertNode( Node f ){
   for( int i=0; i<(int)d_modules.size(); i++ ){
     d_modules[i]->assertNode( f );
   }
-}
-
-Node QuantifiersEngine::explain(TNode n){
-  for( int i=0; i<(int)d_modules.size(); i++ ){
-    const Node & r = d_modules[i]->explain( n );
-    if(r!=Node::null()) return r;
-  }
-  AlwaysAssert(false,"A quantifier module propagate but can't explain...");
 }
 
 void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
@@ -328,10 +328,13 @@ bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits )
 #if 1
   m.makeComplete( f, this );
   m.makeRepresentative( d_eq_query );
+  Debug("quant-duplicate") << "After make rep: " << m << std::endl;
   if( !d_inst_match_trie[f].addInstMatch( this, f, m, true ) ){
+    Debug("quant-duplicate") << " -> Already exists." << std::endl;
     ++(d_statistics.d_inst_duplicate);
     return false;
   }
+  Debug("quant-duplicate") << " -> Does not exist." << std::endl;
   std::vector< Node > match;
   m.computeTermVec( d_inst_constants[f], match );
 #else
@@ -395,6 +398,14 @@ void QuantifiersEngine::flushLemmas( OutputChannel* out ){
   d_lemmas_waiting.clear();
 }
 
+Node QuantifiersEngine::getOrCreateCounterexampleBody( Node f ){
+  if( d_counterexample_body.find( f )==d_counterexample_body.end() ){
+    makeInstantiationConstantsFor( f );
+    d_counterexample_body[ f ] = getSubstitutedNode( f[1], f );
+  }
+  return d_counterexample_body[ f ];
+}
+
 Node QuantifiersEngine::getSkolemizedBody( Node f ){
   Assert( f.getKind()==FORALL );
   if( d_skolem_body.find( f )==d_skolem_body.end() ){
@@ -409,6 +420,23 @@ Node QuantifiersEngine::getSkolemizedBody( Node f ){
     }
   }
   return d_skolem_body[ f ];
+}
+
+Node QuantifiersEngine::getBoundBody( Node f ){
+  Assert( f.getKind()==FORALL );
+  if( d_bound_body.find( f )==d_bound_body.end() ){
+    std::vector< Node > vars;
+    std::vector< Node > subs;
+    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+      vars.push_back( f[0][i] );
+      subs.push_back( getBoundVariableForVariable( f[0][i] ) );
+    }
+    d_bound_body[ f ] = f[ 1 ].substitute( vars.begin(), vars.end(), subs.begin(), subs.end() );
+    if( f.hasAttribute(InstConstantAttribute()) ){
+      setInstantiationConstantAttr( d_bound_body[f], f.getAttribute(InstConstantAttribute()) );
+    }
+  }
+  return d_bound_body[ f ];
 }
 
 void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
@@ -448,13 +476,86 @@ void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
   }
 }
 
+void QuantifiersEngine::computePhaseReqs2( Node n, bool polarity, std::map< Node, int >& phaseReqs ){
+  bool newReqPol = false;
+  bool newPolarity;
+  if( n.getKind()==NOT ){
+    newReqPol = true;
+    newPolarity = !polarity;
+  }else if( n.getKind()==OR || n.getKind()==IMPLIES ){
+    if( !polarity ){
+      newReqPol = true;
+      newPolarity = false;
+    }
+  }else if( n.getKind()==AND ){
+    if( polarity ){
+      newReqPol = true;
+      newPolarity = true;
+    }
+  }else{
+    int val = polarity ? 1 : -1;
+    if( phaseReqs.find( n )==phaseReqs.end() ){
+      phaseReqs[n] = val;
+    }else if( val!=phaseReqs[n] ){
+      phaseReqs[n] = 0;
+    }
+  }
+  if( newReqPol ){
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( n.getKind()==IMPLIES && i==0 ){
+        computePhaseReqs2( n[i], !newPolarity, phaseReqs );
+      }else{
+        computePhaseReqs2( n[i], newPolarity, phaseReqs );
+      }
+    }
+  }
+}
+
+void QuantifiersEngine::computePhaseReqs( Node n, bool polarity, std::map< Node, bool >& phaseReqs ){
+  std::map< Node, int > phaseReqs2;
+  computePhaseReqs2( n, polarity, phaseReqs2 );
+  for( std::map< Node, int >::iterator it = phaseReqs2.begin(); it != phaseReqs2.end(); ++it ){
+    if( it->second==1 ){
+      phaseReqs[ it->first ] = true;
+    }else if( it->second==-1 ){
+      phaseReqs[ it->first ] = false;
+    }
+  }
+}
+
+void QuantifiersEngine::generatePhaseReqs( Node f ){
+  computePhaseReqs( getCounterexampleBody( f ), false, d_phase_reqs[f] );
+  Debug("inst-engine-phase-req") << "Phase requirements for " << f << ":" << std::endl;
+  //now, compute if any patterns are equality required
+  for( std::map< Node, bool >::iterator it = d_phase_reqs[f].begin(); it != d_phase_reqs[f].end(); ++it ){
+    Debug("inst-engine-phase-req") << "   " << it->first << " -> " << it->second << std::endl;
+    if( it->second ){
+      if( it->first.getKind()==EQUAL ){
+        if( it->first[0].hasAttribute(InstConstantAttribute()) ){
+          if( !it->first[1].hasAttribute(InstConstantAttribute()) ){
+            d_phase_reqs_equality[f][ it->first[0] ] = it->first[1];
+            Debug("inst-engine-phase-req") << "      " << it->first[0] << " == " << it->first[1] << std::endl;
+            //std::cout << "      " << it->first[0] << " == " << it->first[1] << std::endl;
+          }
+        }else if( it->first[1].hasAttribute(InstConstantAttribute()) ){
+          d_phase_reqs_equality[f][ it->first[1] ] = it->first[0];
+          Debug("inst-engine-phase-req") << "      " << it->first[1] << " == " << it->first[0] << std::endl;
+          //std::cout << "      " << it->first[1] << " == " << it->first[0] << std::endl;
+        }
+      }
+    }else{
+    
+    }
+  }
+  
+}
+
 Node QuantifiersEngine::getSubstitutedNode( Node n, Node f ){
   return convertNodeToPattern(n,f,d_vars[f],d_inst_constants[ f ]);
 }
 
-Node QuantifiersEngine::convertNodeToPattern
-( Node n, Node f, const std::vector<Node> & vars,
-  const std::vector<Node> & inst_constants){
+Node QuantifiersEngine::convertNodeToPattern( Node n, Node f, const std::vector<Node> & vars,
+                                              const std::vector<Node> & inst_constants){
   Node n2 = n.substitute( vars.begin(), vars.end(),
                           inst_constants.begin(),
                           inst_constants.end() );
@@ -558,6 +659,16 @@ Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){
     }
   }
   return d_free_vars[tn];
+}
+
+Node QuantifiersEngine::getBoundVariableForVariable( Node n ){
+  TypeNode tn = n.getType();
+  if( d_bound_vars.find( tn )==d_bound_vars.end() ){
+    d_bound_vars[tn] = NodeManager::currentNM()->mkVar( tn );
+    BoundVarAttribute bva;
+    d_bound_vars[tn].setAttribute(bva,true);
+  }
+  return d_bound_vars[tn];
 }
 
 /** compute symbols */

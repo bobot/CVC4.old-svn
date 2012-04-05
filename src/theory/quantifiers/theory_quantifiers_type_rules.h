@@ -67,21 +67,6 @@ struct QuantifierExistsTypeRule {
   }
 };/* struct QuantifierExistsTypeRule */
 
-struct QuantifierNoCounterexampleTypeRule {
-  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw(TypeCheckingExceptionPrivate) {
-    Debug("typecheck-q") << "type check for ce " << n << std::endl;
-    Assert(n.getKind() == kind::NO_COUNTEREXAMPLE && n.getNumChildren()==1 && 
-      ( n[0].getKind()==kind::FORALL || ( n[0].getKind()==kind::NOT && n[0][0].getKind()==kind::EXISTS )) );
-    if( check ){
-      if( n[ 0 ].getType(check)!=nodeManager->booleanType() ){
-        throw TypeCheckingExceptionPrivate(n, "body of counterexample is not boolean");
-      }
-    }
-    return nodeManager->booleanType();
-  }
-};/* struct QuantifierNoCounterexampleTypeRule */
-
 struct QuantifierBoundVarListTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
     throw(TypeCheckingExceptionPrivate) {

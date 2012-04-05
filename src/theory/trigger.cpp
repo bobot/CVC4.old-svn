@@ -28,6 +28,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 //#define SMART_MULTI_TRIGGER
+#define NESTED_PATTERN_SELECTION
 
 Trigger* Trigger::TrTrie::getTrigger2( std::vector< Node >& nodes ){
   if( nodes.empty() ){
@@ -172,9 +173,11 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       computeVarContains( temp[i] );
       for( int j=0; j<(int)d_var_contains[ temp[i] ].size(); j++ ){
         Node v = d_var_contains[ temp[i] ][j];
-        if( vars.find( v )==vars.end() ){
-          vars[ v ] = true;
-          foundVar = true;
+        if( v.getAttribute(InstConstantAttribute())==f ){
+          if( vars.find( v )==vars.end() ){
+            vars[ v ] = true;
+            foundVar = true;
+          }
         }
       }
       if( foundVar ){
@@ -263,7 +266,7 @@ bool Trigger::isUsable( Node n, Node f ){
   if( n.getAttribute(InstConstantAttribute())==f ){
     if( n.getKind()!=APPLY_UF && n.getKind()!=INST_CONSTANT ){
       std::map< Node, Node > coeffs;
-      return getPatternArithmetic( n, coeffs );
+      return getPatternArithmetic( f, n, coeffs );
     }else{
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
         if( !isUsable( n[i], f ) ){
@@ -308,14 +311,21 @@ void Trigger::filterInstances( std::vector< Node >& nodes ){
 }
 
 
-bool Trigger::collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt ){
+bool Trigger::collectPatTerms2( QuantifiersEngine* qe, Node f, Node n, std::map< Node, bool >& patMap, int tstrt ){
   if( patMap.find( n )==patMap.end() ){
     patMap[ n ] = false;
     if( tstrt==TS_MIN_TRIGGER ){
-      if( n.getKind()!=FORALL ){
+      if( n.getKind()==FORALL ){
+#ifdef NESTED_PATTERN_SELECTION
+        //return collectPatTerms2( qe, f, qe->getOrCreateCounterexampleBody( n ), patMap, tstrt );
+        return collectPatTerms2( qe, f, qe->getBoundBody( n ), patMap, tstrt );
+#else
+        return false;
+#endif
+      }else{
         bool retVal = false;
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          if( collectPatTerms2( f, n[i], patMap, tstrt ) ){
+          if( collectPatTerms2( qe, f, n[i], patMap, tstrt ) ){
             retVal = true;
           }
         }
@@ -327,8 +337,6 @@ bool Trigger::collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, 
         }else{
           return false;
         }
-      }else{
-        return false;
       }
     }else{
       bool retVal = false;
@@ -340,9 +348,18 @@ bool Trigger::collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, 
           retVal = true;
         }
       }
-      if( n.getKind()!=FORALL ){
+      if( n.getKind()==FORALL ){   
+#ifdef NESTED_PATTERN_SELECTION
+        //if( collectPatTerms2( qe, f, qe->getOrCreateCounterexampleBody( n ), patMap, tstrt ) ){
+        //  retVal = true;
+        //}
+        if( collectPatTerms2( qe, f, qe->getBoundBody( n ), patMap, tstrt ) ){
+          retVal = true;
+        }
+#endif
+      }else{
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          if( collectPatTerms2( f, n[i], patMap, tstrt ) ){
+          if( collectPatTerms2( qe, f, n[i], patMap, tstrt ) ){
             retVal = true;
           }
         }
@@ -354,12 +371,12 @@ bool Trigger::collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, 
   }
 }
 
-void Trigger::collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst ){
+void Trigger::collectPatTerms( QuantifiersEngine* qe, Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst ){
   std::map< Node, bool > patMap;
   if( filterInst ){
     //immediately do not consider any term t for which another term is an instance of t
     std::vector< Node > patTerms2;
-    collectPatTerms( f, n, patTerms2, TS_ALL, false );
+    collectPatTerms( qe, f, n, patTerms2, TS_ALL, false );
     std::vector< Node > temp;
     temp.insert( temp.begin(), patTerms2.begin(), patTerms2.end() );
     filterInstances( temp );
@@ -387,7 +404,7 @@ void Trigger::collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, in
       }
     }
   }
-  collectPatTerms2( f, n, patMap, tstrt );
+  collectPatTerms2( qe, f, n, patMap, tstrt );
   for( std::map< Node, bool >::iterator it = patMap.begin(); it != patMap.end(); ++it ){
     if( it->second ){
       patTerms.push_back( it->first );
@@ -453,23 +470,32 @@ bool Trigger::isVariableSubsume( Node n1, Node n2 ){
   }
 }
 
-void Trigger::getVarContains( std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains ){
+void Trigger::getVarContains( Node f, std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains ){
   for( int i=0; i<(int)pats.size(); i++ ){
     computeVarContains( pats[i] );
     varContains[ pats[i] ].clear();
-    varContains[ pats[i] ].insert( varContains[ pats[i] ].begin(), d_var_contains[pats[i]].begin(), d_var_contains[pats[i]].end() );
+    for( int j=0; j<(int)d_var_contains[pats[i]].size(); j++ ){
+      if( d_var_contains[pats[i]][j].getAttribute(InstConstantAttribute())==f ){
+        varContains[ pats[i] ].push_back( d_var_contains[pats[i]][j] );
+      }
+    }
   }
 }
 
-bool Trigger::getPatternArithmetic( Node n, std::map< Node, Node >& coeffs ){
+bool Trigger::getPatternArithmetic( Node f, Node n, std::map< Node, Node >& coeffs ){
   if( n.getKind()==PLUS ){
     Assert( coeffs.empty() );
     NodeBuilder<> t(kind::PLUS);
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
       if( n[i].hasAttribute(InstConstantAttribute()) ){
         if( n[i].getKind()==INST_CONSTANT ){
-          coeffs[ n[i] ] = Node::null();
-        }else if( !getPatternArithmetic( n[i], coeffs ) ){
+          if( n[i].getAttribute(InstConstantAttribute())==f ){
+            coeffs[ n[i] ] = Node::null();
+          }else{
+            coeffs.clear();
+            return false;
+          }
+        }else if( !getPatternArithmetic( f, n[i], coeffs ) ){
           coeffs.clear();
           return false;
         }
@@ -486,11 +512,11 @@ bool Trigger::getPatternArithmetic( Node n, std::map< Node, Node >& coeffs ){
     }
     return true;
   }else if( n.getKind()==MULT ){
-    if( n[0].getKind()==INST_CONSTANT ){
+    if( n[0].getKind()==INST_CONSTANT && n[0].getAttribute(InstConstantAttribute())==f ){
       Assert( !n[1].hasAttribute(InstConstantAttribute()) );
       coeffs[ n[0] ] = n[1];
       return true;
-    }else if( n[1].getKind()==INST_CONSTANT ){
+    }else if( n[1].getKind()==INST_CONSTANT && n[1].getAttribute(InstConstantAttribute())==f ){
       Assert( !n[0].hasAttribute(InstConstantAttribute()) );
       coeffs[ n[1] ] = n[0];
       return true;

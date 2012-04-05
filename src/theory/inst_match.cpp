@@ -347,7 +347,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     }
   }else{
     d_cg = new CandidateGeneratorQueue;
-    if( !Trigger::getPatternArithmetic( d_match_pattern, d_arith_coeffs ) ){
+    if( !Trigger::getPatternArithmetic( d_match_pattern.getAttribute(InstConstantAttribute()), d_match_pattern, d_arith_coeffs ) ){
       Debug("inst-match-gen") << "(?) Unknown matching pattern is " << d_match_pattern << std::endl;
       std::cout << "(?) Unknown matching pattern is " << d_match_pattern << std::endl;
       d_matchPolicy = MATCH_GEN_INTERNAL_ERROR;
@@ -394,7 +394,7 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
             return false;
           }
         }
-      }else{
+      }else if( !d_match_pattern[i].getAttribute(BoundVarAttribute()) ){
         if( !q->areEqual( d_match_pattern[i], t[i] ) ){
           //ground arguments are not equal
           return false;
@@ -616,7 +616,7 @@ InstMatchGeneratorMulti::InstMatchGeneratorMulti( Node f, std::vector< Node >& p
 d_f( f ), d_calculate_matches( false ){
   Debug("smart-multi-trigger") << "Making smart multi-trigger for " << f << std::endl;
   std::map< Node, std::vector< Node > > var_contains;
-  Trigger::getVarContains( pats, var_contains );
+  Trigger::getVarContains( f, pats, var_contains );
   //convert to indicies
   for( std::map< Node, std::vector< Node > >::iterator it = var_contains.begin(); it != var_contains.end(); ++it ){
     Debug("smart-multi-trigger") << "Pattern " << it->first << " contains: ";
