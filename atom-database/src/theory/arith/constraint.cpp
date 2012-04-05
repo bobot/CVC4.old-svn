@@ -319,6 +319,10 @@ bool ConstraintValue::isSelfExplaining() const {
   return d_proof == d_database->d_selfExplainingProof;
 }
 
+bool ConstraintValue::hasEqualityEngineProof() const {
+  return d_proof == d_database->d_equalityEngineProof;
+}
+
 bool ConstraintValue::sanityChecking(Node n) const {
   Kind k = simplifiedKind(n);
   DeltaRational right = determineRightConstant(n, k);
@@ -388,16 +392,21 @@ Constraint ConstraintValue::makeNegation(ArithVar v, ConstraintType t, const Del
   }
 }
 
-ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap)
+ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap,
+                                       DifferenceManager& dm)
   : d_varDatabases(),
     d_toPropagate(satContext),
     d_proofs(satContext, false),
     d_watches(new Watches(satContext, userContext)),
     d_av2nodeMap(av2nodeMap),
+    d_differenceManager(dm),
     d_satContext(satContext),
     d_satAllocationLevel(d_satContext->getLevel())
 {
   d_selfExplainingProof = d_proofs.size();
+  d_proofs.push_back(NullConstraint);
+
+  d_equalityEngineProof = d_proofs.size();
   d_proofs.push_back(NullConstraint);
 }
 
@@ -621,19 +630,35 @@ void ConstraintValue::selfExplaining(){
   markAsTrue();
 }
 
+void ConstraintValue::propagate(){
+  Assert(hasProof());
+  Assert(canBePropagated());
+  Assert(!assertedToTheTheory());
+  Assert(!isSelfExplaining());
+
+  d_database->d_toPropagate.push(this);
+}
+
 void ConstraintValue::propagate(Constraint a){
   markAsTrue(a);
-  d_database->d_toPropagate.push(this);
+  propagate();
 }
 
 void ConstraintValue::propagate(Constraint a, Constraint b){
   markAsTrue(a);
-  d_database->d_toPropagate.push(this);
+  propagate();
 }
 
 void ConstraintValue::propagate(const std::vector<Constraint>& b){
   markAsTrue(b);
-  d_database->d_toPropagate.push(this);
+  propagate();
+}
+
+
+void ConstraintValue::setEqualityEngineProof(){
+  Assert(truthIsUnknown());
+  Assert(hasLiteral());
+  d_database->pushProofWatch(this, d_database->d_equalityEngineProof);
 }
 
 void ConstraintValue::markAsTrue(){
@@ -696,40 +721,58 @@ void ConstraintValue::internalPropagate(Constraint antecedent){
   }
 }
 
+bool ConstraintValue::proofIsEmpty() const{
+  Assert(hasProof());
+  bool result = d_database->d_proofs[d_proof] == NullConstraint;
+  Assert((!result) || isSelfExplaining() || hasEqualityEngineProof());
+  return result;
+}
+
 Node ConstraintValue::explain() const{
   Assert(hasProof());
 
   if(isSelfExplaining()){
     return getLiteral();
+  }else if(hasEqualityEngineProof()){
+    return d_database->eeExplain(this);
   }else{
+    Assert(!proofIsEmpty());
     if(d_database->d_proofs[d_proof-1] == NullConstraint){
       Constraint antecedent = d_database->d_proofs[d_proof];
       return antecedent->explain();
     }else{
       NodeBuilder<> nb(AND);
-      recExplain(nb, this, d_database->d_proofs);
+      explain(nb);
       return nb;
     }
   }
 }
 
 void ConstraintValue::explain(NodeBuilder<>& nb) const{
-  recExplain(nb, this, d_database->d_proofs);
-}
+  Assert(hasProof());
 
-void ConstraintValue::recExplain(NodeBuilder<>& nb, const ConstraintValue * const c, const CDConstraintList& d_proofs){
-  Assert(c->hasProof());
-
-  if(c->isSelfExplaining()){
-    nb << c->getLiteral();
+  if(isSelfExplaining()){
+    nb << getLiteral();
+  }else if(hasEqualityEngineProof()){
+    d_database->eeExplain(this, nb);
   }else{
-    ProofId p = c->d_proof;
-    Constraint antecedent = d_proofs[p];
+    ProofId p = d_proof;
+    Constraint antecedent = d_database->d_proofs[p];
 
-    for(; antecedent != NullConstraint; antecedent = d_proofs[--p] ){
-      recExplain(nb, antecedent, d_proofs);
+    for(; antecedent != NullConstraint; antecedent = d_database->d_proofs[--p] ){
+      antecedent->explain(nb);
     }
   }
+}
+
+Node ConstraintDatabase::eeExplain(const ConstraintValue* const c){
+  Assert(c->hasLiteral());
+  return d_differenceManager.explain(c->getLiteral());
+}
+
+void ConstraintDatabase::eeExplain(const ConstraintValue* const c, NodeBuilder<>& nb){
+  Assert(c->hasLiteral());
+  d_differenceManager.explain(c->getLiteral(), nb);
 }
 
 bool ConstraintDatabase::variableDatabaseIsSetup(ArithVar v){

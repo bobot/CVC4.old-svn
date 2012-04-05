@@ -75,9 +75,9 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_tableauResetPeriod(10),
   d_atomDatabase(c, out),
   d_propManager(c, d_arithvarNodeMap, d_atomDatabase, valuation),
-  d_differenceManager(c, d_propManager),
+  d_differenceManager(c, d_constraintDatabase),
   d_simplex(d_propManager, d_linEq),
-  d_constraintDatabase(c, u, d_arithvarNodeMap),
+  d_constraintDatabase(c, u, d_arithvarNodeMap, d_differenceManager),
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
   d_statistics()
@@ -1273,9 +1273,23 @@ void TheoryArith::debugPrintModel(){
 
 Node TheoryArith::explain(TNode n) {
   Debug("arith::explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
-  Assert(d_propManager.isPropagated(n));
 
-  return d_propManager.explain(n);
+  if(d_propManager.isPropagated(n)){
+    cout << "pm explanation" << n << endl;
+    return d_propManager.explain(n);
+  }else{
+    Constraint c = d_constraintDatabase.lookup(n);
+    if(c != NullConstraint){
+      Assert(!c->isSelfExplaining());
+      Node exp = c->explain();
+      cout << "constraint explanation" << n << ":" << exp << endl;
+      return exp;
+    }else{
+      Assert(d_differenceManager.canExplain(n));
+      cout << "dm explanation" << n << endl;
+      return d_differenceManager.explain(n);
+    }
+  }
 }
 
 void flattenAnd(Node n, std::vector<TNode>& out){
@@ -1305,7 +1319,54 @@ void TheoryArith::propagate(Effort e) {
   }
 
   while(d_constraintDatabase.hasMorePropagations()){
-    cout << "dropping propagations" << d_constraintDatabase.nextPropagation() << endl;
+    Constraint c = d_constraintDatabase.nextPropagation();
+
+    Node literal = c->getLiteral();
+    if(!c->assertedToTheTheory()){
+
+      cout << "propagating " << literal << endl;
+
+      d_out->propagate(literal);
+      propagated = true;
+    }else{
+      cout << "already asserted to the theory " << literal << endl;
+    }
+  }
+
+  while(d_differenceManager.hasMorePropagations()){
+    TNode toProp = d_differenceManager.getNextPropagation();
+
+    //Currently if the flag is set this came from an equality detected by the
+    //equality engine in the the difference manager.
+    if(toProp.getKind() == kind::EQUAL){
+      Node normalized = Rewriter::rewrite(toProp);
+      Node notNormalized = normalized.notNode();
+
+#warning "revisit"
+      Constraint constraint = d_constraintDatabase.lookup(normalized);
+      if(constraint == NullConstraint){
+        cout << "null? " << endl;
+        d_out->propagate(toProp);
+        propagated = true;
+      }else if(constraint->negationHasProof()){
+        Node exp = d_differenceManager.explain(toProp);
+        Node lp = flattenAnd(exp.andNode(notNormalized));
+        cout << "propagate conflict" <<  lp << endl;
+        Debug("arith::propagate") << "propagate conflict" <<  lp << endl;
+        d_out->conflict(lp);
+
+        propagated = true;
+        break;
+      }else{
+        cout << "propagating still?" <<  toProp << endl;
+
+        d_out->propagate(toProp);
+        propagated = true;
+      }
+    }else{
+      d_out->propagate(toProp);
+      propagated = true;
+    }
   }
 
   while(d_propManager.hasMorePropagations()){
@@ -1313,42 +1374,13 @@ void TheoryArith::propagate(Effort e) {
     bool flag = next.flag;
     TNode toProp = next.consequent;
 
+    Assert(!flag);
+
     TNode atom = (toProp.getKind() == kind::NOT) ? toProp[0] : toProp;
 
     Debug("arith::propagate") << "propagate  @" << getContext()->getLevel() <<" flag: "<< flag << " " << toProp << endl;
 
-    if(flag) {
-      //Currently if the flag is set this came from an equality detected by the
-      //equality engine in the the difference manager.
-      if(toProp.getKind() == kind::EQUAL){
-        Node normalized = Rewriter::rewrite(toProp);
-        Node notNormalized = normalized.notNode();
-
-#warning "revisit"
-        Constraint constraint = d_constraintDatabase.lookup(normalized);
-        if(constraint == NullConstraint){
-          cout << "null? " << endl;
-          d_out->propagate(toProp);
-          propagated = true;
-        }else if(constraint->negationHasProof()){
-          Node exp = d_differenceManager.explain(toProp);
-          Node lp = flattenAnd(exp.andNode(notNormalized));
-          Debug("arith::propagate") << "propagate conflict" <<  lp << endl;
-          d_out->conflict(lp);
-
-          propagated = true;
-          break;
-        }else{
-          cout << "propagating still?" <<  toProp << endl;
-
-          d_out->propagate(toProp);
-          propagated = true;
-        }
-      }else{
-        d_out->propagate(toProp);
-        propagated = true;
-      }
-    }else if(inContextAtom(atom)){
+    if(inContextAtom(atom)){
       Node satValue = d_valuation.getSatValue(toProp);
       AlwaysAssert(satValue.isNull());
       propagated = true;

@@ -1,13 +1,17 @@
 #include "theory/arith/difference_manager.h"
 #include "theory/uf/equality_engine_impl.h"
 
+#include "theory/arith/constraint.h"
+
 namespace CVC4 {
 namespace theory {
 namespace arith {
 
-DifferenceManager::DifferenceManager(context::Context* c, PropManager& pm)
+DifferenceManager::DifferenceManager(context::Context* c, ConstraintDatabase& cd)
   : d_literalsQueue(c),
-    d_queue(pm),
+    d_propagatations(c),
+    d_explanationMap(c),
+    d_constraintDatabase(cd),
     d_notify(*this),
     d_ee(d_notify, c, "theory::arith::DifferenceManager"),
     d_false(NodeManager::currentNM()->mkConst<bool>(false)),
@@ -17,7 +21,51 @@ DifferenceManager::DifferenceManager(context::Context* c, PropManager& pm)
 void DifferenceManager::propagate(TNode x){
   Debug("arith::differenceManager")<< "DifferenceManager::propagate("<<x<<")"<<std::endl;
 
-  d_queue.propagate(x, explain(x), true);
+  Node rewritten = Rewriter::rewrite(x);
+
+  //Need to still propagate this!
+  if(rewritten.getKind() == kind::CONST_BOOLEAN){
+    pushBack(x);
+  }
+
+  Assert(rewritten.getKind() != kind::CONST_BOOLEAN);
+
+  Constraint c = d_constraintDatabase.lookup(rewritten);
+  if(c == NullConstraint){
+    c = d_constraintDatabase.addLiteral(rewritten);
+  }
+
+  // Cases for propagation
+  // C : c has a proof
+  // S : x == rewritten
+  // P : c can be propagated
+  //
+  // CSP
+  // 000 : propagate x, and mark C it as being explained
+  // 001 : propagate x, and propagate c after marking it as being explained
+  // 01* : propagate x, mark c but do not propagate c
+  // 10* : propagate x, do not mark c and do not propagate c
+  // 11* : drop the constraint, do not propagate x or c
+
+  Debug("arith::differenceManager")<< "x is "
+                                   <<  c->hasProof() << " "
+                                   << (x == rewritten) << " "
+                                   << c->canBePropagated() << std::endl;
+  if(!c->hasProof() && x != rewritten){
+    pushBack(x, rewritten);
+
+    c->setEqualityEngineProof();
+    if(c->canBePropagated() && !c->assertedToTheTheory()){
+      c->propagate();
+    }
+  }else if(!c->hasProof() && x == rewritten){
+    pushBack(x, rewritten);
+    c->setEqualityEngineProof();
+  }else if(c->hasProof() && x != rewritten){
+    pushBack(x, rewritten);
+  }else{
+    Assert(c->hasProof() && x == rewritten);
+  }
 }
 
 void DifferenceManager::explain(TNode literal, std::vector<TNode>& assumptions) {
@@ -37,33 +85,42 @@ void DifferenceManager::explain(TNode literal, std::vector<TNode>& assumptions) 
   d_ee.explainEquality(lhs, rhs, assumptions);
 }
 
-Node mkAnd(const std::vector<TNode>& conjunctions) {
-  Assert(conjunctions.size() > 0);
-
-  std::set<TNode> all;
-  all.insert(conjunctions.begin(), conjunctions.end());
-
-  if (all.size() == 1) {
-    // All the same, or just one
-    return conjunctions[0];
+void DifferenceManager::enqueueIntoNB(const std::set<TNode> s, NodeBuilder<>& nb){
+  std::set<TNode>::const_iterator it = s.begin();
+  std::set<TNode>::const_iterator it_end = s.end();
+  for(; it != it_end; ++it) {
+    nb << *it;
   }
-
-  NodeBuilder<> conjunction(kind::AND);
-  std::set<TNode>::const_iterator it = all.begin();
-  std::set<TNode>::const_iterator it_end = all.end();
-  while (it != it_end) {
-    conjunction << *it;
-    ++ it;
-  }
-
-  return conjunction;
 }
 
+Node DifferenceManager::explain(TNode external){
+  Node internal = externalToInternal(external);
 
-Node DifferenceManager::explain(TNode lit){
   std::vector<TNode> assumptions;
-  explain(lit, assumptions);
-  return mkAnd(assumptions);
+  explain(external, assumptions);
+
+  std::set<TNode> assumptionSet;
+  assumptionSet.insert(assumptions.begin(), assumptions.end());
+
+  if (assumptionSet.size() == 1) {
+    // All the same, or just one
+    return assumptions[0];
+  }else{
+    NodeBuilder<> conjunction(kind::AND);
+    enqueueIntoNB(assumptionSet, conjunction);
+    return conjunction;
+  }
+}
+
+void DifferenceManager::explain(TNode external, NodeBuilder<>& out){
+  Node internal = externalToInternal(external);
+
+  std::vector<TNode> assumptions;
+  explain(internal, assumptions);
+  std::set<TNode> assumptionSet;
+  assumptionSet.insert(assumptions.begin(), assumptions.end());
+
+  enqueueIntoNB(assumptionSet, out);
 }
 
 void DifferenceManager::addDifference(ArithVar s, Node x, Node y){

@@ -12,11 +12,12 @@
 #include "context/context.h"
 #include "context/cdtrail_queue.h"
 #include "util/stats.h"
-#include "theory/arith/arith_prop_manager.h"
 
 namespace CVC4 {
 namespace theory {
 namespace arith {
+
+class ConstraintDatabase;
 
 class DifferenceManager {
 private:
@@ -63,8 +64,53 @@ private:
 
   /** Stores the queue of assertions. This keeps the Node backing the reasons */
   context::CDTrailQueue<LiteralsQueueElem> d_literalsQueue;
-  PropManager& d_queue;
+  //PropManager& d_queue;
 
+  /** Store the propagations. */
+  context::CDTrailQueue<Node> d_propagatations;
+
+  /* This maps the node a theory engine will request on an explain call to
+   * to its corresponding PropUnit.
+   * This is node is potentially both the propagation or Rewriter::rewrite(propagation).
+   */
+  typedef context::CDHashMap<Node, size_t, NodeHashFunction> ExplainMap;
+  ExplainMap d_explanationMap;
+
+  ConstraintDatabase& d_constraintDatabase;
+
+public:
+  bool hasMorePropagations() const {
+    return !d_propagatations.empty();
+  }
+
+  const Node getNextPropagation() {
+    Assert(hasMorePropagations());
+    Node prop = d_propagatations.front();
+    d_propagatations.dequeue();
+    return prop;
+  }
+
+  bool canExplain(TNode n) const {
+    return d_explanationMap.find(n) != d_explanationMap.end();
+  }
+
+private:
+  Node externalToInternal(TNode n) const{
+    Assert(canExplain(n));
+    size_t pos = (*(d_explanationMap.find(n))).second;
+    return d_propagatations[pos];
+  }
+
+  void pushBack(TNode n){
+    d_explanationMap.insert(n, d_propagatations.size());
+    d_propagatations.enqueue(n);
+  }
+
+  void pushBack(TNode n, TNode r){
+    d_explanationMap.insert(r, d_propagatations.size());
+    d_explanationMap.insert(n, d_propagatations.size());
+    d_propagatations.enqueue(n);
+  }
 
   DifferenceNotifyClass d_notify;
   theory::uf::EqualityEngine<DifferenceNotifyClass> d_ee;
@@ -96,11 +142,14 @@ private:
   void enableSharedTerms();
   void dequeueLiterals();
 
+  void enqueueIntoNB(const std::set<TNode> all, NodeBuilder<>& nb);
+
 public:
 
-  DifferenceManager(context::Context*, PropManager&);
+  DifferenceManager(context::Context* satContext, ConstraintDatabase&);
 
   Node explain(TNode literal);
+  void explain(TNode lit, NodeBuilder<>& out);
 
   void addDifference(ArithVar s, Node x, Node y);
 

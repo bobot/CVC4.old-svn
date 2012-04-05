@@ -77,6 +77,8 @@
 #include "theory/arith/arithvar_node_map.h"
 #include "theory/arith/delta_rational.h"
 
+#include "theory/arith/difference_manager.h"
+
 #include <vector>
 #include <list>
 #include <set>
@@ -243,8 +245,8 @@ private:
    *
    * This is not context dependent, but may be set once.
    *
-   * This must be set if the constraint is preregistered.
-   * This must be set if the constraint isSelfExplaining().
+   * This must be set if the constraint canbePropgated().
+   * This must be set if the constraint assertedToTheTheory().
    * Otherwise, this may be null().
    */
   Node d_literal;
@@ -357,13 +359,7 @@ private:
       constraint->d_split = false;
     }
   };
-
-  /**
-   * The internal assistance method for explain.
-   * Pushes back an explanation that is acceptable to send to the sat solver.
-   * nb is assumed to be an AND.
-   */
-  static void recExplain(NodeBuilder<>& nb, const ConstraintValue* const c, const CDConstraintList& proofs);
+  //static void recExplain(NodeBuilder<>& nb, const ConstraintValue* const c, const CDConstraintList& proofs);
 
   /** Returns true if the node is safe to garbage collect. */
   bool safeToGarbageCollect() const;
@@ -450,10 +446,29 @@ public:
     return d_literal;
   }
 
+  /**
+   * Set the node as selfExplaining().
+   * The node must be assertedToTheTheory().
+   */
+  void selfExplaining();
+
+  /** Returns true if the node is selfExplaining.*/
   bool isSelfExplaining() const;
 
+  /**
+   * Set the constraint to be a EqualityEngine proof.
+   */
+  void setEqualityEngineProof();
+  bool hasEqualityEngineProof() const;
+
+  /** Returns a explanation of the constraint.*/
   Node explain() const;
 
+  /**
+   * Writes an explanation of a constraint into the node builder.
+   * Pushes back an explanation that is acceptable to send to the sat solver.
+   * nb is assumed to be an AND.
+   */
   void explain(NodeBuilder<>& nb) const;
 
   bool hasProof() const {
@@ -480,8 +495,6 @@ public:
 
   const ValueCollection& getValueCollection() const;
 
-  void selfExplaining();
-
   /**
    * Marks the node as having a proof a.
    * Adds the node the database's propagation queue.
@@ -489,6 +502,9 @@ public:
   void propagate(Constraint a);
   void propagate(Constraint a, Constraint b);
   void propagate(const std::vector<Constraint>& b);
+
+  /** The node must have a proof already and be eligible for propagation! */
+  void propagate();
 
 private:
   /**
@@ -515,6 +531,14 @@ private:
   void internalPropagate(Constraint a);
 
   void debugPrint() const;
+
+  /**
+   * The proof of the node is empty.
+   * The proof must be a special proof. Either
+   *   isSelfExplaining() or
+   *    hasEqualityEngineProof()
+   */
+  bool proofIsEmpty() const;
 
 }; /* class ConstraintValue */
 
@@ -567,8 +591,22 @@ private:
    */
   CDConstraintList d_proofs;
 
-  /** This is a special empty proof that is always a member of the list. */
+  /**
+   * This is a special proof for marking that nodes are their own explanation
+   * from the perspective of the theory.
+   * These must always be asserted to the theory.
+   *
+   * This proof is always a member of the list.
+   */
   ProofId d_selfExplainingProof;
+
+  /**
+   * Marks a node as being proved by the equality engine.
+   * The equality engine will be asked for the explanation of such nodes.
+   *
+   * This is a special proof that is always a member of the list.
+   */
+  ProofId d_equalityEngineProof;
 
   typedef context::CDList<Constraint, ConstraintValue::ProofCleanup> ProofCleanupList;
   typedef context::CDList<Constraint, ConstraintValue::CanBePropagatedCleanup> CBPList;
@@ -640,6 +678,8 @@ private:
     return d_av2nodeMap;
   }
 
+  DifferenceManager& d_differenceManager;
+
   Constraint allocateConstraintForLiteral(ArithVar v, Node literal);
 
   const context::Context * const d_satContext;
@@ -649,7 +689,10 @@ private:
 
 public:
 
-  ConstraintDatabase( context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap);
+  ConstraintDatabase( context::Context* satContext,
+                      context::Context* userContext,
+                      const ArithVarNodeMap& av2nodeMap,
+                      DifferenceManager& dm);
 
   ~ConstraintDatabase();
 
@@ -673,17 +716,20 @@ public:
     return !d_toPropagate.empty();
   }
 
-  TNode nextPropagation(){
+  Constraint nextPropagation(){
     Assert(hasMorePropagations());
 
     Constraint p = d_toPropagate.front();
     d_toPropagate.pop();
 
-    return p->getLiteral();
+    return p;
   }
 
   void addVariable(ArithVar v);
   bool variableDatabaseIsSetup(ArithVar v);
+
+  Node eeExplain(const ConstraintValue* const c);
+  void eeExplain(const ConstraintValue* const c, NodeBuilder<>& nb);
 
   /**
    * This must always return a constraint.
