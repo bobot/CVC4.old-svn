@@ -47,7 +47,7 @@ void RepAlphabet::set( TypeNode t, std::vector< Node >& reps ){
 }
 
 bool RepAlphabet::didInstantiation( RepAlphabetIterator& riter ){
-#if 1
+#if 0
   for( int i=0; i<(int)riter.getNumTerms(); i++ ){
     Node n = riter.getTerm( i );
     TypeNode tn = n.getType();
@@ -163,7 +163,6 @@ int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, i
       //while( !riter.isFinished() && didInstantiation( f, riter ) ){
       //  riter.increment();
       //}
-      bool didInst = didInstantiation( f, riter );
       //if successful, add instantiation
       if( !riter.isFinished() ){
         InstMatch m;
@@ -173,9 +172,6 @@ int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, i
         m.debugPrint("inst-fmf-debug");
         if( d_quantEngine->addInstantiation( f, m ) ){
           addedLemma = true;
-          if( didInst ){
-            std::cout << "Bad Inst: " << f << " " << m << std::endl;
-          }
         }
       }
     }
