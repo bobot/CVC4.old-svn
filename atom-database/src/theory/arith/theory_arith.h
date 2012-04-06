@@ -68,24 +68,6 @@ private:
    */
   bool d_hasDoneWorkSinceCut;
 
-  /**
-   * The set of atoms that are currently in the context.
-   * This is exactly the union of preregistered atoms and
-   * equalities from sharing.
-   * This is used to reconstruct the rest of arithmetic.
-   */
-  CDNodeSet d_atomsInContext;
-  bool inContextAtom(TNode atom){
-    Assert(isRelationOperator(atom.getKind()));
-    Assert(Comparison::isNormalAtom(atom));
-    return d_atomsInContext.contains(atom);
-  }
-  void addToContext(TNode atom){
-    Assert(isRelationOperator(atom.getKind()));
-    Assert(Comparison::isNormalAtom(atom));
-    d_atomsInContext.insert(atom);
-  }
-
   /** Static learner. */
   ArithStaticLearner d_learner;
 
@@ -239,8 +221,7 @@ private:
   ArithAtomDatabase d_atomDatabase;
 
   /** This manager keeps track of information needed to propagate. */
-  APM d_propManager;
-  PropManager d_theRealPropManager;
+  APM d_apm;
 
   /** This keeps track of difference equalities. Mostly for sharing. */
   DifferenceManager d_differenceManager;

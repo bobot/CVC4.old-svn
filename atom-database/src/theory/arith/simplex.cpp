@@ -400,11 +400,12 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
 
 
-TNode SimplexDecisionProcedure::weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic){
+Node SimplexDecisionProcedure::weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic){
 
   int sgn = coeff.sgn();
   bool ub = aboveUpper?(sgn < 0) : (sgn > 0);
-  TNode exp = ub ?
+#warning "revisit"
+  Node exp = ub ?
     d_partialModel.explainUpperBound(v) :
     d_partialModel.explainLowerBound(v);
   DeltaRational bound = ub?
@@ -458,6 +459,18 @@ TNode SimplexDecisionProcedure::weakestExplanation(bool aboveUpper, DeltaRationa
   return exp;
 }
 
+void flattenAndAgain(Node n, NodeBuilder<>& out){
+  Assert(n.getKind() == kind::AND);
+  for(Node::iterator i=n.begin(), i_end=n.end(); i != i_end; ++i){
+    Node curr = *i;
+    if(curr.getKind() == kind::AND){
+      flattenAndAgain(curr, out);
+    }else{
+      out << curr;
+    }
+  }
+}
+
 Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar){
   TimerStat::CodeTimer codeTimer(d_statistics.d_weakenTime);
 
@@ -479,7 +492,13 @@ Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar
     const TableauEntry& entry = *i;
     ArithVar v = entry.getColVar();
     const Rational& coeff = entry.getCoefficient();
-    conflict << weakestExplanation(aboveUpper, surplus, v, coeff, anyWeakenings, basicVar);
+    Node wexp = weakestExplanation(aboveUpper, surplus, v, coeff, anyWeakenings, basicVar);
+
+    if(wexp.getKind() == AND){
+      flattenAndAgain(wexp, conflict);
+    }else{
+      conflict << wexp;
+    }
   }
   ++d_statistics.d_weakeningAttempts;
   if(anyWeakenings){

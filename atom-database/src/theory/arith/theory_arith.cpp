@@ -59,7 +59,7 @@ const uint32_t RESET_START = 2;
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, u, out, valuation),
   d_hasDoneWorkSinceCut(false),
-  d_atomsInContext(c),
+  //d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
   d_constantIntegerVariables(c),
@@ -74,10 +74,9 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
   d_atomDatabase(c, out),
-  d_propManager(d_arithvarNodeMap, d_atomDatabase, valuation),
-  d_theRealPropManager(c),
+  d_apm(d_arithvarNodeMap, d_atomDatabase, valuation),
   d_differenceManager(c, d_constraintDatabase),
-  d_simplex(d_propManager, d_linEq),
+  d_simplex(d_apm, d_linEq),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_differenceManager),
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
@@ -750,7 +749,6 @@ void TheoryArith::preRegisterTerm(TNode n) {
     if(!isSetup(n)){
       setupAtom(n, Options::current()->arithPropagation);
     }
-    addToContext(n);
     Constraint c = d_constraintDatabase.lookup(n);
     Assert(c != NullConstraint);
 
@@ -981,7 +979,6 @@ Node TheoryArith::assertionCases(TNode assertion){
     if(!isSetup(eq)){
       //The previous code was equivalent to:
       setupAtom(eq, false);
-      addToContext(eq);
       constraint = d_constraintDatabase.lookup(assertion);
     }
   }
@@ -1275,21 +1272,16 @@ void TheoryArith::debugPrintModel(){
 Node TheoryArith::explain(TNode n) {
   Debug("arith::explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
 
-  if(d_theRealPropManager.isPropagated(n)){
-    cout << "pm explanation" << n << endl;
-    return d_theRealPropManager.explain(n);
+  Constraint c = d_constraintDatabase.lookup(n);
+  if(c != NullConstraint){
+    Assert(!c->isSelfExplaining());
+    Node exp = c->explain();
+    cout << "constraint explanation" << n << ":" << exp << endl;
+    return exp;
   }else{
-    Constraint c = d_constraintDatabase.lookup(n);
-    if(c != NullConstraint){
-      Assert(!c->isSelfExplaining());
-      Node exp = c->explain();
-      cout << "constraint explanation" << n << ":" << exp << endl;
-      return exp;
-    }else{
-      Assert(d_differenceManager.canExplain(n));
-      cout << "dm explanation" << n << endl;
-      return d_differenceManager.explain(n);
-    }
+    Assert(d_differenceManager.canExplain(n));
+    cout << "dm explanation" << n << endl;
+    return d_differenceManager.explain(n);
   }
 }
 
@@ -1367,30 +1359,6 @@ void TheoryArith::propagate(Effort e) {
     }else{
       d_out->propagate(toProp);
       propagated = true;
-    }
-  }
-
-  while(d_theRealPropManager.hasMorePropagations()){
-    const PropManager::PropUnit next = d_theRealPropManager.getNextPropagation();
-    bool flag = next.flag;
-    TNode toProp = next.consequent;
-
-    Assert(!flag);
-
-    TNode atom = (toProp.getKind() == kind::NOT) ? toProp[0] : toProp;
-
-    Debug("arith::propagate") << "propagate  @" << getContext()->getLevel() <<" flag: "<< flag << " " << toProp << endl;
-
-    if(inContextAtom(atom)){
-      Node satValue = d_valuation.getSatValue(toProp);
-      AlwaysAssert(satValue.isNull());
-      propagated = true;
-      d_out->propagate(toProp);
-    }else{
-      //Not clear if this is a good time to do this or not...
-      Debug("arith::propagate") << "Atom is not in context" << toProp << endl;
-#warning "enable remove atom in database"
-      //d_atomDatabase.removeAtom(atom);
     }
   }
 
@@ -1655,28 +1623,52 @@ bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
   if((upperBound && d_partialModel.strictlyLessThanUpperBound(basic, bound)) ||
      (!upperBound && d_partialModel.strictlyGreaterThanLowerBound(basic, bound))){
     Node bestImplied = upperBound ?
-      d_propManager.getBestImpliedUpperBound(basic, bound):
-      d_propManager.getBestImpliedLowerBound(basic, bound);
+      d_apm.getBestImpliedUpperBound(basic, bound):
+      d_apm.getBestImpliedLowerBound(basic, bound);
 
     if(!bestImplied.isNull()){
       //slightly changed
 
-      bool asserted = valuationIsAsserted(bestImplied);
-      bool propagated = d_theRealPropManager.isPropagated(bestImplied);
-      if( !asserted && !propagated){
+      Constraint c = d_constraintDatabase.lookup(bestImplied);
+      Assert(c != NullConstraint);
 
-        NodeBuilder<> nb(kind::AND);
+      bool assertedValuation = valuationIsAsserted(bestImplied);
+      bool assertedToTheTheory = c->assertedToTheTheory();
+      bool canBePropagated = c->canBePropagated();
+      bool hasProof = c->hasProof();
+
+      Debug("arith::prop") << "arith::prop" << basic
+                           << " " << assertedValuation
+                           << " " << assertedToTheTheory
+                           << " " << canBePropagated
+                           << " " << hasProof
+                           << endl;
+
+      if(!assertedToTheTheory && canBePropagated && !hasProof ){
         if(upperBound){
-          d_linEq.explainNonbasicsUpperBound(basic, nb);
+          d_linEq.propagateNonbasicsUpperBound(basic, c);
         }else{
-          d_linEq.explainNonbasicsLowerBound(basic, nb);
+          d_linEq.propagateNonbasicsLowerBound(basic, c);
         }
-        Node explanation = nb;
-        d_theRealPropManager.propagate(bestImplied, explanation, false);
         return true;
-      }else{
-        Debug("arith::prop") << basic << " " << asserted << " " << propagated << endl;
       }
+
+      // bool asserted = valuationIsAsserted(bestImplied);
+      // bool propagated = d_theRealPropManager.isPropagated(bestImplied);
+      // if( !asserted && !propagated){
+
+      //   NodeBuilder<> nb(kind::AND);
+      //   if(upperBound){
+      //     d_linEq.explainNonbasicsUpperBound(basic, nb);
+      //   }else{
+      //     d_linEq.explainNonbasicsLowerBound(basic, nb);
+      //   }
+      //   Node explanation = nb;
+      //   d_theRealPropManager.propagate(bestImplied, explanation, false);
+      //   return true;
+      // }else{
+      //   Debug("arith::prop") << basic << " " << asserted << " " << propagated << endl;
+      // }
     }
   }
   return false;

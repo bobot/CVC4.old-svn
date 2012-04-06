@@ -259,7 +259,7 @@ private:
   Node checkBasicForConflict(ArithVar b);
 
   Node weakenConflict(bool aboveUpper, ArithVar basicVar);
-  TNode weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic);
+  Node weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic);
 
 
 
