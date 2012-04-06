@@ -18,6 +18,35 @@ DifferenceManager::DifferenceManager(context::Context* c, ConstraintDatabase& cd
     d_hasSharedTerms(c, false)
 {}
 
+void DifferenceManager::differenceIsZero(Constraint lb, Constraint ub){
+  Assert(lb->isLowerBound());
+  Assert(ub->isUpperBound());
+  Assert(lb->getVariable() == ub->getVariable());
+  Assert(lb->getValue().sgn() == 0);
+  Assert(ub->getValue().sgn() == 0);
+
+  ArithVar s = lb->getVariable();
+  Node reason = ConstraintValue::explainConjunction(lb,ub);
+
+  assertLiteral(true, s, reason);
+}
+
+void DifferenceManager::differenceIsZero(Constraint eq){
+  Assert(eq->isEquality());
+  Assert(eq->getValue().sgn() == 0);
+
+  ArithVar s = eq->getVariable();
+  Node reason = eq->explainForConflict();
+
+  assertLiteral(true, s, reason);
+}
+
+void DifferenceManager::differenceCannotBeZero(Constraint c){
+  ArithVar s = c->getVariable();
+  Node reason = c->explainForConflict();
+  assertLiteral(false, s, reason);
+}
+
 void DifferenceManager::propagate(TNode x){
   Debug("arith::differenceManager")<< "DifferenceManager::propagate("<<x<<")"<<std::endl;
 

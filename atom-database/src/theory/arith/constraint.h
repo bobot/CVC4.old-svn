@@ -79,6 +79,8 @@
 
 #include "theory/arith/difference_manager.h"
 
+#include "theory/arith/constraint_forward.h"
+
 #include <vector>
 #include <list>
 #include <set>
@@ -98,15 +100,10 @@ enum ConstraintType {LowerBound, Equality, UpperBound, Disequality};
 /** Given a simplifiedKind this returns the corresponding ConstraintType. */
 ConstraintType constraintTypeOfLiteral(Kind k);
 
-class ConstraintValue;
-typedef ConstraintValue* Constraint;
-static Constraint NullConstraint = NULL;
 
 typedef context::CDList<Constraint> CDConstraintList;
 
 typedef __gnu_cxx::hash_map<Node, Constraint, NodeHashFunction> NodetoConstraintMap;
-
-class ConstraintDatabase;
 
 typedef size_t ProofId;
 static ProofId ProofIdSentinel = std::numeric_limits<ProofId>::max();
@@ -205,6 +202,7 @@ public:
  */
 typedef std::map<DeltaRational, ValueCollection> SortedConstraintMap;
 typedef SortedConstraintMap::iterator SortedConstraintMapIterator;
+typedef SortedConstraintMap::const_iterator SortedConstraintMapConstIterator;
 
 /** A Pair associating a variables and a Sorted ConstraintSet. */
 struct PerVariableDatabase{
@@ -371,7 +369,7 @@ private:
   bool sanityChecking(Node n) const;
 
   /** Returns a reference to the map for d_variable. */
-  SortedConstraintMap& constraintSet();
+  SortedConstraintMap& constraintSet() const;
 
 public:
 
@@ -461,15 +459,36 @@ public:
   void setEqualityEngineProof();
   bool hasEqualityEngineProof() const;
 
-  /** Returns a explanation of the constraint.*/
-  Node explain() const;
+  /**
+   * Returns a explanation of the constraint that is appropriate for conflicts.
+   *
+   * This is the minimum fringe of the implication tree s.t.
+   * every constraint is assertedToTheTheory() or hasEqualityEngineProof().
+   */
+  Node explainForConflict() const;
 
   /**
    * Writes an explanation of a constraint into the node builder.
    * Pushes back an explanation that is acceptable to send to the sat solver.
    * nb is assumed to be an AND.
+   *
+   * This is the minimum fringe of the implication tree s.t.
+   * every constraint is assertedToTheTheory() or hasEqualityEngineProof().
+   *
+   * This is not appropraite for propagation directly.
+   * Use explainPropagation() instead.
    */
-  void explain(NodeBuilder<>& nb) const;
+  void explainInto(NodeBuilder<>& nb) const;
+
+  /**
+   * Returns an explanation of a propagation by the ConstraintDatabase.
+   * The constraint must have a proof.
+   * The constraint cannot be selfExplaining().
+   *
+   * This is the minimum fringe of the implication tree (excluding the constraint itself)
+   * s.t. every constraint is assertedToTheTheory() or hasEqualityEngineProof().
+   */
+  Node explainForPropagation() const;
 
   bool hasProof() const {
     return d_proof != ProofIdSentinel;
@@ -494,6 +513,10 @@ public:
   static Constraint makeNegation(ArithVar v, ConstraintType t, const DeltaRational& r);
 
   const ValueCollection& getValueCollection() const;
+
+
+  Constraint getStrictlyWeakerUpperBound(bool mustBeAsserted) const;
+  Constraint getStrictlyWeakerLowerBound(bool mustBeAsserted) const;
 
   /**
    * Marks the node as having a proof a.
@@ -524,6 +547,10 @@ public:
 
   void markAsTrue(Constraint a, Constraint b);
   void markAsTrue(const std::vector<Constraint>& b);
+
+  static Node explainConjunction(Constraint a, Constraint b);
+  static Node explainConjunction(Constraint a, Constraint b, Constraint c);
+
 
 private:
 
@@ -558,7 +585,7 @@ private:
    */
   std::vector<PerVariableDatabase*> d_varDatabases;
 
-  SortedConstraintMap& getVariableSCM(ArithVar v){
+  SortedConstraintMap& getVariableSCM(ArithVar v) const{
     Assert(variableDatabaseIsSetup(v));
     return d_varDatabases[v]->d_constraints;
   }
@@ -726,13 +753,16 @@ public:
   }
 
   void addVariable(ArithVar v);
-  bool variableDatabaseIsSetup(ArithVar v);
+  bool variableDatabaseIsSetup(ArithVar v) const;
 
-  Node eeExplain(const ConstraintValue* const c);
-  void eeExplain(const ConstraintValue* const c, NodeBuilder<>& nb);
+  Node eeExplain(ConstConstraint c) const;
+  void eeExplain(ConstConstraint c, NodeBuilder<>& nb) const;
 
   /**
-   * This must always return a constraint.
+   * Returns a constraint with the variable v, the constraint type t and the value r.
+   * If there is such a constraint in the database already, it is returned.
+   * If there is no such constraint, this constraint is added to the database.
+   *
    */
   Constraint getConstraint(ArithVar v, ConstraintType t, const DeltaRational& r);
 

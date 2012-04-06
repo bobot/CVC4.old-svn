@@ -56,7 +56,7 @@
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
 #include "theory/arith/partial_model.h"
-#include "theory/arith/arith_prop_manager.h"
+//#include "theory/arith/arith_prop_manager.h"
 #include "theory/arith/linear_equality.h"
 
 #include "util/options.h"
@@ -92,7 +92,7 @@ private:
   ArithPriorityQueue d_queue;
 
   /** A link to the propagation manager. This is used to generate weaker conflicts. */
-  APM& d_propManager;
+  //APM& d_propManager;
 
   /** Number of variables in the system. This is used for tuning heuristics. */
   ArithVar d_numVariables;
@@ -106,8 +106,7 @@ private:
   DeltaRational d_DELTA_ZERO;
 
 public:
-  SimplexDecisionProcedure(APM& propManager,
-                           LinearEqualityModule& linEq);
+  SimplexDecisionProcedure(LinearEqualityModule& linEq);
 
   /**
    * This must be called when the value of a basic variable may now voilate one
@@ -259,7 +258,7 @@ private:
   Node checkBasicForConflict(ArithVar b);
 
   Node weakenConflict(bool aboveUpper, ArithVar basicVar);
-  Node weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic);
+  Constraint weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic);
 
 
 

@@ -706,7 +706,7 @@ void ConstraintValue::markAsTrue(const vector<Constraint>& a){
   d_database->pushProofWatch(this, proof);
 }
 
-SortedConstraintMap& ConstraintValue::constraintSet(){
+SortedConstraintMap& ConstraintValue::constraintSet() const{
   Assert(d_database->variableDatabaseIsSetup(d_variable));
   return (d_database->d_varDatabases[d_variable])->d_constraints;
 }
@@ -728,56 +728,140 @@ bool ConstraintValue::proofIsEmpty() const{
   return result;
 }
 
-Node ConstraintValue::explain() const{
+Node ConstraintValue::explainForConflict() const{
   Assert(hasProof());
+  Assert(!isSelfExplaining() || assertedToTheTheory());
 
-  if(isSelfExplaining()){
+  if(assertedToTheTheory()){
     return getLiteral();
   }else if(hasEqualityEngineProof()){
     return d_database->eeExplain(this);
   }else{
+    Assert(!isSelfExplaining());
     Assert(!proofIsEmpty());
     if(d_database->d_proofs[d_proof-1] == NullConstraint){
       Constraint antecedent = d_database->d_proofs[d_proof];
-      return antecedent->explain();
+      return antecedent->explainForConflict();
     }else{
       NodeBuilder<> nb(AND);
-      explain(nb);
+      explainInto(nb);
       return nb;
     }
   }
 }
 
-void ConstraintValue::explain(NodeBuilder<>& nb) const{
+void ConstraintValue::explainInto(NodeBuilder<>& nb) const{
   Assert(hasProof());
+  Assert(!isSelfExplaining() || assertedToTheTheory());
 
-  if(isSelfExplaining()){
+  if(assertedToTheTheory()){
     nb << getLiteral();
   }else if(hasEqualityEngineProof()){
     d_database->eeExplain(this, nb);
   }else{
+    Assert(!isSelfExplaining());
     ProofId p = d_proof;
     Constraint antecedent = d_database->d_proofs[p];
 
     for(; antecedent != NullConstraint; antecedent = d_database->d_proofs[--p] ){
-      antecedent->explain(nb);
+      antecedent->explainInto(nb);
     }
   }
 }
 
-Node ConstraintDatabase::eeExplain(const ConstraintValue* const c){
+Node ConstraintValue::explainForPropagation() const{
+  Assert(hasProof());
+  Assert(!isSelfExplaining());
+
+  if(hasEqualityEngineProof()){
+    return d_database->eeExplain(this);
+  }else{
+    Assert(!proofIsEmpty());
+    //Force the selection of the layer above if the node is assertedToTheTheory()!
+    if(d_database->d_proofs[d_proof-1] == NullConstraint){
+      Constraint antecedent = d_database->d_proofs[d_proof];
+      return antecedent->explainForConflict();
+    }else{
+      NodeBuilder<> nb(kind::AND);
+      Assert(!isSelfExplaining());
+
+      ProofId p = d_proof;
+      Constraint antecedent = d_database->d_proofs[p];
+      for(; antecedent != NullConstraint; antecedent = d_database->d_proofs[--p] ){
+        antecedent->explainInto(nb);
+      }
+      return nb;
+    }
+  }
+}
+
+Node ConstraintValue::explainConjunction(Constraint a, Constraint b){
+  NodeBuilder<> nb(kind::AND);
+  a->explainInto(nb);
+  b->explainInto(nb);
+  return nb;
+}
+
+Node ConstraintValue::explainConjunction(Constraint a, Constraint b, Constraint c){
+  NodeBuilder<> nb(kind::AND);
+  a->explainInto(nb);
+  b->explainInto(nb);
+  c->explainInto(nb);
+  return nb;
+}
+
+Constraint ConstraintValue::getStrictlyWeakerLowerBound(bool asserted) const {
+  Assert(initialized());
+
+  SortedConstraintMapConstIterator i = d_variablePosition;
+  const SortedConstraintMap& scm = constraintSet();
+  SortedConstraintMapConstIterator i_begin = scm.begin();
+  while(i != i_begin){
+    --i;
+    const ValueCollection& vc = i->second;
+    if(vc.hasLowerBound()){
+      Constraint weaker = vc.getLowerBound();
+      if(!asserted || weaker->assertedToTheTheory()){
+        return weaker;
+      }
+    }
+  }
+  return NullConstraint;
+}
+
+Constraint ConstraintValue::getStrictlyWeakerUpperBound(bool asserted) const {
+  SortedConstraintMapConstIterator i = d_variablePosition;
+  const SortedConstraintMap& scm = constraintSet();
+  SortedConstraintMapConstIterator i_end = scm.end();
+
+  ++i;
+  for(; i != i_end; ++i){
+    const ValueCollection& vc = i->second;
+    if(vc.hasUpperBound()){
+      Constraint weaker = vc.getUpperBound();
+      if(!asserted || weaker->assertedToTheTheory()){
+        return weaker;
+      }
+    }
+  }
+
+  return NullConstraint;
+}
+
+Node ConstraintDatabase::eeExplain(const ConstraintValue* const c) const{
   Assert(c->hasLiteral());
   return d_differenceManager.explain(c->getLiteral());
 }
 
-void ConstraintDatabase::eeExplain(const ConstraintValue* const c, NodeBuilder<>& nb){
+void ConstraintDatabase::eeExplain(const ConstraintValue* const c, NodeBuilder<>& nb) const{
   Assert(c->hasLiteral());
   d_differenceManager.explain(c->getLiteral(), nb);
 }
 
-bool ConstraintDatabase::variableDatabaseIsSetup(ArithVar v){
+bool ConstraintDatabase::variableDatabaseIsSetup(ArithVar v) const {
   return v < d_varDatabases.size();
 }
+
 
 ConstraintDatabase::Watches::Watches(context::Context* satContext, context::Context* userContext):
   d_proofWatches(satContext),

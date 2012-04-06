@@ -59,7 +59,6 @@ const uint32_t RESET_START = 2;
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, u, out, valuation),
   d_hasDoneWorkSinceCut(false),
-  //d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
   d_constantIntegerVariables(c),
@@ -76,7 +75,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_atomDatabase(c, out),
   d_apm(d_arithvarNodeMap, d_atomDatabase, valuation),
   d_differenceManager(c, d_constraintDatabase),
-  d_simplex(d_apm, d_linEq),
+  d_simplex(d_linEq),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_differenceManager),
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
@@ -158,10 +157,16 @@ void TheoryArith::zeroDifferenceDetected(ArithVar x){
   Assert(d_partialModel.upperBoundIsZero(x));
   Assert(d_partialModel.lowerBoundIsZero(x));
 
-  Node lb = d_partialModel.explainLowerBound(x);
-  Node ub = d_partialModel.explainUpperBound(x);
-  Node reason = lb != ub ? lb.andNode(ub) : lb;
-  d_differenceManager.differenceIsZero(x, reason);
+  Constraint lb = d_partialModel.getLowerBoundConstraint(x);
+  Constraint ub = d_partialModel.getUpperBoundConstraint(x);
+
+  if(lb->isEquality()){
+    d_differenceManager.differenceIsZero(lb);
+  }else if(ub->isEquality()){
+    d_differenceManager.differenceIsZero(ub);
+  }else{
+    d_differenceManager.differenceIsZero(lb, ub);
+  }
 }
 
 /* procedure AssertLower( x_i >= c_i ) */
@@ -183,8 +188,8 @@ Node TheoryArith::AssertLower(Constraint constraint){
 
   int cmpToUB = d_partialModel.cmpToUpperBound(x_i, c_i);
   if(cmpToUB > 0){ //  c_i < \lowerbound(x_i)
-    Node ubc = d_partialModel.explainUpperBound(x_i);
-    Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, constraint->explain());
+    Constraint ubc = d_partialModel.getUpperBoundConstraint(x_i);
+    Node conflict = ConstraintValue::explainConjunction(ubc, constraint);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     ++(d_statistics.d_statAssertLowerConflicts);
     return conflict;
@@ -200,7 +205,9 @@ Node TheoryArith::AssertLower(Constraint constraint){
       const Constraint diseq = vc.getDisequality();
       if(diseq->isTrue()){
         const Constraint ub = vc.getUpperBound();
-        Node conflict = disequalityConflict(diseq->explain(), ub->explain(), constraint->explain());
+        Node conflict = ConstraintValue::explainConjunction(diseq, ub, constraint);
+
+        ++(d_statistics.d_statDisequalityConflicts);
         cout << " assert lower conflict " << conflict << endl;
         return conflict;
       }else if(!eq->isTrue()){
@@ -215,7 +222,7 @@ Node TheoryArith::AssertLower(Constraint constraint){
   if(d_differenceManager.isDifferenceSlack(x_i)){
     int sgn = c_i.sgn();
     if(sgn > 0){
-      d_differenceManager.differenceCannotBeZero(x_i, constraint->explain());
+      d_differenceManager.differenceCannotBeZero(constraint);
     }else if(sgn == 0 && d_partialModel.upperBoundIsZero(x_i)){
       zeroDifferenceDetected(x_i);
     }
@@ -259,8 +266,8 @@ Node TheoryArith::AssertUpper(Constraint constraint){
   // cmpToLb =  \lowerbound(x_i).cmp(c_i)
   int cmpToLB = d_partialModel.cmpToLowerBound(x_i, c_i);
   if( cmpToLB < 0 ){ //  \upperbound(x_i) < \lowerbound(x_i)
-    Node lbc = d_partialModel.explainLowerBound(x_i);
-    Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, constraint->explain());
+    Constraint lbc = d_partialModel.getLowerBoundConstraint(x_i);
+    Node conflict =  ConstraintValue::explainConjunction(lbc, constraint);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     ++(d_statistics.d_statAssertUpperConflicts);
     return conflict;
@@ -276,7 +283,7 @@ Node TheoryArith::AssertUpper(Constraint constraint){
       const Constraint eq = vc.getEquality();
       if(diseq->isTrue()){
         const Constraint ub = vc.getUpperBound();
-        Node conflict = disequalityConflict(diseq->explain(), ub->explain(), constraint->explain());
+        Node conflict = ConstraintValue::explainConjunction(diseq, ub, constraint);
         cout << " assert upper conflict " << conflict << endl;
         return conflict;
       }else if(eq->isTrue()){
@@ -292,7 +299,7 @@ Node TheoryArith::AssertUpper(Constraint constraint){
   if(d_differenceManager.isDifferenceSlack(x_i)){
     int sgn = c_i.sgn();
      if(sgn < 0){
-       d_differenceManager.differenceCannotBeZero(x_i, constraint->explain());
+       d_differenceManager.differenceCannotBeZero(constraint);
      }else if(sgn == 0 && d_partialModel.lowerBoundIsZero(x_i)){
        zeroDifferenceDetected(x_i);
      }
@@ -337,15 +344,15 @@ Node TheoryArith::AssertEquality(Constraint constraint){
   }
 
   if(cmpToUB > 0){
-    Node ubc = d_partialModel.explainUpperBound(x_i);
-    Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, constraint->explain());
+    Constraint ubc = d_partialModel.getUpperBoundConstraint(x_i);
+    Node conflict = ConstraintValue::explainConjunction(ubc, constraint);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     return conflict;
   }
 
   if(cmpToLB < 0){
-    Node lbc = d_partialModel.explainLowerBound(x_i);
-    Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, constraint->explain());
+    Constraint lbc = d_partialModel.getLowerBoundConstraint(x_i);
+    Node conflict = ConstraintValue::explainConjunction(lbc, constraint);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     return conflict;
   }
@@ -370,7 +377,7 @@ Node TheoryArith::AssertEquality(Constraint constraint){
     if(sgn == 0){
       zeroDifferenceDetected(x_i);
     }else{
-      d_differenceManager.differenceCannotBeZero(x_i, constraint->explain());
+      d_differenceManager.differenceCannotBeZero(constraint);
     }
   }
 
@@ -401,6 +408,13 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
   //Should be fine in integers
   Assert(!isInteger(x_i) || c_i.isIntegral());
 
+  if(d_differenceManager.isDifferenceSlack(x_i)){
+    int sgn = c_i.sgn();
+    if(sgn == 0){
+      d_differenceManager.differenceCannotBeZero(constraint);
+    }
+  }
+
   if(constraint->isSplit()){
     cout << "skipping already split " << constraint << endl;
     return Node::null();
@@ -412,10 +426,9 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
     const Constraint ub = vc.getUpperBound();
     if(lb->isTrue() && ub->isTrue()){
       //in conflict
-      Node lbNode = lb->explain();
-      Node ubNode = ub->explain();
       cout << "explaining" << endl;
-      return disequalityConflict(constraint->explain(), lbNode, ubNode);
+      ++(d_statistics.d_statDisequalityConflicts);
+      return ConstraintValue::explainConjunction(constraint, lb, ub);
     }else if(lb->isTrue()){
       cout << "propagate UpperBound " << constraint << lb << ub << endl;
       const Constraint negUb = ub->getNegation();
@@ -431,6 +444,7 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
     }
   }
 
+
   if(c_i == d_partialModel.getAssignment(x_i)){
     cout << "lemma now!" << endl;
     d_out->lemma(constraint->split());
@@ -445,26 +459,6 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
   }
   return Node::null();
 
-  // //  d_diseq.insert(original);
-  // d_diseq.push(constraint);
-
-  // if(d_partialModel.hasLowerBound(lhsVar) &&
-  //    d_partialModel.hasUpperBound(lhsVar)){
-  //   if(d_partialModel.getLowerBound(lhsVar) == rhsValue)
-  // }
-
-  // // Check if it conflicts with the the bounds
-  // const DeltaRational& rhsValue = c_i;
-  // if (d_partialModel.hasLowerBound(lhsVar) &&
-  //     d_partialModel.hasUpperBound(lhsVar) &&
-  //     d_partialModel.getLowerBound(lhsVar) == rhsValue &&
-  //     d_partialModel.getUpperBound(lhsVar) == rhsValue) {
-  //   Node lb = d_partialModel.getLowerConstraint(lhsVar);
-  //   Node ub = d_partialModel.getUpperConstraint(lhsVar);
-  //   return disequalityConflict(original, lb, ub);
-  // }else{
-  //   return Node::null();
-  // }
 }
 
 void TheoryArith::addSharedTerm(TNode n){
@@ -852,13 +846,6 @@ ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
 }
 
 
-Node TheoryArith::disequalityConflict(TNode eq, TNode lb, TNode ub){
-  NodeBuilder<3> conflict(kind::AND);
-  conflict << eq << lb << ub;
-  ++(d_statistics.d_statDisequalityConflicts);
-  return conflict;
-}
-
 bool TheoryArith::canSafelyAvoidEqualitySetup(TNode equality){
   Assert(equality.getKind() == EQUAL);
   return d_arithvarNodeMap.hasArithVar(equality[0]);
@@ -1006,7 +993,7 @@ Node TheoryArith::assertionCases(TNode assertion){
     Debug("arith::constraint") << "marking as constraint as self explaining " << endl;
     constraint->selfExplaining();
   }else{
-    Debug("arith::constraint") << "already has proof: " << constraint->explain() << endl;
+    Debug("arith::constraint") << "already has proof: " << constraint->explainForConflict() << endl;
   }
 
   switch(simpleKind){
@@ -1275,7 +1262,7 @@ Node TheoryArith::explain(TNode n) {
   Constraint c = d_constraintDatabase.lookup(n);
   if(c != NullConstraint){
     Assert(!c->isSelfExplaining());
-    Node exp = c->explain();
+    Node exp = c->explainForPropagation();
     cout << "constraint explanation" << n << ":" << exp << endl;
     return exp;
   }else{

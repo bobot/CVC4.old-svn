@@ -6,6 +6,7 @@
 #define __CVC4__THEORY__ARITH__DIFFERENCE_MANAGER_H
 
 #include "theory/arith/arithvar.h"
+#include "theory/arith/constraint_forward.h"
 #include "theory/uf/equality_engine.h"
 #include "context/cdo.h"
 #include "context/cdlist.h"
@@ -16,8 +17,6 @@
 namespace CVC4 {
 namespace theory {
 namespace arith {
-
-class ConstraintDatabase;
 
 class DifferenceManager {
 private:
@@ -161,13 +160,14 @@ public:
     }
   }
 
-  void differenceIsZero(ArithVar s, TNode reason){
-    assertLiteral(true, s, reason);
-  }
+  /** Assert an equality. */
+  void differenceIsZero(Constraint eq);
 
-  void differenceCannotBeZero(ArithVar s, TNode reason){
-    assertLiteral(false, s, reason);
-  }
+  /** Assert a conjunction from lb and ub. */
+  void differenceIsZero(Constraint lb, Constraint ub);
+
+  /** Assert that the value cannot be zero. */
+  void differenceCannotBeZero(Constraint c);
 
   void addSharedTerm(Node x);
 };/* class DifferenceManager */

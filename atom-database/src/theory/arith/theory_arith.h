@@ -394,11 +394,6 @@ private:
   Node assertionCases(TNode assertion);
 
   /**
-   * This is used for reporting conflicts caused by disequalities during assertionCases.
-   */
-  Node disequalityConflict(TNode eq, TNode lb, TNode ub);
-
-  /**
    * Returns the basic variable with the shorted row containg a non-basic variable.
    * If no such row exists, return ARITHVAR_SENTINEL.
    */

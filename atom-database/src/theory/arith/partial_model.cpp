@@ -20,6 +20,7 @@
 
 #include "theory/arith/partial_model.h"
 #include "util/output.h"
+#include "theory/arith/constraint.h"
 
 using namespace std;
 
@@ -41,22 +42,22 @@ ArithPartialModel::ArithPartialModel(context::Context* c)
 
 Node ArithPartialModel::explainUpperBound(ArithVar x) const{
   AssertArgument(hasUpperBound(x), "Must have an upperbound to explain!");
-  return getUpperBoundConstraint(x)->explain();
+  return getUpperBoundConstraint(x)->explainForConflict();
 }
 
 void ArithPartialModel::explainUpperBound(ArithVar x, NodeBuilder<>& nb) const{
   AssertArgument(hasUpperBound(x), "Must have an upperbound to explain!");
-  return getUpperBoundConstraint(x)->explain(nb);
+  getUpperBoundConstraint(x)->explainInto(nb);
 }
 
 Node ArithPartialModel::explainLowerBound(ArithVar x) const{
   AssertArgument(hasLowerBound(x), "Must have a lower bound to explain!");
-  return getLowerBoundConstraint(x)->explain();
+  return getLowerBoundConstraint(x)->explainForConflict();
 }
 
 void ArithPartialModel::explainLowerBound(ArithVar x, NodeBuilder<>& nb) const{
   AssertArgument(hasLowerBound(x), "Must have a lower bound to explain!");
-  return getLowerBoundConstraint(x)->explain(nb);
+  getLowerBoundConstraint(x)->explainInto(nb);
 }
 
 bool ArithPartialModel::boundsAreEqual(ArithVar x) const{

@@ -27,7 +27,7 @@
 
 #include "theory/arith/arithvar.h"
 #include "theory/arith/delta_rational.h"
-#include "theory/arith/constraint.h"
+#include "theory/arith/constraint_forward.h"
 
 
 #include <vector>

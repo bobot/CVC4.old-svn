@@ -33,13 +33,11 @@ static const uint32_t NUM_CHECKS = 10;
 static const bool CHECK_AFTER_PIVOT = true;
 static const uint32_t VARORDER_CHECK_PERIOD = 200;
 
-SimplexDecisionProcedure::SimplexDecisionProcedure(APM& propManager,
-                                                   LinearEqualityModule& linEq) :
+SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq) :
   d_linEq(linEq),
   d_partialModel(d_linEq.getPartialModel()),
   d_tableau(d_linEq.getTableau()),
   d_queue(d_partialModel, d_tableau),
-  d_propManager(propManager),
   d_numVariables(0),
   d_delayedLemmas(),
   d_pivotsInRound(),
@@ -400,28 +398,38 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
 
 
-Node SimplexDecisionProcedure::weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic){
+Constraint SimplexDecisionProcedure::weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic){
 
   int sgn = coeff.sgn();
   bool ub = aboveUpper?(sgn < 0) : (sgn > 0);
-#warning "revisit"
-  Node exp = ub ?
-    d_partialModel.explainUpperBound(v) :
-    d_partialModel.explainLowerBound(v);
-  DeltaRational bound = ub?
-    d_partialModel.getUpperBound(v) :
-    d_partialModel.getLowerBound(v);
+
+  Constraint c = ub ?
+    d_partialModel.getUpperBoundConstraint(v) :
+    d_partialModel.getLowerBoundConstraint(v);
+
+// #warning "revisit"
+//   Node exp = ub ?
+//     d_partialModel.explainUpperBound(v) :
+//     d_partialModel.explainLowerBound(v);
 
   bool weakened;
   do{
+    const DeltaRational& bound = c->getValue();
+
     weakened = false;
 
-    Node weaker = ub?
-      d_propManager.strictlyWeakerAssertedUpperBound(v, bound):
-      d_propManager.strictlyWeakerAssertedLowerBound(v, bound);
+    Constraint weaker = ub?
+      c->getStrictlyWeakerUpperBound(true):
+      c->getStrictlyWeakerLowerBound(true);
 
-    if(!weaker.isNull()){
-      DeltaRational weakerBound = asDeltaRational(weaker);
+    // Node weaker = ub?
+    //   d_propManager.strictlyWeakerAssertedUpperBound(v, bound):
+    //   d_propManager.strictlyWeakerAssertedLowerBound(v, bound);
+
+    if(weaker != NullConstraint){
+    //if(!weaker.isNull()){
+      const DeltaRational& weakerBound = weaker->getValue();
+      //DeltaRational weakerBound = asDeltaRational(weaker);
 
       DeltaRational diff = aboveUpper ? bound - weakerBound : weakerBound - bound;
       //if var == basic,
@@ -439,36 +447,16 @@ Node SimplexDecisionProcedure::weakestExplanation(bool aboveUpper, DeltaRational
           Debug("weak") << "  basic: ";
         }
         Debug("weak") << "  " << surplus << " "<< diff  << endl
-                      << "  " << bound << exp << endl
+                      << "  " << bound << c << endl
                       << "  " << weakerBound << weaker << endl;
 
-        if(exp.getKind() == AND){
-          Debug("weak") << "VICTORY" << endl;
-        }
-
         Assert(diff > d_DELTA_ZERO);
-        exp = weaker;
-        bound = weakerBound;
+        c = weaker;
       }
     }
   }while(weakened);
 
-  if(exp.getKind() == AND){
-    Debug("weak") << "boo: " << exp << endl;
-  }
-  return exp;
-}
-
-void flattenAndAgain(Node n, NodeBuilder<>& out){
-  Assert(n.getKind() == kind::AND);
-  for(Node::iterator i=n.begin(), i_end=n.end(); i != i_end; ++i){
-    Node curr = *i;
-    if(curr.getKind() == kind::AND){
-      flattenAndAgain(curr, out);
-    }else{
-      out << curr;
-    }
-  }
+  return c;
 }
 
 Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar){
@@ -492,13 +480,15 @@ Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar
     const TableauEntry& entry = *i;
     ArithVar v = entry.getColVar();
     const Rational& coeff = entry.getCoefficient();
-    Node wexp = weakestExplanation(aboveUpper, surplus, v, coeff, anyWeakenings, basicVar);
+    bool weakening = false;
+    Constraint c = weakestExplanation(aboveUpper, surplus, v, coeff, weakening, basicVar);
+    cout << "weak : " << weakening << " " << c->assertedToTheTheory()
+         << c << endl
+         << c->explainForConflict() << endl;
+    anyWeakenings = anyWeakenings || weakening;
 
-    if(wexp.getKind() == AND){
-      flattenAndAgain(wexp, conflict);
-    }else{
-      conflict << wexp;
-    }
+    Debug("weak") << "weak : " << c->explainForConflict() << endl;
+    c->explainInto(conflict);
   }
   ++d_statistics.d_weakeningAttempts;
   if(anyWeakenings){
