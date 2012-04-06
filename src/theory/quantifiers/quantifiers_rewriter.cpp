@@ -64,7 +64,7 @@ RewriteResponse QuantifiersRewriter::postRewrite(TNode in) {
 }
 
 Node QuantifiersRewriter::computeVarElimination( Node n ){
-  std::cout << "Compute var elimination for " << n << std::endl;
+  //std::cout << "Compute var elimination for " << n << std::endl;
   std::map< Node, bool > args;
   for( int i=0; i<(int)n[0].getNumChildren(); i++ ){
     args[ n[0][i] ] = true;
@@ -75,22 +75,35 @@ Node QuantifiersRewriter::computeVarElimination( Node n ){
   std::vector< Node > vars;
   std::vector< Node > subs;
   for( std::map< Node, bool >::iterator it = litPhaseReq.begin(); it != litPhaseReq.end(); ++it ){
-    std::cout << "   " << it->first << " -> " << ( it->second ? "true" : "false" ) << std::endl;
+    //std::cout << "   " << it->first << " -> " << ( it->second ? "true" : "false" ) << std::endl;
     if( it->first.getKind()==EQUAL ){
       if( it->second ){
         if( args.find( it->first[0] )!=args.end() && args[ it->first[0] ] ){
-          args[ it->first[0] ] = false;
-          vars.push_back( it->first[0] );
-          subs.push_back( it->first[1] );
+          std::vector< Node > temp;
+          temp.push_back( it->first[0] );
+          if( !hasArg( temp, it->first[1] ) ){
+            args[ it->first[0] ] = false;
+            vars.push_back( it->first[0] );
+            subs.push_back( it->first[1] );
+          }
         }else if( args.find( it->first[1] )!=args.end() && args[ it->first[1] ] ){
-          args[ it->first[1] ] = false;
-          vars.push_back( it->first[1] );
-          subs.push_back( it->first[0] );
+          std::vector< Node > temp;
+          temp.push_back( it->first[1] );
+          if( !hasArg( temp, it->first[0] ) ){
+            args[ it->first[1] ] = false;
+            vars.push_back( it->first[1] );
+            subs.push_back( it->first[0] );
+          }
         }
       }
     }
   }
   if( !vars.empty() ){
+    //std::cout << "VE" << vars.size() << "/" << n[0].getNumChildren() << std::endl;
+    //substitute for substituted nodes
+    for( int i=1; i<(int)vars.size(); i++ ){
+      subs[i] = subs[i].substitute( vars.begin(), vars.begin() + i, subs.begin(), subs.begin() + i );
+    }
     //remake with eliminated nodes
     std::vector< Node > argsVec;
     for( std::map< Node, bool >::iterator it = args.begin(); it != args.end(); ++it ){
@@ -293,6 +306,9 @@ Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node body, Node i
         Debug("quantifiers-rewrite-var-elim") << "var elimination: rewrite " << prev << std::endl;
         Debug("quantifiers-rewrite") << " to " << std::endl;
         Debug("quantifiers-rewrite") << n << std::endl;
+        //std::cout << "var elimination: rewrite " << prev << std::endl;
+        //std::cout << " to " << std::endl;
+        //std::cout << n << std::endl;
       }
     }
     return n;

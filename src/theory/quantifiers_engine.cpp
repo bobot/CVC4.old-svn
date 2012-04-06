@@ -325,7 +325,6 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 }
 
 bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits ){
-#if 1
   m.makeComplete( f, this );
   m.makeRepresentative( d_eq_query );
   Debug("quant-duplicate") << "After make rep: " << m << std::endl;
@@ -337,11 +336,12 @@ bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits )
   Debug("quant-duplicate") << " -> Does not exist." << std::endl;
   std::vector< Node > match;
   m.computeTermVec( d_inst_constants[f], match );
-#else
-  m.makeRepresentative( d_eq_query );
-  std::vector< Node > match;
-  m.computeTermVec( this, d_inst_constants[f], match );
-#endif
+
+  //old....
+  //m.makeRepresentative( d_eq_query );
+  //std::vector< Node > match;
+  //m.computeTermVec( this, d_inst_constants[f], match );
+
   //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
   //for( int i=0; i<(int)m->d_match.size(); i++ ){
   //  std::cout << "   " << m->d_match[i] << std::endl;
@@ -372,7 +372,7 @@ bool QuantifiersEngine::addSplit( Node n, bool reqPhase, bool reqPhasePol ){
   Node lem = NodeManager::currentNM()->mkNode( OR, n, n.notNode() );
   if( addLemma( lem ) ){
     ++(d_statistics.d_splits);
-    Debug("inst-engine") << "*** Add split " << n<< std::endl;
+    Debug("inst") << "*** Add split " << n<< std::endl;
     //if( reqPhase ){
     //  d_curr_out->requirePhase( n, reqPhasePol );
     //}
@@ -655,7 +655,11 @@ Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){
       Rational z(0);
       d_free_vars[tn] = NodeManager::currentNM()->mkConst( z );
     }else{
-      d_free_vars[tn] = NodeManager::currentNM()->mkVar( tn );
+      if( d_term_db->d_type_map[ tn ].empty() ){
+        d_free_vars[tn] = NodeManager::currentNM()->mkVar( tn );
+      }else{
+        d_free_vars[tn] =d_term_db->d_type_map[ tn ][ 0 ];
+      }
     }
   }
   return d_free_vars[tn];

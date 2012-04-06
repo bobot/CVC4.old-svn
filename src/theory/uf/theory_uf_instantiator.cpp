@@ -164,19 +164,23 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
   //int peffort = 1;
   if( e<peffort ){
     return STATUS_UNFINISHED;
-  }else if( e==peffort ){
+  }else{
     bool gen = false;
-    if( d_counter.find( f )==d_counter.end() ){
-      d_counter[f] = 0;
-      gen = true;
+    if( e==peffort ){
+      if( d_counter.find( f )==d_counter.end() ){
+        d_counter[f] = 0;
+        gen = true;
+      }else{
+        d_counter[f]++;
+        gen = d_regenerate && d_counter[f]%d_regenerate_frequency==0;
+      }
     }else{
-      d_counter[f]++;
-      gen = d_regenerate && d_counter[f]%d_regenerate_frequency==0;
+      gen = true;
     }
     if( gen ){
       generateTriggers( f );
     }
-    Debug("quant-uf-strategy")  << "Try auto-generated triggers... " << d_tr_strategy << std::endl;
+    Debug("quant-uf-strategy")  << "Try auto-generated triggers... " << d_tr_strategy << " " << e << std::endl;
     //std::cout << "Try auto-generated triggers..." << std::endl;
     for( std::map< Trigger*, bool >::iterator itt = d_auto_gen_trigger[f].begin(); itt != d_auto_gen_trigger[f].end(); ++itt ){
       Trigger* tr = itt->first;
@@ -215,13 +219,19 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
 }
 
 void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
- // Debug("auto-gen-trigger") << "Generate trigger for " << f << std::endl;
+  Debug("auto-gen-trigger") << "Generate trigger for " << f << std::endl;
   if( d_patTerms[0].find( f )==d_patTerms[0].end() ){
     //determine all possible pattern terms based on trigger term selection strategy d_tr_strategy
     d_patTerms[0][f].clear();
     d_patTerms[1][f].clear();
     std::vector< Node > patTermsF;
     Trigger::collectPatTerms( d_quantEngine, f, d_quantEngine->getCounterexampleBody( f ), patTermsF, d_tr_strategy, true );
+    Debug("auto-gen-trigger") << "Collected pat terms for " << d_quantEngine->getCounterexampleBody( f ) << std::endl;
+    Debug("auto-gen-trigger") << "   ";
+    for( int i=0; i<(int)patTermsF.size(); i++ ){
+      Debug("auto-gen-trigger") << patTermsF[i] << " ";
+    }
+    Debug("auto-gen-trigger") << std::endl;
     //extend to literal matching
     d_quantEngine->getPhaseReqTerms( f, patTermsF );
     //sort into single/multi triggers
@@ -238,11 +248,13 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
     }
     d_made_multi_trigger[f] = false;
     Debug("auto-gen-trigger") << "Single triggers for " << f << " : " << std::endl;
+    Debug("auto-gen-trigger") << "   ";
     for( int i=0; i<(int)d_patTerms[0][f].size(); i++ ){
       Debug("auto-gen-trigger") << d_patTerms[0][f][i] << " ";
     }
     Debug("auto-gen-trigger") << std::endl;
     Debug("auto-gen-trigger") << "Multi-trigger term pool for " << f << " : " << std::endl;
+    Debug("auto-gen-trigger") << "   ";
     for( int i=0; i<(int)d_patTerms[1][f].size(); i++ ){
       Debug("auto-gen-trigger") << d_patTerms[1][f][i] << " ";
     }
@@ -351,6 +363,31 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
   }
 }
 
+void InstStrategyAddFailSplits::processResetInstantiationRound( Theory::Effort effort ){
+  
+}
+
+int InstStrategyAddFailSplits::process( Node f, Theory::Effort effort, int e, int instLimit ){
+  if( e<4 ){
+    return STATUS_UNFINISHED;
+  }else{
+    for( std::map< Node, std::map< Node, std::vector< InstMatchGenerator* > > >::iterator it = InstMatchGenerator::d_match_fails.begin(); 
+         it != InstMatchGenerator::d_match_fails.end(); ++it ){
+      for( std::map< Node, std::vector< InstMatchGenerator* > >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
+        if( !it2->second.empty() ){
+          Node n1 = it->first;
+          Node n2 = it2->first;
+          if( !d_quantEngine->getEqualityQuery()->areEqual( n1, n2 ) && !d_quantEngine->getEqualityQuery()->areDisequal( n1, n2 ) ){
+            d_quantEngine->addSplitEquality( n1, n2, true );
+          }
+          it2->second.clear();
+        }
+      }
+    }
+    return STATUS_UNKNOWN;
+  }
+}
+
 void InstStrategyFreeVariable::processResetInstantiationRound( Theory::Effort effort ){
   
 }
@@ -386,6 +423,7 @@ void UfTermDb::add( Node n, std::vector< Node >& added, bool withinQuant ){
         Debug("uf-term-db") << "register term " << n << std::endl;
 
         d_op_map[op].push_back( n );
+        d_type_map[ n.getType() ].push_back( n );
         added.push_back( n );
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
           add( n[i], added, withinQuant );
@@ -406,7 +444,6 @@ void UfTermDb::add( Node n, std::vector< Node >& added, bool withinQuant ){
         }
         if( Options::current()->efficientEMatching ){
           //check if congruent to preexisting node
-          bool congruent = false;
           //for( int i=0; i<(int)d_op_map[op].size(); i++ ){
           //  Node np = d_op_map[op][i];
           //  bool ncong = false;
@@ -421,12 +458,10 @@ void UfTermDb::add( Node n, std::vector< Node >& added, bool withinQuant ){
           //    break;
           //  }
           //}
-          if( !congruent ){
-            //std::cout << "Add candidate (NEW) " << n << std::endl;
-            //new term, add n to candidate generators
-            for( int i=0; i<(int)d_ith->d_cand_gens[op].size(); i++ ){
-              d_ith->d_cand_gens[op][i]->addCandidate( n );
-            }
+          //std::cout << "Add candidate (NEW) " << n << std::endl;
+          //new term, add n to candidate generators
+          for( int i=0; i<(int)d_ith->d_cand_gens[op].size(); i++ ){
+            d_ith->d_cand_gens[op][i]->addCandidate( n );
           }
         }
       }
@@ -498,6 +533,7 @@ Instantiator( c, ie, th )
                                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT, 3 );
     i_ag->setGenerateAdditional( true );
     addInstStrategy( i_ag );
+    //addInstStrategy( new InstStrategyAddFailSplits( this, ie ) );
     addInstStrategy( new InstStrategyFreeVariable( this, ie ) );
     //d_isup->setPriorityOver( i_ag );
     //d_isup->setPriorityOver( i_agm );

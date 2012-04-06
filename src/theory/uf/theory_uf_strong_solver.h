@@ -300,12 +300,6 @@ private:
   std::map< TypeNode, std::map< TypeNode, bool > > d_type_relate;
 };/* class StrongSolverTheoryUf */
 
-
-
-
-
-
-
 }
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

@@ -440,13 +440,19 @@ int Trigger::isInstanceOf( Node n1, Node n2 ){
     return 0;
   }else if( n2.getKind()==INST_CONSTANT ){
     computeVarContains( n1 );
-    if( std::find( d_var_contains[ n1 ].begin(), d_var_contains[ n1 ].end(), n2 )!=d_var_contains[ n1 ].end() ){
+    //if( std::find( d_var_contains[ n1 ].begin(), d_var_contains[ n1 ].end(), n2 )!=d_var_contains[ n1 ].end() ){
+    //  return 1;
+    //}
+    if( d_var_contains[ n1 ].size()==1 && d_var_contains[ n1 ][ 0 ]==n2 ){
       return 1;
     }
   }else if( n1.getKind()==INST_CONSTANT ){
     computeVarContains( n2 );
-    if( std::find( d_var_contains[ n2 ].begin(), d_var_contains[ n2 ].end(), n1 )!=d_var_contains[ n2 ].end() ){
-      return -1;
+    //if( std::find( d_var_contains[ n2 ].begin(), d_var_contains[ n2 ].end(), n1 )!=d_var_contains[ n2 ].end() ){
+    //  return -1;
+    //}
+    if( d_var_contains[ n2 ].size()==1 && d_var_contains[ n2 ][ 0 ]==n1 ){
+      return 1;
     }
   }
   return 0;

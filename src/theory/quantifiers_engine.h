@@ -180,6 +180,8 @@ public:
   ~TermDb(){}
   /** map from APPLY_UF operators to ground terms for that operator */
   std::map< Node, std::vector< Node > > d_op_map;
+  /** map from type nodes to terms of that type */
+  std::map< TypeNode, std::vector< Node > > d_type_map;
   /** add a term to the database */
   virtual void add( Node n, std::vector< Node >& added, bool withinQuant = false ) = 0;
 };
