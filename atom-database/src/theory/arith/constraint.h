@@ -759,6 +759,18 @@ public:
   void eeExplain(ConstConstraint c, NodeBuilder<>& nb) const;
 
   /**
+   * Returns a constraint with the variable v, the constraint type t, and a value
+   * dominated by r (explained below) if such a constraint exists in the database.
+   * If no such constraint exists, NullConstraint is returned.
+   *
+   * t must be either UpperBound or LowerBound.
+   * The returned value v is dominatated:
+   *  If t is UpperBound, r <= v
+   *  If t is LowerBound, r >= v
+   */
+  Constraint getBestImpliedBound(ArithVar v, ConstraintType t, const DeltaRational& r) const;
+
+  /**
    * Returns a constraint with the variable v, the constraint type t and the value r.
    * If there is such a constraint in the database already, it is returned.
    * If there is no such constraint, this constraint is added to the database.

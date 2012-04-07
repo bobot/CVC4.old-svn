@@ -848,6 +848,66 @@ Constraint ConstraintValue::getStrictlyWeakerUpperBound(bool asserted) const {
   return NullConstraint;
 }
 
+Constraint ConstraintDatabase::getBestImpliedBound(ArithVar v, ConstraintType t, const DeltaRational& r) const {
+  Assert(variableDatabaseIsSetup(v));
+  Assert(t == UpperBound ||  t == LowerBound);
+
+  SortedConstraintMap& scm = getVariableSCM(v);
+  if(t == UpperBound){
+    SortedConstraintMapConstIterator i = scm.lower_bound(r);
+    SortedConstraintMapConstIterator i_end = scm.end();
+    Assert(i == i_end || r <= i->first);
+    for(; i != i_end; i++){
+      Assert(r <= i->first);
+      const ValueCollection& vc = i->second;
+      if(vc.hasUpperBound()){
+        return vc.getUpperBound();
+      }
+    }
+    return NullConstraint;
+  }else{
+    Assert(t == LowerBound);
+    if(scm.empty()){
+      return NullConstraint;
+    }else{
+      SortedConstraintMapConstIterator i = scm.lower_bound(r);
+      SortedConstraintMapConstIterator i_begin = scm.begin();
+      SortedConstraintMapConstIterator i_end = scm.end();
+      Assert(i == i_end || r <= i->first);
+
+      int fdj = 0;
+
+      if(i == i_end){
+        --i;
+        cout << fdj++ << " " << r << " " << i->first << endl;
+      }else if( (i->first) > r){
+        if(i == i_begin){
+          return NullConstraint;
+        }else{
+          --i;
+          cout << fdj++ << " " << r << " " << i->first << endl;
+        }
+      }
+
+      do{
+        cout << fdj++ << " " << r << " " << i->first << endl;
+        Assert(r >= i->first);
+        const ValueCollection& vc = i->second;
+
+        if(vc.hasLowerBound()){
+          return vc.getLowerBound();
+        }
+
+        if(i == i_begin){
+          break;
+        }else{
+          --i;
+        }
+      }while(true);
+      return NullConstraint;
+    }
+  }
+}
 Node ConstraintDatabase::eeExplain(const ConstraintValue* const c) const{
   Assert(c->hasLiteral());
   return d_differenceManager.explain(c->getLiteral());

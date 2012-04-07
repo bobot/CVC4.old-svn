@@ -39,46 +39,46 @@ namespace theory {
 namespace arith {
 
 
-class APM {
-private:
-  const ArithVarNodeMap& d_arithvarNodeMap;
-  const ArithAtomDatabase& d_atomDatabase;
-  Valuation d_valuation;
+// class APM {
+// private:
+//   const ArithVarNodeMap& d_arithvarNodeMap;
+//   const ArithAtomDatabase& d_atomDatabase;
+//   Valuation d_valuation;
 
-  Node boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b) const;
+//   Node boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b) const;
 
-  /**
-   * Returns true if the node has a value in sat solver in the current context.
-   * In debug mode this fails an Assert() if the node has a negative assignment.
-   */
-  bool isAsserted(TNode n) const;
+//   /**
+//    * Returns true if the node has a value in sat solver in the current context.
+//    * In debug mode this fails an Assert() if the node has a negative assignment.
+//    */
+//   bool isAsserted(TNode n) const;
 
-  bool containsLiteral(TNode n) const {
-    return d_atomDatabase.containsLiteral(n);
-  }
+//   bool containsLiteral(TNode n) const {
+//     return d_atomDatabase.containsLiteral(n);
+//   }
 
-public:
-  APM(const ArithVarNodeMap& map,
-                   const ArithAtomDatabase& db,
-                   Valuation v):
-    d_arithvarNodeMap(map), d_atomDatabase(db), d_valuation(v)
-  {}
+// public:
+//   APM(const ArithVarNodeMap& map,
+//                    const ArithAtomDatabase& db,
+//                    Valuation v):
+//     d_arithvarNodeMap(map), d_atomDatabase(db), d_valuation(v)
+//   {}
 
 
-  Node strictlyWeakerLowerBound(TNode n) const{
-    return d_atomDatabase.getWeakerImpliedLowerBound(n);
-  }
-  Node strictlyWeakerUpperBound(TNode n) const{
-    return d_atomDatabase.getWeakerImpliedUpperBound(n);
-  }
+//   Node strictlyWeakerLowerBound(TNode n) const{
+//     return d_atomDatabase.getWeakerImpliedLowerBound(n);
+//   }
+//   Node strictlyWeakerUpperBound(TNode n) const{
+//     return d_atomDatabase.getWeakerImpliedUpperBound(n);
+//   }
 
-  Node strictlyWeakerAssertedUpperBound(ArithVar v, const DeltaRational& b) const;
+//   Node strictlyWeakerAssertedUpperBound(ArithVar v, const DeltaRational& b) const;
 
-  Node strictlyWeakerAssertedLowerBound(ArithVar v, const DeltaRational& b) const;
+//   Node strictlyWeakerAssertedLowerBound(ArithVar v, const DeltaRational& b) const;
 
-  Node getBestImpliedLowerBound(ArithVar v, const DeltaRational& b) const;
-  Node getBestImpliedUpperBound(ArithVar v, const DeltaRational& b) const;
-};
+//   Node getBestImpliedLowerBound(ArithVar v, const DeltaRational& b) const;
+//   Node getBestImpliedUpperBound(ArithVar v, const DeltaRational& b) const;
+// };
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

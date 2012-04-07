@@ -91,9 +91,6 @@ private:
   /** Contains a superset of the basic variables in violation of their bounds. */
   ArithPriorityQueue d_queue;
 
-  /** A link to the propagation manager. This is used to generate weaker conflicts. */
-  //APM& d_propManager;
-
   /** Number of variables in the system. This is used for tuning heuristics. */
   ArithVar d_numVariables;
 

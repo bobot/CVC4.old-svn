@@ -73,7 +73,6 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
   d_atomDatabase(c, out),
-  d_apm(d_arithvarNodeMap, d_atomDatabase, valuation),
   d_differenceManager(c, d_constraintDatabase),
   d_simplex(d_linEq),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_differenceManager),
@@ -1609,23 +1608,40 @@ bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
 
   if((upperBound && d_partialModel.strictlyLessThanUpperBound(basic, bound)) ||
      (!upperBound && d_partialModel.strictlyGreaterThanLowerBound(basic, bound))){
-    Node bestImplied = upperBound ?
-      d_apm.getBestImpliedUpperBound(basic, bound):
-      d_apm.getBestImpliedLowerBound(basic, bound);
 
-    if(!bestImplied.isNull()){
+#warning "Policy point"
+    //We are only going to recreate the functionality for now.
+    //In the future this can be improved to generate a temporary constraint
+    //if none exists.
+    //Experiment with doing this everytime or only when the new constraint
+    //implies an unknown fact.
+
+    ConstraintType t = upperBound ? UpperBound : LowerBound;
+    Constraint bestImplied = d_constraintDatabase.getBestImpliedBound(basic, t, bound);
+
+    // Node bestImplied = upperBound ?
+    //   d_apm.getBestImpliedUpperBound(basic, bound):
+    //   d_apm.getBestImpliedLowerBound(basic, bound);
+
+    if(bestImplied != NullConstraint){
+      //This should be stronger
+      Assert(!upperBound || bound <= bestImplied->getValue());
+      Assert(!upperBound || d_partialModel.lessThanUpperBound(basic, bestImplied->getValue()));
+
+      Assert( upperBound || bound >= bestImplied->getValue());
+      Assert( upperBound || d_partialModel.greaterThanLowerBound(basic, bestImplied->getValue()));
       //slightly changed
 
-      Constraint c = d_constraintDatabase.lookup(bestImplied);
-      Assert(c != NullConstraint);
+      // Constraint c = d_constraintDatabase.lookup(bestImplied);
+      // Assert(c != NullConstraint);
 
-      bool assertedValuation = valuationIsAsserted(bestImplied);
-      bool assertedToTheTheory = c->assertedToTheTheory();
-      bool canBePropagated = c->canBePropagated();
-      bool hasProof = c->hasProof();
+      //bool assertedValuation = valuationIsAsserted(bestImplied->getLiteral());
+      bool assertedToTheTheory = bestImplied->assertedToTheTheory();
+      bool canBePropagated = bestImplied->canBePropagated();
+      bool hasProof = bestImplied->hasProof();
 
       Debug("arith::prop") << "arith::prop" << basic
-                           << " " << assertedValuation
+        //<< " " << assertedValuation
                            << " " << assertedToTheTheory
                            << " " << canBePropagated
                            << " " << hasProof
@@ -1633,9 +1649,11 @@ bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
 
       if(!assertedToTheTheory && canBePropagated && !hasProof ){
         if(upperBound){
-          d_linEq.propagateNonbasicsUpperBound(basic, c);
+          Assert(bestImplied != d_partialModel.getUpperBoundConstraint(basic));
+          d_linEq.propagateNonbasicsUpperBound(basic, bestImplied);
         }else{
-          d_linEq.propagateNonbasicsLowerBound(basic, c);
+          Assert(bestImplied != d_partialModel.getLowerBoundConstraint(basic));
+          d_linEq.propagateNonbasicsLowerBound(basic, bestImplied);
         }
         return true;
       }

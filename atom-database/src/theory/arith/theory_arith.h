@@ -220,9 +220,6 @@ private:
    */
   ArithAtomDatabase d_atomDatabase;
 
-  /** This manager keeps track of information needed to propagate. */
-  APM d_apm;
-
   /** This keeps track of difference equalities. Mostly for sharing. */
   DifferenceManager d_differenceManager;
 

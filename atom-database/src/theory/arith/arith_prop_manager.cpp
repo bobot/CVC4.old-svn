@@ -34,89 +34,89 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-bool APM::isAsserted(TNode n) const{
-  Node satValue = d_valuation.getSatValue(n);
-  if(satValue.isNull()){
-    return false;
-  }else{
-    //Assert(satValue.getConst<bool>());
-    return true;
-  }
-}
+// bool APM::isAsserted(TNode n) const{
+//   Node satValue = d_valuation.getSatValue(n);
+//   if(satValue.isNull()){
+//     return false;
+//   }else{
+//     //Assert(satValue.getConst<bool>());
+//     return true;
+//   }
+// }
 
 
-Node APM::strictlyWeakerAssertedUpperBound(ArithVar v, const DeltaRational& b) const{
-  Node bound = boundAsNode(true, v, b);
+// Node APM::strictlyWeakerAssertedUpperBound(ArithVar v, const DeltaRational& b) const{
+//   Node bound = boundAsNode(true, v, b);
 
-  Assert(b.getInfinitesimalPart() <= 0);
-  bool largeEpsilon = (b.getInfinitesimalPart() < -1);
+//   Assert(b.getInfinitesimalPart() <= 0);
+//   bool largeEpsilon = (b.getInfinitesimalPart() < -1);
 
-  Node weaker = bound;
-  do {
-    if(largeEpsilon){
-      weaker = d_atomDatabase.getBestImpliedUpperBound(weaker);
-      largeEpsilon = false;
-    }else{
-      weaker = d_atomDatabase.getWeakerImpliedUpperBound(weaker);
-    }
-  }while(!weaker.isNull() && !isAsserted(weaker));
-  return weaker;
-}
+//   Node weaker = bound;
+//   do {
+//     if(largeEpsilon){
+//       weaker = d_atomDatabase.getBestImpliedUpperBound(weaker);
+//       largeEpsilon = false;
+//     }else{
+//       weaker = d_atomDatabase.getWeakerImpliedUpperBound(weaker);
+//     }
+//   }while(!weaker.isNull() && !isAsserted(weaker));
+//   return weaker;
+// }
 
-Node APM::strictlyWeakerAssertedLowerBound(ArithVar v, const DeltaRational& b) const{
-  Debug("APM") << "strictlyWeakerAssertedLowerBound" << endl;
-  Node bound = boundAsNode(false, v, b);
+// Node APM::strictlyWeakerAssertedLowerBound(ArithVar v, const DeltaRational& b) const{
+//   Debug("APM") << "strictlyWeakerAssertedLowerBound" << endl;
+//   Node bound = boundAsNode(false, v, b);
 
-  Assert(b.getInfinitesimalPart() >= 0);
-  bool largeEpsilon = (b.getInfinitesimalPart() > 1);
+//   Assert(b.getInfinitesimalPart() >= 0);
+//   bool largeEpsilon = (b.getInfinitesimalPart() > 1);
 
-  Node weaker = bound;
-  Debug("APM") << bound << b << endl;
-  do {
-    if(largeEpsilon){
-      weaker = d_atomDatabase.getBestImpliedLowerBound(weaker);
-      largeEpsilon = false;
-    }else{
-      weaker = d_atomDatabase.getWeakerImpliedLowerBound(weaker);
-    }
-  }while(!weaker.isNull() && !isAsserted(weaker));
-  Debug("APM") << "res: " << weaker << endl;
-  return weaker;
-}
+//   Node weaker = bound;
+//   Debug("APM") << bound << b << endl;
+//   do {
+//     if(largeEpsilon){
+//       weaker = d_atomDatabase.getBestImpliedLowerBound(weaker);
+//       largeEpsilon = false;
+//     }else{
+//       weaker = d_atomDatabase.getWeakerImpliedLowerBound(weaker);
+//     }
+//   }while(!weaker.isNull() && !isAsserted(weaker));
+//   Debug("APM") << "res: " << weaker << endl;
+//   return weaker;
+// }
 
-Node APM::getBestImpliedLowerBound(ArithVar v, const DeltaRational& b) const{
-  Node bound = boundAsNode(false, v, b);
-  return d_atomDatabase.getBestImpliedLowerBound(bound);
-}
-Node APM::getBestImpliedUpperBound(ArithVar v, const DeltaRational& b) const{
-  Node bound = boundAsNode(true, v, b);
-  return d_atomDatabase.getBestImpliedUpperBound(bound);
-}
+// Node APM::getBestImpliedLowerBound(ArithVar v, const DeltaRational& b) const{
+//   Node bound = boundAsNode(false, v, b);
+//   return d_atomDatabase.getBestImpliedLowerBound(bound);
+// }
+// Node APM::getBestImpliedUpperBound(ArithVar v, const DeltaRational& b) const{
+//   Node bound = boundAsNode(true, v, b);
+//   return d_atomDatabase.getBestImpliedUpperBound(bound);
+// }
 
-Node APM::boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b) const {
-  Assert((!upperbound) || (b.getInfinitesimalPart() <= 0) );
-  Assert(upperbound || (b.getInfinitesimalPart() >= 0) );
+// Node APM::boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b) const {
+//   Assert((!upperbound) || (b.getInfinitesimalPart() <= 0) );
+//   Assert(upperbound || (b.getInfinitesimalPart() >= 0) );
 
-  Node varAsNode = d_arithvarNodeMap.asNode(var);
-  Kind kind;
-  bool negate;
-  if(upperbound){
-    negate = b.getInfinitesimalPart() < 0;
-    kind = negate ? GEQ : LEQ;
-  } else{
-    negate = b.getInfinitesimalPart() > 0;
-    kind = negate ? LEQ : GEQ;
-  }
+//   Node varAsNode = d_arithvarNodeMap.asNode(var);
+//   Kind kind;
+//   bool negate;
+//   if(upperbound){
+//     negate = b.getInfinitesimalPart() < 0;
+//     kind = negate ? GEQ : LEQ;
+//   } else{
+//     negate = b.getInfinitesimalPart() > 0;
+//     kind = negate ? LEQ : GEQ;
+//   }
 
-  Node righthand = mkRationalNode(b.getNoninfinitesimalPart());
-  Node bAsNode = NodeBuilder<2>(kind) << varAsNode << righthand;
+//   Node righthand = mkRationalNode(b.getNoninfinitesimalPart());
+//   Node bAsNode = NodeBuilder<2>(kind) << varAsNode << righthand;
 
-  if(negate){
-    bAsNode = NodeBuilder<1>(NOT) << bAsNode;
-  }
+//   if(negate){
+//     bAsNode = NodeBuilder<1>(NOT) << bAsNode;
+//   }
 
-  return bAsNode;
-}
+//   return bAsNode;
+// }
 
 }; /* namesapce arith */
 }; /* namespace theory */
