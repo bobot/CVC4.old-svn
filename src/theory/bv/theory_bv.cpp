@@ -32,7 +32,7 @@ using namespace std;
 using namespace CVC4::theory::bv::utils;
 
 
-const bool d_useEqualityEngine = true;
+const bool d_useEqualityEngine = false;
 const bool d_useSatPropagation = true;
 
 
@@ -139,71 +139,77 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 }
 
-void TheoryBV::check(Effort e) {
+void TheoryBV::check(Effort e)
+{
+  BVDebug("bitvector") << "TheoryBV::check " << e << "\n"; 
+  BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
+  while (!done() && !d_conflict) {
+    Assertion assertion = get();
+    TNode fact = assertion.assertion;
 
-  if (e == EFFORT_STANDARD) {
-    BVDebug("bitvector") << "TheoryBV::check " << e << "\n"; 
-    BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
-    while (!done() && !d_conflict) {
-      Assertion assertion = get();
-      TNode fact = assertion.assertion;
+    BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << fact << "\n"; 
 
-      BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << fact << "\n"; 
+    // If the assertion doesn't have a literal, it's a shared equality
+    bool shared = !assertion.isPreregistered;
+    Assert(!d_useEqualityEngine || !shared ||
+           ((fact.getKind() == kind::EQUAL && d_equalityEngine.hasTerm(fact[0]) && d_equalityEngine.hasTerm(fact[1])) ||
+            (fact.getKind() == kind::NOT && fact[0].getKind() == kind::EQUAL &&
+             d_equalityEngine.hasTerm(fact[0][0]) && d_equalityEngine.hasTerm(fact[0][1]))));
 
-      // If the assertion doesn't have a literal, it's a shared equality
-      bool shared = !assertion.isPreregistered;
-      Assert(!shared ||
-             ((fact.getKind() == kind::EQUAL && d_equalityEngine.hasTerm(fact[0]) && d_equalityEngine.hasTerm(fact[1])) ||
-              (fact.getKind() == kind::NOT && fact[0].getKind() == kind::EQUAL &&
-               d_equalityEngine.hasTerm(fact[0][0]) && d_equalityEngine.hasTerm(fact[0][1]))));
-
-      // Notify the Equality Engine
-      switch (fact.getKind()) {
-        case kind::EQUAL:
+    // Notify the Equality Engine
+    switch (fact.getKind()) {
+      case kind::EQUAL:
+        if (d_useEqualityEngine) {
           d_equalityEngine.addEquality(fact[0], fact[1], fact);
-          if (shared && !d_bitblaster->hasBBAtom(fact)) {
-            d_bitblaster->bitblast(fact);
-            d_bitblaster->addAtom(fact); 
-          }
-          break;
-        case kind::NOT:
-          if (fact[0].getKind() == kind::EQUAL) {
-            // Assert the dis-equality
+        }
+        if (shared && !d_bitblaster->hasBBAtom(fact)) {
+          d_bitblaster->bitblast(fact);
+          d_bitblaster->addAtom(fact); 
+        }
+        break;
+      case kind::NOT:
+        if (fact[0].getKind() == kind::EQUAL) {
+          // Assert the dis-equality
+          if (d_useEqualityEngine) {
             d_equalityEngine.addDisequality(fact[0][0], fact[0][1], fact);
-            if (shared && !d_bitblaster->hasBBAtom(fact[0])) {
-              d_bitblaster->bitblast(fact[0]);
-              d_bitblaster->addAtom(fact[0]); 
-            }
-          } else {
-            d_equalityEngine.addPredicate(fact[0], false, fact);
-            break;
           }
-          break;
-        default:
-          d_equalityEngine.addPredicate(fact, true, fact);
-          break;
-      }
-
-      // make sure we do not assert things we propagated 
-      if (!d_conflict && d_alreadyPropagatedSet.count(fact) == 0) {
-        bool ok = d_bitblaster->assertToSat(fact, d_useSatPropagation);
-        if (!ok) {
-          std::vector<TNode> conflictAtoms;
-          d_bitblaster->getConflict(conflictAtoms);
-          d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
-          d_conflict = true;
-          d_conflictNode = mkConjunction(conflictAtoms);
+          if (shared && !d_bitblaster->hasBBAtom(fact[0])) {
+            d_bitblaster->bitblast(fact[0]);
+            d_bitblaster->addAtom(fact[0]); 
+          }
+        } else {
+          if (d_useEqualityEngine) {
+            d_equalityEngine.addPredicate(fact[0], false, fact);
+          }
           break;
         }
-      }
+        break;
+      default:
+        if (d_useEqualityEngine) {
+          d_equalityEngine.addPredicate(fact, true, fact);
+        }
+        break;
     }
 
-    // If in conflict, output the conflict
-    if (d_conflict) {
-      Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::check(): conflict " << d_conflictNode << std::endl;
-      d_out->conflict(d_conflictNode);
-      return;
+    // make sure we do not assert things we propagated 
+    if (!d_conflict && d_alreadyPropagatedSet.count(fact) == 0) {
+      bool ok = d_bitblaster->assertToSat(fact, d_useSatPropagation);
+      if (!ok) {
+        std::vector<TNode> conflictAtoms;
+        d_bitblaster->getConflict(conflictAtoms);
+        d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
+        d_conflict = true;
+        d_conflictNode = mkConjunction(conflictAtoms);
+        break;
+      }
     }
+  }
+
+  // If in conflict, output the conflict
+  if (d_conflict) {
+    Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::check(): conflict " << d_conflictNode << std::endl;
+    d_out->conflict(d_conflictNode);
+    return;
   }
 
   if (e == EFFORT_FULL) {
