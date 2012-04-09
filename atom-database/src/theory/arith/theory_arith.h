@@ -34,7 +34,7 @@
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/partial_model.h"
 #include "theory/arith/linear_equality.h"
-#include "theory/arith/atom_database.h"
+//#include "theory/arith/atom_database.h"
 #include "theory/arith/simplex.h"
 #include "theory/arith/arith_static_learner.h"
 #include "theory/arith/arith_prop_manager.h"
@@ -95,7 +95,7 @@ private:
   void setupVariable(const Variable& x);
   void setupVariableList(const VarList& vl);
   void setupPolynomial(const Polynomial& poly);
-  void setupAtom(TNode atom, bool addToDatabase);
+  void setupAtom(TNode atom);
 
 
   /**
@@ -218,7 +218,7 @@ private:
    * The atom database keeps track of the atoms that have been preregistered.
    * Used to add unate propagations.
    */
-  ArithAtomDatabase d_atomDatabase;
+  //ArithAtomDatabase d_atomDatabase;
 
   /** This keeps track of difference equalities. Mostly for sharing. */
   DifferenceManager d_differenceManager;

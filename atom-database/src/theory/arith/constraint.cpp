@@ -810,8 +810,9 @@ Node ConstraintValue::explainConjunction(Constraint a, Constraint b, Constraint 
   return nb;
 }
 
-Constraint ConstraintValue::getStrictlyWeakerLowerBound(bool asserted) const {
+Constraint ConstraintValue::getStrictlyWeakerLowerBound(bool hasLiteral, bool asserted) const {
   Assert(initialized());
+  Assert(!asserted || hasLiteral);
 
   SortedConstraintMapConstIterator i = d_variablePosition;
   const SortedConstraintMap& scm = constraintSet();
@@ -821,7 +822,12 @@ Constraint ConstraintValue::getStrictlyWeakerLowerBound(bool asserted) const {
     const ValueCollection& vc = i->second;
     if(vc.hasLowerBound()){
       Constraint weaker = vc.getLowerBound();
-      if(!asserted || weaker->assertedToTheTheory()){
+
+      // asserted -> hasLiteral
+      // hasLiteral -> weaker->hasLiteral()
+      // asserted -> weaker->assertedToTheTheory()
+      if((!hasLiteral || (weaker->hasLiteral())) &&
+         (!asserted || ( weaker->assertedToTheTheory()))){
         return weaker;
       }
     }
@@ -829,7 +835,7 @@ Constraint ConstraintValue::getStrictlyWeakerLowerBound(bool asserted) const {
   return NullConstraint;
 }
 
-Constraint ConstraintValue::getStrictlyWeakerUpperBound(bool asserted) const {
+Constraint ConstraintValue::getStrictlyWeakerUpperBound(bool hasLiteral, bool asserted) const {
   SortedConstraintMapConstIterator i = d_variablePosition;
   const SortedConstraintMap& scm = constraintSet();
   SortedConstraintMapConstIterator i_end = scm.end();
@@ -839,7 +845,8 @@ Constraint ConstraintValue::getStrictlyWeakerUpperBound(bool asserted) const {
     const ValueCollection& vc = i->second;
     if(vc.hasUpperBound()){
       Constraint weaker = vc.getUpperBound();
-      if(!asserted || weaker->assertedToTheTheory()){
+      if((!hasLiteral || (weaker->hasLiteral())) &&
+         (!asserted || ( weaker->assertedToTheTheory()))){
         return weaker;
       }
     }
@@ -938,6 +945,103 @@ void ConstraintValue::setLiteral(Node n) {
   NodetoConstraintMap& map = d_database->d_nodetoConstraintMap;
   Assert(map.find(n) == map.end());
   map.insert(make_pair(d_literal, this));
+}
+
+void implies(std::vector<Node>& out, Constraint a, Constraint b){
+  Node la = a->getLiteral();
+  Node lb = b->getLiteral();
+
+  Node neg_la = (la.getKind() == kind::NOT)? la[0] : la.notNode();
+
+  Assert(lb != neg_la);
+  Node orderOr = (lb < neg_la) ? lb.orNode(neg_la) : neg_la.orNode(lb);
+  out.push_back(orderOr);
+}
+
+void mutuallyExclusive(std::vector<Node>& out, Constraint a, Constraint b){
+  Node la = a->getLiteral();
+  Node lb = b->getLiteral();
+
+  Node neg_la = (la.getKind() == kind::NOT)? la[0] : la.notNode();
+  Node neg_lb = (lb.getKind() == kind::NOT)? lb[0] : lb.notNode();
+
+  Assert(neg_la != neg_lb);
+  Node orderOr = (neg_la < neg_lb) ? neg_la.orNode(neg_lb) : neg_lb.orNode(neg_la);
+  out.push_back(orderOr);
+}
+
+void ConstraintDatabase::outputAllUnateLemmas(std::vector<Node>& out, ArithVar v) const{
+  SortedConstraintMap& scm = getVariableSCM(v);
+
+  SortedConstraintMapConstIterator outer;
+  SortedConstraintMapConstIterator scm_end = scm.end();
+
+  vector<Constraint> equalities;
+  for(outer = scm.begin(); outer != scm_end; ++outer){
+    const ValueCollection& vc = outer->second;
+    if(vc.hasEquality()){
+      Constraint eq = vc.getEquality();
+      if(eq->hasLiteral()){
+        equalities.push_back(eq);
+      }
+    }
+  }
+
+  Constraint prev = NullConstraint;
+  //get transitive unates
+  //Only lower bounds or upperbounds should be done.
+  for(outer = scm.begin(); outer != scm_end; ++outer){
+    const ValueCollection& vc = outer->second;
+
+    if(vc.hasUpperBound()){
+      Constraint ub = vc.getUpperBound();
+      if(ub->hasLiteral()){
+        if(prev != NullConstraint){
+          implies(out, prev, ub);
+        }
+        prev = ub;
+      }
+    }
+  }
+  vector<Constraint>::const_iterator i, j, eq_end = equalities.end();
+  for(i = equalities.begin(); i != eq_end; ++i){
+    Constraint at_i = *i;
+    for(j= i + 1; j != eq_end; ++j){
+      Constraint at_j = *j;
+
+      mutuallyExclusive(out, at_i, at_j);
+    }
+  }
+
+  for(i = equalities.begin(); i != eq_end; ++i){
+    Constraint eq = *i;
+    const ValueCollection& vc = eq->getValueCollection();
+    Assert(vc.hasEquality() && vc.getEquality()->hasLiteral());
+
+    bool hasLB = vc.hasLowerBound() && vc.getLowerBound()->hasLiteral();
+    bool hasUB = vc.hasUpperBound() && vc.getUpperBound()->hasLiteral();
+
+    Constraint lb = hasLB ?
+      vc.getLowerBound() : eq->getStrictlyWeakerLowerBound(true, false);
+    Constraint ub = hasUB ?
+      vc.getUpperBound() : eq->getStrictlyWeakerUpperBound(true, false);
+
+    if(hasUB && hasLB && !eq->isSplit()){
+      out.push_back(eq->split());
+    }
+    if(lb != NullConstraint){
+      implies(out, eq, lb);
+    }
+    if(ub != NullConstraint){
+      implies(out, eq, ub);
+    }
+  }
+  }
+
+void ConstraintDatabase::outputAllUnateLemmas(std::vector<Node>& lemmas) const{
+  for(ArithVar v = 0, N = d_varDatabases.size(); v < N; ++v){
+    outputAllUnateLemmas(lemmas, v);
+  }
 }
 
 

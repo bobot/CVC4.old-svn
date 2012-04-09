@@ -515,8 +515,8 @@ public:
   const ValueCollection& getValueCollection() const;
 
 
-  Constraint getStrictlyWeakerUpperBound(bool mustBeAsserted) const;
-  Constraint getStrictlyWeakerLowerBound(bool mustBeAsserted) const;
+  Constraint getStrictlyWeakerUpperBound(bool hasLiteral, bool mustBeAsserted) const;
+  Constraint getStrictlyWeakerLowerBound(bool hasLiteral, bool mustBeAsserted) const;
 
   /**
    * Marks the node as having a proof a.
@@ -777,6 +777,15 @@ public:
    *
    */
   Constraint getConstraint(ArithVar v, ConstraintType t, const DeltaRational& r);
+
+
+  /**
+   * Outputs a minimal set of unate implications on the output channel
+   * for all variables.
+   */
+  void outputAllUnateLemmas(std::vector<Node>& lemmas) const;
+
+  void outputAllUnateLemmas(std::vector<Node>& lemmas, ArithVar v) const;
 
 }; /* ConstraintDatabase */
 

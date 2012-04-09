@@ -72,7 +72,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_rowHasBeenAdded(false),
   d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
-  d_atomDatabase(c, out),
+  //d_atomDatabase(c, out),
   d_differenceManager(c, d_constraintDatabase),
   d_simplex(d_linEq),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_differenceManager),
@@ -711,7 +711,7 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
    */
 }
 
-void TheoryArith::setupAtom(TNode atom, bool addToDatabase) {
+void TheoryArith::setupAtom(TNode atom) {
   Assert(isRelationOperator(atom.getKind()));
   Assert(Comparison::isNormalAtom(atom));
   Assert(!isSetup(atom));
@@ -722,9 +722,9 @@ void TheoryArith::setupAtom(TNode atom, bool addToDatabase) {
     setupPolynomial(poly);
   }
 
-  if(addToDatabase){
-    d_atomDatabase.addAtom(atom);
-  }
+  // if(addToDatabase){
+  //   d_atomDatabase.addAtom(atom);
+  // }
 
   if(d_constraintDatabase.hasLiteral(atom)){
     cout << "has atom" << atom << endl;
@@ -740,7 +740,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
 
   if(isRelationOperator(n.getKind())){
     if(!isSetup(n)){
-      setupAtom(n, Options::current()->arithPropagation);
+      setupAtom(n);
     }
     Constraint c = d_constraintDatabase.lookup(n);
     Assert(c != NullConstraint);
@@ -964,7 +964,7 @@ Node TheoryArith::assertionCases(TNode assertion){
 
     if(!isSetup(eq)){
       //The previous code was equivalent to:
-      setupAtom(eq, false);
+      setupAtom(eq);
       constraint = d_constraintDatabase.lookup(assertion);
     }
   }
@@ -1575,8 +1575,18 @@ void TheoryArith::presolve(){
     callCount = callCount + 1;
   }
 
+  if(Options::current()->arithPropagation ){
+    vector<Node> lemmas;
+    d_constraintDatabase.outputAllUnateLemmas(lemmas);
+    vector<Node>::const_iterator i = lemmas.begin(), i_end = lemmas.end();
+    for(; i != i_end; ++i){
+      Node lem = *i;
+      cout << " lemma lemma duck " <<lem << endl;
+      d_out->lemma(lem);
+    }
+  }
+
   d_learner.clear();
-  check(EFFORT_FULL);
 }
 
 EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {

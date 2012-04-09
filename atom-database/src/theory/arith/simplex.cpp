@@ -419,8 +419,8 @@ Constraint SimplexDecisionProcedure::weakestExplanation(bool aboveUpper, DeltaRa
     weakened = false;
 
     Constraint weaker = ub?
-      c->getStrictlyWeakerUpperBound(true):
-      c->getStrictlyWeakerLowerBound(true);
+      c->getStrictlyWeakerUpperBound(true, true):
+      c->getStrictlyWeakerLowerBound(true, true);
 
     // Node weaker = ub?
     //   d_propManager.strictlyWeakerAssertedUpperBound(v, bound):
