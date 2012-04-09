@@ -79,7 +79,7 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
       uf::EqClassIterator( d_eQ->getRepresentative( n ), d_eE );
     for( ;!eqc.isFinished();++eqc ){
       TNode en = (*eqc);
-      if( en == n ) break; // already tested
+      if( en == n ) continue; // already tested
       typename InstMatchTrie2<modEq>::Tree::MLevel::iterator itc =
         root->e.find( en );
       if( itc!=root->e.end() &&

@@ -98,7 +98,7 @@ bool RuleInst::alreadyRewritten(TheoryRewriteRules & re) const{
 void RuleInst::toStream(std::ostream& out) const{
   if(this == RULEINST_TRUE){ out << "TRUE"; return;};
   if(this == RULEINST_FALSE){ out << "FALSE"; return;};
-  out << "(" << rule << ") ";
+  out << "(" << *rule << ") ";
   for(std::vector<Node>::const_iterator
         iter = subst.begin(); iter != subst.end(); ++iter){
     out << *iter << " ";

@@ -38,7 +38,7 @@
 (assert (= (iscons nil1) false))
 (assert (= (iscons nil2) false))
 (assert (forall ((?e elt) (?l list))
-                (! (= (iscons (cons ?e ?l)) true) :rewrite-rule) ))
+                (! (! (=> true (=> true (= (iscons (cons ?e ?l)) true))) :pattern ((cons ?e ?l)) ) :rewrite-rule) ))
 
 (assert (forall ((?l list))
                 (! (! (=> true (=> (iscons ?l) (= ?l (cons (proj1 ?l) (proj2 ?l))))) :pattern ((proj1 ?l)) ) :rewrite-rule) ))
