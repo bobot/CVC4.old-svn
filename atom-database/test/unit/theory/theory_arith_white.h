@@ -160,26 +160,25 @@ public:
     fakeTheoryEnginePreprocess(leq1);
     fakeTheoryEnginePreprocess(geq1);
 
+    d_arith->presolve();
     d_arith->assertFact(lt1, true);
-
-
     d_arith->check(d_level);
     d_arith->propagate(d_level);
 
-    Node gt1ThenGt0  = NodeBuilder<2>(IMPLIES) << gt1 << gt0;
-    Node geq1ThenGt0  = NodeBuilder<2>(IMPLIES) << geq1 << gt0;
-    Node lt1ThenLeq1  = NodeBuilder<2>(IMPLIES) << lt1 << leq1;
 
-    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 3u);
+    Node lt1OrGt0  = NodeBuilder<2>(OR) << lt1 << gt0;
+    Node leq1OrGeq1  = NodeBuilder<2>(OR) << leq1 << geq1;
+
+    cout << d_outputChannel.getIthNode(0) << endl;
+    cout << d_outputChannel.getIthNode(1) << endl;
+
+    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 2u);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(0), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), gt1ThenGt0);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), lt1OrGt0);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(1), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), geq1ThenGt0);
-
-    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), lt1ThenLeq1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), leq1OrGeq1);
   }
 
 
@@ -199,26 +198,26 @@ public:
     fakeTheoryEnginePreprocess(leq1);
     fakeTheoryEnginePreprocess(geq1);
 
+    d_arith->presolve();
     d_arith->assertFact(leq0, true);
-
-
     d_arith->check(d_level);
+    d_arith->propagate(d_level);
 
-    Node gt1ThenGt0  = NodeBuilder<2>(IMPLIES) << gt1 << gt0;
-    Node geq1ThenGt0  = NodeBuilder<2>(IMPLIES) << geq1 << gt0;
-    Node lt1ThenLeq1  = NodeBuilder<2>(IMPLIES) << lt1 << leq1;
+    Node lt1OrGt0  = NodeBuilder<2>(OR) << lt1 << gt0;
+    Node leq1OrGeq1  = NodeBuilder<2>(OR) << leq1 << geq1;
 
-    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 3u);
+    cout << d_outputChannel.getIthNode(0) << endl;
+    cout << d_outputChannel.getIthNode(1) << endl;
+
+    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 2u);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(0), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), gt1ThenGt0);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), lt1OrGt0);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(1), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), geq1ThenGt0);
-
-    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), lt1ThenLeq1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), leq1OrGeq1);
   }
+
   void testTPLeq1() {
     Node x = d_nm->mkVar(*d_realType);
     Node c0 = d_nm->mkConst<Rational>(d_zero);
@@ -235,25 +234,23 @@ public:
     fakeTheoryEnginePreprocess(leq1);
     fakeTheoryEnginePreprocess(geq1);
 
+    d_arith->presolve();
     d_arith->assertFact(leq1, true);
-
-
     d_arith->check(d_level);
     d_arith->propagate(d_level);
 
-    Node gt1ThenGt0  = NodeBuilder<2>(IMPLIES) << gt1 << gt0;
-    Node geq1ThenGt0  = NodeBuilder<2>(IMPLIES) << geq1 << gt0;
-    Node lt1ThenLeq1  = NodeBuilder<2>(IMPLIES) << lt1 << leq1;
+    Node lt1OrGt0  = NodeBuilder<2>(OR) << lt1 << gt0;
+    Node leq1OrGeq1  = NodeBuilder<2>(OR) << leq1 << geq1;
 
-    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 3u);
+    cout << d_outputChannel.getIthNode(0) << endl;
+    cout << d_outputChannel.getIthNode(1) << endl;
+
+    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 2u);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(0), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), gt1ThenGt0);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), lt1OrGt0);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(1), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), geq1ThenGt0);
-
-    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), lt1ThenLeq1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), leq1OrGeq1);
   }
 };
