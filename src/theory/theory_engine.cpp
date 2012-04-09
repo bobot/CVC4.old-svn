@@ -624,7 +624,9 @@ void TheoryEngine::assertFact(TNode node)
   // Get the atom
   bool negated = node.getKind() == kind::NOT;
   TNode atom = negated ? node[0] : node;
+  Theory* theory = theoryOf(atom);
 
+  //TODO: there is probably a bug here if shared terms start to exist after some asseritons have been processed
   if (d_sharedTermsExist) {
 
     // If any shared terms, notify the theories
@@ -634,9 +636,9 @@ void TheoryEngine::assertFact(TNode node)
       for (; it != it_end; ++ it) {
         TNode term = *it;
         Theory::Set theories = d_sharedTerms.getTheoriesToNotify(atom, term);
-        for (TheoryId theory = THEORY_FIRST; theory != THEORY_LAST; ++ theory) {
-          if (Theory::setContains(theory, theories)) {
-            theoryOf(theory)->addSharedTermInternal(term);
+        for (TheoryId id = THEORY_FIRST; id != THEORY_LAST; ++ id) {
+          if (Theory::setContains(id, theories)) {
+            theoryOf(id)->addSharedTermInternal(term);
           }
         }
         d_sharedTerms.markNotified(term, theories);
@@ -663,16 +665,14 @@ void TheoryEngine::assertFact(TNode node)
       // TODO: have processSharedLiteral propagate disequalities?
       if (node.getKind() == kind::EQUAL) {
         // Don't have to assert it - this will be taken care of by processSharedLiteral
-        Assert(isActive(theoryOf(atom)->getId()));
+        Assert(isActive(theory->getId()));
         return;
       }
     }
-
+    d_assertedLiteralsOut[NodeTheoryPair(node, theory->getId())] = Node();
   }
 
   // Assert the fact to the appropriate theory and mark it active
-  Theory* theory = theoryOf(atom);
-  d_assertedLiteralsOut[NodeTheoryPair(node, theory->getId())] = Node();
   theory->assertFact(node, true);
   markActive(Theory::setInsert(theory->getId()));
 }
