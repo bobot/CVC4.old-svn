@@ -71,7 +71,7 @@ void LinearEqualityModule::update(ArithVar x_i, const DeltaRational& v){
     DeltaRational  nAssignment = assignment+(diff * a_ji);
     d_partialModel.setAssignment(x_j, nAssignment);
 
-    d_basicVariableUpdates.callback(x_j);
+    d_basicVariableUpdates(x_j);
   }
 
   d_partialModel.setAssignment(x_i, v);
@@ -119,7 +119,7 @@ void LinearEqualityModule::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaRatio
       DeltaRational nextAssignment = d_partialModel.getAssignment(x_k) + (theta * a_kj);
       d_partialModel.setAssignment(x_k, nextAssignment);
 
-      d_basicVariableUpdates.callback(x_k);
+      d_basicVariableUpdates(x_k);
     }
   }
 
@@ -131,7 +131,7 @@ void LinearEqualityModule::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaRatio
   //(d_statistics.d_avgNumRowsNotContainingOnPivot).addEntry(difference);
   d_tableau.pivot(x_i, x_j);
 
-  d_basicVariableUpdates.callback(x_j);
+  d_basicVariableUpdates(x_j);
 
   if(Debug.isOn("tableau")){
     d_tableau.printTableau();

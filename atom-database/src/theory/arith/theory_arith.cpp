@@ -60,6 +60,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   Theory(THEORY_ARITH, c, u, out, valuation),
   d_hasDoneWorkSinceCut(false),
   d_learner(d_pbSubstitutions),
+  d_setupLiteralCallback(this),
   d_nextIntegerCheckVar(0),
   d_constantIntegerVariables(c),
   d_diseqQueue(c, false),
@@ -72,8 +73,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_rowHasBeenAdded(false),
   d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
-  //d_atomDatabase(c, out),
-  d_differenceManager(c, d_constraintDatabase),
+  d_differenceManager(c, d_constraintDatabase, d_setupLiteralCallback),
   d_simplex(d_linEq),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_differenceManager),
   d_basicVarModelUpdateCallBack(d_simplex),
@@ -207,10 +207,10 @@ Node TheoryArith::AssertLower(Constraint constraint){
         Node conflict = ConstraintValue::explainConjunction(diseq, ub, constraint);
 
         ++(d_statistics.d_statDisequalityConflicts);
-        cout << " assert lower conflict " << conflict << endl;
+        Debug("eq") << " assert lower conflict " << conflict << endl;
         return conflict;
-      }else if(!eq->isTrue()){
-        cout << "lb == ub, propagate eq" << eq << endl;
+      }else if(!eq->isTrue() && eq->canBePropagated()){
+        Debug("eq") << "lb == ub, propagate eq" << eq << endl;
         eq->propagate(constraint, d_partialModel.getUpperBoundConstraint(x_i));
       }
     }
@@ -283,10 +283,10 @@ Node TheoryArith::AssertUpper(Constraint constraint){
       if(diseq->isTrue()){
         const Constraint ub = vc.getUpperBound();
         Node conflict = ConstraintValue::explainConjunction(diseq, ub, constraint);
-        cout << " assert upper conflict " << conflict << endl;
+        Debug("eq") << " assert upper conflict " << conflict << endl;
         return conflict;
-      }else if(eq->isTrue()){
-        cout << "lb == ub, propagate eq" << eq << endl;
+      }else if(eq->isTrue() && eq->canBePropagated()){
+        Debug("eq") << "lb == ub, propagate eq" << eq << endl;
         eq->propagate(constraint, d_partialModel.getLowerBoundConstraint(x_i));
       }
     }
@@ -415,7 +415,7 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
   }
 
   if(constraint->isSplit()){
-    cout << "skipping already split " << constraint << endl;
+    Debug("eq") << "skipping already split " << constraint << endl;
     return Node::null();
   }
 
@@ -425,19 +425,19 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
     const Constraint ub = vc.getUpperBound();
     if(lb->isTrue() && ub->isTrue()){
       //in conflict
-      cout << "explaining" << endl;
+      Debug("eq") << "explaining" << endl;
       ++(d_statistics.d_statDisequalityConflicts);
       return ConstraintValue::explainConjunction(constraint, lb, ub);
     }else if(lb->isTrue()){
-      cout << "propagate UpperBound " << constraint << lb << ub << endl;
+      Debug("eq") << "propagate UpperBound " << constraint << lb << ub << endl;
       const Constraint negUb = ub->getNegation();
-      if(!negUb->isTrue()){
+      if(!negUb->isTrue() && negUb->canBePropagated()){
         negUb->propagate(constraint, lb);
       }
     }else if(ub->isTrue()){
-      cout << "propagate LowerBound " << constraint << lb << ub << endl;
+      Debug("eq") << "propagate LowerBound " << constraint << lb << ub << endl;
       const Constraint negLb = lb->getNegation();
-      if(!negLb->isTrue()){
+      if(!negLb->isTrue() && negLb->canBePropagated()){
         negLb->propagate(constraint, ub);
       }
     }
@@ -445,15 +445,15 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
 
 
   if(c_i == d_partialModel.getAssignment(x_i)){
-    cout << "lemma now!" << endl;
+    Debug("eq") << "lemma now!" << endl;
     d_out->lemma(constraint->split());
     return Node::null();
   }else if(d_partialModel.strictlyLessThanLowerBound(x_i, c_i)){
-    cout << "can drop as less than lb" << constraint << endl;
+    Debug("eq") << "can drop as less than lb" << constraint << endl;
   }else if(d_partialModel.strictlyGreaterThanUpperBound(x_i, c_i)){
-    cout << "can drop as less than ub" << constraint << endl;
+    Debug("eq") << "can drop as less than ub" << constraint << endl;
   }else{
-    cout << "push back" << constraint << endl;
+    Debug("eq") << "push back" << constraint << endl;
     d_diseqQueue.push(constraint);
   }
   return Node::null();
@@ -727,7 +727,7 @@ void TheoryArith::setupAtom(TNode atom) {
   // }
 
   if(d_constraintDatabase.hasLiteral(atom)){
-    cout << "has atom" << atom << endl;
+    Debug("arith::eq") << "has atom" << atom << endl;
   }else{
     d_constraintDatabase.addLiteral(atom);
   }
@@ -969,6 +969,20 @@ Node TheoryArith::assertionCases(TNode assertion){
     }
   }
   Assert(constraint != NullConstraint);
+
+  if(constraint->negationHasProof()){
+    Constraint negation = constraint->getNegation();
+    Assert(!negation->isSelfExplaining());
+    Debug("arith::eq") << constraint << endl;
+    Debug("arith::eq") << negation << endl;
+
+    NodeBuilder<> nb(kind::AND);
+    nb << assertion;
+    negation->explainInto(nb);
+    Node conflict = nb;
+    Debug("arith::eq") << "conflict" << conflict << endl;
+    return conflict;
+  }
   Assert(!constraint->negationHasProof());
 
   constraint->setAssertedToTheTheory();
@@ -1185,9 +1199,9 @@ bool TheoryArith::splitDisequalities(){
     d_diseqQueue.pop();
 
     if(front->isSplit()){
-      cout << "split already" << endl;
+      Debug("eq") << "split already" << endl;
     }else{
-      cout << "not split already" << endl;
+      Debug("eq") << "not split already" << endl;
 
       ArithVar lhsVar = front->getVariable();
 
@@ -1202,11 +1216,11 @@ bool TheoryArith::splitDisequalities(){
         d_out->lemma(lemma);
         splitSomething = true;
       }else if(d_partialModel.strictlyLessThanLowerBound(lhsVar, rhsValue)){
-        cout << "can drop as less than lb" << front << endl;
+        Debug("eq") << "can drop as less than lb" << front << endl;
       }else if(d_partialModel.strictlyGreaterThanUpperBound(lhsVar, rhsValue)){
-        cout << "can drop as greater than ub" << front << endl;
+        Debug("eq") << "can drop as greater than ub" << front << endl;
       }else{
-        cout << "save" << front << endl;
+        Debug("eq") << "save" << front << endl;
         save.push_back(front);
       }
     }
@@ -1262,11 +1276,11 @@ Node TheoryArith::explain(TNode n) {
   if(c != NullConstraint){
     Assert(!c->isSelfExplaining());
     Node exp = c->explainForPropagation();
-    cout << "constraint explanation" << n << ":" << exp << endl;
+    Debug("arith::explain") << "constraint explanation" << n << ":" << exp << endl;
     return exp;
   }else{
     Assert(d_differenceManager.canExplain(n));
-    cout << "dm explanation" << n << endl;
+    Debug("arith::explain") << "dm explanation" << n << endl;
     return d_differenceManager.explain(n);
   }
 }
@@ -1303,12 +1317,12 @@ void TheoryArith::propagate(Effort e) {
     Node literal = c->getLiteral();
     if(!c->assertedToTheTheory()){
 
-      cout << "propagating " << literal << endl;
+      Debug("arith::prop") << "propagating " << literal << endl;
 
       d_out->propagate(literal);
       propagated = true;
     }else{
-      cout << "already asserted to the theory " << literal << endl;
+      Debug("arith::prop") << "already asserted to the theory " << literal << endl;
     }
   }
 
@@ -1324,20 +1338,19 @@ void TheoryArith::propagate(Effort e) {
 #warning "revisit"
       Constraint constraint = d_constraintDatabase.lookup(normalized);
       if(constraint == NullConstraint){
-        cout << "null? " << endl;
+        Debug("arith::prop") << "null? " << endl;
         d_out->propagate(toProp);
         propagated = true;
       }else if(constraint->negationHasProof()){
         Node exp = d_differenceManager.explain(toProp);
         Node lp = flattenAnd(exp.andNode(notNormalized));
-        cout << "propagate conflict" <<  lp << endl;
-        Debug("arith::propagate") << "propagate conflict" <<  lp << endl;
+        Debug("arith::prop") << "propagate conflict" <<  lp << endl;
         d_out->conflict(lp);
 
         propagated = true;
         break;
       }else{
-        cout << "propagating still?" <<  toProp << endl;
+        Debug("arith::prop") << "propagating still?" <<  toProp << endl;
 
         d_out->propagate(toProp);
         propagated = true;
@@ -1581,7 +1594,7 @@ void TheoryArith::presolve(){
     vector<Node>::const_iterator i = lemmas.begin(), i_end = lemmas.end();
     for(; i != i_end; ++i){
       Node lem = *i;
-      cout << " lemma lemma duck " <<lem << endl;
+      Debug("arith::oldprop") << " lemma lemma duck " <<lem << endl;
       d_out->lemma(lem);
     }
   }

@@ -264,12 +264,12 @@ ConstraintValue::~ConstraintValue() {
 
   if(initialized()){
     ValueCollection& vc =  d_variablePosition->second;
-    Debug("arith::constraint") << "removing" << vc << endl; 
+    Debug("arith::constraint") << "removing" << vc << endl;
 
     vc.remove(getType());
-  
+
     if(vc.empty()){
-      Debug("arith::constraint") << "erasing" << vc << endl; 
+      Debug("arith::constraint") << "erasing" << vc << endl;
       SortedConstraintMap& perVariable = d_database->getVariableSCM(getVariable());
       perVariable.erase(d_variablePosition);
     }
@@ -886,18 +886,18 @@ Constraint ConstraintDatabase::getBestImpliedBound(ArithVar v, ConstraintType t,
 
       if(i == i_end){
         --i;
-        cout << fdj++ << " " << r << " " << i->first << endl;
+        Debug("getBestImpliedBound") << fdj++ << " " << r << " " << i->first << endl;
       }else if( (i->first) > r){
         if(i == i_begin){
           return NullConstraint;
         }else{
           --i;
-          cout << fdj++ << " " << r << " " << i->first << endl;
+          Debug("getBestImpliedBound") << fdj++ << " " << r << " " << i->first << endl;
         }
       }
 
       do{
-        cout << fdj++ << " " << r << " " << i->first << endl;
+        Debug("getBestImpliedBound") << fdj++ << " " << r << " " << i->first << endl;
         Assert(r >= i->first);
         const ValueCollection& vc = i->second;
 

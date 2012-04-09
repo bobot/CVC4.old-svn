@@ -76,6 +76,7 @@ private:
   ExplainMap d_explanationMap;
 
   ConstraintDatabase& d_constraintDatabase;
+  TNodeCallBack& d_setupLiteral;
 
 public:
   bool hasMorePropagations() const {
@@ -145,7 +146,7 @@ private:
 
 public:
 
-  DifferenceManager(context::Context* satContext, ConstraintDatabase&);
+  DifferenceManager(context::Context* satContext, ConstraintDatabase&, TNodeCallBack&);
 
   Node explain(TNode literal);
   void explain(TNode lit, NodeBuilder<>& out);

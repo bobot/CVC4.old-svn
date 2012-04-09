@@ -333,7 +333,7 @@ private:
     {}
 
     ~RemoveIntWrapper(){
-      d_onDestruction.callback(d_var);
+      d_onDestruction(d_var);
     }
   };
 
@@ -348,7 +348,7 @@ private:
       d_set(set)
     {}
 
-    void callback(ArithVar x){
+    void operator()(ArithVar x){
       Assert(x < d_set.size());
       d_set[x] = false;
     }

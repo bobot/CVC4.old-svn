@@ -482,9 +482,9 @@ Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar
     const Rational& coeff = entry.getCoefficient();
     bool weakening = false;
     Constraint c = weakestExplanation(aboveUpper, surplus, v, coeff, weakening, basicVar);
-    cout << "weak : " << weakening << " " << c->assertedToTheTheory()
-         << c << endl
-         << c->explainForConflict() << endl;
+    Debug("weak") << "weak : " << weakening << " " << c->assertedToTheTheory()
+                  << c << endl
+                  << c->explainForConflict() << endl;
     anyWeakenings = anyWeakenings || weakening;
 
     Debug("weak") << "weak : " << c->explainForConflict() << endl;

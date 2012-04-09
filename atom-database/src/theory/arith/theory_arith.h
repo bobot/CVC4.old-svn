@@ -97,6 +97,18 @@ private:
   void setupPolynomial(const Polynomial& poly);
   void setupAtom(TNode atom);
 
+  class SetupLiteralCallBack : public TNodeCallBack {
+  private:
+    TheoryArith* d_arith;
+  public:
+    SetupLiteralCallBack(TheoryArith* ta) : d_arith(ta){}
+    void operator()(TNode lit){
+      TNode atom = (lit.getKind() == kind::NOT) ? lit[0] : lit;
+      if(!d_arith->isSetup(atom)){
+        d_arith->setupAtom(atom);
+      }
+    }
+  } d_setupLiteralCallback;
 
   /**
    * (For the moment) the type hierarchy goes as:
@@ -278,7 +290,7 @@ private:
       d_simplex(s)
     {}
 
-    void callback(ArithVar x){
+    void operator()(ArithVar x){
       d_simplex.updateBasic(x);
     }
   };

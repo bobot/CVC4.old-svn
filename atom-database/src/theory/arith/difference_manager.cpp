@@ -7,11 +7,12 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-DifferenceManager::DifferenceManager(context::Context* c, ConstraintDatabase& cd)
+DifferenceManager::DifferenceManager(context::Context* c, ConstraintDatabase& cd, TNodeCallBack& setup)
   : d_literalsQueue(c),
     d_propagatations(c),
     d_explanationMap(c),
     d_constraintDatabase(cd),
+    d_setupLiteral(setup),
     d_notify(*this),
     d_ee(d_notify, c, "theory::arith::DifferenceManager"),
     d_false(NodeManager::currentNM()->mkConst<bool>(false)),
@@ -61,7 +62,11 @@ void DifferenceManager::propagate(TNode x){
 
   Constraint c = d_constraintDatabase.lookup(rewritten);
   if(c == NullConstraint){
-    c = d_constraintDatabase.addLiteral(rewritten);
+    //using setup as there may not be a corresponding difference literal yet
+    d_setupLiteral(rewritten);
+    c = d_constraintDatabase.lookup(rewritten);
+    Assert(c != NullConstraint);
+    //c = d_constraintDatabase.addLiteral(rewritten);
   }
 
   // Cases for propagation

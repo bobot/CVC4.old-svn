@@ -47,7 +47,12 @@ typedef __gnu_cxx::hash_map<ArithVar, Node> ArithVarToNodeMap;
  */
 class ArithVarCallBack {
 public:
-  virtual void callback(ArithVar x) = 0;
+  virtual void operator()(ArithVar x) = 0;
+};
+
+class TNodeCallBack {
+public:
+  virtual void operator()(TNode n) = 0;
 };
 
 }; /* namesapce arith */

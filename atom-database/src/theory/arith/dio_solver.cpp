@@ -76,6 +76,22 @@ DioSolver::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_cutTimer);
 }
 
+bool DioSolver::queueConditions(TrailIndex t){
+  /* debugPrintTrail(t); */
+  Debug("queueConditions") << !inConflict() << std::endl;
+  Debug("queueConditions") << gcdIsOne(t) << std::endl;
+  Debug("queueConditions") << !debugAnySubstitionApplies(t) << std::endl;
+  Debug("queueConditions") << !triviallySat(t) << std::endl;
+  Debug("queueConditions") << !triviallyUnsat(t) << std::endl;
+
+  return
+    !inConflict() &&
+    gcdIsOne(t) &&
+    !debugAnySubstitionApplies(t) &&
+    !triviallySat(t) &&
+    !triviallyUnsat(t);
+}
+
 size_t DioSolver::allocateVariableInPool() {
   Assert(d_lastUsedVariable <= d_variablePool.size());
   if(d_lastUsedVariable == d_variablePool.size()){
