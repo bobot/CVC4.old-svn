@@ -77,7 +77,7 @@
 (assert (forall ((?s elt) (?t1 set) (?t2 set))
                 (! (! (=> (in ?s ?t1) (or (in ?s ?t2) (not (in ?s ?t2)))) :pattern ((inter ?t1 ?t2))) :rewrite-rule)))
 
-;; (assert (forall ((?t1 set) (?t2 set)) (! (=> (not (= ?t1 ?t2)) (exists ((?e elt)) (or (and (in ?e ?t1) (not (in ?e ?t2))) (and (not (in ?e ?t1)) (in ?e ?t2))))) )))
+(assert (forall ((?t1 set) (?t2 set)) (! (=> (not (= ?t1 ?t2)) (exists ((?e elt)) (or (and (in ?e ?t1) (not (in ?e ?t2))) (and (not (in ?e ?t1)) (in ?e ?t2))))) :rewrite-rule)))
 
 (declare-fun e () elt)
 (declare-fun t1 () set)
@@ -92,8 +92,8 @@
 
 ;;(assert (not (=> (in e (inter (union t1 t2) (union t1 t1))) (in e t1))))
 
-(assert (or (and (not (in e (union t1 (union t2 t3)))) (in e (union (union t1 t2) t3))) (and (in e (union t1 (union t2 t3))) (not (in e (union (union t1 t2) t3))))) )
-
+;;(assert (or (and (not (in e (union t1 (union t2 t3)))) (in e (union (union t1 t2) t3))) (and (in e (union t1 (union t2 t3))) (not (in e (union (union t1 t2) t3))))) )
+(assert (not (= (union t1 (union t2 t3)) (union (union t1 t2) t3))) )
 
 (check-sat)
 
