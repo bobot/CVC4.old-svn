@@ -214,34 +214,38 @@ void QuantifiersRewriter::computeArgs( std::vector< Node >& args, std::vector< N
 
 Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, std::vector< Node >& exArgs, bool pol ){
   if( body.getKind()==FORALL ){
-    //must rename each variable that already exists
-    std::vector< Node > old_vars;
-    std::vector< Node > vars;
-    bool varChanged = false;
-    for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
-      //if( std::find( args.begin(), args.end(), body[0][i] )!=args.end() ||
-      //    std::find( exArgs.begin(), exArgs.end(), body[0][i] )!=exArgs.end() ){
-        vars.push_back( NodeManager::currentNM()->mkVar( body[0][i].getType() ) );
-        varChanged = true;
-      //}else{
-      //  vars.push_back( body[0][i] );
-      //}
-      old_vars.push_back( body[0][i] );
-    }
-    Node newBody = body[1];
-    if( varChanged ){
-      newBody = newBody.substitute( old_vars.begin(), old_vars.end(), vars.begin(), vars.end() );
-    }
     if( pol ){
-      args.insert( args.end(), vars.begin(), vars.end() );
+      //must rename each variable that already exists
+      std::vector< Node > old_vars;
+      std::vector< Node > vars;
+      bool varChanged = false;
+      for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
+        //if( std::find( args.begin(), args.end(), body[0][i] )!=args.end() ||
+        //    std::find( exArgs.begin(), exArgs.end(), body[0][i] )!=exArgs.end() ){
+          vars.push_back( NodeManager::currentNM()->mkVar( body[0][i].getType() ) );
+          varChanged = true;
+        //}else{
+        //  vars.push_back( body[0][i] );
+        //}
+        old_vars.push_back( body[0][i] );
+      }
+      Node newBody = body[1];
+      if( varChanged ){
+        newBody = newBody.substitute( old_vars.begin(), old_vars.end(), vars.begin(), vars.end() );
+      }
+      if( pol ){
+        args.insert( args.end(), vars.begin(), vars.end() );
+      }else{
+        exArgs.insert( exArgs.end(), vars.begin(), vars.end() );
+      }
+      //if( body[0].getKind()==NOT && body[0][0].getKind()==FORALL ){
+      //  return computePrenex( body[0], args, exArgs, pol );
+      //}else{
+        return newBody;
+      //}
     }else{
-      exArgs.insert( exArgs.end(), vars.begin(), vars.end() );
+      return body;
     }
-    //if( body[0].getKind()==NOT && body[0][0].getKind()==FORALL ){
-    //  return computePrenex( body[0], args, exArgs, pol );
-    //}else{
-      return newBody;
-    //}
   }else if( body.getKind()==ITE || body.getKind()==XOR || body.getKind()==IFF ){
     return body;
   }else{
@@ -257,11 +261,11 @@ Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, s
       }
     }
     if( childrenChanged ){
-      //if( body.getKind()==NOT && newChildren[0].getKind()==NOT ){
-      //  return newChildren[0][0];
-      //}else{
+      if( body.getKind()==NOT && newChildren[0].getKind()==NOT ){
+        return newChildren[0][0];
+      }else{
         return NodeManager::currentNM()->mkNode( body.getKind(), newChildren );
-      //}
+      }
     }else{
       return body;
     }

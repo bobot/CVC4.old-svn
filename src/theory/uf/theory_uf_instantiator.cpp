@@ -28,8 +28,7 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 
 #define USE_SINGLE_TRIGGER_BEFORE_MULTI_TRIGGER
-//#define MULTI_TRIGGER_ONLY_LAST_CALL
-#define MULTI_TRIGGER_FULL_EFFORT_HALF
+//#define MULTI_TRIGGER_FULL_EFFORT_HALF
 #define MULTI_MULTI_TRIGGERS
 
 struct sortQuantifiersForSymbol {
@@ -111,9 +110,6 @@ int InstStrategyUserPatterns::process( Node f, Theory::Effort effort, int e, int
 //#ifdef MULTI_TRIGGER_FULL_EFFORT_HALF
 //        processTrigger = d_counter[f]%2==0;
 //#endif
-#ifdef MULTI_TRIGGER_ONLY_LAST_CALL
-        processTrigger = false;
-#endif
       }
       if( processTrigger ){
         //if( d_user_gen[f][i]->isMultiTrigger() ) 
@@ -189,9 +185,6 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
         if( effort!=Theory::EFFORT_LAST_CALL && tr->isMultiTrigger() ){
 #ifdef MULTI_TRIGGER_FULL_EFFORT_HALF
           processTrigger = d_counter[f]%2==0;
-#endif
-#ifdef MULTI_TRIGGER_ONLY_LAST_CALL
-          processTrigger = false;
 #endif
         }
         if( processTrigger ){
