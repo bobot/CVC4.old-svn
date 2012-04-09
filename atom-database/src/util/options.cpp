@@ -110,7 +110,6 @@ Options::Options() :
   ufSymmetryBreaker(false),
   ufSymmetryBreakerSetByUser(false),
   dioSolver(true),
-#warning "Do not check in"
   arithRewriteEq(true),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
