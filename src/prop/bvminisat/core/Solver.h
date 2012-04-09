@@ -148,8 +148,8 @@ public:
     //
 
     void addMarkerLiteral(Var var) {
-      // if already marked as a marker literal return 
-      if (marker[var] != 0) return; 
+      // make sure it wasn't already marked 
+      Assert(markar[var] == 0); 
       marker[var] = 1;
     }
 

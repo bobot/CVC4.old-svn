@@ -119,7 +119,6 @@ void TheoryBV::preRegisterTerm(TNode node) {
       node.getKind() == kind::BITVECTOR_SLT ||
       node.getKind() == kind::BITVECTOR_SLE) {
     d_bitblaster->bitblast(node);
-    d_bitblaster->addAtom(node); 
   }
 
   if (d_useEqualityEngine) {
@@ -164,7 +163,6 @@ void TheoryBV::check(Effort e)
         }
         if (shared && !d_bitblaster->hasBBAtom(fact)) {
           d_bitblaster->bitblast(fact);
-          d_bitblaster->addAtom(fact); 
         }
         break;
       case kind::NOT:
@@ -175,7 +173,6 @@ void TheoryBV::check(Effort e)
           }
           if (shared && !d_bitblaster->hasBBAtom(fact[0])) {
             d_bitblaster->bitblast(fact[0]);
-            d_bitblaster->addAtom(fact[0]); 
           }
         } else {
           if (d_useEqualityEngine) {

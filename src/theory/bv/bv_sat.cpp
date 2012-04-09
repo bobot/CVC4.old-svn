@@ -83,6 +83,9 @@ void Bitblaster::bbAtom(TNode node) {
     return; 
   }
 
+  // make sure it is marked as an atom
+  addAtom(node); 
+
   BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
   ++d_statistics.d_numAtoms;
   // the bitblasted definition of the atom

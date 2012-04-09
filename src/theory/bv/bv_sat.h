@@ -103,6 +103,7 @@ class Bitblaster {
   Node bbOptimize(TNode node); 
   
   void bbAtom(TNode node);
+  void addAtom(TNode atom); 
   // division is bitblasted in terms of constraints
   // so it needs to use private bitblaster interface
   void bbUdiv(TNode node, Bits& bits);
@@ -118,7 +119,7 @@ public:
   bool solve(bool quick_solve = false);
   void bitblast(TNode node);
   void getConflict(std::vector<TNode>& conflict); 
-  void addAtom(TNode atom); 
+
   bool getPropagations(std::vector<TNode>& propagations);
   void explainPropagation(TNode atom, std::vector<Node>& explanation);
 private:
