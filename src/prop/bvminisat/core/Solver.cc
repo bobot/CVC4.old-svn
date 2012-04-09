@@ -503,6 +503,7 @@ lbool Solver::assertAssumption(Lit p, bool propagate) {
     only_bcp = true;
     ccmin_mode = 0; 
     lbool result = search(-1, UIP_FIRST);
+    return result; 
   } else {
     return l_True;
   }

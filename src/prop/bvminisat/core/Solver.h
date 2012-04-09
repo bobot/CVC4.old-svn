@@ -148,6 +148,8 @@ public:
     //
 
     void addMarkerLiteral(Var var) {
+      // if already marked as a marker literal return 
+      if (marker[var] != 0) return; 
       marker[var] = 1;
     }
 
