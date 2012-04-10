@@ -302,6 +302,7 @@ void LinearEqualityModule::propagateNonbasics(ArithVar basic, Constraint c){
       }
     }
     Assert(bound != NullConstraint);
+    Debug("arith::explainNonbasics") << "explainNonbasics" << bound << " for " << c << endl;
     bounds.push_back(bound);
     //Assert(!bound.isNull());
     // Debug("arith::explainNonbasics") << "\t" << nonbasic << " " << sgn << " " << bound

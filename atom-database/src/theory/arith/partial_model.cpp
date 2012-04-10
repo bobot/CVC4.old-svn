@@ -40,26 +40,6 @@ ArithPartialModel::ArithPartialModel(context::Context* c)
    d_history()
 { }
 
-Node ArithPartialModel::explainUpperBound(ArithVar x) const{
-  AssertArgument(hasUpperBound(x), "Must have an upperbound to explain!");
-  return getUpperBoundConstraint(x)->explainForConflict();
-}
-
-void ArithPartialModel::explainUpperBound(ArithVar x, NodeBuilder<>& nb) const{
-  AssertArgument(hasUpperBound(x), "Must have an upperbound to explain!");
-  getUpperBoundConstraint(x)->explainInto(nb);
-}
-
-Node ArithPartialModel::explainLowerBound(ArithVar x) const{
-  AssertArgument(hasLowerBound(x), "Must have a lower bound to explain!");
-  return getLowerBoundConstraint(x)->explainForConflict();
-}
-
-void ArithPartialModel::explainLowerBound(ArithVar x, NodeBuilder<>& nb) const{
-  AssertArgument(hasLowerBound(x), "Must have a lower bound to explain!");
-  getLowerBoundConstraint(x)->explainInto(nb);
-}
-
 bool ArithPartialModel::boundsAreEqual(ArithVar x) const{
   if(hasLowerBound(x) && hasUpperBound(x)){
     return getUpperBound(x) == getLowerBound(x);

@@ -76,12 +76,6 @@ public:
     return d_lbc[x];
   }
 
-  Node explainLowerBound(ArithVar x) const;
-  Node explainUpperBound(ArithVar x) const;
-
-  void explainLowerBound(ArithVar x, NodeBuilder<>& nb) const;
-  void explainUpperBound(ArithVar x, NodeBuilder<>& nb) const;
-
 
   /* Initializes a variable to a safe value.*/
   void initialize(ArithVar x, const DeltaRational& r);

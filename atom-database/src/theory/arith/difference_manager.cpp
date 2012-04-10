@@ -27,7 +27,7 @@ void DifferenceManager::differenceIsZero(Constraint lb, Constraint ub){
   Assert(ub->getValue().sgn() == 0);
 
   ArithVar s = lb->getVariable();
-  Node reason = ConstraintValue::explainConjunction(lb,ub);
+  Node reason = ConstraintValue::explainConflict(lb,ub);
 
   assertLiteral(true, s, reason);
 }
@@ -37,6 +37,9 @@ void DifferenceManager::differenceIsZero(Constraint eq){
   Assert(eq->getValue().sgn() == 0);
 
   ArithVar s = eq->getVariable();
+
+  //Explain for conflict is correct as these proofs are generated and stored eagerly
+  //These will be safe for propagation later as well
   Node reason = eq->explainForConflict();
 
   assertLiteral(true, s, reason);
@@ -44,6 +47,9 @@ void DifferenceManager::differenceIsZero(Constraint eq){
 
 void DifferenceManager::differenceCannotBeZero(Constraint c){
   ArithVar s = c->getVariable();
+
+  //Explain for conflict is correct as these proofs are generated and stored eagerly
+  //These will be safe for propagation later as well
   Node reason = c->explainForConflict();
   assertLiteral(false, s, reason);
 }

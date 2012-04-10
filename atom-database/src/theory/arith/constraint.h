@@ -108,6 +108,9 @@ typedef __gnu_cxx::hash_map<Node, Constraint, NodeHashFunction> NodetoConstraint
 typedef size_t ProofId;
 static ProofId ProofIdSentinel = std::numeric_limits<ProofId>::max();
 
+typedef size_t AssertionOrder;
+static AssertionOrder AssertionOrderSentinel = std::numeric_limits<AssertionOrder>::max();
+
 /**
  * A ValueCollection binds together convex constraints that have the same
  * DeltaRational value.
@@ -263,15 +266,17 @@ private:
   bool d_canBePropagated;
 
   /**
-   * This is true if the associated node has been asserted to the theory.
-   * If this is true, the node can be used in conflicts.
+   * This is the order the constraint was asserted to the theory.
+   * If this has been set, the node can be used in conflicts.
+   * If this is c.d_assertedOrder < d.d_assertedOrder, then c can be used in the
+   * explanation of d.
    *
    * This should be set after the literal is dequeued by Theory::get().
    *
    * Sat Context Dependent.
-   * This is initially false.
+   * This is initially AssertionOrderSentinel.
    */
-  bool d_assertedToTheTheory;
+  AssertionOrder d_assertionOrder;
 
   /**
    * This points at the proof for the constraint in the current context.
@@ -340,12 +345,13 @@ private:
     }
   };
 
-  class AssertedToTheTheoryCleanup {
+  class AssertionOrderCleanup {
   public:
     inline void operator()(Constraint* p){
       Constraint constraint = *p;
-      Assert(constraint->d_assertedToTheTheory);
-      constraint->d_assertedToTheTheory = false;
+      Assert(constraint->assertedToTheTheory());
+      constraint->d_assertionOrder = AssertionOrderSentinel;
+      Assert(!constraint->assertedToTheTheory());
     }
   };
 
@@ -357,7 +363,6 @@ private:
       constraint->d_split = false;
     }
   };
-  //static void recExplain(NodeBuilder<>& nb, const ConstraintValue* const c, const CDConstraintList& proofs);
 
   /** Returns true if the node is safe to garbage collect. */
   bool safeToGarbageCollect() const;
@@ -428,8 +433,14 @@ public:
   }
 
   bool assertedToTheTheory() const {
-    return d_assertedToTheTheory;
+    return d_assertionOrder < AssertionOrderSentinel;
   }
+
+  bool assertedBefore(AssertionOrder time) const {
+    return d_assertionOrder < time;
+  }
+
+
   void setAssertedToTheTheory();
 
 
@@ -462,10 +473,14 @@ public:
   /**
    * Returns a explanation of the constraint that is appropriate for conflicts.
    *
+   * This is not appropraite for propagation!
+   *
    * This is the minimum fringe of the implication tree s.t.
    * every constraint is assertedToTheTheory() or hasEqualityEngineProof().
    */
-  Node explainForConflict() const;
+  Node explainForConflict() const{
+    return explainBefore(AssertionOrderSentinel);
+  }
 
   /**
    * Writes an explanation of a constraint into the node builder.
@@ -475,10 +490,16 @@ public:
    * This is the minimum fringe of the implication tree s.t.
    * every constraint is assertedToTheTheory() or hasEqualityEngineProof().
    *
-   * This is not appropraite for propagation directly.
-   * Use explainPropagation() instead.
+   * This is not appropraite for propagation!
+   * Use explainForPropagation() instead.
    */
-  void explainInto(NodeBuilder<>& nb) const;
+  void explainForConflict(NodeBuilder<>& nb) const{
+    explainBefore(nb, AssertionOrderSentinel);
+  }
+
+  /** Utility function built from explainForConflict. */
+  static Node explainConflict(Constraint a, Constraint b);
+  static Node explainConflict(Constraint a, Constraint b, Constraint c);
 
   /**
    * Returns an explanation of a propagation by the ConstraintDatabase.
@@ -488,8 +509,26 @@ public:
    * This is the minimum fringe of the implication tree (excluding the constraint itself)
    * s.t. every constraint is assertedToTheTheory() or hasEqualityEngineProof().
    */
-  Node explainForPropagation() const;
+  Node explainForPropagation() const {
+    Assert(hasProof());
+    Assert(!isSelfExplaining());
+    return explainBefore(d_assertionOrder);
+  }
 
+private:
+  Node explainBefore(AssertionOrder order) const;
+
+  /**
+   * Returns an explanation of that was assertedBefore(order).
+   * The constraint must have a proof.
+   * The constraint cannot be selfExplaining().
+   *
+   * This is the minimum fringe of the implication tree
+   * s.t. every constraint is assertedBefore(order) or hasEqualityEngineProof().
+   */
+  void explainBefore(NodeBuilder<>& nb, AssertionOrder order) const;
+
+public:
   bool hasProof() const {
     return d_proof != ProofIdSentinel;
   }
@@ -521,10 +560,22 @@ public:
   /**
    * Marks the node as having a proof a.
    * Adds the node the database's propagation queue.
+   *
+   * Preconditions:
+   * canBePropagated()
+   * !assertedToTheTheory()
    */
   void propagate(Constraint a);
   void propagate(Constraint a, Constraint b);
   void propagate(const std::vector<Constraint>& b);
+  /**
+   * The only restriction is that this is not known be true.
+   * This propgates if there is a node.
+   */
+  void impliedBy(Constraint a);
+  void impliedBy(Constraint a, Constraint b);
+  void impliedBy(const std::vector<Constraint>& b);
+
 
   /** The node must have a proof already and be eligible for propagation! */
   void propagate();
@@ -536,9 +587,6 @@ private:
    * This is internal!
    */
   void markAsTrue();
-
-public:
-#warning "Do not check in"
   /**
    * Marks the node as having a proof a.
    * This is safe if the node does not have
@@ -548,14 +596,10 @@ public:
   void markAsTrue(Constraint a, Constraint b);
   void markAsTrue(const std::vector<Constraint>& b);
 
-  static Node explainConjunction(Constraint a, Constraint b);
-  static Node explainConjunction(Constraint a, Constraint b, Constraint c);
+public:
 
 
 private:
-
-  /** If the node has a proof do nothing, otherwise mark the node.*/
-  void internalPropagate(Constraint a);
 
   void debugPrint() const;
 
@@ -637,7 +681,7 @@ private:
 
   typedef context::CDList<Constraint, ConstraintValue::ProofCleanup> ProofCleanupList;
   typedef context::CDList<Constraint, ConstraintValue::CanBePropagatedCleanup> CBPList;
-  typedef context::CDList<Constraint, ConstraintValue::AssertedToTheTheoryCleanup> ATTTCList;
+  typedef context::CDList<Constraint, ConstraintValue::AssertionOrderCleanup> AOList;
   typedef context::CDList<Constraint, ConstraintValue::SplitCleanup> SplitList;
 
   /**
@@ -658,7 +702,7 @@ private:
     /**
      * Contains the exact list of constraints that have been asserted to the theory.
      */
-    ATTTCList d_assertedToTheTheoryWatches;
+    AOList d_assertionOrderWatches;
 
 
     /**
@@ -683,10 +727,10 @@ private:
     d_watches->d_canBePropagatedWatches.push_back(c);
   }
 
-  void pushAssertedToTheTheoryWatch(Constraint c){
-    Assert(!c->d_assertedToTheTheory);
-    c->d_assertedToTheTheory = true;
-    d_watches->d_assertedToTheTheoryWatches.push_back(c);
+  void pushAssertionOrderWatch(Constraint c){
+    Assert(!c->assertedToTheTheory());
+    c->d_assertionOrder = d_watches->d_assertionOrderWatches.size();
+    d_watches->d_assertionOrderWatches.push_back(c);
   }
 
   void pushProofWatch(Constraint c, ProofId pid){

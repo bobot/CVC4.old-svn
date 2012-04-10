@@ -21,7 +21,7 @@ ConstraintValue::ConstraintValue(ArithVar x,  ConstraintType t, const DeltaRatio
     d_literal(Node::null()),
     d_negation(NullConstraint),
     d_canBePropagated(false),
-    d_assertedToTheTheory(false),
+    d_assertionOrder(AssertionOrderSentinel),
     d_proof(ProofIdSentinel),
     d_split(false),
     d_variablePosition()
@@ -312,7 +312,7 @@ void ConstraintValue::setAssertedToTheTheory() {
   Assert(hasLiteral());
   Assert(!assertedToTheTheory());
   Assert(!d_negation->assertedToTheTheory());
-  d_database->pushAssertedToTheTheoryWatch(this);
+  d_database->pushAssertionOrderWatch(this);
 }
 
 bool ConstraintValue::isSelfExplaining() const {
@@ -640,20 +640,58 @@ void ConstraintValue::propagate(){
 }
 
 void ConstraintValue::propagate(Constraint a){
+  Assert(!hasProof());
+  Assert(canBePropagated());
+
   markAsTrue(a);
   propagate();
 }
 
 void ConstraintValue::propagate(Constraint a, Constraint b){
-  markAsTrue(a);
+  Assert(!hasProof());
+  Assert(canBePropagated());
+
+  markAsTrue(a, b);
   propagate();
 }
 
 void ConstraintValue::propagate(const std::vector<Constraint>& b){
+  Assert(!hasProof());
+  Assert(canBePropagated());
+
   markAsTrue(b);
   propagate();
 }
 
+void ConstraintValue::impliedBy(Constraint a){
+  Assert(!isTrue());
+  Assert(!getNegation()->isTrue());
+
+  markAsTrue(a);
+  if(canBePropagated()){
+    propagate();
+  }
+}
+
+void ConstraintValue::impliedBy(Constraint a, Constraint b){
+  Assert(!isTrue());
+  Assert(!getNegation()->isTrue());
+
+  markAsTrue(a, b);
+  if(canBePropagated()){
+    propagate();
+  }
+}
+
+void ConstraintValue::impliedBy(const std::vector<Constraint>& b){
+  Assert(!isTrue());
+  Assert(!getNegation()->isTrue());
+
+  markAsTrue(b);
+  if(canBePropagated()){
+    propagate();
+  }
+}
 
 void ConstraintValue::setEqualityEngineProof(){
   Assert(truthIsUnknown());
@@ -711,16 +749,6 @@ SortedConstraintMap& ConstraintValue::constraintSet() const{
   return (d_database->d_varDatabases[d_variable])->d_constraints;
 }
 
-void ConstraintValue::internalPropagate(Constraint antecedent){
-  Assert(!negationHasProof());
-
-  if(hasProof()){
-    Debug("arith::db") << "Already has proof " << this << endl;
-  }else{
-    markAsTrue(antecedent);
-  }
-}
-
 bool ConstraintValue::proofIsEmpty() const{
   Assert(hasProof());
   bool result = d_database->d_proofs[d_proof] == NullConstraint;
@@ -728,33 +756,11 @@ bool ConstraintValue::proofIsEmpty() const{
   return result;
 }
 
-Node ConstraintValue::explainForConflict() const{
+void ConstraintValue::explainBefore(NodeBuilder<>& nb, AssertionOrder order) const{
   Assert(hasProof());
   Assert(!isSelfExplaining() || assertedToTheTheory());
 
-  if(assertedToTheTheory()){
-    return getLiteral();
-  }else if(hasEqualityEngineProof()){
-    return d_database->eeExplain(this);
-  }else{
-    Assert(!isSelfExplaining());
-    Assert(!proofIsEmpty());
-    if(d_database->d_proofs[d_proof-1] == NullConstraint){
-      Constraint antecedent = d_database->d_proofs[d_proof];
-      return antecedent->explainForConflict();
-    }else{
-      NodeBuilder<> nb(AND);
-      explainInto(nb);
-      return nb;
-    }
-  }
-}
-
-void ConstraintValue::explainInto(NodeBuilder<>& nb) const{
-  Assert(hasProof());
-  Assert(!isSelfExplaining() || assertedToTheTheory());
-
-  if(assertedToTheTheory()){
+  if(assertedBefore(order)){
     nb << getLiteral();
   }else if(hasEqualityEngineProof()){
     d_database->eeExplain(this, nb);
@@ -764,23 +770,23 @@ void ConstraintValue::explainInto(NodeBuilder<>& nb) const{
     Constraint antecedent = d_database->d_proofs[p];
 
     for(; antecedent != NullConstraint; antecedent = d_database->d_proofs[--p] ){
-      antecedent->explainInto(nb);
+      antecedent->explainBefore(nb, order);
     }
   }
 }
-
-Node ConstraintValue::explainForPropagation() const{
+Node ConstraintValue::explainBefore(AssertionOrder order) const{
   Assert(hasProof());
-  Assert(!isSelfExplaining());
-
-  if(hasEqualityEngineProof()){
+  Assert(!isSelfExplaining() || assertedBefore(order));
+  if(assertedBefore(order)){
+    return getLiteral();
+  }else if(hasEqualityEngineProof()){
     return d_database->eeExplain(this);
   }else{
     Assert(!proofIsEmpty());
     //Force the selection of the layer above if the node is assertedToTheTheory()!
     if(d_database->d_proofs[d_proof-1] == NullConstraint){
       Constraint antecedent = d_database->d_proofs[d_proof];
-      return antecedent->explainForConflict();
+      return antecedent->explainBefore(order);
     }else{
       NodeBuilder<> nb(kind::AND);
       Assert(!isSelfExplaining());
@@ -788,25 +794,25 @@ Node ConstraintValue::explainForPropagation() const{
       ProofId p = d_proof;
       Constraint antecedent = d_database->d_proofs[p];
       for(; antecedent != NullConstraint; antecedent = d_database->d_proofs[--p] ){
-        antecedent->explainInto(nb);
+        antecedent->explainBefore(nb, order);
       }
       return nb;
     }
   }
 }
 
-Node ConstraintValue::explainConjunction(Constraint a, Constraint b){
+Node ConstraintValue::explainConflict(Constraint a, Constraint b){
   NodeBuilder<> nb(kind::AND);
-  a->explainInto(nb);
-  b->explainInto(nb);
+  a->explainForConflict(nb);
+  b->explainForConflict(nb);
   return nb;
 }
 
-Node ConstraintValue::explainConjunction(Constraint a, Constraint b, Constraint c){
+Node ConstraintValue::explainConflict(Constraint a, Constraint b, Constraint c){
   NodeBuilder<> nb(kind::AND);
-  a->explainInto(nb);
-  b->explainInto(nb);
-  c->explainInto(nb);
+  a->explainForConflict(nb);
+  b->explainForConflict(nb);
+  c->explainForConflict(nb);
   return nb;
 }
 
@@ -933,7 +939,7 @@ bool ConstraintDatabase::variableDatabaseIsSetup(ArithVar v) const {
 ConstraintDatabase::Watches::Watches(context::Context* satContext, context::Context* userContext):
   d_proofWatches(satContext),
   d_canBePropagatedWatches(satContext),
-  d_assertedToTheTheoryWatches(satContext),
+  d_assertionOrderWatches(satContext),
   d_splitWatches(userContext)
 {}
 

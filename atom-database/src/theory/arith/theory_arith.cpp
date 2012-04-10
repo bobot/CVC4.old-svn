@@ -188,7 +188,7 @@ Node TheoryArith::AssertLower(Constraint constraint){
   int cmpToUB = d_partialModel.cmpToUpperBound(x_i, c_i);
   if(cmpToUB > 0){ //  c_i < \lowerbound(x_i)
     Constraint ubc = d_partialModel.getUpperBoundConstraint(x_i);
-    Node conflict = ConstraintValue::explainConjunction(ubc, constraint);
+    Node conflict = ConstraintValue::explainConflict(ubc, constraint);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     ++(d_statistics.d_statAssertLowerConflicts);
     return conflict;
@@ -204,7 +204,7 @@ Node TheoryArith::AssertLower(Constraint constraint){
       const Constraint diseq = vc.getDisequality();
       if(diseq->isTrue()){
         const Constraint ub = vc.getUpperBound();
-        Node conflict = ConstraintValue::explainConjunction(diseq, ub, constraint);
+        Node conflict = ConstraintValue::explainConflict(diseq, ub, constraint);
 
         ++(d_statistics.d_statDisequalityConflicts);
         Debug("eq") << " assert lower conflict " << conflict << endl;
@@ -266,7 +266,7 @@ Node TheoryArith::AssertUpper(Constraint constraint){
   int cmpToLB = d_partialModel.cmpToLowerBound(x_i, c_i);
   if( cmpToLB < 0 ){ //  \upperbound(x_i) < \lowerbound(x_i)
     Constraint lbc = d_partialModel.getLowerBoundConstraint(x_i);
-    Node conflict =  ConstraintValue::explainConjunction(lbc, constraint);
+    Node conflict =  ConstraintValue::explainConflict(lbc, constraint);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     ++(d_statistics.d_statAssertUpperConflicts);
     return conflict;
@@ -282,7 +282,7 @@ Node TheoryArith::AssertUpper(Constraint constraint){
       const Constraint eq = vc.getEquality();
       if(diseq->isTrue()){
         const Constraint ub = vc.getUpperBound();
-        Node conflict = ConstraintValue::explainConjunction(diseq, ub, constraint);
+        Node conflict = ConstraintValue::explainConflict(diseq, ub, constraint);
         Debug("eq") << " assert upper conflict " << conflict << endl;
         return conflict;
       }else if(eq->isTrue() && eq->canBePropagated()){
@@ -344,14 +344,14 @@ Node TheoryArith::AssertEquality(Constraint constraint){
 
   if(cmpToUB > 0){
     Constraint ubc = d_partialModel.getUpperBoundConstraint(x_i);
-    Node conflict = ConstraintValue::explainConjunction(ubc, constraint);
+    Node conflict = ConstraintValue::explainConflict(ubc, constraint);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     return conflict;
   }
 
   if(cmpToLB < 0){
     Constraint lbc = d_partialModel.getLowerBoundConstraint(x_i);
-    Node conflict = ConstraintValue::explainConjunction(lbc, constraint);
+    Node conflict = ConstraintValue::explainConflict(lbc, constraint);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     return conflict;
   }
@@ -427,7 +427,7 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
       //in conflict
       Debug("eq") << "explaining" << endl;
       ++(d_statistics.d_statDisequalityConflicts);
-      return ConstraintValue::explainConjunction(constraint, lb, ub);
+      return ConstraintValue::explainConflict(constraint, lb, ub);
     }else if(lb->isTrue()){
       Debug("eq") << "propagate UpperBound " << constraint << lb << ub << endl;
       const Constraint negUb = ub->getNegation();
@@ -915,22 +915,31 @@ Node TheoryArith::callDioSolver(){
     Assert(isInteger(v));
     Assert(d_partialModel.boundsAreEqual(v));
 
-    TNode lb = d_partialModel.explainLowerBound(v);
-    TNode ub = d_partialModel.explainUpperBound(v);
+
+    Constraint lb = d_partialModel.getLowerBoundConstraint(v);
+    Constraint ub = d_partialModel.getUpperBoundConstraint(v);
 
     Node orig = Node::null();
-    if(lb == ub){
-      Assert(lb.getKind() == EQUAL);
-      orig = lb;
-    }else if(lb.getKind() == EQUAL){
-      orig = lb;
-    }else if(ub.getKind() == EQUAL){
-      orig = ub;
-    }else{
-      NodeBuilder<> nb(AND);
-      nb << ub << lb;
-      orig = nb;
+    if(lb->isEquality()){
+      orig = lb->explainForConflict();
+    }else if(ub->isEquality()){
+      orig = ub->explainForConflict();
+    }else {
+      orig = ConstraintValue::explainConflict(ub, lb);
     }
+
+    // if(lb == ub){
+    //   Assert(lb->isLower);
+    //   orig = lb;
+    // }else if(lb.getKind() == EQUAL){
+    //   orig = lb;
+    // }else if(ub.getKind() == EQUAL){
+    //   orig = ub;
+    // }else{
+    //   NodeBuilder<> nb(AND);
+    //   nb << ub << lb;
+    //   orig = nb;
+    // }
 
     Assert(d_partialModel.assignmentIsConsistent(v));
 
@@ -978,7 +987,7 @@ Node TheoryArith::assertionCases(TNode assertion){
 
     NodeBuilder<> nb(kind::AND);
     nb << assertion;
-    negation->explainInto(nb);
+    negation->explainForConflict(nb);
     Node conflict = nb;
     Debug("arith::eq") << "conflict" << conflict << endl;
     return conflict;
@@ -1014,7 +1023,7 @@ Node TheoryArith::assertionCases(TNode assertion){
     if(isInteger(x_i)){
       Constraint floorConstraint = constraint->getFloor();
       if(!floorConstraint->isTrue()){
-        floorConstraint->markAsTrue(constraint);
+        floorConstraint->impliedBy(constraint);
       }
       c_i = DeltaRational(c_i.floor());
       //return AssertUpper(x_i, c_i, assertion, floorConstraint);
@@ -1027,7 +1036,7 @@ Node TheoryArith::assertionCases(TNode assertion){
     if(isInteger(x_i)){
       Constraint ceilingConstraint = constraint->getCeiling();
       if(!ceilingConstraint->isTrue()){
-        ceilingConstraint->markAsTrue(constraint);
+        ceilingConstraint->impliedBy(constraint);
       }
       c_i = DeltaRational(c_i.ceiling());
       //return AssertLower(x_i, c_i, assertion, ceilingConstraint);
@@ -1240,12 +1249,12 @@ void TheoryArith::debugPrintAssertions() {
   Debug("arith::print_assertions") << "Assertions:" << endl;
   for (ArithVar i = 0; i < d_variables.size(); ++ i) {
     if (d_partialModel.hasLowerBound(i)) {
-      Node lConstr = d_partialModel.explainLowerBound(i);
+      Constraint lConstr = d_partialModel.getLowerBoundConstraint(i);
       Debug("arith::print_assertions") << lConstr << endl;
     }
 
     if (d_partialModel.hasUpperBound(i)) {
-      Node uConstr = d_partialModel.explainUpperBound(i);
+      Constraint uConstr = d_partialModel.getUpperBoundConstraint(i);
       Debug("arith::print_assertions") << uConstr << endl;
     }
   }
@@ -1270,6 +1279,7 @@ void TheoryArith::debugPrintModel(){
 }
 
 Node TheoryArith::explain(TNode n) {
+
   Debug("arith::explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
 
   Constraint c = d_constraintDatabase.lookup(n);
@@ -1317,7 +1327,7 @@ void TheoryArith::propagate(Effort e) {
     Node literal = c->getLiteral();
     if(!c->assertedToTheTheory()){
 
-      Debug("arith::prop") << "propagating " << literal << endl;
+      Debug("arith::prop") << "propagating @" << getContext()->getLevel() << " " << literal << endl;
 
       d_out->propagate(literal);
       propagated = true;

@@ -488,7 +488,7 @@ Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar
     anyWeakenings = anyWeakenings || weakening;
 
     Debug("weak") << "weak : " << c->explainForConflict() << endl;
-    c->explainInto(conflict);
+    c->explainForConflict(conflict);
   }
   ++d_statistics.d_weakeningAttempts;
   if(anyWeakenings){
