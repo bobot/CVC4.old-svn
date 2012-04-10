@@ -24,101 +24,80 @@ QuantifiersEngine* InstantiationEngine::getQuantifiersEngine(){
 bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   Debug("inst-engine") << "IE: Instantiation Round." << std::endl;
   Debug("inst-engine-ctrl") << "IE: Instantiation Round." << std::endl;
-  bool success;
-  do{
-    bool startedInstRound = false;
-    //reset instantiators
-#if 0
-    if( !d_in_instRound ){
-      d_in_instRound = true;
-#elif 0
-    if( !d_in_instRound_no_c ){
-      d_in_instRound_no_c = true;
-#else
-    if( true ){
-#endif
-      Debug("inst-engine-ctrl") << "Reset IE" << std::endl;
-      startedInstRound = true;
-      for( int i=0; i<theory::THEORY_LAST; i++ ){
-        if( getQuantifiersEngine()->getInstantiator( i ) ){
-          getQuantifiersEngine()->getInstantiator( i )->resetInstantiationRound( effort );
-          //getQuantifiersEngine()->getInstantiator( i )->resetInstantiationStrategies();
-        }
-      }
+  //reset instantiators
+  Debug("inst-engine-ctrl") << "Reset IE" << std::endl;
+  for( int i=0; i<theory::THEORY_LAST; i++ ){
+    if( getQuantifiersEngine()->getInstantiator( i ) ){
+      getQuantifiersEngine()->getInstantiator( i )->resetInstantiationRound( effort );
+      //getQuantifiersEngine()->getInstantiator( i )->resetInstantiationStrategies();
     }
-    int eLimit = effort==Theory::EFFORT_LAST_CALL ? 10 : 2;
-    int e = 0;
-    d_inst_round_status = InstStrategy::STATUS_UNFINISHED;
-    //while unfinished, try effort level=0,1,2....
-    while( d_inst_round_status==InstStrategy::STATUS_UNFINISHED && e<=eLimit ){
-      //if( e==3 ){
-      //  std::cout << "unknown ";
-      //  exit( 24 );
-      //}
-      Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
-      d_inst_round_status = InstStrategy::STATUS_SAT;
-      //instantiate each quantifier
-      for( int q=0; q<getQuantifiersEngine()->getNumQuantifiers(); q++ ){
-        Node f = getQuantifiersEngine()->getQuantifier( q );
-        Debug("inst-engine-debug") << "IE: Instantiate " << f << "..." << std::endl;
-        //if this quantifier is active
-        if( getQuantifiersEngine()->getActive( f ) ){
-          //std::cout << "Process " << f << " " << effort << " " << e << std::endl;
-          //int e_use = getQuantifiersEngine()->getRelevance( f )==-1 ? e - 1 : e;
-          int e_use = e;
-          if( e_use>=0 ){
-            //use each theory instantiator to instantiate f
-            for( int i=0; i<theory::THEORY_LAST; i++ ){
-              if( getQuantifiersEngine()->getInstantiator( i ) ){
-                Debug("inst-engine-debug") << "Do " << getQuantifiersEngine()->getInstantiator( i )->identify() << " " << e_use << std::endl;
-                //std::cout << "Do " << d_instTable[i]->identify() << " " << e << std::endl;
-                int limitInst = 0;
-                int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e_use, limitInst );
-                Debug("inst-engine-debug") << " -> status is " << quantStatus << std::endl;
-                //std::cout << " -> status is " << d_instTable[i]->getStatus() << std::endl;
-                InstStrategy::updateStatus( d_inst_round_status, quantStatus );
-              }
+  }
+  getQuantifiersEngine()->getTermDatabase()->resetInstantiationRound( effort );
+  int eLimit = effort==Theory::EFFORT_LAST_CALL ? 10 : 2;
+  int e = 0;
+  d_inst_round_status = InstStrategy::STATUS_UNFINISHED;
+  //while unfinished, try effort level=0,1,2....
+  while( d_inst_round_status==InstStrategy::STATUS_UNFINISHED && e<=eLimit ){
+    //if( e==3 ){
+    //  std::cout << "unknown ";
+    //  exit( 24 );
+    //}
+    Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
+    d_inst_round_status = InstStrategy::STATUS_SAT;
+    //instantiate each quantifier
+    for( int q=0; q<getQuantifiersEngine()->getNumQuantifiers(); q++ ){
+      Node f = getQuantifiersEngine()->getQuantifier( q );
+      Debug("inst-engine-debug") << "IE: Instantiate " << f << "..." << std::endl;
+      //if this quantifier is active
+      if( getQuantifiersEngine()->getActive( f ) ){
+        //std::cout << "Process " << f << " " << effort << " " << e << std::endl;
+        //int e_use = getQuantifiersEngine()->getRelevance( f )==-1 ? e - 1 : e;
+        int e_use = e;
+        if( e_use>=0 ){
+          //use each theory instantiator to instantiate f
+          for( int i=0; i<theory::THEORY_LAST; i++ ){
+            if( getQuantifiersEngine()->getInstantiator( i ) ){
+              Debug("inst-engine-debug") << "Do " << getQuantifiersEngine()->getInstantiator( i )->identify() << " " << e_use << std::endl;
+              //std::cout << "Do " << d_instTable[i]->identify() << " " << e << std::endl;
+              int limitInst = 0;
+              int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e_use, limitInst );
+              Debug("inst-engine-debug") << " -> status is " << quantStatus << std::endl;
+              //std::cout << " -> status is " << d_instTable[i]->getStatus() << std::endl;
+              InstStrategy::updateStatus( d_inst_round_status, quantStatus );
             }
           }
-          //std::cout << "Done" << std::endl;
         }
+        //std::cout << "Done" << std::endl;
       }
-      //do not consider another level if already added lemma at this level
-      if( getQuantifiersEngine()->hasAddedLemma() ){
-        d_inst_round_status = InstStrategy::STATUS_UNKNOWN;
-      }
-      e++;
     }
-    Debug("inst-engine") << "All instantiators finished, # added lemmas = ";
-    Debug("inst-engine") << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
-    //std::cout << "All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
-    if( !getQuantifiersEngine()->hasAddedLemma() ){
-      if( startedInstRound ){
-        Debug("inst-engine-stuck") << "No instantiations produced at this state: " << std::endl;
-        for( int i=0; i<theory::THEORY_LAST; i++ ){
-          if( getQuantifiersEngine()->getInstantiator( i ) ){
-            getQuantifiersEngine()->getInstantiator( i )->debugPrint("inst-engine-stuck");
-            Debug("inst-engine-stuck") << std::endl;
-          }
-        }
-        Debug("inst-engine-ctrl") << "---Fail." << std::endl;
-        return false;
-      }else{
-        d_in_instRound = false;
-        d_in_instRound_no_c = false;
-        success = false;
-      }
-    }else{
-      success = true;
+    //do not consider another level if already added lemma at this level
+    if( getQuantifiersEngine()->hasAddedLemma() ){
+      d_inst_round_status = InstStrategy::STATUS_UNKNOWN;
     }
-  }while( !success );
-  Debug("inst-engine-ctrl") << "---Done. " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+    e++;
+  }
+  Debug("inst-engine") << "All instantiators finished, # added lemmas = ";
+  Debug("inst-engine") << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+  //std::cout << "All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
+  if( !getQuantifiersEngine()->hasAddedLemma() ){
+    Debug("inst-engine-stuck") << "No instantiations produced at this state: " << std::endl;
+    for( int i=0; i<theory::THEORY_LAST; i++ ){
+      if( getQuantifiersEngine()->getInstantiator( i ) ){
+        getQuantifiersEngine()->getInstantiator( i )->debugPrint("inst-engine-stuck");
+        Debug("inst-engine-stuck") << std::endl;
+      }
+    }
+    Debug("inst-engine-ctrl") << "---Fail." << std::endl;
+    return false;
+  }else{
+    Debug("inst-engine-ctrl") << "---Done. " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
-  std::cout << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+    std::cout << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
 #endif
-  //flush lemmas to output channel
-  getQuantifiersEngine()->flushLemmas( &d_th->getOutputChannel() );
-  return true;
+    //flush lemmas to output channel
+    getQuantifiersEngine()->flushLemmas( &d_th->getOutputChannel() );
+    return true;
+  }
 }
 
 int ierCounter = 0;

@@ -21,6 +21,8 @@ libuf_la_SOURCES = \
 	theory_uf_candidate_generator.h \
 	theory_uf_candidate_generator.cpp \
 	inst_strategy_model_find.h \
-	inst_strategy_model_find.cpp
+	inst_strategy_model_find.cpp \
+	inst_strategy.h \
+	inst_strategy.cpp
 
 EXTRA_DIST = kinds

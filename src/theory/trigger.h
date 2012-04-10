@@ -68,7 +68,7 @@ private:
   static TrTrie d_tr_trie;
 private:
   /** trigger constructor */
-  Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, int matchOption = 0 );
+  Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, int matchOption = 0, bool smartMultiTrigger = false );
 public:
   ~Trigger(){}
 public:
@@ -113,9 +113,11 @@ public:
     TR_RETURN_NULL  //return null if a duplicate is found
   };
   static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, 
-                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW ); 
+                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW, 
+                             bool smartMultiTrigger = false ); 
   static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, Node n, 
-                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW ); 
+                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW, 
+                             bool smartMultiTrigger = false ); 
 private:  
   /** is subterm of trigger usable */
   static bool isUsable( Node n, Node f );

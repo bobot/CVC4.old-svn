@@ -142,6 +142,8 @@ public:
   Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th);
   ~Instantiator();
 
+  /** get quantifiers engine */
+  QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }
   /** get corresponding theory for this instantiator */
   Theory* getTheory() { return d_th; }
   /** Pre-register a term.  Done one time for a Node, ever. */
@@ -184,6 +186,8 @@ public:
   std::map< TypeNode, std::vector< Node > > d_type_map;
   /** add a term to the database */
   virtual void add( Node n, std::vector< Node >& added, bool withinQuant = false ) = 0;
+  /** reset instantiation round */
+  virtual void resetInstantiationRound( Theory::Effort effort ) = 0;
 };
 
 

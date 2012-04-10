@@ -61,10 +61,11 @@ int Trigger::trCount = 0;
 Trigger::TrTrie Trigger::d_tr_trie;
 
 /** trigger class constructor */
-Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption ) : d_quantEngine( qe ), d_f( f ){
+Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool smartMultiTrigger ) : 
+d_quantEngine( qe ), d_f( f ){
   trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
-  if( Options::current()->smartMultiTriggers ){
+  if( smartMultiTrigger ){
     if( d_nodes.size()==1 ){
       d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
     }else{
@@ -159,7 +160,8 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
   return addedLemmas;
 }
 
-Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool keepAll, int trOption ){
+Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool keepAll, int trOption, 
+                             bool smartMultiTrigger ){
   std::vector< Node > trNodes;
   if( !keepAll ){
     //only take nodes that contribute variables to the trigger when added
@@ -242,14 +244,14 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       }
     }
   }
-  Trigger* t = new Trigger( qe, f, trNodes, matchOption );
+  Trigger* t = new Trigger( qe, f, trNodes, matchOption, smartMultiTrigger );
   d_tr_trie.addTrigger( trNodes, t );
   return t;
 }
-Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, Node n, int matchOption, bool keepAll, int trOption ){
+Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, Node n, int matchOption, bool keepAll, int trOption, bool smartMultiTrigger ){
   std::vector< Node > nodes;
   nodes.push_back( n );
-  return mkTrigger( qe, f, nodes, matchOption, keepAll, trOption );
+  return mkTrigger( qe, f, nodes, matchOption, keepAll, trOption, smartMultiTrigger );
 }
 
 bool Trigger::isUsableTrigger( std::vector< Node >& nodes, Node f ){

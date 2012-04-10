@@ -19,7 +19,7 @@
 #ifndef __CVC4__THEORY_UF_INSTANTIATOR_H
 #define __CVC4__THEORY_UF_INSTANTIATOR_H
 
-#include "theory/quantifiers_engine.h"
+#include "theory/uf/inst_strategy.h"
 
 #include "context/context.h"
 #include "context/context_mm.h"
@@ -34,142 +34,6 @@ namespace theory {
 namespace uf {
 
 class InstantiatorTheoryUf;
-
-//instantiation strategies
-
-class InstStrategyCheckCESolved : public InstStrategy{
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
-  /** is solved? */
-  std::map< Node, bool > d_solved;
-  /** calc if f is solved */
-  void calcSolved( Node f );
-  /** process functions */
-  void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
-public:
-  InstStrategyCheckCESolved( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
-      InstStrategy( ie ), d_th( th ){}
-  ~InstStrategyCheckCESolved(){}
-  /** identify */
-  std::string identify() const { return std::string("CheckCESolved"); }
-};
-
-class InstStrategyUserPatterns : public InstStrategy{
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
-  /** explicitly provided patterns */
-  std::map< Node, std::vector< Trigger* > > d_user_gen;
-  /** counter for quantifiers */
-  std::map< Node, int > d_counter;
-  /** process functions */
-  void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
-public:
-  InstStrategyUserPatterns( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
-      InstStrategy( ie ), d_th( th ){}
-  ~InstStrategyUserPatterns(){}
-public:
-  /** add pattern */
-  void addUserPattern( Node f, Node pat );
-  /** get num patterns */
-  int getNumUserGenerators( Node f ) { return (int)d_user_gen[f].size(); }
-  /** get user pattern */
-  Trigger* getUserGenerator( Node f, int i ) { return d_user_gen[f][ i ]; }
-  /** identify */
-  std::string identify() const { return std::string("UserPatterns"); }
-};
-
-class InstStrategyAutoGenTriggers : public InstStrategy{
-public:
-  enum {
-    RELEVANCE_NONE,
-    RELEVANCE_DEFAULT,
-  };
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
-  /** trigger generation strategy */
-  int d_tr_strategy;
-  /** relevance strategy */
-  int d_rlv_strategy;
-  /** regeneration */
-  bool d_regenerate;
-  int d_regenerate_frequency;
-  /** generate additional triggers */
-  bool d_generate_additional;
-  /** triggers for each quantifier */
-  std::map< Node, std::map< Trigger*, bool > > d_auto_gen_trigger;
-  std::map< Node, int > d_counter;
-  /** single, multi triggers for each quantifier */
-  std::map< Node, std::vector< Node > > d_patTerms[2];
-  std::map< Node, bool > d_is_single_trigger;
-  std::map< Node, bool > d_single_trigger_gen;
-  std::map< Node, bool > d_made_multi_trigger;
-private:
-  /** process functions */
-  void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
-  /** generate triggers */
-  void generateTriggers( Node f );
-public:
-  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt, int rstrt, int rgfr = -1 ) : 
-      InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ), d_rlv_strategy( rstrt ), d_generate_additional( false ){
-    setRegenerateFrequency( rgfr );
-  }
-  ~InstStrategyAutoGenTriggers(){}
-public:
-  /** get auto-generated trigger */
-  Trigger* getAutoGenTrigger( Node f );
-  /** identify */
-  std::string identify() const { return std::string("AutoGenTriggers"); }
-  /** set regenerate frequency, if fr<0, turn off regenerate */
-  void setRegenerateFrequency( int fr ){
-    if( fr<0 ){
-      d_regenerate = false;
-    }else{
-      d_regenerate_frequency = fr;
-      d_regenerate = true;
-    }
-  }
-  /** set generate additional */
-  void setGenerateAdditional( bool val ) { d_generate_additional = val; }
-};
-
-class InstStrategyAddFailSplits : public InstStrategy{
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
-  /** process functions */
-  void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
-public:
-  InstStrategyAddFailSplits( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
-      InstStrategy( ie ), d_th( th ){}
-  ~InstStrategyAddFailSplits(){}
-  /** identify */
-  std::string identify() const { return std::string("AddFailSplits"); }
-};
-
-class InstStrategyFreeVariable : public InstStrategy{
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
-  /** guessed instantiations */
-  std::map< Node, bool > d_guessed;
-  /** process functions */
-  void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
-public:
-  InstStrategyFreeVariable( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
-      InstStrategy( ie ), d_th( th ){}
-  ~InstStrategyFreeVariable(){}
-  /** identify */
-  std::string identify() const { return std::string("FreeVariable"); }
-};
-
 class UfTermDb;
 
 //equivalence class info
@@ -200,6 +64,18 @@ public:
   void merge( EqClassInfo* eci );
 };
 
+class UfTermTrie
+{
+public:
+  void addTerm2( QuantifiersEngine* qe, Node n, int argIndex, bool modEq );
+  bool existsTerm( QuantifiersEngine* qe, Node n, int argIndex, bool modEq );
+public:
+  /** the data */
+  std::map< Node, UfTermTrie > d_data;
+public:
+  bool addTerm( QuantifiersEngine* qe, Node n, bool modEq );
+};
+
 class UfTermDb : public TermDb
 {
 private:
@@ -217,6 +93,8 @@ public:
   std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
   /** register this term */
   void add( Node n, std::vector< Node >& added, bool withinQuant = false );
+  /** reset instantiation round */
+  void resetInstantiationRound( Theory::Effort effort );
 };
 
 class InstantiatorTheoryUf : public Instantiator{
