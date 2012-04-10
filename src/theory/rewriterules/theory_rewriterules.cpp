@@ -84,7 +84,7 @@ size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
 
 bool RuleInst::alreadyRewritten(TheoryRewriteRules & re) const{
   Assert(this != RULEINST_TRUE && this != RULEINST_FALSE);
-  static RewrittenNodeAttribute rewrittenNodeAttribute;
+  static NoMatchAttribute rewrittenNodeAttribute;
   TCache cache;
   for(std::vector<Node>::const_iterator
         iter = rule->to_remove.begin();
@@ -400,7 +400,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   };
 
   if(simulateRewritting){
-    static RewrittenNodeAttribute rewrittenNodeAttribute;
+    static NoMatchAttribute rewrittenNodeAttribute;
     // Tag the rewritted terms
     for(std::vector<Node>::iterator i = rule->to_remove.begin();
         i == rule->to_remove.end(); ++i){

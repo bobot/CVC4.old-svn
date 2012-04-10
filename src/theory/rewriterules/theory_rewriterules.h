@@ -36,15 +36,6 @@ namespace rewriterules {
 
 typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
 
-/** Attribute true for node which have be rewritten*/
-struct RewrittenNodeAttributeId {};
-/** use the special for boolean flag */
-typedef expr::Attribute<RewrittenNodeAttributeId,
-                        bool,
-                        expr::attr::NullCleanupStrategy,
-                        true  // context dependent
-                        > RewrittenNodeAttribute;
-
   enum Answer {ATRUE, AFALSE, ADONTKNOW};
 
   class TheoryRewriteRules; /** forward */

@@ -27,6 +27,13 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
+
+void CandidateGeneratorQueue::addCandidate( Node n ) {
+  if( !n.getAttribute(NoMatchAttribute()) ){
+    d_candidates.push_back( n ); 
+  }
+}
+
 void CandidateGeneratorQueue::reset( Node eqc ){
   if( d_candidate_index>0 ){
     d_candidates.erase( d_candidates.begin(), d_candidates.begin() + d_candidate_index );
@@ -333,11 +340,11 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     if( d_pattern.getKind()==NOT ){
       std::cout << "Disequal generator unimplemented" << std::endl;  //DO_THIS
       exit( 34 );
-      Node op = d_match_pattern.getKind()==APPLY_UF ? d_match_pattern.getOperator() : Node::null();
-      //we are matching for a term, but want to be disequal from a particular equivalence class
-      d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
-      //store the equivalence class that we will call d_cg->reset( ... ) on
-      d_eq_class = d_pattern[0][1];
+      //Node op = d_match_pattern.getKind()==APPLY_UF ? d_match_pattern.getOperator() : Node::null();
+      ////we are matching for a term, but want to be disequal from a particular equivalence class
+      //d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
+      ////store the equivalence class that we will call d_cg->reset( ... ) on
+      //d_eq_class = d_pattern[0][1];
     }else{
       Assert( d_match_pattern.getKind()==APPLY_UF );
       //we are matching only in a particular equivalence class
@@ -720,6 +727,9 @@ void InstMatchGeneratorMulti::calculateMatches( QuantifiersEngine* qe ){
     for( int j=0; j<(int)newMatches.size(); j++ ){
       //see if these produce new matches
       d_children_trie[i].addInstMatch( qe, d_f, newMatches[j], true );
+      //possibly only do the following if we know that new matches will be produced?
+      //the issue is that instantiations are filtered in quantifiers engine, and so there is no guarentee that
+      // we can safely skip the following lines, even when we have already produced this match.
       Debug("smart-multi-trigger") << "Child " << i << " produced match " << newMatches[j] << std::endl;
       //collect new instantiations
       int childIndex = (i+1)%(int)d_children.size();

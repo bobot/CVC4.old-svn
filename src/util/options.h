@@ -247,7 +247,7 @@ struct CVC4_PUBLIC Options {
   bool miniscopeQuantFreeVar;
 
   /** 
-   * Whether to prenex quantifiers
+   * Whether to prenex (nested universal) quantifiers
    */
   bool prenexQuant;
 
@@ -257,6 +257,11 @@ struct CVC4_PUBLIC Options {
    *   forall y. P( c, y )
    */
   bool varElimQuant;
+
+  /** 
+   * Whether to use smart multi-triggers
+   */
+  bool smartMultiTriggers;
 
   /**
    * Whether to use finite model find heuristic

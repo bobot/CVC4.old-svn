@@ -112,6 +112,7 @@ Options::Options() :
   miniscopeQuantFreeVar(true),
   prenexQuant(true),
   varElimQuant(false),
+  smartMultiTriggers(false),
   finiteModelFind(false),
   fmfRegionSat(false),
   efficientEMatching(false),
@@ -195,6 +196,7 @@ Additional CVC4 options:\n\
    --disable-miniscope-quant-fv  disable miniscope quantifiers for ground subformulas\n\
    --disable-prenex-quant disable prenexing of quantifiers\n\
    --var-elim-quant       enable variable elimination of quantifiers\n\
+   --smart-multi-triggers enable smart multi-triggers\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --use-fmf-region-sat   use region-based SAT heuristic for fmf\n\
    --efficient-e-matching use efficient E-matching\n\
@@ -381,6 +383,7 @@ enum OptionValue {
   DISABLE_MINISCOPE_QUANT_FV,
   DISABLE_PRENEX_QUANT,
   VAR_ELIM_QUANT,
+  SMART_MULTI_TRIGGERS,
   FINITE_MODEL_FIND,
   FMF_REGION_SAT,
   EFFICIENT_E_MATCHING,
@@ -480,6 +483,7 @@ static struct option cmdlineOptions[] = {
   { "disable-miniscope-quant-fv", no_argument, NULL, DISABLE_MINISCOPE_QUANT_FV },
   { "disable-prenex-quant", no_argument, NULL, DISABLE_PRENEX_QUANT },
   { "var-elim-quant", no_argument, NULL, VAR_ELIM_QUANT },
+  { "smart-multi-triggers", no_argument, NULL, SMART_MULTI_TRIGGERS },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
@@ -855,6 +859,9 @@ throw(OptionException) {
       break;
     case VAR_ELIM_QUANT:
       varElimQuant = true;
+      break;
+    case SMART_MULTI_TRIGGERS:
+      smartMultiTriggers = true;
       break;
     case FINITE_MODEL_FIND:
       finiteModelFind = true;

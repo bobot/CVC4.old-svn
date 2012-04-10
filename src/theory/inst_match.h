@@ -35,6 +35,15 @@
 namespace CVC4 {
 namespace theory {
 
+/** Attribute true for nodes that should not be used for matching */
+struct NoMatchAttributeId {};
+/** use the special for boolean flag */
+typedef expr::Attribute<NoMatchAttributeId,
+                        bool,
+                        expr::attr::NullCleanupStrategy,
+                        true  // context dependent
+                        > NoMatchAttribute;
+
 class QuantifiersEngine;
 namespace uf{
   class InstantiatorTheoryUf;
@@ -71,7 +80,7 @@ public:
   CandidateGeneratorQueue() : d_candidate_index( 0 ){}
   ~CandidateGeneratorQueue(){}
 
-  void addCandidate( Node n ) { d_candidates.push_back( n ); }
+  void addCandidate( Node n );
 
   void resetInstantiationRound(){}
   void reset( Node eqc );

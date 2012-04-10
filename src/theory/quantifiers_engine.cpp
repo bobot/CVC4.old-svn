@@ -462,10 +462,7 @@ void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
         }
         Debug("literal-matching") << "  Make " << prev << " -> " << nodes[i] << std::endl;
         Assert( prev.hasAttribute(InstConstantAttribute()) );
-        if( !nodes[i].hasAttribute(InstConstantAttribute()) ){
-          InstConstantAttribute ica;
-          nodes[i].setAttribute(ica,prev.getAttribute(InstConstantAttribute()));
-        }
+        setInstantiationConstantAttr( nodes[i], prev.getAttribute(InstConstantAttribute()) );
         ++(d_statistics.d_lit_phase_req);
       }else{
         ++(d_statistics.d_lit_phase_nreq);
@@ -591,6 +588,9 @@ void QuantifiersEngine::setInstantiationConstantAttr( Node n, Node f ){
     if( setAttr ){
       InstConstantAttribute ica;
       n.setAttribute(ica,f);
+      //also set the no-match attribute
+      NoMatchAttribute nma;
+      n.setAttribute(nma,true);
     }
   }
 }

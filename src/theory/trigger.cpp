@@ -27,7 +27,6 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-#define SMART_MULTI_TRIGGER
 //#define NESTED_PATTERN_SELECTION
 
 Trigger* Trigger::TrTrie::getTrigger2( std::vector< Node >& nodes ){
@@ -65,15 +64,15 @@ Trigger::TrTrie Trigger::d_tr_trie;
 Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption ) : d_quantEngine( qe ), d_f( f ){
   trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
-#ifdef SMART_MULTI_TRIGGER
-  if( d_nodes.size()==1 ){
-    d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
+  if( Options::current()->smartMultiTriggers ){
+    if( d_nodes.size()==1 ){
+      d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
+    }else{
+      d_mg = new InstMatchGeneratorMulti( f, d_nodes, qe, matchOption );
+    }
   }else{
-    d_mg = new InstMatchGeneratorMulti( f, d_nodes, qe, matchOption );
+    d_mg = new InstMatchGenerator( d_nodes, qe, matchOption );
   }
-#else
-  d_mg = new InstMatchGenerator( d_nodes, qe, matchOption );
-#endif
   Debug("trigger") << "Trigger for " << f << ": " << std::endl;
   for( int i=0; i<(int)d_nodes.size(); i++ ){
     Debug("trigger") << "   " << d_nodes[i] << std::endl;
@@ -123,7 +122,7 @@ bool Trigger::getNextMatch( InstMatch& m ){
 
 bool Trigger::getMatch( Node t, InstMatch& m ){
   //FIXME: this assumes d_mg is an inst match generator
-  ((InstMatchGenerator*)d_mg)->getMatch( t, m, d_quantEngine );
+  return ((InstMatchGenerator*)d_mg)->getMatch( t, m, d_quantEngine );
 }
 
 
