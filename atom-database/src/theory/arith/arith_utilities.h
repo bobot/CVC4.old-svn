@@ -278,6 +278,24 @@ inline Node maybeUnaryConvert(NodeBuilder<>& builder){
   }
 }
 
+inline void flattenAnd(Node n, std::vector<TNode>& out){
+  Assert(n.getKind() == kind::AND);
+  for(Node::iterator i=n.begin(), i_end=n.end(); i != i_end; ++i){
+    Node curr = *i;
+    if(curr.getKind() == kind::AND){
+      flattenAnd(curr, out);
+    }else{
+      out.push_back(curr);
+    }
+  }
+}
+
+inline Node flattenAnd(Node n){
+  std::vector<TNode> out;
+  flattenAnd(n, out);
+  return NodeManager::currentNM()->mkNode(kind::AND, out);
+}
+
 }; /* namesapce arith */
 }; /* namespace theory */
 }; /* namespace CVC4 */

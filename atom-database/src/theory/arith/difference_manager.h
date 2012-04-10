@@ -18,8 +18,40 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
+/**
+ * This implements a CDMaybe.
+ * This has either been set in the context or it has not.
+ * T must have a default constructor and support assignment.
+ */
+template <class T>
+class CDMaybe {
+private:
+  typedef std::pair<bool, T> BoolTPair;
+  context::CDO<BoolTPair> d_data;
+
+public:
+  CDMaybe(context::Context* c) : d_data(c, std::make_pair(false, T()))
+  {}
+
+  bool isSet() const {
+    return d_data.get().first;
+  }
+
+  void set(const T& d){
+    Assert(!isSet());
+    d_data.set(std::make_pair(true, d));
+  }
+
+  const T& get() const{
+    Assert(isSet());
+    return d_data.get().second;
+  }
+};
+
 class DifferenceManager {
 private:
+  CDMaybe<Node> d_conflict;
+
   struct Difference {
     bool isSlack;
     TNode x;
@@ -40,8 +72,7 @@ private:
     bool notify(TNode propagation) {
       Debug("arith::differences") << "DifferenceNotifyClass::notify(" << propagation << ")" << std::endl;
       // Just forward to dm
-      d_dm.propagate(propagation);
-      return true;
+      return d_dm.propagate(propagation);
     }
 
     void notify(TNode t1, TNode t2) {
@@ -79,6 +110,16 @@ private:
   TNodeCallBack& d_setupLiteral;
 
 public:
+
+  bool inConflict() const{
+    return d_conflict.isSet();
+  };
+
+  Node conflict() const{
+    Assert(inConflict());
+    return d_conflict.get();
+  }
+
   bool hasMorePropagations() const {
     return !d_propagatations.empty();
   }
@@ -115,7 +156,7 @@ private:
   DifferenceNotifyClass d_notify;
   theory::uf::EqualityEngine<DifferenceNotifyClass> d_ee;
 
-  void propagate(TNode x);
+  bool propagate(TNode x);
   void explain(TNode literal, std::vector<TNode>& assumptions);
 
   Node d_false;
@@ -143,6 +184,8 @@ private:
   void dequeueLiterals();
 
   void enqueueIntoNB(const std::set<TNode> all, NodeBuilder<>& nb);
+
+  Node explainInternal(TNode internal);
 
 public:
 

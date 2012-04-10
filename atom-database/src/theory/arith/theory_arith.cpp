@@ -285,7 +285,7 @@ Node TheoryArith::AssertUpper(Constraint constraint){
         Node conflict = ConstraintValue::explainConflict(diseq, ub, constraint);
         Debug("eq") << " assert upper conflict " << conflict << endl;
         return conflict;
-      }else if(eq->isTrue() && eq->canBePropagated()){
+      }else if(!eq->isTrue() && eq->canBePropagated()){
         Debug("eq") << "lb == ub, propagate eq" << eq << endl;
         eq->propagate(constraint, d_partialModel.getLowerBoundConstraint(x_i));
       }
@@ -994,19 +994,27 @@ Node TheoryArith::assertionCases(TNode assertion){
   }
   Assert(!constraint->negationHasProof());
 
+  if(constraint->assertedToTheTheory()){
+    //Do nothing
+    return Node::null();
+  }
+  Assert(!constraint->assertedToTheTheory());
   constraint->setAssertedToTheTheory();
 
-  ArithVar x_i = determineLeftVariable(assertion, simpleKind);
-  DeltaRational c_i = determineRightConstant(assertion, simpleKind);
+  ArithVar x_i = constraint->getVariable();
+  //DeltaRational c_i = determineRightConstant(assertion, simpleKind);
 
-  Assert(constraint->getVariable() == x_i);
-  Assert(constraint->getValue() == c_i);
+  Assert(constraint->getVariable() == determineLeftVariable(assertion, simpleKind));
+  Assert(constraint->getValue() == determineRightConstant(assertion, simpleKind));
   Assert(!constraint->hasLiteral() || constraint->getLiteral() == assertion);
 
   Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
                               <<"(" << assertion
                               << " \\-> "
-                              << x_i<<" "<< simpleKind <<" "<< c_i << ")" << std::endl;
+                              << determineLeftVariable(assertion, simpleKind)
+                              <<" "<< simpleKind <<" "
+                              << determineRightConstant(assertion, simpleKind)
+                              << ")" << std::endl;
 
 
   Debug("arith::constraint") << "arith constraint " << constraint << std::endl;
@@ -1025,7 +1033,7 @@ Node TheoryArith::assertionCases(TNode assertion){
       if(!floorConstraint->isTrue()){
         floorConstraint->impliedBy(constraint);
       }
-      c_i = DeltaRational(c_i.floor());
+      //c_i = DeltaRational(c_i.floor());
       //return AssertUpper(x_i, c_i, assertion, floorConstraint);
       return AssertUpper(floorConstraint);
     }
@@ -1038,7 +1046,7 @@ Node TheoryArith::assertionCases(TNode assertion){
       if(!ceilingConstraint->isTrue()){
         ceilingConstraint->impliedBy(constraint);
       }
-      c_i = DeltaRational(c_i.ceiling());
+      //c_i = DeltaRational(c_i.ceiling());
       //return AssertLower(x_i, c_i, assertion, ceilingConstraint);
       return AssertLower(ceilingConstraint);
     }
@@ -1097,6 +1105,15 @@ void TheoryArith::check(Effort effortLevel){
       d_out->conflict(possibleConflict);
       return;
     }
+  }
+
+  if(d_differenceManager.inConflict()){
+    Node c = d_differenceManager.conflict();
+    d_partialModel.revertAssignmentChanges();
+    Debug("arith::conflict") << "difference manager conflict   " << c << endl;
+    clearUpdates();
+    d_out->conflict(c);
+    return;
   }
 
   if(Debug.isOn("arith::print_assertions")) {
@@ -1295,23 +1312,6 @@ Node TheoryArith::explain(TNode n) {
   }
 }
 
-void flattenAnd(Node n, std::vector<TNode>& out){
-  Assert(n.getKind() == kind::AND);
-  for(Node::iterator i=n.begin(), i_end=n.end(); i != i_end; ++i){
-    Node curr = *i;
-    if(curr.getKind() == kind::AND){
-      flattenAnd(curr, out);
-    }else{
-      out.push_back(curr);
-    }
-  }
-}
-
-Node flattenAnd(Node n){
-  std::vector<TNode> out;
-  flattenAnd(n, out);
-  return NodeManager::currentNM()->mkNode(kind::AND, out);
-}
 
 void TheoryArith::propagate(Effort e) {
   bool propagated = false;

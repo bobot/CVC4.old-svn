@@ -2,13 +2,15 @@
 #include "theory/uf/equality_engine_impl.h"
 
 #include "theory/arith/constraint.h"
+#include "theory/arith/arith_utilities.h"
 
 namespace CVC4 {
 namespace theory {
 namespace arith {
 
 DifferenceManager::DifferenceManager(context::Context* c, ConstraintDatabase& cd, TNodeCallBack& setup)
-  : d_literalsQueue(c),
+  : d_conflict(c),
+    d_literalsQueue(c),
     d_propagatations(c),
     d_explanationMap(c),
     d_constraintDatabase(cd),
@@ -54,8 +56,12 @@ void DifferenceManager::differenceCannotBeZero(Constraint c){
   assertLiteral(false, s, reason);
 }
 
-void DifferenceManager::propagate(TNode x){
+
+bool DifferenceManager::propagate(TNode x){
   Debug("arith::differenceManager")<< "DifferenceManager::propagate("<<x<<")"<<std::endl;
+  if(inConflict()){
+    return true;
+  }
 
   Node rewritten = Rewriter::rewrite(x);
 
@@ -75,6 +81,23 @@ void DifferenceManager::propagate(TNode x){
     //c = d_constraintDatabase.addLiteral(rewritten);
   }
 
+  Debug("arith::differenceManager")<< "x is "
+                                   <<  c->hasProof() << " "
+                                   << (x == rewritten) << " "
+                                   << c->canBePropagated() << " "
+                                   << c->negationHasProof() << std::endl;
+
+  if(c->negationHasProof()){
+    Node expC = explainInternal(x);
+    Node neg = c->getNegation()->explainForConflict();
+    Node conf = expC.andNode(neg);
+    Node final = flattenAnd(conf);
+
+    d_conflict.set(final);
+    Debug("arith::differenceManager") << "differenceManager found a conflict " << final << std::endl;
+    return false;
+  }
+
   // Cases for propagation
   // C : c has a proof
   // S : x == rewritten
@@ -87,10 +110,6 @@ void DifferenceManager::propagate(TNode x){
   // 10* : propagate x, do not mark c and do not propagate c
   // 11* : drop the constraint, do not propagate x or c
 
-  Debug("arith::differenceManager")<< "x is "
-                                   <<  c->hasProof() << " "
-                                   << (x == rewritten) << " "
-                                   << c->canBePropagated() << std::endl;
   if(!c->hasProof() && x != rewritten){
     pushBack(x, rewritten);
 
@@ -106,6 +125,7 @@ void DifferenceManager::propagate(TNode x){
   }else{
     Assert(c->hasProof() && x == rewritten);
   }
+  return true;
 }
 
 void DifferenceManager::explain(TNode literal, std::vector<TNode>& assumptions) {
@@ -133,11 +153,9 @@ void DifferenceManager::enqueueIntoNB(const std::set<TNode> s, NodeBuilder<>& nb
   }
 }
 
-Node DifferenceManager::explain(TNode external){
-  Node internal = externalToInternal(external);
-
+Node DifferenceManager::explainInternal(TNode internal){
   std::vector<TNode> assumptions;
-  explain(external, assumptions);
+  explain(internal, assumptions);
 
   std::set<TNode> assumptionSet;
   assumptionSet.insert(assumptions.begin(), assumptions.end());
@@ -150,6 +168,10 @@ Node DifferenceManager::explain(TNode external){
     enqueueIntoNB(assumptionSet, conjunction);
     return conjunction;
   }
+}
+Node DifferenceManager::explain(TNode external){
+  Node internal = externalToInternal(external);
+  return explainInternal(internal);
 }
 
 void DifferenceManager::explain(TNode external, NodeBuilder<>& out){
@@ -187,7 +209,7 @@ void DifferenceManager::addAssertionToEqualityEngine(bool eq, ArithVar s, TNode 
 
 void DifferenceManager::dequeueLiterals(){
   Assert(d_hasSharedTerms);
-  while(!d_literalsQueue.empty()){
+  while(!d_literalsQueue.empty() && !inConflict()){
     const LiteralsQueueElem& front = d_literalsQueue.front();
     d_literalsQueue.dequeue();
 
