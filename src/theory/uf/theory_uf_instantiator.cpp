@@ -197,7 +197,7 @@ void UfTermDb::resetInstantiationRound( Theory::Effort effort ){
       }
     }
   }
-  std::cout << "Congruent/Non-Congruent = " << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
+  //std::cout << "Congruent/Non-Congruent = " << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
 }
 
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* ie, Theory* th) :
