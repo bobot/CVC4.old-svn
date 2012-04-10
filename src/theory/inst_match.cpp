@@ -750,13 +750,13 @@ void InstMatchGeneratorMulti::collectInstantiations( QuantifiersEngine* qe, Inst
     int curr_index = d_children_trie[childIndex].getOrdering()->d_order[trieIndex];
     Node curr_ic = qe->getInstantiationConstant( d_f, curr_index );
     if( m.d_map.find( curr_ic )==m.d_map.end() ){
-      if( d_var_to_node[ curr_index ].size()==1 ){
-        //unique variable(s), defer calculation
-        unique_var_tries.push_back( IndexedTrie( std::pair< int, int >( childIndex, trieIndex ), tr ) );
-        int newChildIndex = (childIndex+1)%(int)d_children.size();
-        collectInstantiations( qe, m, d_children_trie[newChildIndex].getTrie(), unique_var_tries, 
-                               0, newChildIndex, endChildIndex, modEq );
-      }else{
+      //if( d_var_to_node[ curr_index ].size()==1 ){
+      //  //unique variable(s), defer calculation
+      //  unique_var_tries.push_back( IndexedTrie( std::pair< int, int >( childIndex, trieIndex ), tr ) );
+      //  int newChildIndex = (childIndex+1)%(int)d_children.size();
+      //  collectInstantiations( qe, m, d_children_trie[newChildIndex].getTrie(), unique_var_tries, 
+      //                         0, newChildIndex, endChildIndex, modEq );
+      //}else{
         //shared and non-set variable, add to InstMatch
         for( std::map< Node, InstMatchTrie >::iterator it = tr->d_data.begin(); it != tr->d_data.end(); ++it ){
           InstMatch mn( &m );
@@ -764,7 +764,7 @@ void InstMatchGeneratorMulti::collectInstantiations( QuantifiersEngine* qe, Inst
           collectInstantiations( qe, mn, &(it->second), unique_var_tries,
                                   trieIndex+1, childIndex, endChildIndex, modEq );
         }
-      }
+      //}
     }else{
       //shared and set variable, try to merge
       Node n = m.d_map[ curr_ic ];

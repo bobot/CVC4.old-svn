@@ -177,6 +177,7 @@ void UfTermDb::add( Node n, std::vector< Node >& added, bool withinQuant ){
 void UfTermDb::resetInstantiationRound( Theory::Effort effort ){
   int nonCongruentCount = 0;
   int congruentCount = 0;
+  int alreadyCongruentCount = 0;
   //calculate all congruent terms
   for( std::map< Node, std::vector< Node > >::iterator it = d_op_map.begin(); it != d_op_map.end(); ++it ){
     UfTermTrie uftt;
@@ -192,10 +193,11 @@ void UfTermDb::resetInstantiationRound( Theory::Effort effort ){
         }
       }else{
         congruentCount++;
+        alreadyCongruentCount++;
       }
     }
   }
-  //std::cout << "Congruent/Non-Congruent = " << congruentCount << " / " << nonCongruentCount << std::endl;
+  std::cout << "Congruent/Non-Congruent = " << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
 }
 
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* ie, Theory* th) :
