@@ -12,7 +12,8 @@ MAKEFLAGS = -k
 # put it below in "TESTS +="
 
 # Regression tests for SMT inputs
-SMT_TESTS =  
+SMT_TESTS = \
+	 xs-09-16-3-4-1-5.smt
 
 # Regression tests for SMT2 inputs
 SMT2_TESTS = 
