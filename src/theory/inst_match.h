@@ -342,10 +342,16 @@ public:
 class InstMatchGeneratorMulti : public IMGenerator
 {
 private:
+  /** indexed trie */
+  typedef std::pair< std::pair< int, int >, InstMatchTrie* > IndexedTrie;
   /** collect instantiations */
   void collectInstantiations( QuantifiersEngine* qe, InstMatch& m, InstMatchTrie* tr, 
-                              std::map< Node, InstMatchTrie* >& unique_var_tries,
+                              std::vector< IndexedTrie >& unique_var_tries,
                               int trieIndex, int childIndex, int endChildIndex, bool modEq );
+  /** collect instantiations 2 */
+  void collectInstantiations2( QuantifiersEngine* qe, InstMatch& m, 
+                               std::vector< IndexedTrie >& unique_var_tries,
+                               int uvtIndex, InstMatchTrie* tr = NULL, int trieIndex = 0 );
 private:
   /** var contains (variable indicies) for each pattern node */
   std::map< Node, std::vector< int > > d_var_contains;

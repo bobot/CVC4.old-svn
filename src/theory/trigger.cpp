@@ -27,8 +27,8 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-//#define SMART_MULTI_TRIGGER
-#define NESTED_PATTERN_SELECTION
+#define SMART_MULTI_TRIGGER
+//#define NESTED_PATTERN_SELECTION
 
 Trigger* Trigger::TrTrie::getTrigger2( std::vector< Node >& nodes ){
   if( nodes.empty() ){
