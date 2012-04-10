@@ -32,7 +32,7 @@ using namespace std;
 using namespace CVC4::theory::bv::utils;
 
 
-const bool d_useEqualityEngine = false;
+const bool d_useEqualityEngine = true;
 const bool d_useSatPropagation = true;
 
 
