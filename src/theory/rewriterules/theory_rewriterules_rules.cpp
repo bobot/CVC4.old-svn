@@ -69,7 +69,8 @@ inline void addPattern(TheoryRewriteRules & re,
                        std::vector<Node> & vars,
                        std::vector<Node> & inst_constants,
                        TNode r){
-  if (tri.getKind() == kind::NOT) tri = tri[0];
+  if (tri.getKind() == kind::NOT && tri[0].getKind() == kind::APPLY_UF)
+    tri = tri[0];
   pattern.push_back(re.getQuantifiersEngine()->
                     convertNodeToPattern(tri,r,vars,inst_constants));
 }

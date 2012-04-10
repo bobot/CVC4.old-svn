@@ -328,7 +328,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
   if( d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF ){
     Assert( d_matchPolicy==MATCH_GEN_DEFAULT );
     //we will be producing candidates via literal matching heuristics
-    if( d_pattern.getKind()==NOT ){
+    if( d_pattern.getKind()!=NOT ){
       //candidates will be all equalities 
       d_cg = new uf::CandidateGeneratorTheoryUfLitEq( ith, d_match_pattern );
     }else{
