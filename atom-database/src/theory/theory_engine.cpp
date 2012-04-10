@@ -717,7 +717,11 @@ Node TheoryEngine::getExplanation(TNode node) {
   if (d_sharedTermsExist) {
     NodeBuilder<> nb(kind::AND);
     explainEqualities(theory->getId(), explanation, nb);
-    explanation = nb;
+    if(nb.getNumChildren() == 1){ //This can happen!
+      explanation = nb[0];
+    }else{
+      explanation = nb;
+    }
   }
 
   Assert(!explanation.isNull());
