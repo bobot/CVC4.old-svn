@@ -148,10 +148,8 @@ void MinisatSatSolver::interrupt() {
 }
 
 SatValue MinisatSatSolver::value(SatLiteral l) {
+  // TODO: merge value() and modelValue() (these two RETURNs) by looking at d_inSolve ?
   return toSatLiteralValue(d_minisat->value(toMinisatLit(l)));
-}
-
-SatValue MinisatSatSolver::modelValue(SatLiteral l){
   return toSatLiteralValue(d_minisat->modelValue(toMinisatLit(l)));
 }
 

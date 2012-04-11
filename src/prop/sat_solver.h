@@ -33,73 +33,84 @@ namespace prop {
 
 class TheoryProxy; 
 
+enum ObjectLifespan {
+  SAT_CONTEXT_STRICT, // go away on next SAT context-pop
+  SAT_CONTEXT_LENIENT, // can stick around after next SAT context-pop (e.g. clause cleanup)
+  USER_CONTEXT_STRICT, // go away on next user-pop
+  USER_CONTEXT_LENIENT // can stick around after next user-pop (e.g. clause cleanup or later user pop)
+};/* enum ObjectLifespan */
+
 class SatSolver {
 
 public:  
 
   /** Virtual destructor */
   virtual ~SatSolver() { }
-  
-  /** Assert a clause in the solver. */
-  virtual void addClause(SatClause& clause, bool removable) = 0;
 
-  /** Create a new boolean variable in the solver. */
-  virtual SatVariable newVar(bool theoryAtom = false) = 0;
- 
-  /** Check the satisfiability of the added clauses */
-  virtual SatValue solve() = 0;
+  /**
+   * Assert a clause in the solver.  It has the lifespan given.
+   */
+  virtual void addClause(SatClause& clause, ObjectLifespan lifespan) = 0;
 
-  /** Check the satisfiability of the added clauses */
-  virtual SatValue solve(long unsigned int&) = 0;
-  
+  /**
+   * Create a new boolean variable in the solver.  Lifespan as given.
+   * Notify TheoryProxy on any assignment to this variable iff
+   * "notify" is true.
+   */
+  virtual SatVariable newVar(ObjectLifespan lifespan, bool notify = false) = 0;
+
+  /**
+   * "resource" is a virtual resource budget for solving.  The actual
+   * amount of resource used is implementation-dependent (it could be,
+   * for example, the number of conflicts).  If the solver exceeds
+   * this limit, the Resource object will throw an exception.
+   */
+  virtual SatValue solve(Resource& resource) = 0;
+
   /** Interrupt the solver */
   virtual void interrupt() = 0;
 
-  /** Call value() during the search.*/
+  /**
+   * Call value() to get the value of a literal, if any.
+   *
+   * This interface function CAN be used in a reentrant fashion (i.e.,
+   * when solve() is active).  After a solve() routine that results in
+   * a "satisfiable" response, then this function returns the value of
+   * the literal in the satisfying assignment that was found by the
+   * solver.
+   */
   virtual SatValue value(SatLiteral l) = 0;
 
-  /** Call modelValue() when the search is done.*/
-  virtual SatValue modelValue(SatLiteral l) = 0;
+  /**
+   * Same as adding a unit clause with lifespan USER_CONTEXT_STRICT;
+   * this literal is considered an assumption for purposes of
+   * getUnsatCore() and explainPropagation().
+   */
+  virtual void addAssumption(SatLiteral lit) = 0;
 
-  virtual void unregisterVar(SatLiteral lit) = 0;
-  
-  virtual void renewVar(SatLiteral lit, int level = -1) = 0;
+  /**
+   * Explains why we are currently UNSAT (must be preceded by a
+   * solve() call that returns UNSAT); this explanation is in terms of
+   * assumptions only (as given by addAssumption()).
+   */
+  virtual void explainConflict(std::vector<SatLiteral>& assumptions) = 0; 
 
-  virtual unsigned getAssertionLevel() const = 0;
+  /**
+   * Explains why lit was assigned (it must be assigned TRUE); this
+   * explanation is in terms of assumptions only (as given by
+   * addAssumption()).
+   */
+  virtual void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& assumptions) = 0;
 
-};
+  /**
+   * Do BCP; return FALSE if conflict; TRUE if no conflict.
+   *
+   * This interface function cannot be used in a reentrant fashion
+   * (i.e., when solve() is active).
+   */
+  virtual bool propagate() = 0;
 
-
-class BVSatSolverInterface: public SatSolver {
-public:
-
-  virtual void markUnremovable(SatLiteral lit) = 0;
-
-  virtual void getUnsatCore(SatClause& unsatCore) = 0; 
-
-  virtual void addMarkerLiteral(SatLiteral lit) = 0; 
-
-  virtual bool getPropagations(std::vector<SatLiteral>& propagations) = 0;
-
-  virtual void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0;
-
-  virtual SatValue assertAssumption(SatLiteral lit, bool propagate = false) = 0; 
-
-  virtual void popAssumption() = 0;
-}; 
-
-
-class DPLLSatSolverInterface: public SatSolver {
-public:
-  virtual void initialize(context::Context* context, prop::TheoryProxy* theoryProxy) = 0; 
-  
-  virtual void push() = 0;
-
-  virtual void pop() = 0;
-
-  virtual bool properExplanation(SatLiteral lit, SatLiteral expl) const = 0;
-
-}; 
+};/* class SatSolver */
 
 }/* prop namespace */
 
