@@ -669,7 +669,11 @@ void TheoryEngine::assertFact(TNode node)
         return;
       }
     }
-    d_assertedLiteralsOut[NodeTheoryPair(node, theory->getId())] = Node();
+    // If theory didn't already get this literal, add to the map
+    NodeTheoryPair ntp(node, theory->getId());
+    if (d_assertedLiteralsOut.find(ntp) == d_assertedLiteralsOut.end()) {
+      d_assertedLiteralsOut[ntp] = Node();
+    }
   }
 
   // Assert the fact to the appropriate theory and mark it active
