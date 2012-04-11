@@ -175,29 +175,37 @@ void UfTermDb::add( Node n, std::vector< Node >& added, bool withinQuant ){
 }
 
 void UfTermDb::resetInstantiationRound( Theory::Effort effort ){
-  int nonCongruentCount = 0;
-  int congruentCount = 0;
-  int alreadyCongruentCount = 0;
-  //calculate all congruent terms
-  for( std::map< Node, std::vector< Node > >::iterator it = d_op_map.begin(); it != d_op_map.end(); ++it ){
-    UfTermTrie uftt;
-    for( int i=0; i<(int)it->second.size(); i++ ){
-      Node n = it->second[i];
-      if( !n.getAttribute(NoMatchAttribute()) ){
-        if( !uftt.addTerm( d_ith->getQuantifiersEngine(), n, true ) ){
-          NoMatchAttribute nma;
-          n.setAttribute(nma,true);
-          congruentCount++;
+  d_calcedNoMatchTerms = false;
+}
+
+void UfTermDb::resetMatching(){
+  if( !d_calcedNoMatchTerms ){
+    int nonCongruentCount = 0;
+    int congruentCount = 0;
+    int alreadyCongruentCount = 0;
+    //calculate all congruent terms
+    for( std::map< Node, std::vector< Node > >::iterator it = d_op_map.begin(); it != d_op_map.end(); ++it ){
+      UfTermTrie uftt;
+      for( int i=0; i<(int)it->second.size(); i++ ){
+        Node n = it->second[i];
+        if( !n.getAttribute(NoMatchAttribute()) ){
+          if( !uftt.addTerm( d_ith->getQuantifiersEngine(), n, true ) ){
+            NoMatchAttribute nma;
+            n.setAttribute(nma,true);
+            congruentCount++;
+          }else{
+            nonCongruentCount++;
+          }
         }else{
-          nonCongruentCount++;
+          congruentCount++;
+          alreadyCongruentCount++;
         }
-      }else{
-        congruentCount++;
-        alreadyCongruentCount++;
       }
     }
+    //std::cout << "Congruent/Non-Congruent = ";
+    //std::cout << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
+    d_calcedNoMatchTerms = true;
   }
-  //std::cout << "Congruent/Non-Congruent = " << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
 }
 
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* ie, Theory* th) :

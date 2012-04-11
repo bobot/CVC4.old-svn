@@ -81,8 +81,10 @@ class UfTermDb : public TermDb
 private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_ith;
+  /** calculated no match terms */
+  bool d_calcedNoMatchTerms;
 public:
-  UfTermDb( InstantiatorTheoryUf* ith ) : d_ith( ith ){}
+  UfTermDb( InstantiatorTheoryUf* ith ) : d_ith( ith ), d_calcedNoMatchTerms( false ){}
   ~UfTermDb(){}
   /** parent structure: 
       n -> op -> index -> L
@@ -95,6 +97,8 @@ public:
   void add( Node n, std::vector< Node >& added, bool withinQuant = false );
   /** reset instantiation round */
   void resetInstantiationRound( Theory::Effort effort );
+  /** calculate no match terms */
+  void resetMatching();
 };
 
 class InstantiatorTheoryUf : public Instantiator{

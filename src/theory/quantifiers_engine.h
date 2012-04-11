@@ -188,6 +188,8 @@ public:
   virtual void add( Node n, std::vector< Node >& added, bool withinQuant = false ) = 0;
   /** reset instantiation round */
   virtual void resetInstantiationRound( Theory::Effort effort ) = 0;
+  /** initialize matching */
+  virtual void resetMatching() = 0;
 };
 
 

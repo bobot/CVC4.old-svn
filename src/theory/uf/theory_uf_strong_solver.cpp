@@ -1109,9 +1109,10 @@ void StrongSolverTheoryUf::registerQuantifier( Node f ){
       preRegisterType( tn );
     }else{
       if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
-        std::cout << "Error: Cannot perform finite model finding on arithmetic quantifier";
+        //std::cout << "Error: Cannot perform finite model finding on arithmetic quantifier";
         //std::cout << " (" << f << ")";
-        std::cout << std::endl;
+        //std::cout << std::endl;
+        std::cout << "n/a ";
         exit( 63 );
       }
     }
@@ -1172,7 +1173,8 @@ void StrongSolverTheoryUf::setCardinality( TypeNode t, int c, bool isStrict ) {
   Debug("uf-ss-solver") << "StrongSolverTheoryUf: Set cardinality " << t << " = " << c << std::endl;
   if( d_conf_find.find( t )==d_conf_find.end() ){
     if( !d_conf_types.empty() ){
-      std::cout << "Strong solver unimplemented for multiple sorts." << std::endl;
+      //std::cout << "Strong solver unimplemented for multiple sorts." << std::endl;
+      std::cout << "n/a ";
       exit( 29 );
     }
     d_conf_find[t] = new ConflictFind( t, d_th->getContext(), d_th );
