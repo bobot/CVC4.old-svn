@@ -281,9 +281,10 @@ Node TheoryArith::AssertUpper(Constraint constraint){
       const Constraint diseq = vc.getDisequality();
       const Constraint eq = vc.getEquality();
       if(diseq->isTrue()){
-        const Constraint ub = vc.getUpperBound();
-        Node conflict = ConstraintValue::explainConflict(diseq, ub, constraint);
+        const Constraint lb = vc.getLowerBound();
+        Node conflict = ConstraintValue::explainConflict(diseq, lb, constraint);
         Debug("eq") << " assert upper conflict " << conflict << endl;
+        cout << " assert upper conflict " << conflict << endl;
         return conflict;
       }else if(!eq->isTrue()){
         Debug("eq") << "lb == ub, propagate eq" << eq << endl;
@@ -345,14 +346,14 @@ Node TheoryArith::AssertEquality(Constraint constraint){
   if(cmpToUB > 0){
     Constraint ubc = d_partialModel.getUpperBoundConstraint(x_i);
     Node conflict = ConstraintValue::explainConflict(ubc, constraint);
-    Debug("arith") << "AssertLower conflict " << conflict << endl;
+    Debug("arith") << "AssertEquality conflicts with upper bound " << conflict << endl;
     return conflict;
   }
 
   if(cmpToLB < 0){
     Constraint lbc = d_partialModel.getLowerBoundConstraint(x_i);
     Node conflict = ConstraintValue::explainConflict(lbc, constraint);
-    Debug("arith") << "AssertUpper conflict " << conflict << endl;
+    Debug("arith") << "AssertEquality conflicts with lower bound" << conflict << endl;
     return conflict;
   }
 
@@ -983,10 +984,8 @@ Node TheoryArith::assertionCases(TNode assertion){
     Constraint negation = constraint->getNegation();
     if(negation->isSelfExplaining()){
       debugPrintFacts();
-#warning "What the fucking hell theory engine?"
-      return assertion.andNode(negation->getLiteral());
+      cout << "What the fucking hell theory engine?" << endl;
     }
-    Assert(!negation->isSelfExplaining());
     Debug("arith::eq") << constraint << endl;
     Debug("arith::eq") << negation << endl;
 
@@ -1288,12 +1287,11 @@ void TheoryArith::debugPrintAssertions() {
       Debug("arith::print_assertions") << uConstr << endl;
     }
   }
-#warning "revisit this "
-  // context::CDHashSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-  // context::CDHashSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
-  // for(; it != it_end; ++ it) {
-  //   Debug("arith::print_assertions") << *it << endl;
-  // }
+  context::CDQueue<Constraint>::const_iterator it = d_diseqQueue.begin();
+  context::CDQueue<Constraint>::const_iterator it_end = d_diseqQueue.end();
+  for(; it != it_end; ++ it) {
+    Debug("arith::print_assertions") << *it << endl;
+  }
 }
 
 void TheoryArith::debugPrintModel(){
@@ -1337,14 +1335,21 @@ void TheoryArith::propagate(Effort e) {
   while(d_constraintDatabase.hasMorePropagations()){
     Constraint c = d_constraintDatabase.nextPropagation();
 
-    Node literal = c->getLiteral();
-    if(!c->assertedToTheTheory()){
+    if(c->negationHasProof()){
+      Node conflict = ConstraintValue::explainConflict(c, c->getNegation());
+      cout << "tears " << conflict << endl;
+      Debug("arith::prop") << "propagate conflict" << conflict << endl;
+      d_out->conflict(conflict);
+      return;
+    }else if(!c->assertedToTheTheory()){
 
+      Node literal = c->getLiteral();
       Debug("arith::prop") << "propagating @" << getContext()->getLevel() << " " << literal << endl;
 
       d_out->propagate(literal);
       propagated = true;
     }else{
+      Node literal = c->getLiteral();
       Debug("arith::prop") << "already asserted to the theory " << literal << endl;
     }
   }
@@ -1369,9 +1374,7 @@ void TheoryArith::propagate(Effort e) {
       Node lp = flattenAnd(exp.andNode(notNormalized));
       Debug("arith::prop") << "propagate conflict" <<  lp << endl;
       d_out->conflict(lp);
-
-      propagated = true;
-      break;
+      return;
     }else{
       Debug("arith::prop") << "propagating still?" <<  toProp << endl;
 
