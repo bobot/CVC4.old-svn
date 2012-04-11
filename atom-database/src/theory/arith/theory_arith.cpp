@@ -209,9 +209,9 @@ Node TheoryArith::AssertLower(Constraint constraint){
         ++(d_statistics.d_statDisequalityConflicts);
         Debug("eq") << " assert lower conflict " << conflict << endl;
         return conflict;
-      }else if(!eq->isTrue() && eq->canBePropagated()){
+      }else if(!eq->isTrue()){
         Debug("eq") << "lb == ub, propagate eq" << eq << endl;
-        eq->propagate(constraint, d_partialModel.getUpperBoundConstraint(x_i));
+        eq->impliedBy(constraint, d_partialModel.getUpperBoundConstraint(x_i));
       }
     }
   }
@@ -285,9 +285,9 @@ Node TheoryArith::AssertUpper(Constraint constraint){
         Node conflict = ConstraintValue::explainConflict(diseq, ub, constraint);
         Debug("eq") << " assert upper conflict " << conflict << endl;
         return conflict;
-      }else if(!eq->isTrue() && eq->canBePropagated()){
+      }else if(!eq->isTrue()){
         Debug("eq") << "lb == ub, propagate eq" << eq << endl;
-        eq->propagate(constraint, d_partialModel.getLowerBoundConstraint(x_i));
+        eq->impliedBy(constraint, d_partialModel.getLowerBoundConstraint(x_i));
       }
     }
 
@@ -431,14 +431,14 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
     }else if(lb->isTrue()){
       Debug("eq") << "propagate UpperBound " << constraint << lb << ub << endl;
       const Constraint negUb = ub->getNegation();
-      if(!negUb->isTrue() && negUb->canBePropagated()){
-        negUb->propagate(constraint, lb);
+      if(!negUb->isTrue()){
+        negUb->impliedBy(constraint, lb);
       }
     }else if(ub->isTrue()){
       Debug("eq") << "propagate LowerBound " << constraint << lb << ub << endl;
       const Constraint negLb = lb->getNegation();
-      if(!negLb->isTrue() && negLb->canBePropagated()){
-        negLb->propagate(constraint, ub);
+      if(!negLb->isTrue()){
+        negLb->impliedBy(constraint, ub);
       }
     }
   }
@@ -981,6 +981,11 @@ Node TheoryArith::assertionCases(TNode assertion){
 
   if(constraint->negationHasProof()){
     Constraint negation = constraint->getNegation();
+    if(negation->isSelfExplaining()){
+      debugPrintFacts();
+#warning "What the fucking hell theory engine?"
+      return assertion.andNode(negation->getLiteral());
+    }
     Assert(!negation->isSelfExplaining());
     Debug("arith::eq") << constraint << endl;
     Debug("arith::eq") << negation << endl;
@@ -1031,7 +1036,11 @@ Node TheoryArith::assertionCases(TNode assertion){
     if(isInteger(x_i)){
       Constraint floorConstraint = constraint->getFloor();
       if(!floorConstraint->isTrue()){
-        floorConstraint->impliedBy(constraint);
+        if(floorConstraint->negationHasProof()){
+          return ConstraintValue::explainConflict(constraint, floorConstraint->getNegation());
+        }else{
+          floorConstraint->impliedBy(constraint);
+        }
       }
       //c_i = DeltaRational(c_i.floor());
       //return AssertUpper(x_i, c_i, assertion, floorConstraint);
@@ -1044,6 +1053,10 @@ Node TheoryArith::assertionCases(TNode assertion){
     if(isInteger(x_i)){
       Constraint ceilingConstraint = constraint->getCeiling();
       if(!ceilingConstraint->isTrue()){
+        if(ceilingConstraint->negationHasProof()){
+
+          return ConstraintValue::explainConflict(constraint, ceilingConstraint->getNegation());
+        }
         ceilingConstraint->impliedBy(constraint);
       }
       //c_i = DeltaRational(c_i.ceiling());
@@ -1105,16 +1118,16 @@ void TheoryArith::check(Effort effortLevel){
       d_out->conflict(possibleConflict);
       return;
     }
+    if(d_differenceManager.inConflict()){
+      Node c = d_differenceManager.conflict();
+      d_partialModel.revertAssignmentChanges();
+      Debug("arith::conflict") << "difference manager conflict   " << c << endl;
+      clearUpdates();
+      d_out->conflict(c);
+      return;
+    }
   }
 
-  if(d_differenceManager.inConflict()){
-    Node c = d_differenceManager.conflict();
-    d_partialModel.revertAssignmentChanges();
-    Debug("arith::conflict") << "difference manager conflict   " << c << endl;
-    clearUpdates();
-    d_out->conflict(c);
-    return;
-  }
 
   if(Debug.isOn("arith::print_assertions")) {
     debugPrintAssertions();
@@ -1341,31 +1354,27 @@ void TheoryArith::propagate(Effort e) {
 
     //Currently if the flag is set this came from an equality detected by the
     //equality engine in the the difference manager.
-    if(toProp.getKind() == kind::EQUAL){
-      Node normalized = Rewriter::rewrite(toProp);
-      Node notNormalized = normalized.notNode();
+    Node normalized = Rewriter::rewrite(toProp);
 
 #warning "revisit"
-      Constraint constraint = d_constraintDatabase.lookup(normalized);
-      if(constraint == NullConstraint){
-        Debug("arith::prop") << "null? " << endl;
-        d_out->propagate(toProp);
-        propagated = true;
-      }else if(constraint->negationHasProof()){
-        Node exp = d_differenceManager.explain(toProp);
-        Node lp = flattenAnd(exp.andNode(notNormalized));
-        Debug("arith::prop") << "propagate conflict" <<  lp << endl;
-        d_out->conflict(lp);
+    Constraint constraint = d_constraintDatabase.lookup(normalized);
+    if(constraint == NullConstraint){
+      Debug("arith::prop") << "null? " << endl;
+      d_out->propagate(toProp);
+      propagated = true;
+    }else if(constraint->negationHasProof()){
+      Node exp = d_differenceManager.explain(toProp);
+      Node notNormalized = normalized.getKind() == NOT ?
+        normalized[0] : normalized.notNode();
+      Node lp = flattenAnd(exp.andNode(notNormalized));
+      Debug("arith::prop") << "propagate conflict" <<  lp << endl;
+      d_out->conflict(lp);
 
-        propagated = true;
-        break;
-      }else{
-        Debug("arith::prop") << "propagating still?" <<  toProp << endl;
-
-        d_out->propagate(toProp);
-        propagated = true;
-      }
+      propagated = true;
+      break;
     }else{
+      Debug("arith::prop") << "propagating still?" <<  toProp << endl;
+
       d_out->propagate(toProp);
       propagated = true;
     }
