@@ -23,13 +23,12 @@
 #include "expr/node_builder.h"
 
 #include "theory/valuation.h"
+#include "theory/rewriter.h"
 
 #include "util/rational.h"
 #include "util/integer.h"
 #include "util/boolean_simplification.h"
 
-
-#include "theory/rewriter.h"
 
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/delta_rational.h"
@@ -38,11 +37,9 @@
 #include "theory/arith/arithvar_set.h"
 
 #include "theory/arith/arith_rewriter.h"
-#include "theory/arith/atom_database.h"
-
+#include "theory/arith/constraint.h"
 #include "theory/arith/theory_arith.h"
 #include "theory/arith/normal_form.h"
-#include "theory/arith/arith_prop_manager.h"
 
 #include <stdint.h>
 
