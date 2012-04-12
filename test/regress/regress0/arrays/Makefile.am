@@ -1,7 +1,7 @@
 if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression --proof @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) --proof @top_builddir@/src/main/cvc4
 else
-TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/cvc4
 endif
 
 # These are run for all build profiles.
@@ -25,7 +25,9 @@ TESTS =	\
 	incorrect8.minimized.smt \
 	incorrect9.smt \
 	incorrect10.smt \
-	incorrect11.smt
+	incorrect11.smt \
+	x2.smt \
+	x3.smt
 
 EXTRA_DIST = $(TESTS) \
 	bug272.smt \

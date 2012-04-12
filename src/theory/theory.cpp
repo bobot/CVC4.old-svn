@@ -39,8 +39,6 @@ std::ostream& operator<<(std::ostream& os, Theory::Effort level){
     os << "EFFORT_FULL"; break;
   case Theory::EFFORT_COMBINATION:
     os << "EFFORT_COMBINATION"; break;
-  //case Theory::EFFORT_PRE_LAST_CALL:
-  //  os << "EFFORT_PRE_LAST_CALL"; break;
   case Theory::EFFORT_LAST_CALL:
     os << "EFFORT_LAST_CALL"; break;
   default:
@@ -66,7 +64,7 @@ void Theory::computeCareGraph() {
         // We don't care about the terms of different types
         continue;
       }
-      switch (getEqualityStatus(a, b)) {
+      switch (d_valuation.getEqualityStatus(a, b)) {
       case EQUALITY_TRUE_AND_PROPAGATED:
       case EQUALITY_FALSE_AND_PROPAGATED:
   	// If we know about it, we should have propagated it, so we can skip

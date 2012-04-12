@@ -27,12 +27,12 @@
 namespace CVC4 {
 namespace theory {
 namespace rewriterules {
-
+#ifdef FIXED_REWRITE_RULES
 inline std::ostream& operator <<(std::ostream& stream, const RewriteRule& r) {
   r.toStream(stream);
   return stream;
 }
-
+#endif
 
 
 }/* CVC4::theory::rewriterules namespace */

@@ -84,7 +84,7 @@ struct CarePair {
 
 public:
 
-  CarePair(TNode a, TNode b, TheoryId theory) 
+  CarePair(TNode a, TNode b, TheoryId theory)
   : a(a < b ? a : b), b(a < b ? b : a), theory(theory) {}
 
   bool operator == (const CarePair& other) const {
@@ -296,7 +296,7 @@ public:
       id = kindToTheoryId(typeNode.getKind());
     }
     if (id == THEORY_BUILTIN) {
-      Trace("theory") << "theoryOf(" << typeNode << ") == " << s_uninterpretedSortOwner << std::endl;
+      Trace("theory::internal") << "theoryOf(" << typeNode << ") == " << s_uninterpretedSortOwner << std::endl;
       return s_uninterpretedSortOwner;
     }
     return id;
@@ -378,7 +378,9 @@ public:
      * it is time to put some effort into propagation of shared term equalities
      */
     EFFORT_COMBINATION = 150,
-    /** last call */
+    /**
+     * Last call effort, reserved for quantifiers.
+     */
     EFFORT_LAST_CALL = 200
   };/* enum Effort */
 
@@ -673,7 +675,7 @@ public:
 
   /** a - b  */
   static inline Set setDifference(Set a, Set b) {
-    return ((~b) & AllTheories) & a;
+    return (~b) & a;
   }
 
   static inline std::string setToString(theory::Theory::Set theorySet) {

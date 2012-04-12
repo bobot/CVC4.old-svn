@@ -31,6 +31,7 @@
 #include "context/cdlist.h"
 
 //#define USE_EFFICIENT_E_MATCHING
+//#define FIXED_REWRITE_RULES
 
 namespace CVC4 {
 namespace theory {
@@ -201,6 +202,8 @@ public:
   }
 };
 
+#ifdef FIXED_REWRITE_RULES
+
 template<bool modEq = false>
 class InstMatchTrie2
 {
@@ -263,6 +266,8 @@ public:
       return true if it was never seen */
   bool addInstMatch( InstMatch& m);
 };
+
+#endif
 
 class IMGenerator
 {

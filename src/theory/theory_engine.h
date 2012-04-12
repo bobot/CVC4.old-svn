@@ -98,22 +98,37 @@ class TheoryEngine {
    */
   context::CDO<theory::Theory::Set> d_activeTheories;
 
+  // NotifyClass: template helper class for Shared Terms Database
+  class NotifyClass : public SharedTermsDatabase::SharedTermsNotifyClass {
+    TheoryEngine& d_theoryEngine;
+  public:
+    NotifyClass(TheoryEngine& engine): d_theoryEngine(engine) {}
+    ~NotifyClass() {}
+
+    void notify(TNode literal, TNode original, theory::TheoryId theory) {
+      d_theoryEngine.propagateSharedLiteral(literal, original, theory);
+    }
+  };
+
+  // Instance of NotifyClass
+  NotifyClass d_notify;
+
   /**
    * The database of shared terms.
    */
   SharedTermsDatabase d_sharedTerms;
 
   /**
-   * The instantiation engine
+   * The quantifiers engine
    */
   theory::QuantifiersEngine* d_quantEngine;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
 
   /**
-   * Cache from proprocessing of atoms.
+  * Cache for theory-preprocessing of assertions
    */
-  NodeMap d_atomPreprocessingCache;
+  NodeMap d_ppCache;
 
   /**
    * Used for "missed-t-propagations" dumping mode only.  A set of all
@@ -347,32 +362,55 @@ class TheoryEngine {
     return theory::Theory::setContains(theory, d_activeTheories);
   }
 
-  struct SharedEquality {
+  struct SharedLiteral {
     /** The node/theory pair for the assertion */
+    /** THEORY_LAST indicates this is a SAT literal and should be sent to the SAT solver */
     NodeTheoryPair toAssert;
-    /** This is the node/theory pair that we will use to explain it */
-    NodeTheoryPair toExplain;
+    /** This is the node that we will use to explain it */
+    Node toExplain;
 
-    SharedEquality(TNode assertion, TNode original, theory::TheoryId sendingTheory, theory::TheoryId receivingTheory)
+    SharedLiteral(TNode assertion, TNode original, theory::TheoryId receivingTheory)
     : toAssert(assertion, receivingTheory),
-      toExplain(original, sendingTheory)
+      toExplain(original)
     { }
-  };/* struct SharedEquality */
+  };/* struct SharedLiteral */
 
   /**
-   * Map from equalities asserted to a theory, to the theory that can explain them.
+   * Map from nodes to theories.
    */
-  typedef context::CDHashMap<NodeTheoryPair, NodeTheoryPair, NodeTheoryPairHashFunction> SharedAssertionsMap;
+  typedef context::CDHashMap<Node, theory::TheoryId, NodeHashFunction> SharedLiteralsInMap;
 
   /**
-   * A map from asserted facts to where they came from (for explanations).
+   * All shared literals asserted to theory engine.
+   * Maps from literal to the theory that sent the literal (THEORY_LAST means sent from SAT).
    */
-  SharedAssertionsMap d_sharedAssertions;
+  SharedLiteralsInMap d_sharedLiteralsIn;
 
   /**
-   * Assert a shared equalities propagated by theories.
+   * Map from literals asserted by theory engine to literal that can explain
    */
-  void assertSharedEqualities();
+  typedef context::CDHashMap<NodeTheoryPair, Node, NodeTheoryPairHashFunction> AssertedLiteralsOutMap;
+
+  /**
+   * All literals asserted to theories from theory engine.
+   * Maps from literal/theory pair to literal that can explain this assertion.
+   */
+  AssertedLiteralsOutMap d_assertedLiteralsOut;
+
+  /**
+   * Shared literals queud up to be asserted to the individual theories.
+   */
+  std::vector<SharedLiteral> d_propagatedSharedLiterals;
+
+  void propagateSharedLiteral(TNode literal, TNode original, theory::TheoryId theory)
+  {
+    d_propagatedSharedLiterals.push_back(SharedLiteral(literal, original, theory));
+  }
+
+  /**
+   * Assert the shared literals that are queued up to the theories.
+   */
+  void outputSharedLiterals();
 
   /**
    * Literals that are propagated by the theory. Note that these are TNodes.
@@ -385,11 +423,6 @@ class TheoryEngine {
    * The index of the next literal to be propagated by a theory.
    */
   context::CDO<unsigned> d_propagatedLiteralsIndex;
-
-  /**
-   * Shared term equalities that should be asserted to the individual theories.
-   */
-  std::vector<SharedEquality> d_propagatedEqualities;
 
   /**
    * Decisions that are requested via propagateAsDecision().  The theory
@@ -518,13 +551,25 @@ public:
   }
 
   /**
-   * Runs theory specific preprocesssing on the non-Boolean parts of
-   * the formula.  This is only called on input assertions, after ITEs
-   * have been removed.
+   * Get a pointer to the underlying quantifiers engine.
    */
   theory::QuantifiersEngine* getQuantifiersEngine() const {
     return d_quantEngine;
   }
+
+private:
+
+  /**
+   * Helper for preprocess
+   */
+  Node ppTheoryRewrite(TNode term);
+
+public:
+
+  /**
+   * Signal the start of a new round of assertion preprocessing
+   */
+  void preprocessStart();
 
   /**
    * Runs theory specific preprocesssing on the non-Boolean parts of
@@ -579,15 +624,6 @@ public:
   void preRegister(TNode preprocessed);
 
   /**
-   * Call the theories to perform one last rewrite on the theory atoms
-   * if they wish. This last rewrite is only performed on the input atoms.
-   * At this point it is ensured that atoms do not contain any Boolean
-   * strucure, i.e. there is no ITE nodes in them.
-   *
-   */
-  Node preCheckRewrite(TNode node);
-
-  /**
    * Assert the formula to the appropriate theory.
    * @param node the assertion
    */
@@ -628,6 +664,7 @@ public:
 
   void getPropagatedLiterals(std::vector<TNode>& literals) {
     for (; d_propagatedLiteralsIndex < d_propagatedLiterals.size(); d_propagatedLiteralsIndex = d_propagatedLiteralsIndex + 1) {
+      Debug("getPropagatedLiterals") << "TheoryEngine::getPropagatedLiterals: propagating: " << d_propagatedLiterals[d_propagatedLiteralsIndex] << std::endl;
       literals.push_back(d_propagatedLiterals[d_propagatedLiteralsIndex]);
     }
   }
@@ -649,7 +686,39 @@ public:
   bool properPropagation(TNode lit) const;
   bool properExplanation(TNode node, TNode expl) const;
 
+  enum ExplainTaskKind {
+    // Literal sent out from the theory engine
+    SHARED_LITERAL_OUT,
+    // Explanation produced by a theory
+    THEORY_EXPLANATION,
+    // Explanation produced by the shared terms database
+    SHARED_DATABASE_EXPLANATION
+  };
+
+  struct ExplainTask {
+    Node node;
+    ExplainTaskKind kind;
+    theory::TheoryId theory;
+    ExplainTask(Node n, ExplainTaskKind k, theory::TheoryId tid = theory::THEORY_LAST) :
+      node(n), kind(k), theory(tid) {}
+    bool operator == (const ExplainTask& other) const {
+      return node == other.node && kind == other.kind && theory == other.theory;
+    }
+  };
+
+  struct ExplainTaskHashFunction {
+    size_t operator () (const ExplainTask& task) const {
+      size_t hash = 0;
+      hash = 0x9e3779b9 + NodeHashFunction().operator()(task.node);
+      hash ^= 0x9e3779b9 + task.kind + (hash << 6) + (hash >> 2);
+      hash ^= 0x9e3779b9 + task.theory + (hash << 6) + (hash >> 2);
+      return hash;
+    }
+  };
+
   Node getExplanation(TNode node);
+
+  Node explain(ExplainTask toExplain);
 
   Node getValue(TNode node);
 
@@ -677,7 +746,7 @@ public:
 
   /** Get the theory for id */
   theory::Theory* getTheory( int id ){
-    return d_theoryTable[id];
+      return d_theoryTable[id];
   }
 
   /**

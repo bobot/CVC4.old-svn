@@ -383,7 +383,15 @@ void SmtEngine::setInfo(const std::string& key, const SExpr& value)
   throw(BadOptionException, ModalException) {
   Trace("smt") << "SMT setInfo(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << SetInfoCommand(key, value);
+    if(key == ":status") {
+      std::string s = value.getValue();
+      BenchmarkStatus status =
+        (s == "sat") ? SMT_SATISFIABLE :
+          ((s == "unsat") ? SMT_UNSATISFIABLE : SMT_UNKNOWN);
+      Dump("benchmark") << SetBenchmarkStatusCommand(status);
+    } else {
+      Dump("benchmark") << SetInfoCommand(key, value);
+    }
   }
 
   // Check for CVC4-specific info keys (prefixed with "cvc4-" or "cvc4_")
@@ -395,8 +403,8 @@ void SmtEngine::setInfo(const std::string& key, const SExpr& value)
         if(! value.isAtom()) {
           throw BadOptionException("argument to (set-info :cvc4-logic ..) must be a string");
         }
-        d_logic = "";
-        setLogic(value.getValue());
+        NodeManagerScope nms(d_nodeManager);
+        setLogicInternal(value.getValue());
         return;
       }
     }
@@ -1004,6 +1012,8 @@ void SmtEnginePrivate::processAssertions() {
         << AssertCommand(BoolExpr(d_assertionsToCheck[i].toExpr()));
     }
   }
+
+  d_smt.d_propEngine->processAssertionsStart();
 
   // Push the formula to SAT
   for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {

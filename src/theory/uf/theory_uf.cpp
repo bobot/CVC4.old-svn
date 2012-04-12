@@ -135,7 +135,7 @@ void TheoryUF::check(Effort level) {
       d_equalityEngine.addEquality(fact[0], fact[1], fact);
       break;
     case kind::APPLY_UF:
-      d_equalityEngine.addEquality(fact, d_true, fact);
+      d_equalityEngine.addPredicate(fact, true, fact);
       break;
     //AJR-hack
     case kind::CARDINALITY_CONSTRAINT:
@@ -146,7 +146,7 @@ void TheoryUF::check(Effort level) {
     //AJR-hack-end
     case kind::NOT:
       if (fact[0].getKind() == kind::APPLY_UF) {
-        d_equalityEngine.addEquality(fact[0], d_false, fact);
+        d_equalityEngine.addPredicate(fact[0], false, fact);
       //AJR-hack
       } else if( fact[0].getKind()==kind::CARDINALITY_CONSTRAINT ){
         if( d_thss ){
@@ -235,25 +235,22 @@ void TheoryUF::propagate(Effort level) {
       TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
       Debug("uf") << "TheoryUF::propagate(): propagating " << literal << std::endl;
       bool satValue;
-      if (!d_valuation.hasSatValue(literal, satValue)) {
+      Node normalized = Rewriter::rewrite(literal);
+      if (!d_valuation.hasSatValue(normalized, satValue) || satValue) {
         d_out->propagate(literal);
         Debug("uf-ajr" ) << "Uf::Propagate " << literal << std::endl;
       } else {
-        if (!satValue) {
-          Debug("uf") << "TheoryUF::propagate(): in conflict" << std::endl;
-          Node negatedLiteral;
-          std::vector<TNode> assumptions;
-          if (literal != d_false) {
-            negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
-            assumptions.push_back(negatedLiteral);
-          }
-          explain(literal, assumptions);
-          d_conflictNode = mkAnd(assumptions);
-          d_conflict = true;
-          break;
-        } else {
-          Debug("uf") << "TheoryUF::propagate(): already asserted" << std::endl;
+        Debug("uf") << "TheoryUF::propagate(): in conflict, normalized = " << normalized << std::endl;
+        Node negatedLiteral;
+        std::vector<TNode> assumptions;
+        if (normalized != d_false) {
+          negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
+          assumptions.push_back(negatedLiteral);
         }
+        explain(literal, assumptions);
+        d_conflictNode = mkAnd(assumptions);
+        d_conflict = true;
+        break;
       }
     }
   }
@@ -313,20 +310,18 @@ bool TheoryUF::propagate(TNode literal) {
   }
 
   // See if the literal has been asserted already
+  Node normalized = Rewriter::rewrite(literal);
   bool satValue = false;
-  bool isAsserted = literal == d_false || d_valuation.hasSatValue(literal, satValue);
+  bool isAsserted = normalized == d_false || d_valuation.hasSatValue(normalized, satValue);
 
   // If asserted, we're done or in conflict
   if (isAsserted) {
-    if (satValue) {
-      Debug("uf") << "TheoryUF::propagate(" << literal << ") => already known" << std::endl;
-      return true;
-    } else {
-      Debug("uf") << "TheoryUF::propagate(" << literal << ") => conflict" << std::endl;
+    if (!satValue) {
+      Debug("uf") << "TheoryUF::propagate(" << literal << ", normalized = " << normalized << ") => conflict" << std::endl;
       std::vector<TNode> assumptions;
       Node negatedLiteral;
-      if (literal != d_false) {
-        negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
+      if (normalized != d_false) {
+        negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
         assumptions.push_back(negatedLiteral);
       }
       explain(literal, assumptions);
@@ -334,6 +329,8 @@ bool TheoryUF::propagate(TNode literal) {
       d_conflict = true;
       return false;
     }
+    // Propagate even if already known in SAT - could be a new equation between shared terms
+    // (terms that weren't shared when the literal was asserted!)
   }
 
   // Nothing, just enqueue it for propagation and mark it as asserted already
@@ -515,22 +512,18 @@ void TheoryUF::ppStaticLearn(TNode n, NodeBuilder<>& learned) {
 
 EqualityStatus TheoryUF::getEqualityStatus(TNode a, TNode b) {
 
-  Node equality = a.eqNode(b);
-  Node rewrittenEquality = Rewriter::rewrite(equality);
-  if (rewrittenEquality.isConst()) {
-    if (!rewrittenEquality.getConst<bool>()) {
-      return EQUALITY_FALSE;
-    }
-  }
-
+  // Check for equality (simplest)
   if (d_equalityEngine.areEqual(a, b)) {
     // The terms are implied to be equal
     return EQUALITY_TRUE;
   }
+
+  // Check for disequality
   if (d_equalityEngine.areDisequal(a, b)) {
     // The terms are implied to be dis-equal
     return EQUALITY_FALSE;
   }
+
   // All other terms we interpret as dis-equal in the model
   return EQUALITY_FALSE_IN_MODEL;
 }

@@ -272,7 +272,7 @@ if test $cvc4_use_cln = 1; then
   PKG_CHECK_MODULES([CLN], [cln >= 1.2.2],
     [cvc4_use_cln=1
      AC_LANG_PUSH([C++])
-     AC_LINK_IFELSE(AC_LANG_PROGRAM([[#include <cln/cln.h>]], [[cln::cl_F pi = "3.1415926";]]))
+     AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cln/cln.h>]], [[cln::cl_F pi = "3.1415926";]])])
      AC_LANG_POP([C++])
     ],
     [if test $cvc4_use_cln = 0; then
@@ -688,10 +688,10 @@ fi
 # See src/util/hash.h.
 AC_MSG_CHECKING([whether __gnu_cxx::hash<uint64_t> is already specialized])
 AC_LANG_PUSH([C++])
-AC_COMPILE_IFELSE(AC_LANG_SOURCE([
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
 #include <stdint.h>
 #include <ext/hash_map>
-namespace __gnu_cxx { template<> struct hash<uint64_t> {}; }]),
+namespace __gnu_cxx { template<> struct hash<uint64_t> {}; }])],
                   [AC_MSG_RESULT([no]); CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_NEED_HASH_UINT64_T"],
                   [AC_MSG_RESULT([yes])])
 AC_LANG_POP([C++])
@@ -882,7 +882,7 @@ if test $cvc4_has_threads = maybe; then
   LDFLAGS="$cvc4_save_LDFLAGS"
 fi
 if test $cvc4_has_threads = no; then
-  if test $with_portfolio = yes; then
+  if test x$with_portfolio = xyes; then
     AC_MSG_ERROR([user gave --with-portfolio but could not build with threads; maybe boost threading library is missing?])
   fi
   with_portfolio=no
@@ -1061,7 +1061,7 @@ AC_SUBST(MAN_DATE)
 AC_CONFIG_FILES([
   Makefile.builds
   Makefile]
-  m4_esyscmd([find contrib src test examples -name Makefile.am | grep -v '^contrib/theoryskel/' | sort | sed 's,\.am$,,'])
+  m4_esyscmd([find contrib src test examples -name Makefile.am | grep -v '^contrib/theoryskel/' | grep -v '^src/prop/cryptominisat/' | sort | sed 's,\.am$,,'])
 )
 
 if test $cvc4_has_threads = yes; then
@@ -1083,6 +1083,8 @@ CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.5])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4parser.3])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4compat.3])
+
+# AC_CONFIG_SUBDIRS([src/prop/cryptominisat])
 
 AC_OUTPUT
 

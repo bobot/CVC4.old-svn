@@ -42,9 +42,9 @@ class InstantiatorTheoryDatatypes;
 class TheoryDatatypes : public Theory {
   friend class InstantiatorTheoryDatatypes;
 private:
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
+  typedef context::CDChunkList<TNode> EqList;
   typedef context::CDHashMap<Node, EqList*, NodeHashFunction> EqLists;
-  typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > EqListN;
+  typedef context::CDChunkList<Node> EqListN;
   typedef context::CDHashMap<Node, EqListN*, NodeHashFunction> EqListsN;
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 

@@ -41,7 +41,7 @@ class SatProof;
 
 namespace prop {
   class TheoryProxy;
-  class DPLLMinisatSatSolver;
+  class MinisatSatSolver;
 }/* CVC4::prop namespace */
 
 }/* CVC4 namespace */
@@ -57,7 +57,7 @@ class Solver {
   friend class CVC4::prop::TheoryProxy;
   friend class CVC4::SatProof;
   //AJR-hack
-  friend class CVC4::prop::DPLLMinisatSatSolver;
+  friend class CVC4::prop::MinisatSatSolver;
   //AJR-hack-end
 protected:
 

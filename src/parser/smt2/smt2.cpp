@@ -60,7 +60,7 @@ void Smt2::addTheory(Theory theory) {
     addOperator(kind::XOR);
     break;
 
-  case THEORY_ARRAYS_EX:
+  case THEORY_ARRAYS:
     // FIXME: should define a paramterized type 'Array' with 2 arguments
     mkSort("Array");
 
@@ -110,7 +110,7 @@ void Smt2::setLogic(const std::string& name) {
     break;
 
   case Smt::QF_AX:
-    addTheory(THEORY_ARRAYS_EX);
+    addTheory(THEORY_ARRAYS);
     break;
 
   case Smt::QF_IDL:
@@ -152,30 +152,25 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_BITVECTORS);
     break;
 
-  case Smt::QF_UFBV:
-    addOperator(kind::APPLY_UF);
-    addTheory(THEORY_BITVECTORS);
-    break;
-
   case Smt::QF_ABV:
+    addTheory(THEORY_ARRAYS);
     addTheory(THEORY_BITVECTORS);
-    addTheory(THEORY_ARRAYS_EX);
     break;
 
   case Smt::QF_AUFBV:
     addOperator(kind::APPLY_UF);
+    addTheory(THEORY_ARRAYS);
     addTheory(THEORY_BITVECTORS);
-    addTheory(THEORY_ARRAYS_EX);
     break;
 
   case Smt::QF_AUFLIA:
-    addTheory(THEORY_ARRAYS_EX);
+    addTheory(THEORY_ARRAYS);
     addOperator(kind::APPLY_UF);
     addTheory(THEORY_INTS);
     break;
 
   case Smt::QF_AUFLIRA:
-    addTheory(THEORY_ARRAYS_EX);
+    addTheory(THEORY_ARRAYS);
     addOperator(kind::APPLY_UF);
     addTheory(THEORY_INTS);
     addTheory(THEORY_REALS);
@@ -196,7 +191,7 @@ void Smt2::setLogic(const std::string& name) {
       if(d_logic != Smt::UFLRA) {
         addTheory(THEORY_INTS);
         if(d_logic != Smt::UFNIA && d_logic!=Smt::UFNIRA ) {
-          addTheory(THEORY_ARRAYS_EX);
+          addTheory(THEORY_ARRAYS);
         }
       }
     }

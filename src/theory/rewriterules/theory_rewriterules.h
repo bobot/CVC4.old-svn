@@ -34,6 +34,8 @@ namespace CVC4 {
 namespace theory {
 namespace rewriterules {
 
+#ifdef FIXED_REWRITE_RULES
+
 typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
 
   enum Answer {ATRUE, AFALSE, ADONTKNOW};
@@ -126,8 +128,12 @@ public:
   };
 };
 
+#endif
+
 class TheoryRewriteRules : public Theory {
 private:
+
+#ifdef FIXED_REWRITE_RULES
   /** list of all rewrite rules */
   /* std::vector< Node > d_rules; */
   // typedef std::vector< std::pair<Node, Trigger > > Rules;
@@ -162,7 +168,7 @@ private:
       inside check */
   typedef std::vector< RuleInst* > QRuleInsts;
   QRuleInsts d_ruleinsts_to_add;
-
+#endif
  public:
   /** true and false for predicate */
   Node d_true;
@@ -182,7 +188,7 @@ private:
   std::string identify() const {
     return "THEORY_REWRITERULES";
   }
-
+#ifdef FIXED_REWRITE_RULES
  private:
   void registerQuantifier( Node n );
 
@@ -202,7 +208,6 @@ private:
       possible or by lemmas.
    */
   void propagateRule(const RuleInst * r, TCache cache);
-
   /** Auxillary functions */
 private:
   /** A guard is verify, notify the Guarded */
@@ -220,7 +225,7 @@ private:
   void addMatchRuleTrigger(const RewriteRule* r,
                            InstMatch & im, bool delay = true);
 
-
+#endif
 };/* class TheoryRewriteRules */
 
 }/* CVC4::theory::rewriterules namespace */

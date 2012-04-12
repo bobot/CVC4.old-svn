@@ -21,7 +21,9 @@
 #include "theory_bv_utils.h"
 #include "theory/rewriter.h"
 #include "prop/cnf_stream.h"
-#include "prop/sat_module.h"
+#include "prop/sat_solver.h"
+#include "prop/sat_solver_factory.h"
+#include "theory_bv_rewrite_rules_simplification.h"
 
 using namespace std;
 
@@ -56,7 +58,7 @@ Bitblaster::Bitblaster(context::Context* c) :
     d_assertedAtoms(c),
     d_statistics()
   {
-    d_satSolver = prop::SatSolverFactory::createMinisat();
+    d_satSolver = prop::SatSolverFactory::createMinisat(c);
     d_cnfStream = new TseitinCnfStream(d_satSolver, new NullRegistrar());
 
     // initializing the bit-blasting strategies
@@ -81,8 +83,11 @@ void Bitblaster::bbAtom(TNode node) {
     return; 
   }
 
-  BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
+  // make sure it is marked as an atom
+  addAtom(node); 
 
+  BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
+  ++d_statistics.d_numAtoms;
   // the bitblasted definition of the atom
   Node atom_bb = d_atomBBStrategies[node.getKind()](node, this);
   // asserting that the atom is true iff the definition holds
@@ -100,13 +105,77 @@ void Bitblaster::bbTerm(TNode node, Bits& bits) {
     return;
   }
   BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
-  d_termBBStrategies[node.getKind()] (node, bits,this);
+  ++d_statistics.d_numTerms;
+
+  Node optimized = bbOptimize(node); 
+
+  // if we already bitblasted the optimized version 
+  if(hasBBTerm(optimized)) {
+    getBBTerm(optimized, bits);
+    // cache it as the same for this node
+    cacheTermDef(node, bits);
+    return; 
+  }
   
-  Assert (bits.size() == utils::getSize(node)); 
+  d_termBBStrategies[optimized.getKind()] (optimized, bits,this);
+  
+  Assert (bits.size() == utils::getSize(node) &&
+          bits.size() == utils::getSize(optimized));
+
+  if(optimized != node) {
+    cacheTermDef(optimized, bits);
+  }
   cacheTermDef(node, bits); 
 }
 
+Node Bitblaster::bbOptimize(TNode node) {
+  std::vector<Node> children;
+
+   if (node.getKind() == kind::BITVECTOR_PLUS) {
+    if (RewriteRule<BBPlusNeg>::applies(node)) {
+      Node res = RewriteRule<BBPlusNeg>::run<false>(node);
+      return res; 
+    }
+    //  if (RewriteRule<BBFactorOut>::applies(node)) {
+    //   Node res = RewriteRule<BBFactorOut>::run<false>(node);
+    //   return res; 
+    // } 
+
+  } else if (node.getKind() == kind::BITVECTOR_MULT) {
+    if (RewriteRule<MultPow2>::applies(node)) {
+      Node res = RewriteRule<MultPow2>::run<false>(node);
+      return res; 
+    }
+  }
+  
+  return node; 
+}
+
 /// Public methods
+
+void Bitblaster::addAtom(TNode atom) {
+  d_cnfStream->ensureLiteral(atom);
+  SatLiteral lit = d_cnfStream->getLiteral(atom);
+  d_satSolver->addMarkerLiteral(lit); 
+}
+bool Bitblaster::getPropagations(std::vector<TNode>& propagations) {
+  std::vector<SatLiteral> propagated_literals;
+  if (d_satSolver->getPropagations(propagated_literals)) {
+    for (unsigned i = 0; i < propagated_literals.size(); ++i) {
+      propagations.push_back(d_cnfStream->getNode(propagated_literals[i])); 
+    }
+    return true;
+  }
+  return false;
+}
+
+void Bitblaster::explainPropagation(TNode atom, std::vector<Node>& explanation) {
+  std::vector<SatLiteral> literal_explanation;
+  d_satSolver->explainPropagation(d_cnfStream->getLiteral(atom), literal_explanation);
+  for (unsigned i = 0; i < literal_explanation.size(); ++i) {
+    explanation.push_back(d_cnfStream->getNode(literal_explanation[i])); 
+  }
+}
 
 /** 
  * Called from preregistration bitblasts the node
@@ -152,7 +221,7 @@ void Bitblaster::bitblast(TNode node) {
  * 
  */
  
-void Bitblaster::assertToSat(TNode lit) {
+bool Bitblaster::assertToSat(TNode lit, bool propagate) {
   // strip the not
   TNode atom; 
   if (lit.getKind() == kind::NOT) {
@@ -162,17 +231,22 @@ void Bitblaster::assertToSat(TNode lit) {
   }
   
   Assert (hasBBAtom(atom));
-  Node rewr_atom = Rewriter::rewrite(atom); 
+
   SatLiteral markerLit = d_cnfStream->getLiteral(atom);
 
   if(lit.getKind() == kind::NOT) {
     markerLit = ~markerLit;
   }
   
-  Debug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat asserting node: " << atom <<"\n";
-  Debug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat with literal:   " << markerLit << "\n";  
+  BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat asserting node: " << atom <<"\n";
+  BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat with literal:   " << markerLit << "\n";  
+
+  SatValue ret = d_satSolver->assertAssumption(markerLit, propagate);
 
   d_assertedAtoms.push_back(markerLit);
+
+  Assert(ret != prop::SAT_VALUE_UNKNOWN);
+  return ret == prop::SAT_VALUE_TRUE;
 }
 
 /** 
@@ -182,9 +256,9 @@ void Bitblaster::assertToSat(TNode lit) {
  * @return true for sat, and false for unsat
  */
  
-bool Bitblaster::solve() {
-  Trace("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n"; 
-  return SatValTrue == d_satSolver->solve(d_assertedAtoms); 
+bool Bitblaster::solve(bool quick_solve) {
+  BVDebug("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n"; 
+  return SAT_VALUE_TRUE == d_satSolver->solve(); 
 }
 
 void Bitblaster::getConflict(std::vector<TNode>& conflict) {
@@ -227,12 +301,14 @@ void Bitblaster::initAtomBBStrategies() {
 }
 
 void Bitblaster::initTermBBStrategies() {
+  // Changed this to DefaultVarBB because any foreign kind should be treated as a variable
+  // TODO: check this is OK
   for (int i = 0 ; i < kind::LAST_KIND; ++i ) {
-    d_termBBStrategies[i] = UndefinedTermBBStrategy; 
+    d_termBBStrategies[i] = DefaultVarBB;
   }
   
   /// setting default bb strategies for terms:
-  d_termBBStrategies [ kind::VARIABLE ]               = DefaultVarBB;
+  //  d_termBBStrategies [ kind::VARIABLE ]               = DefaultVarBB;
   d_termBBStrategies [ kind::CONST_BITVECTOR ]        = DefaultConstBB;
   d_termBBStrategies [ kind::BITVECTOR_NOT ]          = DefaultNotBB;
   d_termBBStrategies [ kind::BITVECTOR_CONCAT ]       = DefaultConcatBB;
@@ -286,11 +362,15 @@ void Bitblaster::getBBTerm(TNode node, Bits& bits) {
 
 Bitblaster::Statistics::Statistics() :
   d_numTermClauses("theory::bv::NumberOfTermSatClauses", 0),
-  d_numAtomClauses("theory::bv::NumberOfAtomSatClauses", 0), 
+  d_numAtomClauses("theory::bv::NumberOfAtomSatClauses", 0),
+  d_numTerms("theory::bv::NumberOfBitblastedTerms", 0),
+  d_numAtoms("theory::bv::NumberOfBitblastedAtoms", 0), 
   d_bitblastTimer("theory::bv::BitblastTimer")
 {
   StatisticsRegistry::registerStat(&d_numTermClauses);
   StatisticsRegistry::registerStat(&d_numAtomClauses);
+  StatisticsRegistry::registerStat(&d_numTerms);
+  StatisticsRegistry::registerStat(&d_numAtoms);
   StatisticsRegistry::registerStat(&d_bitblastTimer);
 }
 
@@ -298,6 +378,8 @@ Bitblaster::Statistics::Statistics() :
 Bitblaster::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_numTermClauses);
   StatisticsRegistry::unregisterStat(&d_numAtomClauses);
+  StatisticsRegistry::unregisterStat(&d_numTerms);
+  StatisticsRegistry::unregisterStat(&d_numAtoms);
   StatisticsRegistry::unregisterStat(&d_bitblastTimer);
 }
 

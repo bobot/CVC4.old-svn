@@ -2,7 +2,7 @@
 /*! \file node_visitor.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: 
+ ** Major contributors:
  ** Minor contributors (to current version):
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -20,6 +20,7 @@
 #include "theory/theory.h"
 #include "context/context.h"
 #include "util/stats.h"
+#include "theory/uf/equality_engine.h"
 
 namespace CVC4 {
 
@@ -34,23 +35,27 @@ public:
 
 private:
 
+  Node d_true;
+
+  Node d_false;
+
   /** The context */
   context::Context* d_context;
-  
+
   /** Some statistics */
   IntStat d_statSharedTerms;
 
-  // Needs to be a map from Nodes as after a backtrack they might not exist 
+  // Needs to be a map from Nodes as after a backtrack they might not exist
   typedef std::hash_map<Node, shared_terms_list, TNodeHashFunction> SharedTermsMap;
   /** A map from atoms to a list of shared terms */
   SharedTermsMap d_atomsToTerms;
-  
+
   /** Each time we add a shared term, we add it's parent to this list */
   std::vector<TNode> d_addedSharedTerms;
-  
+
   /** Context-dependent size of the d_addedSharedTerms list */
   context::CDO<unsigned> d_addedSharedTermsSize;
-  
+
   typedef context::CDHashMap<std::pair<Node, TNode>, theory::Theory::Set, TNodePairHashFunction> SharedTermsTheoriesMap;
   /** A map from atoms and subterms to the theories that use it */
   SharedTermsTheoriesMap d_termsToTheories;
@@ -59,30 +64,82 @@ private:
   /** Map from term to theories that have already been notified about the shared term */
   AlreadyNotifiedMap d_alreadyNotifiedMap;
 
+public:
+  /** Class for notifications about new shared term equalities */
+  class SharedTermsNotifyClass {
+    public:
+      SharedTermsNotifyClass() {}
+      virtual ~SharedTermsNotifyClass() {}
+      virtual void notify(TNode literal, TNode original, theory::TheoryId theory) = 0;
+  };
+
+private:
+  // Instance of class to send shared term notifications to
+  SharedTermsNotifyClass& d_sharedNotify;
+
+  // Type for list of theory, node pairs: theory is theory to be notified,
+  // node is the representative for this equivalence class known to the
+  // theory that will be notified
+  typedef context::CDHashMap<theory::TheoryId, TNode, __gnu_cxx::hash<unsigned> > NotifyList;
+  typedef context::CDHashMap<TNode, NotifyList*, TNodeHashFunction> TermToNotifyList;
+
+  // Map from terms (only valid for reps) to their notify lists
+  // Note that theory, term pairs only need to be in the notify list if the
+  // representative term is not a valid shared term for the theory.
+  TermToNotifyList d_termToNotifyList;
+
+  // List of allocated NotifyList* objects
+  std::vector<NotifyList*> d_allocatedNL;
+
+  // Total number of allocated NotifyList* objects
+  unsigned d_allocatedNLSize;
+
+  // Size of portion of d_allocatedNL that is currently in use
+  context::CDO<unsigned> d_allocatedNLNext;
+
   /** This method removes all the un-necessary stuff from the maps */
   void backtrack();
 
+  // EENotifyClass: template helper class for d_equalityEngine - handles call-backs
+  class EENotifyClass {
+    SharedTermsDatabase& d_sharedTerms;
+  public:
+    EENotifyClass(SharedTermsDatabase& shared): d_sharedTerms(shared) {}
+    bool notify(TNode propagation) { return true; }    // Not used
+    void notify(TNode t1, TNode t2) {
+      d_sharedTerms.mergeSharedTerms(t1, t2);
+    }
+    //AJR-hack
+    void notifyEqClass( TNode t ){}
+    void preNotifyMerge( TNode t1, TNode t2 ){}
+    void postNotifyMerge( TNode t1, TNode t2 ){}
+    void notifyDisequal( TNode t1, TNode t2, TNode reason ){}
+    //AJR-hack-end
+  };
+
+  /** The notify class for d_equalityEngine */
+  EENotifyClass d_EENotify;
+
+  /** Equaltity engine */
+  theory::uf::EqualityEngine<EENotifyClass> d_equalityEngine;
+
+  /** Attach a new notify list to an equivalence class representative */
+  NotifyList* getNewNotifyList();
+
+  /** Method called by equalityEngine when a becomes equal to b */
+  void mergeSharedTerms(TNode a, TNode b);
+
+  /** Internal explanation method */
+  void explain(TNode literal, std::vector<TNode>& assumptions);
+
 public:
 
-  SharedTermsDatabase(context::Context* context)
-  : ContextNotifyObj(context),
-    d_context(context), 
-    d_statSharedTerms("theory::shared_terms", 0),
-    d_addedSharedTermsSize(context, 0),
-    d_termsToTheories(context),
-    d_alreadyNotifiedMap(context) 
-  {
-    StatisticsRegistry::registerStat(&d_statSharedTerms);
-  }
+  SharedTermsDatabase(SharedTermsNotifyClass& notify, context::Context* context);
+  ~SharedTermsDatabase() throw(AssertionException);
 
-  ~SharedTermsDatabase() throw(AssertionException)
-  {
-    StatisticsRegistry::unregisterStat(&d_statSharedTerms);
-  }
-  
   /**
-   * Add a shared term to the database. The shared term is a subterm of the atom and 
-   * should be associated with the given theory. 
+   * Add a shared term to the database. The shared term is a subterm of the atom and
+   * should be associated with the given theory.
    */
   void addSharedTerm(TNode atom, TNode term, theory::Theory::Set theories);
 
@@ -92,12 +149,12 @@ public:
   bool hasSharedTerms(TNode atom) const;
 
   /**
-   * Iterator pointing to the first shared term belonging to the given atom. 
+   * Iterator pointing to the first shared term belonging to the given atom.
    */
   shared_terms_iterator begin(TNode atom) const;
 
   /**
-   * Iterator pointing to the end of the list of shared terms belonging to the given atom. 
+   * Iterator pointing to the end of the list of shared terms belonging to the given atom.
    */
   shared_terms_iterator end(TNode atom) const;
 
@@ -115,7 +172,19 @@ public:
    * Mark that the given theories have been notified of the given shared term.
    */
   void markNotified(TNode term, theory::Theory::Set theories);
-   
+
+  bool isShared(TNode term) const {
+    return d_alreadyNotifiedMap.find(term) != d_alreadyNotifiedMap.end();
+  }
+
+  bool areEqual(TNode a, TNode b);
+
+  bool areDisequal(TNode a, TNode b);
+
+  void processSharedLiteral(TNode literal, TNode reason);
+
+  Node explain(TNode literal);
+
   /**
    * This method gets called on backtracks from the context manager.
    */

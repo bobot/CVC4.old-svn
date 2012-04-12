@@ -23,8 +23,7 @@
 
 #include "context/context.h"
 #include "context/context_mm.h"
-#include "context/cdlist.h"
-#include "context/cdlist_context_memory.h"
+#include "context/cdchunk_list.h"
 
 #include "util/stats.h"
 #include "theory/uf/theory_uf.h"
@@ -41,13 +40,13 @@ class EqClassInfo
 {
 public:
   typedef context::CDHashMap<Node, bool, NodeHashFunction> BoolMap;
-  typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
+  typedef context::CDChunkList<Node> NodeList;
 public:
   //a list of operators that occur as top symbols in this equivalence class
-  //  Efficient E-Matching for SMT Solvers: "funs" 
+  //  Efficient E-Matching for SMT Solvers: "funs"
   BoolMap d_funs;
   //a list of operators f for which a term of the form f( ... t ... ) exists
-  //  Efficient E-Matching for SMT Solvers: "pfuns" 
+  //  Efficient E-Matching for SMT Solvers: "pfuns"
   BoolMap d_pfuns;
   //a list of equivalence classes that are disequal
   BoolMap d_disequal;
@@ -86,9 +85,9 @@ private:
 public:
   UfTermDb( InstantiatorTheoryUf* ith ) : d_ith( ith ), d_calcedNoMatchTerms( false ){}
   ~UfTermDb(){}
-  /** parent structure: 
+  /** parent structure:
       n -> op -> index -> L
-      map from node "n" to a list of nodes "L", where each node n' in L 
+      map from node "n" to a list of nodes "L", where each node n' in L
         has operator "op", and n'["index"] = n.
       for example, d_parents[n][f][1] = { f( t1, n ), f( t2, n ), ... }
   */
@@ -107,7 +106,7 @@ class InstantiatorTheoryUf : public Instantiator{
 protected:
   typedef context::CDHashMap<Node, bool, NodeHashFunction> BoolMap;
   typedef context::CDHashMap<Node, int, NodeHashFunction> IntMap;
-  typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
+  typedef context::CDChunkList<Node> NodeList;
   typedef context::CDHashMap<Node, NodeList*, NodeHashFunction> NodeLists;
   /** term database */
   UfTermDb* d_db;
@@ -185,9 +184,9 @@ private:
   /** list of all candidate generators for each operator */
   std::map< Node, std::vector< CandidateGenerator* > > d_cand_gens;
   /** map from patterns to candidate generators */
-  std::map< Node, std::vector< CandidateGenerator* > > d_pat_cand_gens; 
+  std::map< Node, std::vector< CandidateGenerator* > > d_pat_cand_gens;
   /** helper functions */
-  void registerPatternElementPairs2( Node opat, Node pat, InvertedPathString& ips, 
+  void registerPatternElementPairs2( Node opat, Node pat, InvertedPathString& ips,
                                      std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >& ips_map );
   void registerPatternElementPairs( Node pat );
   /** compute candidates for pc pairs */
@@ -198,7 +197,7 @@ private:
   void collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms, int index = 0 );
   bool collectParentsTermsIps( Node n, Node f, int arg, std::vector< Node >& terms, bool addRep, bool modEq = true );
 public:
-  /** Register candidate generator cg for pattern pat.  
+  /** Register candidate generator cg for pattern pat.
       This request will ensure that calls will be made to cg->addCandidate( n ) for all
       ground terms n that are relevant for matching with pat.
   */

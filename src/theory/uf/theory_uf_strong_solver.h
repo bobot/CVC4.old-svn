@@ -23,8 +23,7 @@
 
 #include "context/context.h"
 #include "context/context_mm.h"
-#include "context/cdlist.h"
-#include "context/cdlist_context_memory.h"
+#include "context/cdchunk_list.h"
 
 #include "util/stats.h"
 
@@ -38,7 +37,7 @@ class StrongSolverTheoryUf{
 protected:
   typedef context::CDHashMap<Node, bool, NodeHashFunction> NodeBoolMap;
   typedef context::CDHashMap<Node, int, NodeHashFunction> NodeIntMap;
-  typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
+  typedef context::CDChunkList<Node> NodeList;
   typedef context::CDList<bool> BoolList;
 public:
   /** information for incremental conflict/clique finding for a particular sort */
@@ -49,7 +48,7 @@ public:
     public:
       /** conflict find pointer */
       ConflictFind* d_cf;
-      /** information stored about each node in region */ 
+      /** information stored about each node in region */
       class RegionNodeInfo {
       public:
         /** disequality list for node */
@@ -58,7 +57,7 @@ public:
           DiseqList( context::Context* c ) : d_size( c, 0 ), d_disequalities( c ){}
           ~DiseqList(){}
           context::CDO< unsigned > d_size;
-          NodeBoolMap d_disequalities; 
+          NodeBoolMap d_disequalities;
           void setDisequal( Node n, bool valid ){
             Assert( d_disequalities.find( n )==d_disequalities.end() || d_disequalities[n]!=valid );
             d_disequalities[ n ] = valid;
@@ -101,7 +100,7 @@ public:
       //constructor
       Region( ConflictFind* cf, context::Context* c ) : d_cf( cf ), d_testClique( c ), d_testCliqueSize( c, 0 ),
         d_splits( c ), d_splitsSize( c, 0 ), d_reps_size( c, 0 ), d_total_diseq_external( c, 0 ),
-        d_total_diseq_internal( c, 0 ), d_valid( c, true ) { 
+        d_total_diseq_internal( c, 0 ), d_valid( c, true ) {
       }
       ~Region(){}
       //region node infomation
@@ -182,8 +181,8 @@ public:
     /** literals we have called for set depends */
     std::map< Node, bool > d_setDepends;
   public:
-    ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) : 
-        d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ), 
+    ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) :
+        d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
         d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ), d_type( tn ), d_is_cardinality_set( c, false ),
         d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ){}
     ~ConflictFind(){}
@@ -210,7 +209,7 @@ public:
   public:
     /** is cardinality strict */
     bool d_isCardinalityStrict;
-    /** cardinality lemma term */ 
+    /** cardinality lemma term */
     Node d_cardinality_lemma_term;
   public:
     /** get number of regions (for debugging) */
@@ -287,8 +286,8 @@ public:
   /** is relavant type */
   static bool isRelevantType( TypeNode t );
   /** are types related? */
-  bool areTypesRelated( TypeNode t1, TypeNode t2 ) { 
-    return d_type_relate[t1].find( t2 )!=d_type_relate[t1].end() && d_type_relate[t1][t2]; 
+  bool areTypesRelated( TypeNode t1, TypeNode t2 ) {
+    return d_type_relate[t1].find( t2 )!=d_type_relate[t1].end() && d_type_relate[t1][t2];
   }
   /** involves relavant type */
   static bool involvesRelevantType( Node n );
