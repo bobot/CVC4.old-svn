@@ -1430,6 +1430,8 @@ void SmtEngine::internalPush() {
   Trace("smt") << "SmtEngine::internalPush()" << endl;
   if(Options::current()->incrementalSolving) {
     d_private->processAssertions();
+    // this is bad because d_context->push()/pop() should be controlled only by SAT solver
+    // (this way, might be out-of-order)
     d_userContext->push();
     d_context->push();
     d_propEngine->push();
@@ -1440,6 +1442,8 @@ void SmtEngine::internalPop() {
   Trace("smt") << "SmtEngine::internalPop()" << endl;
   if(Options::current()->incrementalSolving) {
     d_propEngine->pop();
+    // this is bad because d_context->push()/pop() should be controlled only by SAT solver
+    // (this way, might be out-of-order)
     d_context->pop();
     d_userContext->pop();
   }

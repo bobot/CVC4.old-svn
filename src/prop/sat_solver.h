@@ -64,10 +64,14 @@ public:
    * amount of resource used is implementation-dependent (it could be,
    * for example, the number of conflicts).  If the solver exceeds
    * this limit, the Resource object will throw an exception.
+   *
+   * This cannot be called in a re-entrant fashion.
    */
   virtual SatValue solve(Resource& resource) = 0;
 
-  /** Interrupt the solver */
+  /**
+   * Interrupt the solver.
+   */
   virtual void interrupt() = 0;
 
   /**
@@ -79,7 +83,7 @@ public:
    * the literal in the satisfying assignment that was found by the
    * solver.
    */
-  virtual SatValue value(SatLiteral l) = 0;
+  virtual SatValue value(SatLiteral lit) = 0;
 
   /**
    * Same as adding a unit clause with lifespan USER_CONTEXT_STRICT;
@@ -111,6 +115,48 @@ public:
   virtual bool propagate() = 0;
 
 };/* class SatSolver */
+
+class SatSearchController {
+
+  /** Virtual destructor */
+  virtual ~SatSolver() { }
+
+  /**
+   * Get the current decision level.
+   *
+   * This interface function CAN be used in a reentrant fashion (i.e.,
+   * when solve() is active).
+   */
+  virtual unsigned getCurrentDecisionLevel() const = 0;
+
+  /**
+   * Return the decision level at which var was assigned.  Var must be
+   * assigned, or an exception is thrown.
+   *
+   * This interface function CAN be used in a reentrant fashion (i.e.,
+   * when solve() is active).
+   */
+  virtual unsigned getDecisionLevel(SatVariable var) const = 0;
+
+  /**
+   * If "lit" is ever decided upon, it must be decided upon in the
+   * phase given.  (It can be propagated in the opposite phase,
+   * though.)
+   */
+  virtual void requirePhasedDecision(SatLiteral lit) = 0;
+
+  /**
+   * Flip the most recent, unflipped decision.
+   */
+  virtual bool flipDecision() = 0;
+
+  /**
+   * Should return TRUE if the solve() routine is going to exit
+   * without another state change.
+   */
+  virtual bool isDone() = 0;
+
+};/* class SatSearchController */
 
 }/* prop namespace */
 

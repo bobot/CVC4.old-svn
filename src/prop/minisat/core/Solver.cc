@@ -362,25 +362,18 @@ Lit Solver::pickBranchLit()
 {
     Lit nextLit;
 
-#ifdef CVC4_REPLAY
-    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextReplayDecision());
+    // replay becomes part of DecisionEngine stuff
+// #ifdef CVC4_REPLAY
+//     nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextReplayDecision());
 
-    if (nextLit != lit_Undef) {
-      return nextLit;
-    }
-#endif /* CVC4_REPLAY */
+//     if (nextLit != lit_Undef) {
+//       return nextLit;
+//     }
+// #endif /* CVC4_REPLAY */
 
     // Theory requests
     nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
-    while (nextLit != lit_Undef) {
-      if(value(var(nextLit)) == l_Undef) {
-        Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
-        return nextLit;
-      } else {
-        Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit << " but it already has an assignment" << std::endl;
-      }
-      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
-    }
+    assert(nextLit == lit_Undef || value(nextLit) == VALUE_UNASSIGNED);
 
     Var next = var_Undef;
 

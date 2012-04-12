@@ -71,18 +71,33 @@ public:
 
   ~TheoryProxy();
 
-
-  void theoryCheck(theory::Theory::Effort effort);
-
-  void explainPropagation(SatLiteral l, SatClause& explanation);
-
-  void theoryPropagate(SatClause& output);
+  // ideally, this output interface for SAT should only pass messages for:
+  // * about-to-make-a-decision(lvl)
+  // * made-decision(L, lvl)
+  // * about-to-propagate-bcp
+  // * propagated(L)
+  // * done-propagating-bcp
+  // * have-satisfying-assignment
+  // * have-level-0-conflict
 
   void enqueueTheoryLiteral(const SatLiteral& l);
 
-  SatLiteral getNextDecisionRequest();
+  /**
+   * Check consistency with all active theories at specified effort
+   * level.
+   */
+  void theoryCheck(theory::Theory::Effort effort);
 
-  bool theoryNeedCheck() const;
+  void theoryPropagate(SatClause& output);
+
+  void explainPropagation(SatLiteral l, SatClause& explanation);
+
+  /**
+   * Should return: 1) an unassigned literal to use as next decision;
+   * 2) lit_Undef if should fall back to SAT solver's default; or 3)
+   * NO_MORE_DECISIONS.
+   */
+  SatLiteral getNextDecisionRequest();
 
   void removeClausesAboveLevel(int level);
 
@@ -100,8 +115,6 @@ public:
   void notifyRestart();
 
   void notifyNewLemma(SatClause& lemma);
-
-  SatLiteral getNextReplayDecision();
 
   void logDecision(SatLiteral lit);
 
