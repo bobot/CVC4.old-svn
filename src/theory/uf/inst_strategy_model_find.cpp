@@ -47,7 +47,6 @@ void RepAlphabet::set( TypeNode t, std::vector< Node >& reps ){
 }
 
 bool RepAlphabet::didInstantiation( RepAlphabetIterator& riter ){
-#if 0
   for( int i=0; i<(int)riter.getNumTerms(); i++ ){
     Node n = riter.getTerm( i );
     TypeNode tn = n.getType();
@@ -60,23 +59,60 @@ bool RepAlphabet::didInstantiation( RepAlphabetIterator& riter ){
   //  std::cout << "   " <<  riter.getTerm( i ) << std::endl;
   //}
   return true;
-#else
-  return false;
-#endif
 }
 
-void RepAlphabetIterator::increment(){
-  Assert( !isFinished() );
-  int counter = 0;
-  while( d_index[counter]==(int)(d_ra->d_type_reps[d_f[0][counter].getType()].size()-1) ){
-    d_index[counter] = 0;
-    counter++;
-    if( counter==(int)d_index.size() ){
-      d_index.clear();
-      return;
+void RAIFilter::initialize( QuantifiersEngine* qe, Node f, RepAlphabet* ra ){
+  Debug("raif") << "Phase requirements for " << f << " : " << std::endl;
+  for( std::map< Node, bool >::iterator it = qe->d_phase_reqs[f].begin(); it != qe->d_phase_reqs[f].end(); ++it ){
+    if( it->first.getKind()==APPLY_UF ){
+      Debug("raif") << "   " << it->first << " -> " << it->second << std::endl;
     }
   }
-  d_index[counter]++;
+  for( std::map< Node, bool >::iterator it = qe->d_phase_reqs_equality[f].begin(); 
+        it != qe->d_phase_reqs_equality[f].end(); ++it ){
+    Debug("raif") << "   " << it->first;
+    Debug("raif") << ( it->second ? " == " : " != " );
+    Debug("raif") << qe->d_phase_reqs_equality_term[f][it->first] << std::endl;
+    if( it->first.getKind()==INST_CONSTANT ){
+
+    }else if( it->first.getKind()==APPLY_UF ){
+    
+    }
+  }
+}
+
+int RAIFilter::acceptCurrent( QuantifiersEngine* qe, RepAlphabetIterator* rai ){
+  return -1;
+}
+
+RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, RepAlphabet* ra ) : d_f( f ), d_ra( ra ){
+  d_index.resize( f[0].getNumChildren(), 0 );
+  //d_raif.initialize( qe, f, ra );
+}
+
+void RepAlphabetIterator::increment( QuantifiersEngine* qe ){
+  Assert( !isFinished() );
+  int counter = 0;
+  do{
+    //increment d_index
+    while( d_index[counter]==(int)(d_ra->d_type_reps[d_f[0][counter].getType()].size()-1) ){
+      d_index[counter] = 0;
+      counter++;
+      if( counter==(int)d_index.size() ){
+        d_index.clear();
+        return;
+      }
+    }
+    d_index[counter]++;
+    //check if this is an acceptable instantiation to try
+    counter = d_raif.acceptCurrent( qe, this );
+    //if not, try next value for d_index[counter]
+    if( counter!=-1 ){
+      for( int i=0; i<counter; i++ ){
+        d_index[i] = 0;
+      }
+    }
+  }while( counter!=-1 );
 }
 
 bool RepAlphabetIterator::isFinished(){
@@ -156,7 +192,7 @@ void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort 
 int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, int limitInst ){
   if( effort==Theory::EFFORT_LAST_CALL ){
     Debug("inst-fmf-debug") << "Add matches for " << f << "..." << std::endl;
-    RepAlphabetIterator riter( f, &d_inst_group.back() );
+    RepAlphabetIterator riter( d_quantEngine, f, &d_inst_group.back() );
     d_inst_nodes.back().push_back( f );
     bool addedLemma = false;
     while( !riter.isFinished() ){
@@ -167,7 +203,7 @@ int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, i
       if( !riter.isFinished() ){
         InstMatch m;
         riter.getMatch( d_quantEngine, m );
-        riter.increment();
+        riter.increment( d_quantEngine );
         Debug("inst-fmf-debug") << "Try to add match " << std::endl;
         m.debugPrint("inst-fmf-debug");
         if( d_quantEngine->addInstantiation( f, m ) ){

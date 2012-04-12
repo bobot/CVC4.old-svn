@@ -24,6 +24,7 @@
 #include "util/configuration.h"
 #include "util/options.h"
 #include "util/output.h"
+#include "util/dump.h"
 #include "util/result.h"
 #include "util/stats.h"
 
@@ -275,6 +276,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
     Chat.setStream(CVC4::null_os);
     Message.setStream(CVC4::null_os);
     Warning.setStream(CVC4::null_os);
+    Dump.setStream(CVC4::null_os);
   } else {
     if(options.verbosity < 2) {
       Chat.setStream(CVC4::null_os);
@@ -294,6 +296,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
     Chat.getStream() << Expr::setlanguage(language);
     Message.getStream() << Expr::setlanguage(language);
     Warning.getStream() << Expr::setlanguage(language);
+    Dump.getStream() << Expr::setlanguage(options.outputLanguage)
+                     << Expr::setdepth(-1)
+                     << Expr::printtypes(false);
   }
 
   vector<Options> threadOptions;
@@ -655,14 +660,6 @@ static bool doCommand(SmtEngine& smt, Command* cmd, Options& options) {
       status = doCommand(smt, *subcmd, options) && status;
     }
   } else {
-    // by default, symmetry breaker is on only for QF_UF
-    if(! options.ufSymmetryBreakerSetByUser) {
-      SetBenchmarkLogicCommand *logic = dynamic_cast<SetBenchmarkLogicCommand*>(cmd);
-      if(logic != NULL) {
-        options.ufSymmetryBreaker = (logic->getLogic() == "QF_UF");
-      }
-    }
-
     if(options.verbosity > 0) {
       *options.out << "Invoking: " << *cmd << endl;
     }

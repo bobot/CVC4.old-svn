@@ -28,7 +28,7 @@ namespace uf {
 
 class RepAlphabetIterator;
 
-/** representative alphabet */
+/** this class stores a representative alphabet */
 class RepAlphabet {
 public:
   RepAlphabet(){}
@@ -39,18 +39,35 @@ public:
   void set( TypeNode t, std::vector< Node >& reps );
   bool didInstantiation( RepAlphabetIterator& riter );
 };
-class RepAlphabetIterator {
+
+class RepAlphabetIterator;
+
+/** this class determines which subset of instantiations should be tried by a RepAlphabetIterator */
+class RAIFilter
+{
 public:
-  RepAlphabetIterator( Node f, RepAlphabet* ra ) : d_f( f ), d_ra( ra ){
-    d_index.resize( f[0].getNumChildren(), 0 );
-  }
+  RAIFilter(){}
+  ~RAIFilter(){}
+  //initialize with this quantifier
+  void initialize( QuantifiersEngine* qe, Node f, RepAlphabet* ra );
+  //returns the lowest variable number that should be incremented, -1 : no conflict
+  int acceptCurrent( QuantifiersEngine* qe, RepAlphabetIterator* rai );
+};
+
+/** this class iterates over a RepAlphabet */
+class RepAlphabetIterator {
+private:
+  //filte, used as oracle to determine if instantiations need not be tried
+  RAIFilter d_raif;
+public:
+  RepAlphabetIterator( QuantifiersEngine* qe, Node f, RepAlphabet* ra );
   ~RepAlphabetIterator(){}
   Node d_f;
   RepAlphabet* d_ra;
   std::vector< int > d_index;
-  void increment();
+  void increment( QuantifiersEngine* qe );
   bool isFinished();
-  void getMatch( QuantifiersEngine* ie, InstMatch& m );
+  void getMatch( QuantifiersEngine* qe, InstMatch& m );
   Node getTerm( int i );
   int getNumTerms() { return d_f[0].getNumChildren(); }
 };

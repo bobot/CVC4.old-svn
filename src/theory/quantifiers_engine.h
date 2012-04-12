@@ -236,10 +236,6 @@ private:
   std::vector< Node > d_lemmas_waiting;
   /** inst matches produced for each quantifier */
   std::map< Node, InstMatchTrie > d_inst_match_trie;
-  /** phase requirements for each quantifier for each instantiation literal */
-  std::map< Node, std::map< Node, bool > > d_phase_reqs;
-  std::map< Node, std::map< Node, Node > > d_phase_reqs_equality;
-  std::map< Node, std::map< Node, Node > > d_phase_reqs_disequality;
   /** free variable for instantiation constant type */
   std::map< TypeNode, Node > d_free_vars;
   /** bound variable for variable types */
@@ -335,6 +331,12 @@ public:
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */
   bool getActive( Node n ) { return d_active.find( n )!=d_active.end() && d_active[n]; }
+public:
+  /** phase requirements for each quantifier for each instantiation literal */
+  std::map< Node, std::map< Node, bool > > d_phase_reqs;
+  std::map< Node, std::map< Node, bool > > d_phase_reqs_equality;
+  std::map< Node, std::map< Node, Node > > d_phase_reqs_equality_term;
+public:
   /** is phase required */
   bool isPhaseReq( Node f, Node lit ) { return d_phase_reqs[f].find( lit )!=d_phase_reqs[f].end(); }
   /** get phase requirement */

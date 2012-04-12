@@ -526,22 +526,19 @@ void QuantifiersEngine::generatePhaseReqs( Node f ){
   //now, compute if any patterns are equality required
   for( std::map< Node, bool >::iterator it = d_phase_reqs[f].begin(); it != d_phase_reqs[f].end(); ++it ){
     Debug("inst-engine-phase-req") << "   " << it->first << " -> " << it->second << std::endl;
-    if( it->second ){
-      if( it->first.getKind()==EQUAL ){
-        if( it->first[0].hasAttribute(InstConstantAttribute()) ){
-          if( !it->first[1].hasAttribute(InstConstantAttribute()) ){
-            d_phase_reqs_equality[f][ it->first[0] ] = it->first[1];
-            Debug("inst-engine-phase-req") << "      " << it->first[0] << " == " << it->first[1] << std::endl;
-            //std::cout << "      " << it->first[0] << " == " << it->first[1] << std::endl;
-          }
-        }else if( it->first[1].hasAttribute(InstConstantAttribute()) ){
-          d_phase_reqs_equality[f][ it->first[1] ] = it->first[0];
-          Debug("inst-engine-phase-req") << "      " << it->first[1] << " == " << it->first[0] << std::endl;
-          //std::cout << "      " << it->first[1] << " == " << it->first[0] << std::endl;
+    if( it->first.getKind()==EQUAL ){
+      if( it->first[0].hasAttribute(InstConstantAttribute()) ){
+        if( !it->first[1].hasAttribute(InstConstantAttribute()) ){
+          d_phase_reqs_equality_term[f][ it->first[0] ] = it->first[1];
+          d_phase_reqs_equality[f][ it->first[0] ] = it->second;
+          Debug("inst-engine-phase-req") << "      " << it->first[0] << ( it->second ? " == " : " != " ) << it->first[1] << std::endl;
         }
+      }else if( it->first[1].hasAttribute(InstConstantAttribute()) ){
+        int index = it->second ? 1 : 0;
+        d_phase_reqs_equality_term[f][ it->first[1] ] = it->first[0];
+        d_phase_reqs_equality[f][ it->first[1] ] = it->second;
+        Debug("inst-engine-phase-req") << "      " << it->first[1] << ( it->second ? " == " : " != " ) << it->first[0] << std::endl;
       }
-    }else{
-    
     }
   }
   
