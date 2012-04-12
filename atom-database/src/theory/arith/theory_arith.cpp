@@ -73,8 +73,10 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_rowHasBeenAdded(false),
   d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
+  d_conflicts(c),
+  d_conflictCallBack(d_conflicts),
   d_differenceManager(c, d_constraintDatabase, d_setupLiteralCallback),
-  d_simplex(d_linEq),
+  d_simplex(d_linEq, d_conflictCallBack),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_differenceManager),
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
@@ -1138,22 +1140,29 @@ void TheoryArith::check(Effort effortLevel){
   }
 
   bool emmittedConflictOrSplit = false;
-  Node possibleConflict = d_simplex.findModel();
-  if(possibleConflict != Node::null()){
+  Assert(d_conflicts.empty());
+  bool foundConflict = d_simplex.findModel();
+  if(foundConflict){
     d_partialModel.revertAssignmentChanges();
     clearUpdates();
-    Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
 
-    d_out->conflict(possibleConflict);
+    Assert(!d_conflicts.empty());
+    for(size_t i = 0, i_end = d_conflicts.size(); i < i_end; ++i){
+      Node conflict = d_conflicts[i];
+      Debug("arith::conflict") << "d_conflicts[" << i << "] " << conflict << endl;
+      d_out->conflict(conflict);      
+    }
     emmittedConflictOrSplit = true;
   }else{
     d_partialModel.commitAssignmentChanges();
   }
 
+
   if(!emmittedConflictOrSplit && fullEffort(effortLevel)){
     emmittedConflictOrSplit = splitDisequalities();
   }
 
+  Node possibleConflict = Node::null();
   if(!emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()){
 
     if(!emmittedConflictOrSplit && Options::current()->dioSolver){
@@ -1330,7 +1339,6 @@ Node TheoryArith::explain(TNode n) {
 
 
 void TheoryArith::propagate(Effort e) {
-  bool propagated = false;
   if(Options::current()->arithPropagation && hasAnyUpdates()){
     propagateCandidates();
   }else{
@@ -1352,7 +1360,6 @@ void TheoryArith::propagate(Effort e) {
       Debug("arith::prop") << "propagating @" << getContext()->getLevel() << " " << literal << endl;
 
       d_out->propagate(literal);
-      propagated = true;
     }else{
       Node literal = c->getLiteral();
       Debug("arith::prop") << "already asserted to the theory " << literal << endl;
@@ -1371,7 +1378,6 @@ void TheoryArith::propagate(Effort e) {
     if(constraint == NullConstraint){
       Debug("arith::prop") << "null? " << endl;
       d_out->propagate(toProp);
-      propagated = true;
     }else if(constraint->negationHasProof()){
       Node exp = d_differenceManager.explain(toProp);
       Node notNormalized = normalized.getKind() == NOT ?
@@ -1384,15 +1390,6 @@ void TheoryArith::propagate(Effort e) {
       Debug("arith::prop") << "propagating still?" <<  toProp << endl;
 
       d_out->propagate(toProp);
-      propagated = true;
-    }
-  }
-
-  if(!propagated){
-    //Opportunistically export previous conflicts
-    while(d_simplex.hasMoreLemmas()){
-      Node lemma = d_simplex.popLemma();
-      d_out->lemma(lemma);
     }
   }
 }

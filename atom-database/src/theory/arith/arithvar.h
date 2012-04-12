@@ -55,6 +55,11 @@ public:
   virtual void operator()(TNode n) = 0;
 };
 
+class NodeCallBack {
+public:
+  virtual void operator()(Node n) = 0;
+};
+
 }; /* namesapce arith */
 }; /* namespace theory */
 }; /* namespace CVC4 */

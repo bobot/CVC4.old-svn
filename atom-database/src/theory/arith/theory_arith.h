@@ -220,6 +220,23 @@ private:
   uint32_t d_tableauResetPeriod;
   static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
 
+
+  /** This is only used by simplex at the moment. */
+  context::CDList<Node> d_conflicts;
+  class PushCallBack : public NodeCallBack {
+  private:
+    context::CDList<Node>& d_list;
+  public:
+    PushCallBack(context::CDList<Node>& l)
+    : d_list(l)
+    {}
+    void operator()(Node n){
+      d_list.push_back(n);
+    }
+  };
+  PushCallBack d_conflictCallBack;
+
+
   /**
    * A copy of the tableau immediately after removing variables
    * without bounds in presolve().

@@ -33,13 +33,13 @@ static const uint32_t NUM_CHECKS = 10;
 static const bool CHECK_AFTER_PIVOT = true;
 static const uint32_t VARORDER_CHECK_PERIOD = 200;
 
-SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq) :
+SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq, NodeCallBack& conflictChannel) :
   d_linEq(linEq),
   d_partialModel(d_linEq.getPartialModel()),
   d_tableau(d_linEq.getTableau()),
   d_queue(d_partialModel, d_tableau),
   d_numVariables(0),
-  d_delayedLemmas(),
+  d_conflictChannel(conflictChannel),
   d_pivotsInRound(),
   d_DELTA_ZERO(0,0)
 {
@@ -75,7 +75,7 @@ SimplexDecisionProcedure::Statistics::Statistics():
   d_weakeningSuccesses("theory::arith::weakening::success",0),
   d_weakenings("theory::arith::weakening::total",0),
   d_weakenTime("theory::arith::weakening::time"),
-  d_delayedConflicts("theory::arith::delayedConflicts",0)
+  d_simplexConflicts("theory::arith::simplexConflicts",0)
 {
   StatisticsRegistry::registerStat(&d_statUpdateConflicts);
 
@@ -97,7 +97,7 @@ SimplexDecisionProcedure::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_weakenings);
   StatisticsRegistry::registerStat(&d_weakenTime);
 
-  StatisticsRegistry::registerStat(&d_delayedConflicts);
+  StatisticsRegistry::registerStat(&d_simplexConflicts);
 }
 
 SimplexDecisionProcedure::Statistics::~Statistics(){
@@ -121,7 +121,7 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_weakenings);
   StatisticsRegistry::unregisterStat(&d_weakenTime);
 
-  StatisticsRegistry::unregisterStat(&d_delayedConflicts);
+  StatisticsRegistry::unregisterStat(&d_simplexConflicts);
 }
 
 
@@ -201,7 +201,7 @@ Node betterConflict(TNode x, TNode y){
   else return y;
 }
 
-Node SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type, bool returnFirst) {
+bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_findConflictOnTheQueueTime);
 
   switch(type){
@@ -213,7 +213,6 @@ Node SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type, bool re
   }
 
   bool success = false;
-  Node firstConflict = Node::null();
   ArithPriorityQueue::const_iterator i = d_queue.begin();
   ArithPriorityQueue::const_iterator end = d_queue.end();
   for(; i != end; ++i){
@@ -223,11 +222,7 @@ Node SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type, bool re
       Node possibleConflict = checkBasicForConflict(x_i);
       if(!possibleConflict.isNull()){
         success = true;
-        if(returnFirst && firstConflict.isNull()){
-          firstConflict = possibleConflict;
-        }else{
-          delayConflictAsLemma(possibleConflict);
-        }
+        reportConflict(possibleConflict);
       }
     }
   }
@@ -240,13 +235,14 @@ Node SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type, bool re
     case AfterVarOrderSearch:  ++(d_statistics.d_successAfterVarOrderSearch); break;
     }
   }
-  return firstConflict;
+  return success;
 }
 
-Node SimplexDecisionProcedure::findModel(){
+bool SimplexDecisionProcedure::findModel(){
   if(d_queue.empty()){
-    return Node::null();
+    return false;
   }
+  bool foundConflict = false;
 
   static CVC4_THREADLOCAL(unsigned int) instance = 0;
   instance = instance + 1;
@@ -254,45 +250,44 @@ Node SimplexDecisionProcedure::findModel(){
 
   d_queue.transitionToDifferenceMode();
 
-  Node possibleConflict = Node::null();
   if(d_queue.size() > 1){
-    possibleConflict = findConflictOnTheQueue(BeforeDiffSearch);
+    foundConflict = findConflictOnTheQueue(BeforeDiffSearch);
   }
-  if(possibleConflict.isNull()){
+  if(!foundConflict){
     uint32_t numHueristicPivots = d_numVariables + 1;
     uint32_t pivotsRemaining = numHueristicPivots;
     uint32_t pivotsPerCheck = (numHueristicPivots/NUM_CHECKS) + (NUM_CHECKS-1);
     while(!d_queue.empty() &&
-          possibleConflict.isNull() &&
+          !foundConflict &&
           pivotsRemaining > 0){
       uint32_t pivotsToDo = min(pivotsPerCheck, pivotsRemaining);
-      possibleConflict = searchForFeasibleSolution(pivotsToDo);
+      foundConflict = searchForFeasibleSolution(pivotsToDo);
       pivotsRemaining -= pivotsToDo;
       //Once every CHECK_PERIOD examine the entire queue for conflicts
-      if(possibleConflict.isNull()){
-        possibleConflict = findConflictOnTheQueue(DuringDiffSearch);
+      if(!foundConflict){
+        foundConflict = findConflictOnTheQueue(DuringDiffSearch);
       }else{
-        findConflictOnTheQueue(AfterDiffSearch, false);
+        findConflictOnTheQueue(AfterDiffSearch);
       }
     }
   }
 
-  if(!d_queue.empty() && possibleConflict.isNull()){
+  if(!d_queue.empty() && !foundConflict){
     d_queue.transitionToVariableOrderMode();
 
-    while(!d_queue.empty() && possibleConflict.isNull()){
-      possibleConflict = searchForFeasibleSolution(VARORDER_CHECK_PERIOD);
+    while(!d_queue.empty() && !foundConflict){
+      foundConflict = searchForFeasibleSolution(VARORDER_CHECK_PERIOD);
 
       //Once every CHECK_PERIOD examine the entire queue for conflicts
-      if(possibleConflict.isNull()){
-        possibleConflict = findConflictOnTheQueue(DuringVarOrderSearch);
-      }else{
-        findConflictOnTheQueue(AfterVarOrderSearch, false);
+      if(!foundConflict){
+        foundConflict = findConflictOnTheQueue(DuringVarOrderSearch);
+      } else{
+        findConflictOnTheQueue(AfterVarOrderSearch);
       }
     }
   }
 
-  Assert(!possibleConflict.isNull() || d_queue.empty());
+  Assert(foundConflict || d_queue.empty());
 
   // Curiously the invariant that we always do a full check
   // means that the assignment we can always empty these queues.
@@ -307,7 +302,7 @@ Node SimplexDecisionProcedure::findModel(){
 
   Debug("arith::findModel") << "end findModel() " << instance << endl;
 
-  return possibleConflict;
+  return foundConflict;
 }
 
 Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
@@ -331,7 +326,7 @@ Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
 
 //corresponds to Check() in dM06
 //template <SimplexDecisionProcedure::PreferenceFunction pf>
-Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingIterations){
+bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingIterations){
   Debug("arith") << "searchForFeasibleSolution" << endl;
   Assert(remainingIterations > 0);
 
@@ -342,7 +337,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     Debug("arith::update::select") << "selectSmallestInconsistentVar()=" << x_i << endl;
     if(x_i == ARITHVAR_SENTINEL){
       Debug("arith_update") << "No inconsistent variables" << endl;
-      return Node::null(); //sat
+      return false; //sat
     }
 
     --remainingIterations;
@@ -367,7 +362,9 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       x_j = selectSlackUpperBound(x_i, pf);
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);
-        return generateConflictBelowLowerBound(x_i); //unsat
+        Node conflict = generateConflictBelowLowerBound(x_i); //unsat
+        reportConflict(conflict);
+        return true;
       }
       DeltaRational l_i = d_partialModel.getLowerBound(x_i);
       d_linEq.pivotAndUpdate(x_i, x_j, l_i);
@@ -376,7 +373,9 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       x_j = selectSlackLowerBound(x_i, pf);
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);
-        return generateConflictAboveUpperBound(x_i); //unsat
+        Node conflict = generateConflictAboveUpperBound(x_i); //unsat
+        reportConflict(conflict);
+        return true;
       }
       DeltaRational u_i = d_partialModel.getUpperBound(x_i);
       d_linEq.pivotAndUpdate(x_i, x_j, u_i);
@@ -387,13 +386,14 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     if(CHECK_AFTER_PIVOT){
       Node possibleConflict = checkBasicForConflict(x_j);
       if(!possibleConflict.isNull()){
-        return possibleConflict;
+        reportConflict(possibleConflict);
+        return true; // unsat
       }
     }
   }
   Assert(remainingIterations == 0);
 
-  return Node::null();
+  return false;
 }
 
 

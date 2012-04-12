@@ -56,11 +56,11 @@
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
 #include "theory/arith/partial_model.h"
-//#include "theory/arith/arith_prop_manager.h"
 #include "theory/arith/linear_equality.h"
 
-#include "util/options.h"
+#include "context/cdlist.h"
 
+#include "util/options.h"
 #include "util/stats.h"
 
 #include <queue>
@@ -94,7 +94,8 @@ private:
   /** Number of variables in the system. This is used for tuning heuristics. */
   ArithVar d_numVariables;
 
-  std::queue<Node> d_delayedLemmas;
+  /** This is the call back channel for Simplex to report conflicts. */
+  NodeCallBack& d_conflictChannel;
 
   /** Maps a variable to how many times they have been used as a pivot in the simplex search. */
   ArithVarMultiset d_pivotsInRound;
@@ -103,7 +104,7 @@ private:
   DeltaRational d_DELTA_ZERO;
 
 public:
-  SimplexDecisionProcedure(LinearEqualityModule& linEq);
+  SimplexDecisionProcedure(LinearEqualityModule& linEq, NodeCallBack& conflictChannel);
 
   /**
    * This must be called when the value of a basic variable may now voilate one
@@ -119,14 +120,15 @@ public:
    * This is done by a simplex search through the possible bases of the tableau.
    *
    * If all of the variables can be made consistent with their bounds
-   * Node::null() is returned. Otherwise a minimized conflict is returned.
+   * false is returned. Otherwise true is returned, and at least 1 conflict
+   * was reported on the conflictCallback passed to the Module.
    *
    * Tableau pivoting is performed so variables may switch from being basic to
    * nonbasic and vice versa.
    *
    * Corresponds to the "check()" procedure in [Cav06].
    */
-  Node findModel();
+  bool findModel();
 
 private:
 
@@ -154,6 +156,7 @@ private:
    * during the VarOrder stage of findModel.
    */
   static ArithVar minColLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
+
   /**
    * minBoundAndRowCount is a PreferenceFunction for preferring a variable
    * without an asserted bound over variables with an asserted bound.
@@ -169,11 +172,11 @@ private:
 
 
 private:
-  Node searchForFeasibleSolution(uint32_t maxIterations);
+  bool searchForFeasibleSolution(uint32_t maxIterations);
 
   enum SearchPeriod {BeforeDiffSearch, DuringDiffSearch, AfterDiffSearch, DuringVarOrderSearch, AfterVarOrderSearch};
 
-  Node findConflictOnTheQueue(SearchPeriod period, bool returnFirst = true);
+  bool findConflictOnTheQueue(SearchPeriod period);
 
 
   /**
@@ -213,29 +216,12 @@ private:
 public:
   void increaseMax() {d_numVariables++;}
 
-  /** Returns true if the simplex procedure has more delayed lemmas in its queue.*/
-  bool hasMoreLemmas() const {
-    return !d_delayedLemmas.empty();
-  }
-  /** Returns the next delayed lemmas on the queue.*/
-  Node popLemma(){
-    Assert(hasMoreLemmas());
-    Node lemma = d_delayedLemmas.front();
-    d_delayedLemmas.pop();
-    return lemma;
-  }
-
 private:
-  /** Adds a lemma to the queue. */
-  void pushLemma(Node lemma){
-    d_delayedLemmas.push(lemma);
-    ++(d_statistics.d_delayedConflicts);
-  }
 
-  /** Adds a conflict as a lemma to the queue. */
-  void delayConflictAsLemma(Node conflict){
-   Node negatedConflict = negateConjunctionAsClause(conflict);
-    pushLemma(negatedConflict);
+  /** Reports a conflict to on the output channel. */
+  void reportConflict(Node conflict){
+    d_conflictChannel(conflict);
+    ++(d_statistics.d_simplexConflicts);
   }
 
   template <bool above>
@@ -276,7 +262,7 @@ private:
     TimerStat d_weakenTime;
 
 
-    IntStat d_delayedConflicts;
+    IntStat d_simplexConflicts;
 
     Statistics();
     ~Statistics();
