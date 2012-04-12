@@ -82,7 +82,9 @@ class Bitblaster {
                                                        currently asserted by the DPLL SAT solver. */
 
   /// helper methods
+  public:
   bool          hasBBAtom(TNode node);    
+  private:
   bool          hasBBTerm(TNode node); 
   void          getBBTerm(TNode node, Bits& bits);
 
@@ -97,8 +99,11 @@ class Bitblaster {
   void initAtomBBStrategies();
   void initTermBBStrategies(); 
 
+  // returns a node that might be easier to bitblast
+  Node bbOptimize(TNode node); 
   
   void bbAtom(TNode node);
+  void addAtom(TNode atom); 
   // division is bitblasted in terms of constraints
   // so it needs to use private bitblaster interface
   void bbUdiv(TNode node, Bits& bits);
@@ -110,17 +115,20 @@ public:
 public:
   Bitblaster(context::Context* c); 
   ~Bitblaster();
-  void assertToSat(TNode node);
-  bool solve();
+  bool assertToSat(TNode node, bool propagate = true);
+  bool solve(bool quick_solve = false);
   void bitblast(TNode node);
   void getConflict(std::vector<TNode>& conflict); 
 
+  bool getPropagations(std::vector<TNode>& propagations);
+  void explainPropagation(TNode atom, std::vector<Node>& explanation);
 private:
 
   
   class Statistics {
   public:
-    IntStat  d_numTermClauses, d_numAtomClauses;
+    IntStat d_numTermClauses, d_numAtomClauses;
+    IntStat d_numTerms, d_numAtoms; 
     TimerStat d_bitblastTimer;
     Statistics();
     ~Statistics(); 
