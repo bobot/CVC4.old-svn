@@ -533,7 +533,7 @@ void TheoryUF::addSharedTerm(TNode t) {
   d_equalityEngine.addTriggerTerm(t);
   //AJR-hack
   if( getInstantiator() ){
-    ((InstantiatorTheoryUf*)getInstantiator())->preRegisterTerm( t );
+    getInstantiator()->preRegisterTerm( t );
   }
   //AJR-hack-end
 }
@@ -633,13 +633,6 @@ void TheoryUF::computeCareGraph() {
 }/* TheoryUF::computeCareGraph() */
 
 //AJR-hack
-UfTermDb* TheoryUF::getTermDatabase(){
-  if( getInstantiator() ){
-    return ((InstantiatorTheoryUf*)getInstantiator())->getTermDatabase();
-  }else{
-    return NULL;
-  }
-}
 
 void TheoryUF::notifyEqClass( TNode t ){
   if( d_thss ){

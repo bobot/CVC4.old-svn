@@ -122,8 +122,8 @@ class FakeTheory : public Theory {
   // static std::deque<RewriteItem> s_expected;
 
 public:
-  FakeTheory(context::Context* ctxt, context::UserContext* uctxt, OutputChannel& out, Valuation valuation) :
-    Theory(theoryId, ctxt, uctxt, out, valuation)
+  FakeTheory(context::Context* ctxt, context::UserContext* uctxt, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
+    Theory(theoryId, ctxt, uctxt, out, valuation, qe)
   { }
 
   /** Register an expected rewrite call */

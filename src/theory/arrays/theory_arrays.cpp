@@ -24,7 +24,7 @@
 #include "theory/rewriter.h"
 #include "expr/command.h"
 #include "theory/uf/equality_engine_impl.h"
-
+#include "theory/arrays/theory_arrays_instantiator.h"
 
 using namespace std;
 
@@ -104,6 +104,9 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   if (d_useArrTable) {
     d_equalityEngine.addFunctionKind(kind::ARR_TABLE_FUN);
   }
+  //AJR-hack
+  d_inst = new InstantiatorTheoryArrays( c, qe, this );
+  //AJR-hack-end
 }
 
 
@@ -521,6 +524,11 @@ void TheoryArrays::addSharedTerm(TNode t) {
   else {
     d_sharedTerms = true;
   }
+  //AJR-hack
+  if( getInstantiator() ){
+    getInstantiator()->preRegisterTerm( t );
+  }
+  //AJR-hack-end
 }
 
 

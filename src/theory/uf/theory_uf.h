@@ -137,12 +137,10 @@ private:
 
   /** called when two equivalence classes are made disequal */
   void notifyDisequal( TNode t1, TNode t2, TNode reason );
-//AJR-hack-end
 
-  ////AJR-hack
   ////   TEMPORARY
   context::CDO< bool > d_hasCard;
-  ////AJR-hack-end
+//AJR-hack-end
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
@@ -167,7 +165,6 @@ public:
 
   //AJR-hack
   EqualityEngine<NotifyClass>* getEqualityEngine() { return &d_equalityEngine; }
-  UfTermDb* getTermDatabase();
   StrongSolverTheoryUf* getStrongSolver() { return d_thss; }
   //AJR-hack-end
 };/* class TheoryUF */

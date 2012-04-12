@@ -98,7 +98,7 @@ public:
     d_nm = new NodeManager(d_ctxt, NULL);
     d_scope = new NodeManagerScope(d_nm);
     d_outputChannel.clear();
-    d_arith = new TheoryArith(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL));
+    d_arith = new TheoryArith(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL), NULL);
 
     preregistered = new std::set<Node>();
 

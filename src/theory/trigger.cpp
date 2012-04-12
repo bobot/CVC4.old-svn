@@ -265,7 +265,7 @@ bool Trigger::isUsableTrigger( std::vector< Node >& nodes, Node f ){
 
 bool Trigger::isUsable( Node n, Node f ){
   if( n.getAttribute(InstConstantAttribute())==f ){
-    if( n.getKind()!=APPLY_UF && n.getKind()!=INST_CONSTANT ){
+    if( !isAtomicTrigger( n ) && n.getKind()!=INST_CONSTANT ){
       std::map< Node, Node > coeffs;
       return getPatternArithmetic( f, n, coeffs );
     }else{
@@ -283,8 +283,13 @@ bool Trigger::isUsable( Node n, Node f ){
 
 bool Trigger::isUsableTrigger( Node n, Node f ){
   //return n.getAttribute(InstConstantAttribute())==f && n.getKind()==APPLY_UF;
-  return n.getAttribute(InstConstantAttribute())==f && n.getKind()==APPLY_UF && isUsable( n, f );
+  return n.getAttribute(InstConstantAttribute())==f && isAtomicTrigger( n ) && isUsable( n, f );
 }
+
+bool Trigger::isAtomicTrigger( Node n ){
+  return n.getKind()==APPLY_UF || n.getKind()==SELECT || n.getKind()==STORE;
+}
+
 /** filter all nodes that have instances */
 void Trigger::filterInstances( std::vector< Node >& nodes ){
   std::vector< bool > active;

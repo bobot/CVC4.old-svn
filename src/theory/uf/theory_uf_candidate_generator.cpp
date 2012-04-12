@@ -31,7 +31,7 @@ CandidateGeneratorTheoryUf::CandidateGeneratorTheoryUf( InstantiatorTheoryUf* it
   Assert( !d_op.isNull() );
 }
 void CandidateGeneratorTheoryUf::resetInstantiationRound(){
-  d_term_iter_limit = d_ith->getTermDatabase()->d_op_map[d_op].size();
+  d_term_iter_limit = d_ith->getQuantifiersEngine()->getTermDatabase()->d_op_map[d_op].size();
 }
 
 void CandidateGeneratorTheoryUf::reset( Node eqc ){
@@ -49,7 +49,7 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
   if( d_term_iter>=0 ){
     //get next candidate term in the uf term database
     while( d_term_iter<d_term_iter_limit ){
-      Node n = d_ith->getTermDatabase()->d_op_map[d_op][d_term_iter];
+      Node n = d_ith->getQuantifiersEngine()->getTermDatabase()->d_op_map[d_op][d_term_iter];
       d_term_iter++;
       if( !n.getAttribute(NoMatchAttribute()) ){
         return n;

@@ -50,7 +50,6 @@ typedef expr::Attribute<BoundVarAttributeId, bool> BoundVarAttribute;
 
 namespace theory {
 
-class InstStrategyList;
 class QuantifiersEngine;
 
 class InstStrategy
@@ -108,7 +107,7 @@ public:
 class Instantiator{
   friend class QuantifiersEngine;
 protected:
-  /** reference to the instantiation engine */
+  /** reference to the quantifiers engine */
   QuantifiersEngine* d_quantEngine;
   /** reference to the theory that it looks at */
   Theory* d_th;
@@ -146,7 +145,7 @@ public:
   QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }
   /** get corresponding theory for this instantiator */
   Theory* getTheory() { return d_th; }
-  /** Pre-register a term.  Done one time for a Node, ever. */
+  /** Pre-register a term.  */
   virtual void preRegisterTerm( Node t ) { }
   /** assertNode function, assertion was asserted to theory */
   virtual void assertNode( Node assertion ){}
@@ -175,21 +174,50 @@ public:
   virtual Node explain(TNode n) = 0;
 };
 
-class TermDb
+class TermArgTrie
 {
 public:
-  TermDb(){}
+  void addTerm2( QuantifiersEngine* qe, Node n, int argIndex, bool modEq );
+  bool existsTerm( QuantifiersEngine* qe, Node n, int argIndex, bool modEq );
+public:
+  /** the data */
+  std::map< Node, TermArgTrie > d_data;
+public:
+  bool addTerm( QuantifiersEngine* qe, Node n, bool modEq );
+};
+
+class TermDb
+{
+private:
+  /** reference to the quantifiers engine */
+  QuantifiersEngine* d_quantEngine;
+  /** calculated no match terms */
+  bool d_active;
+  /** terms processed */
+  std::map< Node, bool > d_processed;
+public:
+  TermDb( QuantifiersEngine* qe ) : d_quantEngine( qe ), d_active( true ){}
   ~TermDb(){}
   /** map from APPLY_UF operators to ground terms for that operator */
   std::map< Node, std::vector< Node > > d_op_map;
   /** map from type nodes to terms of that type */
   std::map< TypeNode, std::vector< Node > > d_type_map;
   /** add a term to the database */
-  virtual void add( Node n, std::vector< Node >& added, bool withinQuant = false ) = 0;
+  void addTerm( Node n, std::vector< Node >& added, bool withinQuant = false );
   /** reset instantiation round */
-  virtual void resetInstantiationRound( Theory::Effort effort ) = 0;
-  /** initialize matching */
-  virtual void resetMatching() = 0;
+  void resetInstantiationRound( Theory::Effort effort );
+  /** set active */
+  void setActive( bool a ) { d_active = a; }
+  /** get active */
+  bool getActive() { return d_active; }
+public:
+  /** parent structure (for efficient E-matching):
+      n -> op -> index -> L
+      map from node "n" to a list of nodes "L", where each node n' in L
+        has operator "op", and n'["index"] = n.
+      for example, d_parents[n][f][1] = { f( t1, n ), f( t2, n ), ... }
+  */
+  std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
 };
 
 
@@ -375,8 +403,6 @@ public:
   /** set owner */
   void setOwner( Node f, Theory* t ) { d_owner[f] = t; }
 public:
-  /** set term database */
-  void setTermDatabase( TermDb* tdb ) { d_term_db = tdb; }
   /** get term database */
   TermDb* getTermDatabase() { return d_term_db; }
   /** add term to database */

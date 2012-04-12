@@ -82,7 +82,9 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_DELTA_ZERO(0),
   d_statistics()
 {
+  //AJR-hack
   d_inst = new InstantiatorTheoryArith( c, qe, this );
+  //AJR-hack-end
 }
 
 TheoryArith::~TheoryArith(){}

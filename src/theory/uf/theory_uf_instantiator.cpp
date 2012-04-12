@@ -32,7 +32,7 @@ EqClassInfo::EqClassInfo( context::Context* c ) : d_funs( c ), d_pfuns( c ), d_d
 }
 
 //set member
-void EqClassInfo::setMember( Node n, UfTermDb* db ){
+void EqClassInfo::setMember( Node n, TermDb* db ){
   if( n.getKind()==APPLY_UF ){
     d_funs[n.getOperator()] = true;
   }
@@ -62,212 +62,34 @@ void EqClassInfo::merge( EqClassInfo* eci ){
   }
 }
 
-void UfTermTrie::addTerm2( QuantifiersEngine* qe, Node n, int argIndex, bool modEq ){
-  if( argIndex<(int)n.getNumChildren() ){
-    d_data[ n[argIndex ] ].addTerm2( qe, n, argIndex+1, modEq );
-  }
-}
-
-bool UfTermTrie::existsTerm( QuantifiersEngine* qe, Node n, int argIndex, bool modEq ){
-  if( argIndex==(int)n.getNumChildren() ){
-    return true;
-  }else{
-    std::map< Node, UfTermTrie >::iterator it = d_data.find( n[ argIndex ] );
-    if( it!=d_data.end() ){
-      if( it->second.existsTerm( qe, n, argIndex+1, modEq ) ){
-        return true;
-      }
-    }
-    if( modEq ){
-      //check modulo equality if any other term exists
-      if( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->hasTerm( n[ argIndex ] ) ){
-        uf::EqClassIterator eqc = uf::EqClassIterator( qe->getEqualityQuery()->getRepresentative( n[ argIndex ] ), 
-                                ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
-        while( !eqc.isFinished() ){
-          Node en = (*eqc);
-          if( en!=n ){
-            std::map< Node, UfTermTrie >::iterator itc = d_data.find( en );
-            if( itc!=d_data.end() ){
-              if( itc->second.existsTerm( qe, n, argIndex+1, modEq ) ){
-                return true;
-              }
-            }
-          }
-          ++eqc;
-        }
-      }
-    }
-    return false;
-  }
-}
-
-bool UfTermTrie::addTerm( QuantifiersEngine* qe, Node n, bool modEq ){
-  if( !existsTerm( qe, n, 0, modEq ) ){
-    addTerm2( qe, n, 0, modEq );
-    return true;
-  }else{
-    return false;
-  }
-}
-
-void UfTermDb::add( Node n, std::vector< Node >& added, bool withinQuant ){
-#if 1
-  //don't add terms in quantifier bodies
-  if( withinQuant ){
-    return;
-  }
-#endif
-  if( n.getKind()==APPLY_UF ){
-    Node op = n.getOperator();
-    if( !n.hasAttribute(InstConstantAttribute()) ){
-      if( std::find( d_op_map[op].begin(), d_op_map[op].end(), n )==d_op_map[op].end() ){
-        Debug("uf-term-db") << "register term " << n << std::endl;
-
-        d_op_map[op].push_back( n );
-        d_type_map[ n.getType() ].push_back( n );
-        added.push_back( n );
-        for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          add( n[i], added, withinQuant );
-          if( Options::current()->efficientEMatching ){
-            if( d_parents[n[i]][op].empty() ){
-              //must add parent to equivalence class info
-              Node nir = d_ith->getRepresentative( n[i] );
-              EqClassInfo* eci_nir = d_ith->getEquivalenceClassInfo( nir );
-              if( eci_nir ){
-                eci_nir->d_pfuns[ op ] = true;
-              }
-            }
-            //add to parent structure
-            if( std::find( d_parents[n[i]][op][i].begin(), d_parents[n[i]][op][i].end(), n )==d_parents[n[i]][op][i].end() ){
-              d_parents[n[i]][op][i].push_back( n );
-            }
-          }
-        }
-        if( Options::current()->efficientEMatching ){
-          //check if congruent to preexisting node
-          //for( int i=0; i<(int)d_op_map[op].size(); i++ ){
-          //  Node np = d_op_map[op][i];
-          //  bool ncong = false;
-          //  for( int a=0; a<(int)np.getNumChildren(); a++ ){
-          //    if( !d_ith->areEqual( n[a], np[a] ) ){
-          //      ncong = true;
-          //      break;
-          //    }
-          //  }
-          //  if( !ncong ){
-          //    congruent = true;
-          //    break;
-          //  }
-          //}
-          //std::cout << "Add candidate (NEW) " << n << std::endl;
-          //new term, add n to candidate generators
-          for( int i=0; i<(int)d_ith->d_cand_gens[op].size(); i++ ){
-            d_ith->d_cand_gens[op][i]->addCandidate( n );
-          }
-        }
-      }
-    }else{
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        add( n[i], added, withinQuant );
-      }
-    }
-  }
-}
-
-void UfTermDb::resetInstantiationRound( Theory::Effort effort ){
-  d_calcedNoMatchTerms = false;
-}
-
-void UfTermDb::resetMatching(){
-  if( !d_calcedNoMatchTerms ){
-    int nonCongruentCount = 0;
-    int congruentCount = 0;
-    int alreadyCongruentCount = 0;
-    //calculate all congruent terms
-    for( std::map< Node, std::vector< Node > >::iterator it = d_op_map.begin(); it != d_op_map.end(); ++it ){
-      UfTermTrie uftt;
-      for( int i=0; i<(int)it->second.size(); i++ ){
-        Node n = it->second[i];
-        if( !n.getAttribute(NoMatchAttribute()) ){
-          if( !uftt.addTerm( d_ith->getQuantifiersEngine(), n, true ) ){
-            NoMatchAttribute nma;
-            n.setAttribute(nma,true);
-            congruentCount++;
-          }else{
-            nonCongruentCount++;
-          }
-        }else{
-          congruentCount++;
-          alreadyCongruentCount++;
-        }
-      }
-    }
-    //std::cout << "Congruent/Non-Congruent = ";
-    //std::cout << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
-    d_calcedNoMatchTerms = true;
-  }
-}
-
-InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* ie, Theory* th) :
-Instantiator( c, ie, th )
-//d_ob_changed( c ),
-//d_obligations( c ),
-//d_disequality( c )
+InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* qe, Theory* th) :
+Instantiator( c, qe, th )
 {
-  d_db = new UfTermDb( this );
-  ie->setTermDatabase( d_db );
-
   if(Options::current()->finiteModelFind ){
     if( Options::current()->cbqi ){
-      addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
+      addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     }
-    addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), ie ) );
+    addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), qe ) );
+    if( !Options::current()->fmfRegionSat ){
+      qe->getTermDatabase()->setActive( false );
+    }
   }else{
     if( Options::current()->cbqi ){
-      addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
+      addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     }
-    d_isup = new InstStrategyUserPatterns( this, ie );
+    d_isup = new InstStrategyUserPatterns( this, qe );
     addInstStrategy( d_isup );
-    InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( this, ie, Trigger::TS_ALL, 
+    InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( this, qe, Trigger::TS_ALL, 
                                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT, 3 );
     i_ag->setGenerateAdditional( true );
     addInstStrategy( i_ag );
     //addInstStrategy( new InstStrategyAddFailSplits( this, ie ) );
-    addInstStrategy( new InstStrategyFreeVariable( this, ie ) );
+    addInstStrategy( new InstStrategyFreeVariable( this, qe ) );
     //d_isup->setPriorityOver( i_ag );
     //d_isup->setPriorityOver( i_agm );
     //i_ag->setPriorityOver( i_agm );
   }
 }
-
-//void InstantiatorTheoryUf::addObligationToList( Node o, Node f ){
-//  NodeList* ob;
-//  NodeLists::iterator ob_i = d_obligations.find( f );
-//  if( ob_i==d_obligations.end() ){
-//    ob = new(d_th->getContext()->getCMM()) NodeList(true, d_th->getContext(), false,
-//                                                    ContextMemoryAllocator<Node>(d_th->getContext()->getCMM()));
-//    d_obligations.insertDataFromContextMemory( f, ob );
-//  }else{
-//    ob = (*ob_i).second;
-//  }
-//  for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
-//    if( *it==o ){
-//      return;
-//    }
-//  }
-//  d_ob_changed[f] = true;
-//  ob->push_back( o );
-//}
-//
-//void InstantiatorTheoryUf::addObligations( Node n, Node ob ){
-//  if( n.hasAttribute(InstConstantAttribute()) ){
-//    addObligationToList( ob, n.getAttribute(InstConstantAttribute()) );
-//  }else{
-//    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-//      addObligations( n[i], ob );
-//    }
-//  }
-//}
 
 void InstantiatorTheoryUf::preRegisterTerm( Node t ){
   switch(t.getKind()) {
@@ -459,7 +281,7 @@ EqClassInfo* InstantiatorTheoryUf::getOrCreateEquivalenceClassInfo( Node n ){
   Assert( n==getRepresentative( n ) );
   if( d_eqc_ops.find( n )==d_eqc_ops.end() ){
     EqClassInfo* eci = new EqClassInfo( d_th->getContext() );
-    eci->setMember( n, d_db );
+    eci->setMember( n, d_quantEngine->getTermDatabase() );
     d_eqc_ops[n] = eci;
   }
   return d_eqc_ops[n]; 
@@ -606,12 +428,13 @@ bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, std:
       eqc_iter++;
     }
   }else{
+    TermDb* db = d_quantEngine->getTermDatabase();
     //see if parent f exists from argument arg
-    if( d_db->d_parents.find( n )!=d_db->d_parents.end() ){
-      if( d_db->d_parents[n].find( f )!=d_db->d_parents[n].end() ){
-        if( d_db->d_parents[n][f].find( arg )!=d_db->d_parents[n][f].end() ){
-          for( int i=0; i<(int)d_db->d_parents[n][f][arg].size(); i++ ){
-            Node t = d_db->d_parents[n][f][arg][i];
+    if( db->d_parents.find( n )!=db->d_parents.end() ){
+      if( db->d_parents[n].find( f )!=db->d_parents[n].end() ){
+        if( db->d_parents[n][f].find( arg )!=db->d_parents[n][f].end() ){
+          for( int i=0; i<(int)db->d_parents[n][f][arg].size(); i++ ){
+            Node t = db->d_parents[n][f][arg][i];
             if( addRep ){
               t = getRepresentative( t );
             }
@@ -681,8 +504,9 @@ void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, N
   
   //take all terms from the uf term db and add to candidate generator
   Node op = pat.getOperator();
-  for( int i=0; i<(int)d_db->d_op_map[op].size(); i++ ){
-    cg->addCandidate( d_db->d_op_map[op][i] );
+  TermDb* db = d_quantEngine->getTermDatabase();
+  for( int i=0; i<(int)db->d_op_map[op].size(); i++ ){
+    cg->addCandidate( db->d_op_map[op][i] );
   }
   d_cand_gens[op].push_back( cg );
 

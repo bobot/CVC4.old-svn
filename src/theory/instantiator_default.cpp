@@ -28,11 +28,15 @@ Instantiator( c, ie, th ){
 
 }
 
-void InstantiatorDefault::check( Node assertion ){
+void InstantiatorDefault::assertNode( Node assertion ){
 
 }
 
-int InstantiatorDefault::process( Node f, int effort, int instLimit ){
+void InstantiatorDefault::processResetInstantiationRound( Theory::Effort effort ){
+  
+}
+
+int InstantiatorDefault::process( Node f, Theory::Effort effort, int e, int limitInst ){
   if( effort<4 ){
     return InstStrategy::STATUS_UNFINISHED;
   }else if( effort==4 ){

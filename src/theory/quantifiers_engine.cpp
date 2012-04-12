@@ -18,6 +18,7 @@
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_strong_solver.h"
+#include "theory/uf/equality_engine_impl.h"
 
 using namespace std;
 using namespace CVC4;
@@ -139,11 +140,141 @@ bool Instantiator::isOwnerOf( Node f ){
   return d_quantEngine->hasOwner( f ) && d_quantEngine->getOwner( f )==getTheory();
 }
 
+
+void TermArgTrie::addTerm2( QuantifiersEngine* qe, Node n, int argIndex, bool modEq ){
+  if( argIndex<(int)n.getNumChildren() ){
+    d_data[ n[argIndex ] ].addTerm2( qe, n, argIndex+1, modEq );
+  }
+}
+
+bool TermArgTrie::existsTerm( QuantifiersEngine* qe, Node n, int argIndex, bool modEq ){
+  if( argIndex==(int)n.getNumChildren() ){
+    return true;
+  }else{
+    std::map< Node, TermArgTrie >::iterator it = d_data.find( n[ argIndex ] );
+    if( it!=d_data.end() ){
+      if( it->second.existsTerm( qe, n, argIndex+1, modEq ) ){
+        return true;
+      }
+    }
+    if( modEq ){
+      //check modulo equality if any other term exists
+      if( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->hasTerm( n[ argIndex ] ) ){
+        uf::EqClassIterator eqc = uf::EqClassIterator( qe->getEqualityQuery()->getRepresentative( n[ argIndex ] ), 
+                                 ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
+        while( !eqc.isFinished() ){
+          Node en = (*eqc);
+          if( en!=n ){
+            std::map< Node, TermArgTrie >::iterator itc = d_data.find( en );
+            if( itc!=d_data.end() ){
+              if( itc->second.existsTerm( qe, n, argIndex+1, modEq ) ){
+                return true;
+              }
+            }
+          }
+          ++eqc;
+        }
+      }
+    }
+    return false;
+  }
+}
+
+bool TermArgTrie::addTerm( QuantifiersEngine* qe, Node n, bool modEq ){
+  if( !existsTerm( qe, n, 0, modEq ) ){
+    addTerm2( qe, n, 0, modEq );
+    return true;
+  }else{
+    return false;
+  }
+}
+
+void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
+  if( d_active ){
+    //don't add terms in quantifier bodies
+    if( withinQuant ){
+      return;
+    }
+    if( d_processed.find( n )==d_processed.end() ){
+      d_processed[n] = true;
+      //if this is an atomic trigger, consider adding it
+      if( Trigger::isAtomicTrigger( n ) ){
+        if( !n.hasAttribute(InstConstantAttribute()) ){
+          Debug("term-db") << "register trigger term " << n << std::endl;
+          Node op = n.getOperator();
+          d_op_map[op].push_back( n );
+          d_type_map[ n.getType() ].push_back( n );
+          added.push_back( n );
+
+          uf::InstantiatorTheoryUf* d_ith = (uf::InstantiatorTheoryUf*)d_quantEngine->getInstantiator( THEORY_UF );
+          for( int i=0; i<(int)n.getNumChildren(); i++ ){
+            addTerm( n[i], added, withinQuant );
+            if( Options::current()->efficientEMatching ){
+              if( d_parents[n[i]][op].empty() ){
+                //must add parent to equivalence class info
+                Node nir = d_ith->getRepresentative( n[i] );
+                uf::EqClassInfo* eci_nir = d_ith->getEquivalenceClassInfo( nir );
+                if( eci_nir ){
+                  eci_nir->d_pfuns[ op ] = true;
+                }
+              }
+              //add to parent structure
+              if( std::find( d_parents[n[i]][op][i].begin(), d_parents[n[i]][op][i].end(), n )==d_parents[n[i]][op][i].end() ){
+                d_parents[n[i]][op][i].push_back( n );
+              }
+            }
+          }
+          if( Options::current()->efficientEMatching ){
+            //new term, add n to candidate generators
+            for( int i=0; i<(int)d_ith->d_cand_gens[op].size(); i++ ){
+              d_ith->d_cand_gens[op][i]->addCandidate( n );
+            }
+          }
+        }
+      }
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        addTerm( n[i], added, withinQuant );
+      }
+    }
+  }
+}
+
+void TermDb::resetInstantiationRound( Theory::Effort effort ){
+  if( d_active ){
+    int nonCongruentCount = 0;
+    int congruentCount = 0;
+    int alreadyCongruentCount = 0;
+    //calculate all congruent terms
+    for( std::map< Node, std::vector< Node > >::iterator it = d_op_map.begin(); it != d_op_map.end(); ++it ){
+      TermArgTrie tat;
+      for( int i=0; i<(int)it->second.size(); i++ ){
+        Node n = it->second[i];
+        if( !n.getAttribute(NoMatchAttribute()) ){
+          if( !tat.addTerm( d_quantEngine, n, true ) ){
+            NoMatchAttribute nma;
+            n.setAttribute(nma,true);
+            congruentCount++;
+          }else{
+            nonCongruentCount++;
+          }
+        }else{
+          congruentCount++;
+          alreadyCongruentCount++;
+        }
+      }
+    }
+    //std::cout << "Congruent/Non-Congruent = ";
+    //std::cout << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
+  }
+}
+
+
+
 QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_active( c ){
   d_eq_query = NULL;
-  d_term_db = NULL;
+  d_term_db = new TermDb( this );
 }
 
 Instantiator* QuantifiersEngine::getInstantiator( int id ){
@@ -224,10 +355,9 @@ void QuantifiersEngine::registerQuantifier( Node f ){
 }
 
 void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
-  uf::UfTermDb* db = ((uf::TheoryUF*) d_te->getTheory(theory::THEORY_UF))->getTermDatabase();
   for(std::vector<Node>::iterator p = pattern.begin(); p != pattern.end(); ++p){
     std::vector< Node > added;
-    db->add(*p,added);
+    d_term_db->addTerm(*p,added);
   }
 }
 
@@ -241,7 +371,7 @@ void QuantifiersEngine::assertNode( Node f ){
 void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
   if( d_term_db ){
     std::vector< Node > added;
-    d_term_db->add( n, added, withinQuant );
+    d_term_db->addTerm( n, added, withinQuant );
 #ifdef COMPUTE_RELEVANCE
     for( int i=0; i<(int)added.size(); i++ ){
       if( !withinQuant ){
@@ -534,7 +664,6 @@ void QuantifiersEngine::generatePhaseReqs( Node f ){
           Debug("inst-engine-phase-req") << "      " << it->first[0] << ( it->second ? " == " : " != " ) << it->first[1] << std::endl;
         }
       }else if( it->first[1].hasAttribute(InstConstantAttribute()) ){
-        int index = it->second ? 1 : 0;
         d_phase_reqs_equality_term[f][ it->first[1] ] = it->first[0];
         d_phase_reqs_equality[f][ it->first[1] ] = it->second;
         Debug("inst-engine-phase-req") << "      " << it->first[1] << ( it->second ? " == " : " != " ) << it->first[0] << std::endl;

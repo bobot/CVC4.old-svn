@@ -298,26 +298,6 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       }
     }
   }
-  ////if lit match, reform boolean predicate as an iff
-  //if( d_matchPolicy==MATCH_GEN_LIT_MATCH && d_match_pattern.getKind()==APPLY_UF &&
-  //    d_match_pattern.getType()==NodeManager::currentNM()->booleanType() ){
-  //  bool rewritePattern = false;
-  //  Node pat2 = d_pattern.getKind()==NOT ? d_pattern[0] : d_pattern;
-  //  bool pol = d_pattern.getKind()!=NOT;
-  //  if( pat2==d_match_pattern ){
-  //    rewritePattern = true;
-  //  }else if( pat2.getKind()==IFF ){
-  //    if( pat2[1]==NodeManager::currentNM()->mkConst<bool>(true) ){
-  //      rewritePattern = true;
-  //    }else if( pat2[1]==NodeManager::currentNM()->mkConst<bool>(false) ){
-  //      rewritePattern = true;
-  //      pol = !pol;
-  //    }
-  //  }
-  //  if( rewritePattern ){
-  //    d_pattern = NodeManager::currentNM()->mkNode( IFF, d_match_pattern, NodeManager::currentNM()->mkConst<bool>(pol) );
-  //  }
-  //}
 
   Debug("inst-match-gen") << "Pattern is " << d_pattern << ", match pattern is " << d_match_pattern << std::endl;
 
@@ -346,13 +326,13 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       ////store the equivalence class that we will call d_cg->reset( ... ) on
       //d_eq_class = d_pattern[0][1];
     }else{
-      Assert( d_match_pattern.getKind()==APPLY_UF );
+      Assert( Trigger::isAtomicTrigger( d_match_pattern ) );
       //we are matching only in a particular equivalence class
       d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
       //store the equivalence class that we will call d_cg->reset( ... ) on
       d_eq_class = d_pattern[1];
     }
-  }else if( d_match_pattern.getKind()==APPLY_UF ){
+  }else if( Trigger::isAtomicTrigger( d_match_pattern ) ){
     if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){
       //we will manually add candidates to queue
       d_cg = new CandidateGeneratorQueue;
@@ -397,7 +377,7 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
     Assert( !t.isNull() );
     Assert( !t.hasAttribute(InstConstantAttribute()) );
     Assert( t.getKind()==d_match_pattern.getKind() );
-    Assert( d_match_pattern.getKind()!=APPLY_UF || t.getOperator()==d_match_pattern.getOperator() );
+    Assert( !Trigger::isAtomicTrigger( d_match_pattern ) || t.getOperator()==d_match_pattern.getOperator() );
     //first, check if ground arguments are not equal, or a match is in conflict
     for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
       if( d_match_pattern[i].hasAttribute(InstConstantAttribute()) ){
@@ -617,7 +597,7 @@ bool InstMatchGenerator::nonunifiable( TNode t0, const std::vector<Node> & vars)
     if( pat.getKind() == INST_CONSTANT ) continue;
 
     // t and pat are nonunifiable
-    if( t.getKind() != APPLY_UF || pat.getKind() != APPLY_UF ) {
+    if( !Trigger::isAtomicTrigger( t ) || !Trigger::isAtomicTrigger( pat ) ) {
       if(t == pat) continue;
       else return true;
     };

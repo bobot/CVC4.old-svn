@@ -135,6 +135,7 @@ public:
   /** is usable trigger */
   static bool isUsableTrigger( std::vector< Node >& nodes, Node f );
   static bool isUsableTrigger( Node n, Node f );
+  static bool isAtomicTrigger( Node n );
   /** filter all nodes that have instances */
   static void filterInstances( std::vector< Node >& nodes );
   /** -1: n1 is an instance of n2, 1: n1 is an instance of n2 */

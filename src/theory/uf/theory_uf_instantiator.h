@@ -30,10 +30,12 @@
 
 namespace CVC4 {
 namespace theory {
+
+class TermDb;
+
 namespace uf {
 
 class InstantiatorTheoryUf;
-class UfTermDb;
 
 //equivalence class info
 class EqClassInfo
@@ -54,7 +56,7 @@ public:
   EqClassInfo( context::Context* c );
   ~EqClassInfo(){}
   //set member
-  void setMember( Node n, UfTermDb* db );
+  void setMember( Node n, TermDb* db );
   //has function "funs"
   bool hasFunction( Node op );
   //has parent "pfuns"
@@ -63,60 +65,21 @@ public:
   void merge( EqClassInfo* eci );
 };
 
-class UfTermTrie
-{
-public:
-  void addTerm2( QuantifiersEngine* qe, Node n, int argIndex, bool modEq );
-  bool existsTerm( QuantifiersEngine* qe, Node n, int argIndex, bool modEq );
-public:
-  /** the data */
-  std::map< Node, UfTermTrie > d_data;
-public:
-  bool addTerm( QuantifiersEngine* qe, Node n, bool modEq );
-};
-
-class UfTermDb : public TermDb
-{
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_ith;
-  /** calculated no match terms */
-  bool d_calcedNoMatchTerms;
-public:
-  UfTermDb( InstantiatorTheoryUf* ith ) : d_ith( ith ), d_calcedNoMatchTerms( false ){}
-  ~UfTermDb(){}
-  /** parent structure:
-      n -> op -> index -> L
-      map from node "n" to a list of nodes "L", where each node n' in L
-        has operator "op", and n'["index"] = n.
-      for example, d_parents[n][f][1] = { f( t1, n ), f( t2, n ), ... }
-  */
-  std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
-  /** register this term */
-  void add( Node n, std::vector< Node >& added, bool withinQuant = false );
-  /** reset instantiation round */
-  void resetInstantiationRound( Theory::Effort effort );
-  /** calculate no match terms */
-  void resetMatching();
-};
-
 class InstantiatorTheoryUf : public Instantiator{
   friend class ::CVC4::theory::InstMatchGenerator;
-  friend class UfTermDb;
+  friend class ::CVC4::theory::TermDb;
 protected:
   typedef context::CDHashMap<Node, bool, NodeHashFunction> BoolMap;
   typedef context::CDHashMap<Node, int, NodeHashFunction> IntMap;
   typedef context::CDChunkList<Node> NodeList;
   typedef context::CDHashMap<Node, NodeList*, NodeHashFunction> NodeLists;
-  /** term database */
-  UfTermDb* d_db;
   /** map to representatives used */
   std::map< Node, Node > d_ground_reps;
 protected:
   /** instantiation strategies */
   InstStrategyUserPatterns* d_isup;
 public:
-  InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* ie, Theory* th);
+  InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* qe, Theory* th);
   ~InstantiatorTheoryUf() {}
   /** assertNode method */
   void assertNode( Node assertion );
@@ -134,8 +97,6 @@ private:
   /** calculate matches for quantifier f at effort */
   int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
-  /** get uf term database */
-  UfTermDb* getTermDatabase() { return d_db; }
   /** statistics class */
   class Statistics {
   public:

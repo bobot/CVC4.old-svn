@@ -91,8 +91,6 @@ void InstStrategyCheckCESolved::calcSolved( Node f ){
 }
 
 void InstStrategyUserPatterns::processResetInstantiationRound( Theory::Effort effort ){
-  //calculate which terms need not be matched upon
-  d_quantEngine->getTermDatabase()->resetMatching();
   //reset triggers
   for( std::map< Node, std::vector< Trigger* > >::iterator it = d_user_gen.begin(); it != d_user_gen.end(); ++it ){
     for( int i=0; i<(int)it->second.size(); i++ ){
@@ -152,8 +150,6 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
 }
  
 void InstStrategyAutoGenTriggers::processResetInstantiationRound( Theory::Effort effort ){
-  //calculate which terms need not be matched upon
-  d_quantEngine->getTermDatabase()->resetMatching();
   //reset triggers
   for( std::map< Node, std::map< Trigger*, bool > >::iterator it = d_auto_gen_trigger.begin(); it != d_auto_gen_trigger.end(); ++it ){
     for( std::map< Trigger*, bool >::iterator itt = it->second.begin(); itt != it->second.end(); ++itt ){

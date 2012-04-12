@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file instantiator_default.h
+/*! \file theory_arrays_instantiator.h
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -11,21 +11,22 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief instantiator_default
+ ** \brief Instantiator for theory of arrays
  **/
 
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__INSTANTIATOR_DEFAULT_H
-#define __CVC4__INSTANTIATOR_DEFAULT_H
+#ifndef __CVC4__INSTANTIATOR_THEORY_ARRAYS_H
+#define __CVC4__INSTANTIATOR_THEORY_ARRAYS_H
 
 #include "theory/quantifiers_engine.h"
 
 namespace CVC4 {
 namespace theory {
+namespace arrays {
 
-class InstantiatorDefault : public Instantiator{
+class InstantiatorTheoryArrays : public Instantiator{
   friend class QuantifiersEngine;
 protected:
   /** reset instantiation round */
@@ -33,15 +34,17 @@ protected:
   /** process quantifier */
   int process( Node f, Theory::Effort effort, int e, int limitInst = 0 );
 public:
-  InstantiatorDefault(context::Context* c, QuantifiersEngine* ie, Theory* th);
-  ~InstantiatorDefault() {}
-  /** check function, assertion is asserted to theory */
+  InstantiatorTheoryArrays(context::Context* c, QuantifiersEngine* ie, Theory* th);
+  ~InstantiatorTheoryArrays() {}
+  /** Pre-register a term.  */
+  void preRegisterTerm( Node t );
+  /** assertNode function, assertion is asserted to theory */
   void assertNode( Node assertion );
   /** identify */
-  std::string identify() const { return std::string("InstantiatorDefault"); }
+  std::string identify() const { return std::string("InstantiatorTheoryArrays"); }
 };/* class Instantiatior */
 
-
+}
 }
 }
 

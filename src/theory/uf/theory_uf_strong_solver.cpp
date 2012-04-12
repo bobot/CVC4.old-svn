@@ -696,8 +696,7 @@ bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out )
   Debug("uf-ss-disamb") << "Disambiguate terms." << std::endl;
   bool lemmaAdded = false;
   //otherwise, determine ambiguous pairs of ground terms for relevant sorts
-  UfTermDb* db = d_th->getTermDatabase();
-  Assert( db!=NULL );
+  TermDb* db = d_th->getQuantifiersEngine()->getTermDatabase();
   for( std::map< Node, std::vector< Node > >::iterator it = db->d_op_map.begin(); it != db->d_op_map.end(); ++it ){
     Debug("uf-ss-disamb") << "Check " << it->first << std::endl;
     if( it->second.size()>1 ){
