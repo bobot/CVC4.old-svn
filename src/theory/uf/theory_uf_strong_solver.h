@@ -190,8 +190,6 @@ public:
     void newEqClass( Node n );
     /** merge */
     void merge( Node a, Node b );
-    /** unmerge */
-    void undoMerge( Node a, Node b );
     /** assert terms are disequal */
     void assertDisequal( Node a, Node b, Node reason );
     /** check */
@@ -230,6 +228,9 @@ private:
   std::vector< TypeNode > d_conf_types;
   /** pre register type */
   void preRegisterType( TypeNode tn );
+private:
+  /** waiting queues */
+  std::map< TypeNode, std::vector< Node > > d_new_eq_class_waiting;
 public:
   StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th);
   ~StrongSolverTheoryUf() {}
@@ -237,8 +238,6 @@ public:
   void newEqClass( Node n );
   /** merge */
   void merge( Node a, Node b );
-  /** unmerge */
-  void undoMerge( Node a, Node b );
   /** assert terms are disequal */
   void assertDisequal( Node a, Node b, Node reason );
   /** assert cardinality */

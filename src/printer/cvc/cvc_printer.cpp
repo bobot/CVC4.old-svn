@@ -236,6 +236,9 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
     case kind::APPLY_UF:
       toStream(op, n.getOperator(), depth, types, false);
       break;
+    case kind::CARDINALITY_CONSTRAINT:
+      out << "CARDINALITY_CONSTRAINT";
+      break;
 
     case kind::FUNCTION_TYPE:
       if (n.getNumChildren() > 1) {
@@ -531,6 +534,27 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << ", " << n.getOperator().getConst<BitVectorRotateRight>() << ')';
       return;
       break;
+
+    //Quantifiers  TODO
+    case kind::FORALL:
+      out << "FORALL";
+      break;
+    case kind::EXISTS:
+      out << "EXISTS";
+      break;
+    case kind::INST_CONSTANT:
+      out << "INST_CONSTANT";
+      break;
+    case kind::BOUND_VAR_LIST:
+      out << "BOUND_VAR_LIST";
+      break;
+    case kind::INST_PATTERN:
+      out << "INST_PATTERN";
+      break;
+    case kind::INST_PATTERN_LIST:
+      out << "INST_PATTERN_LIST";
+      break;
+
     default:
       Warning() << "Kind printing not implemented for the case of " << n.getKind() << endl;
       break;

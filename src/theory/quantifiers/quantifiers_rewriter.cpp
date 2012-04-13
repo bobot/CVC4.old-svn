@@ -203,9 +203,12 @@ void QuantifiersRewriter::computeArgs( std::vector< Node >& args, std::vector< N
   for( int i=0; i<(int)args.size(); i++ ){
     active[ args[i] ] = false;
   }
+  //std::cout << "For " << n << " : " << std::endl;
   computeArgs( active, n );
   activeArgs.clear();
   for( std::map< Node, bool >::iterator it = active.begin(); it != active.end(); ++it ){
+    Node n = it->first;
+    //std::cout << "   " << it->first << " is " << it->second << std::endl;
     if( it->second ){ //only add bound variables that occur in body
       activeArgs.push_back( it->first );
     }

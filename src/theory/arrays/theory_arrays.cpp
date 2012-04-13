@@ -585,12 +585,14 @@ void TheoryArrays::computeCareGraph()
         }
 
         if (r1[0] != r2[0]) {
-          // If arrays are known to be disequal, or cannot become equal, we can continue
-          if (d_equalityEngine.areDisequal(r1[0], r2[0]) ||
-              (!d_mayEqualEqualityEngine.areEqual(r1[0], r2[0]))) {
-            Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): arrays can't be equal, skipping" << std::endl;
-            continue;
-          }
+          //if( r1[0].getType()==r2[0].getType() ){
+            // If arrays are known to be disequal, or cannot become equal, we can continue
+            if (d_equalityEngine.areDisequal(r1[0], r2[0]) ||
+                (!d_mayEqualEqualityEngine.areEqual(r1[0], r2[0]))) {
+              Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): arrays can't be equal, skipping" << std::endl;
+              continue;
+            }
+          //}
         }
 
         TNode x = r1[1];
@@ -611,7 +613,6 @@ void TheoryArrays::computeCareGraph()
         // Get representative trigger terms
         TNode x_shared = d_equalityEngine.getTriggerTermRepresentative(x);
         TNode y_shared = d_equalityEngine.getTriggerTermRepresentative(y);
-
         EqualityStatus eqStatusDomain = d_valuation.getEqualityStatus(x_shared, y_shared);
         switch (eqStatusDomain) {
           case EQUALITY_FALSE_AND_PROPAGATED:
@@ -631,6 +632,7 @@ void TheoryArrays::computeCareGraph()
           default:
             break;
         }
+
 
         // Otherwise, add this pair
         Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): adding to care-graph" << std::endl;

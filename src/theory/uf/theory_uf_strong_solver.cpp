@@ -590,11 +590,6 @@ void StrongSolverTheoryUf::ConflictFind::merge( Node a, Node b ){
   Debug("uf-ss") << "Done merge." << std::endl;
 }
 
-/** unmerge */
-void StrongSolverTheoryUf::ConflictFind::undoMerge( Node a, Node b ){
-  Debug("uf-ss") << "Undo merge " << a << " = " << b << "..." << std::endl;
-}
-
 /** assert terms are disequal */
 void StrongSolverTheoryUf::ConflictFind::assertDisequal( Node a, Node b, Node reason ){
   //if they are not already disequal
@@ -980,7 +975,7 @@ d_th( th )
 /** new node */
 void StrongSolverTheoryUf::newEqClass( Node n ){
   TypeNode tn = n.getType();
-  if( isRelevantType( tn ) ){
+  if( d_conf_find.find( tn )!=d_conf_find.end() ){
     ////TEMPORARY
     //setCardinality( tn, 8 );  //***************
     ////END_TEMPORARY
@@ -988,7 +983,6 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
     //  //enter into incremental finite model finding mode: try cardinality = 1 first
     //  setCardinality( tn, 1, false );
     //}
-    Assert( d_conf_find.find( tn )!=d_conf_find.end() );
     Assert( d_conf_find[tn]->d_cardinality_lemma_term!=Node::null() );
     //update type relate information
     if( n.getKind()==APPLY_UF ){
@@ -1000,41 +994,28 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
     }
     Debug("uf-ss-solver") << "StrongSolverTheoryUf: New eq class " << n << " " << tn << std::endl;
     d_conf_find[tn]->newEqClass( n );
+  }else if( isRelevantType( tn ) ){
+    d_new_eq_class_waiting[tn].push_back( n );
   }
 }
 
 /** merge */
 void StrongSolverTheoryUf::merge( Node a, Node b ){
   TypeNode tn = a.getType();
-  if( isRelevantType( tn ) ){
+  if( d_conf_find.find( tn )!=d_conf_find.end() ){
     Debug("uf-ss-solver") << "StrongSolverTheoryUf: Merge " << a << " " << b << " " << tn << std::endl;
-    if( d_conf_find.find( tn )!=d_conf_find.end() ){
-      d_conf_find[tn]->merge( a, b );
-    }
-  }
-}
-
-/** unmerge */
-void StrongSolverTheoryUf::undoMerge( Node a, Node b ){
-  TypeNode tn = a.getType();
-  if( isRelevantType( tn ) ){
-    Debug("uf-ss-solver") << "StrongSolverTheoryUf: Undo merge " << a << " " << b << " " << tn << std::endl;
-    if( d_conf_find.find( tn )!=d_conf_find.end() ){
-      d_conf_find[tn]->undoMerge( a, b );
-    }
+    d_conf_find[tn]->merge( a, b );
   }
 }
 
 /** assert terms are disequal */
 void StrongSolverTheoryUf::assertDisequal( Node a, Node b, Node reason ){
   TypeNode tn = a.getType();
-  if( isRelevantType( tn ) ){
+  if( d_conf_find.find( tn )!=d_conf_find.end() ){
     Debug("uf-ss-solver") << "StrongSolverTheoryUf: Assert disequal " << a << " " << b << " " << tn << std::endl;
     //Assert( d_th->d_equalityEngine.getRepresentative( a )==a );
     //Assert( d_th->d_equalityEngine.getRepresentative( b )==b );
-    if( d_conf_find.find( tn )!=d_conf_find.end() ){
-      d_conf_find[tn]->assertDisequal( a, b, reason );
-    }
+    d_conf_find[tn]->assertDisequal( a, b, reason );
   }
 }
 
@@ -1094,13 +1075,14 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
 }
 
 void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
-  TypeNode tn = n.getType();
-  if( isRelevantType( tn ) ){
-    preRegisterType( tn );
-  }
+  //TypeNode tn = n.getType();
+  //if( isRelevantType( tn ) ){
+  //  preRegisterType( tn );
+  //}
 }
 
 void StrongSolverTheoryUf::registerQuantifier( Node f ){
+  Debug("uf-ss-quant") << "Pre-register quantifier " << f << std::endl;
   //must ensure the quantifier does not quantify over arithmetic
   for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
     TypeNode tn = f[0][i].getType();
@@ -1108,9 +1090,9 @@ void StrongSolverTheoryUf::registerQuantifier( Node f ){
       preRegisterType( tn );
     }else{
       if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
-        //std::cout << "Error: Cannot perform finite model finding on arithmetic quantifier";
-        //std::cout << " (" << f << ")";
-        //std::cout << std::endl;
+        Debug("uf-ss-na") << "Error: Cannot perform finite model finding on arithmetic quantifier";
+        Debug("uf-ss-na") << " (" << f << ")";
+        Debug("uf-ss-na") << std::endl;
         std::cout << "n/a ";
         exit( 63 );
       }
@@ -1137,6 +1119,13 @@ void StrongSolverTheoryUf::preRegisterType( TypeNode tn ){
       d_out->propagateAsDecision( lem[0] );
       d_conf_find[tn]->d_is_cardinality_requested = true;
       d_conf_find[tn]->d_is_cardinality_requested_c = true;
+    }
+    //add waiting equivalence classes now
+    if( !d_new_eq_class_waiting[tn].empty() ){
+      for( int i=0; i<(int)d_new_eq_class_waiting[tn].size(); i++ ){
+        newEqClass( d_new_eq_class_waiting[tn][i] );
+      }
+      d_new_eq_class_waiting[tn].clear();
     }
   }
 }
@@ -1172,7 +1161,7 @@ void StrongSolverTheoryUf::setCardinality( TypeNode t, int c, bool isStrict ) {
   Debug("uf-ss-solver") << "StrongSolverTheoryUf: Set cardinality " << t << " = " << c << std::endl;
   if( d_conf_find.find( t )==d_conf_find.end() ){
     if( !d_conf_types.empty() ){
-      //std::cout << "Strong solver unimplemented for multiple sorts." << std::endl;
+      Debug("uf-ss-na") << "Strong solver unimplemented for multiple sorts." << std::endl;
       std::cout << "n/a ";
       exit( 29 );
     }
