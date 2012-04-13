@@ -49,7 +49,7 @@ namespace arith {
  *
  * variable := n
  *   where
- *     n.getMetaKind() == metakind::VARIABLE
+ *     n.getMetaKind() == metakind::VARIABLE or is foreign
  *     n.getType() \in {Integer, Real}
  *
  * constant := n
@@ -71,24 +71,45 @@ namespace arith {
  *     isStrictlySorted monoOrder [monomial]
  *     forall (\x -> x != 0) [monomial]
  *
- * rational_restricted_cmp := (|><| qpolynomial constant)
+ * rational_cmp := (|><| qpolynomial constant)
  *   where
- *     |><| is GEQ, EQ, or EQ
+ *     |><| is GEQ, or GT
  *     not (exists constantMonomial (monomialList qpolynomial))
  *     (exists realMonomial (monomialList qpolynomial))
- *     monomialCoefficient (head (monomialList qpolynomial)) == 1
+ *     abs(monomialCoefficient (head (monomialList qpolynomial))) == 1
  *
- * integer_restricted_cmp := (|><| zpolynomial constant)
+ * integer_cmp := (<= zpolynomial constant)
  *   where
- *     |><| is GEQ, EQ, or EQ
  *     not (exists constantMonomial (monomialList zpolynomial))
- *     (forall integerMonomial (monomialList qpolynomial))
- *     the denominator of all coefficients and the constant is 1
+ *     (forall integerMonomial (monomialList zpolynomial))
  *     the gcd of all numerators of coefficients is 1
+ *     the denominator of all coefficients and the constant is 1
+ *
+ * rational_eq := (= qvarlist qpolynomial)
+ *   where
+ *     let allMonomials = (cons qvarlist (monomialList zpolynomial))
+ *     let variableMonomials = (drop constantMonomial allMonomials)
+ *     isStrictlySorted variableMonomials
+ *     exists realMonomial variableMonomials
+ *     is not empty qvarlist
+ *
+ * integer_eq := (= zmonomial zpolynomial)
+ *   where
+ *     let allMonomials = (cons zmonomial (monomialList zpolynomial))
+ *     let variableMonomials = (drop constantMonomial allMonomials)
+ *     not (constantMonomial zmonomial)
+ *     (forall integerMonomial allMonomials)
+ *     isStrictlySorted variableMonomials
+ *     the gcd of all numerators of coefficients is 1
+ *     the denominator of all coefficients and the constant is 1
+ *     the coefficient of monomial is positive
+ *     the value of the coefficient of monomial is minimal in variableMonomials
  *
  * comparison := TRUE | FALSE
- *   | rational_restricted_cmp | (not rational_restricted_cmp)
- *   | integer_restricted_cmp | (not integer_restricted_cmp)
+ *   | rational_cmp | (not rational_cmp)
+ *   | rational_eq | (not rational_eq)
+ *   | integer_cmp | (not integer_cmp)
+ *   | integer_eq | (not integer_eq)
  *
  * Normal Form for terms := polynomial
  * Normal Form for atoms := comparison
@@ -137,6 +158,15 @@ namespace arith {
 /**
  * Section 3: Guard Conditions Misc.
  *
+ *
+ *  variable_order x y =
+ *    if (meta_kind_variable x) and (meta_kind_variable y)
+ *    then node_order x y
+ *    else if (meta_kind_variable x)
+ *    then false
+ *    else if (meta_kind_variable y)
+ *    then true
+ *    else node_order x y
  *
  *  var_list_len vl =
  *    match vl with
@@ -214,7 +244,27 @@ public:
     return getNode().getType().isInteger();
   }
 
-  bool operator<(const Variable& v) const { return getNode() < v.getNode();}
+  bool isMetaKindVariable() const {
+    return getNode().getMetaKind() == kind::metakind::VARIABLE;
+  }
+
+  bool operator<(const Variable& v) const {
+    bool thisIsVariable = isMetaKindVariable();
+    bool vIsVariable = v.isMetaKindVariable();
+
+    if(thisIsVariable == vIsVariable){
+      bool thisIsInteger = isIntegral();
+      bool vIsInteger = v.isIntegral();
+      if(thisIsInteger == vIsInteger){
+        return getNode() < v.getNode();
+      }else{
+        return thisIsInteger && !vIsInteger;
+      }
+    }else{
+      return thisIsVariable && !vIsVariable;
+    }
+  }
+
   bool operator==(const Variable& v) const { return getNode() == v.getNode();}
 
 };/* class Variable */
@@ -905,168 +955,14 @@ public:
       return 1;
     }
   }
+
+  const Rational& asConstant() const{
+    Assert(isConstant());
+    return getNode().getConst<Rational>();
+    //return getHead().getConstant().getValue();
+  }
 };/* class Polynomial */
 
-
-class Comparison : public NodeWrapper {
-private:
-  Kind oper;
-  Polynomial left;
-  Constant right;
-
-  static Node toNode(Kind k, const Polynomial& l, const Constant& r);
-
-  Comparison(TNode n, Kind k, const Polynomial& l, const Constant& r):
-    NodeWrapper(n), oper(k), left(l), right(r)
-  { }
-
-  /**
-   * Possibly simplify a comparison with a pseudoboolean-typed LHS.  k
-   * is one of LT, LEQ, EQUAL, GEQ, GT, and left must be PB-typed.  If
-   * possible, "left k right" is fully evaluated, "true" is returned,
-   * and the result of the evaluation is returned in "result".  If no
-   * evaluation is possible, false is returned and "result" is
-   * untouched.
-   *
-   * For example, pbComparison(kind::EQUAL, "x", 0.5, result) returns
-   * true, and updates "result" to false, since pseudoboolean variable
-   * "x" can never equal 0.5.  pbComparison(kind::GEQ, "x", 1, result)
-   * returns false, since "x" can be >= 1, but could also be less.
-   */
-  static bool pbComparison(Kind k, TNode left, const Rational& right, bool& result);
-
-  Kind getKind() const { return oper; }
-
-public:
-  Comparison(bool val) :
-    NodeWrapper(NodeManager::currentNM()->mkConst(val)),
-    oper(kind::CONST_BOOLEAN),
-    left(Polynomial::mkZero()),
-    right(Constant::mkConstant(0))
-  { }
-
-  Comparison(Kind k, const Polynomial& l, const Constant& r):
-    NodeWrapper(toNode(k, l, r)), oper(k), left(l), right(r)
-  {
-    Assert(isRelationOperator(oper));
-    Assert(!left.containsConstant());
-    Assert(left.getHead().getConstant().isOne());
-  }
-
-  static Comparison mkComparison(Kind k, const Polynomial& left, const Constant& right);
-
-  /**
-   * Returns the left hand side of the comparison.
-   * This is a polynomial that always contains all of the variables.
-   */
-  const Polynomial& getLeft() const { return left; }
-
-  /**
-   * Returns the right hand constatn of the comparison.
-   * If in normal form, this is the only constant term.
-   */
-  const Constant& getRight() const { return right; }
-
-  /** Returns true if the comparison is a boolean constant. */
-  bool isBoolean() const {
-    return (oper == kind::CONST_BOOLEAN);
-  }
-
-  /** Returns true if all of the variables are integers. */
-  bool allIntegralVariables() const {
-    return getLeft().allIntegralVariables();
-  }
-
-  /**
-   * Returns true if the comparison is either a boolean term,
-   * in integer normal form or mixed normal form.
-   */
-  bool isNormalForm() const {
-    if(isBoolean()) {
-      return true;
-    } else if(allIntegralVariables()) {
-      return isIntegerNormalForm();
-    } else{
-      return isMixedNormalForm();
-    }
-  }
-
-private:
-  /** Normal form check if at least one variable is real. */
-  bool isMixedNormalForm() const;
-
-  /** Normal form check is all variables are real.*/
-  bool isIntegerNormalForm() const;
-
-public:
-  /**
-   * Returns true if the left hand side is the sum of a non-zero constant
-   * and a polynomial.*/
-  bool constantInLefthand() const;
-
-  /**
-   * Returns a polynomial that is equivalent to the original but does not contain
-   * a constant in the top level sum on the left hand side.
-   */
-  Comparison cancelLefthandConstant() const;
-
-
-  /** Returns true if the polynomial is a constant. */
-  bool isConstant() const;
-
-  /** Reduces a constant comparison to a boolean comaprison.*/
-  Comparison evaluateConstant() const;
-
-
-  /**
-   * Returns true if all of the variables are integers, the coefficients are integers,
-   * and the right hand coefficient is an integer.
-   */
-  bool isIntegral() const;
-
-  /**
-   * Returns the Least Common Multiple of the monomials
-   * on the lefthand side and the constant on the right.
-   */
-  Integer denominatorLCM() const;
-
-  /** Multiplies the comparison by the denominatorLCM(). */
-  Comparison multiplyByDenominatorLCM() const;
-
-  /** If the leading coefficient is negative, multiply by -1. */
-  Comparison normalizeLeadingCoefficientPositive() const;
-
-  /** Divides the Comaprison by the gcd of the lefthand.*/
-  Comparison divideByLefthandGCD() const;
-
-  /** Divides the Comparison by the leading coefficient. */
-  Comparison divideByLeadingCoefficient() const;
-
-  /**
-   * If the left hand is integral and the right hand is not,
-   * the comparison is tightened to the nearest integer.
-   */
-  Comparison tightenIntegralConstraint() const;
-
-  Comparison addConstant(const Constant& constant) const;
-
-  /* Multiply a non-boolean comparison by a constant term. */
-  Comparison multiplyConstant(const Constant& constant) const;
-
-  static Comparison parseNormalForm(TNode n);
-
-  /* Returns a logically equivalent comparison in normal form. */
-  static Comparison normalize(Comparison c);
-
-  /** Makes a comparison that is in normal form. */
-  static Comparison mkNormalComparison(Kind k, const Polynomial& left, const Constant& right);
-
-  inline static bool isNormalAtom(TNode n){
-    Comparison parse = Comparison::parseNormalForm(n);
-    return parse.isNormalForm();
-  }
-
-};/* class Comparison */
 
 /**
  * SumPair is a utility class that extends polynomials for use in computations.
@@ -1187,12 +1083,145 @@ public:
 
   static Node computeQR(const SumPair& sp, const Integer& div);
 
+};/* class SumPair */
 
-  static SumPair comparisonToSumPair(const Comparison& cmp){
-    return SumPair(cmp.getLeft(), - cmp.getRight());
+class OrderedPolynomialPair {
+private:
+  Polynomial d_first;
+  Polynomial d_second;
+public:
+  OrderedPolynomialPair(const Polynomial& f, const Polynomial& s)
+    : d_first(f),
+      d_second(s)
+  {}
+
+  /** Returns the first part of the pair. */
+  const Polynomial& getFirst() const {
+    return d_first;
   }
 
-};/* class SumPair */
+  /** Returns the second part of the pair. */
+  const Polynomial& getSecond() const {
+    return d_second;
+  }
+
+  OrderedPolynomialPair operator*(const Constant& c) const;
+  OrderedPolynomialPair operator+(const Polynomial& p) const;
+
+  /** Returns true if both of the polynomials are constant. */
+  bool isConstant() const;
+
+  /**
+   * Evaluates an isConstant() ordered pair as if
+   *   (k getFirst() getRight())
+   */
+  bool evaluateConstant(Kind k) const;
+
+  /**
+   * Returns the Least Common Multiple of the monomials
+   * on the lefthand side and the constant on the right.
+   */
+  Integer denominatorLCM() const;
+
+  /** Constructs a SumPair. */
+  SumPair toSumPair() const;
+
+
+  OrderedPolynomialPair divideByGCD() const;
+  OrderedPolynomialPair multiplyConstant(const Constant& c) const;
+  OrderedPolynomialPair divideByLeadingFirstCoefficient() const;
+
+  /**
+   * Returns true if all of the variables are integers,
+   * and the coefficients are integers.
+   */
+  bool isIntegral() const;
+
+  /** Returns true if all of the variables are integers. */
+  bool allIntegralVariables() const {
+    return getFirst().allIntegralVariables() && getSecond().allIntegralVariables();
+  }
+};
+
+class Comparison : public NodeWrapper {
+private:
+
+  static Node toNode(Kind k, const Polynomial& l, const Polynomial& r);
+
+  Comparison(TNode n);
+
+  static Comparison mkIntEqComparison(const OrderedPolynomialPair& pair);
+  static Comparison mkIntCmpComparison(Kind k, const OrderedPolynomialPair& pair);
+
+  static Comparison mkRatEqComparison(const OrderedPolynomialPair& pair);
+  static Comparison mkRatCmpComparison(Kind k, const OrderedPolynomialPair& pair);
+
+public:
+
+  Comparison(bool val) :
+    NodeWrapper(NodeManager::currentNM()->mkConst(val))
+  { }
+
+  /**
+   * Given a literal to TheoryArith return a single kind to
+   * to indicate its underlying structure.
+   * The function returns the following in each case:
+   * - (K left right)           -> K where is either EQUAL, GT, or GEQ
+   * - (CONST_BOOLEAN b)        -> CONST_BOOLEAN
+   * - (NOT (EQUAL left right)) -> DISTINCT
+   * - (NOT (GT left right))    -> LEQ
+   * - (NOT (GEQ left right))   -> LT
+   * If none of these match, it returns UNDEFINED_KIND.
+   */
+  static Kind comparisonKind(TNode literal);
+
+
+  static Comparison mkComparison(Kind k, const Polynomial& l, const Polynomial& r){
+    return mkComparison(k, OrderedPolynomialPair(l, r));
+  }
+  static Comparison mkComparison(Kind k, const OrderedPolynomialPair& pair);
+
+
+  /** Returns true if the comparison is a boolean constant. */
+  bool isBoolean() const;
+
+  /**
+   * Returns true if the comparison is either a boolean term,
+   * in integer normal form or mixed normal form.
+   */
+  bool isNormalForm() const;
+
+private:
+  /** Normal form check if at least one variable is real. */
+  bool isMixedCompareNormalForm() const;
+
+  /** Normal form check if at least one variable is real. */
+  bool isMixedEqualsNormalForm() const;
+
+  /** Normal form check is all variables are real.*/
+  bool isIntegerCompareNormalForm() const;
+
+  /** Normal form check is all variables are real.*/
+  bool isIntegerEqualsNormalForm() const;
+
+public:
+
+  /**
+   * Returns true if all of the variables are integers, the coefficients are integers,
+   * and the right hand coefficient is an integer.
+   */
+  bool debugIsIntegral() const;
+
+  static Comparison parseNormalForm(TNode n);
+
+  inline static bool isNormalAtom(TNode n){
+    Comparison parse = Comparison::parseNormalForm(n);
+    return parse.isNormalForm();
+  }
+
+  SumPair toSumPair() const;
+
+};/* class Comparison */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

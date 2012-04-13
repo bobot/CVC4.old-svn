@@ -204,15 +204,18 @@ RewriteResponse ArithRewriter::postRewriteMult(TNode t){
   return RewriteResponse(REWRITE_DONE, res.getNode());
 }
 
-RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
-  TNode left  = t[0];
-  TNode right = t[1];
+// RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
+//   TNode left  = t[0];
+//   TNode right = t[1];
 
-  Comparison cmp = Comparison::mkNormalComparison(t.getKind(), Polynomial::parsePolynomial(left), Constant(right));
+//   Polynomial pLeft = Polynomial::parsePolynomial(left);
+  
 
-  Assert(cmp.isNormalForm());
-  return RewriteResponse(REWRITE_DONE, cmp.getNode());
-}
+//   Comparison cmp = Comparison::mkComparison(t.getKind(), Polynomial::parsePolynomial(left), Constant(right));
+
+//   Assert(cmp.isNormalForm());
+//   return RewriteResponse(REWRITE_DONE, cmp.getNode());
+// }
 
 RewriteResponse ArithRewriter::postRewriteAtom(TNode atom){
   // left |><| right

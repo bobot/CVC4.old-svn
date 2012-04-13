@@ -859,11 +859,11 @@ Comparison TheoryArith::mkIntegerEqualityFromAssignment(ArithVar v){
   const DeltaRational& beta = d_partialModel.getAssignment(v);
 
   Assert(beta.isIntegral());
-  Constant betaAsConstant = Constant::mkConstant(beta.floor());
+  Polynomial betaAsPolynomial( Constant::mkConstant(beta.floor()) );
 
   TNode var = d_arithvarNodeMap.asNode(v);
   Polynomial varAsPolynomial = Polynomial::parsePolynomial(var);
-  return Comparison::mkComparison(EQUAL, varAsPolynomial, betaAsConstant);
+  return Comparison::mkComparison(EQUAL, varAsPolynomial, betaAsPolynomial);
 }
 
 Node TheoryArith::dioCutting(){
@@ -893,12 +893,12 @@ Node TheoryArith::dioCutting(){
     return Node::null();
   }else{
     Polynomial p = plane.getPolynomial();
-    Constant c = plane.getConstant() * Constant::mkConstant(-1);
+    Polynomial c(plane.getConstant() * Constant::mkConstant(-1));
     Integer gcd = p.gcd();
     Assert(p.isIntegral());
     Assert(c.isIntegral());
     Assert(gcd > 1);
-    Assert(!gcd.divides(c.getValue().getNumerator()));
+    Assert(!gcd.divides(c.asConstant().getNumerator()));
     Comparison leq = Comparison::mkComparison(LEQ, p, c);
     Comparison geq = Comparison::mkComparison(GEQ, p, c);
     Node lemma = NodeManager::currentNM()->mkNode(OR, leq.getNode(), geq.getNode());
@@ -932,19 +932,6 @@ Node TheoryArith::callDioSolver(){
     }else {
       orig = ConstraintValue::explainConflict(ub, lb);
     }
-
-    // if(lb == ub){
-    //   Assert(lb->isLower);
-    //   orig = lb;
-    // }else if(lb.getKind() == EQUAL){
-    //   orig = lb;
-    // }else if(ub.getKind() == EQUAL){
-    //   orig = ub;
-    // }else{
-    //   NodeBuilder<> nb(AND);
-    //   nb << ub << lb;
-    //   orig = nb;
-    // }
 
     Assert(d_partialModel.assignmentIsConsistent(v));
 

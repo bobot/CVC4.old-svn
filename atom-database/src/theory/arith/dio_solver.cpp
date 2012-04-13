@@ -151,11 +151,11 @@ bool DioSolver::acceptableOriginalNodes(Node n){
 
 void DioSolver::pushInputConstraint(const Comparison& eq, Node reason){
   Assert(!debugEqualityInInputEquations(reason));
-  Assert(eq.isIntegral());
+  Assert(eq.debugIsIntegral());
   Assert(eq.getNode().getKind() == kind::EQUAL);
   Assert(acceptableOriginalNodes(reason));
 
-  SumPair sp = SumPair::comparisonToSumPair(eq);
+  SumPair sp = eq.toSumPair();
   uint32_t length = sp.maxLength();
   if(length > d_maxInputCoefficientLength){
     d_maxInputCoefficientLength = length;
@@ -589,7 +589,6 @@ DioSolver::TrailIndex DioSolver::applyAllSubstitutionsToIndex(DioSolver::TrailIn
 
 bool DioSolver::debugSubstitutionApplies(DioSolver::SubIndex si, DioSolver::TrailIndex ti){
   Variable var = d_subs[si].d_eliminated;
-  TrailIndex subIndex = d_subs[si].d_constraint;
 
   const SumPair& curr = d_trail[ti].d_eq;
   Polynomial vsum = curr.getPolynomial();
