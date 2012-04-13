@@ -176,14 +176,13 @@ public:
 
 class TermArgTrie
 {
-public:
-  void addTerm2( QuantifiersEngine* qe, Node n, int argIndex, bool modEq );
-  bool existsTerm( QuantifiersEngine* qe, Node n, int argIndex, bool modEq );
+private:
+  bool addTerm2( QuantifiersEngine* qe, Node n, int argIndex );
 public:
   /** the data */
   std::map< Node, TermArgTrie > d_data;
 public:
-  bool addTerm( QuantifiersEngine* qe, Node n, bool modEq );
+  bool addTerm( QuantifiersEngine* qe, Node n ) { return addTerm2( qe, n, 0 ); }
 };
 
 class TermDb
@@ -192,14 +191,16 @@ private:
   /** reference to the quantifiers engine */
   QuantifiersEngine* d_quantEngine;
   /** calculated no match terms */
-  bool d_active;
+  bool d_matching_active;
   /** terms processed */
   std::map< Node, bool > d_processed;
 public:
-  TermDb( QuantifiersEngine* qe ) : d_quantEngine( qe ), d_active( true ){}
+  TermDb( QuantifiersEngine* qe ) : d_quantEngine( qe ), d_matching_active( true ){}
   ~TermDb(){}
   /** map from APPLY_UF operators to ground terms for that operator */
   std::map< Node, std::vector< Node > > d_op_map;
+  /** map from APPLY_UF operators to trie */
+  std::map< Node, TermArgTrie > d_op_map_trie;
   /** map from type nodes to terms of that type */
   std::map< TypeNode, std::vector< Node > > d_type_map;
   /** add a term to the database */
@@ -207,9 +208,9 @@ public:
   /** reset instantiation round */
   void resetInstantiationRound( Theory::Effort effort );
   /** set active */
-  void setActive( bool a ) { d_active = a; }
+  void setMatchingActive( bool a ) { d_matching_active = a; }
   /** get active */
-  bool getActive() { return d_active; }
+  bool getMatchingActive() { return d_matching_active; }
 public:
   /** parent structure (for efficient E-matching):
       n -> op -> index -> L

@@ -70,9 +70,7 @@ Instantiator( c, qe, th )
       addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     }
     addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), qe ) );
-    if( !Options::current()->fmfRegionSat ){
-      qe->getTermDatabase()->setActive( false );
-    }
+    qe->getTermDatabase()->setMatchingActive( false );
   }else{
     if( Options::current()->cbqi ){
       addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );

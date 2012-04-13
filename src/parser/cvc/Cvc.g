@@ -1255,9 +1255,9 @@ prefixFormula[CVC4::Expr& f]
         ids.clear();
       }
     )* RPAREN { 
-      for( int i=0; i<(int)bvs.size(); i++ ){
-        std::cout << "arg " << bvs[i] << " " << bvs[i].getType() << std::endl;
-      }
+      //for( int i=0; i<(int)bvs.size(); i++ ){
+      //  std::cout << "arg " << bvs[i] << " " << bvs[i].getType() << std::endl;
+      //}
       terms.push_back( EXPR_MANAGER->mkExpr( kind::BOUND_VAR_LIST, bvs ) ); }
     COLON instantiationPatterns[ipl]? formula[f]
     { PARSER_STATE->popScope();
@@ -1266,10 +1266,10 @@ prefixFormula[CVC4::Expr& f]
         terms.push_back( ipl );
       }
       f = MK_EXPR(k, terms);
-      std::cout << "Made expr " << f << std::endl;
-      for( int i=0; i<(int)terms.size(); i++ ) { std::cout << terms[i] << std::endl; }
-      std::cout << "kind = " << f.getKind() << std::endl;
-      for( int i=0; i<(int)f.getNumChildren(); i++ ) { std::cout << f[i] << std::endl; }
+      //std::cout << "Made expr " << f << std::endl;
+      //for( int i=0; i<(int)terms.size(); i++ ) { std::cout << terms[i] << std::endl; }
+      //std::cout << "kind = " << f.getKind() << std::endl;
+      //for( int i=0; i<(int)f.getNumChildren(); i++ ) { std::cout << f[i] << std::endl; }
     }
 
    /* lets: letDecl defines the variables and functionss, we just

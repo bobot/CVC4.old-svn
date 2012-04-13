@@ -19,13 +19,15 @@
 #include "theory/uf/equality_engine_impl.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
+#include "theory/theory_engine.h"
+#include "theory/uf/equality_engine_impl.h"
+
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
-
 
 RepAlphabet::RepAlphabet( RepAlphabet& ra, QuantifiersEngine* ie ){
   //translate to current representatives
@@ -54,34 +56,156 @@ bool RepAlphabet::didInstantiation( RepAlphabetIterator& riter ){
       return false;
     }
   }
-  //std::cout << "Already did instantiation " << std::endl;
-  //for( int i=0; i<(int)riter.getNumTerms(); i++ ){
-  //  std::cout << "   " <<  riter.getTerm( i ) << std::endl;
-  //}
   return true;
 }
 
+void RepAlphabet::debugPrint( const char* c ){
+  for( std::map< TypeNode, std::vector< Node > >::iterator it = d_type_reps.begin(); it != d_type_reps.end(); ++it ){
+    Debug( c ) << it->first << " : " << std::endl;
+    for( int i=0; i<(int)it->second.size(); i++ ){
+      Debug( c ) << "   " << i << ": " << it->second[i] << std::endl;
+    }
+  }
+}
+
+void RAIFilter::RestrictionTrie::addRestriction2( std::vector< RAIFilter::RestrictionTrie::InstValue >& restriction, int index ){
+  if( index==(int)restriction.size() ){
+    d_active = true;
+  }else{
+    int ic_index = restriction[index].first;
+    int ic_value = restriction[index].second;
+    d_data[ ic_index ][ ic_value ].addRestriction2( restriction, index+1 );
+  }
+}
+
+int RAIFilter::RestrictionTrie::accept2( std::vector< int >& index, int checkIndex ){
+  if( d_active || checkIndex==-1 ){
+    //either we have found that index is disallowed, or have failed
+    return checkIndex;
+  }else{
+    //see if the current value in index[checkIndex] is restricted according to this trie
+    int index1 = -1;
+    if( d_data.find( checkIndex )!=d_data.end() ){
+      std::map< int, RestrictionTrie >::iterator it = d_data[checkIndex].find( index[checkIndex] );
+      if( it!=d_data[checkIndex].end() ){
+        //found that there are restrictions for index[checkIndex], now see if we can determine a maximal 
+        // index value that is disallowed.
+        index1 = it->second.accept2( index, checkIndex - 1 );
+        //if the next one, we know this is the best
+        if( index1==checkIndex-1 ){
+          return index1;
+        }
+      }
+    }
+    //otherwise, see if there are restrictions for the next index
+    int index2 = accept2( index, checkIndex - 1 );
+    return index2>index1 ? index2 : index1;
+  }
+}
+
 void RAIFilter::initialize( QuantifiersEngine* qe, Node f, RepAlphabet* ra ){
+  ra->debugPrint("raif");
   Debug("raif") << "Phase requirements for " << f << " : " << std::endl;
   for( std::map< Node, bool >::iterator it = qe->d_phase_reqs[f].begin(); it != qe->d_phase_reqs[f].end(); ++it ){
-    if( it->first.getKind()==APPLY_UF ){
-      Debug("raif") << "   " << it->first << " -> " << it->second << std::endl;
+    Node n = it->first;
+    if( n.getKind()==APPLY_UF ){
+      bool process = true;
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        if( n[i].getKind()!=INST_CONSTANT && n[i].hasAttribute(InstConstantAttribute()) ){
+          process = false;
+          break;
+        }
+      }
+      if( process ){
+        Debug("raif") << "   " << n << " -> " << it->second << std::endl;
+        Node op = n.getOperator();
+        Node pol = NodeManager::currentNM()->mkConst<bool>( !(it->second) );
+        std::map< int, int > restriction;
+        collectPredicateRestrictions( qe, n, pol, ra, &(qe->getTermDatabase()->d_op_map_trie[op]), 0, restriction );
+      }
     }
   }
   for( std::map< Node, bool >::iterator it = qe->d_phase_reqs_equality[f].begin(); 
         it != qe->d_phase_reqs_equality[f].end(); ++it ){
-    Debug("raif") << "   " << it->first;
-    Debug("raif") << ( it->second ? " == " : " != " );
-    Debug("raif") << qe->d_phase_reqs_equality_term[f][it->first] << std::endl;
-    if( it->first.getKind()==INST_CONSTANT ){
+    Node n = it->first;
+    bool process = true;
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( n[i].getKind()!=INST_CONSTANT && n[i].hasAttribute(InstConstantAttribute()) ){
+        process = false;
+        break;
+      }
+    }
+    if( process ){
+      Node t = qe->d_phase_reqs_equality_term[f][n];
+      Debug("raif") << "   " << n << ( it->second ? " == " : " != " ) << t << std::endl;
+      t = qe->getEqualityQuery()->getRepresentative( t );
+      if( n.getKind()==INST_CONSTANT ){
+        if( it->second ){
+        
+        }else{
+          int tValue = ra->getIndexFor( t );
+          if( tValue!=-1 ){
+            int index = (int)n.getAttribute(InstVarNumAttribute());
+            Debug("raif") << "*** Restrict ( " << index << " -> " << tValue << " )" << std::endl;
+          }
+        }
+      }else{
+        Node op = n.getOperator();
 
-    }else if( it->first.getKind()==APPLY_UF ){
-    
+      }
     }
   }
 }
 
-int RAIFilter::acceptCurrent( QuantifiersEngine* qe, RepAlphabetIterator* rai ){
+void RAIFilter::collectPredicateRestrictions( QuantifiersEngine* qe, Node n, Node pol, RepAlphabet* ra, TermArgTrie* tat, int index,
+                                              std::map< int, int >& restriction ){
+  if( index==(int)n.getNumChildren() ){
+    //now, we must check the polarity of the actual term to see if it corresponds to the correct restriction
+    Node t = tat->d_data.begin()->first;
+    //Debug("raif-debug") << "Check " << t << " " << pol << " [ ";
+    //uf::EqClassIterator eqc = uf::EqClassIterator( qe->getEqualityQuery()->getRepresentative( pol ), 
+    //                        ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
+    //while( !eqc.isFinished() ){
+    //  Debug("raif-debug") << (*eqc) << ", ";
+    //  ++eqc;
+    //}
+    //Debug("raif-debug") << " ] " << std::endl;
+    if( qe->getEqualityQuery()->areEqual( t, pol ) ){
+      Debug("raif") << "*** " << t << " = " << pol << ", therefore: " << std::endl;
+      Debug("raif") << "*** Restrict (";
+      for( std::map< int, int >::iterator it = restriction.begin(); it != restriction.end(); ++it ){
+        if( it->second!=-1 ){
+          Debug("raif") << it->first << " -> " << it->second << ", ";
+        }
+      }
+      Debug("raif") << " )" << std::endl;
+    }
+  }else{
+    if( n[index].getKind()==INST_CONSTANT ){
+      for( std::map< Node, TermArgTrie >::iterator it = tat->d_data.begin(); it != tat->d_data.end(); ++it ){
+        int tValue = ra->getIndexFor( it->first );
+        if( tValue!=-1 ){
+          int tIndex = (int)n[index].getAttribute(InstVarNumAttribute());
+          if( restriction.find( tIndex )==restriction.end() || 
+              restriction[ tIndex ]==-1 || restriction[ tIndex ]==tValue ){
+            restriction[ tIndex ] = tValue;
+            collectPredicateRestrictions( qe, n, pol, ra, &(it->second), index+1, restriction );
+            restriction[ tIndex ] = -1;
+          }
+        }
+      }
+    }else{
+      Node r = qe->getEqualityQuery()->getRepresentative( n[index] );
+      std::map< Node, TermArgTrie >::iterator it = tat->d_data.find( r );
+      if( it!=tat->d_data.end() ){
+        collectPredicateRestrictions( qe, n, pol, ra, &(it->second), index+1, restriction );
+      }
+    }
+  }
+}
+
+int RAIFilter::acceptCurrent( RepAlphabetIterator* rai ){
+  //return d_rt.accept( rai->d_index );
   return -1;
 }
 
@@ -105,7 +229,7 @@ void RepAlphabetIterator::increment( QuantifiersEngine* qe ){
     }
     d_index[counter]++;
     //check if this is an acceptable instantiation to try
-    counter = d_raif.acceptCurrent( qe, this );
+    counter = d_raif.acceptCurrent( this );
     //if not, try next value for d_index[counter]
     if( counter!=-1 ){
       for( int i=0; i<counter; i++ ){

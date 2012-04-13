@@ -37,7 +37,12 @@ public:
   std::map< TypeNode, std::vector< Node > > d_type_reps;
   std::map< Node, int > d_tmap;
   void set( TypeNode t, std::vector< Node >& reps );
+  /** returns true if we did this instantiation */
   bool didInstantiation( RepAlphabetIterator& riter );
+  /** returns index in d_type_reps for node n */
+  int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
+  /** debug print */
+  void debugPrint( const char* c );
 };
 
 class RepAlphabetIterator;
@@ -45,13 +50,39 @@ class RepAlphabetIterator;
 /** this class determines which subset of instantiations should be tried by a RepAlphabetIterator */
 class RAIFilter
 {
+private:
+  /** restriction trie class stores a set of restricted instantiation values */
+  class RestrictionTrie
+  {
+  public:
+    typedef std::pair< int, int > InstValue;
+  public:
+    bool d_active;
+    std::map< int, std::map< int, RestrictionTrie > > d_data;
+  private:
+    void addRestriction2( std::vector< InstValue >& restriction, int index );
+    int accept2( std::vector< int >& index, int checkIndex );
+  public:
+    RestrictionTrie() : d_active( false ){}
+    ~RestrictionTrie(){}
+    void addRestriction( std::vector< InstValue >& restriction ){ addRestriction2( restriction, 0 ); }
+    int accept( std::vector< int >& index ) { return accept2( index, (int)index.size()-1 ); }
+  };
+  //the restriction trie
+  RestrictionTrie d_rt;
+private:
+  //collect predicate restrictions
+  void collectPredicateRestrictions( QuantifiersEngine* qe, Node n, Node pol, RepAlphabet* ra, TermArgTrie* tat, int index,
+                                     std::map< int, int >& restriction );
 public:
   RAIFilter(){}
   ~RAIFilter(){}
   //initialize with this quantifier
   void initialize( QuantifiersEngine* qe, Node f, RepAlphabet* ra );
-  //returns the lowest variable number that should be incremented, -1 : no conflict
-  int acceptCurrent( QuantifiersEngine* qe, RepAlphabetIterator* rai );
+  //if the current value of rai->d_index is disallowed, this function will 
+  // return the highest variable number that should be incremented.
+  // Otherwise, it will return -1.
+  int acceptCurrent( RepAlphabetIterator* rai );
 };
 
 /** this class iterates over a RepAlphabet */
