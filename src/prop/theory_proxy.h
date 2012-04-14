@@ -30,10 +30,10 @@
 #include "util/stats.h"
 
 #include "prop/sat_solver.h"
-#include "decision/decision_engine.h"
 
 namespace CVC4 {
 
+class DecisionEngine;
 class TheoryEngine;
 
 namespace prop {

@@ -24,6 +24,8 @@
 #include "theory/theory_engine.h"
 #include "theory/rewriter.h"
 #include "expr/expr_stream.h"
+#include "decision/decision_engine.h"
+
 
 namespace CVC4 {
 namespace prop {

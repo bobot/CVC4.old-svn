@@ -36,6 +36,8 @@ public:
   virtual prop::SatLiteral getNext() = 0;
   
   virtual bool needSimplifiedPreITEAssertions() { return false; }
+  
+  virtual void notifyAssertionsAvailable() { return; }
 };
 
 }/* decision namespace */

@@ -27,21 +27,48 @@
 #include "decision_strategy.h"
 
 #include "prop/sat_solver_types.h"
+#include "expr/node.h"
+
+using namespace CVC4::prop;
 
 namespace CVC4 {
 
 namespace decision {
 
 class JustificationHueristic : public DecisionStrategy {
+  typedef __gnu_cxx::hash_map<TNode, bool, TNodeHashFunction> TNodeBoolMap;
+  TNodeBoolMap justified;
+  Node d_formula;
 public:
   JustificationHueristic(CVC4::DecisionEngine* de) : DecisionStrategy(de) {
     Trace("decision") << "Justification hueristic enabled" << std::endl;
   }
-  prop::SatLiteral getNext() { 
+  prop::SatLiteral getNext() {
     Trace("decision") << "JustificationHueristic::getNext()" << std::endl;
+
+    findSplitterRec(d_formula, SAT_VALUE_TRUE);
+
     return prop::undefSatLiteral;
   } 
   bool needSimplifiedPreITEAssertions() { return true; }
+  void notifyAssertionsAvailable() {
+    // we do this here, but may be some/all of this needs to be done
+    // in getNext()
+    
+    /* clear the justifcation labels -- reconsider if/when to do
+       this */
+    justified.clear();
+    
+    /* build a big AND formula from assertions */
+    const vector<Node>& ass = d_decisionEngine->getAssertions();
+    NodeBuilder<> b(kind::AND);
+    for(int i = 0; ass.size(); ++i)
+      b << ass[i];
+    d_formula = b;
+  }
+private:
+  /* Do all the hardwork. */ 
+  SatLiteral findSplitterRec(Node n, SatValue val) {}
 };/* class JustificationHueristic */
 
 }/* namespace decision */
