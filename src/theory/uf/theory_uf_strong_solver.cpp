@@ -976,13 +976,6 @@ d_th( th )
 void StrongSolverTheoryUf::newEqClass( Node n ){
   TypeNode tn = n.getType();
   if( d_conf_find.find( tn )!=d_conf_find.end() ){
-    ////TEMPORARY
-    //setCardinality( tn, 8 );  //***************
-    ////END_TEMPORARY
-    //if( d_conf_find.find( tn )==d_conf_find.end() ){
-    //  //enter into incremental finite model finding mode: try cardinality = 1 first
-    //  setCardinality( tn, 1, false );
-    //}
     Assert( d_conf_find[tn]->d_cardinality_lemma_term!=Node::null() );
     //update type relate information
     if( n.getKind()==APPLY_UF ){
@@ -995,6 +988,7 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
     Debug("uf-ss-solver") << "StrongSolverTheoryUf: New eq class " << n << " " << tn << std::endl;
     d_conf_find[tn]->newEqClass( n );
   }else if( isRelevantType( tn ) ){
+    Debug("uf-ss-solver") << "WAIT: StrongSolverTheoryUf: New eq class " << n << " " << tn << std::endl;
     d_new_eq_class_waiting[tn].push_back( n );
   }
 }
@@ -1005,6 +999,8 @@ void StrongSolverTheoryUf::merge( Node a, Node b ){
   if( d_conf_find.find( tn )!=d_conf_find.end() ){
     Debug("uf-ss-solver") << "StrongSolverTheoryUf: Merge " << a << " " << b << " " << tn << std::endl;
     d_conf_find[tn]->merge( a, b );
+  }else if( isRelevantType( tn ) ){
+    //should be safe to ignore
   }
 }
 
@@ -1016,6 +1012,8 @@ void StrongSolverTheoryUf::assertDisequal( Node a, Node b, Node reason ){
     //Assert( d_th->d_equalityEngine.getRepresentative( a )==a );
     //Assert( d_th->d_equalityEngine.getRepresentative( b )==b );
     d_conf_find[tn]->assertDisequal( a, b, reason );
+  }else if( isRelevantType( tn ) ){
+    //should be safe to ignore
   }
 }
 
@@ -1075,14 +1073,15 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
 }
 
 void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
-  //TypeNode tn = n.getType();
-  //if( isRelevantType( tn ) ){
-  //  preRegisterType( tn );
-  //}
+  //shouldn't have to preregister this type (it may be that there are no quantifiers over tn)  FIXME
+  TypeNode tn = n.getType();
+  if( isRelevantType( tn ) ){
+    preRegisterType( tn );
+  }
 }
 
 void StrongSolverTheoryUf::registerQuantifier( Node f ){
-  Debug("uf-ss-quant") << "Pre-register quantifier " << f << std::endl;
+  Debug("uf-ss-register") << "Register quantifier " << f << std::endl;
   //must ensure the quantifier does not quantify over arithmetic
   for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
     TypeNode tn = f[0][i].getType();
@@ -1102,6 +1101,7 @@ void StrongSolverTheoryUf::registerQuantifier( Node f ){
 
 void StrongSolverTheoryUf::preRegisterType( TypeNode tn ){
   if( d_conf_find.find( tn )==d_conf_find.end() ){
+    Debug("uf-ss-register") << "Preregister " << tn << "." << std::endl;
     //enter into incremental finite model finding mode: try cardinality = 1 first
     setCardinality( tn, 1, false );
     //just use the first node you find
@@ -1122,6 +1122,7 @@ void StrongSolverTheoryUf::preRegisterType( TypeNode tn ){
     }
     //add waiting equivalence classes now
     if( !d_new_eq_class_waiting[tn].empty() ){
+      Debug("uf-ss-register") << "Add " << (int)d_new_eq_class_waiting[tn].size() << " new eq classes." << std::endl;
       for( int i=0; i<(int)d_new_eq_class_waiting[tn].size(); i++ ){
         newEqClass( d_new_eq_class_waiting[tn][i] );
       }

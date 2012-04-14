@@ -41,8 +41,6 @@ using namespace CVC4::theory::quantifiers;
 
 TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
   Theory(THEORY_QUANTIFIERS, c, u, out, valuation, qe),
-  d_exists_asserts(c),
-  d_counterexample_asserts(c),
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
@@ -68,11 +66,14 @@ void TheoryQuantifiers::notifyEq(TNode lhs, TNode rhs) {
 
 void TheoryQuantifiers::preRegisterTerm(TNode n) {  
   Debug("quantifiers-prereg") << "TheoryQuantifiers::preRegisterTerm() " << n << endl;
+  if( n.getKind()==FORALL && !n.hasAttribute(InstConstantAttribute()) ){
+    d_quantEngine->registerQuantifier( n );
+  }
 }
 
 
 void TheoryQuantifiers::presolve() {
-  Debug("quantifiers-other") << "TheoryQuantifiers::presolve()" << endl;
+  Debug("quantifiers-presolve") << "TheoryQuantifiers::presolve()" << endl;
 }
 
 Node TheoryQuantifiers::getValue(TNode n) {
@@ -136,19 +137,15 @@ void TheoryQuantifiers::assertUniversal( Node n ){
 
 void TheoryQuantifiers::assertExistential( Node n ){
   Assert( n.getKind()== NOT && n[0].getKind()==FORALL );
-  if( !isRewriteKind( n[0][1].getKind() ) ){    //do not skolemize under any condition
-    if( !n[0].hasAttribute(InstConstantAttribute()) ){
-      if( d_skolemized.find( n )==d_skolemized.end() ){
-        d_quantEngine->registerQuantifier( n[0] );
-        Node body = d_quantEngine->getSkolemizedBody( n[0] );
-        NodeBuilder<> nb(kind::OR);
-        nb << n[0] << body.notNode();
-        Node lem = nb;
-        Debug("quantifiers-sk") << "Skolemize lemma : " << lem << std::endl;
-        d_out->lemma( lem );
-        d_skolemized[n] = true;
-      }
-      d_exists_asserts[n] = true;
+  if( !n[0].hasAttribute(InstConstantAttribute()) ){
+    if( d_skolemized.find( n )==d_skolemized.end() ){
+      Node body = d_quantEngine->getSkolemizedBody( n[0] );
+      NodeBuilder<> nb(kind::OR);
+      nb << n[0] << body.notNode();
+      Node lem = nb;
+      Debug("quantifiers-sk") << "Skolemize lemma : " << lem << std::endl;
+      d_out->lemma( lem );
+      d_skolemized[n] = true;
     }
   }
 }

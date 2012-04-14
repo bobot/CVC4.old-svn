@@ -37,11 +37,6 @@ class TheoryEngine;
 class TheoryQuantifiers : public Theory {
 private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
-
-  /** list of existential quantifiers currently asserted */
-  BoolMap d_exists_asserts;
-  /** list of counterexamples currently asserted */
-  BoolMap d_counterexample_asserts;
   /** quantifiers that have been skolemized */
   std::map< Node, bool > d_skolemized;
   /** number of instantiations */
@@ -70,9 +65,6 @@ private:
   //void assertCounterexample( Node n );
   bool restart();
 public:
-  static bool isRewriteKind( Kind k ){
-    return false;
-  }
   void performCheck(Effort e);
 };/* class TheoryQuantifiers */
 

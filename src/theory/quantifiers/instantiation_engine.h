@@ -40,6 +40,8 @@ private:
   bool d_in_instRound_no_c;
   /** status of instantiation round (one of InstStrategy::STATUS_*) */
   int d_inst_round_status;
+  /** cbqi lemmas added */
+  std::map< Node, bool > d_cbqi_lemma_added;
 private:
   /** helper functions */
   bool hasNonArithmeticVariable( Node f );
@@ -63,8 +65,8 @@ public:
   ~InstantiationEngine(){}
 
   void check( Theory::Effort e );
-  void registerQuantifier( Node n );
-  void assertNode( Node n );
+  void registerQuantifier( Node f );
+  void assertNode( Node f );
   Node explain(TNode n){return Node::null();};
 
 };

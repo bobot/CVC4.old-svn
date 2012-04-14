@@ -585,14 +585,14 @@ void TheoryArrays::computeCareGraph()
         }
 
         if (r1[0] != r2[0]) {
-          //if( r1[0].getType()==r2[0].getType() ){
+          if( r1[0].getType()==r2[0].getType() ){ //AJR
             // If arrays are known to be disequal, or cannot become equal, we can continue
             if (d_equalityEngine.areDisequal(r1[0], r2[0]) ||
                 (!d_mayEqualEqualityEngine.areEqual(r1[0], r2[0]))) {
               Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): arrays can't be equal, skipping" << std::endl;
               continue;
             }
-          //}
+          }
         }
 
         TNode x = r1[1];

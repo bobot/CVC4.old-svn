@@ -286,9 +286,6 @@ void QuantifiersEngine::makeInstantiationConstantsFor( Node f ){
 
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
-    if( Options::current()->finiteModelFind ){
-      ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( f );
-    }
     ++(d_statistics.d_num_quant);
     Assert( f.getKind()==FORALL );
     //register quantifier
@@ -313,8 +310,13 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       setRelevance( f, minRelevance+1 );
     }
 #endif
+    //register with each module
     for( int i=0; i<(int)d_modules.size(); i++ ){
       d_modules[i]->registerQuantifier( f );
+    }
+    //also register it with the strong solver
+    if( Options::current()->finiteModelFind ){
+      ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( f );
     }
   }
 }
@@ -504,34 +506,19 @@ Node QuantifiersEngine::getOrCreateCounterexampleBody( Node f ){
 Node QuantifiersEngine::getSkolemizedBody( Node f ){
   Assert( f.getKind()==FORALL );
   if( d_skolem_body.find( f )==d_skolem_body.end() ){
+    std::vector< Node > vars;
     for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
       Node skv = NodeManager::currentNM()->mkSkolem( f[0][i].getType() );
       d_skolem_constants[ f ].push_back( skv );
+      vars.push_back( f[0][i] );
     }
-    d_skolem_body[ f ] = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(),
+    d_skolem_body[ f ] = f[ 1 ].substitute( vars.begin(), vars.end(),
                                             d_skolem_constants[ f ].begin(), d_skolem_constants[ f ].end() );
     if( f.hasAttribute(InstLevelAttribute()) ){
       setInstantiationLevelAttr( d_skolem_body[ f ], f.getAttribute(InstLevelAttribute()) );
     }
   }
   return d_skolem_body[ f ];
-}
-
-Node QuantifiersEngine::getBoundBody( Node f ){
-  Assert( f.getKind()==FORALL );
-  if( d_bound_body.find( f )==d_bound_body.end() ){
-    std::vector< Node > vars;
-    std::vector< Node > subs;
-    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-      vars.push_back( f[0][i] );
-      subs.push_back( getBoundVariableForVariable( f[0][i] ) );
-    }
-    d_bound_body[ f ] = f[ 1 ].substitute( vars.begin(), vars.end(), subs.begin(), subs.end() );
-    if( f.hasAttribute(InstConstantAttribute()) ){
-      setInstantiationConstantAttr( d_bound_body[f], f.getAttribute(InstConstantAttribute()) );
-    }
-  }
-  return d_bound_body[ f ];
 }
 
 void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
@@ -754,16 +741,6 @@ Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){
     }
   }
   return d_free_vars[tn];
-}
-
-Node QuantifiersEngine::getBoundVariableForVariable( Node n ){
-  TypeNode tn = n.getType();
-  if( d_bound_vars.find( tn )==d_bound_vars.end() ){
-    d_bound_vars[tn] = NodeManager::currentNM()->mkVar( tn );
-    BoundVarAttribute bva;
-    d_bound_vars[tn].setAttribute(bva,true);
-  }
-  return d_bound_vars[tn];
 }
 
 /** compute symbols */

@@ -44,10 +44,6 @@ typedef expr::Attribute<InstLevelAttributeId, uint64_t> InstLevelAttribute;
 struct InstVarNumAttributeId {};
 typedef expr::Attribute<InstVarNumAttributeId, uint64_t> InstVarNumAttribute;
 
-struct BoundVarAttributeId {};
-typedef expr::Attribute<BoundVarAttributeId, bool> BoundVarAttribute;
-
-
 namespace theory {
 
 class QuantifiersEngine;
@@ -267,8 +263,6 @@ private:
   std::map< Node, InstMatchTrie > d_inst_match_trie;
   /** free variable for instantiation constant type */
   std::map< TypeNode, Node > d_free_vars;
-  /** bound variable for variable types */
-  std::map< TypeNode, Node > d_bound_vars;
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
   /** term database */
@@ -354,8 +348,6 @@ public:
   Node getCounterexampleLiteralFor( Node f ) { return d_ce_lit.find( f )==d_ce_lit.end() ? Node::null() : d_ce_lit[ f ]; }
   /** get the skolemized body f[e/x] */
   Node getSkolemizedBody( Node f );
-  /** get the bound body */
-  Node getBoundBody( Node f );
   /** set active */
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */

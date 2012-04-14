@@ -195,63 +195,55 @@ void InstantiationEngine::check( Theory::Effort e ){
 }
 
 void InstantiationEngine::registerQuantifier( Node f ){
-  if( !TheoryQuantifiers::isRewriteKind( f[1].getKind() ) ){
-    //std::cout << "do cbqi " << f << " ? " << std::endl;
-    if( doCbqi( f ) ){
-      Debug("cbqi") << "Do cbqi for " << f << std::endl;
-      //make the counterexample body
-      Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
-                                    getQuantifiersEngine()->d_inst_constants[f].begin(),
-                                    getQuantifiersEngine()->d_inst_constants[f].end() );
-      getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
-      //code for counterexample-based quantifier instantiation
-      //get the counterexample literal
-      Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
-      getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
-      // set attributes, mark all literals in the body of n as dependent on cel
-      registerLiterals( ceLit, f );
-      getQuantifiersEngine()->generatePhaseReqs( f );
-      //require any decision on cel to be phase=true
-      d_th->getOutputChannel().requirePhase( ceLit, true );
-      Debug("cbqi-debug") << "Require phase " << ceLit << " = true." << std::endl;
-      //add counterexample lemma
-      NodeBuilder<> nb(kind::OR);
-      nb << f << ceLit;
-      Node lem = nb;
-      Debug("cbqi-debug") << "Counterexample lemma : " << lem << std::endl;
-      d_th->getOutputChannel().lemma( lem );
-      ////mark cel as dependent on n?
-      //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-      //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
-      //d_out->dependentDecision( quant, cel );
-      ////set has constraints from
-      //for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-      //  getQuantifiersEngine()->getTheoryEngine()->theoryOf( f[0][i] )->getInstantiator()->setHasConstraintsFrom( f );
-      //}
-    }else{
-      getQuantifiersEngine()->addTermToDatabase( getQuantifiersEngine()->getOrCreateCounterexampleBody( f ), true );
-      //compute phase requirements
-      getQuantifiersEngine()->generatePhaseReqs( f );
-      //need to tell which instantiators will be responsible
-      //by default, just chose the UF instantiator
-      getQuantifiersEngine()->getInstantiator( theory::THEORY_UF )->setHasConstraintsFrom( f );
-    }
+  //std::cout << "do cbqi " << f << " ? " << std::endl;
+  if( doCbqi( f ) ){
+    Debug("cbqi") << "Do cbqi for " << f << std::endl;
+    //make the counterexample body
+    Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
+                                  getQuantifiersEngine()->d_inst_constants[f].begin(),
+                                  getQuantifiersEngine()->d_inst_constants[f].end() );
+    getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
+    //code for counterexample-based quantifier instantiation
+    //get the counterexample literal
+    Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
+    getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
+    // set attributes, mark all literals in the body of n as dependent on cel
+    registerLiterals( ceLit, f );
+    getQuantifiersEngine()->generatePhaseReqs( f );
+    //require any decision on cel to be phase=true
+    d_th->getOutputChannel().requirePhase( ceLit, true );
+    Debug("cbqi-debug") << "Require phase " << ceLit << " = true." << std::endl;
+  }else{
+    getQuantifiersEngine()->addTermToDatabase( getQuantifiersEngine()->getOrCreateCounterexampleBody( f ), true );
+    //compute phase requirements
+    getQuantifiersEngine()->generatePhaseReqs( f );
+    //need to tell which instantiators will be responsible
+    //by default, just chose the UF instantiator
+    getQuantifiersEngine()->getInstantiator( theory::THEORY_UF )->setHasConstraintsFrom( f );
+  }
 
-    //take into account user patterns
-    if( f.getNumChildren()==3 ){
-      Node subsPat = getQuantifiersEngine()->getSubstitutedNode( f[2], f );
-      //add patterns
-      for( int i=0; i<(int)subsPat.getNumChildren(); i++ ){
-        //std::cout << "Add pattern " << subsPat[i] << " for " << f << std::endl;
-        ((uf::InstantiatorTheoryUf*)getQuantifiersEngine()->getInstantiator( theory::THEORY_UF ))->addUserPattern( f, subsPat[i] );
-      }
+  //take into account user patterns
+  if( f.getNumChildren()==3 ){
+    Node subsPat = getQuantifiersEngine()->getSubstitutedNode( f[2], f );
+    //add patterns
+    for( int i=0; i<(int)subsPat.getNumChildren(); i++ ){
+      //std::cout << "Add pattern " << subsPat[i] << " for " << f << std::endl;
+      ((uf::InstantiatorTheoryUf*)getQuantifiersEngine()->getInstantiator( theory::THEORY_UF ))->addUserPattern( f, subsPat[i] );
     }
   }
 }
 
-void InstantiationEngine::assertNode( Node n ){
-  if( !TheoryQuantifiers::isRewriteKind( n[1].getKind() ) ){
-    d_forall_asserts[n] = true;
+void InstantiationEngine::assertNode( Node f ){
+  d_forall_asserts[f] = true;
+  //if we are doing cbqi and have not added the lemma yet, do so
+  if( doCbqi( f ) && d_cbqi_lemma_added.find( f )==d_cbqi_lemma_added.end() ){
+    d_cbqi_lemma_added[f] = true;
+    //add counterexample lemma
+    NodeBuilder<> nb(kind::OR);
+    nb << f << getQuantifiersEngine()->d_ce_lit[ f ];
+    Node lem = nb;
+    Debug("cbqi-debug") << "Counterexample lemma : " << lem << std::endl;
+    d_th->getOutputChannel().lemma( lem );
   }
 }
 

@@ -224,6 +224,7 @@ private:
   TheoryUF* d_th;
   /** conflict find structure, one for each type */
   std::map< TypeNode, ConflictFind* > d_conf_find;
+
   /** all types */
   std::vector< TypeNode > d_conf_types;
   /** pre register type */

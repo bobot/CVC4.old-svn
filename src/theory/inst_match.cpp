@@ -393,7 +393,7 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
             return false;
           }
         }
-      }else if( !d_match_pattern[i].getAttribute(BoundVarAttribute()) ){
+      }else{
         if( !q->areEqual( d_match_pattern[i], t[i] ) ){
           Debug("matching-fail") << "Match fail arg: " << d_match_pattern[i] << " and " << t[i] << std::endl;
           //setMatchFail( qe, d_match_pattern[i], t[i] );
