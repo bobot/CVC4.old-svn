@@ -918,9 +918,6 @@ void SmtEnginePrivate::simplifyAssertions()
       staticLearning();
     }
 
-    // Remove ITEs
-    removeITEs();
-
   } catch(TypeCheckingExceptionPrivate& tcep) {
     // Calls to this function should have already weeded out any
     // typechecking exceptions via (e.g.) ensureBoolean().  But a
@@ -1004,6 +1001,11 @@ void SmtEnginePrivate::processAssertions() {
 
   // Simplify the assertions
   simplifyAssertions();
+
+  // Remove ITEs
+  removeITEs();                 // This may need to be in a try-catch
+                                // block. make regress is passing, so
+                                // skipping for now --K
 
   Trace("smt") << "SmtEnginePrivate::processAssertions() POST SIMPLIFICATION" << endl;
   Debug("smt") << " d_assertionsToPreprocess: " << d_assertionsToPreprocess.size() << endl;
