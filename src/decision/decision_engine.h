@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -16,20 +16,28 @@
  ** Decision engine
  **/
 
-#include "prop/sat_solver_types.h"
-#include "util/output.h"
-
 #ifndef __CVC4__DECISION__DECISION_ENGINE_H
 #define __CVC4__DECISION__DECISION_ENGINE_H
+
+#include <vector>
+
+#include "prop/sat_solver_types.h"
+#include "util/output.h"
+#include "decision/decision_strategy.h"
+
+using namespace std;
+using namespace CVC4::decision;
 
 namespace CVC4 {
 
 class DecisionEngine {
+
+  vector <DecisionStrategy* > d_enabledStrategies;
+  vector <DecisionStrategy* > d_needSimplifiedPreITEAssertions;
+
 public:
-  /** Constructor, currently does nothing */
-  DecisionEngine() {
-    Trace("decision") << "Creating decision engine" << std::endl;
-  }
+  /** Constructor, enables decision stragies based on options */
+  DecisionEngine();
 
   /** Destructor, currently does nothing */
   ~DecisionEngine() {
@@ -50,6 +58,18 @@ public:
   void shutdown() {
     Trace("decision") << "Shutting down decision engine" << std::endl;
   }
+
+  bool needSimplifiedPreITEAssertions() {
+    return false;
+  }
+
+private:
+  /**
+   * Enable a particular decision strategy, updating corresponding
+   * decision strategies
+   */
+  void enableStrategy(DecisionStrategy* s);
+
 };/* DecisionEngine class */
 
 }/* CVC4 namespace */

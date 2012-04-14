@@ -43,6 +43,7 @@ libcvc4_la_LIBADD = \
 	@builddir@/printer/libprinter.la \
 	@builddir@/smt/libsmt.la \
 	@builddir@/theory/libtheory.la \
+	@builddir@/decision/libdecision.la \
 	@builddir@/lib/libreplacements.la
 libcvc4_noinst_la_LIBADD = \
 	@builddir@/util/libutil.la \
@@ -55,6 +56,7 @@ libcvc4_noinst_la_LIBADD = \
 	@builddir@/printer/libprinter.la \
 	@builddir@/smt/libsmt.la \
 	@builddir@/theory/libtheory.la \
+	@builddir@/decision/libdecision.la \
 	@builddir@/lib/libreplacements.la
 
 CLEANFILES = \
