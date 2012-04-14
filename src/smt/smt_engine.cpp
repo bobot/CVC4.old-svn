@@ -1002,6 +1002,10 @@ void SmtEnginePrivate::processAssertions() {
   // Simplify the assertions
   simplifyAssertions();
 
+  if(d_smt.d_decisionEngine->needSimplifiedPreITEAssertions()) {
+    d_smt.d_decisionEngine->informSimplifiedPreITEAssertions(d_assertionsToCheck);
+  }
+
   // Remove ITEs
   removeITEs();                 // This may need to be in a try-catch
                                 // block. make regress is passing, so

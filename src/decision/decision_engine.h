@@ -21,9 +21,11 @@
 
 #include <vector>
 
+#include "expr/node.h"
 #include "prop/sat_solver_types.h"
 #include "util/output.h"
 #include "decision/decision_strategy.h"
+
 
 using namespace std;
 using namespace CVC4::decision;
@@ -35,6 +37,7 @@ class DecisionEngine {
   vector <DecisionStrategy* > d_enabledStrategies;
   vector <DecisionStrategy* > d_needSimplifiedPreITEAssertions;
 
+  vector <Node> d_assertions;
 public:
   /** Constructor, enables decision stragies based on options */
   DecisionEngine();
@@ -46,7 +49,12 @@ public:
 
   /** Gets the next decision based on strategies that are enabled */
   prop::SatLiteral getNext() {
-    return prop::undefSatLiteral;
+    prop::SatLiteral ret = prop::undefSatLiteral;
+    for(unsigned i = 0; i < d_enabledStrategies.size() 
+          and ret == prop::undefSatLiteral; ++i) {
+      ret = d_enabledStrategies[i]->getNext();
+    }
+    return ret;
   }
 
   /**
@@ -59,8 +67,14 @@ public:
     Trace("decision") << "Shutting down decision engine" << std::endl;
   }
 
+  /** If one of the enabled strategies needs them  */
   bool needSimplifiedPreITEAssertions() {
-    return false;
+    return d_needSimplifiedPreITEAssertions.size() > 0;
+  }
+  void informSimplifiedPreITEAssertions(const vector<Node> &assertions);
+
+  const vector<Node>& getAssertions() {
+    return d_assertions;
   }
 
 private:
@@ -68,7 +82,7 @@ private:
    * Enable a particular decision strategy, updating corresponding
    * decision strategies
    */
-  void enableStrategy(DecisionStrategy* s);
+  void enableStrategy(DecisionStrategy* ds);
 
 };/* DecisionEngine class */
 

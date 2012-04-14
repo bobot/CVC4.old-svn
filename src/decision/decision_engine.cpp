@@ -19,6 +19,7 @@
 #include "decision/decision_engine.h"
 #include "decision/justification_heuristic.h"
 
+#include "expr/node.h"
 #include "util/options.h"
 
 using namespace std;
@@ -40,6 +41,13 @@ void DecisionEngine::enableStrategy(DecisionStrategy* ds)
   d_enabledStrategies.push_back(ds);
   if( ds->needSimplifiedPreITEAssertions() )
     d_needSimplifiedPreITEAssertions.push_back(ds);
+}
+
+void DecisionEngine::informSimplifiedPreITEAssertions(const vector<Node> &assertions)
+{
+  d_assertions.reserve(assertions.size());
+  for(unsigned i = 0 ; i < assertions.size(); ++i)
+    d_assertions.push_back(assertions[i]);
 }
 
 }/* CVC4 namespace */

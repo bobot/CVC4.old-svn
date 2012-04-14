@@ -34,8 +34,13 @@ namespace decision {
 
 class JustificationHueristic : public DecisionStrategy {
 public:
-  JustificationHueristic(CVC4::DecisionEngine* de) : DecisionStrategy(de) {}
-  prop::SatLiteral getNext() { return prop::undefSatLiteral; } 
+  JustificationHueristic(CVC4::DecisionEngine* de) : DecisionStrategy(de) {
+    Trace("decision") << "Justification hueristic enabled" << std::endl;
+  }
+  prop::SatLiteral getNext() { 
+    Trace("decision") << "JustificationHueristic::getNext()" << std::endl;
+    return prop::undefSatLiteral;
+  } 
   bool needSimplifiedPreITEAssertions() { return true; }
 };/* class JustificationHueristic */
 
