@@ -246,6 +246,13 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::APPLY_CONSTRUCTOR:
   case kind::APPLY_SELECTOR:
     break;
+  //quantifiers
+  case kind::FORALL:
+  case kind::EXISTS:
+  case kind::BOUND_VAR_LIST:
+  case kind::INST_PATTERN:
+  case kind::INST_PATTERN_LIST:
+    break;
 
   default:
     // fall back on however the kind prints itself; this probably

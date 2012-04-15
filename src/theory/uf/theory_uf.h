@@ -137,9 +137,6 @@ private:
 
   /** called when two equivalence classes are made disequal */
   void notifyDisequal( TNode t1, TNode t2, TNode reason );
-
-  ////   TEMPORARY
-  context::CDO< bool > d_hasCard;
 //AJR-hack-end
 public:
 

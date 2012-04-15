@@ -36,8 +36,7 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   d_conflict(c, false),
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
-  d_functionsTerms(c),
-  d_hasCard( c, false )
+  d_functionsTerms(c)
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
@@ -57,7 +56,6 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
     d_thss = NULL;
   }
   d_inst = new InstantiatorTheoryUf( c, qe, this );
-  qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( (InstantiatorTheoryUf*)d_inst ) );
   //AJR-hack-end
 }/* TheoryUF::TheoryUF() */
 
@@ -92,32 +90,13 @@ void TheoryUF::check(Effort level) {
     TNode fact = assertion.assertion;
 
     Debug("uf") << "TheoryUF::check(): processing " << fact << std::endl;
-    ////AJR-hack
-    Debug("uf-check") << "Check " << fact;
-    //<< " (" << d_valuation.isDecision( fact ) << ")";
-    Debug("uf-check") << std::endl;
-    if(Options::current()->finiteModelFind ){
-      if( d_valuation.isSatLiteral( fact ) && d_valuation.isDecision( fact ) ){
-        if( fact.getKind()==kind::CARDINALITY_CONSTRAINT ){
-          //std::cout << "Asserted " << fact << std::endl;
-          d_hasCard = true;
-        }else{
-          if( !d_hasCard ){
-            //std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
-            std::cout << "Error: constraint asserted before cardinality" << std::endl;
-            exit( 21 );
-          }
-        }
-      }
+    //AJR-hack
+    Debug("uf-check") << "Check " << fact << std::endl;
+    if( d_thss ){
+      bool isDecision = d_valuation.isSatLiteral( fact ) && d_valuation.isDecision( fact );
+      d_thss->assertNode( fact, isDecision );
     }
-    ////std::cout << "Check " << fact << std::endl;
-    //Debug("uf-ajr") << "TheoryUF::check(): processing " << fact << std::endl;
-    //d_assertions_ajr.push_back( fact );
-    //Debug("uf-ajr") << "   Current assumptions:" << std::endl;
-    //for( NodeList::const_iterator it = d_assertions_ajr.begin(); it!=d_assertions_ajr.end(); ++it ){
-    //  Debug("uf-ajr" ) << "      " << (*it) << std::endl;
-    //}
-    ////AJR-hack-end
+    //AJR-hack-end
 
     // If the assertion doesn't have a literal, it's a shared equality, so we set it up
     if (!assertion.isPreregistered) {
@@ -139,9 +118,6 @@ void TheoryUF::check(Effort level) {
       break;
     //AJR-hack
     case kind::CARDINALITY_CONSTRAINT:
-      if( d_thss ){
-        d_thss->assertCardinality( fact );
-      }
       break;
     //AJR-hack-end
     case kind::NOT:
@@ -149,12 +125,6 @@ void TheoryUF::check(Effort level) {
         d_equalityEngine.addPredicate(fact[0], false, fact);
       //AJR-hack
       } else if( fact[0].getKind()==kind::CARDINALITY_CONSTRAINT ){
-        if( d_thss ){
-          d_thss->assertCardinality( fact );
-        }
-        //if( d_valuation.isDecision( fact ) ){
-        //  std::cout << "Bad decision" << std::endl;
-        //}
       //AJR-hack-end
       } else{
         // Assert the dis-equality
@@ -174,7 +144,6 @@ void TheoryUF::check(Effort level) {
   // If in conflict, output the conflict
   if (d_conflict) {
     Debug("uf") << "TheoryUF::check(): conflict " << d_conflictNode << std::endl;
-    Debug("uf-ajr" ) << "TheoryUF::check(): conflict " << d_conflictNode << std::endl;
     d_out->conflict(d_conflictNode);
   }
 
@@ -191,6 +160,9 @@ void TheoryUF::check(Effort level) {
       d_thss->check( level );
     }
   }
+  //AJR-hack-end
+
+  //AJR-hack-temp
   //if( !d_conflict && level==FULL_EFFORT ){
     //EqClassesIterator eqc_iter( &d_equalityEngine );
     //while( !eqc_iter.isFinished() ){
@@ -224,7 +196,7 @@ void TheoryUF::check(Effort level) {
     //  std::cout << "      " << (*it) << std::endl;
     //}
   //}
-  //AJR-hack-end
+  //AJR-hack-temp-end
 
 }/* TheoryUF::check() */
 
@@ -238,7 +210,6 @@ void TheoryUF::propagate(Effort level) {
       Node normalized = Rewriter::rewrite(literal);
       if (!d_valuation.hasSatValue(normalized, satValue) || satValue) {
         d_out->propagate(literal);
-        Debug("uf-ajr" ) << "Uf::Propagate " << literal << std::endl;
       } else {
         Debug("uf") << "TheoryUF::propagate(): in conflict, normalized = " << normalized << std::endl;
         Node negatedLiteral;
@@ -391,7 +362,6 @@ void TheoryUF::presolve() {
         i != newClauses.end();
         ++i) {
       d_out->lemma(*i);
-      Debug("uf-ajr" ) << "Uf::Lemma " << (*i) << std::endl;
     }
   }
   Debug("uf") << "uf: end presolve()" << endl;

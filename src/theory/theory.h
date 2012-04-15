@@ -445,7 +445,9 @@ public:
   /**
    * Get the theory instantiator
    */
-  Instantiator* getInstantiator() { return d_inst; }
+  Instantiator* getInstantiator() {
+    return d_inst;
+  }
 
   /**
    * Pre-register a term.  Done one time for a Node, ever.

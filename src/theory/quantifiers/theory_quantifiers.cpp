@@ -150,16 +150,6 @@ void TheoryQuantifiers::assertExistential( Node n ){
   }
 }
 
-//void TheoryQuantifiers::assertCounterexample( Node n ){
-//  if( n.getKind()==NO_COUNTEREXAMPLE ){
-//    Debug("quantifiers") << n[0] << " is valid in current context." << std::endl;
-//    d_counterexample_asserts[ n[0] ] = true;
-//  }else{
-//    Assert( n.getKind()==NOT );
-//    d_counterexample_asserts[ n[0][0] ] = false;
-//  }
-//}
-
 bool TheoryQuantifiers::flipDecision(){
 #ifndef USE_FLIP_DECISION
   return false;
@@ -195,10 +185,6 @@ bool TheoryQuantifiers::restart(){
     return true;
   }
 }
-
-//Node TheoryQuantifiers::explain( TNode n ){
-//  return d_quantEngine->explain( n );
-//}
 
 void TheoryQuantifiers::performCheck(Effort e){
   d_quantEngine->check( e );

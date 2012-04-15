@@ -121,9 +121,6 @@ EqualityNodeId EqualityEngine<NotifyClass>::newNode(TNode node, bool isApplicati
   if( d_performNotify ){
     d_notify.notifyEqClass( node );
   }
-  //if( d_thss ){
-  //  d_thss->newEqClass( node );
-  //}
   //AJR-hack-end
 
   return newId;
@@ -241,9 +238,6 @@ void EqualityEngine<NotifyClass>::addDisequality(TNode t1, TNode t2, TNode reaso
   if( d_performNotify ){
     d_notify.notifyDisequal( t1, t2, reason );
   }
-  //if( d_thss ){
-  //  d_thss->assertDisequal( t1, t2, reason );
-  //}
   //AJR-hack-end
 
 
@@ -306,6 +300,8 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
   EqualityNode cc2 = getEqualityNode(n2);
   bool doNotify = false;
   //notify the theory
+  //the second part of this check is needed due to the internal implementation of this class.
+  // It ensures that we are merging terms and not operators.
   if( d_performNotify && class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
     doNotify = true;
   }

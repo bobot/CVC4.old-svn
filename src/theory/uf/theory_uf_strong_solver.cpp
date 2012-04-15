@@ -967,7 +967,8 @@ Node StrongSolverTheoryUf::ConflictFind::getCardinalityLemma(){
 
 StrongSolverTheoryUf::StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th) :
 d_out( &out ),
-d_th( th )
+d_th( th ),
+d_hasCard( c )
 {
 
 }
@@ -1017,7 +1018,22 @@ void StrongSolverTheoryUf::assertDisequal( Node a, Node b, Node reason ){
   }
 }
 
-/** assert terms are disequal */
+/** assert a node */
+void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
+  if( n.getKind()==CARDINALITY_CONSTRAINT || 
+      ( n.getKind()==NOT && n[0].getKind()==CARDINALITY_CONSTRAINT ) ){
+    d_hasCard = true;
+    assertCardinality( n );
+  }else{
+    if( isDecision && !d_hasCard ){
+      //std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
+      std::cout << "Error: constraint asserted before cardinality" << std::endl;
+      exit( 21 );
+    }
+  }
+}
+
+/** assert a cardinality constraint */
 void StrongSolverTheoryUf::assertCardinality( Node c ){
   if( c.getKind()==NOT ){
     //must add new lemma

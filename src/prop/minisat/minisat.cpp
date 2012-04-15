@@ -229,7 +229,6 @@ void MinisatSatSolver::Statistics::init(Minisat::SimpSolver* d_minisat){
 
 //AJR-hack
 unsigned MinisatSatSolver::getDecisionLevel() const{
-  //AJR_FIXME!!!
   return d_minisat->decisionLevel(); 
 }
 void MinisatSatSolver::requirePhasedDecision(SatLiteral lit) { 

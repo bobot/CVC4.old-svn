@@ -39,9 +39,9 @@ using namespace std;
 using namespace CVC4;
 using namespace CVC4::theory;
 
-//AJR-hack
+//AJR-hack-temp
 //#define TE_PRINT_PROCESS_TIMES
-//AJR-hack-end
+//AJR-hack-temp-end
 
 TheoryEngine::TheoryEngine(context::Context* context,
                            context::UserContext* userContext)
@@ -72,8 +72,10 @@ TheoryEngine::TheoryEngine(context::Context* context,
     d_theoryTable[theoryId] = NULL;
     d_theoryOut[theoryId] = NULL;
   }
+  //AJR-hack
   //initialize the quantifiers engine
   d_quantEngine = new QuantifiersEngine( context, this );
+  //AJR-hack-end
   Rewriter::init();
   StatisticsRegistry::registerStat(&d_combineTheoriesTime);
 }
@@ -125,10 +127,10 @@ void TheoryEngine::check(Theory::Effort effort) {
        } \
     }
 
-  //AJR-hack
+  //AJR-hack-temp
   //static int ierCounter = 0;
   //bool checkIerCounter = false;
-  //AJR-hack-end
+  //AJR-hack-temp-end
   // Do the checking
   try {
 
@@ -199,39 +201,24 @@ void TheoryEngine::check(Theory::Effort effort) {
         Debug("theory") << "TheoryEngine::check(" << effort << "): lemmas added, done" << std::endl;
         break;
       }
-      ////AJR-hack
-      //if( Theory::fullEffort(effort) && d_theoryTable[THEORY_QUANTIFIERS] ){
-      //  if( !checkIerCounter ){
-      //    checkIerCounter = true;
-      //    ierCounter++;
-      //    if( ierCounter%2==0 ){
-      //      ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::EFFORT_PRE_LAST_CALL );
-      //      if (d_lemmasAdded) {
-      //        Debug("theory") << "TheoryEngine::check(" << effort << "): lemmas added, done" << std::endl;
-      //        break;
-      //      }
-      //    }
-      //  }
-      //}
-      ////AJR-hack-end
 
       // If in full check and no lemmas added, run the combination
       if (Theory::fullEffort(effort) && d_sharedTermsExist) {
-        //AJR-hack
+        //AJR-hack-temp
 #ifdef TE_PRINT_PROCESS_TIMES
         double clSet = double(clock())/double(CLOCKS_PER_SEC);
         std::cout << "Run combination." << std::endl;
 #endif
-        //AJR-hack-end
+        //AJR-hack-temp-end
         // Do the combination
         Debug("theory") << "TheoryEngine::check(" << effort << "): running combination" << std::endl;
         combineTheories();
-        //AJR-hack
+        //AJR-hack-temp
 #ifdef TE_PRINT_PROCESS_TIMES
         double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
         std::cout << "Done run combination. " << (clSet2-clSet) << std::endl;
 #endif
-        //AJR-hack-end
+        //AJR-hack-temp-end
         // If we have any propagated shared literals, we enqueue them to the theories and re-check
         if (d_propagatedSharedLiterals.size() > 0) {
           Debug("theory") << "TheoryEngine::check(" << effort << "): distributing shared literals" << std::endl;

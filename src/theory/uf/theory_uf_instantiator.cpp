@@ -65,6 +65,8 @@ void EqClassInfo::merge( EqClassInfo* eci ){
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* qe, Theory* th) :
 Instantiator( c, qe, th )
 {
+  qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( this ) );
+
   if(Options::current()->finiteModelFind ){
     if( Options::current()->cbqi ){
       addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
@@ -120,7 +122,6 @@ void InstantiatorTheoryUf::assertNode( Node assertion )
 {
   Debug("quant-uf-assert") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
   preRegisterTerm( assertion );
-  ////addObligations( assertion, assertion );
 }
 
 void InstantiatorTheoryUf::addUserPattern( Node f, Node pat ){
@@ -198,19 +199,6 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
   }
   return d_ground_reps[a];
 }
-
-//void InstantiatorTheoryUf::getObligations( Node f, std::vector< Node >& obs ){
-//  NodeLists::iterator ob_i = d_obligations.find( f );
-//  if( ob_i!=d_obligations.end() ){
-//    NodeList* ob = (*ob_i).second;
-//    //std::cout  << "Generate trigger for literal matching..." << std::endl;
-//    //this is matching at the literal level : use obligations of f as pattern terms
-//    for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
-//      obs.push_back( *it );
-//    }
-//    d_ob_changed[f] = false;
-//  }
-//}
 
 InstantiatorTheoryUf::Statistics::Statistics():
   //d_instantiations("InstantiatorTheoryUf::Total_Instantiations", 0),

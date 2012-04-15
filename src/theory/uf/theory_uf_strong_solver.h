@@ -224,9 +224,10 @@ private:
   TheoryUF* d_th;
   /** conflict find structure, one for each type */
   std::map< TypeNode, ConflictFind* > d_conf_find;
-
   /** all types */
   std::vector< TypeNode > d_conf_types;
+  /** whether a cardinality constraint has been asserted */
+  context::CDO< bool > d_hasCard;
   /** pre register type */
   void preRegisterType( TypeNode tn );
 private:
@@ -241,6 +242,9 @@ public:
   void merge( Node a, Node b );
   /** assert terms are disequal */
   void assertDisequal( Node a, Node b, Node reason );
+  /** assert node */
+  void assertNode( Node n, bool isDecision );
+private:
   /** assert cardinality */
   void assertCardinality( Node c );
 public:

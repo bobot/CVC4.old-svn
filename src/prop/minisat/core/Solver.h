@@ -41,7 +41,6 @@ class SatProof;
 
 namespace prop {
   class TheoryProxy;
-  class MinisatSatSolver;
 }/* CVC4::prop namespace */
 
 }/* CVC4 namespace */
@@ -56,9 +55,6 @@ class Solver {
   /** The only two CVC4 entry points to the private solver data */
   friend class CVC4::prop::TheoryProxy;
   friend class CVC4::SatProof;
-  //AJR-hack
-  friend class CVC4::prop::MinisatSatSolver;
-  //AJR-hack-end
 protected:
 
   /** The pointer to the proxy that provides interfaces to the SMT engine */
@@ -385,15 +381,11 @@ protected:
 
     // Misc:
     //
-    int      decisionLevel    ()      const; // Gives the current decisionlevel.
     uint32_t abstractLevel    (Var x) const; // Used to represent an abstraction of sets of decision levels.
     CRef     reason           (Var x); // Get the reason of the variable (non const as it might create the explanation on the fly)
     bool     hasReasonClause  (Var x) const; // Does the variable have a reason
     bool     isPropagated     (Var x) const; // Does the variable have a propagated variables
     bool     isPropagatedBy   (Var x, const Clause& c) const; // Is the value of the variable propagated by the clause Clause C
-
-    bool     isDecision       (Var x) const; // is the given var a decision?
-    Lit      getDecision      (unsigned lvl) const; // get the decision at level lvl
 
     int      level            (Var x) const;
     int      intro_level      (Var x) const; // Level at which this variable was introduced
@@ -414,6 +406,12 @@ protected:
     // Returns a random integer 0 <= x < size. Seed must never be 0.
     static inline int irand(double& seed, int size) {
         return (int)(drand(seed) * size); }
+
+//AJR: made these functions public
+public:
+    int      decisionLevel    ()      const; // Gives the current decisionlevel.
+    bool     isDecision       (Var x) const; // is the given var a decision?
+    Lit      getDecision      (unsigned lvl) const; // get the decision at level lvl
 };
 
 

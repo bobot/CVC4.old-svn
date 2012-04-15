@@ -93,14 +93,15 @@ class EqualityQuery
 public:
   EqualityQuery(){}
   ~EqualityQuery(){}
-  /** general queries about equality */
+  /** get the representative of the equivalence class of a */
   virtual Node getRepresentative( Node a ) = 0;
+  /** returns true if a and b are equal in the current context */
   virtual bool areEqual( Node a, Node b ) = 0;
+  /** returns true is a and b are disequal in the current context */
   virtual bool areDisequal( Node a, Node b ) = 0;
-  /** internal representative
-      Returns a term in the equivalence class of "a" that does 
+  /** getInternalRepresentative gets the current best representative in the equivalence class of a, based on some criteria.
+      If cbqi is active, this will return a term in the equivalence class of "a" that does 
       not contain instantiation constants, if such a term exists. 
-      Otherwise, return "a" itself.
    */
   virtual Node getInternalRepresentative( Node a ) = 0;
 };

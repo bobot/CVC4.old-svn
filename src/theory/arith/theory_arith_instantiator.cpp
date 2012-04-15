@@ -203,44 +203,46 @@ void InstantiatorTheoryArith::assertNode( Node assertion ){
 } 
 
 void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort effort ){
-  Debug("quant-arith") << "Setting up simplex for instantiator... " << std::endl;
-  d_instRows.clear();
-  d_tableaux_term.clear();
-  d_tableaux.clear();
-  d_ceTableaux.clear();
-  //search for instantiation rows in simplex tableaux
-  ArithVarToNodeMap avtnm = ((TheoryArith*)getTheory())->d_arithvarNodeMap.getArithVarToNodeMap();
-  for( ArithVarToNodeMap::iterator it = avtnm.begin(); it != avtnm.end(); ++it ){
-    ArithVar x = (*it).first;
-    if( ((TheoryArith*)getTheory())->d_partialModel.hasEitherBound( x ) ){
-      Node n = (*it).second;
-      Node f;
-      NodeBuilder<> t(kind::PLUS);
-      if( n.getKind()==PLUS ){
-        for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          addTermToRow( x, n[i], f, t );
-        }
-      }else{
-        addTermToRow( x, n, f, t );
-      }
-      if( f!=Node::null() ){
-        d_instRows[f].push_back( x );
-        //this theory has constraints from f
-        Debug("quant-arith") << "Has constraints from " << f << std::endl;
-        setHasConstraintsFrom( f );
-        //set tableaux term
-        if( t.getNumChildren()==0 ){
-          d_tableaux_term[x] = NodeManager::currentNM()->mkConst( Rational(0) ); 
-        }else if( t.getNumChildren()==1 ){
-          d_tableaux_term[x] = t.getChild( 0 );
+  if( Options::current()->cbqi ){
+    Debug("quant-arith") << "Setting up simplex for instantiator... " << std::endl;
+    d_instRows.clear();
+    d_tableaux_term.clear();
+    d_tableaux.clear();
+    d_ceTableaux.clear();
+    //search for instantiation rows in simplex tableaux
+    ArithVarToNodeMap avtnm = ((TheoryArith*)getTheory())->d_arithvarNodeMap.getArithVarToNodeMap();
+    for( ArithVarToNodeMap::iterator it = avtnm.begin(); it != avtnm.end(); ++it ){
+      ArithVar x = (*it).first;
+      if( ((TheoryArith*)getTheory())->d_partialModel.hasEitherBound( x ) ){
+        Node n = (*it).second;
+        Node f;
+        NodeBuilder<> t(kind::PLUS);
+        if( n.getKind()==PLUS ){
+          for( int i=0; i<(int)n.getNumChildren(); i++ ){
+            addTermToRow( x, n[i], f, t );
+          }
         }else{
-          d_tableaux_term[x] = t;
+          addTermToRow( x, n, f, t );
+        }
+        if( f!=Node::null() ){
+          d_instRows[f].push_back( x );
+          //this theory has constraints from f
+          Debug("quant-arith") << "Has constraints from " << f << std::endl;
+          setHasConstraintsFrom( f );
+          //set tableaux term
+          if( t.getNumChildren()==0 ){
+            d_tableaux_term[x] = NodeManager::currentNM()->mkConst( Rational(0) ); 
+          }else if( t.getNumChildren()==1 ){
+            d_tableaux_term[x] = t.getChild( 0 );
+          }else{
+            d_tableaux_term[x] = t;
+          }
         }
       }
     }
+    //print debug
+    debugPrint( "quant-arith-debug" );
   }
-  //print debug
-  debugPrint( "quant-arith-debug" );
 }
 
 int InstantiatorTheoryArith::process( Node f, Theory::Effort effort, int e, int instLimit ){

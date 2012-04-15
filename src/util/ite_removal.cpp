@@ -75,7 +75,7 @@ Node RemoveITE::run(TNode node, std::vector<Node>& output) {
   }
 
   // If not an ITE, go deep
-  if( node.getKind() != kind::FORALL && node.getKind()!=kind::EXISTS ){
+  if( node.getKind() != kind::FORALL && node.getKind()!=kind::EXISTS && node.getKind()!=kind::REWRITE_RULE  ){
     vector<Node> newChildren;
     bool somethingChanged = false;
     if(node.getMetaKind() == kind::metakind::PARAMETERIZED) {

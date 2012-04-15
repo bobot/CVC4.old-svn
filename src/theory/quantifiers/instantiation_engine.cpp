@@ -323,6 +323,9 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
       }
       InstConstantAttribute ica;
       n.setAttribute(ica,f);
+      //also set the no-match attribute
+      NoMatchAttribute nma;
+      n.setAttribute(nma,true);
     }
   }
 }
