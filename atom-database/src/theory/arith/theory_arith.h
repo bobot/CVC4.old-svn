@@ -319,10 +319,10 @@ private:
   void propagateArithVar(bool upperbound, ArithVar var );
 
   /**
-   * Using the simpleKind return the ArithVar associated with the
-   * left hand side of assertion.
+   * Using the simpleKind return the ArithVar associated with the assertion.
    */
-  ArithVar determineLeftVariable(TNode assertion, Kind simpleKind);
+  ArithVar determineArithVar(const Polynomial& p) const;
+  ArithVar determineArithVar(TNode assertion) const;
 
   /**
    * Splits the disequalities in d_diseq that are violated using lemmas on demand.

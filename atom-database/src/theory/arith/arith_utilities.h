@@ -175,10 +175,10 @@ inline int deltaCoeff(Kind k){
   case kind::LEQ:
   case kind::GEQ:
   case kind::EQUAL:
-    return assertion.getKind();
+    return literal.getKind();
   case  kind::NOT:
     {
-      TNode atom = assertion[0];
+      TNode atom = literal[0];
       switch(atom.getKind()){
       case  kind::LEQ: //(not (LEQ x c)) <=> (GT x c)
         return  kind::GT;

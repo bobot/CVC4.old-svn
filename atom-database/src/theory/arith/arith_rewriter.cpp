@@ -222,19 +222,12 @@ RewriteResponse ArithRewriter::postRewriteAtom(TNode atom){
   TNode left = atom[0];
   TNode right = atom[1];
 
-  if(right.getMetaKind() == kind::metakind::CONSTANT){
-    return postRewriteAtomConstantRHS(atom);
-  }else{
-    Polynomial pleft = Polynomial::parsePolynomial(left);
-    Polynomial pright = Polynomial::parsePolynomial(right);
+  Polynomial pleft = Polynomial::parsePolynomial(left);
+  Polynomial pright = Polynomial::parsePolynomial(right);
 
-    Polynomial diff = pleft - pright;
-
-    Constant cZero = Constant::mkConstant(Rational(0));
-    Node reduction = NodeManager::currentNM()->mkNode(atom.getKind(), diff.getNode(), cZero.getNode());
-
-    return postRewriteAtomConstantRHS(reduction);
-  }
+  Comparison cmp = Comparison::mkComparison(atom.getKind(), pleft, pright);
+  Assert(cmp.isNormalForm());
+  return RewriteResponse(REWRITE_DONE, cmp.getNode());
 }
 
 RewriteResponse ArithRewriter::preRewriteAtom(TNode atom){

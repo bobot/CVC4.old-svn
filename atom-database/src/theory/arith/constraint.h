@@ -97,9 +97,6 @@ namespace arith {
  */
 enum ConstraintType {LowerBound, Equality, UpperBound, Disequality};
 
-/** Given a simplifiedKind this returns the corresponding ConstraintType. */
-ConstraintType constraintTypeOfLiteral(Kind k);
-
 
 typedef context::CDList<Constraint> CDConstraintList;
 
@@ -751,7 +748,7 @@ private:
 
   DifferenceManager& d_differenceManager;
 
-  Constraint allocateConstraintForLiteral(ArithVar v, Node literal);
+  //Constraint allocateConstraintForLiteral(ArithVar v, Node literal);
 
   const context::Context * const d_satContext;
   const int d_satAllocationLevel;
@@ -768,7 +765,7 @@ public:
   ~ConstraintDatabase();
 
   Constraint addLiteral(TNode lit);
-  Constraint addAtom(TNode atom);
+  //Constraint addAtom(TNode atom);
 
   /**
    * If hasLiteral() is true, returns the constraint.

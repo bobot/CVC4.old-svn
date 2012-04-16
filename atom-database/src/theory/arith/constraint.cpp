@@ -2,6 +2,7 @@
 #include "cvc4_private.h"
 #include "theory/arith/constraint.h"
 #include "theory/arith/arith_utilities.h"
+#include "theory/arith/normal_form.h"
 
 #include <ostream>
 #include <algorithm>
@@ -12,6 +13,40 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace theory {
 namespace arith {
+
+/** Given a simplifiedKind this returns the corresponding ConstraintType. */
+//ConstraintType constraintTypeOfLiteral(Kind k);
+ConstraintType constraintTypeOfComparison(const Comparison& cmp){
+  Kind k = cmp.comparisonKind();
+  switch(k){
+  case LT:
+  case LEQ:
+    {
+      Polynomial l = cmp.getLeft();
+      if(l.leadingCoefficientIsPositive()){ // (< x c)
+        return UpperBound;
+      }else{
+        return LowerBound; // (< (-x) c) 
+      }
+    }
+  case GT:
+  case GEQ:
+    {
+      Polynomial l = cmp.getLeft();
+      if(l.leadingCoefficientIsPositive()){
+        return LowerBound; // (> x c)
+      }else{
+        return UpperBound; // (> (-x) c)
+      }
+    }
+  case EQUAL:
+    return Equality;
+  case DISTINCT:
+    return Disequality;
+  default:
+    Unhandled(k);
+  }
+}
 
 ConstraintValue::ConstraintValue(ArithVar x,  ConstraintType t, const DeltaRational& v)
   : d_variable(x),
@@ -324,20 +359,34 @@ bool ConstraintValue::hasEqualityEngineProof() const {
 }
 
 bool ConstraintValue::sanityChecking(Node n) const {
-  Kind k = simplifiedKind(n);
-  DeltaRational right = determineRightConstant(n, k);
-
-  TNode left = getSide<true>(n, k);
+  Comparison cmp = Comparison::parseNormalForm(n);
+  Kind k = cmp.comparisonKind();
+  Polynomial pleft = cmp.normalizedVariablePart();
+  Assert(pleft.leadingCoefficientIsPositive());
+  TNode left = pleft.getNode();
+  DeltaRational right = cmp.normalizedDeltaRational();
+  
   const ArithVarNodeMap& av2node = d_database->getArithVarNodeMap();
+
+  cout << cmp.getNode() << endl;
+  cout << k << endl;
+  cout << pleft.getNode() << endl;
+  cout << left << endl;
+  cout << right << endl;
+  cout << getValue() << endl;
+  cout << av2node.hasArithVar(left) << endl;
+  cout << av2node.asArithVar(left) << endl;
+  cout << getVariable() << endl;
+  
 
   if(av2node.hasArithVar(left) &&
      av2node.asArithVar(left) == getVariable() &&
      getValue() == right){
     switch(getType()){
     case LowerBound:
-      return k == GT || k == GEQ;
     case UpperBound:
-      return k == LT || k == LEQ;
+      //Be overapproximate
+      return k == GT || k == GEQ ||k == LT || k == LEQ;
     case Equality:
       return k == EQUAL;
     case Disequality:
@@ -519,33 +568,47 @@ bool ConstraintDatabase::hasLiteral(TNode literal) const {
   return lookup(literal) != NullConstraint;
 }
 
+// Constraint ConstraintDatabase::addLiteral(TNode literal){
+//   Assert(!hasLiteral(literal));
+//   bool isNot = (literal.getKind() == NOT);
+//   TNode atom = isNot ? literal[0] : literal;
+
+//   Constraint atomC = addAtom(atom);
+
+//   return isNot ? atomC->d_negation : atomC;
+// }
+
+// Constraint ConstraintDatabase::allocateConstraintForComparison(ArithVar v, const Comparison cmp){
+//   Debug("arith::constraint") << "allocateConstraintForLiteral(" << v << ", "<< cmp <<")" << endl;
+//   Kind kind = cmp.comparisonKind();
+//   ConstraintType type = constraintTypeOfLiteral(kind);
+  
+//   DeltaRational dr = cmp.getDeltaRational();
+//   return new ConstraintValue(v, type, dr);
+// }
+
 Constraint ConstraintDatabase::addLiteral(TNode literal){
   Assert(!hasLiteral(literal));
   bool isNot = (literal.getKind() == NOT);
-  TNode atom = isNot ? literal[0] : literal;
+  Node atomNode = (isNot ? literal[0] : literal);
+  Node negationNode  = atomNode.notNode();
 
-  Constraint atomC = addAtom(atom);
+  Assert(!hasLiteral(atomNode));
+  Assert(!hasLiteral(negationNode));
+  Comparison posCmp = Comparison::parseNormalForm(atomNode);
 
-  return isNot ? atomC->d_negation : atomC;
-}
+  ConstraintType posType = constraintTypeOfComparison(posCmp);
 
-Constraint ConstraintDatabase::allocateConstraintForLiteral(ArithVar v, Node literal){
-  Debug("arith::constraint") << "allocateConstraintForLiteral(" << v << ", "<< literal <<")" << endl;
-  Kind kind = simplifiedKind(literal);
-  ConstraintType type = constraintTypeOfLiteral(kind);
-  DeltaRational dr = determineRightConstant(literal, kind);
-  return new ConstraintValue(v, type, dr);
-}
+  Polynomial nvp = posCmp.normalizedVariablePart();
+  cout << "here " <<  nvp.getNode() << " " << endl;
+  ArithVar v = d_av2nodeMap.asArithVar(nvp.getNode());
 
-Constraint ConstraintDatabase::addAtom(TNode atom){
-  Assert(!hasLiteral(atom));
+  DeltaRational posDR = posCmp.normalizedDeltaRational();
 
-  Debug("arith::constraint") << "addAtom(" << atom << ")" << endl;
-  ArithVar v = d_av2nodeMap.asArithVar(atom[0]);
+  Constraint posC = new ConstraintValue(v, posType, posDR);
 
-  Node negation = atom.notNode();
-
-  Constraint posC = allocateConstraintForLiteral(v, atom);
+  Debug("arith::constraint") << "addliteral( literal ->" << literal << ")" << endl;
+  Debug("arith::constraint") << "addliteral( posC ->" << posC << ")" << endl;
 
   SortedConstraintMap& scm = getVariableSCM(posC->getVariable());
   pair<SortedConstraintMapIterator, bool> insertAttempt;
@@ -564,12 +627,16 @@ Constraint ConstraintDatabase::addAtom(TNode atom){
 
     delete posC;
 
-    hit->setLiteral(atom);
-    hit->d_negation->setLiteral(negation);
-    return hit;
+    hit->setLiteral(atomNode);
+    hit->getNegation()->setLiteral(negationNode);
+    return isNot ? hit->getNegation(): hit;
   }else{
+    Comparison negCmp = Comparison::parseNormalForm(negationNode);
+    
+    ConstraintType negType = constraintTypeOfComparison(negCmp);
+    DeltaRational negDR = negCmp.normalizedDeltaRational();
 
-    Constraint negC = allocateConstraintForLiteral(v, negation);
+    Constraint negC = new ConstraintValue(v, negType, negDR);
 
     SortedConstraintMapIterator negI;
 
@@ -580,6 +647,10 @@ Constraint ConstraintDatabase::addAtom(TNode atom){
 
       pair<SortedConstraintMapIterator, bool> negInsertAttempt;
       negInsertAttempt = scm.insert(make_pair(negC->getValue(), ValueCollection()));
+
+      cout << "sdhjfgdhjkldfgljkhdfg" << endl;
+      cout << negC << endl;
+      cout << negC->getValue() << endl;
 
       //This should always succeed as the DeltaRational for the negation is unique!
       Assert(negInsertAttempt.second);
@@ -593,29 +664,29 @@ Constraint ConstraintDatabase::addAtom(TNode atom){
     posC->initialize(this, posI, negC);
     negC->initialize(this, negI, posC);
 
-    posC->setLiteral(atom);
-    negC->setLiteral(negation);
+    posC->setLiteral(atomNode);
+    negC->setLiteral(negationNode);
 
-    return posC;
+    return isNot ? negC : posC;
   }
 }
 
-ConstraintType constraintTypeOfLiteral(Kind k){
-  switch(k){
-  case LT:
-  case LEQ:
-    return UpperBound;
-  case GT:
-  case GEQ:
-    return LowerBound;
-  case EQUAL:
-    return Equality;
-  case DISTINCT:
-    return Disequality;
-  default:
-    Unreachable();
-  }
-}
+// ConstraintType constraintTypeOfLiteral(Kind k){
+//   switch(k){
+//   case LT:
+//   case LEQ:
+//     return UpperBound;
+//   case GT:
+//   case GEQ:
+//     return LowerBound;
+//   case EQUAL:
+//     return Equality;
+//   case DISTINCT:
+//     return Disequality;
+//   default:
+//     Unreachable();
+//   }
+// }
 
 Constraint ConstraintDatabase::lookup(TNode literal) const{
   NodetoConstraintMap::const_iterator iter = d_nodetoConstraintMap.find(literal);

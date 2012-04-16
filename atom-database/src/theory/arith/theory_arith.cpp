@@ -517,42 +517,60 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
   Node minVar;
   unsigned nVars = 0;
   if (in.getKind() == kind::EQUAL) {
-    Assert(in[1].getKind() == kind::CONST_RATIONAL);
-    // Find the variable with the smallest coefficient
-    Polynomial p = Polynomial::parsePolynomial(in[0]);
-    Polynomial::iterator it = p.begin(), it_end = p.end();
-    for (; it != it_end; ++ it) {
-      Monomial m = *it;
-      // Skip the constant
-      if (m.isConstant()) continue;
-      // This is a ''variable''
-      nVars ++;
-      // Skip the non-linear stuff
-      if (!m.getVarList().singleton()) continue;
-      // Get the minimal one
-      Rational constant = m.getConstant().getValue();
-      Rational absSconstant = constant > 0 ? constant : -constant;
-      if (minVar.isNull() || absSconstant < minConstant) {
-        Node var = m.getVarList().getNode();
-        if (var.getKind() == kind::VARIABLE) {
-          minVar = var;
-          minMonomial = m.getNode();
-          minConstant = constant;
-        }
+    Comparison cmp = Comparison::parseNormalForm(in);
+
+    Polynomial left = cmp.getLeft();
+    Polynomial right = cmp.getRight();
+
+    Monomial m = left.getHead();
+    if (m.getVarList().singleton()){
+      VarList vl = m.getVarList();
+      Node var = vl.getNode();
+      if (var.getKind() == kind::VARIABLE && !vl.isIntegral()) {
+        minVar = var;
       }
     }
 
+    //Assert(in[1].getKind() == kind::CONST_RATIONAL);
+    // Find the variable with the smallest coefficient
+    //Polynomial p = Polynomial::parsePolynomial(in[0]);
+
+    // Polynomial::iterator it = p.begin(), it_end = p.end();
+    // for (; it != it_end; ++ it) {
+    //   Monomial m = *it;
+    //   // Skip the constant
+    //   if (m.isConstant()) continue;
+    //   // This is a ''variable''
+    //   nVars ++;
+    //   // Skip the non-linear stuff
+    //   if (!m.getVarList().singleton()) continue;
+    //   // Get the minimal one
+    //   Rational constant = m.getConstant().getValue();
+    //   Rational absSconstant = constant > 0 ? constant : -constant;
+    //   if (minVar.isNull() || absSconstant < minConstant) {
+    //     Node var = m.getVarList().getNode();
+    //     if (var.getKind() == kind::VARIABLE) {
+    //       minVar = var;
+    //       minMonomial = m.getNode();
+    //       minConstant = constant;
+    //     }
+    //   }
+    //}
+
     // Solve for variable
     if (!minVar.isNull()) {
+      Polynomial right = cmp.getRight();
+      Node eliminateVar = right.getNode();
       // ax + p = c -> (ax + p) -ax - c = -ax
-      Node eliminateVar = NodeManager::currentNM()->mkNode(kind::MINUS, in[0], minMonomial);
-      if (in[1].getConst<Rational>() != 0) {
-        eliminateVar = NodeManager::currentNM()->mkNode(kind::MINUS, eliminateVar, in[1]);
-      }
-      // x = (p - ax - c) * -1/a
-      eliminateVar = NodeManager::currentNM()->mkNode(kind::MULT, eliminateVar, mkRationalNode(- minConstant.inverse()));
-      // Add the substitution if not recursive
-      Node rewritten = Rewriter::rewrite(eliminateVar);
+      // Node eliminateVar = NodeManager::currentNM()->mkNode(kind::MINUS, in[0], minMonomial);
+      // if (in[1].getConst<Rational>() != 0) {
+      //   eliminateVar = NodeManager::currentNM()->mkNode(kind::MINUS, eliminateVar, in[1]);
+      // }
+      // // x = (p - ax - c) * -1/a
+      // eliminateVar = NodeManager::currentNM()->mkNode(kind::MULT, eliminateVar, mkRationalNode(- minConstant.inverse()));
+      // // Add the substitution if not recursive
+      Node rewritten = eliminateVar;
+      Assert(rewritten == Rewriter::rewrite(eliminateVar));
       if (!rewritten.hasSubterm(minVar)) {
         Node elim = Rewriter::rewrite(eliminateVar);
         if (!minVar.getType().isInteger() || elim.getType().isInteger()) {
@@ -720,22 +738,17 @@ void TheoryArith::setupAtom(TNode atom) {
   Assert(isRelationOperator(atom.getKind()));
   Assert(Comparison::isNormalAtom(atom));
   Assert(!isSetup(atom));
+  Assert(!d_constraintDatabase.hasLiteral(atom));
 
-  Node left = atom[0];
-  if(!isSetup(left)){
-    Polynomial poly = Polynomial::parsePolynomial(left);
-    setupPolynomial(poly);
+  Comparison cmp = Comparison::parseNormalForm(atom);
+  Polynomial nvp = cmp.normalizedVariablePart();
+  Assert(!nvp.isZero());
+
+  if(!isSetup(nvp.getNode())){
+    setupPolynomial(nvp);
   }
 
-  // if(addToDatabase){
-  //   d_atomDatabase.addAtom(atom);
-  // }
-
-  if(d_constraintDatabase.hasLiteral(atom)){
-    Debug("arith::eq") << "has atom" << atom << endl;
-  }else{
-    d_constraintDatabase.addLiteral(atom);
-  }
+  d_constraintDatabase.addLiteral(atom);
 
   markSetup(atom);
 }
@@ -843,10 +856,19 @@ void TheoryArith::setupInitialValue(ArithVar x){
   Debug("arith") << "setupVariable("<<x<<")"<<std::endl;
 }
 
-ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
-  TNode left = getSide<true>(assertion, simpleKind);
+ArithVar TheoryArith::determineArithVar(const Polynomial& p) const{
+  Assert(!p.containsConstant());
+  Assert(p.getHead().constantIsPositive());
+  TNode n = p.getNode();
+  cout << "determineArithVar(" << n << ")" << endl;
+  return d_arithvarNodeMap.asArithVar(n);
+}
 
-  return d_arithvarNodeMap.asArithVar(left);
+ArithVar TheoryArith::determineArithVar(TNode assertion) const{
+  cout << "determineArithVar " << assertion << endl;
+  Comparison cmp = Comparison::parseNormalForm(assertion);
+  Polynomial variablePart = cmp.normalizedVariablePart();
+  return determineArithVar(variablePart);
 }
 
 
@@ -955,7 +977,7 @@ Node TheoryArith::callDioSolver(){
 Node TheoryArith::assertionCases(TNode assertion){
   Constraint constraint = d_constraintDatabase.lookup(assertion);
 
-  Kind simpleKind = simplifiedKind(assertion);
+  Kind simpleKind = Comparison::comparisonKind(assertion);
   Assert(simpleKind != UNDEFINED_KIND);
   Assert(constraint != NullConstraint ||
          simpleKind == EQUAL ||
@@ -999,16 +1021,16 @@ Node TheoryArith::assertionCases(TNode assertion){
   ArithVar x_i = constraint->getVariable();
   //DeltaRational c_i = determineRightConstant(assertion, simpleKind);
 
-  Assert(constraint->getVariable() == determineLeftVariable(assertion, simpleKind));
-  Assert(constraint->getValue() == determineRightConstant(assertion, simpleKind));
+  //Assert(constraint->getVariable() == determineLeftVariable(assertion, simpleKind));
+  //Assert(constraint->getValue() == determineRightConstant(assertion, simpleKind));
   Assert(!constraint->hasLiteral() || constraint->getLiteral() == assertion);
 
   Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
                               <<"(" << assertion
                               << " \\-> "
-                              << determineLeftVariable(assertion, simpleKind)
+    //<< determineLeftVariable(assertion, simpleKind)
                               <<" "<< simpleKind <<" "
-                              << determineRightConstant(assertion, simpleKind)
+    //<< determineRightConstant(assertion, simpleKind)
                               << ")" << std::endl;
 
 
@@ -1021,9 +1043,15 @@ Node TheoryArith::assertionCases(TNode assertion){
     Debug("arith::constraint") << "already has proof: " << constraint->explainForConflict() << endl;
   }
 
-  switch(simpleKind){
-  case LT:
-    if(isInteger(x_i)){
+  Assert(!isInteger(x_i) ||
+         simpleKind == EQUAL ||
+         simpleKind == DISTINCT ||
+         simpleKind == GEQ ||
+         simpleKind == LT);
+
+  switch(constraint->getType()){
+  case UpperBound:
+    if(simpleKind == LT && isInteger(x_i)){
       Constraint floorConstraint = constraint->getFloor();
       if(!floorConstraint->isTrue()){
         if(floorConstraint->negationHasProof()){
@@ -1035,12 +1063,12 @@ Node TheoryArith::assertionCases(TNode assertion){
       //c_i = DeltaRational(c_i.floor());
       //return AssertUpper(x_i, c_i, assertion, floorConstraint);
       return AssertUpper(floorConstraint);
+    }else{
+      return AssertUpper(constraint);
     }
-  case LEQ:
-    return AssertUpper(constraint);
     //return AssertUpper(x_i, c_i, assertion, constraint);
-  case GT:
-    if(isInteger(x_i)){
+  case LowerBound:
+    if(simpleKind == LT && isInteger(x_i)){
       Constraint ceilingConstraint = constraint->getCeiling();
       if(!ceilingConstraint->isTrue()){
         if(ceilingConstraint->negationHasProof()){
@@ -1052,14 +1080,14 @@ Node TheoryArith::assertionCases(TNode assertion){
       //c_i = DeltaRational(c_i.ceiling());
       //return AssertLower(x_i, c_i, assertion, ceilingConstraint);
       return AssertLower(ceilingConstraint);
+    }else{
+      return AssertLower(constraint);
     }
-  case GEQ:
-    return AssertLower(constraint);
     //return AssertLower(x_i, c_i, assertion, constraint);
-  case EQUAL:
+  case Equality:
     return AssertEquality(constraint);
     //return AssertEquality(x_i, c_i, assertion, constraint);
-  case DISTINCT:
+  case Disequality:
     return AssertDisequality(constraint);
     //return AssertDisequality(x_i, c_i, assertion, constraint);
   default:

@@ -290,6 +290,14 @@ public:
     return Constant(mkRationalNode(rat));
   }
 
+  static Constant mkZero() {
+    return mkConstant(Rational(0));
+  }
+
+  static Constant mkOne() {
+    return mkConstant(Rational(1));
+  }
+
   const Rational& getValue() const {
     return getNode().getConst<Rational>();
   }
@@ -303,6 +311,10 @@ public:
   bool isPositive() const { return sgn() > 0; }
 
   bool isOne() const { return getValue() == 1; }
+
+  Constant operator*(const Rational& other) const {
+    return mkConstant(getValue() * other);
+  }
 
   Constant operator*(const Constant& other) const {
     return mkConstant(getValue() * other.getValue());
@@ -622,8 +634,17 @@ public:
     return coefficientIsOne() || constant.getValue() == -1;
   }
 
+  bool constantIsPositive() const {
+    return getConstant().isPositive();
+  }
+
+  Monomial operator*(const Rational& q) const;
   Monomial operator*(const Constant& c) const;
   Monomial operator*(const Monomial& mono) const;
+
+  Monomial operator-() const{
+    return (*this) * Rational(-1);
+  }
 
 
   int cmp(const Monomial& mono) const {
@@ -845,6 +866,9 @@ public:
     return mkPolynomial(subrange);
   }
 
+  Monomial minimumVariableMonomial() const;
+  bool variableMonomialAreStrictlyGreater(const Monomial& m) const;
+
   void printList() const {
     if(Debug.isOn("normal-form")){
       Debug("normal-form") << "start list" << std::endl;
@@ -884,11 +908,23 @@ public:
    */
   Monomial selectAbsMinimum() const;
 
+  /** Returns true if the absolute value of the head coefficient is one. */
+  bool leadingCoefficientIsAbsOne() const;
+  bool leadingCoefficientIsPositive() const;
+  bool denominatorLCMIsOne() const;
+  bool numeratorGCDIsOne() const;
+
   /**
    * Returns the Least Common Multiple of the denominators of the coefficients
    * of the monomials.
    */
   Integer denominatorLCM() const;
+
+  /**
+   * Returns the GCD of the numerators of the monomials.
+   * Requires this to be an isIntegral() polynomial.
+   */
+  Integer numeratorGCD() const;
 
   /**
    * Returns the GCD of the coefficients of the monomials.
@@ -906,7 +942,11 @@ public:
 
   Polynomial operator+(const Polynomial& vl) const;
   Polynomial operator-(const Polynomial& vl) const;
+  Polynomial operator-() const{
+    return (*this) * Rational(-1);
+  }
 
+  Polynomial operator*(const Rational& q) const;
   Polynomial operator*(const Constant& c) const;
   Polynomial operator*(const Monomial& mono) const;
 
@@ -961,6 +1001,20 @@ public:
     return getNode().getConst<Rational>();
     //return getHead().getConstant().getValue();
   }
+
+  bool isVarList() const {
+    if(singleton()){
+      return VarList::isMember(getNode());
+    }else{
+      return false;
+    }
+  }
+
+  VarList asVarList() const {
+    Assert(isVarList());
+    return getHead().getVarList();
+  }
+
 };/* class Polynomial */
 
 
@@ -1043,6 +1097,8 @@ public:
     return (*this) + (other * Constant::mkConstant(-1));
   }
 
+  static SumPair mkSumPair(const Polynomial& p);
+
   static SumPair mkSumPair(const Variable& var){
     return SumPair(Polynomial::mkPolynomial(var));
   }
@@ -1085,76 +1141,96 @@ public:
 
 };/* class SumPair */
 
-class OrderedPolynomialPair {
-private:
-  Polynomial d_first;
-  Polynomial d_second;
-public:
-  OrderedPolynomialPair(const Polynomial& f, const Polynomial& s)
-    : d_first(f),
-      d_second(s)
-  {}
+/* class OrderedPolynomialPair { */
+/* private: */
+/*   Polynomial d_first; */
+/*   Polynomial d_second; */
+/* public: */
+/*   OrderedPolynomialPair(const Polynomial& f, const Polynomial& s) */
+/*     : d_first(f), */
+/*       d_second(s) */
+/*   {} */
 
-  /** Returns the first part of the pair. */
-  const Polynomial& getFirst() const {
-    return d_first;
-  }
+/*   /\** Returns the first part of the pair. *\/ */
+/*   const Polynomial& getFirst() const { */
+/*     return d_first; */
+/*   } */
 
-  /** Returns the second part of the pair. */
-  const Polynomial& getSecond() const {
-    return d_second;
-  }
+/*   /\** Returns the second part of the pair. *\/ */
+/*   const Polynomial& getSecond() const { */
+/*     return d_second; */
+/*   } */
 
-  OrderedPolynomialPair operator*(const Constant& c) const;
-  OrderedPolynomialPair operator+(const Polynomial& p) const;
+/*   OrderedPolynomialPair operator*(const Constant& c) const; */
+/*   OrderedPolynomialPair operator+(const Polynomial& p) const; */
 
-  /** Returns true if both of the polynomials are constant. */
-  bool isConstant() const;
+/*   /\** Returns true if both of the polynomials are constant. *\/ */
+/*   bool isConstant() const; */
 
-  /**
-   * Evaluates an isConstant() ordered pair as if
-   *   (k getFirst() getRight())
-   */
-  bool evaluateConstant(Kind k) const;
+/*   /\** */
+/*    * Evaluates an isConstant() ordered pair as if */
+/*    *   (k getFirst() getRight()) */
+/*    *\/ */
+/*   bool evaluateConstant(Kind k) const; */
 
-  /**
-   * Returns the Least Common Multiple of the monomials
-   * on the lefthand side and the constant on the right.
-   */
-  Integer denominatorLCM() const;
+/*   /\** */
+/*    * Returns the Least Common Multiple of the monomials */
+/*    * on the lefthand side and the constant on the right. */
+/*    *\/ */
+/*   Integer denominatorLCM() const; */
 
-  /** Constructs a SumPair. */
-  SumPair toSumPair() const;
+/*   /\** Constructs a SumPair. *\/ */
+/*   SumPair toSumPair() const; */
 
 
-  OrderedPolynomialPair divideByGCD() const;
-  OrderedPolynomialPair multiplyConstant(const Constant& c) const;
-  OrderedPolynomialPair divideByLeadingFirstCoefficient() const;
+/*   OrderedPolynomialPair divideByGCD() const; */
+/*   OrderedPolynomialPair multiplyConstant(const Constant& c) const; */
 
-  /**
-   * Returns true if all of the variables are integers,
-   * and the coefficients are integers.
-   */
-  bool isIntegral() const;
+/*   /\** */
+/*    * Returns true if all of the variables are integers, */
+/*    * and the coefficients are integers. */
+/*    *\/ */
+/*   bool isIntegral() const; */
 
-  /** Returns true if all of the variables are integers. */
-  bool allIntegralVariables() const {
-    return getFirst().allIntegralVariables() && getSecond().allIntegralVariables();
-  }
-};
+/*   /\** Returns true if all of the variables are integers. *\/ */
+/*   bool allIntegralVariables() const { */
+/*     return getFirst().allIntegralVariables() && getSecond().allIntegralVariables(); */
+/*   } */
+/* }; */
 
 class Comparison : public NodeWrapper {
 private:
 
+  static Node toNode(Kind k, const Polynomial& l, const Constant& c);
   static Node toNode(Kind k, const Polynomial& l, const Polynomial& r);
 
   Comparison(TNode n);
 
-  static Comparison mkIntEqComparison(const OrderedPolynomialPair& pair);
-  static Comparison mkIntCmpComparison(Kind k, const OrderedPolynomialPair& pair);
+  /**
+   * Creates a node in normal form equivalent to (= l 0).
+   * All variables in l are integral.
+   */
+  static Node mkIntEquality(const Polynomial& l);
 
-  static Comparison mkRatEqComparison(const OrderedPolynomialPair& pair);
-  static Comparison mkRatCmpComparison(Kind k, const OrderedPolynomialPair& pair);
+  /**
+   * Creates a comparison equivalent to (k l 0).
+   * k is either GT or GEQ.
+   * All variables in l are integral.
+   */
+  static Node mkIntInequality(Kind k, const Polynomial& l);
+
+  /**
+   * Creates a node equivalent to (= l 0).
+   * It is not the case that all variables in l are integral.
+   */
+  static Node mkRatEquality(const Polynomial& l);
+
+  /**
+   * Creates a comparison equivalent to (k l 0).
+   * k is either GT or GEQ.
+   * It is not the case that all variables in l are integral.
+   */  
+  static Node mkRatInequality(Kind k, const Polynomial& l);
 
 public:
 
@@ -1175,12 +1251,9 @@ public:
    */
   static Kind comparisonKind(TNode literal);
 
+  Kind comparisonKind() const { return comparisonKind(getNode()); }
 
-  static Comparison mkComparison(Kind k, const Polynomial& l, const Polynomial& r){
-    return mkComparison(k, OrderedPolynomialPair(l, r));
-  }
-  static Comparison mkComparison(Kind k, const OrderedPolynomialPair& pair);
-
+  static Comparison mkComparison(Kind k, const Polynomial& l, const Polynomial& r);
 
   /** Returns true if the comparison is a boolean constant. */
   bool isBoolean() const;
@@ -1192,19 +1265,37 @@ public:
   bool isNormalForm() const;
 
 private:
-  /** Normal form check if at least one variable is real. */
-  bool isMixedCompareNormalForm() const;
+  bool isNormalGT() const;
+  bool isNormalGEQ() const;
 
-  /** Normal form check if at least one variable is real. */
-  bool isMixedEqualsNormalForm() const;
+  bool isNormalLT() const;
+  bool isNormalLEQ() const;
 
-  /** Normal form check is all variables are real.*/
-  bool isIntegerCompareNormalForm() const;
+  bool isNormalEquality() const;
+  bool isNormalDistinct() const;
+  bool isNormalEqualityOrDisequality() const;
 
-  /** Normal form check is all variables are real.*/
-  bool isIntegerEqualsNormalForm() const;
+  bool allIntegralVariables() const {
+    return getLeft().allIntegralVariables() && getRight().allIntegralVariables();
+  }
+  bool rightIsConstant() const;
 
 public:
+  Polynomial getLeft() const;
+  Polynomial getRight() const;
+
+  /* /\** Normal form check if at least one variable is real. *\/ */
+  /* bool isMixedCompareNormalForm() const; */
+
+  /* /\** Normal form check if at least one variable is real. *\/ */
+  /* bool isMixedEqualsNormalForm() const; */
+
+  /* /\** Normal form check is all variables are integer.*\/ */
+  /* bool isIntegerCompareNormalForm() const; */
+
+  /* /\** Normal form check is all variables are integer.*\/ */
+  /* bool isIntegerEqualsNormalForm() const; */
+
 
   /**
    * Returns true if all of the variables are integers, the coefficients are integers,
@@ -1220,6 +1311,9 @@ public:
   }
 
   SumPair toSumPair() const;
+
+  Polynomial normalizedVariablePart() const;
+  DeltaRational normalizedDeltaRational() const;
 
 };/* class Comparison */
 

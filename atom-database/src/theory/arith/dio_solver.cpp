@@ -141,9 +141,10 @@ bool DioSolver::acceptableOriginalNodes(Node n){
   }else if(k == kind::AND){
     Node ub = n[0];
     Node lb = n[1];
-    Kind kub = simplifiedKind(ub);
-    Kind klb = simplifiedKind(lb);
-    return (kub == kind::LEQ || kub==kind::LT) && (klb == kind::GEQ || klb == kind::GT);
+    Kind kub = Comparison::comparisonKind(ub);
+    Kind klb = Comparison::comparisonKind(lb);
+    cout << n << endl;
+    return (kub == kind::GEQ || kub==kind::LT) && (klb == kind::GEQ || klb == kind::LT);
   }else{
     return false;
   }
