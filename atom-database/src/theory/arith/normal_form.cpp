@@ -821,7 +821,7 @@ Node Comparison::mkRatEquality(const Polynomial& p){
   Assert(!p.allIntegralVariables());
 
   Monomial minimalVList = p.minimumVariableMonomial();
-  Constant coeffInv = minimalVList.getConstant().inverse();
+  Constant coeffInv = -(minimalVList.getConstant().inverse());
 
   Polynomial newRight = (p - minimalVList) * coeffInv;
   Polynomial newLeft(minimalVList.getVarList());
