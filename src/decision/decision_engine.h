@@ -124,13 +124,16 @@ public:
   // Interface for Strategies to get information about External World
 
   bool hasSatLiteral(Node n) {
-    d_cnfStream->hasLiteral(n);
+    return d_cnfStream->hasLiteral(n);
   }
   SatLiteral getSatLiteral(Node n) {
     return d_cnfStream->getLiteral(n);
   }
   SatValue getSatValue(SatLiteral l) {
     return d_satSolver->value(l);
+  }
+  Node getNode(SatLiteral l) {
+    return d_cnfStream->getNode(l);
   }
 
 private:

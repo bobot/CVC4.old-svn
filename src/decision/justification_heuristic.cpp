@@ -59,35 +59,45 @@ CVC3 code <---->  this code
 
 ***/
 
-bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, SatLiteral* litDecision)
+void JustificationHeuristic::setJustified(SatVariable v)
+{
+  d_justified.insert(v);
+}
+
+bool JustificationHeuristic::checkJustified(SatVariable v)
+{
+  return d_justified.find(v) != d_justified.end();
+}
+
+SatValue invertValue(SatValue v)
+{
+  if(v == SAT_VALUE_UNKNOWN) return SAT_VALUE_UNKNOWN;
+  else if(v == SAT_VALUE_TRUE) return SAT_VALUE_FALSE;
+  else return SAT_VALUE_TRUE;
+}
+
+bool JustificationHeuristic::findSplitterRec(SatLiteral lit, SatValue desiredVal, SatLiteral* litDecision)
 //bool SearchSat::findSplitterRec(Lit lit, Var::Val value, Lit* litDecision)
 {
-  if(not d_decisionEngine->hasSatLiteral(node)) {
-    //    Warning() << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
-    return false;
-    //    Assert(not lit.isNull());
-  }
-
-
-
-  SatLiteral lit = d_decisionEngine->getSatLiteral(node);
-  SatValue litVal =  d_decisionEngine->getSatValue(lit);
+  // if(not ) {
+  //   //    Warning() << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
+  //   return false;
+  //   //    Assert(not lit.isNull());
+  // }
 
   /** 
    * TODO -- Base case. Way CVC3 seems to handle is that it has
    * literals correpsonding to true and false. We'll have to take care
    * somewhere else.
    */
-  // if (lit.isFalse() || lit.isTrue()) return false;
 
-  unsigned i, n;
-  // Lit litTmp;
-  SatLiteral litTmp;
-  // Var varTmp;
-  SatVariable varTmp;
-  bool ret;
   // Var v = lit.getVar();
   SatVariable v = lit.getSatVariable();
+  SatValue litVal =  d_decisionEngine->getSatValue(lit);
+
+  // if (lit.isFalse() || lit.isTrue()) return false;
+  if (v == 0) return false;
+
 
   /* You'd better know what you want */
   // DebugAssert(value != Var::UNKNOWN, "expected known value");
@@ -99,13 +109,19 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
   Assert(litVal == desiredVal || litVal == SAT_VALUE_UNKNOWN, 
          "invariant voilated");
 
-  /*
+
   if (checkJustified(v)) return false;
 
-  if (lit.isInverted()) {
-    value = Var::invertValue(value);
+  if (lit.isNegated()) {
+    desiredVal = invertValue(desiredVal);
   }
 
+  Node node = d_decisionEngine->getNode(lit);
+  Trace("decision") << "lit = " << lit << std::endl;
+  Trace("decision") << node.getKind() << std::endl;
+  Trace("decision") << node << std::endl;
+
+  /*
   if (d_cnfManager->numFanins(v) == 0) {
     if (getValue(v) != Var::UNKNOWN) {
       setJustified(v);
@@ -116,6 +132,19 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       return true;
     }
   }
+  */
+  if(node.getNumChildren() == 0) {
+    if(litVal != SAT_VALUE_UNKNOWN) {
+      setJustified(v);
+      return false;
+    } else {
+      *litDecision = SatLiteral(v, desiredVal == SAT_VALUE_TRUE );
+      return true;
+    }
+  }
+
+
+  /*
   else if (d_cnfManager->concreteVar(v).isAbsAtomicFormula()) {
     // This node represents a predicate with embedded ITE's
     // We handle this case specially in order to catch the
@@ -357,7 +386,8 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
   }
   FatalAssert(false, "Should be unreachable");
   ------------------------------------------------  */
-
   return false;
+
+  Unreachable();
 
 }/* findRecSplit method */

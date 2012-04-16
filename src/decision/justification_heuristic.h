@@ -36,8 +36,7 @@ namespace CVC4 {
 namespace decision {
 
 class JustificationHeuristic : public DecisionStrategy {
-  typedef __gnu_cxx::hash_map<TNode, bool, TNodeHashFunction> TNodeBoolMap;
-  TNodeBoolMap d_justified;
+  set<SatVariable> d_justified;
   unsigned  d_prvsIndex;
 public:
   JustificationHeuristic(CVC4::DecisionEngine* de) : 
@@ -50,11 +49,20 @@ public:
     const vector<Node>& assertions = d_decisionEngine->getAssertions();
 
     for(unsigned i = d_prvsIndex; i < assertions.size(); ++i) {
-      SatLiteral* l = NULL;
-      bool ret = findSplitterRec(assertions[i], SAT_VALUE_TRUE, l);
+      SatLiteral litDecision;
+
+      /* Make sure there is a literal corresponding to the node  */
+      if( not d_decisionEngine->hasSatLiteral(assertions[i]) ) {
+        //    Warning() << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
+        continue;
+        //    Assert(not lit.isNull());
+      }
+      
+      SatLiteral lit = d_decisionEngine->getSatLiteral(assertions[i]);
+        bool ret = findSplitterRec(lit, SAT_VALUE_TRUE, &litDecision);
       if(ret == true) {
         d_prvsIndex = i;
-        return *l;
+        return litDecision;
       }
     }
 
@@ -72,7 +80,11 @@ public:
   }
 private:
   /* Do all the hardwork. */ 
-  bool findSplitterRec(Node n, SatValue value, SatLiteral* litDecision);
+  bool findSplitterRec(SatLiteral lit, SatValue value, SatLiteral* litDecision);
+
+  /* Helper functions */
+  void setJustified(SatVariable v);
+  bool checkJustified(SatVariable v);
 };/* class JustificationHeuristic */
 
 }/* namespace decision */
