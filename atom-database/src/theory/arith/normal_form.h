@@ -707,6 +707,8 @@ public:
 
 };/* class Monomial */
 
+class SumPair;
+class Comparison;;
 
 class Polynomial : public NodeWrapper {
 private:
@@ -1014,6 +1016,9 @@ public:
     Assert(isVarList());
     return getHead().getVarList();
   }
+
+  friend class SumPair;
+  friend class Comparison;;
 
 };/* class Polynomial */
 

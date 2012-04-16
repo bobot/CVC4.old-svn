@@ -414,12 +414,11 @@ SumPair SumPair::mkSumPair(const Polynomial& p){
   if(p.isConstant()){
     Constant leadingConstant = p.getHead().getConstant();
     return SumPair(Polynomial::mkZero(), leadingConstant);
+  }else if(p.containsConstant()){
+    Assert(!p.singleton());
+    return SumPair(p.getTail(), p.getHead().getConstant());
   }else{
-    if(p.containsConstant()){
-      return SumPair(p.getTail(), p.getHead().getConstant());
-    }else{
-      return SumPair(p, Constant::mkZero());
-    }
+    return SumPair(p, Constant::mkZero());
   }
 }
 
@@ -454,13 +453,17 @@ SumPair Comparison::toSumPair() const {
     {
       Polynomial left = getLeft();
       Polynomial right = getRight();
+      cout << "left: " << left.getNode() << endl;
+      cout << "right: " << right.getNode() << endl;
       if(right.isConstant()){
         return SumPair(left, -right.getHead().getConstant());
       }else if(right.containsConstant()){
+        Assert(!right.singleton());
+
         Polynomial noConstant = right.getTail();
-        return SumPair(left - noConstant, Constant::mkZero());
+        return SumPair(left - noConstant, -right.getHead().getConstant());
       }else{
-        return SumPair(left - right, -right.getHead().getConstant());
+        return SumPair(left - right, Constant::mkZero());
       }
     }
   default:
@@ -754,16 +757,29 @@ bool Comparison::isNormalEqualityOrDisequality() const {
       Polynomial pright = getRight();
       if(allIntegralVariables()){
         const Rational& lcoeff = mleft.getConstant().getValue();
+        if(pright.isConstant()){
+          return pright.isIntegral() && lcoeff.isOne();
+        }
         Polynomial varRight = pright.containsConstant() ? pright.getTail() : pright;
         if(lcoeff.sgn() <= 0){
           return false;
-        }else if(! lcoeff.getDenominator().lcm(varRight.denominatorLCM()).isOne()){
-          return false;
-        }else if(! lcoeff.getNumerator().gcd(varRight.numeratorGCD()).isOne()){
-          return false;
         }else{
-          Monomial absMinRight = pright.selectAbsMinimum();
-          return mleft.absLessThan(absMinRight) || mleft < absMinRight;
+          Integer lcm = lcoeff.getDenominator().lcm(varRight.denominatorLCM());
+          Integer g = lcoeff.getNumerator().gcd(varRight.numeratorGCD());
+          cout << lcm << " " << g << endl;
+          if(!lcm.isOne()){
+            return false;
+          }else if(!g.isOne()){
+            return false;
+          }else{
+            Monomial absMinRight = varRight.selectAbsMinimum();
+            cout << mleft.getNode() << " " << absMinRight.getNode() << endl;
+            if( mleft.absLessThan(absMinRight) ){
+              return true;
+            }else{
+              return (!absMinRight.absLessThan(mleft)) && mleft < absMinRight;
+            }
+          }
         }
       }else{
         if(mleft.coefficientIsOne()){
