@@ -37,38 +37,38 @@ namespace decision {
 
 class JustificationHeuristic : public DecisionStrategy {
   typedef __gnu_cxx::hash_map<TNode, bool, TNodeHashFunction> TNodeBoolMap;
-  TNodeBoolMap justified;
-  Node d_formula;
+  TNodeBoolMap d_justified;
+  unsigned  d_prvsIndex;
 public:
-  JustificationHeuristic(CVC4::DecisionEngine* de) : DecisionStrategy(de) {
+  JustificationHeuristic(CVC4::DecisionEngine* de) : 
+    DecisionStrategy(de) {
     Trace("decision") << "Justification heuristic enabled" << std::endl;
   }
   prop::SatLiteral getNext() {
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
 
-    findSplitterRec(d_formula, SAT_VALUE_TRUE);
+    const vector<Node>& assertions = d_decisionEngine->getAssertions();
+
+    for(unsigned i = d_prvsIndex; i < assertions.size(); ++i) {
+      SatLiteral l = findSplitterRec(assertions[i], SAT_VALUE_TRUE);
+      if(l != prop::undefSatLiteral) {
+        d_prvsIndex = i;
+        return l;
+      }
+    }
 
     return prop::undefSatLiteral;
   } 
   bool needSimplifiedPreITEAssertions() { return true; }
   void notifyAssertionsAvailable() {
-    // we do this here, but may be some/all of this needs to be done
-    // in getNext()
-    
     /* clear the justifcation labels -- reconsider if/when to do
        this */
-    justified.clear();
-    
-    /* build a big AND formula from assertions */
-    /*const vector<Node>& ass = d_decisionEngine->getAssertions();
-    NodeBuilder<> b(kind::AND);
-    for(int i = 0; ass.size(); ++i)
-      b << ass[i];
-      d_formula = b;*/
+    d_justified.clear();
+    d_prvsIndex = 0;
   }
 private:
   /* Do all the hardwork. */ 
-  SatLiteral findSplitterRec(Node n, SatValue val) {}
+  SatLiteral findSplitterRec(Node n, SatValue val) { return prop::undefSatLiteral; }
 };/* class JustificationHeuristic */
 
 }/* namespace decision */
