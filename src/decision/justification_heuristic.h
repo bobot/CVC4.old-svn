@@ -50,10 +50,11 @@ public:
     const vector<Node>& assertions = d_decisionEngine->getAssertions();
 
     for(unsigned i = d_prvsIndex; i < assertions.size(); ++i) {
-      SatLiteral l = findSplitterRec(assertions[i], SAT_VALUE_TRUE);
-      if(l != prop::undefSatLiteral) {
+      SatLiteral* l = NULL;
+      bool ret = findSplitterRec(assertions[i], SAT_VALUE_TRUE, l);
+      if(ret == true) {
         d_prvsIndex = i;
-        return l;
+        return *l;
       }
     }
 
@@ -61,6 +62,9 @@ public:
   } 
   bool needSimplifiedPreITEAssertions() { return true; }
   void notifyAssertionsAvailable() {
+    Trace("decision") << "JustificationHeuristic::notifyAssertionsAvailable()" 
+                      << "  size = " << d_decisionEngine->getAssertions().size()
+                      << std::endl;
     /* clear the justifcation labels -- reconsider if/when to do
        this */
     d_justified.clear();
@@ -68,7 +72,7 @@ public:
   }
 private:
   /* Do all the hardwork. */ 
-  SatLiteral findSplitterRec(Node n, SatValue val) { return prop::undefSatLiteral; }
+  bool findSplitterRec(Node n, SatValue value, SatLiteral* litDecision);
 };/* class JustificationHeuristic */
 
 }/* namespace decision */

@@ -22,6 +22,7 @@
 #include "prop/sat_solver.h"
 #include "prop/sat_solver_factory.h"
 
+#include "decision/decision_engine.h"
 #include "theory/theory_engine.h"
 #include "theory/theory_registrar.h"
 #include "util/Assert.h"
@@ -79,6 +80,9 @@ PropEngine::PropEngine(TheoryEngine* te, DecisionEngine *de, Context* context) :
   d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, registrar, Options::current()->threads > 1);
 
   d_satSolver->initialize(d_context, new TheoryProxy(this, d_theoryEngine, d_decisionEngine, d_context, d_cnfStream));
+
+  d_decisionEngine->setSatSolver(d_satSolver);
+  d_decisionEngine->setCnfStream(d_cnfStream);
 }
 
 PropEngine::~PropEngine() {

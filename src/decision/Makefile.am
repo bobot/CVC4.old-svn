@@ -9,4 +9,5 @@ libdecision_la_SOURCES = \
 	decision_engine.h \
 	decision_engine.cpp \
 	decision_strategy.h \
-	justification_heuristic.h
+	justification_heuristic.h \
+	justification_heuristic.cpp

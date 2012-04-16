@@ -19,6 +19,8 @@
 #ifndef __CVC4__DECISION__DECISION_STRATEGY_H
 #define __CVC4__DECISION__DECISION_STRATEGY_H
 
+#include "prop/sat_solver_types.h"
+
 namespace CVC4 {
 
 class DecisionEngine;
@@ -32,6 +34,8 @@ public:
   DecisionStrategy(DecisionEngine* de) :
     d_decisionEngine(de) {
   }
+
+  virtual ~DecisionStrategy() { }
 
   virtual prop::SatLiteral getNext() = 0;
   

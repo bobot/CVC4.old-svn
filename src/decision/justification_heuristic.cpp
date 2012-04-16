@@ -39,21 +39,67 @@
  */
 /*****************************************************************************/
 
+#include "justification_heuristic.h"
 
-JustificationHeuristic::findSplitterRec(Node lit, )
+
+/***
+
+Summary of the algorithm:
+
+
+
+***/
+
+/*
+
+CVC3 code <---->  this code
+ 
+ value            desiredVal
+ getValue(lit)    litVal
+
+***/
+
+bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, SatLiteral* litDecision)
+//bool SearchSat::findSplitterRec(Lit lit, Var::Val value, Lit* litDecision)
 {
-  if (lit.isFalse() || lit.isTrue()) return false;
+  if(not d_decisionEngine->hasSatLiteral(node)) {
+    //    Warning() << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
+    return false;
+    //    Assert(not lit.isNull());
+  }
+
+
+
+  SatLiteral lit = d_decisionEngine->getSatLiteral(node);
+  SatValue litVal =  d_decisionEngine->getSatValue(lit);
+
+  /** 
+   * TODO -- Base case. Way CVC3 seems to handle is that it has
+   * literals correpsonding to true and false. We'll have to take care
+   * somewhere else.
+   */
+  // if (lit.isFalse() || lit.isTrue()) return false;
 
   unsigned i, n;
-  Lit litTmp;
-  Var varTmp;
+  // Lit litTmp;
+  SatLiteral litTmp;
+  // Var varTmp;
+  SatVariable varTmp;
   bool ret;
-  Var v = lit.getVar();
+  // Var v = lit.getVar();
+  SatVariable v = lit.getSatVariable();
 
-  DebugAssert(value != Var::UNKNOWN, "expected known value");
-  DebugAssert(getValue(lit) == value || getValue(lit) == Var::UNKNOWN,
-              "invariant violated");
+  /* You'd better know what you want */
+  // DebugAssert(value != Var::UNKNOWN, "expected known value");
+  Assert(desiredVal != SAT_VALUE_UNKNOWN, "expected known value");
 
+  /* Good luck, hope you can get what you want */
+  // DebugAssert(getValue(lit) == value || getValue(lit) == Var::UNKNOWN,
+  //             "invariant violated");
+  Assert(litVal == desiredVal || litVal == SAT_VALUE_UNKNOWN, 
+         "invariant voilated");
+
+  /*
   if (checkJustified(v)) return false;
 
   if (lit.isInverted()) {
@@ -87,40 +133,40 @@ JustificationHeuristic::findSplitterRec(Node lit, )
       Lit cThen = d_cnfManager->getFanin(varTmp,1);
       Lit cElse = d_cnfManager->getFanin(varTmp,2);
       if (getValue(cIf) == Var::UNKNOWN) {
-	if (getValue(cElse) == Var::TRUE_VAL ||
+        if (getValue(cElse) == Var::TRUE_VAL ||
             getValue(cThen) == Var::FALSE_VAL) {
-	  ret = findSplitterRec(cIf, Var::FALSE_VAL, litDecision);
-	}
-	else {
-	  ret = findSplitterRec(cIf, Var::TRUE_VAL, litDecision);
-	}
-	if (!ret) {
-	  cout << d_cnfManager->concreteVar(cIf.getVar()) << endl;
-	  DebugAssert(false,"No controlling input found (1)");
-	}	  
-	return true;
+          ret = findSplitterRec(cIf, Var::FALSE_VAL, litDecision);
+        }
+        else {
+          ret = findSplitterRec(cIf, Var::TRUE_VAL, litDecision);
+        }
+        if (!ret) {
+          cout << d_cnfManager->concreteVar(cIf.getVar()) << endl;
+          DebugAssert(false,"No controlling input found (1)");
+        }	  
+        return true;
       }
       else if (getValue(cIf) == Var::TRUE_VAL) {
-	if (findSplitterRec(cIf, Var::TRUE_VAL, litDecision)) {
-	    return true;
-	}
-	if (cThen.getVar() != v &&
+        if (findSplitterRec(cIf, Var::TRUE_VAL, litDecision)) {
+            return true;
+        }
+        if (cThen.getVar() != v &&
             (getValue(cThen) == Var::UNKNOWN ||
              getValue(cThen) == Var::TRUE_VAL) &&
-	    findSplitterRec(cThen, Var::TRUE_VAL, litDecision)) {
-	  return true;
-	}
+            findSplitterRec(cThen, Var::TRUE_VAL, litDecision)) {
+          return true;
+        }
       }
       else {
-	if (findSplitterRec(cIf, Var::FALSE_VAL, litDecision)) {
-	  return true;
-	}
-	if (cElse.getVar() != v &&
+        if (findSplitterRec(cIf, Var::FALSE_VAL, litDecision)) {
+          return true;
+        }
+        if (cElse.getVar() != v &&
             (getValue(cElse) == Var::UNKNOWN ||
              getValue(cElse) == Var::TRUE_VAL) &&
-	    findSplitterRec(cElse, Var::TRUE_VAL, litDecision)) {
-	  return true;
-	}
+            findSplitterRec(cElse, Var::TRUE_VAL, litDecision)) {
+          return true;
+        }
       }
       setJustified(varTmp);
     }
@@ -142,31 +188,31 @@ JustificationHeuristic::findSplitterRec(Node lit, )
     case OR:
       if (value == valHard) {
         n = d_cnfManager->numFanins(v);
-	for (i=0; i < n; ++i) {
+        for (i=0; i < n; ++i) {
           litTmp = d_cnfManager->getFanin(v, i);
-	  if (findSplitterRec(litTmp, valHard, litDecision)) {
-	    return true;
-	  }
-	}
-	DebugAssert(getValue(v) == valHard, "Output should be justified");
-	setJustified(v);
-	return false;
+          if (findSplitterRec(litTmp, valHard, litDecision)) {
+            return true;
+          }
+        }
+        DebugAssert(getValue(v) == valHard, "Output should be justified");
+        setJustified(v);
+        return false;
       }
       else {
         Var::Val valEasy = Var::invertValue(valHard);
         n = d_cnfManager->numFanins(v);
-	for (i=0; i < n; ++i) {
+        for (i=0; i < n; ++i) {
           litTmp = d_cnfManager->getFanin(v, i);
-	  if (getValue(litTmp) != valHard) {
-	    if (findSplitterRec(litTmp, valEasy, litDecision)) {
-	      return true;
-	    }
-	    DebugAssert(getValue(v) == valEasy, "Output should be justified");
+          if (getValue(litTmp) != valHard) {
+            if (findSplitterRec(litTmp, valEasy, litDecision)) {
+              return true;
+            }
+            DebugAssert(getValue(v) == valEasy, "Output should be justified");
             setJustified(v);
-	    return false;
-	  }
-	}
-	DebugAssert(false, "No controlling input found (2)");
+            return false;
+          }
+        }
+        DebugAssert(false, "No controlling input found (2)");
       }
       break;
     case IMPLIES:
@@ -180,9 +226,9 @@ JustificationHeuristic::findSplitterRec(Node lit, )
         if (findSplitterRec(litTmp, Var::FALSE_VAL, litDecision)) {
           return true;
         }
-	DebugAssert(getValue(v) == Var::FALSE_VAL, "Output should be justified");
-	setJustified(v);
-	return false;
+        DebugAssert(getValue(v) == Var::FALSE_VAL, "Output should be justified");
+        setJustified(v);
+        return false;
       }
       else {
         litTmp = d_cnfManager->getFanin(v, 0);
@@ -193,7 +239,7 @@ JustificationHeuristic::findSplitterRec(Node lit, )
           DebugAssert(getValue(v) == Var::TRUE_VAL, "Output should be justified");
           setJustified(v);
           return false;
-	}
+        }
         litTmp = d_cnfManager->getFanin(v, 1);
         if (getValue(litTmp) != Var::FALSE_VAL) {
           if (findSplitterRec(litTmp, Var::TRUE_VAL, litDecision)) {
@@ -202,35 +248,35 @@ JustificationHeuristic::findSplitterRec(Node lit, )
           DebugAssert(getValue(v) == Var::TRUE_VAL, "Output should be justified");
           setJustified(v);
           return false;
-	}
-	DebugAssert(false, "No controlling input found (3)");
+        }
+        DebugAssert(false, "No controlling input found (3)");
       }
       break;
     case IFF: {
       litTmp = d_cnfManager->getFanin(v, 0);
       Var::Val val = getValue(litTmp);
       if (val != Var::UNKNOWN) {
-	if (findSplitterRec(litTmp, val, litDecision)) {
-	  return true;
-	}
-	if (value == Var::FALSE_VAL) val = Var::invertValue(val);
+        if (findSplitterRec(litTmp, val, litDecision)) {
+          return true;
+        }
+        if (value == Var::FALSE_VAL) val = Var::invertValue(val);
         litTmp = d_cnfManager->getFanin(v, 1);
 
-	if (findSplitterRec(litTmp, val, litDecision)) {
-	  return true;
-	}
-	DebugAssert(getValue(v) == value, "Output should be justified");
-	setJustified(v);
-	return false;
+        if (findSplitterRec(litTmp, val, litDecision)) {
+          return true;
+        }
+        DebugAssert(getValue(v) == value, "Output should be justified");
+        setJustified(v);
+        return false;
       }
       else {
         val = getValue(d_cnfManager->getFanin(v, 1));
         if (val == Var::UNKNOWN) val = Var::FALSE_VAL;
-	if (value == Var::FALSE_VAL) val = Var::invertValue(val);
-	if (findSplitterRec(litTmp, val, litDecision)) {
-	  return true;
-	}
-	DebugAssert(false, "Unable to find controlling input (4)");
+        if (value == Var::FALSE_VAL) val = Var::invertValue(val);
+        if (findSplitterRec(litTmp, val, litDecision)) {
+          return true;
+        }
+        DebugAssert(false, "Unable to find controlling input (4)");
       }
       break;
     }
@@ -238,26 +284,26 @@ JustificationHeuristic::findSplitterRec(Node lit, )
       litTmp = d_cnfManager->getFanin(v, 0);
       Var::Val val = getValue(litTmp);
       if (val != Var::UNKNOWN) {
-	if (findSplitterRec(litTmp, val, litDecision)) {
-	  return true;
-	}
-	if (value == Var::TRUE_VAL) val = Var::invertValue(val);
+        if (findSplitterRec(litTmp, val, litDecision)) {
+          return true;
+        }
+        if (value == Var::TRUE_VAL) val = Var::invertValue(val);
         litTmp = d_cnfManager->getFanin(v, 1);
-	if (findSplitterRec(litTmp, val, litDecision)) {
-	  return true;
-	}
-	DebugAssert(getValue(v) == value, "Output should be justified");
-	setJustified(v);
-	return false;
+        if (findSplitterRec(litTmp, val, litDecision)) {
+          return true;
+        }
+        DebugAssert(getValue(v) == value, "Output should be justified");
+        setJustified(v);
+        return false;
       }
       else {
         val = getValue(d_cnfManager->getFanin(v, 1));
         if (val == Var::UNKNOWN) val = Var::FALSE_VAL;
-	if (value == Var::TRUE_VAL) val = Var::invertValue(val);
-	if (findSplitterRec(litTmp, val, litDecision)) {
-	  return true;
-	}
-	DebugAssert(false, "Unable to find controlling input (5)");
+        if (value == Var::TRUE_VAL) val = Var::invertValue(val);
+        if (findSplitterRec(litTmp, val, litDecision)) {
+          return true;
+        }
+        DebugAssert(false, "Unable to find controlling input (5)");
       }
       break;
     }
@@ -266,40 +312,40 @@ JustificationHeuristic::findSplitterRec(Node lit, )
       Lit cThen = d_cnfManager->getFanin(v, 1);
       Lit cElse = d_cnfManager->getFanin(v, 2);
       if (getValue(cIf) == Var::UNKNOWN) {
-	if (getValue(cElse) == value ||
+        if (getValue(cElse) == value ||
             getValue(cThen) == Var::invertValue(value)) {
-	  ret = findSplitterRec(cIf, Var::FALSE_VAL, litDecision);
-	}
-	else {
-	  ret = findSplitterRec(cIf, Var::TRUE_VAL, litDecision);
-	}
-	if (!ret) {
-	  cout << d_cnfManager->concreteVar(cIf.getVar()) << endl;
-	  DebugAssert(false,"No controlling input found (6)");
-	}	  
-	return true;
+          ret = findSplitterRec(cIf, Var::FALSE_VAL, litDecision);
+        }
+        else {
+          ret = findSplitterRec(cIf, Var::TRUE_VAL, litDecision);
+        }
+        if (!ret) {
+          cout << d_cnfManager->concreteVar(cIf.getVar()) << endl;
+          DebugAssert(false,"No controlling input found (6)");
+        }	  
+        return true;
       }
       else if (getValue(cIf) == Var::TRUE_VAL) {
-	if (findSplitterRec(cIf, Var::TRUE_VAL, litDecision)) {
-	    return true;
-	}
-	if (cThen.isVar() && cThen.getVar() != v &&
+        if (findSplitterRec(cIf, Var::TRUE_VAL, litDecision)) {
+            return true;
+        }
+        if (cThen.isVar() && cThen.getVar() != v &&
             (getValue(cThen) == Var::UNKNOWN ||
              getValue(cThen) == value) &&
-	    findSplitterRec(cThen, value, litDecision)) {
-	  return true;
-	}
+            findSplitterRec(cThen, value, litDecision)) {
+          return true;
+        }
       }
       else {
-	if (findSplitterRec(cIf, Var::FALSE_VAL, litDecision)) {
-	  return true;
-	}
-	if (cElse.isVar() && cElse.getVar() != v &&
+        if (findSplitterRec(cIf, Var::FALSE_VAL, litDecision)) {
+          return true;
+        }
+        if (cElse.isVar() && cElse.getVar() != v &&
             (getValue(cElse) == Var::UNKNOWN ||
              getValue(cElse) == value) &&
-	    findSplitterRec(cElse, value, litDecision)) {
-	  return true;
-	}
+            findSplitterRec(cElse, value, litDecision)) {
+          return true;
+        }
       }
       DebugAssert(getValue(v) == value, "Output should be justified");
       setJustified(v);
@@ -310,5 +356,8 @@ JustificationHeuristic::findSplitterRec(Node lit, )
       break;
   }
   FatalAssert(false, "Should be unreachable");
+  ------------------------------------------------  */
+
   return false;
+
 }/* findRecSplit method */

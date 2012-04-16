@@ -267,6 +267,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_decisionEngine = new DecisionEngine();
   d_propEngine = new PropEngine(d_theoryEngine, d_decisionEngine, d_context);
   d_theoryEngine->setPropEngine(d_propEngine);
+  // d_decisionEngine->setPropEngine(d_propEngine);
 
   d_definedFunctions = new(true) DefinedFunctionMap(d_userContext);
 
