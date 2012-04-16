@@ -60,11 +60,11 @@ public:
     justified.clear();
     
     /* build a big AND formula from assertions */
-    const vector<Node>& ass = d_decisionEngine->getAssertions();
+    /*const vector<Node>& ass = d_decisionEngine->getAssertions();
     NodeBuilder<> b(kind::AND);
     for(int i = 0; ass.size(); ++i)
       b << ass[i];
-    d_formula = b;
+      d_formula = b;*/
   }
 private:
   /* Do all the hardwork. */ 
