@@ -31,7 +31,7 @@ DecisionEngine::DecisionEngine() : d_needSimplifiedPreITEAssertions() {
   Trace("decision") << "Creating decision engine" << std::endl;
   if(options->decisionMode == Options::DECISION_STRATEGY_INTERNAL) { }
   if(options->decisionMode == Options::DECISION_STRATEGY_JUSTIFICATION) {
-    DecisionStrategy* ds = new decision::JustificationHueristic(this);
+    DecisionStrategy* ds = new decision::JustificationHeuristic(this);
     enableStrategy(ds);
   }
 }

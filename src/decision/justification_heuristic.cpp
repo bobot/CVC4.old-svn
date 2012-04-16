@@ -11,11 +11,11 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Justification hueristic for decision making
+ ** \brief Justification heuristic for decision making
  **
- ** A ATGP-inspired justification-based decision hueristic. See
+ ** A ATGP-inspired justification-based decision heuristic. See
  ** [insert reference] for more details. This code is, or not, based
- ** on the CVC3 implementation of the same hueristic -- note below.
+ ** on the CVC3 implementation of the same heuristic -- note below.
  **
  ** It needs access to the simplified but non-clausal formula.
  **/
@@ -40,7 +40,7 @@
 /*****************************************************************************/
 
 
- JustificationHueristic::findSplitterRec(Node lit, )
+JustificationHeuristic::findSplitterRec(Node lit, )
 {
   if (lit.isFalse() || lit.isTrue()) return false;
 

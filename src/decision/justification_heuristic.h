@@ -11,17 +11,17 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Justification hueristic for decision making
+ ** \brief Justification heuristic for decision making
  **
- ** A ATGP-inspired justification-based decision hueristic. See
+ ** A ATGP-inspired justification-based decision heuristic. See
  ** [insert reference] for more details. This code is, or not, based
- ** on the CVC3 implementation of the same hueristic.
+ ** on the CVC3 implementation of the same heuristic.
  **
  ** It needs access to the simplified but non-clausal formula.
  **/
 
-#ifndef __CVC4__DECISION__JUSTIFICATION_HUERISTIC
-#define __CVC4__DECISION__JUSTIFICATION_HUERISTIC
+#ifndef __CVC4__DECISION__JUSTIFICATION_HEURISTIC
+#define __CVC4__DECISION__JUSTIFICATION_HEURISTIC
 
 #include "decision_engine.h"
 #include "decision_strategy.h"
@@ -35,16 +35,16 @@ namespace CVC4 {
 
 namespace decision {
 
-class JustificationHueristic : public DecisionStrategy {
+class JustificationHeuristic : public DecisionStrategy {
   typedef __gnu_cxx::hash_map<TNode, bool, TNodeHashFunction> TNodeBoolMap;
   TNodeBoolMap justified;
   Node d_formula;
 public:
-  JustificationHueristic(CVC4::DecisionEngine* de) : DecisionStrategy(de) {
-    Trace("decision") << "Justification hueristic enabled" << std::endl;
+  JustificationHeuristic(CVC4::DecisionEngine* de) : DecisionStrategy(de) {
+    Trace("decision") << "Justification heuristic enabled" << std::endl;
   }
   prop::SatLiteral getNext() {
-    Trace("decision") << "JustificationHueristic::getNext()" << std::endl;
+    Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
 
     findSplitterRec(d_formula, SAT_VALUE_TRUE);
 
@@ -69,10 +69,10 @@ public:
 private:
   /* Do all the hardwork. */ 
   SatLiteral findSplitterRec(Node n, SatValue val) {}
-};/* class JustificationHueristic */
+};/* class JustificationHeuristic */
 
 }/* namespace decision */
 
 }/* namespace CVC4 */
 
-#endif /* __CVC4__DECISION__JUSTIFICATION_HUERISTIC */
+#endif /* __CVC4__DECISION__JUSTIFICATION_HEURISTIC */
