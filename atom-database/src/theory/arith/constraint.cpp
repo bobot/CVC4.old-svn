@@ -362,10 +362,13 @@ bool ConstraintValue::sanityChecking(Node n) const {
   Comparison cmp = Comparison::parseNormalForm(n);
   Kind k = cmp.comparisonKind();
   Polynomial pleft = cmp.normalizedVariablePart();
-  Assert(pleft.leadingCoefficientIsPositive());
+  Assert(k == EQUAL || k == DISTINCT || pleft.leadingCoefficientIsPositive());
+  Assert(k != EQUAL || Monomial::isMember(n[0]));
+  Assert(k != DISTINCT || Monomial::isMember(n[0][0]));
+
   TNode left = pleft.getNode();
   DeltaRational right = cmp.normalizedDeltaRational();
-  
+
   const ArithVarNodeMap& av2node = d_database->getArithVarNodeMap();
 
   Debug("nf::tmp") << cmp.getNode() << endl;
