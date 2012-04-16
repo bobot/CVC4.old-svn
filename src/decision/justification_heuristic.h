@@ -59,7 +59,9 @@ public:
       }
       
       SatLiteral lit = d_decisionEngine->getSatLiteral(assertions[i]);
-        bool ret = findSplitterRec(lit, SAT_VALUE_TRUE, &litDecision);
+      SatValue desiredVal = d_decisionEngine->getSatValue(lit);
+      if(desiredVal == SAT_VALUE_UNKNOWN) desiredVal = SAT_VALUE_TRUE;
+      bool ret = findSplitterRec(lit, desiredVal, &litDecision);
       if(ret == true) {
         d_prvsIndex = i;
         return litDecision;
