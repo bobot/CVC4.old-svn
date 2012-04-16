@@ -368,16 +368,16 @@ bool ConstraintValue::sanityChecking(Node n) const {
   
   const ArithVarNodeMap& av2node = d_database->getArithVarNodeMap();
 
-  cout << cmp.getNode() << endl;
-  cout << k << endl;
-  cout << pleft.getNode() << endl;
-  cout << left << endl;
-  cout << right << endl;
-  cout << getValue() << endl;
-  cout << av2node.hasArithVar(left) << endl;
-  cout << av2node.asArithVar(left) << endl;
-  cout << getVariable() << endl;
-  
+  Debug("nf::tmp") << cmp.getNode() << endl;
+  Debug("nf::tmp") << k << endl;
+  Debug("nf::tmp") << pleft.getNode() << endl;
+  Debug("nf::tmp") << left << endl;
+  Debug("nf::tmp") << right << endl;
+  Debug("nf::tmp") << getValue() << endl;
+  Debug("nf::tmp") << av2node.hasArithVar(left) << endl;
+  Debug("nf::tmp") << av2node.asArithVar(left) << endl;
+  Debug("nf::tmp") << getVariable() << endl;
+
 
   if(av2node.hasArithVar(left) &&
      av2node.asArithVar(left) == getVariable() &&
@@ -600,7 +600,7 @@ Constraint ConstraintDatabase::addLiteral(TNode literal){
   ConstraintType posType = constraintTypeOfComparison(posCmp);
 
   Polynomial nvp = posCmp.normalizedVariablePart();
-  cout << "here " <<  nvp.getNode() << " " << endl;
+  Debug("nf::tmp") << "here " <<  nvp.getNode() << " " << endl;
   ArithVar v = d_av2nodeMap.asArithVar(nvp.getNode());
 
   DeltaRational posDR = posCmp.normalizedDeltaRational();
@@ -648,9 +648,9 @@ Constraint ConstraintDatabase::addLiteral(TNode literal){
       pair<SortedConstraintMapIterator, bool> negInsertAttempt;
       negInsertAttempt = scm.insert(make_pair(negC->getValue(), ValueCollection()));
 
-      cout << "sdhjfgdhjkldfgljkhdfg" << endl;
-      cout << negC << endl;
-      cout << negC->getValue() << endl;
+      Debug("nf::tmp") << "sdhjfgdhjkldfgljkhdfg" << endl;
+      Debug("nf::tmp") << negC << endl;
+      Debug("nf::tmp") << negC->getValue() << endl;
 
       //This should always succeed as the DeltaRational for the negation is unique!
       Assert(negInsertAttempt.second);

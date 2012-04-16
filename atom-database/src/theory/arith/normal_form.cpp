@@ -383,8 +383,8 @@ bool Polynomial::variableMonomialAreStrictlyGreater(const Monomial& m) const{
     return true;
   }else{
     Monomial minimum = minimumVariableMonomial();
-    cout << "minimum " << minimum.getNode() << endl;
-    cout << "m " << m.getNode() << endl;
+    Debug("nf::tmp") << "minimum " << minimum.getNode() << endl;
+    Debug("nf::tmp") << "m " << m.getNode() << endl;
     return m < minimum;
   }
 }
@@ -453,8 +453,8 @@ SumPair Comparison::toSumPair() const {
     {
       Polynomial left = getLeft();
       Polynomial right = getRight();
-      cout << "left: " << left.getNode() << endl;
-      cout << "right: " << right.getNode() << endl;
+      Debug("nf::tmp") << "left: " << left.getNode() << endl;
+      Debug("nf::tmp") << "right: " << right.getNode() << endl;
       if(right.isConstant()){
         return SumPair(left, -right.getHead().getConstant());
       }else if(right.containsConstant()){
@@ -639,7 +639,7 @@ Polynomial Comparison::getRight() const {
 bool Comparison::isNormalForm() const {
   Node n = getNode();
   Kind cmpKind = comparisonKind(n);
-  cout << "isNormalForm " << n << " " << cmpKind << endl;
+  Debug("nf::tmp") << "isNormalForm " << n << " " << cmpKind << endl;
   switch(cmpKind){
   case kind::CONST_BOOLEAN:
     return true;
@@ -681,7 +681,7 @@ bool Comparison::isNormalGT() const {
 /** This must be (not (> qpolynomial constant)) */
 bool Comparison::isNormalLEQ() const {
   Node n = getNode();
-  cout << "isNormalLEQ " << n << endl;
+  Debug("nf::tmp") << "isNormalLEQ " << n << endl;
   Assert(n.getKind() == kind::NOT);
   Assert(n[0].getKind() == kind::GT);
   if(!rightIsConstant()){
@@ -704,7 +704,7 @@ bool Comparison::isNormalGEQ() const {
   Node n = getNode();
   Assert(n.getKind() == kind::GEQ);
 
-  cout << "isNormalGEQ " << n << " " << rightIsConstant() << endl;
+  Debug("nf::tmp") << "isNormalGEQ " << n << " " << rightIsConstant() << endl;
 
   if(!rightIsConstant()){
     return false;
@@ -716,7 +716,7 @@ bool Comparison::isNormalGEQ() const {
       if(left.isIntegral()){
         return left.denominatorLCMIsOne() && left.numeratorGCDIsOne();
       }else{
-        cout << "imme sdfhkdjfh "<< left.leadingCoefficientIsAbsOne() << endl;
+        Debug("nf::tmp") << "imme sdfhkdjfh "<< left.leadingCoefficientIsAbsOne() << endl;
         return left.leadingCoefficientIsAbsOne();
       }
     }
@@ -766,14 +766,14 @@ bool Comparison::isNormalEqualityOrDisequality() const {
         }else{
           Integer lcm = lcoeff.getDenominator().lcm(varRight.denominatorLCM());
           Integer g = lcoeff.getNumerator().gcd(varRight.numeratorGCD());
-          cout << lcm << " " << g << endl;
+          Debug("nf::tmp") << lcm << " " << g << endl;
           if(!lcm.isOne()){
             return false;
           }else if(!g.isOne()){
             return false;
           }else{
             Monomial absMinRight = varRight.selectAbsMinimum();
-            cout << mleft.getNode() << " " << absMinRight.getNode() << endl;
+            Debug("nf::tmp") << mleft.getNode() << " " << absMinRight.getNode() << endl;
             if( mleft.absLessThan(absMinRight) ){
               return true;
             }else{
@@ -783,10 +783,11 @@ bool Comparison::isNormalEqualityOrDisequality() const {
         }
       }else{
         if(mleft.coefficientIsOne()){
-          cout << "dfklj " << mleft.getNode() << endl
-               << pright.getNode() << endl
-               << pright.variableMonomialAreStrictlyGreater(mleft)
-               << endl;
+          Debug("nf::tmp")
+            << "dfklj " << mleft.getNode() << endl
+            << pright.getNode() << endl
+            << pright.variableMonomialAreStrictlyGreater(mleft)
+            << endl;
           return pright.variableMonomialAreStrictlyGreater(mleft);
         }else{
           return false;
@@ -899,13 +900,12 @@ Node Comparison::mkIntEquality(const Polynomial& p){
   Integer lcm = varPart.denominatorLCM();
   Integer g = varPart.numeratorGCD();
   Constant mult = Constant::mkConstant(Rational(lcm,g));
-  
 
   Constant constMult = constPart * mult;
 
   if(constMult.isIntegral()){
     Polynomial varPartMult = varPart * mult;
-    
+
     Monomial m = varPartMult.selectAbsMinimum();
     bool mIsPositive =  m.getConstant().isPositive();
 

@@ -143,7 +143,7 @@ bool DioSolver::acceptableOriginalNodes(Node n){
     Node lb = n[1];
     Kind kub = Comparison::comparisonKind(ub);
     Kind klb = Comparison::comparisonKind(lb);
-    cout << n << endl;
+    Debug("nf::tmp") << n << endl;
     return (kub == kind::GEQ || kub==kind::LT) && (klb == kind::GEQ || klb == kind::LT);
   }else{
     return false;

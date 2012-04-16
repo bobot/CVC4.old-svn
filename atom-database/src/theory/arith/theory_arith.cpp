@@ -283,7 +283,6 @@ Node TheoryArith::AssertUpper(Constraint constraint){
         const Constraint lb = vc.getLowerBound();
         Node conflict = ConstraintValue::explainConflict(diseq, lb, constraint);
         Debug("eq") << " assert upper conflict " << conflict << endl;
-        cout << " assert upper conflict " << conflict << endl;
         return conflict;
       }else if(!eq->isTrue()){
         Debug("eq") << "lb == ub, propagate eq" << eq << endl;
@@ -515,7 +514,6 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
   Rational minConstant = 0;
   Node minMonomial;
   Node minVar;
-  unsigned nVars = 0;
   if (in.getKind() == kind::EQUAL) {
     Comparison cmp = Comparison::parseNormalForm(in);
 
@@ -860,12 +858,12 @@ ArithVar TheoryArith::determineArithVar(const Polynomial& p) const{
   Assert(!p.containsConstant());
   Assert(p.getHead().constantIsPositive());
   TNode n = p.getNode();
-  cout << "determineArithVar(" << n << ")" << endl;
+  Debug("determineArithVar") << "determineArithVar(" << n << ")" << endl;
   return d_arithvarNodeMap.asArithVar(n);
 }
 
 ArithVar TheoryArith::determineArithVar(TNode assertion) const{
-  cout << "determineArithVar " << assertion << endl;
+  Debug("determineArithVar") << "determineArithVar " << assertion << endl;
   Comparison cmp = Comparison::parseNormalForm(assertion);
   Polynomial variablePart = cmp.normalizedVariablePart();
   return determineArithVar(variablePart);
