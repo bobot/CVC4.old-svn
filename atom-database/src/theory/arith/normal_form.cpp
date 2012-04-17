@@ -931,10 +931,10 @@ Comparison Comparison::mkComparison(Kind k, const Polynomial& l, const Polynomia
 
     if(vLeft == vRight){
       return Comparison(k == kind::EQUAL);
-    }else if(vLeft < vRight){
-      return Comparison(toNode(k, l, r));
     }else{
-      return Comparison(toNode(k, r, l));
+      Node eqNode = vLeft < vRight ? toNode( kind::EQUAL, l, r) : toNode( kind::EQUAL, r, l);
+      Node forK = (k == kind::DISTINCT) ? eqNode.notNode() : eqNode;
+      return Comparison(forK);
     }
   }
 
