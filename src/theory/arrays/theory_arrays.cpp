@@ -38,12 +38,12 @@ namespace arrays {
 // Use static configuration of options for now
 const bool d_ccStore = false;
 const bool d_useArrTable = false;
-const bool d_eagerLemmas = true;
-const bool d_propagateLemmas = false;
+const bool d_eagerLemmas = false;
+const bool d_propagateLemmas = true;
 const bool d_preprocess = true;
 const bool d_solveWrite = true;
 const bool d_useNonLinearOpt = true;
-
+const bool d_eagerIndexSplitting = true;
 
 TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARRAY, c, u, out, valuation),
@@ -545,6 +545,9 @@ void TheoryArrays::computeCareGraph()
     context::CDHashMap<TNode, bool, TNodeHashFunction>::iterator it1 = d_sharedArrays.begin(), it2, iend = d_sharedArrays.end();
     for (; it1 != iend; ++it1) {
       for (it2 = it1, ++it2; it2 != iend; ++it2) {
+        if ((*it1).first.getType() != (*it2).first.getType()) {
+          continue;
+        }
         EqualityStatus eqStatusArr = getEqualityStatus((*it1).first, (*it2).first);
         if (eqStatusArr != EQUALITY_UNKNOWN) {
           continue;
@@ -571,15 +574,17 @@ void TheoryArrays::computeCareGraph()
         Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): checking reads " << r1 << " and " << r2 << std::endl;
 
         // If the terms are already known to be equal, we are also in good shape
-        if (d_equalityEngine.areEqual(r1, r2)) {
+        if (d_equalityEngine.hasTerm(r1) && d_equalityEngine.hasTerm(r2) && d_equalityEngine.areEqual(r1, r2)) {
           Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): equal, skipping" << std::endl;
           continue;
         }
 
         if (r1[0] != r2[0]) {
           // If arrays are known to be disequal, or cannot become equal, we can continue
-          if (d_equalityEngine.areDisequal(r1[0], r2[0]) ||
-              (!d_mayEqualEqualityEngine.areEqual(r1[0], r2[0]))) {
+          Assert(d_equalityEngine.hasTerm(r1[0]) && d_equalityEngine.hasTerm(r2[0]));
+          if (r1[0].getType() != r2[0].getType() ||
+              (!d_mayEqualEqualityEngine.areEqual(r1[0], r2[0])) ||
+              d_equalityEngine.areDisequal(r1[0], r2[0])) {
             Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): arrays can't be equal, skipping" << std::endl;
             continue;
           }
@@ -588,15 +593,15 @@ void TheoryArrays::computeCareGraph()
         TNode x = r1[1];
         TNode y = r2[1];
 
+        if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
+          Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): not connected to shared terms, skipping" << std::endl;
+          continue;
+        }
+
         EqualityStatus eqStatus = getEqualityStatus(x, y);
 
         if (eqStatus != EQUALITY_UNKNOWN) {
           Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): equality status known, skipping" << std::endl;
-          continue;
-        }
-
-        if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
-          Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): not connected to shared terms, skipping" << std::endl;
           continue;
         }
 
@@ -1055,38 +1060,31 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
   }
 
   NodeManager* nm = NodeManager::currentNM();
-
   Node aj = nm->mkNode(kind::SELECT, a, j);
   Node bj = nm->mkNode(kind::SELECT, b, j);
-  if (!d_equalityEngine.hasTerm(aj)) {
-    preRegisterTerm(aj);
-  }
-  if (!d_equalityEngine.hasTerm(bj)) {
-    preRegisterTerm(bj);
-  }
 
-  if (d_equalityEngine.areEqual(aj,bj)) {
-    return;
-  }
+  // Try to avoid introducing new read terms: track whether these already exist
+  bool ajExists = d_equalityEngine.hasTerm(aj);
+  bool bjExists = d_equalityEngine.hasTerm(bj);
+  bool bothExist = ajExists && bjExists;
 
-  if (d_useArrTable) {
-    Node tableEntry = nm->mkNode(kind::ARR_TABLE_FUN, a, b, i, j);
-    if (d_equalityEngine.getSize(tableEntry) != 1) {
-      return;
-    }
-  }
-
-  //Propagation
+  // If propagating, check propagations
   if (d_propagateLemmas) {
     if (d_equalityEngine.areDisequal(i,j)) {
       Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::queueRowLemma: propagating aj = bj ("<<aj<<", "<<bj<<")\n";
       Node reason = nm->mkNode(kind::OR, aj.eqNode(bj), i.eqNode(j));
       d_permRef.push_back(reason);
+      if (!ajExists) {
+        preRegisterTerm(aj);
+      }
+      if (!bjExists) {
+        preRegisterTerm(bj);
+      }
       d_equalityEngine.addEquality(aj, bj, reason);
       ++d_numProp;
       return;
     }
-    if (d_equalityEngine.areDisequal(aj,bj)) {
+    if (bothExist && d_equalityEngine.areDisequal(aj,bj)) {
       Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::queueRowLemma: propagating i = j ("<<i<<", "<<j<<")\n";
       Node reason = nm->mkNode(kind::OR, i.eqNode(j), aj.eqNode(bj));
       d_permRef.push_back(reason);
@@ -1096,9 +1094,23 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
     }
   }
 
+  // If equivalent lemma already exists, don't enqueue this one
+  if (d_useArrTable) {
+    Node tableEntry = NodeManager::currentNM()->mkNode(kind::ARR_TABLE_FUN, a, b, i, j);
+    if (d_equalityEngine.getSize(tableEntry) != 1) {
+      return;
+    }
+  }
+
+  // Prefer equality between indexes so as not to introduce new read terms
+  if (d_eagerIndexSplitting && !bothExist && !d_equalityEngine.areDisequal(i,j)) {
+    Node split = d_valuation.ensureLiteral(i.eqNode(j));
+    d_out->propagateAsDecision(split);
+  }
+
   // TODO: maybe add triggers here
 
-  if (d_eagerLemmas) {
+  if (d_eagerLemmas || bothExist) {
     Node eq1 = nm->mkNode(kind::EQUAL, aj, bj);
     Node eq2 = nm->mkNode(kind::EQUAL, i, j);
     Node lemma = nm->mkNode(kind::OR, eq2, eq1);
@@ -1137,7 +1149,7 @@ void TheoryArrays::dischargeLemmas()
     // TODO: more checks possible (i.e. check d_RowAlreadyAdded in context)
     if (d_equalityEngine.areEqual(i,j) ||
         d_equalityEngine.areEqual(a,b) ||
-        d_equalityEngine.areEqual(aj,bj)) {
+        (d_equalityEngine.hasTerm(aj) && d_equalityEngine.hasTerm(bj) && d_equalityEngine.areEqual(aj,bj))) {
       d_RowQueue.push(l);
       continue;
     }
