@@ -108,51 +108,34 @@ void RAIFilter::initialize( QuantifiersEngine* qe, Node f, RepAlphabet* ra ){
   Debug("raif") << "Phase requirements for " << f << " : " << std::endl;
   for( std::map< Node, bool >::iterator it = qe->d_phase_reqs[f].begin(); it != qe->d_phase_reqs[f].end(); ++it ){
     Node n = it->first;
-    if( n.getKind()==APPLY_UF ){
-      bool process = true;
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        if( n[i].getKind()!=INST_CONSTANT && n[i].hasAttribute(InstConstantAttribute()) ){
-          process = false;
-          break;
-        }
-      }
-      if( process ){
-        Debug("raif") << "   " << n << " -> " << it->second << std::endl;
-        Node op = n.getOperator();
-        Node pol = NodeManager::currentNM()->mkConst<bool>( !(it->second) );
-        std::map< int, int > restriction;
-        collectPredicateRestrictions( qe, n, pol, ra, &(qe->getTermDatabase()->d_op_map_trie[op]), 0, restriction );
-      }
+    if( Trigger::isSimpleTrigger( n ) ){
+      Debug("raif") << "   " << n << " -> " << it->second << std::endl;
+      Node op = n.getOperator();
+      Node pol = NodeManager::currentNM()->mkConst<bool>( !(it->second) );
+      std::map< int, int > restriction;
+      collectPredicateRestrictions( qe, n, pol, ra, &(qe->getTermDatabase()->d_op_map_trie[op]), 0, restriction );
     }
   }
   for( std::map< Node, bool >::iterator it = qe->d_phase_reqs_equality[f].begin(); 
         it != qe->d_phase_reqs_equality[f].end(); ++it ){
     Node n = it->first;
-    bool process = true;
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      if( n[i].getKind()!=INST_CONSTANT && n[i].hasAttribute(InstConstantAttribute()) ){
-        process = false;
-        break;
-      }
-    }
-    if( process ){
-      Node t = qe->d_phase_reqs_equality_term[f][n];
-      Debug("raif") << "   " << n << ( it->second ? " == " : " != " ) << t << std::endl;
+    Node t = qe->d_phase_reqs_equality_term[f][n];
+    Debug("raif") << "   " << n << ( it->second ? " == " : " != " ) << t << std::endl;
+    if( n.getKind()==INST_CONSTANT ){
       t = qe->getEqualityQuery()->getRepresentative( t );
-      if( n.getKind()==INST_CONSTANT ){
-        if( it->second ){
-        
-        }else{
-          int tValue = ra->getIndexFor( t );
-          if( tValue!=-1 ){
-            int index = (int)n.getAttribute(InstVarNumAttribute());
-            Debug("raif") << "*** Restrict ( " << index << " -> " << tValue << " )" << std::endl;
-          }
-        }
+      if( it->second ){
+      
       }else{
-        Node op = n.getOperator();
-
+        int tValue = ra->getIndexFor( t );
+        if( tValue!=-1 ){
+          int index = (int)n.getAttribute(InstVarNumAttribute());
+          Debug("raif") << "*** Restrict ( " << index << " -> " << tValue << " )" << std::endl;
+        }
       }
+    }else if( Trigger::isSimpleTrigger( n ) ){
+      t = qe->getEqualityQuery()->getRepresentative( t );
+      Node op = n.getOperator();
+
     }
   }
 }

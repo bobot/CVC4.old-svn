@@ -425,6 +425,7 @@ public:
     IntStat d_lit_phase_req;
     IntStat d_lit_phase_nreq;
     IntStat d_triggers;
+    IntStat d_simple_triggers;
     IntStat d_multi_triggers;
     IntStat d_multi_trigger_instantiations;
     Statistics();

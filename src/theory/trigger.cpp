@@ -67,7 +67,12 @@ d_quantEngine( qe ), d_f( f ){
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
   if( smartMultiTrigger ){
     if( d_nodes.size()==1 ){
-      d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
+      if( isSimpleTrigger( d_nodes[0] ) ){
+        //d_mg = new InstMatchGeneratorSimple( f, d_nodes[0] );
+        d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
+      }else{
+        d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
+      }
     }else{
       d_mg = new InstMatchGeneratorMulti( f, d_nodes, qe, matchOption );
     }
@@ -80,7 +85,11 @@ d_quantEngine( qe ), d_f( f ){
   }
   Debug("trigger") << std::endl;
   if( d_nodes.size()==1 ){
-    ++(qe->d_statistics.d_triggers);
+    if( isSimpleTrigger( d_nodes[0] ) ){
+      ++(qe->d_statistics.d_triggers);
+    }else{
+      ++(qe->d_statistics.d_simple_triggers);
+    }
   }else{
     Debug("multi-trigger") << "Multi-trigger " << (*this) << std::endl;
     //std::cout << "Multi-trigger for " << f << " : " << std::endl;
@@ -128,35 +137,14 @@ bool Trigger::getMatch( Node t, InstMatch& m ){
 
 
 int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSplits ){
-  //now, try to add instantiation for each match produced
-  bool success = true;
-  int addedLemmas = 0;
-  do{
-    InstMatch m;
-    if( getNextMatch( m ) ){
-      //m.makeInternal( d_quantEngine->getEqualityQuery() );
-      m.add( baseMatch );
-      if( d_quantEngine->addInstantiation( d_f, m, addSplits ) ){
-        Debug("inst-trigger") << "Trigger was ";
-        for( int i=0; i<(int)d_nodes.size(); i++ ){
-          Debug("inst-trigger") << d_nodes[i] << " ";
-        }
-        Debug("inst-trigger") << std::endl;
-        //std::cout << "Trigger was ";
-        //for( int i=0; i<(int)d_nodes.size(); i++ ){
-        //  std::cout  << d_nodes[i] << " ";
-        //}
-        //std::cout  << std::endl;
-        addedLemmas++;
-        if( instLimit>0 && addedLemmas==instLimit ){
-          return addedLemmas;
-        }
-      }
-    }else{
-      success = false;
+  int addedLemmas = d_mg->addInstantiations( baseMatch, d_quantEngine, instLimit, addSplits );
+  if( addedLemmas>0 ){
+    Debug("inst-trigger") << "Added " << addedLemmas << " lemmas, trigger was ";
+    for( int i=0; i<(int)d_nodes.size(); i++ ){
+      Debug("inst-trigger") << d_nodes[i] << " ";
     }
-  }while( success );
-  //return number of lemmas added
+    Debug("inst-trigger") << std::endl;
+  }
   return addedLemmas;
 }
 
@@ -288,6 +276,18 @@ bool Trigger::isUsableTrigger( Node n, Node f ){
 
 bool Trigger::isAtomicTrigger( Node n ){
   return n.getKind()==APPLY_UF || n.getKind()==SELECT || n.getKind()==STORE;
+}
+bool Trigger::isSimpleTrigger( Node n ){
+  if( isAtomicTrigger( n ) ){
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( n[i].getKind()!=INST_CONSTANT && n[i].hasAttribute(InstConstantAttribute()) ){
+        return false;
+      }
+    }
+    return true;
+  }else{
+    return false;
+  }
 }
 
 /** filter all nodes that have instances */

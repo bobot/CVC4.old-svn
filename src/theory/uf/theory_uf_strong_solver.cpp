@@ -1045,7 +1045,6 @@ void StrongSolverTheoryUf::assertCardinality( Node c ){
       long nCard = cc[1].getConst<Rational>().getNumerator().getLong();
       if( nCard==d_conf_find[tn]->getCardinality() ){
         Debug("uf-ss-fmf") << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
-        d_statistics.d_max_model_size.maxAssign( d_conf_find[tn]->getCardinality() + 1 );
         //std::cout << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
         //increment to next cardinality
         setCardinality( tn, d_conf_find[tn]->getCardinality() + 1, false );
@@ -1090,10 +1089,10 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
 
 void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
   //shouldn't have to preregister this type (it may be that there are no quantifiers over tn)  FIXME
-  TypeNode tn = n.getType();
-  if( isRelevantType( tn ) ){
-    preRegisterType( tn );
-  }
+  //TypeNode tn = n.getType();
+  //if( isRelevantType( tn ) ){
+  //  preRegisterType( tn );
+  //}
 }
 
 void StrongSolverTheoryUf::registerQuantifier( Node f ){
@@ -1175,6 +1174,7 @@ void StrongSolverTheoryUf::propagate( Theory::Effort level ){
 
 /** set cardinality for sort */
 void StrongSolverTheoryUf::setCardinality( TypeNode t, int c, bool isStrict ) {
+  d_statistics.d_max_model_size.maxAssign( c );
   Debug("uf-ss-solver") << "StrongSolverTheoryUf: Set cardinality " << t << " = " << c << std::endl;
   if( d_conf_find.find( t )==d_conf_find.end() ){
     if( !d_conf_types.empty() ){

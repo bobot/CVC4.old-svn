@@ -687,6 +687,7 @@ QuantifiersEngine::Statistics::Statistics():
   d_lit_phase_req("QuantifiersEngine::lit_phase_req", 0),
   d_lit_phase_nreq("QuantifiersEngine::lit_phase_nreq", 0),
   d_triggers("QuantifiersEngine::Triggers", 0),
+  d_simple_triggers("QuantifiersEngine::Triggers_Simple", 0),
   d_multi_triggers("QuantifiersEngine::Triggers_Multi", 0),
   d_multi_trigger_instantiations("QuantifiersEngine::Multi_Trigger_Instantiations", 0)
 {
@@ -703,6 +704,7 @@ QuantifiersEngine::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_lit_phase_req);
   StatisticsRegistry::registerStat(&d_lit_phase_nreq);
   StatisticsRegistry::registerStat(&d_triggers);
+  StatisticsRegistry::registerStat(&d_simple_triggers);
   StatisticsRegistry::registerStat(&d_multi_triggers);
   StatisticsRegistry::registerStat(&d_multi_trigger_instantiations);
 }
@@ -721,6 +723,7 @@ QuantifiersEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_lit_phase_req);
   StatisticsRegistry::unregisterStat(&d_lit_phase_nreq);
   StatisticsRegistry::unregisterStat(&d_triggers);
+  StatisticsRegistry::unregisterStat(&d_simple_triggers);
   StatisticsRegistry::unregisterStat(&d_multi_triggers);
   StatisticsRegistry::unregisterStat(&d_multi_trigger_instantiations);
 }

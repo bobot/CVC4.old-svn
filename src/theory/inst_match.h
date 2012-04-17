@@ -282,6 +282,8 @@ public:
   /** return true if whatever Node is subsituted for the variables the
       given Node can't match the pattern */
   virtual bool nonunifiable( TNode t, const std::vector<Node> & vars) = 0;
+  /** add instantiations */
+  virtual int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ) = 0;
 };
 
 
@@ -352,6 +354,8 @@ public:
   /** return true if whatever Node is subsituted for the variables the
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars);
+  /** add instantiations */
+  int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
 };
 
 class InstMatchGeneratorMulti : public IMGenerator
@@ -360,11 +364,11 @@ private:
   /** indexed trie */
   typedef std::pair< std::pair< int, int >, InstMatchTrie* > IndexedTrie;
   /** collect instantiations */
-  void collectInstantiations( QuantifiersEngine* qe, InstMatch& m, InstMatchTrie* tr, 
+  void collectInstantiations( QuantifiersEngine* qe, InstMatch& m, int& addedLemmas, InstMatchTrie* tr, 
                               std::vector< IndexedTrie >& unique_var_tries,
                               int trieIndex, int childIndex, int endChildIndex, bool modEq );
   /** collect instantiations 2 */
-  void collectInstantiations2( QuantifiersEngine* qe, InstMatch& m, 
+  void collectInstantiations2( QuantifiersEngine* qe, InstMatch& m, int& addedLemmas,
                                std::vector< IndexedTrie >& unique_var_tries,
                                int uvtIndex, InstMatchTrie* tr = NULL, int trieIndex = 0 );
 private:
@@ -380,11 +384,6 @@ private:
   std::vector< InstMatchGenerator* > d_children;
   /** inst match tries for each child */
   std::vector< InstMatchTrieOrdered > d_children_trie;
-  /** whether need to calculate matches */
-  bool d_calculate_matches;
-  /** current matches calculated */
-  std::vector< InstMatch > d_curr_matches;
-  int d_curr_match_index;
   /** calculate matches */
   void calculateMatches( QuantifiersEngine* qe );
 public:
@@ -396,13 +395,44 @@ public:
   void resetInstantiationRound( QuantifiersEngine* qe );
   /** reset, eqc is the equivalence class to search in (any if eqc=null) */
   void reset( Node eqc, QuantifiersEngine* qe );
-  /** get the next match.  must call reset( eqc ) before this function. */
-  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe );
+  /** get the next match.  must call reset( eqc ) before this function. (not implemented) */
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; } 
   /** return true if whatever Node is subsituted for the variables the
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
+  /** add instantiations */
+  int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
 };
 
+class TermArgTrie;
+
+class InstMatchGeneratorSimple : public IMGenerator
+{
+private:
+  /** quantifier for match term */
+  Node d_f;
+  /** match term */
+  Node d_match_pattern;
+  /** add instantiations */
+  void addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, 
+                          int argIndex, TermArgTrie* tat, int instLimit, bool addSplits );
+public:
+  /** constructors */
+  InstMatchGeneratorSimple( Node f, Node pat ) : d_f( f ), d_match_pattern( pat ){}
+  /** destructor */
+  ~InstMatchGeneratorSimple(){}
+  /** reset instantiation round (call this whenever equivalence classes have changed) */
+  void resetInstantiationRound( QuantifiersEngine* qe ) {}
+  /** reset, eqc is the equivalence class to search in (any if eqc=null) */
+  void reset( Node eqc, QuantifiersEngine* qe ) {}
+  /** get the next match.  must call reset( eqc ) before this function. (not implemented) */
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; } 
+  /** return true if whatever Node is subsituted for the variables the
+      given Node can't match the pattern */
+  bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
+  /** add instantiations */
+  int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+};
 
 }/* CVC4::theory namespace */
 
