@@ -31,7 +31,6 @@
 #include "context/cdlist.h"
 
 //#define USE_EFFICIENT_E_MATCHING
-//#define FIXED_REWRITE_RULES
 
 namespace CVC4 {
 namespace theory {
@@ -203,8 +202,6 @@ public:
   }
 };
 
-#ifdef FIXED_REWRITE_RULES
-
 template<bool modEq = false>
 class InstMatchTrie2
 {
@@ -229,11 +226,10 @@ private:
 
   class CleanUp{
   public:
-    inline static void cleanup(Mod * m,std::allocator<Mod> & alloc){
+    inline void operator()(Mod * m){
       typename Tree::MLevel::iterator i = m->first->e.find(m->second);
       Assert (i != m->first->e.end()); //should not have been already removed
       m->first->e.erase(i);
-      alloc.destroy(m);
     };
   };
 
@@ -243,7 +239,7 @@ private:
   /* before for the order of destruction */
   Tree d_data;
 
-  context::CDList<Mod,std::allocator<Mod>, CleanUp > d_mods;
+  context::CDList<Mod, CleanUp, std::allocator<Mod> > d_mods;
 
 
   typedef std::map<Node, Node>::const_iterator mapIter;
@@ -267,8 +263,6 @@ public:
       return true if it was never seen */
   bool addInstMatch( InstMatch& m);
 };
-
-#endif
 
 class IMGenerator
 {

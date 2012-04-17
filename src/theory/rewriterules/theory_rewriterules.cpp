@@ -36,7 +36,6 @@ namespace CVC4 {
 namespace theory {
 namespace rewriterules {
 
-#ifdef FIXED_REWRITE_RULES
 
 inline std::ostream& operator <<(std::ostream& stream, const RuleInst& ri) {
   ri.toStream(stream);
@@ -447,22 +446,6 @@ Node TheoryRewriteRules::explain(TNode n){
   Assert(p!=d_explanations.end(),"I forget the explanation...");
   return substGuards((*p).second, TCache ());
 }
-
-#else
-
-TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
-                                       context::UserContext* u,
-                                       OutputChannel& out,
-                                       Valuation valuation,
-                                       QuantifiersEngine* qe) :
-Theory(THEORY_REWRITERULES, c, u, out, valuation,qe)
-{
-
-}
-void TheoryRewriteRules::check(Effort level) {}
-void TheoryRewriteRules::notifyEq(TNode lhs, TNode rhs) {}
-Node TheoryRewriteRules::explain(TNode n){}
-#endif
 
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */

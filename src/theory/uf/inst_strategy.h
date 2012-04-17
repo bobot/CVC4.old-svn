@@ -23,8 +23,6 @@
 
 #include "context/context.h"
 #include "context/context_mm.h"
-#include "context/cdlist.h"
-#include "context/cdlist_context_memory.h"
 
 #include "util/stats.h"
 #include "theory/uf/theory_uf.h"

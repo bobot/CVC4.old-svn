@@ -29,8 +29,6 @@
 namespace CVC4 {
 namespace theory {
 
-#ifdef FIXED_REWRITE_RULES
-
 template<bool modEq>
 InstMatchTrie2<modEq>::InstMatchTrie2(context::Context* c,  QuantifiersEngine* qe):
   d_data(c->getLevel()), d_mods(c){
@@ -112,8 +110,6 @@ bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
    return false;
  }
 }
-
-#endif
 
 }/* CVC4::theory namespace */
 

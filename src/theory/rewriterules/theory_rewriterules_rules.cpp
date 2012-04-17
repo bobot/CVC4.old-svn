@@ -34,8 +34,6 @@ namespace CVC4 {
 namespace theory {
 namespace rewriterules {
 
-#ifdef FIXED_REWRITE_RULES
-
 void TheoryRewriteRules::computeMatchBody ( const RewriteRule * rule,
                                             size_t start){
   std::vector<TNode> stack(1,rule->new_terms);
@@ -234,7 +232,6 @@ void RewriteRule::toStream(std::ostream& out) const{
   };
   out << "]" << std::endl;
 }
-#endif
 
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */

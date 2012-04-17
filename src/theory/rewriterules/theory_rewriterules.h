@@ -34,8 +34,6 @@ namespace CVC4 {
 namespace theory {
 namespace rewriterules {
 
-#ifdef FIXED_REWRITE_RULES
-
 typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
 
   enum Answer {ATRUE, AFALSE, ADONTKNOW};
@@ -123,31 +121,28 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
 template<class T>
 class CleanUpPointer{
 public:
-  inline static void cleanup(T** e, std::allocator<T *> & alloc){
+  inline void operator()(T** e){
     delete(*e);
   };
 };
 
-#endif
-
 class TheoryRewriteRules : public Theory {
 private:
 
-#ifdef FIXED_REWRITE_RULES
   /** list of all rewrite rules */
   /* std::vector< Node > d_rules; */
   // typedef std::vector< std::pair<Node, Trigger > > Rules;
   typedef context::CDList< RewriteRule *,
-                           std::allocator< RewriteRule * >,
-                           CleanUpPointer<RewriteRule > > Rules;
+                           CleanUpPointer<RewriteRule >,
+                           std::allocator< RewriteRule * > > Rules;
   Rules d_rules;
   typedef context::CDList< RuleInst *,
-                           std::allocator< RuleInst * >,
-                           CleanUpPointer<RuleInst> > RuleInsts;
+                           CleanUpPointer<RuleInst>,
+                           std::allocator< RuleInst * > > RuleInsts;
   RuleInsts d_ruleinsts;
 
-  /** The GList* will not lead too memory leaks since that use
-      ContextMemoryAllocator */
+  /** The GList* will lead too memory leaks since that doesn't use
+      CDChunckList */
   typedef context::CDList< Guarded > GList;
   typedef context::CDHashMap<Node, GList *, NodeHashFunction> GuardedMap;
   GuardedMap d_guardeds;
@@ -168,7 +163,6 @@ private:
       inside check */
   typedef std::vector< RuleInst* > QRuleInsts;
   QRuleInsts d_ruleinsts_to_add;
-#endif
  public:
   /** true and false for predicate */
   Node d_true;
@@ -188,7 +182,6 @@ private:
   std::string identify() const {
     return "THEORY_REWRITERULES";
   }
-#ifdef FIXED_REWRITE_RULES
  private:
   void registerQuantifier( Node n );
 
@@ -225,7 +218,6 @@ private:
   void addMatchRuleTrigger(const RewriteRule* r,
                            InstMatch & im, bool delay = true);
 
-#endif
 };/* class TheoryRewriteRules */
 
 }/* CVC4::theory::rewriterules namespace */
