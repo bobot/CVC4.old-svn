@@ -318,6 +318,8 @@ bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
   // If propagated already, just skip
   if (d_propagator.find(literal) != d_propagator.end()) {
     return true;
+  } else {
+    d_propagator[literal] = subtheory;
   }
 
   // See if the literal has been asserted already
