@@ -510,6 +510,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
     Dump.clear();
     Dump.disableCommands();
 
+    for(int i = 0; i < numThreads; ++i)
+      threadOptions[i].simplificationMode = Options::SIMPLIFICATION_MODE_NONE;
+
     exprMgr->setOptions(threadOptions[0]);
 
     Debug("preprocessFirst") << seq << endl;
