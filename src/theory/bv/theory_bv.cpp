@@ -32,7 +32,7 @@ using namespace std;
 using namespace CVC4::theory::bv::utils;
 
 
-const bool d_useEqualityEngine = false;
+const bool d_useEqualityEngine = true;
 const bool d_useSatPropagation = true;
 
 
@@ -49,7 +49,7 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
     d_literalsToPropagate(c),
     d_literalsToPropagateIndex(c, 0),
     d_toBitBlast(c),
-    d_propagator(c)
+    d_propagatedBy(c)
   {
     d_true = utils::mkTrue();
     d_false = utils::mkFalse();
@@ -149,52 +149,39 @@ void TheoryBV::check(Effort e)
 
     BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << fact << "\n"; 
 
-    // If the assertion doesn't have a literal, it's a shared equality
-    bool shared = !assertion.isPreregistered;
-
     // Notify the equality engine
-    if (d_useEqualityEngine && (d_propagator.find(fact) == d_propagator.end() ||
-                                d_propagator[fact] != SUB_EQUALITY)) {
-      
-      bool negated = fact.getKind() == kind::NOT; 
-      Node predicate = negated ? fact[0] : fact;
-      
-      Assert(!shared ||
-             (predicate.getKind() == kind::EQUAL &&
-              d_equalityEngine.hasTerm(predicate[0]) &&
-              d_equalityEngine.hasTerm(predicate[1]))); 
-
+   if (d_useEqualityEngine && !d_conflict && !propagatedBy(fact, SUB_EQUALITY)) {
+      bool negated = fact.getKind() == kind::NOT;
+      TNode predicate = negated ? fact[0] : fact;
       if (predicate.getKind() == kind::EQUAL) {
-        // Adding (dis)equality
         if (negated) {
-          d_equalityEngine.addDisequality(predicate[0], predicate[1], fact); 
+          // dis-equality
+          d_equalityEngine.addDisequality(predicate[0], predicate[1], fact);
         } else {
-          d_equalityEngine.addEquality(predicate[0], predicate[1], fact); 
+          // equality
+          d_equalityEngine.addEquality(predicate[0], predicate[1], fact);
         }
       } else {
-        // Adding predicate
+        // Adding predicate if the congruence over it is turned on
         if (d_equalityEngine.isFunctionKind(predicate.getKind())) {
-          d_equalityEngine.addPredicate(predicate, !negated, fact); 
+          d_equalityEngine.addPredicate(predicate, !negated, fact);
         }
       }
     }
 
     // Bit-blaster
-    if (!d_conflict) {
-      PropagatedMap::const_iterator find = d_propagator.find(fact);
-      if (find == d_propagator.end() || (*find).second != SUB_BITBLASTER) {
-        // Some atoms have not been bit-blasted yet
-        d_bitblaster->bbAtom(fact);
-        // Assert to sat
-        bool ok = d_bitblaster->assertToSat(fact, d_useSatPropagation);
-        if (!ok) {
-          std::vector<TNode> conflictAtoms;
-          d_bitblaster->getConflict(conflictAtoms);
-          d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
-          d_conflict = true;
-          d_conflictNode = mkConjunction(conflictAtoms);
-          break;
-        }
+    if (!d_conflict && !propagatedBy(fact, SUB_BITBLASTER)) {
+      // Some atoms have not been bit-blasted yet
+      d_bitblaster->bbAtom(fact);
+      // Assert to sat
+      bool ok = d_bitblaster->assertToSat(fact, d_useSatPropagation);
+      if (!ok) {
+        std::vector<TNode> conflictAtoms;
+        d_bitblaster->getConflict(conflictAtoms);
+        d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
+        d_conflict = true;
+        d_conflictNode = mkConjunction(conflictAtoms);
+        break;
       }
     }
   }
@@ -270,7 +257,7 @@ void TheoryBV::propagate(Effort e) {
         negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
         assumptions.push_back(negatedLiteral);
       }
-      explain(literal, d_propagator[literal], assumptions);
+      explain(literal, assumptions);
       d_conflictNode = mkAnd(assumptions);
       d_conflict = true;
       return;
@@ -307,19 +294,22 @@ Theory::PPAssertStatus TheoryBV::ppAssert(TNode in, SubstitutionMap& outSubstitu
 
 bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
 {
-  Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(" << literal  << ")" << std::endl;
+  Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::storePropagation(" << literal  << ")" << std::endl;
 
   // If already in conflict, no more propagation
   if (d_conflict) {
-    Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(" << literal << "): already in conflict" << std::endl;
+    Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::storePropagation(" << literal << "): already in conflict" << std::endl;
     return false;
   }
 
   // If propagated already, just skip
-  if (d_propagator.find(literal) != d_propagator.end()) {
+  PropagatedMap::const_iterator find = d_propagatedBy.find(literal);
+  if (find != d_propagatedBy.end()) {
+    unsigned theories = (*find).second | (unsigned) subtheory;
+    d_propagatedBy[literal] = theories;
     return true;
   } else {
-    d_propagator[literal] = subtheory;
+    d_propagatedBy[literal] = subtheory;
   }
 
   // See if the literal has been asserted already
@@ -331,7 +321,7 @@ bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
       std::vector<TNode> assumptions;
       Node negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
       assumptions.push_back(negatedLiteral);
-      explain(literal, subtheory, assumptions);
+      explain(literal, assumptions);
       d_conflictNode = mkAnd(assumptions);
       d_conflict = true;
       return false;
@@ -345,9 +335,9 @@ bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
 }/* TheoryBV::propagate(TNode) */
 
 
-void TheoryBV::explain(TNode literal, SubTheory subtheory, std::vector<TNode>& assumptions) {
+void TheoryBV::explain(TNode literal, std::vector<TNode>& assumptions) {
 
-  if (subtheory == SUB_EQUALITY) {
+  if (propagatedBy(literal, SUB_EQUALITY)) {
     TNode lhs, rhs;
     switch (literal.getKind()) {
       case kind::EQUAL:
@@ -374,7 +364,8 @@ void TheoryBV::explain(TNode literal, SubTheory subtheory, std::vector<TNode>& a
         Unreachable();
     }
     d_equalityEngine.explainEquality(lhs, rhs, assumptions);
-  } else if (subtheory == SUB_BITBLASTER) {
+  } else {
+    Assert(propagatedBy(literal, SUB_BITBLASTER));
     d_bitblaster->explain(literal, assumptions); 
   }
 }
@@ -384,12 +375,8 @@ Node TheoryBV::explain(TNode node) {
   BVDebug("bitvector") << "TheoryBV::explain(" << node << ")" << std::endl;
   std::vector<TNode> assumptions;
 
-  // check who has propagated the node
-  Assert(d_propagator.find(node) != d_propagator.end());
-  SubTheory subtheory = d_propagator[node];
-
   // Ask for the explanation
-  explain(node, subtheory, assumptions);
+  explain(node, assumptions);
 
   // return the explanation
   return mkAnd(assumptions);

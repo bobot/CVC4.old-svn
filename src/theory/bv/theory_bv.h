@@ -139,16 +139,22 @@ private:
   context::CDQueue<Node> d_toBitBlast;
 
   enum SubTheory {
-    SUB_EQUALITY,
-    SUB_BITBLASTER
+    SUB_EQUALITY = 1,
+    SUB_BITBLASTER = 2
   };
 
   /**
    * Keeps a map from nodes to the subtheory that propagated it so that we can explain it
    * properly.
    */
-  typedef context::CDHashMap<Node, SubTheory, NodeHashFunction> PropagatedMap;
-  PropagatedMap d_propagator;
+  typedef context::CDHashMap<Node, unsigned, NodeHashFunction> PropagatedMap;
+  PropagatedMap d_propagatedBy;
+
+  bool propagatedBy(TNode literal, SubTheory subtheory) const {
+    PropagatedMap::const_iterator find = d_propagatedBy.find(literal);
+    if (find == d_propagatedBy.end()) return false;
+    else return (*find).second & (unsigned) subtheory;
+  }
 
   /** Should be called to propagate the literal.  */
   bool storePropagation(TNode literal, SubTheory subtheory);
@@ -156,7 +162,7 @@ private:
   /**
    * Explains why this literal (propagated by subtheory) is true by adding assumptions.
    */
-  void explain(TNode literal, SubTheory subtheory, std::vector<TNode>& assumptions);
+  void explain(TNode literal, std::vector<TNode>& assumptions);
 
   void addSharedTerm(TNode t);
 
