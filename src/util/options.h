@@ -126,6 +126,23 @@ struct CVC4_PUBLIC Options {
   /** Whether the user set the nonclausal simplification mode. */
   bool simplificationModeSetByUser;
 
+  /** Enumeration of decision strategies */
+  typedef enum {
+    /**
+     * Decision engine doesn't do anything. Use sat solver's internal
+     * heuristics
+     */
+    DECISION_STRATEGY_INTERNAL,
+    /**
+     * Use the justification heuristic
+     */
+    DECISION_STRATEGY_JUSTIFICATION
+  } DecisionMode;
+  /** When/whether to use any decision strategies */
+  DecisionMode decisionMode;
+  /** Whether the user set the decision strategy */
+  bool decisionModeSetByUser;
+
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
 
@@ -312,6 +329,12 @@ struct CVC4_PUBLIC Options {
    * in Arith as described by Griggio JSAT 2012 (on by default).
    */
   bool dioSolver;
+
+  /**
+   * Whether to split (= x y) into (and (<= x y) (>= x y)) in
+   * arithmetic preprocessing.
+   */
+  bool arithRewriteEq;
 
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;

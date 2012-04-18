@@ -27,13 +27,13 @@
  ** we do not maintain that the queue of variables needs to be only basic variables or only variables that satisfy their bounds.
  **
  ** The simplex procedure roughly follows Alberto's thesis. (citation?)
- ** There is one round of selecting using a hueristic pivoting rule. (See PreferenceFunction Documentation for the available options.)
+ ** There is one round of selecting using a heuristic pivoting rule. (See PreferenceFunction Documentation for the available options.)
  ** The non-basic variable is the one that appears in the fewest pivots. (Bruno says that Leonardo invented this first.)
  ** After this, Bland's pivot rule is invoked.
  **
  ** During this proccess, we periodically inspect the queue of variables to
  ** 1) remove now extraneous extries,
- ** 2) detect conflicts that are "waiting" on the queue but may not be detected by the current queue hueristics, and
+ ** 2) detect conflicts that are "waiting" on the queue but may not be detected by the current queue heuristics, and
  ** 3) detect multiple conflicts.
  **
  ** Conflicts are greedily slackened to use the weakest bounds that still produce the conflict.
@@ -56,11 +56,11 @@
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
 #include "theory/arith/partial_model.h"
-#include "theory/arith/arith_prop_manager.h"
 #include "theory/arith/linear_equality.h"
 
-#include "util/options.h"
+#include "context/cdlist.h"
 
+#include "util/options.h"
 #include "util/stats.h"
 
 #include <queue>
@@ -91,13 +91,11 @@ private:
   /** Contains a superset of the basic variables in violation of their bounds. */
   ArithPriorityQueue d_queue;
 
-  /** A link to the propagation manager. This is used to generate weaker conflicts. */
-  ArithPropManager& d_propManager;
-
   /** Number of variables in the system. This is used for tuning heuristics. */
   ArithVar d_numVariables;
 
-  std::queue<Node> d_delayedLemmas;
+  /** This is the call back channel for Simplex to report conflicts. */
+  NodeCallBack& d_conflictChannel;
 
   /** Maps a variable to how many times they have been used as a pivot in the simplex search. */
   ArithVarMultiset d_pivotsInRound;
@@ -106,8 +104,7 @@ private:
   DeltaRational d_DELTA_ZERO;
 
 public:
-  SimplexDecisionProcedure(ArithPropManager& propManager,
-                           LinearEqualityModule& linEq);
+  SimplexDecisionProcedure(LinearEqualityModule& linEq, NodeCallBack& conflictChannel);
 
   /**
    * This must be called when the value of a basic variable may now voilate one
@@ -123,14 +120,15 @@ public:
    * This is done by a simplex search through the possible bases of the tableau.
    *
    * If all of the variables can be made consistent with their bounds
-   * Node::null() is returned. Otherwise a minimized conflict is returned.
+   * false is returned. Otherwise true is returned, and at least 1 conflict
+   * was reported on the conflictCallback passed to the Module.
    *
    * Tableau pivoting is performed so variables may switch from being basic to
    * nonbasic and vice versa.
    *
    * Corresponds to the "check()" procedure in [Cav06].
    */
-  Node findModel();
+  bool findModel();
 
 private:
 
@@ -154,17 +152,18 @@ private:
    * minRowCount is a PreferenceFunction for selecting the variable with the smaller
    * row count in the tableau.
    *
-   * This is a hueristic rule and should not be used
+   * This is a heuristic rule and should not be used
    * during the VarOrder stage of findModel.
    */
   static ArithVar minColLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
+
   /**
    * minBoundAndRowCount is a PreferenceFunction for preferring a variable
    * without an asserted bound over variables with an asserted bound.
    * If both have bounds or both do not have bounds,
    * the rule falls back to minRowCount(...).
    *
-   * This is a hueristic rule and should not be used
+   * This is a heuristic rule and should not be used
    * during the VarOrder stage of findModel.
    */
   static ArithVar minBoundAndRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
@@ -173,11 +172,11 @@ private:
 
 
 private:
-  Node searchForFeasibleSolution(uint32_t maxIterations);
+  bool searchForFeasibleSolution(uint32_t maxIterations);
 
   enum SearchPeriod {BeforeDiffSearch, DuringDiffSearch, AfterDiffSearch, DuringVarOrderSearch, AfterVarOrderSearch};
 
-  Node findConflictOnTheQueue(SearchPeriod period, bool returnFirst = true);
+  bool findConflictOnTheQueue(SearchPeriod period);
 
 
   /**
@@ -217,29 +216,12 @@ private:
 public:
   void increaseMax() {d_numVariables++;}
 
-  /** Returns true if the simplex procedure has more delayed lemmas in its queue.*/
-  bool hasMoreLemmas() const {
-    return !d_delayedLemmas.empty();
-  }
-  /** Returns the next delayed lemmas on the queue.*/
-  Node popLemma(){
-    Assert(hasMoreLemmas());
-    Node lemma = d_delayedLemmas.front();
-    d_delayedLemmas.pop();
-    return lemma;
-  }
-
 private:
-  /** Adds a lemma to the queue. */
-  void pushLemma(Node lemma){
-    d_delayedLemmas.push(lemma);
-    ++(d_statistics.d_delayedConflicts);
-  }
 
-  /** Adds a conflict as a lemma to the queue. */
-  void delayConflictAsLemma(Node conflict){
-   Node negatedConflict = negateConjunctionAsClause(conflict);
-    pushLemma(negatedConflict);
+  /** Reports a conflict to on the output channel. */
+  void reportConflict(Node conflict){
+    d_conflictChannel(conflict);
+    ++(d_statistics.d_simplexConflicts);
   }
 
   template <bool above>
@@ -259,7 +241,7 @@ private:
   Node checkBasicForConflict(ArithVar b);
 
   Node weakenConflict(bool aboveUpper, ArithVar basicVar);
-  TNode weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic);
+  Constraint weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic);
 
 
 
@@ -280,7 +262,7 @@ private:
     TimerStat d_weakenTime;
 
 
-    IntStat d_delayedConflicts;
+    IntStat d_simplexConflicts;
 
     Statistics();
     ~Statistics();

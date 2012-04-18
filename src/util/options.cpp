@@ -80,6 +80,8 @@ Options::Options() :
   printWinner(false),
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
   simplificationModeSetByUser(false),
+  decisionMode(DECISION_STRATEGY_INTERNAL),
+  decisionModeSetByUser(false),
   doStaticLearning(true),
   interactive(false),
   interactiveSetByUser(false),
@@ -122,6 +124,7 @@ Options::Options() :
   cbqiSetByUser(false),
   flipDecision(true),
   dioSolver(true),
+  arithRewriteEq(true),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
   threads(2),// default should be 1 probably, but say 2 for now
@@ -207,6 +210,7 @@ Additional CVC4 options:\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
    --disable-flip-decision turns off flip decision heuristic\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
+   --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n \
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
@@ -380,6 +384,7 @@ enum OptionValue {
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   ARITHMETIC_DIO_SOLVER,
+  ARITHMETIC_REWRITE_EQUALITIES,
   ENABLE_SYMMETRY_BREAKER,
   DISABLE_SYMMETRY_BREAKER,
   DISABLE_MINISCOPE_QUANT,
@@ -481,6 +486,7 @@ static struct option cmdlineOptions[] = {
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
+  { "disable-arith-rewrite-equalities", no_argument, NULL, ARITHMETIC_REWRITE_EQUALITIES },
   { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { "disable-miniscope-quant", no_argument, NULL, DISABLE_MINISCOPE_QUANT },
@@ -842,6 +848,10 @@ throw(OptionException) {
 
     case ARITHMETIC_DIO_SOLVER:
       dioSolver = false;
+      break;
+
+    case ARITHMETIC_REWRITE_EQUALITIES:
+      arithRewriteEq = false;
       break;
 
     case ENABLE_SYMMETRY_BREAKER:

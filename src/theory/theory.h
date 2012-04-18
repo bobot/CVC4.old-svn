@@ -278,6 +278,7 @@ protected:
   static TheoryId s_uninterpretedSortOwner;
 
   void printFacts(std::ostream& os) const;
+  void debugPrintFacts() const;
 
 public:
 
