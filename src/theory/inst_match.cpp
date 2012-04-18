@@ -848,7 +848,7 @@ void InstMatchGeneratorSimple::addInstantiations( InstMatch& m, QuantifiersEngin
     }
   }else{
     if( d_match_pattern[argIndex].getKind()==INST_CONSTANT ){
-      Node ic = qe->getInstantiationConstant( d_f, argIndex );
+      Node ic = d_match_pattern[argIndex];
       for( std::map< Node, TermArgTrie >::iterator it = tat->d_data.begin(); it != tat->d_data.end(); ++it ){
         Node t = it->first;
         if( m.d_map[ ic ].isNull() || m.d_map[ ic ]==t ){

@@ -179,12 +179,20 @@ public:
     /** type */
     TypeNode d_type;
     /** literals we have called for set depends */
-    std::map< Node, bool > d_setDepends;
+    //std::map< Node, bool > d_setDepends;
+  private:
+    /** cardinality lemma term */
+    Node d_cardinality_lemma_term;
+    /** cardinality literals */
+    std::map< int, Node > d_cardinality_literal;
+    /** cardinality lemmas */
+    std::map< int, Node > d_cardinality_lemma;
   public:
     ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) :
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
         d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ), d_type( tn ), d_is_cardinality_set( c, false ),
-        d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ){}
+        d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ),
+        d_cardinality_master( NULL ){}
     ~ConflictFind(){}
     /** new node */
     void newEqClass( Node n );
@@ -194,12 +202,14 @@ public:
     void assertDisequal( Node a, Node b, Node reason );
     /** check */
     void check( Theory::Effort level, OutputChannel* out );
+    /** propagate */
+    void propagate( Theory::Effort level, OutputChannel* out );
     //print debug
     void debugPrint( const char* c );
     /** set cardinality */
     void setCardinality( int c );
     /** get cardinality */
-    int getCardinality() { return d_cardinality; }
+    inline int getCardinality() { return d_cardinality_master ? d_cardinality_master->getCardinality() : d_cardinality; }
     /** get representatives */
     void getRepresentatives( std::vector< Node >& reps );
     /** get cardinality lemma */
@@ -207,8 +217,6 @@ public:
   public:
     /** is cardinality strict */
     bool d_isCardinalityStrict;
-    /** cardinality lemma term */
-    Node d_cardinality_lemma_term;
   public:
     /** get number of regions (for debugging) */
     int getNumRegions();
@@ -216,6 +224,12 @@ public:
     context::CDO< bool > d_is_cardinality_set;
     context::CDO< bool > d_is_cardinality_requested_c;
     bool d_is_cardinality_requested;
+  private:
+    /** cardinality master (just use cardinality of the master) */
+    ConflictFind* d_cardinality_master;
+  public:
+    /** set master */
+    void setMaster( ConflictFind* master ) { d_cardinality_master = master; }
   }; /** class ConflictFind */
 private:
   /** The output channel for the strong solver. */
@@ -250,14 +264,14 @@ private:
 public:
   /** check */
   void check( Theory::Effort level );
+  /** propagate */
+  void propagate( Theory::Effort level );
   /** preregister a term */
   void preRegisterTerm( TNode n );
   /** preregister a quantifier */
   void registerQuantifier( Node f );
   /** notify restart */
   void notifyRestart();
-  /** propagate */
-  void propagate( Theory::Effort level );
 public:
   /** identify */
   std::string identify() const { return std::string("StrongSolverTheoryUf"); }
@@ -268,8 +282,6 @@ public:
   int getNumCardinalityTypes() { return (int)d_conf_types.size(); }
   /** get type */
   TypeNode getCardinalityType( int i ) { return d_conf_types[i]; }
-  /** set cardinality for sort */
-  void setCardinality( TypeNode t, int c, bool isStrict = false );
   /** get cardinality for sort */
   int getCardinality( TypeNode t );
   /** get representatives */
