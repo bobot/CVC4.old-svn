@@ -315,13 +315,16 @@ bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
     return false;
   }
 
+  // If propagated already, just skip
+  if (d_propagator.find(literal) != d_propagator.end()) {
+    return true;
+  }
+
   // See if the literal has been asserted already
   bool satValue = false;
   bool hasSatValue = d_valuation.hasSatValue(literal, satValue);
-
   // If asserted, we might be in conflict
-  if (hasSatValue) {
-    if (!satValue) {
+  if (hasSatValue && !satValue) {
       Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(" << literal << ") => conflict" << std::endl;
       std::vector<TNode> assumptions;
       Node negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
@@ -330,11 +333,6 @@ bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
       d_conflictNode = mkAnd(assumptions);
       d_conflict = true;
       return false;
-    } else {
-      // Propagate even if already known in SAT - could be a new equation between shared terms
-    }
-  } else {
-
   }
 
   // Nothing, just enqueue it for propagation and mark it as asserted already
@@ -385,6 +383,7 @@ Node TheoryBV::explain(TNode node) {
   std::vector<TNode> assumptions;
 
   // check who has propagated the node
+  Assert(d_propagator.find(node) != d_propagator.end());
   SubTheory subtheory = d_propagator[node];
 
   // Ask for the explanation
