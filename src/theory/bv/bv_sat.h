@@ -114,7 +114,6 @@ class Bitblaster {
   // returns a node that might be easier to bitblast
   Node bbOptimize(TNode node); 
   
-  void bbAtom(TNode node);
   void addAtom(TNode atom); 
   // division is bitblasted in terms of constraints
   // so it needs to use private bitblaster interface
@@ -123,6 +122,7 @@ class Bitblaster {
 public:
   void cacheTermDef(TNode node, Bits def); // public so we can cache remainder for division
   void bbTerm(TNode node, Bits&  bits);
+  void bbAtom(TNode node);
   
   Bitblaster(context::Context* c, bv::TheoryBV* bv); 
   ~Bitblaster();

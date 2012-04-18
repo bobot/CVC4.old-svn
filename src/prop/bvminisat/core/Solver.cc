@@ -153,10 +153,6 @@ Var Solver::newVar(bool sign, bool dvar)
 
 bool Solver::addClause_(vec<Lit>& ps)
 {
-  for(unsigned i = 0; i < ps.size(); ++i) {
-    std::cerr << (sign(ps[i])? "-" : "")<<var(ps[i]) << " "; 
-  }
-  std::cerr << "\n"; 
     if (decisionLevel() > 0) {
       cancelUntil(0);
     }
@@ -172,6 +168,11 @@ bool Solver::addClause_(vec<Lit>& ps)
         else if (value(ps[i]) != l_False && ps[i] != p)
             ps[j++] = p = ps[i];
     ps.shrink(i - j);
+
+    for(unsigned i = 0; i < ps.size(); ++i) {
+      std::cerr << (sign(ps[i])? "-" : "")<<var(ps[i]) << " ";
+    }
+    std::cerr << "\n";
 
     if (ps.size() == 0)
         return ok = false;
@@ -709,10 +710,11 @@ lbool Solver::search(int nof_conflicts, UIP uip)
 
             learnt_clause.clear();
             analyze(confl, learnt_clause, backtrack_level, uip);
-            cancelUntil(backtrack_level);
 
             Lit p = learnt_clause[0];
             bool assumption = marker[var(p)] == 2;
+
+            cancelUntil(backtrack_level);
 
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(p);
@@ -898,6 +900,7 @@ lbool Solver::solve_()
 // 
 
 void Solver::explain(Lit p, std::vector<Lit>& explanation) {
+
   vec<Lit> queue;
   queue.push(p);
 
@@ -909,6 +912,7 @@ void Solver::explain(Lit p, std::vector<Lit>& explanation) {
     assert(value(l) == l_True);
     queue.pop();
     if (reason(var(l)) == CRef_Undef) {
+      if (level(var(l)) == 0) continue;
       Assert(marker[var(l)] == 2);
       explanation.push_back(l);
       visited.insert(var(l));

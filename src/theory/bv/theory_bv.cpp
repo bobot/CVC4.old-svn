@@ -141,7 +141,7 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 void TheoryBV::check(Effort e)
 {
-  BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
+  BVDebug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
 
   while (!done() && !d_conflict) {
     Assertion assertion = get();
@@ -179,32 +179,29 @@ void TheoryBV::check(Effort e)
       }
     }
 
-    // Bitblast the fact
-    if (!d_conflict && (d_propagator.find(fact) == d_propagator.end() ||
-                        d_propagator[fact] != SUB_BITBLASTER)) {
-
-      // If shared there is a chance it was not bitblasted
-      if (shared && d_bitblaster->hasBBAtom(fact)) {
-        d_bitblaster->bitblast(fact);
-      }
-      
-      bool ok = d_bitblaster->assertToSat(fact, d_useSatPropagation);
-      if (!ok) {
-        std::vector<TNode> conflictAtoms;
-        d_bitblaster->getConflict(conflictAtoms);
-        d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
-        d_conflict = true;
-        d_conflictNode = mkConjunction(conflictAtoms);
-        break;
+    // Bit-blaster
+    if (!d_conflict) {
+      PropagatedMap::const_iterator find = d_propagator.find(fact);
+      if (find == d_propagator.end() || (*find).second != SUB_BITBLASTER) {
+        // Some atoms have not been bit-blasted yet
+        d_bitblaster->bbAtom(fact);
+        // Assert to sat
+        bool ok = d_bitblaster->assertToSat(fact, d_useSatPropagation);
+        if (!ok) {
+          std::vector<TNode> conflictAtoms;
+          d_bitblaster->getConflict(conflictAtoms);
+          d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
+          d_conflict = true;
+          d_conflictNode = mkConjunction(conflictAtoms);
+          break;
+        }
       }
     }
-    
   }
 
   // If in conflict, output the conflict
   if (d_conflict) {
-    BVDebug("bitvector") << spaces(getContext()->getLevel())
-                       << "TheoryBV::check(): conflict " << d_conflictNode << std::endl;
+    BVDebug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::check(): conflict " << d_conflictNode << std::endl;
     d_out->conflict(d_conflictNode);
     return;
   }
@@ -244,6 +241,7 @@ Node TheoryBV::getValue(TNode n) {
 
 
 void TheoryBV::propagate(Effort e) {
+
   BVDebug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate()" << std::endl;
 
   if (d_conflict) {

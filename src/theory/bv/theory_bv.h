@@ -147,7 +147,8 @@ private:
    * Keeps a map from nodes to the subtheory that propagated it so that we can explain it
    * properly.
    */
-  context::CDHashMap<Node, SubTheory, NodeHashFunction> d_propagator;
+  typedef context::CDHashMap<Node, SubTheory, NodeHashFunction> PropagatedMap;
+  PropagatedMap d_propagator;
 
   /** Should be called to propagate the literal.  */
   bool storePropagation(TNode literal, SubTheory subtheory);
