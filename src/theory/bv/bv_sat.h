@@ -128,7 +128,6 @@ public:
   ~Bitblaster();
   bool assertToSat(TNode node, bool propagate = true);
   bool solve(bool quick_solve = false);
-  void bitblast(TNode node);
   void getConflict(std::vector<TNode>& conflict); 
   void explain(TNode atom, std::vector<TNode>& explanation);
 

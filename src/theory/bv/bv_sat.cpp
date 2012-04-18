@@ -82,6 +82,8 @@ Bitblaster::~Bitblaster() {
  * 
  */
 void Bitblaster::bbAtom(TNode node) {
+  node = node.getKind() == kind::NOT?  node[0] : node;
+  
   if (hasBBAtom(node)) {
     return; 
   }
@@ -170,42 +172,6 @@ void Bitblaster::explain(TNode atom, std::vector<TNode>& explanation) {
   }
 }
 
-/** 
- * Called from preregistration bitblasts the node
- * 
- * @param node 
- * 
- * @return 
- */
-void Bitblaster::bitblast(TNode node) {
-  TimerStat::CodeTimer codeTimer(d_statistics.d_bitblastTimer);
-  
-  /// strip the not
-  if (node.getKind() == kind::NOT) {
-    node = node[0];
-  }
-  
-  if (node.getKind() == kind::EQUAL ||
-      node.getKind() == kind::BITVECTOR_ULT ||
-      node.getKind() == kind::BITVECTOR_ULE ||
-      node.getKind() == kind::BITVECTOR_SLT ||
-      node.getKind() == kind::BITVECTOR_SLE) 
-    {
-      bbAtom(node); 
-    }
-  else if (node.getKind() == kind::BITVECTOR_UGT ||
-           node.getKind() == kind::BITVECTOR_UGE ||
-           node.getKind() == kind::BITVECTOR_SGT ||
-           node.getKind() == kind::BITVECTOR_SGE )
-    {
-      Unhandled(node.getKind()); 
-    }
-  else
-    {
-      Bits bits;
-      bbTerm(node, bits); 
-    }
-}
 
 /** 
  * Asserts the clauses corresponding to the atom to the Sat Solver

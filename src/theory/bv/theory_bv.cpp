@@ -119,7 +119,7 @@ void TheoryBV::preRegisterTerm(TNode node) {
       node.getKind() == kind::BITVECTOR_ULE ||
       node.getKind() == kind::BITVECTOR_SLT ||
       node.getKind() == kind::BITVECTOR_SLE) {
-    d_bitblaster->bitblast(node);
+    d_bitblaster->bbAtom(node);
   }
 
   if (d_useEqualityEngine) {
