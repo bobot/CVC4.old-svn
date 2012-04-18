@@ -239,9 +239,9 @@ void TheoryUF::preRegisterTerm(TNode node) {
   if( d_thss ){
     d_thss->preRegisterTerm( node );
   }
-  //if( getInstantiator() ){
-  //  getInstantiator()->preRegisterTerm( node );
-  //}
+  if( getInstantiator() ){
+    getInstantiator()->preRegisterTerm( node );
+  }
   ////AJR-hack-end
   switch (node.getKind()) {
   case kind::EQUAL:

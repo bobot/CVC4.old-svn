@@ -121,7 +121,7 @@ void InstantiatorTheoryUf::preRegisterTerm( Node t ){
 void InstantiatorTheoryUf::assertNode( Node assertion )
 {
   Debug("quant-uf-assert") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
-  preRegisterTerm( assertion );
+  //preRegisterTerm( assertion );
 }
 
 void InstantiatorTheoryUf::addUserPattern( Node f, Node pat ){
