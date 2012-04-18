@@ -92,6 +92,8 @@ public:
 
   /** assertNode function, assertion is asserted to theory */
   void assertNode( Node assertion );
+  /** Pre-register a term.  Done one time for a Node, ever. */
+  void preRegisterTerm( Node t );
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryArith"); }
   /** print debug */

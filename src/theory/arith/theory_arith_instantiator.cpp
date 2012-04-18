@@ -202,6 +202,10 @@ void InstantiatorTheoryArith::assertNode( Node assertion ){
   }
 } 
 
+void InstantiatorTheoryArith::preRegisterTerm( Node t ){
+  //d_quantEngine->addTermToDatabase( t );
+}
+
 void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort effort ){
   if( Options::current()->cbqi ){
     Debug("quant-arith") << "Setting up simplex for instantiator... " << std::endl;

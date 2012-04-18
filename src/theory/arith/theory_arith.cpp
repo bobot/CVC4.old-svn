@@ -770,6 +770,11 @@ void TheoryArith::preRegisterTerm(TNode n) {
     Assert(!c->canBePropagated());
     c->setPreregistered();
   }
+  //AJR-hack
+  if( getInstantiator() ){
+    getInstantiator()->preRegisterTerm( n );
+  }
+  //AJR-hack-end
 
   Debug("arith::preregister") << "end arith::preRegisterTerm("<< n <<")" << endl;
 }
