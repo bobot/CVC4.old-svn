@@ -169,11 +169,6 @@ bool Solver::addClause_(vec<Lit>& ps)
             ps[j++] = p = ps[i];
     ps.shrink(i - j);
 
-    for(unsigned i = 0; i < ps.size(); ++i) {
-      std::cerr << (sign(ps[i])? "-" : "")<<var(ps[i]) << " ";
-    }
-    std::cerr << "\n";
-
     if (ps.size() == 0)
         return ok = false;
     else if (ps.size() == 1){
