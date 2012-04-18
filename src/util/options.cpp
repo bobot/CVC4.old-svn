@@ -80,7 +80,7 @@ Options::Options() :
   printWinner(false),
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
   simplificationModeSetByUser(false),
-  decisionMode(DECISION_STRATEGY_JUSTIFICATION),
+  decisionMode(DECISION_STRATEGY_INTERNAL),
   decisionModeSetByUser(false),
   doStaticLearning(true),
   interactive(false),
