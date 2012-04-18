@@ -913,9 +913,6 @@ void Solver::explainPropagation(Lit p, std::vector<Lit>& explanation) {
     } else {
       Clause& c = ca[reason(var(l))];
       for (int i = 1; i < c.size(); ++i) {
-        if (var(c[i]) >= vardata.size()) {
-          std::cerr << "BOOM" << std::endl;
-        }
         if (visited.count(var(c[i])) == 0) {
           queue.push(~c[i]);
           visited.insert(var(c[i]));
