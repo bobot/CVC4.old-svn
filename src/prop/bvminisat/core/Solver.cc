@@ -476,7 +476,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
-    if (decisionLevel() < assumptions.size() && marker[var(p)] == 1 && from != CRef_Undef) {
+    if (decisionLevel() <= assumptions.size() && marker[var(p)] == 1 && from != CRef_Undef) {
       if (notify) {
         notify->notify(p);
       }
