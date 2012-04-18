@@ -139,6 +139,9 @@ class SimpSolver : public Solver {
     int                 bwdsub_assigns;
     int                 n_touched;
 
+    // has a clause been added
+    bool                clause_added;
+
     // Temporaries:
     //
     CRef                bwdsub_tmpunit;

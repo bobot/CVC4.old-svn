@@ -8,7 +8,7 @@ including without limitation the rights to use, copy, modify, merge, publish, di
 sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or
+The above copyright notice andg this permission notice shall be included in all copies or
 substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
@@ -34,16 +34,35 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 namespace BVMinisat {
 
+/** Interface for minisat callbacks */
+class Notify {
+
+public:
+
+  virtual ~Notify() {}
+
+  /**
+   * If the notify returns false, the solver will break out of whatever it's currently doing
+   * with an "unknown" answer.
+   */
+  virtual bool notify(Lit lit) = 0;
+};
+
 //=================================================================================================
 // Solver -- the main class:
-
 class Solver {
+
+    /** To notify */
+    Notify* notify;
+
 public:
 
     // Constructor/Destructor:
     //
     Solver(CVC4::context::Context* c);
     virtual ~Solver();
+
+    void setNotify(Notify* toNotify) { notify = toNotify; }
 
     // Problem specification:
     //
@@ -160,6 +179,10 @@ public:
     bool only_bcp;                      // solving mode in which only boolean constraint propagation is done
     void setOnlyBCP (bool val) { only_bcp = val;}
     void explainPropagation(Lit l, std::vector<Lit>& explanation);
+
+    /** Returns the valid propagations since the last call. */
+    void getPropagations(vec<Lit>& propagations);
+
 protected:
 
     // Helper structures:
@@ -250,7 +273,6 @@ protected:
 
     CVC4::context::CDHashMap<Lit, std::vector<Lit>, LitHashFunction> d_explanations;
 
-    void     storeExplanation (Lit p);                                                 // make sure that the explanation of p is cached
     void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, UIP uip = UIP_FIRST);    // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
     bool     litRedundant     (Lit p, uint32_t abstract_levels);                       // (helper method for 'analyze()')

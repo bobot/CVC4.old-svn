@@ -23,7 +23,8 @@
 #include "prop/cnf_stream.h"
 #include "prop/sat_solver.h"
 #include "prop/sat_solver_factory.h"
-#include "theory_bv_rewrite_rules_simplification.h"
+#include "theory/bv/theory_bv_rewrite_rules_simplification.h"
+#include "theory/bv/theory_bv.h"
 
 using namespace std;
 
@@ -383,6 +384,9 @@ Bitblaster::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_bitblastTimer);
 }
 
+bool Bitblaster::MinisatNotify::notify(prop::SatLiteral lit) {
+  return d_bv->propagate(d_cnf->getNode(lit), TheoryBV::SUB_BITBLASTER);
+};
 
 
 

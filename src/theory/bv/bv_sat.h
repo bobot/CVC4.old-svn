@@ -47,22 +47,34 @@ class CnfStream;
 class BVSatSolverInterface;
 }
 
-
 namespace theory {
 namespace bv {
 
+typedef std::vector<Node> Bits;
 
 std::string toString (Bits& bits); 
+
+class TheoryBV;
+
 
 /** 
  * The Bitblaster that manages the mapping between Nodes 
  * and their bitwise definition 
  * 
  */
-
-typedef std::vector<Node> Bits; 
-
 class Bitblaster {
+
+  /** This class gets callbacks from minisat on propagations */
+  class MinisatNotify : public prop::BVSatSolverInterface::Notify {
+    prop::CnfStream* d_cnf;
+    TheoryBV *d_bv;
+  public:
+    MinisatNotify(prop::CnfStream* cnf, TheoryBV *bv)
+    : d_cnf(cnf)
+    , d_bv(bv)
+    {}
+    bool notify(prop::SatLiteral lit);
+  };
   
   typedef __gnu_cxx::hash_map <Node, Bits, TNodeHashFunction >              TermDefMap;
   typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction>                      AtomSet; 
@@ -122,6 +134,7 @@ public:
 
   bool getPropagations(std::vector<TNode>& propagations);
   void explainPropagation(TNode atom, std::vector<Node>& explanation);
+
 private:
 
   

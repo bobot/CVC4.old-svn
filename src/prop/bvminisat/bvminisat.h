@@ -26,14 +26,31 @@
 namespace CVC4 {
 namespace prop {
 
-class BVMinisatSatSolver: public BVSatSolverInterface, public context::ContextNotifyObj {
+class BVMinisatSatSolver : public BVSatSolverInterface, public context::ContextNotifyObj {
+
+private:
+
+  class MinisatNotify : public BVMinisat::Notify {
+    BVSatSolverInterface::Notify* d_notify;
+  public:
+    MinisatNotify(BVSatSolverInterface::Notify* notify)
+    : d_notify(notify)
+    {}
+    bool notify(BVMinisat::Lit lit) {
+      return d_notify->notify(toSatLiteral(lit));
+    }
+  };
+
   BVMinisat::SimpSolver* d_minisat;
+  MinisatNotify* d_minisatNotify;
+
   unsigned d_solveCount;
   unsigned d_assertionsCount;
   context::CDO<unsigned> d_assertionsRealCount;
   context::CDO<unsigned> d_lastPropagation;
 
 public:
+
   BVMinisatSatSolver() :
     ContextNotifyObj(NULL, false),
     d_assertionsRealCount(NULL, (unsigned)0),
@@ -41,6 +58,8 @@ public:
   { Unreachable(); }
   BVMinisatSatSolver(context::Context* mainSatContext);
   ~BVMinisatSatSolver() throw(AssertionException);
+
+  void setNotify(Notify* notify);
 
   void addClause(SatClause& clause, bool removable);
 

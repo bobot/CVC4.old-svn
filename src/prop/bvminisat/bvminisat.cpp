@@ -25,6 +25,7 @@ using namespace prop;
 BVMinisatSatSolver::BVMinisatSatSolver(context::Context* mainSatContext)
 : context::ContextNotifyObj(mainSatContext, false),
   d_minisat(new BVMinisat::SimpSolver(mainSatContext)),
+  d_minisatNotify(0),
   d_solveCount(0),
   d_assertionsCount(0),
   d_assertionsRealCount(mainSatContext, 0),
@@ -36,6 +37,12 @@ BVMinisatSatSolver::BVMinisatSatSolver(context::Context* mainSatContext)
 
 BVMinisatSatSolver::~BVMinisatSatSolver() throw(AssertionException) {
   delete d_minisat;
+  delete d_minisatNotify;
+}
+
+void BVMinisatSatSolver::setNotify(Notify* notify) {
+  d_minisatNotify = new MinisatNotify(notify);
+  d_minisat->setNotify(d_minisatNotify);
 }
 
 void BVMinisatSatSolver::addClause(SatClause& clause, bool removable) {
@@ -53,8 +60,10 @@ void BVMinisatSatSolver::addMarkerLiteral(SatLiteral lit) {
 }
 
 bool BVMinisatSatSolver::getPropagations(std::vector<SatLiteral>& propagations) {
-  for (; d_lastPropagation < d_minisat->atom_propagations.size(); d_lastPropagation = d_lastPropagation + 1) {
-    propagations.push_back(toSatLiteral(d_minisat->atom_propagations[d_lastPropagation]));
+  BVMinisat::vec<BVMinisat::Lit> minisat_propagations;
+  d_minisat->getPropagations(minisat_propagations);
+  for (unsigned i = 0; i < minisat_propagations.size(); ++ i) {
+    propagations.push_back(toSatLiteral(minisat_propagations[i]));
   }
   return propagations.size() > 0; 
 }

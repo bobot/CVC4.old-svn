@@ -153,9 +153,9 @@ Var Solver::newVar(bool sign, bool dvar)
 
 bool Solver::addClause_(vec<Lit>& ps)
 {
-  if (decisionLevel() > 0) {
-    cancelUntil(0);
-  }
+    if (decisionLevel() > 0) {
+      cancelUntil(0);
+    }
     
     if (!ok) return false;
 
@@ -182,7 +182,6 @@ bool Solver::addClause_(vec<Lit>& ps)
 
     return true;
 }
-
 
 void Solver::attachClause(CRef cr) {
     const Clause& c = ca[cr];
@@ -452,17 +451,16 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 
     for (int i = trail.size()-1; i >= trail_lim[0]; i--){
         Var x = var(trail[i]);
-        if (seen[x]){
-            if (reason(x) == CRef_Undef){
-              if (marker[x] == 2) {
-                assert(level(x) > 0);
-                out_conflict.push(~trail[i]);
-              }
-            }else{
-                Clause& c = ca[reason(x)];
-                for (int j = 1; j < c.size(); j++)
-                    if (level(var(c[j])) > 0)
-                        seen[var(c[j])] = 1;
+        if (seen[x]) {
+            if (reason(x) == CRef_Undef) {
+              assert(marker[x] == 2);
+              assert(level(x) > 0);
+              out_conflict.push(~trail[i]);
+            } else {
+              Clause& c = ca[reason(x)];
+              for (int j = 1; j < c.size(); j++)
+                if (level(var(c[j])) > 0)
+                  seen[var(c[j])] = 1;
             }
             seen[x] = 0;
         }
@@ -478,21 +476,26 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
-    if (only_bcp && marker[var(p)] == 1 && from != CRef_Undef) {
-      atom_propagations.push(p);
+    if (decisionLevel() <= assumptions.size() && marker[var(p)] == 1 && from != CRef_Undef) {
+      if (notify) {
+        notify->notify(p);
+      }
     }
 }
 
 void Solver::popAssumption() {
-  marker[var(assumptions.last())] = 1;
-  assumptions.pop();
-  conflict.clear();
-  cancelUntil(assumptions.size());
+    assumptions.pop();
+    conflict.clear();
+    cancelUntil(assumptions.size());
 }
 
 lbool Solver::assertAssumption(Lit p, bool propagate) {
 
   assert(marker[var(p)] == 1);
+
+  if (decisionLevel() > assumptions.size()) {
+    cancelUntil(assumptions.size());
+  }
 
   // add to the assumptions
   assumptions.push(p);
@@ -890,7 +893,7 @@ lbool Solver::solve_()
 // Bitvector propagations
 // 
 
-void Solver::storeExplanation(Lit p) {
+void Solver::getPropagations(vec<Lit>& propagations) {
 }
 
 void Solver::explainPropagation(Lit p, std::vector<Lit>& explanation) {
@@ -904,10 +907,9 @@ void Solver::explainPropagation(Lit p, std::vector<Lit>& explanation) {
     assert(value(l) == l_True);
     queue.pop();
     if (reason(var(l)) == CRef_Undef) {
-      if (marker[var(l)] == 2) {
-        explanation.push_back(l);
-        visited.insert(var(l));
-      }
+      Assert(marker[var(l)] == 2);
+      explanation.push_back(l);
+      visited.insert(var(l));
     } else {
       Clause& c = ca[reason(var(l))];
       for (int i = 1; i < c.size(); ++i) {

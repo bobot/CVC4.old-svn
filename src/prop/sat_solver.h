@@ -73,6 +73,19 @@ public:
 class BVSatSolverInterface: public SatSolver {
 public:
 
+  /** Interface for notifications */
+  class Notify {
+  public:
+
+    virtual ~Notify() {};
+
+    /**
+     * If the notify returns false, the solver will break out of whatever it's currently doing
+     * with an "unknown" answer.
+     */
+    virtual bool notify(SatLiteral lit) = 0;
+  };
+
   virtual void markUnremovable(SatLiteral lit) = 0;
 
   virtual void getUnsatCore(SatClause& unsatCore) = 0; 

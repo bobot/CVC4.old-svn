@@ -74,8 +74,6 @@ public:
 
   void preRegisterTerm(TNode n);
 
-  //void registerTerm(TNode n) { }
-
   void check(Effort e);
 
   Node explain(TNode n);
@@ -84,8 +82,8 @@ public:
 
   std::string identify() const { return std::string("TheoryBV"); }
 
-  //Node preprocessTerm(TNode term);
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions); 
+
 private:
   
   class Statistics {
@@ -109,14 +107,14 @@ private:
     bool notify(TNode propagation) {
       Debug("bitvector") << spaces(d_bv.getContext()->getLevel()) << "NotifyClass::notify(" << propagation << ")" << std::endl;
       // Just forward to bv
-      return d_bv.propagate(propagation);
+      return d_bv.propagate(propagation, SUB_EQUALITY);
     }
 
     void notify(TNode t1, TNode t2) {
       Debug("arrays") << spaces(d_bv.getContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
       // Propagate equality between shared terms
       Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
-      d_bv.propagate(t1.eqNode(t2));
+      d_bv.propagate(t1.eqNode(t2), SUB_EQUALITY);
     }
   };
 
@@ -140,15 +138,30 @@ private:
 
   context::CDQueue<Node> d_toBitBlast;
 
-  /** Should be called to propagate the literal.  */
-  bool propagate(TNode literal);
+  enum SubTheory {
+    SUB_EQUALITY,
+    SUB_BITBLASTER
+  };
 
-  /** Explain why this literal is true by adding assumptions */
-  void explain(TNode literal, std::vector<TNode>& assumptions);
+  /**
+   * Keeps a map from nodes to the subtheory that propagated it so that we can explain it
+   * properly.
+   */
+  context::CDHashMap<Node, SubTheory, NodeHashFunction> d_propagator;
+
+  /** Should be called to propagate the literal.  */
+  bool propagate(TNode literal, SubTheory subtheory);
+
+  /**
+   * Explains why this literal (propagated by subtheory) is true by adding assumptions.
+   */
+  void explain(TNode literal, SubTheory subtheory, std::vector<TNode>& assumptions);
 
   void addSharedTerm(TNode t);
 
   EqualityStatus getEqualityStatus(TNode a, TNode b);
+
+  friend class Bitblaster;
 
 public:
 

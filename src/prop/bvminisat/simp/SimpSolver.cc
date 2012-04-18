@@ -62,6 +62,7 @@ SimpSolver::SimpSolver(CVC4::context::Context* c) :
   , elim_heap          (ElimLt(n_occ))
   , bwdsub_assigns     (0)
   , n_touched          (0)
+  , clause_added       (false)
 {
   CVC4::StatisticsRegistry::registerStat(&total_eliminate_time); 
     vec<Lit> dummy(1,lit_Undef);
@@ -100,20 +101,14 @@ Var SimpSolver::newVar(bool sign, bool dvar, bool freeze) {
 
 lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 {
-    vec<Lit> atom_propagations_backup;
-    atom_propagations.moveTo(atom_propagations_backup);
-    vec<int> atom_propagations_lim_backup;
-    atom_propagations_lim.moveTo(atom_propagations_lim_backup);
-
     only_bcp = false;
-    cancelUntil(0);
   
     vec<Var> extra_frozen;
     lbool    result = l_True;
 
     do_simp &= use_simplification;
 
-    if (do_simp){
+    if (do_simp) {
         // Assumptions must be temporarily frozen to run variable elimination:
         for (int i = 0; i < assumptions.size(); i++){
             Var v = var(assumptions[i]);
@@ -127,7 +122,10 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
                 extra_frozen.push(v);
             } }
 
-        result = lbool(eliminate(turn_off_simp));
+        if (do_simp && clause_added) {
+          cancelUntil(0);
+          result = lbool(eliminate(turn_off_simp));
+        }
     }
 
     if (result == l_True)
@@ -135,13 +133,12 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
     else if (verbosity >= 1)
         printf("===============================================================================\n");
 
-    atom_propagations_backup.moveTo(atom_propagations);
-    atom_propagations_lim_backup.moveTo(atom_propagations_lim);
-
     if (do_simp)
         // Unfreeze the assumptions that were frozen:
         for (int i = 0; i < extra_frozen.size(); i++)
             setFrozen(extra_frozen[i], false);
+
+    clause_added = false;
 
     return result;
 }
@@ -154,6 +151,8 @@ bool SimpSolver::addClause_(vec<Lit>& ps)
     for (int i = 0; i < ps.size(); i++)
         assert(!isEliminated(var(ps[i])));
 #endif
+
+    clause_added = true;
 
     int nclauses = clauses.size();
 
