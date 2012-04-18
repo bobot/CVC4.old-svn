@@ -469,6 +469,8 @@ int runCvc4(int argc, char *argv[], Options& options) {
     delete parser;
   }
 
+  if(options.parseOnly) return 0;
+
   /************************ Preprocess (CNF-ication) ************************/
 
   if(options.preprocessFirst) {
