@@ -44,6 +44,8 @@
 
 #include "util/stats.h"
 
+#include <gmpxx.h>
+
 #include <vector>
 #include <map>
 #include <queue>
@@ -59,6 +61,13 @@ namespace arith {
  */
 class TheoryArith : public Theory {
 private:
+
+  gmp_randclass d_random;
+  Integer fromRange(const Integer& z);
+  Integer fromRange(const Integer& l, const Integer& u);
+  bool randomAssignment();
+  bool coinFlip(double d);
+  uint32_t d_integerAssignmentAttemptCounter;
 
   /**
    * This counter is false if nothing has been done since the last cut.

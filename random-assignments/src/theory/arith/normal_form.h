@@ -821,6 +821,9 @@ public:
   static Polynomial mkPolynomial(const Variable& v){
     return Monomial::mkMonomial(v);
   }
+  static Polynomial mkPolynomial(const Constant& c){
+    return Monomial(c);
+  }
 
   static Polynomial mkPolynomial(const std::vector<Monomial>& m) {
     if(m.size() == 0) {

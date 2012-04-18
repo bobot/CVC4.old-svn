@@ -55,6 +55,7 @@ const uint32_t RESET_START = 2;
 
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, u, out, valuation),
+  d_random(gmp_randinit_default),
   d_hasDoneWorkSinceCut(false),
   d_learner(d_pbSubstitutions),
   d_setupLiteralCallback(this),
@@ -78,7 +79,9 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
   d_statistics()
-{}
+{
+  d_random.seed(0);
+}
 
 TheoryArith::~TheoryArith(){}
 
@@ -165,6 +168,21 @@ void TheoryArith::zeroDifferenceDetected(ArithVar x){
   }else{
     d_differenceManager.differenceIsZero(lb, ub);
   }
+}
+
+Integer TheoryArith::fromRange(const Integer& z){
+  return Integer(d_random.get_z_range(z.get_mpz()));
+}
+Integer TheoryArith::fromRange(const Integer& l, const Integer& u){
+  Assert(l < u);
+  Integer diff = u - l;
+  return fromRange(diff) + l;
+}
+
+bool TheoryArith::coinFlip(double d){
+  mpf_class flip(0,128);
+  flip = d_random.get_f ();
+  return cmp(flip,d) <= 0;
 }
 
 /* procedure AssertLower( x_i >= c_i ) */
@@ -1121,6 +1139,116 @@ bool TheoryArith::hasIntegerModel(){
 }
 
 
+bool TheoryArith::randomAssignment(){
+  Assert(!hasIntegerModel());
+  Assert(d_variables.size() > 0);
+#warning "should be QF_LRA sat and QF_LIA equality sat. Add assertions"
+
+  Trace("random") << "randomAssignment" << endl;
+  PermissiveBackArithVarSet d_currentlyUnset;
+
+  unsigned setArithVars = 0;
+  unsigned equalSlacks = 0;
+  for(ArithVar x = 0, N = d_variables.size(); x < N; x++){
+    if(isInteger(x)){
+      if(isSlackVariable(x)){
+        if(d_partialModel.boundsAreEqual(x)){
+          ++equalSlacks;
+        }
+      }else{
+        if(d_partialModel.boundsAreEqual(x)){
+          ++setArithVars;
+        }else{
+          d_currentlyUnset.add(x);
+        }
+      }
+    }
+  }
+
+  Trace("random") << "there are " << d_currentlyUnset.size() << "variables in play, "<< endl;
+  Trace("random") << "" << setArithVars << " set variables, and " << endl;
+  Trace("random") << "there are " << equalSlacks << " equal slack variables."<< endl;
+
+  double odds = double(setArithVars + d_currentlyUnset.size() - equalSlacks -1)/d_currentlyUnset.size();
+
+  Trace("random") << "odds are " << odds << endl;
+
+  for(int round = 0; round < 50; ++round){
+    context::Context::ScopedPush speculativePush(getContext());
+    //DO NOT TOUCH THE OUTPUTSTREAM
+
+    Trace("random") << "start round " << round << endl;
+
+    Node possibleConflict = Node::null();
+    PermissiveBackArithVarSet::const_iterator i =  d_currentlyUnset.begin();
+    PermissiveBackArithVarSet::const_iterator i_end =  d_currentlyUnset.end();
+    for(; i != i_end && possibleConflict.isNull(); ++i){
+      ArithVar x = *i;
+      if(coinFlip(odds)){
+        Integer ub;
+        if(d_partialModel.hasUpperBound(x)){
+          ub = d_partialModel.getUpperBound(x).floor()+1;
+        }else{
+          ub = d_partialModel.getSafeAssignment(x).ceiling() + 101;
+        }
+        Integer lb;
+        if(d_partialModel.hasLowerBound(x)){
+          lb = d_partialModel.getLowerBound(x).ceiling();
+        }else{
+          lb = d_partialModel.getSafeAssignment(x).floor() - 100;
+        }
+        Trace("random") << lb << " " << ub << endl;
+
+        Integer random = fromRange(lb, ub);
+
+        Constraint eqRandom = d_constraintDatabase.getConstraint(x, Equality, DeltaRational(random));
+        Trace("random") << "eqRandom " << eqRandom << endl;
+        Trace("random") << eqRandom->hasProof() << " " << eqRandom->negationHasProof() << endl;
+        if(eqRandom->truthIsUnknown()){
+          Assert(!eqRandom->assertedToTheTheory());
+          if(!eqRandom->hasLiteral()){
+            TNode var = d_arithvarNodeMap.asNode(x);
+            Polynomial varAsPolynomial = Polynomial::parsePolynomial(var);
+            Constant randomC = Constant::mkConstant(Rational(random));
+            Polynomial randomP = Polynomial::mkPolynomial(randomC);
+            Comparison cmp = Comparison::mkComparison(EQUAL, varAsPolynomial, randomP);
+            Node literal = cmp.getNode();
+            eqRandom->setLiteral(literal);
+          }
+
+          eqRandom->setAssertedToTheTheory();
+          eqRandom->selfExplaining();
+          Trace("random") << "eqRandom now " << eqRandom << endl;
+          possibleConflict = AssertEquality(eqRandom);
+        }else{
+          Trace("random") << "skipping" << endl;
+        }
+      }
+    }
+    if(!possibleConflict.isNull()){
+      d_partialModel.revertAssignmentChanges();
+      clearUpdates();
+      Trace("random") << "failed " << round << " because of  AssertEqual conflict" << possibleConflict << endl;
+    }else{
+      bool foundConflict = d_simplex.findModel();
+      if(foundConflict){
+        d_partialModel.revertAssignmentChanges();
+        clearUpdates();
+        Trace("random") << "failed " << round << " because of simplex conflict "
+             <<  d_conflicts[0] << endl;
+      }else{
+        debugPrintModel();
+        if(hasIntegerModel()){
+          Assert(hasIntegerModel(), "YRNOT TOTAL?");
+          d_partialModel.commitAssignmentChanges();
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
@@ -1163,7 +1291,7 @@ void TheoryArith::check(Effort effortLevel){
     for(size_t i = 0, i_end = d_conflicts.size(); i < i_end; ++i){
       Node conflict = d_conflicts[i];
       Debug("arith::conflict") << "d_conflicts[" << i << "] " << conflict << endl;
-      d_out->conflict(conflict);      
+      d_out->conflict(conflict);
     }
     emmittedConflictOrSplit = true;
   }else{
@@ -1184,6 +1312,20 @@ void TheoryArith::check(Effort effortLevel){
         Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
         d_out->conflict(possibleConflict);
         emmittedConflictOrSplit = true;
+      }
+    }
+
+    if(!emmittedConflictOrSplit){
+      ++d_integerAssignmentAttemptCounter;
+      static const int RANDOM_ASSIGNMENT_PERIOD = 10;
+      if(d_integerAssignmentAttemptCounter % RANDOM_ASSIGNMENT_PERIOD == 1){
+        bool result = randomAssignment();
+        if(result){
+          cout << "hey this worked!" << endl;
+          emmittedConflictOrSplit = true;
+        }else{
+          cout << "nope it failed" << endl;
+        }
       }
     }
 
