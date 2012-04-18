@@ -53,7 +53,7 @@ std::string toString(Bits&  bits) {
 }
 /////// Bitblaster 
 
-Bitblaster::Bitblaster(context::Context* c) :
+Bitblaster::Bitblaster(context::Context* c, bv::TheoryBV* bv) :
     d_termCache(),
     d_bitblastedAtoms(),
     d_assertedAtoms(c),
@@ -62,6 +62,8 @@ Bitblaster::Bitblaster(context::Context* c) :
     d_satSolver = prop::SatSolverFactory::createMinisat(c);
     d_cnfStream = new TseitinCnfStream(d_satSolver, new NullRegistrar());
 
+    MinisatNotify* notify = new MinisatNotify(d_cnfStream, bv);
+    d_satSolver->setNotify(notify); 
     // initializing the bit-blasting strategies
     initAtomBBStrategies(); 
     initTermBBStrategies(); 
@@ -159,20 +161,10 @@ void Bitblaster::addAtom(TNode atom) {
   SatLiteral lit = d_cnfStream->getLiteral(atom);
   d_satSolver->addMarkerLiteral(lit); 
 }
-bool Bitblaster::getPropagations(std::vector<TNode>& propagations) {
-  std::vector<SatLiteral> propagated_literals;
-  if (d_satSolver->getPropagations(propagated_literals)) {
-    for (unsigned i = 0; i < propagated_literals.size(); ++i) {
-      propagations.push_back(d_cnfStream->getNode(propagated_literals[i])); 
-    }
-    return true;
-  }
-  return false;
-}
 
-void Bitblaster::explainPropagation(TNode atom, std::vector<Node>& explanation) {
+void Bitblaster::explain(TNode atom, std::vector<TNode>& explanation) {
   std::vector<SatLiteral> literal_explanation;
-  d_satSolver->explainPropagation(d_cnfStream->getLiteral(atom), literal_explanation);
+  d_satSolver->explain(d_cnfStream->getLiteral(atom), literal_explanation);
   for (unsigned i = 0; i < literal_explanation.size(); ++i) {
     explanation.push_back(d_cnfStream->getNode(literal_explanation[i])); 
   }
@@ -385,7 +377,7 @@ Bitblaster::Statistics::~Statistics() {
 }
 
 bool Bitblaster::MinisatNotify::notify(prop::SatLiteral lit) {
-  return d_bv->propagate(d_cnf->getNode(lit), TheoryBV::SUB_BITBLASTER);
+  return d_bv->storePropagation(d_cnf->getNode(lit), TheoryBV::SUB_BITBLASTER);
 };
 
 

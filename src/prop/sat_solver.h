@@ -86,15 +86,15 @@ public:
     virtual bool notify(SatLiteral lit) = 0;
   };
 
+  virtual void setNotify(Notify* notify) = 0; 
+  
   virtual void markUnremovable(SatLiteral lit) = 0;
 
   virtual void getUnsatCore(SatClause& unsatCore) = 0; 
 
   virtual void addMarkerLiteral(SatLiteral lit) = 0; 
 
-  virtual bool getPropagations(std::vector<SatLiteral>& propagations) = 0;
-
-  virtual void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0;
+  virtual void explain(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0;
 
   virtual SatValue assertAssumption(SatLiteral lit, bool propagate = false) = 0; 
 

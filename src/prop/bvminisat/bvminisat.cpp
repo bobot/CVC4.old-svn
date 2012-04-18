@@ -59,18 +59,9 @@ void BVMinisatSatSolver::addMarkerLiteral(SatLiteral lit) {
   d_minisat->addMarkerLiteral(BVMinisat::var(toMinisatLit(lit)));
 }
 
-bool BVMinisatSatSolver::getPropagations(std::vector<SatLiteral>& propagations) {
-  BVMinisat::vec<BVMinisat::Lit> minisat_propagations;
-  d_minisat->getPropagations(minisat_propagations);
-  for (unsigned i = 0; i < minisat_propagations.size(); ++ i) {
-    propagations.push_back(toSatLiteral(minisat_propagations[i]));
-  }
-  return propagations.size() > 0; 
-}
-
-void BVMinisatSatSolver::explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) {
+void BVMinisatSatSolver::explain(SatLiteral lit, std::vector<SatLiteral>& explanation) {
   std::vector<BVMinisat::Lit> minisat_explanation;
-  d_minisat->explainPropagation(toMinisatLit(lit), minisat_explanation);
+  d_minisat->explain(toMinisatLit(lit), minisat_explanation);
   for (unsigned i = 0; i < minisat_explanation.size(); ++i) {
     explanation.push_back(toSatLiteral(minisat_explanation[i])); 
   }

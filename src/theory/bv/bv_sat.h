@@ -124,16 +124,13 @@ public:
   void cacheTermDef(TNode node, Bits def); // public so we can cache remainder for division
   void bbTerm(TNode node, Bits&  bits);
   
-public:
-  Bitblaster(context::Context* c); 
+  Bitblaster(context::Context* c, bv::TheoryBV* bv); 
   ~Bitblaster();
   bool assertToSat(TNode node, bool propagate = true);
   bool solve(bool quick_solve = false);
   void bitblast(TNode node);
   void getConflict(std::vector<TNode>& conflict); 
-
-  bool getPropagations(std::vector<TNode>& propagations);
-  void explainPropagation(TNode atom, std::vector<Node>& explanation);
+  void explain(TNode atom, std::vector<TNode>& explanation);
 
 private:
 

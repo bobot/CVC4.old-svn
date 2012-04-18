@@ -178,10 +178,7 @@ public:
 
     bool only_bcp;                      // solving mode in which only boolean constraint propagation is done
     void setOnlyBCP (bool val) { only_bcp = val;}
-    void explainPropagation(Lit l, std::vector<Lit>& explanation);
-
-    /** Returns the valid propagations since the last call. */
-    void getPropagations(vec<Lit>& propagations);
+    void explain(Lit l, std::vector<Lit>& explanation);
 
 protected:
 

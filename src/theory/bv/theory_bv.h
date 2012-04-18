@@ -107,14 +107,14 @@ private:
     bool notify(TNode propagation) {
       Debug("bitvector") << spaces(d_bv.getContext()->getLevel()) << "NotifyClass::notify(" << propagation << ")" << std::endl;
       // Just forward to bv
-      return d_bv.propagate(propagation, SUB_EQUALITY);
+      return d_bv.storePropagation(propagation, SUB_EQUALITY);
     }
 
     void notify(TNode t1, TNode t2) {
       Debug("arrays") << spaces(d_bv.getContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
       // Propagate equality between shared terms
       Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
-      d_bv.propagate(t1.eqNode(t2), SUB_EQUALITY);
+      d_bv.storePropagation(t1.eqNode(t2), SUB_EQUALITY);
     }
   };
 
@@ -150,7 +150,7 @@ private:
   context::CDHashMap<Node, SubTheory, NodeHashFunction> d_propagator;
 
   /** Should be called to propagate the literal.  */
-  bool propagate(TNode literal, SubTheory subtheory);
+  bool storePropagation(TNode literal, SubTheory subtheory);
 
   /**
    * Explains why this literal (propagated by subtheory) is true by adding assumptions.

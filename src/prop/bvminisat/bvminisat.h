@@ -95,9 +95,7 @@ public:
   static void  toSatClause    (BVMinisat::vec<BVMinisat::Lit>& clause, SatClause& sat_clause);
   void addMarkerLiteral(SatLiteral lit);
 
-  bool getPropagations(std::vector<SatLiteral>& propagations);
-
-  void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation);
+  void explain(SatLiteral lit, std::vector<SatLiteral>& explanation);
 
   SatValue assertAssumption(SatLiteral lit, bool propagate);
   

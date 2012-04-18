@@ -153,6 +153,10 @@ Var Solver::newVar(bool sign, bool dvar)
 
 bool Solver::addClause_(vec<Lit>& ps)
 {
+  for(unsigned i = 0; i < ps.size(); ++i) {
+    std::cerr << (sign(ps[i])? "-" : "")<<var(ps[i]) << " "; 
+  }
+  std::cerr << "\n"; 
     if (decisionLevel() > 0) {
       cancelUntil(0);
     }
@@ -476,7 +480,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
-    if (decisionLevel() <= assumptions.size() && marker[var(p)] == 1 && from != CRef_Undef) {
+    if (decisionLevel() < assumptions.size() && marker[var(p)] == 1 && from != CRef_Undef) {
       if (notify) {
         notify->notify(p);
       }
@@ -893,15 +897,13 @@ lbool Solver::solve_()
 // Bitvector propagations
 // 
 
-void Solver::getPropagations(vec<Lit>& propagations) {
-}
-
-void Solver::explainPropagation(Lit p, std::vector<Lit>& explanation) {
+void Solver::explain(Lit p, std::vector<Lit>& explanation) {
   vec<Lit> queue;
   queue.push(p);
 
   __gnu_cxx::hash_set<Var> visited;
   visited.insert(var(p));
+  
   while(queue.size() > 0) {
     Lit l = queue.last();
     assert(value(l) == l_True);
