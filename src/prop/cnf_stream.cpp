@@ -190,12 +190,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
       NodeManager* nm = NodeManager::currentNM();
       kss << "sat_var_" << lit.getSatVariable();
 
-      // Create the booleanType "sat_var_" node, and iff assertion
-      NodeBuilder<> b(kind::IFF);
       Node sat_var_node = nm->mkVar(kss.str(), nm->booleanType());
-      b << sat_var_node << node;
-
-      Node n(b);
 
       // for dumping
       Dump("clauses") << DeclareFunctionCommand(kss.str(), nm->booleanType().toType() );

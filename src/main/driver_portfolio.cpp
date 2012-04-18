@@ -510,8 +510,10 @@ int runCvc4(int argc, char *argv[], Options& options) {
     Dump.clear();
     Dump.disableCommands();
 
-    for(int i = 0; i < numThreads; ++i)
+    for(int i = 0; i < numThreads; ++i) {
       threadOptions[i].simplificationMode = Options::SIMPLIFICATION_MODE_NONE;
+      threadOptions[i].doStaticLearning = false;
+    }
 
     exprMgr->setOptions(threadOptions[0]);
 

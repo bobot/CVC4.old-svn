@@ -605,7 +605,8 @@ void CvcPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<GetOptionCommand>(out, c) ||
      tryToStream<DatatypeDeclarationCommand>(out, c) ||
      tryToStream<CommentCommand>(out, c) ||
-     tryToStream<EmptyCommand>(out, c)) {
+     tryToStream<EmptyCommand>(out, c) ||
+     tryToStream<MappingCommand>(out, c)) {
     return;
   }
 
@@ -786,6 +787,14 @@ static void toStream(std::ostream& out, const CommentCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const EmptyCommand* c) throw() {
+}
+
+static void toStream(std::ostream& out, const MappingCommand* c) throw() {
+  NodeBuilder<> b(kind::IFF);
+  b << c->getBoolvar() << c->getExpr();
+  Node n(b);
+  AssertCommand c2 = AssertCommand(n.toExpr());
+  tryToStream<AssertCommand>( out, &c2 );
 }
 
 template <class T>
