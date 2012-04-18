@@ -187,10 +187,13 @@ public:
     std::map< int, Node > d_cardinality_literal;
     /** cardinality lemmas */
     std::map< int, Node > d_cardinality_lemma;
+    /** cardinality assertions (indexed by cardinality literals ) */
+    NodeBoolMap d_cardinality_assertions;
   public:
     ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) :
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
-        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ), d_type( tn ), d_is_cardinality_set( c, false ),
+        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ), d_type( tn ), 
+        d_cardinality_assertions( c ), d_is_cardinality_set( c, false ),
         d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ),
         d_cardinality_master( NULL ){}
     ~ConflictFind(){}
@@ -200,6 +203,8 @@ public:
     void merge( Node a, Node b );
     /** assert terms are disequal */
     void assertDisequal( Node a, Node b, Node reason );
+    /** assert cardinality */
+    void assertCardinality( int c, bool val );
     /** check */
     void check( Theory::Effort level, OutputChannel* out );
     /** propagate */
@@ -214,9 +219,6 @@ public:
     void getRepresentatives( std::vector< Node >& reps );
     /** get cardinality lemma */
     Node getCardinalityLemma();
-  public:
-    /** is cardinality strict */
-    bool d_isCardinalityStrict;
   public:
     /** get number of regions (for debugging) */
     int getNumRegions();

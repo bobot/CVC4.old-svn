@@ -40,6 +40,8 @@ private:
   EqClassIterator d_eqc;
   int d_term_iter;
   int d_term_iter_limit;
+private:
+  Node d_retNode;
 public:
   CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op );
   ~CandidateGeneratorTheoryUf(){}

@@ -65,12 +65,15 @@ public:
       
       eqc is the equivalence class you are searching in
   */
-  virtual void addCandidate( Node n ) {}
-  virtual void resetInstantiationRound() = 0;
   virtual void reset( Node eqc ) = 0;
   virtual Node getNextCandidate() = 0;
+  /** add candidate to list of nodes returned by this generator */
+  virtual void addCandidate( Node n ) {}
+  /** call this at the beginning of each instantiation round */
+  virtual void resetInstantiationRound() = 0;
 };
 
+/** candidate generator queue (for manual candidate generation) */
 class CandidateGeneratorQueue : public CandidateGenerator
 {
 private:
@@ -105,6 +108,7 @@ public:
   virtual Node getInternalRepresentative( Node a ) = 0;
 };
 
+/** basic class defining an instantiation */
 class InstMatch
 {
 public:
@@ -156,7 +160,7 @@ inline std::ostream& operator<<(std::ostream& out, const InstMatch& m) {
   return out;
 }
 
-
+/** trie for InstMatch objects */
 class InstMatchTrie
 {
 public:
@@ -264,10 +268,11 @@ public:
   bool addInstMatch( InstMatch& m);
 };
 
+/** base class for producing InstMatch objects */
 class IMGenerator
 {
 public:
-  /** reset instantiation round (call this whenever equivalence classes have changed) */
+  /** reset instantiation round (call this at beginning of instantiation round) */
   virtual void resetInstantiationRound( QuantifiersEngine* qe ) = 0;
   /** reset, eqc is the equivalence class to search in (any if eqc=null) */
   virtual void reset( Node eqc, QuantifiersEngine* qe ) = 0;
@@ -276,7 +281,7 @@ public:
   /** return true if whatever Node is subsituted for the variables the
       given Node can't match the pattern */
   virtual bool nonunifiable( TNode t, const std::vector<Node> & vars) = 0;
-  /** add instantiations */
+  /** add instantiations directly */
   virtual int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ) = 0;
 };
 
@@ -352,6 +357,7 @@ public:
   int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
 };
 
+/** smart multi-trigger implementation */
 class InstMatchGeneratorMulti : public IMGenerator
 {
 private:
@@ -400,6 +406,7 @@ public:
 
 class TermArgTrie;
 
+/** smart (single)-trigger implementation */
 class InstMatchGeneratorSimple : public IMGenerator
 {
 private:

@@ -801,8 +801,9 @@ void InstMatchGeneratorMulti::collectInstantiations2( QuantifiersEngine* qe, Ins
 
 int InstMatchGeneratorMulti::addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
   int addedLemmas = 0;
+  Debug("smart-multi-trigger") << "Process smart multi trigger" << std::endl;
   for( int i=0; i<(int)d_children.size(); i++ ){
-    //std::cout << "Calculate matches " << i << std::endl;
+    Debug("smart-multi-trigger") << "Calculate matches " << i << std::endl;
     std::vector< InstMatch > newMatches;
     InstMatch m;
     while( d_children[i]->getNextMatch( m, qe ) ){

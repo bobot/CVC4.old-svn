@@ -39,8 +39,13 @@ void CandidateGeneratorTheoryUf::reset( Node eqc ){
     d_term_iter = 0;
   }else{
     //create an equivalence class iterator in eq class eqc
-    eqc = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative( eqc );
-    d_eqc = EqClassIterator( eqc, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
+    if( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->hasTerm( eqc ) ){
+      eqc = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative( eqc );
+      d_eqc = EqClassIterator( eqc, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
+      d_retNode = Node::null();
+    }else{
+      d_retNode = eqc;
+    }
     d_term_iter = -1;
   }
 }
@@ -56,15 +61,24 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
       }
     }
   }else if( d_term_iter==-1 ){
-    //get next candidate term in equivalence class
-    while( !d_eqc.isFinished() ){
-      Node n = (*d_eqc);
-      ++d_eqc;
-      if( n.getKind()==APPLY_UF && n.getOperator()==d_op ){
-        if( !n.getAttribute(NoMatchAttribute()) ){
-          return n;
+    if( d_retNode.isNull() ){
+      //get next candidate term in equivalence class
+      while( !d_eqc.isFinished() ){
+        Node n = (*d_eqc);
+        ++d_eqc;
+        if( n.getKind()==APPLY_UF && n.getOperator()==d_op ){
+          if( !n.getAttribute(NoMatchAttribute()) ){
+            return n;
+          }
         }
       }
+    }else{
+      Node ret;
+      if( d_retNode.hasOperator() && d_retNode.getOperator()==d_op ){
+        ret = d_retNode;
+      }
+      d_term_iter = -2; //done returning matches
+      return ret;
     }
   }
   return Node::null();
