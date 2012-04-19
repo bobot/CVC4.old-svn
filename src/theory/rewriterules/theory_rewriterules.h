@@ -29,6 +29,7 @@
 #include "theory/quantifiers_engine.h"
 #include "context/context_mm.h"
 #include "theory/inst_match_impl.h"
+#include "util/stats.h"
 
 namespace CVC4 {
 namespace theory {
@@ -71,11 +72,18 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
                 std::vector<Node> & to_r);
     RewriteRule(const RewriteRule & r) CVC4_UNUSED;
     RewriteRule& operator=(const RewriteRule&) CVC4_UNUSED;
+    ~RewriteRule();
 
     bool noGuard()const throw () { return guards.size() == 0; };
     bool inCache(TheoryRewriteRules & re, InstMatch & im)const;
 
     void toStream(std::ostream& out) const;
+
+    /* statistics */
+    mutable size_t nb_matched;
+    mutable size_t nb_applied;
+    mutable size_t nb_propagated;
+
   };
 
   class RuleInst{

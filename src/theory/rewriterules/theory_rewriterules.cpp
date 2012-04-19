@@ -139,11 +139,13 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
 void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
                                              InstMatch & im,
                                              bool delay){
+  ++r->nb_matched;
   if(rewrite_instantiation) im.applyRewrite();
   if(representative_instantiation)
     im.makeRepresentative( getQuantifiersEngine()->getEqualityQuery() );
 
   if(!cache_match || !r->inCache(*this,im)){
+    ++r->nb_applied;
     std::vector<Node> subst;
     im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);
     RuleInst * ri = new RuleInst(*this,r,subst);
@@ -271,7 +273,8 @@ Trigger TheoryRewriteRules::createTrigger( TNode n, std::vector<Node> & pattern 
   const{
   //  Debug("rewriterules") << "createTrigger:";
   getQuantifiersEngine()->registerPattern(pattern);
-  return *Trigger::mkTrigger(getQuantifiersEngine(),n,pattern, false, true);
+  return *Trigger::mkTrigger(getQuantifiersEngine(),n,pattern,
+                             match_gen_kind, true);
 };
 
 bool TheoryRewriteRules::notifyIfKnown(const GList * const ltested,
@@ -375,6 +378,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
   Debug("rewriterules") << "propagateRule" << *inst << std::endl;
   const RewriteRule * rule = inst->rule;
+  ++rule->nb_applied;
   Node equality = inst->substNode(*this,rule->body,cache);
   if(propagate_as_lemma){
     Node lemma = equality;

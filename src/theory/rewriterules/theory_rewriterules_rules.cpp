@@ -233,6 +233,14 @@ void RewriteRule::toStream(std::ostream& out) const{
   out << "]" << std::endl;
 }
 
+RewriteRule::~RewriteRule(){
+  Debug("rewriterule-stats") << *this
+                             << "  (" << nb_matched
+                             << ","   << nb_applied
+                             << ","   << nb_propagated
+                             << ")" << std::endl;
+}
+
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

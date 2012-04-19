@@ -22,6 +22,7 @@
 #ifndef __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
 #define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
 
+#include "theory/inst_match.h"
 
 namespace CVC4 {
 namespace theory {
@@ -71,6 +72,13 @@ static const bool useCurrentModel = false;
    Simulate rewritting by tagging rewritten terms.
  */
 static const bool simulateRewritting = false;
+
+/**
+   Choose the kind of matching to use:
+   - InstMatchGenerator::MATCH_GEN_DEFAULT
+   - InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH
+*/
+static const int match_gen_kind = InstMatchGenerator::MATCH_GEN_DEFAULT;
 
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */
