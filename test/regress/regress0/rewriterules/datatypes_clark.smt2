@@ -33,6 +33,7 @@
 ;;;;;;;;;;;;;;;;;;;
 ;; test
 (declare-fun is_succ (nat) Bool)
+(assert (= (is_succ zero) false))
 (assert (forall ((?x1 nat))
                 (! (! (=> true (=> true (= (is_succ (succ ?x1)) true))) :pattern ((succ ?x1)) ) :rewrite-rule) ))
 
@@ -43,6 +44,13 @@
 (assert (= (is_zero zero) true))
 (assert (forall ((?x1 nat))
                 (! (=> true (=> (is_zero ?x1) (= ?x1 zero))) :rewrite-rule) ))
+
+;;; directrr
+(assert (forall ((?x1 nat))
+                (! (= (is_succ (succ ?x1)) true) :rewrite-rule)))
+(assert (forall ((?x1 nat))
+                (! (= (is_zero (succ ?x1)) false) :rewrite-rule)))
+
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; distinct
@@ -114,6 +122,7 @@
 ;;;;;;;;;;;;;;;;;;;
 ;; test
 (declare-fun is_cons (list) Bool)
+(assert (= (is_cons null) false))
 (assert (forall ((?x1 tree) (?x2 list))
                 (! (! (=> true (=> true (= (is_cons (cons ?x1 ?x2)) true))) :pattern ((cons ?x1 ?x2)) ) :rewrite-rule) ))
 
@@ -132,6 +141,12 @@
 
 (assert (forall ((?x1 list))
                 (! (=> true (=> (is_null ?x1) (= ?x1 null))) :rewrite-rule) ))
+
+;;; directrr
+(assert (forall ((?x1 tree) (?x2 list))
+                (! (= (is_cons (cons ?x1 ?x2)) true) :rewrite-rule) ))
+(assert (forall ((?x1 tree) (?x2 list))
+                (! (= (is_null (cons ?x1 ?x2)) false) :rewrite-rule) ))
 
 
 
@@ -205,6 +220,17 @@
                 (! (! (=> true (=> (is_leaf ?x1) (= ?x1 (leaf (data ?x1))))) :pattern ((data ?x1)) ) :rewrite-rule) ))
 (assert (forall ((?x1 tree))
                 (! (! (=> true (=> (is_leaf ?x1) (= (children ?x1) null))) :pattern ((children ?x1)) ) :rewrite-rule) ))
+
+;;; directrr
+(assert (forall ((?x1 list))
+                (! (= (is_node (node ?x1)) true) :rewrite-rule) ))
+(assert (forall ((?x1 list))
+                (! (= (is_leaf (node ?x1)) false) :rewrite-rule) ))
+(assert (forall ((?x1 nat))
+                (! (= (is_leaf (leaf ?x1)) true) :rewrite-rule) ))
+(assert (forall ((?x1 nat))
+                (! (= (is_node (leaf ?x1)) false) :rewrite-rule) ))
+
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; distinct

@@ -20,7 +20,8 @@
 
 #include "theory/rewriterules/theory_rewriterules_rules.h"
 #include "theory/rewriterules/theory_rewriterules_params.h"
-
+#include "theory/rewriterules/theory_rewriterules_preprocess.h"
+#include "theory/rewriterules/theory_rewriterules.h"
 
 using namespace std;
 using namespace CVC4;
@@ -48,6 +49,7 @@ void TheoryRewriteRules::computeMatchBody ( const RewriteRule * rule,
     if( t.getKind() == APPLY_UF ){
       for(size_t rid = start, end = d_rules.size(); rid < end; ++rid) {
         RewriteRule * r = d_rules[rid];
+        if(r->d_split) continue;
         Trigger & tr = const_cast<Trigger &> (r->trigger_for_body_match);
         if(!tr.nonunifiable(t, rule->free_vars)){
           rule->body_match.push_back(std::make_pair(t,r));
@@ -178,38 +180,72 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
     Warning() << "The rule" << r <<
       " has been removed since it doesn't contain every variables."
               << std::endl;
-  }else{
+    return;
+  }
+
+  //Add to direct rewrite rule
+  bool directrr = false;
+  if(direct_rewrite &&
+     ((guards.size() == 0 && r[2].getKind() == kind::RR_REWRITE) ||
+      (guards.size() == 1 && r[2].getKind() == kind::RR_REDUCTION))
+     && pattern.size() == 1){
+    directrr = addRewritePattern(pattern[0],new_terms, inst_constants, vars);
+  }
+
   // final construction
   Trigger trigger = createTrigger(r,pattern);
   Trigger trigger2 = createTrigger(r,pattern); //Hack
   RewriteRule * rr = new RewriteRule(*this, trigger, trigger2,
                                      guards, body, new_terms,
-                                     vars, inst_constants, to_remove);
+                                     vars, inst_constants, to_remove,
+                                     directrr);
   /** other -> rr */
-  if(compute_opt) computeMatchBody(rr);
+  if(compute_opt && !rr->d_split) computeMatchBody(rr);
   d_rules.push_back(rr);
   /** rr -> all (including himself) */
-  if(compute_opt)
+  if(compute_opt && !rr->d_split)
     for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid)
       computeMatchBody(d_rules[rid],
                        d_rules.size() - 1);
 
-  Debug("rewriterules") << "created rewriterule:(" << d_rules.size() - 1 << ")"
+  Debug("rewriterules") << "created rewriterule"<< (rr->d_split?"(split)":"") << ":(" << d_rules.size() - 1 << ")"
                         << *rr << std::endl;
 
-  }
-};
+}
 
+
+bool willDecide(TNode node, bool positive = true){
+  /* TODO something better */
+  switch(node.getKind()) {
+  case AND:
+    return !positive;
+  case OR:
+    return positive;
+  case IFF:
+    return true;
+  case XOR:
+    return true;
+  case IMPLIES:
+    return false;
+  case ITE:
+    return true;
+  case NOT:
+    return willDecide(node[0],!positive);
+  default:
+    return false;
+  }
+}
 
 
 RewriteRule::RewriteRule(TheoryRewriteRules & re,
                          Trigger & tr, Trigger & tr2,
                          std::vector<Node> & g, Node b, TNode nt,
                          std::vector<Node> & fv,std::vector<Node> & iv,
-                         std::vector<Node> & to_r) :
+                         std::vector<Node> & to_r, bool drr) :
+  d_split(willDecide(b)),
   trigger(tr), body(b), new_terms(nt), free_vars(), inst_vars(),
   body_match(re.getContext()),trigger_for_body_match(tr2),
-  d_cache(re.getContext(),re.getQuantifiersEngine()){
+  d_cache(re.getContext(),re.getQuantifiersEngine()), directrr(drr){
   free_vars.swap(fv); inst_vars.swap(iv); guards.swap(g); to_remove.swap(to_r);
 };
 
@@ -230,7 +266,7 @@ void RewriteRule::toStream(std::ostream& out) const{
         iter = body_match.begin(); iter != body_match.end(); ++iter){
     out << (*iter).first << "(" << (*iter).second << ")" << ",";
   };
-  out << "]" << std::endl;
+  out << "]" << (directrr?"*":"") << std::endl;
 }
 
 RewriteRule::~RewriteRule(){
@@ -240,6 +276,27 @@ RewriteRule::~RewriteRule(){
                              << ","   << nb_propagated
                              << ")" << std::endl;
 }
+
+bool TheoryRewriteRules::addRewritePattern(TNode pattern, TNode body,
+                                           rewriter::Subst & pvars,
+                                           rewriter::Subst & vars){
+  Assert(pattern.getKind() == kind::APPLY_UF);
+  TNode op = pattern.getOperator();
+  TheoryRewriteRules::RegisterRRPpRewrite::iterator i =
+    d_registeredRRPpRewrite.find(op);
+
+  rewriter::RRPpRewrite * p;
+  if (i == d_registeredRRPpRewrite.end()){
+    p = new rewriter::RRPpRewrite();
+    d_registeredRRPpRewrite.insert(std::make_pair(op,p));
+    ((uf::TheoryUF*)getQuantifiersEngine()->getTheoryEngine()->getTheory( THEORY_UF ))->
+      registerPpRewrite(op,p);
+  } else p = i->second;
+
+  return p->addRewritePattern(pattern,body,pvars,vars);
+
+}
+
 
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */

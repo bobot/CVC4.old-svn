@@ -635,6 +635,25 @@ void TheoryUF::notifyDisequal( TNode t1, TNode t2, TNode reason ){
 }
 //AJR-hack-end
 
+
+//FB-hack
+
+Node TheoryUF::ppRewrite(TNode node){
+
+  if(node.getKind() != kind::APPLY_UF) return node;
+
+  RegisterPpRewrite::iterator c = d_registeredPpRewrite.find(node.getOperator());
+  if(c == d_registeredPpRewrite.end()) return node;
+  else {
+    Node res = c->second->ppRewrite(node);
+    if (res != node) return ppRewrite(res);
+    else return res;
+  }
+}
+
+
+//FB-hack-end
+
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

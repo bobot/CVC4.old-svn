@@ -435,7 +435,7 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
   }
 }
 
-bool InstMatchGenerator::getNextMatch2( InstMatch& m, QuantifiersEngine* qe ){
+bool InstMatchGenerator::getNextMatch2( InstMatch& m, QuantifiersEngine* qe, bool saveMatched ){
   bool success = false;
   Node t;
   do{
@@ -446,6 +446,7 @@ bool InstMatchGenerator::getNextMatch2( InstMatch& m, QuantifiersEngine* qe ){
       success = getMatch( t, m, qe );
     }
   }while( !success && !t.isNull() );
+  if (saveMatched) m.d_matched = t;
   return success;
 }
 
@@ -542,6 +543,7 @@ void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
 }
 
 bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
+  m.d_matched = Node::null();
   if( d_match_pattern.isNull() ){
     int index = (int)d_partial.size();
     while( index>=0 && index<(int)d_children.size() ){
@@ -569,7 +571,9 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
       return false;
     }
   }else{
-    return getNextMatch2( m, qe );
+    bool res = getNextMatch2( m, qe, true );
+    Assert(!res || !m.d_matched.isNull());
+    return res;
   }
 }
 

@@ -612,6 +612,11 @@ public:
   virtual Node ppRewrite(TNode atom) { return atom; }
 
   /**
+   * Don't preprocess subterm of this term
+   */
+  virtual bool ppDontRewriteSubterm(TNode atom){ return false; }
+
+  /**
    * A Theory is called with presolve exactly one time per user
    * check-sat.  presolve() is called after preregistration,
    * rewriting, and Boolean propagation, (other theories'

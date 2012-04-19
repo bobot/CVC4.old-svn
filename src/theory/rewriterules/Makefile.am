@@ -11,7 +11,8 @@ librewriterules_la_SOURCES = \
 	theory_rewriterules.h \
 	theory_rewriterules.cpp \
 	theory_rewriterules_rewriter.h \
-	theory_rewriterules_type_rules.h
+	theory_rewriterules_type_rules.h \
+	theory_rewriterules_preprocess.h
 
 EXTRA_DIST = \
 	kinds

@@ -164,6 +164,31 @@ public:
   EqualityEngine<NotifyClass>* getEqualityEngine() { return &d_equalityEngine; }
   StrongSolverTheoryUf* getStrongSolver() { return d_thss; }
   //AJR-hack-end
+
+
+  //FB-hack
+  Node ppRewrite(TNode node);
+
+  class PpRewrite {
+  public:
+    virtual Node ppRewrite(TNode node) = 0;
+
+  };
+
+  typedef std::hash_map< Node, PpRewrite*, NodeHashFunction > RegisterPpRewrite;
+   RegisterPpRewrite d_registeredPpRewrite;
+
+  void registerPpRewrite(TNode op, PpRewrite * callback){
+    d_registeredPpRewrite.insert(std::make_pair(op,callback));
+  }
+
+  ~TheoryUF(){
+    for(RegisterPpRewrite::iterator i = d_registeredPpRewrite.begin();
+        i != d_registeredPpRewrite.end(); ++i)
+      delete(i->second);
+  }
+  //FB-hack-end
+
 };/* class TheoryUF */
 
 class EqClassesIterator

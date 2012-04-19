@@ -22,6 +22,7 @@
 #include "theory/rewriterules/theory_rewriterules_rules.h"
 #include "theory/rewriterules/theory_rewriterules_params.h"
 
+#include "theory/rewriterules/theory_rewriterules_preprocess.h"
 #include "theory/rewriter.h"
 
 using namespace std;
@@ -47,10 +48,12 @@ static const RuleInst* RULEINST_FALSE = (RuleInst*) 2;
 
   /** Rule an instantiation with the given match */
 RuleInst::RuleInst(TheoryRewriteRules & re, const RewriteRule * r,
-                   std::vector<Node> & inst_subst):
-  rule(r)
+                   std::vector<Node> & inst_subst,
+                   Node matched):
+  rule(r), d_matched(matched)
 {
   Assert(r != NULL);
+  Assert(!r->directrr || !d_matched.isNull());
   subst.swap(inst_subst);
 };
 
@@ -134,6 +137,7 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
   Debug("rewriterules") << Node::setdepth(-1);
+  Debug("rewriterules-rewrite") << Node::setdepth(-1);
 }
 
 void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
@@ -148,7 +152,8 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
     ++r->nb_applied;
     std::vector<Node> subst;
     im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);
-    RuleInst * ri = new RuleInst(*this,r,subst);
+    RuleInst * ri = new RuleInst(*this,r,subst,
+                                 r->directrr ? im.d_matched : Node::null());
     Debug("rewriterules") << "One matching found"
                           << (delay? "(delayed)":"")
                           << ":" << *ri << std::endl;
@@ -171,21 +176,24 @@ void TheoryRewriteRules::check(Effort level) {
 
   while(!done()) {
     // Get all the assertions
-    Assertion assertion = get();
-    TNode fact = assertion.assertion;
+#warning Test that it have already been ppAsserted
+    get();
+    // Assertion assertion = get();
+    // TNode fact = assertion.assertion;
 
-    Debug("rewriterules") << "TheoryRewriteRules::check(): processing " << fact << std::endl;
-      if (getValuation().getDecisionLevel()>0)
-        Unhandled(getValuation().getDecisionLevel());
-      addRewriteRule(fact);
+    // Debug("rewriterules") << "TheoryRewriteRules::check(): processing " << fact << std::endl;
+    //   if (getValuation().getDecisionLevel()>0)
+    //     Unhandled(getValuation().getDecisionLevel());
+    //   addRewriteRule(fact);
 
     };
 
-  Debug("rewriterules") << "Check:" << d_checkLevel << std::endl;
+  Debug("rewriterules") << "Check:" << d_checkLevel << (level==EFFORT_FULL? " EFFORT_FULL":"") << std::endl;
 
   /** Test each rewrite rule */
   for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid) {
     RewriteRule * r = d_rules[rid];
+    if (level!=EFFORT_FULL && r->d_split) continue;
     Debug("rewriterules") << "  rule: " << r << std::endl;
     Trigger & tr = r->trigger;
     //reset instantiation round for trigger (set up match production)
@@ -245,7 +253,7 @@ void TheoryRewriteRules::check(Effort level) {
 
   /** Narrowing by splitting on the guards */
   /** Perhaps only when no notification? */
-  if(level==EFFORT_FULL){
+  if(narrowing_full_effort && level==EFFORT_FULL){
     for (GuardedMap::const_iterator p = d_guardeds.begin();
          p != d_guardeds.end(); ++p){
       TNode g = (*p).first;
@@ -379,16 +387,57 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   Debug("rewriterules") << "propagateRule" << *inst << std::endl;
   const RewriteRule * rule = inst->rule;
   ++rule->nb_applied;
+  // Can be more something else than an equality in fact (eg. propagation rule)
   Node equality = inst->substNode(*this,rule->body,cache);
   if(propagate_as_lemma){
     Node lemma = equality;
     if(rule->guards.size() > 0){
+#warning problem with reduction rule => instead of <=>
       lemma = substGuards(inst, cache).impNode(equality);
     };
-    //  Debug("rewriterules") << "lemma:" << lemma << std::endl;
+    if(rule->directrr){
+      TypeNode booleanType = NodeManager::currentNM()->booleanType();
+      // if the rule is directly applied by the rewriter,
+      // we should take care to use the representative that can't be directly rewritable:
+      // If "car(a)" is somewhere and we know that "a = cons(x,l)" we shouldn't
+      // add the constraint car(cons(x,l) = x because it is rewritten to x = x.
+      // But we should say cons(a) = x
+      Assert(lemma.getKind() == kind::EQUAL ||
+             lemma.getKind() == kind::IMPLIES);
+      Assert(!inst->d_matched.isNull());
+      Assert( inst->d_matched.getOperator() == lemma[0].getOperator() );
+      // replace the left hand side by the term really matched
+      Debug("rewriterules-directrr") << "lemma:" << lemma << " :: " << inst->d_matched;
+      Node hyp;
+      NodeBuilder<2> nb;
+      if(inst->d_matched.getNumChildren() == 1){
+        nb.clear( inst->d_matched[0].getType(false) == booleanType ?
+                  kind::IFF : kind::EQUAL );
+        nb << inst->d_matched[0] << lemma[0][0];
+        hyp = nb;
+      }else{
+        NodeBuilder<> andb(kind::AND);
+        for(size_t i = 0,
+              iend = inst->d_matched.getNumChildren(); i < iend; ++i){
+          nb.clear( inst->d_matched[i].getType(false) == booleanType ?
+                    kind::IFF : kind::EQUAL );
+          nb << inst->d_matched[i] << lemma[0][i];
+          andb << static_cast<Node>(nb);
+        }
+        hyp = andb;
+      };
+      nb.clear(lemma.getKind());
+      nb << inst->d_matched << lemma[1];
+      lemma = hyp.impNode(static_cast<Node>(nb));
+      Debug("rewriterules-directrr") << " -> " << lemma << std::endl;
+    };
+    // Debug("rewriterules") << "lemma:" << lemma << std::endl;
     getOutputChannel().lemma(lemma);
   }else{
+    Assert(!direct_rewrite);
     Node lemma_lit = getValuation().ensureLiteral(equality);
+    ExplanationMap::const_iterator p = d_explanations.find(lemma_lit);
+    if(p!=d_explanations.end()) return; //Already propagated
     bool value;
     if(getValuation().hasSatValue(lemma_lit,value)){
       /* Already assigned */
@@ -398,7 +447,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
       };
     }else{
       getOutputChannel().propagate(lemma_lit);
-      d_explanations.insert(lemma_lit, inst);
+      d_explanations.insert(lemma_lit, *inst);
    };
   };
 
@@ -419,36 +468,48 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
     // Use trigger2 since we can be in check
     Trigger & tr = r->trigger_for_body_match;
     InstMatch im;
-    tr.getMatch(inst->substNode(*this,(*p).first, cache),im);
-    if(!im.empty()) addMatchRuleTrigger(r, im);
+    TNode m = inst->substNode(*this,(*p).first, cache);
+    tr.getMatch(m,im);
+    if(!im.empty()){
+      im.d_matched = m;
+      addMatchRuleTrigger(r, im);
+    }
   }
 };
 
 
-Node TheoryRewriteRules::substGuards(const RuleInst * inst,
+Node TheoryRewriteRules::substGuards(const RuleInst *inst,
                                      TCache cache,
                                      /* Already substituted */
                                      Node last){
   const RewriteRule * r = inst->rule;
   /** No guards */
   const size_t size = r->guards.size();
-  if(size == 0) return d_true;
+  if(size == 0) return (last.isNull()?d_true:last);
   /** One guard */
-  if(size == 1) return inst->substNode(*this,r->guards[0],cache);
+  if(size == 1 && last.isNull()) return inst->substNode(*this,r->guards[0],cache);
   /** Guards */ /* TODO remove the duplicate with a set like in uf? */
   NodeBuilder<> conjunction(kind::AND);
   for(std::vector<Node>::const_iterator p = r->guards.begin();
       p != r->guards.end(); ++p) {
+    Assert(!p->isNull());
     conjunction << inst->substNode(*this,*p,cache);
   };
-  if (last != Node::null()) conjunction << last;
+  if (!last.isNull()) conjunction << last;
   return conjunction;
 }
 
 Node TheoryRewriteRules::explain(TNode n){
   ExplanationMap::const_iterator p = d_explanations.find(n);
   Assert(p!=d_explanations.end(),"I forget the explanation...");
-  return substGuards((*p).second, TCache ());
+  RuleInst i = (*p).second;
+  //std::cout << n << "<-" << *(i.rule) << std::endl;
+  return substGuards(&i, TCache ());
+}
+
+Theory::PPAssertStatus TheoryRewriteRules::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
+  addRewriteRule(in);
+  return PP_ASSERT_STATUS_UNSOLVED;
 }
 
 }/* CVC4::theory::rewriterules namespace */

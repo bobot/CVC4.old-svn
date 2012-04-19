@@ -22,8 +22,6 @@
 #ifndef __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
 #define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
 
-#include "theory/inst_match.h"
-
 namespace CVC4 {
 namespace theory {
 namespace rewriterules {
@@ -75,10 +73,20 @@ static const bool simulateRewritting = false;
 
 /**
    Choose the kind of matching to use:
-   - InstMatchGenerator::MATCH_GEN_DEFAULT
-   - InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH
+   - InstMatchGenerator::MATCH_GEN_DEFAULT 0
+   - InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH 1
 */
-static const int match_gen_kind = InstMatchGenerator::MATCH_GEN_DEFAULT;
+static const int match_gen_kind = 0;
+
+/**
+   Do narrowing at full effort
+*/
+static const bool narrowing_full_effort = false;
+
+/**
+   Direct rewrite: Add rewrite rules directly in the rewriter.
+ */
+static const bool direct_rewrite = true;
 
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */

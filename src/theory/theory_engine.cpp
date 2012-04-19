@@ -556,15 +556,21 @@ Node TheoryEngine::ppTheoryRewrite(TNode term)
     return theoryOf(term)->ppRewrite(term);
   }
   Trace("theory-pp") << "ppTheoryRewrite { " << term << endl;
-  NodeBuilder<> newNode(term.getKind());
-  if (term.getMetaKind() == kind::metakind::PARAMETERIZED) {
-    newNode << term.getOperator();
+
+  Node newTerm;
+  if(theoryOf(term)->ppDontRewriteSubterm(term)){
+    newTerm = term;
+  }else{
+    NodeBuilder<> newNode(term.getKind());
+    if (term.getMetaKind() == kind::metakind::PARAMETERIZED) {
+      newNode << term.getOperator();
+    }
+    unsigned i;
+    for (i = 0; i < nc; ++i) {
+      newNode << ppTheoryRewrite(term[i]);
+    }
+    newTerm = Rewriter::rewrite(newNode);
   }
-  unsigned i;
-  for (i = 0; i < nc; ++i) {
-    newNode << ppTheoryRewrite(term[i]);
-  }
-  Node newTerm = Rewriter::rewrite(newNode);
   Node newTerm2 = theoryOf(newTerm)->ppRewrite(newTerm);
   if (newTerm != newTerm2) {
     newTerm = ppTheoryRewrite(Rewriter::rewrite(newTerm2));

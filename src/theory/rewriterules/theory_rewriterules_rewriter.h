@@ -4,6 +4,7 @@
 #define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_REWRITER_H
 
 #include "theory/rewriter.h"
+#include "theory/rewriter_attributes.h"
 
 namespace CVC4 {
 namespace theory {
@@ -80,6 +81,23 @@ public:
 };/* class TheoryRewriterulesRewriter */
 
 }/* CVC4::theory::rewriterules namespace */
+
+template<>
+struct RewriteAttibute<THEORY_REWRITERULES> {
+  static Node getPreRewriteCache(TNode node) throw() {
+    return node;
+  }
+
+  static void setPreRewriteCache(TNode node, TNode cache) throw() { }
+
+  static Node getPostRewriteCache(TNode node) throw() {
+    return node;
+  }
+
+  static void setPostRewriteCache(TNode node, TNode cache) throw() { }
+
+};
+
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 

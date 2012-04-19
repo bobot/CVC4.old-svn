@@ -144,6 +144,9 @@ public:
   bool empty(){ return d_map.empty(); }
   /* map from variable to ground terms */
   std::map< Node, Node > d_map;
+  /* Node used for matching the trigger only for mono-trigger (just for
+     efficiency because I need only that) */
+  Node d_matched;
   /** to stream */
   inline void toStream(std::ostream& out) const {
     out << "INST_MATCH( ";
@@ -322,7 +325,7 @@ private:
   /** get the next match.  must call d_cg->reset( ... ) before using. 
       only valid for use where !d_match_pattern.isNull().
   */
-  bool getNextMatch2( InstMatch& m, QuantifiersEngine* qe );
+  bool getNextMatch2( InstMatch& m, QuantifiersEngine* qe, bool saveMatched = false );
   /** for arithmetic */
   bool getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe );
 public:

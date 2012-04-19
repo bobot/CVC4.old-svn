@@ -30,6 +30,7 @@
 #include "context/context_mm.h"
 #include "theory/inst_match_impl.h"
 #include "util/stats.h"
+#include "theory/rewriterules/theory_rewriterules_preprocess.h"
 
 namespace CVC4 {
 namespace theory {
@@ -44,6 +45,7 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
   class RewriteRule{
   public:
     // constant
+    const bool d_split;
     mutable Trigger trigger;
     std::vector<Node> guards;
     mutable std::vector<Node> to_remove; /** terms to remove */
@@ -65,13 +67,15 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
     typedef InstMatchTrie2<true> CacheNode;
     mutable CacheNode d_cache;
 
+    const bool directrr;
+
     RewriteRule(TheoryRewriteRules & re,
                 Trigger & tr, Trigger & tr2,
                 std::vector<Node> & g, Node b, TNode nt,
                 std::vector<Node> & fv,std::vector<Node> & iv,
-                std::vector<Node> & to_r);
+                std::vector<Node> & to_r, bool drr);
     RewriteRule(const RewriteRule & r) CVC4_UNUSED;
-    RewriteRule& operator=(const RewriteRule&) CVC4_UNUSED;
+    RewriteRule& operator=(const RewriteRule &) CVC4_UNUSED;
     ~RewriteRule();
 
     bool noGuard()const throw () { return guards.size() == 0; };
@@ -94,9 +98,15 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
     /** the substitution */
     std::vector<Node> subst;
 
+    /** the term matched (not null if mono-pattern and direct-rr) */
+    Node d_matched;
+
     /** Rule an instantiation with the given match */
     RuleInst(TheoryRewriteRules & re, const RewriteRule* r,
-             std::vector<Node> & inst_subst);
+             std::vector<Node> & inst_subst,
+             Node matched);
+    RuleInst():rule(NULL){} // Dumb
+
     Node substNode(const TheoryRewriteRules & re, TNode r, TCache cache) const;
     size_t findGuard(TheoryRewriteRules & re, size_t start)const;
 
@@ -164,7 +174,7 @@ private:
   context::CDO<size_t> d_checkLevel;
 
   /** explanation */
-  typedef context::CDHashMap<Node, const RuleInst* , NodeHashFunction> ExplanationMap;
+  typedef context::CDHashMap<Node, RuleInst , NodeHashFunction> ExplanationMap;
   ExplanationMap d_explanations;
 
   /** new instantiation must be cleared at each conflict used only
@@ -176,7 +186,8 @@ private:
   Node d_true;
   Node d_false;
 
-  /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
+  /** Constructs a new instance of TheoryRewriteRules
+      w.r.t. the provided context.*/
   TheoryRewriteRules(context::Context* c,
                      context::UserContext* u,
                      OutputChannel& out,
@@ -190,6 +201,12 @@ private:
   std::string identify() const {
     return "THEORY_REWRITERULES";
   }
+
+  Theory::PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
+
+  bool ppDontRewriteSubterm(TNode atom){ return true; }
+
+
  private:
   void registerQuantifier( Node n );
 
@@ -209,6 +226,7 @@ private:
       possible or by lemmas.
    */
   void propagateRule(const RuleInst * r, TCache cache);
+
   /** Auxillary functions */
 private:
   /** A guard is verify, notify the Guarded */
@@ -225,6 +243,14 @@ private:
   void computeMatchBody ( const RewriteRule * r, size_t start = 0);
   void addMatchRuleTrigger(const RewriteRule* r,
                            InstMatch & im, bool delay = true);
+
+  /* rewrite pattern */
+  typedef std::hash_map< Node, rewriter::RRPpRewrite*, NodeHashFunction > RegisterRRPpRewrite;
+  RegisterRRPpRewrite d_registeredRRPpRewrite;
+
+  bool addRewritePattern(TNode pattern, TNode body,
+                         rewriter::Subst & pvars,
+                         rewriter::Subst & vars);
 
 };/* class TheoryRewriteRules */
 
