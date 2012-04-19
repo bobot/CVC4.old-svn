@@ -172,10 +172,6 @@ public:
       marker[var] = 1;
     }
 
-    __gnu_cxx::hash_set<Var> assumptions_vars; // all the variables that appear in the current assumptions
-    vec<Lit> atom_propagations;         // the atom literals implied by the last call to solve with assumptions
-    vec<int> atom_propagations_lim;     // for backtracking
-
     bool only_bcp;                      // solving mode in which only boolean constraint propagation is done
     void setOnlyBCP (bool val) { only_bcp = val;}
     void explain(Lit l, std::vector<Lit>& explanation);
@@ -365,7 +361,7 @@ inline bool     Solver::addClause       (Lit p)                 { add_tmp.clear(
 inline bool     Solver::addClause       (Lit p, Lit q)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp); }
 inline bool     Solver::addClause       (Lit p, Lit q, Lit r)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp); }
 inline bool     Solver::locked          (const Clause& c) const { return value(c[0]) == l_True && reason(var(c[0])) != CRef_Undef && ca.lea(reason(var(c[0]))) == &c; }
-inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); atom_propagations_lim.push(atom_propagations.size()); }
+inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); }
 
 inline int      Solver::decisionLevel ()      const   { return trail_lim.size(); }
 inline uint32_t Solver::abstractLevel (Var x) const   { return 1 << (level(x) & 31); }

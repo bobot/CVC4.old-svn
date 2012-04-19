@@ -27,7 +27,8 @@ SMT_TESTS = \
 	fuzz10.smt \
 	fuzz11.smt \
 	fuzz12.smt \
-	fuzz13.smt
+	fuzz13.smt \
+	fuzz14.smt
 
 # Regression tests for SMT2 inputs
 SMT2_TESTS =

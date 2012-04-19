@@ -241,11 +241,6 @@ void Solver::cancelUntil(int level) {
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
     }
-
-    if (level < atom_propagations_lim.size()) {
-      atom_propagations.shrink(atom_propagations.size() - atom_propagations_lim[level]);
-      atom_propagations_lim.shrink(atom_propagations_lim.size() - level);
-    }
 }
 
 

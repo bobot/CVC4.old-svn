@@ -2,7 +2,7 @@
 :logic QF_BV
 :extrafuns ((v2 BitVec[13]))
 :extrafuns ((v1 BitVec[2]))
-:status unknown
+:status sat
 :formula
 (let (?n1 bv1[1])
 (let (?n2 bv0[2])
