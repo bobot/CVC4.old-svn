@@ -125,6 +125,7 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
         if (do_simp && clause_added) {
           cancelUntil(0);
           result = lbool(eliminate(turn_off_simp));
+          clause_added = false;
         }
     }
 
@@ -137,8 +138,6 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
         // Unfreeze the assumptions that were frozen:
         for (int i = 0; i < extra_frozen.size(); i++)
             setFrozen(extra_frozen[i], false);
-
-    clause_added = false;
 
     return result;
 }

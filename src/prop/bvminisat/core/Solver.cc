@@ -476,7 +476,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
-    if (decisionLevel() <= assumptions.size() && marker[var(p)] == 1 && from != CRef_Undef) {
+    if (decisionLevel() <= assumptions.size() && marker[var(p)] == 1) {
       if (notify) {
         notify->notify(p);
       }
@@ -745,10 +745,10 @@ lbool Solver::search(int nof_conflicts, UIP uip)
 
         }else{
             // NO CONFLICT
-            if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
+            if (decisionLevel() > assumptions.size() && nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
-                cancelUntil(0);
+                cancelUntil(assumptions.size());
                 return l_Undef; }
 
             // Simplify the set of problem clauses:
