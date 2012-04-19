@@ -147,13 +147,13 @@ private:
    * Keeps a map from nodes to the subtheory that propagated it so that we can explain it
    * properly.
    */
-  typedef context::CDHashMap<Node, unsigned, NodeHashFunction> PropagatedMap;
+  typedef context::CDHashMap<Node, SubTheory, NodeHashFunction> PropagatedMap;
   PropagatedMap d_propagatedBy;
 
   bool propagatedBy(TNode literal, SubTheory subtheory) const {
     PropagatedMap::const_iterator find = d_propagatedBy.find(literal);
     if (find == d_propagatedBy.end()) return false;
-    else return (*find).second & (unsigned) subtheory;
+    else return (*find).second == subtheory;
   }
 
   /** Should be called to propagate the literal.  */

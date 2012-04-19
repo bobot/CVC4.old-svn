@@ -150,7 +150,7 @@ void TheoryBV::check(Effort e)
     BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << fact << "\n"; 
 
     // Notify the equality engine
-   if (d_useEqualityEngine && !d_conflict && !propagatedBy(fact, SUB_EQUALITY)) {
+    if (d_useEqualityEngine && !d_conflict && !propagatedBy(fact, SUB_EQUALITY) ) {
       bool negated = fact.getKind() == kind::NOT;
       TNode predicate = negated ? fact[0] : fact;
       if (predicate.getKind() == kind::EQUAL) {
@@ -294,7 +294,7 @@ Theory::PPAssertStatus TheoryBV::ppAssert(TNode in, SubstitutionMap& outSubstitu
 
 bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
 {
-  Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::storePropagation(" << literal  << ")" << std::endl;
+  Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::storePropagation(" << literal  << ") " <<subtheory << std::endl;
 
   // If already in conflict, no more propagation
   if (d_conflict) {
@@ -305,8 +305,8 @@ bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
   // If propagated already, just skip
   PropagatedMap::const_iterator find = d_propagatedBy.find(literal);
   if (find != d_propagatedBy.end()) {
-    unsigned theories = (*find).second | (unsigned) subtheory;
-    d_propagatedBy[literal] = theories;
+    //unsigned theories = (*find).second | (unsigned) subtheory;
+    //d_propagatedBy[literal] = theories;
     return true;
   } else {
     d_propagatedBy[literal] = subtheory;
