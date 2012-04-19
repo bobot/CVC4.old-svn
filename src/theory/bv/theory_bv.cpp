@@ -151,7 +151,8 @@ void TheoryBV::check(Effort e)
     // If the assertion doesn't have a literal, it's a shared equality
     bool shared = !assertion.isPreregistered;
     Assert(!d_useEqualityEngine || !shared ||
-           ((fact.getKind() == kind::EQUAL && d_equalityEngine.hasTerm(fact[0]) && d_equalityEngine.hasTerm(fact[1])) ||
+           ((fact.getKind() == kind::EQUAL && d_equalityEngine.hasTerm(fact[0]) &&
+             d_equalityEngine.hasTerm(fact[1])) ||
             (fact.getKind() == kind::NOT && fact[0].getKind() == kind::EQUAL &&
              d_equalityEngine.hasTerm(fact[0][0]) && d_equalityEngine.hasTerm(fact[0][1]))));
 
@@ -214,7 +215,7 @@ void TheoryBV::check(Effort e)
     Assert(done() && !d_conflict);
     BVDebug("bitvector") << "TheoryBV::check " << e << "\n";
     // in standard effort we only do boolean constraint propagation 
-    bool ok = d_bitblaster->solve(false);
+    bool ok = d_bitblaster->solve();
     if (!ok) {
       std::vector<TNode> conflictAtoms;
       d_bitblaster->getConflict(conflictAtoms);
@@ -301,7 +302,9 @@ void TheoryBV::propagate(Effort e) {
         }
         Node lemma = nb;
         d_out->lemma(lemma);
+        BVDebug("bitvector") << "TheoryBV::propagate lemma " << lemma <<" \n"; 
       }
+
       d_alreadyPropagatedSet.insert(node);
     }
   }

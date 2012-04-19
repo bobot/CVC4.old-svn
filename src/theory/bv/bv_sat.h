@@ -78,18 +78,16 @@ class Bitblaster {
   TermDefMap                   d_termCache;
   AtomSet                      d_bitblastedAtoms;
   
-  context::CDList<prop::SatLiteral>  d_assertedAtoms; /**< context dependent list storing the atoms
+  context::CDList<prop::SatLiteral> d_assertedAtoms; /**< context dependent list storing the atoms
                                                        currently asserted by the DPLL SAT solver. */
-
+  __gnu_cxx::hash_set<Node, NodeHashFunction> d_lazyBBAtoms; //**< atoms that are expensive to bitblast and still need to be bitblasted in the sat solver */
+  
   /// helper methods
   public:
   bool          hasBBAtom(TNode node);    
   private:
   bool          hasBBTerm(TNode node); 
   void          getBBTerm(TNode node, Bits& bits);
-
-
-
 
   /// function tables for the various bitblasting strategies indexed by node kind
   TermBBStrategy d_termBBStrategies[kind::LAST_KIND];
@@ -101,13 +99,12 @@ class Bitblaster {
 
   // returns a node that might be easier to bitblast
   Node bbOptimize(TNode node); 
-  
-  void bbAtom(TNode node);
-  void addAtom(TNode atom); 
-  // division is bitblasted in terms of constraints
-  // so it needs to use private bitblaster interface
-  void bbUdiv(TNode node, Bits& bits);
-  void bbUrem(TNode node, Bits& bits); 
+
+  unsigned bbCost(TNode node);
+  void     bbAtom(TNode node);
+  void     addAtom(TNode atom); 
+  void     bbLazyAtoms(); 
+
 public:
   void cacheTermDef(TNode node, Bits def); // public so we can cache remainder for division
   void bbTerm(TNode node, Bits&  bits);
@@ -116,7 +113,7 @@ public:
   Bitblaster(context::Context* c); 
   ~Bitblaster();
   bool assertToSat(TNode node, bool propagate = true);
-  bool solve(bool quick_solve = false);
+  bool solve();
   void bitblast(TNode node);
   void getConflict(std::vector<TNode>& conflict); 
 

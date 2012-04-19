@@ -50,12 +50,17 @@ std::string toString(Bits&  bits) {
   
   return os.str(); 
 }
+
+
+/////// Bitblasting cost function
+
 /////// Bitblaster 
 
 Bitblaster::Bitblaster(context::Context* c) :
     d_termCache(),
     d_bitblastedAtoms(),
     d_assertedAtoms(c),
+    d_lazyBBAtoms(),
     d_statistics()
   {
     d_satSolver = prop::SatSolverFactory::createMinisat(c);
@@ -73,6 +78,30 @@ Bitblaster::~Bitblaster() {
 
 
 /** 
+ * Returns a number representing the cost (i.e. complexity of the circuit)
+ * of bitblasting the node. 
+ * 
+ * @param node 
+ * 
+ * @return cost of bitblasting
+ */
+unsigned Bitblaster::bbCost (TNode node) {
+  if (node.getKind() == kind::BITVECTOR_MULT ||
+      node.getKind() == kind::BITVECTOR_UDIV ||
+      node.getKind() == kind::BITVECTOR_UREM )
+    return 1;
+
+  // recursively check if there is an expensive operation in the atom
+  unsigned cost = 0; 
+  for (unsigned i = 0; i < node.getNumChildren(); ++i) {
+    cost += bbCost(node[i]); 
+  }
+
+  return cost; 
+}
+
+
+/** 
  * Bitblasts the atom, assigns it a marker literal, adding it to the SAT solver
  * NOTE: duplicate clauses are not detected because of marker literal
  * @param node the atom to be bitblasted
@@ -83,19 +112,27 @@ void Bitblaster::bbAtom(TNode node) {
     return; 
   }
 
-  // make sure it is marked as an atom
-  addAtom(node); 
 
-  BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
   ++d_statistics.d_numAtoms;
-  // the bitblasted definition of the atom
-  Node atom_bb = d_atomBBStrategies[node.getKind()](node, this);
-  // asserting that the atom is true iff the definition holds
-  Node atom_definition = mkNode(kind::IFF, node, atom_bb);
-  // do boolean simplifications if possible
-  Node rewritten = Rewriter::rewrite(atom_definition);
-  d_cnfStream->convertAndAssert(rewritten, true, false);
-  d_bitblastedAtoms.insert(node); 
+
+  // make sure the literal representing the node is marked as an atom in the
+  // bv sat solver
+  addAtom(node); 
+  
+  if (bbCost(node) == 0) {
+    BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
+    // the bitblasted definition of the atom
+    Node atom_bb = d_atomBBStrategies[node.getKind()](node, this);
+    // asserting that the atom is true iff the definition holds
+    Node atom_definition = mkNode(kind::IFF, node, atom_bb);
+    // do boolean simplifications if possible
+    atom_definition = Rewriter::rewrite(atom_definition);
+    d_cnfStream->convertAndAssert(atom_definition, true, false);
+    d_bitblastedAtoms.insert(node);
+  } else {
+    // add it to the set of atoms that will be bitblasted lazily
+    d_lazyBBAtoms.insert(node); 
+  }
 }
 
 
@@ -238,8 +275,8 @@ bool Bitblaster::assertToSat(TNode lit, bool propagate) {
     markerLit = ~markerLit;
   }
   
-  BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat asserting node: " << atom <<"\n";
-  BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat with literal:   " << markerLit << "\n";  
+  BVDebug("bitvector-bb") << "bv::Bitblaster::assertToSat asserting node: " << atom <<"\n";
+  BVDebug("bitvector-bb") << "bv::Bitblaster::assertToSat with literal:   " << markerLit << "\n";  
 
   SatValue ret = d_satSolver->assertAssumption(markerLit, propagate);
 
@@ -256,9 +293,46 @@ bool Bitblaster::assertToSat(TNode lit, bool propagate) {
  * @return true for sat, and false for unsat
  */
  
-bool Bitblaster::solve(bool quick_solve) {
-  BVDebug("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n"; 
+bool Bitblaster::solve() {
+  BVDebug("bitvector") << "bv::Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n";
+  // first check for inconsistencies before bitblasting expensive atoms
+  // turn variable elimination off for this check 
+  SatValue res = d_satSolver->solve();
+  if (res == SAT_VALUE_FALSE) {
+    return false;
+  }
+  // bitblast the lazy atoms
+  bbLazyAtoms(); 
   return SAT_VALUE_TRUE == d_satSolver->solve(); 
+}
+
+/** 
+ * Bibtlasts all the "lazy" atoms that are on the current assumptions queue. 
+ * 
+ */
+void Bitblaster::bbLazyAtoms() {
+  context::CDList<prop::SatLiteral>::const_iterator it;
+  for (it = d_assertedAtoms.begin(); it!= d_assertedAtoms.end(); ++it) {
+    Node atom = d_cnfStream->getNode(*it);
+    // strip the not away 
+    if (atom.getKind() == kind::NOT) {
+      atom = atom[0]; 
+    }
+    if (d_lazyBBAtoms.find(atom) != d_lazyBBAtoms.end()) {
+      BVDebug("bitvector-bitblast") << "bv::Bitblaster::bbLazyAtoms() " << atom << "\n"; 
+      // bitblast the atom
+      Node atom_bb = d_atomBBStrategies[atom.getKind()](atom, this);
+      Node atom_definition = mkNode(kind::IFF, atom, atom_bb);
+      
+      // cnf-ify and add clauses to the sat solver
+      atom_definition = Rewriter::rewrite(atom_definition); 
+      d_cnfStream->convertAndAssert(atom_definition, true, false);
+      // mark it as bitblasted
+      d_bitblastedAtoms.insert(atom);
+      // remove from lazy atoms set
+      d_lazyBBAtoms.erase(atom); 
+    }
+  }
 }
 
 void Bitblaster::getConflict(std::vector<TNode>& conflict) {
@@ -339,9 +413,19 @@ void Bitblaster::initTermBBStrategies() {
   d_termBBStrategies [ kind::BITVECTOR_ROTATE_LEFT ]  = DefaultRotateLeftBB;
 
 }
- 
+
+/** 
+ * Returns true if bitblast was called on this atom before. Note that this
+ * does not necessarily mean the bitblasted definition has been asserted in
+ * the BV sat solver (this may be done lazily). 
+ * 
+ * @param atom 
+ * 
+ * @return true if seen by bitblaster. 
+ */
 bool Bitblaster::hasBBAtom(TNode atom) {
-  return d_bitblastedAtoms.find(atom) != d_bitblastedAtoms.end();
+  return (d_bitblastedAtoms.find(atom) != d_bitblastedAtoms.end() ||
+          d_lazyBBAtoms.find(atom) != d_lazyBBAtoms.end());
 }
 
 void Bitblaster::cacheTermDef(TNode term, Bits def) {

@@ -97,23 +97,25 @@ void BVMinisatSatSolver::interrupt(){
 }
 
 SatValue BVMinisatSatSolver::solve(){
-  return toSatLiteralValue(d_minisat->solve());
+  return toSatLiteralValue(d_minisat->solve(false));
 }
 
 SatValue BVMinisatSatSolver::solve(long unsigned int& resource){
-  Trace("limit") << "MinisatSatSolver::solve(): have limit of " << resource << " conflicts" << std::endl;
-  if(resource == 0) {
-    d_minisat->budgetOff();
-  } else {
-    d_minisat->setConfBudget(resource);
-  }
-  BVMinisat::vec<BVMinisat::Lit> empty;
-  unsigned long conflictsBefore = d_minisat->conflicts;
-  SatValue result = toSatLiteralValue(d_minisat->solveLimited(empty));
-  d_minisat->clearInterrupt();
-  resource = d_minisat->conflicts - conflictsBefore;
-  Trace("limit") << "<MinisatSatSolver::solve(): it took " << resource << " conflicts" << std::endl;
-  return result;
+  Unreachable();
+  
+  // Trace("limit") << "MinisatSatSolver::solve(): have limit of " << resource << " conflicts" << std::endl;
+  // if(resource == 0) {
+  //   d_minisat->budgetOff();
+  // } else {
+  //   d_minisat->setConfBudget(resource);
+  // }
+  // BVMinisat::vec<BVMinisat::Lit> empty;
+  // unsigned long conflictsBefore = d_minisat->conflicts;
+  // SatValue result = toSatLiteralValue(d_minisat->solveLimited(empty));
+  // d_minisat->clearInterrupt();
+  // resource = d_minisat->conflicts - conflictsBefore;
+  // Trace("limit") << "<MinisatSatSolver::solve(): it took " << resource << " conflicts" << std::endl;
+  // return result;
 }
 
 // SatValue BVMinisatSatSolver::solve(const context::CDList<SatLiteral> & assumptions, bool only_bcp){

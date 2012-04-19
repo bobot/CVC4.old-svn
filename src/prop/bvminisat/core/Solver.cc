@@ -230,6 +230,7 @@ bool Solver::satisfied(const Clause& c) const {
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
 void Solver::cancelUntil(int level) {
+    Assert (trail_lim.size() == atom_propagations_lim.size()); 
     if (decisionLevel() > level){
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
             Var      x  = var(trail[c]);
@@ -243,10 +244,11 @@ void Solver::cancelUntil(int level) {
         trail_lim.shrink(trail_lim.size() - level);
     }
 
-    if (level < atom_propagations_lim.size()) {
+    if (atom_propagations_lim.size() > level) {
       atom_propagations.shrink(atom_propagations.size() - atom_propagations_lim[level]);
       atom_propagations_lim.shrink(atom_propagations_lim.size() - level);
     }
+    
 }
 
 
@@ -901,8 +903,8 @@ void Solver::explainPropagation(Lit p, std::vector<Lit>& explanation) {
   visited.insert(var(p));
   while(queue.size() > 0) {
     Lit l = queue.last();
-    assert(value(l) == l_True);
     queue.pop();
+    assert(value(l) == l_True);
     if (reason(var(l)) == CRef_Undef) {
       if (marker[var(l)] == 2) {
         explanation.push_back(l);

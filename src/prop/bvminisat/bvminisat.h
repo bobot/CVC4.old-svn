@@ -53,7 +53,6 @@ public:
   
   SatValue solve();
   SatValue solve(long unsigned int&);
-  SatValue solve(bool quick_solve);
   void getUnsatCore(SatClause& unsatCore);
 
   SatValue value(SatLiteral l);

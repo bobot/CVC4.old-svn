@@ -102,8 +102,14 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 {
     vec<Lit> atom_propagations_backup;
     atom_propagations.moveTo(atom_propagations_backup);
+
     vec<int> atom_propagations_lim_backup;
     atom_propagations_lim.moveTo(atom_propagations_lim_backup);
+
+    // maintaining the invariant that trail_lim == atom_propagations_lim
+    for (unsigned i = 0; i < decisionLevel(); ++i) {
+      atom_propagations_lim.push(0); 
+    }
 
     only_bcp = false;
     cancelUntil(0);
@@ -135,8 +141,25 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
     else if (verbosity >= 1)
         printf("===============================================================================\n");
 
+    // doesn't make sense
     atom_propagations_backup.moveTo(atom_propagations);
     atom_propagations_lim_backup.moveTo(atom_propagations_lim);
+
+    // making sure that trail_lim and atom_propagations_lim are in sync
+    // (otherwise backtracking doesn't work right) 
+    
+    if (trail_lim.size() < atom_propagations_lim.size()) {
+      Assert(result == l_False); 
+      atom_propagations.shrink(atom_propagations.size() - atom_propagations_lim[decisionLevel()]);
+      atom_propagations_lim.shrink(atom_propagations_lim.size() - decisionLevel());
+    } else {
+      unsigned lim = atom_propagations.size(); 
+      for (unsigned i = atom_propagations_lim.size(); i < decisionLevel(); ++i) {
+        atom_propagations_lim.push(lim); 
+      }
+    }
+    
+    Assert(trail_lim.size() == atom_propagations_lim.size()); 
 
     if (do_simp)
         // Unfreeze the assumptions that were frozen:
