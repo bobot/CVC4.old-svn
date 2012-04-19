@@ -377,7 +377,10 @@ Node TheoryBV::explain(TNode node) {
 
   // Ask for the explanation
   explain(node, assumptions);
-
+  // this means that it is something true at level 0
+  if (assumptions.size() == 0) {
+    return utils::mkTrue(); 
+  }
   // return the explanation
   return mkAnd(assumptions);
 }
