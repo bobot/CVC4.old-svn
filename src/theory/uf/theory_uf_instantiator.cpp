@@ -71,7 +71,7 @@ Instantiator( c, qe, th )
     if( Options::current()->cbqi ){
       addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     }
-    addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), qe ) );
+    addInstStrategy( new InstStrategyFiniteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), qe ) );
     qe->getTermDatabase()->setMatchingActive( false );
   }else{
     if( Options::current()->cbqi ){

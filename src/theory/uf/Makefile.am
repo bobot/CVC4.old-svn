@@ -23,6 +23,8 @@ libuf_la_SOURCES = \
 	inst_strategy_model_find.h \
 	inst_strategy_model_find.cpp \
 	inst_strategy.h \
-	inst_strategy.cpp
+	inst_strategy.cpp \
+	fmf_model.h \
+	fmf_model.cpp
 
 EXTRA_DIST = kinds

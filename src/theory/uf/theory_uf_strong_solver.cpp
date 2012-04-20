@@ -18,6 +18,7 @@
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/equality_engine_impl.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/theory_engine.h"
 
 //#define USE_REGION_SAT
 
@@ -634,6 +635,30 @@ void StrongSolverTheoryUf::ConflictFind::assertDisequal( Node a, Node b, Node re
 void StrongSolverTheoryUf::ConflictFind::assertCardinality( int c, bool val ){
   Assert( d_cardinality_literal.find( c )!=d_cardinality_literal.end() );
   d_cardinality_assertions[ d_cardinality_literal[c] ] = val;
+  if( val ){
+    d_hasCard = true;
+  }
+}
+
+bool StrongSolverTheoryUf::ConflictFind::hasCardinalityAsserted(){
+  //if( !d_hasCard ){
+  //  std::cout << "cardinality = " << getCardinality() << std::endl;
+  //  for( std::map< int, Node >::iterator it = d_cardinality_literal.begin(); it != d_cardinality_literal.end(); ++it ){
+  //    Node cn = it->second;
+  //    std::cout << it->first << ": " << cn << " -> ";
+  //    if( d_cardinality_assertions.find( cn )==d_cardinality_assertions.end() ){
+  //      std::cout << "undef";
+  //    }else{
+  //      std::cout << d_cardinality_assertions[cn];
+  //    }
+  //    std::cout << " " << d_th->getQuantifiersEngine()->getTheoryEngine()->isPropagatedAsDecision( cn );
+  //    bool value;
+  //    std::cout << " " << d_th->getValuation().hasSatValue( cn, value );
+  //    std::cout << " " << value;
+  //    std::cout << std::endl;
+  //  }
+  //}
+  return d_hasCard;
 }
 
 bool StrongSolverTheoryUf::ConflictFind::checkRegion( int ri, bool rec ){
@@ -868,7 +893,7 @@ void StrongSolverTheoryUf::ConflictFind::propagate( Theory::Effort level, Output
       Node lem = getCardinalityLemma();
       Assert( lem.getKind()==OR );
       Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
-      Debug("uf-ss-prop-as-dec") << "Propagate as decision " << lem[0] << std::endl;
+      Debug("uf-ss-prop-as-dec") << "Propagate as decision " << lem[0] << " " << lem[0][0].getType() << std::endl;
       out->propagateAsDecision( lem[0] );
       d_is_cardinality_requested = true;
       d_is_cardinality_requested_c = true;
@@ -882,13 +907,13 @@ void StrongSolverTheoryUf::ConflictFind::propagate( Theory::Effort level, Output
           requestCurrent = true;
         }else{
           out->propagateAsDecision( cn.notNode() );
-          Debug("uf-ss-prop-as-dec") << "Propagate as decision " << cn.notNode() << std::endl;
+          Debug("uf-ss-prop-as-dec") << "Propagate as decision " << cn.notNode() << " " << cn[0].getType() << std::endl;
         }
       }
     }
     if( requestCurrent ){
       out->propagateAsDecision( d_cardinality_literal[ getCardinality() ] );
-      Debug("uf-ss-prop-as-dec") << "Propagate as decision " << d_cardinality_literal[ getCardinality() ] << std::endl;
+      Debug("uf-ss-prop-as-dec") << "Propagate as decision " << d_cardinality_literal[ getCardinality() ] << " " << d_cardinality_literal[ getCardinality() ][0].getType() << std::endl;
     }
 #endif
   }
@@ -1044,8 +1069,7 @@ Node StrongSolverTheoryUf::ConflictFind::getCardinalityLemma(){
 
 StrongSolverTheoryUf::StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th) :
 d_out( &out ),
-d_th( th ),
-d_hasCard( c )
+d_th( th )
 {
 
 }
@@ -1099,31 +1123,33 @@ void StrongSolverTheoryUf::assertDisequal( Node a, Node b, Node reason ){
 /** assert a node */
 void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
   Debug("uf-ss-assert") << "Assert " << n << " " << isDecision << std::endl;
-  if( n.getKind()==CARDINALITY_CONSTRAINT || 
-      ( n.getKind()==NOT && n[0].getKind()==CARDINALITY_CONSTRAINT ) ){
-    d_hasCard = true;
-    assertCardinality( n );
-  }else{
-    if( isDecision && !d_hasCard ){
-      //std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
-      std::cout << "Error: constraint asserted before cardinality" << std::endl;
-      exit( 21 );
-    }
-  }
-}
-
-/** assert a cardinality constraint */
-void StrongSolverTheoryUf::assertCardinality( Node c ){
-  Debug("uf-ss-solver-card") << "StrongSolverTheoryUf: Assert cardinality " << c << " " << c[0].getType() << std::endl;
-  if( c.getKind()==NOT ){
-    //must add new lemma
-    Node cc = c[0];
-    TypeNode tn = cc[0].getType();
+  if( n.getKind()==CARDINALITY_CONSTRAINT ){
+    TypeNode tn = n[0].getType();
     Assert( isRelevantType( tn ) );
     Assert( d_conf_find[tn] );
-    long nCard = cc[1].getConst<Rational>().getNumerator().getLong();
+    long nCard = n[1].getConst<Rational>().getNumerator().getLong();
+    d_conf_find[tn]->assertCardinality( nCard, true );
+    if( nCard==d_conf_find[tn]->getCardinality() ){
+      d_conf_find[tn]->d_is_cardinality_set = true;
+      d_conf_find[tn]->d_is_cardinality_requested = false;
+      d_conf_find[tn]->d_is_cardinality_requested_c = false;
+    }else{
+      std::cout << "Error: Wrong positive cardinality node asserted " << std::endl;
+      exit( 22 );
+    }
+  }else if( n.getKind()==NOT && n[0].getKind()==CARDINALITY_CONSTRAINT ){
+    //must add new lemma
+    Node nn = n[0];
+    TypeNode tn = nn[0].getType();
+    Assert( isRelevantType( tn ) );
+    Assert( d_conf_find[tn] );
+    long nCard = nn[1].getConst<Rational>().getNumerator().getLong();
     d_conf_find[tn]->assertCardinality( nCard, false );
     if( nCard==d_conf_find[tn]->getCardinality() ){
+      if( isDecision ){
+        std::cout << "Error: Negative cardinality node decided upon " << std::endl;
+        exit( 23 );
+      }
       Debug("uf-ss-fmf") << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
       //std::cout << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
       //increment to next cardinality
@@ -1131,24 +1157,23 @@ void StrongSolverTheoryUf::assertCardinality( Node c ){
       d_conf_find[tn]->setCardinality( d_conf_find[tn]->getCardinality() + 1, d_out );
       //also increment the cardinality of related types? DO_THIS
       //std::cout << d_conf_find[tn]->getCardinality() << " ";
-    }else{
-      //std::cout << "Already knew no model of size " << nCard << " exists for type " << tn << std::endl;
     }
   }else{
-    TypeNode tn = c[0].getType();
-    Assert( isRelevantType( tn ) );
-    Assert( d_conf_find[tn] );
-    long nCard = c[1].getConst<Rational>().getNumerator().getLong();
-    d_conf_find[tn]->assertCardinality( nCard, true );
-    if( nCard==d_conf_find[tn]->getCardinality() ){
-      d_conf_find[tn]->d_is_cardinality_set = true;
-      d_conf_find[tn]->d_is_cardinality_requested = false;
-      d_conf_find[tn]->d_is_cardinality_requested_c = false;
-    }else{
-      std::cout << "BAD cardinality node asserted " << c << std::endl;
+    if( isDecision ){
+      for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
+        if( !it->second->hasCardinalityAsserted() ){
+          //FIXME: this is too strict: theory propagations are showing up as isDecision=true, but 
+          // a theory propagation is not a decision.
+
+          //std::cout << "Assert " << n << " " << isDecision << std::endl;
+          //std::cout << "Error: constraint asserted before cardinality for " << it->first << std::endl;
+          //exit( 21 );
+        }
+      }
     }
   }
 }
+
 
 /** check */
 void StrongSolverTheoryUf::check( Theory::Effort level ){

@@ -194,7 +194,7 @@ public:
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
         d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ), d_type( tn ), 
         d_cardinality_assertions( c ), d_is_cardinality_set( c, false ),
-        d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ),
+        d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ), d_hasCard( c, false ),
         d_cardinality_master( NULL ){}
     ~ConflictFind(){}
     /** new node */
@@ -205,6 +205,8 @@ public:
     void assertDisequal( Node a, Node b, Node reason );
     /** assert cardinality */
     void assertCardinality( int c, bool val );
+    /** whether cardinality has been asserted */
+    bool hasCardinalityAsserted();
     /** check */
     void check( Theory::Effort level, OutputChannel* out );
     /** propagate */
@@ -226,6 +228,8 @@ public:
     context::CDO< bool > d_is_cardinality_set;
     context::CDO< bool > d_is_cardinality_requested_c;
     bool d_is_cardinality_requested;
+    /** whether a positive cardinality constraint has been asserted */
+    context::CDO< bool > d_hasCard;
   private:
     /** cardinality master (just use cardinality of the master) */
     ConflictFind* d_cardinality_master;
@@ -242,8 +246,6 @@ private:
   std::map< TypeNode, ConflictFind* > d_conf_find;
   /** all types */
   std::vector< TypeNode > d_conf_types;
-  /** whether a cardinality constraint has been asserted */
-  context::CDO< bool > d_hasCard;
   /** pre register type */
   void preRegisterType( TypeNode tn );
 private:
@@ -260,9 +262,6 @@ public:
   void assertDisequal( Node a, Node b, Node reason );
   /** assert node */
   void assertNode( Node n, bool isDecision );
-private:
-  /** assert cardinality */
-  void assertCardinality( Node c );
 public:
   /** check */
   void check( Theory::Effort level );
