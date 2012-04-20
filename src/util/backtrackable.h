@@ -56,6 +56,7 @@ public:
   const T& operator*();
   List_iterator<T>& operator++();
   List_iterator<T> operator++(int);
+  bool operator==(const List_iterator<T> & other) const;
   bool operator!=(const List_iterator<T> & other) const;
 
 private:
@@ -84,6 +85,11 @@ List_iterator<T> List_iterator<T>::operator++(int) {
   List_iterator<T> it = *this;
   ++*this;
   return it;
+}
+
+template <class T>
+bool List_iterator<T>::operator==(const List_iterator<T>& other) const {
+  return (this->pointee == other.pointee);
 }
 
 template <class T>
