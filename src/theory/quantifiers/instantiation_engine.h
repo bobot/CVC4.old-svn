@@ -33,11 +33,6 @@ private:
   QuantifiersEngine* getQuantifiersEngine();
 private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
-  /** list of universally quantifiers currently asserted */
-  BoolMap d_forall_asserts;
-  /** are we in the middle of an instantiation round */
-  context::CDO< bool > d_in_instRound;
-  bool d_in_instRound_no_c;
   /** status of instantiation round (one of InstStrategy::STATUS_*) */
   int d_inst_round_status;
   /** cbqi lemmas added */

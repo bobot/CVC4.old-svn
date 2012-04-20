@@ -212,7 +212,7 @@ public:
     //print debug
     void debugPrint( const char* c );
     /** set cardinality */
-    void setCardinality( int c );
+    void setCardinality( int c, OutputChannel* out );
     /** get cardinality */
     inline int getCardinality() { return d_cardinality_master ? d_cardinality_master->getCardinality() : d_cardinality; }
     /** get representatives */

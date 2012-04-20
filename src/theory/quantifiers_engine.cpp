@@ -237,6 +237,7 @@ void TermDb::resetInstantiationRound( Theory::Effort effort ){
 
 QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
+d_forall_asserts( c ),
 d_active( c ){
   d_eq_query = NULL;
   d_term_db = new TermDb( this );
@@ -330,6 +331,7 @@ void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
 
 void QuantifiersEngine::assertNode( Node f ){
   Assert( f.getKind()==FORALL );
+  d_forall_asserts.push_back( f );
   for( int i=0; i<(int)d_modules.size(); i++ ){
     d_modules[i]->assertNode( f );
   }

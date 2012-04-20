@@ -16,7 +16,6 @@
 
 #include "theory/uf/inst_strategy_model_find.h"
 #include "theory/uf/theory_uf.h"
-#include "theory/uf/equality_engine_impl.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
 #include "theory/theory_engine.h"
@@ -104,7 +103,7 @@ int RAIFilter::RestrictionTrie::accept2( std::vector< int >& index, int checkInd
 }
 
 void RAIFilter::initialize( QuantifiersEngine* qe, Node f, RepAlphabet* ra ){
-  ra->debugPrint("raif");
+  //ra->debugPrint("raif");
   Debug("raif") << "Phase requirements for " << f << " : " << std::endl;
   for( std::map< Node, bool >::iterator it = qe->d_phase_reqs[f].begin(); it != qe->d_phase_reqs[f].end(); ++it ){
     Node n = it->first;
@@ -262,6 +261,7 @@ void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort 
     }
 
     Debug("inst-fmf") << "Setting up model find, initialize representatives." << std::endl;
+    //std::cout << "Instantiation round " << std::endl;
     RepAlphabet ra;
     //collect all representatives for all types and store as representative alphabet
     for( int i=0; i<d_ss->getNumCardinalityTypes(); i++ ){
@@ -277,6 +277,7 @@ void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort 
         std::cout << " but only " << (int)reps.size() << " were given." << std::endl;
         exit( 27 );
       }else{
+        //std::cout << "   " << tn << " -> " << reps.size() << std::endl;
         Debug("inst-fmf") << "Representatives (" << reps.size() << ") for type " << tn << " (c=" << d_ss->getCardinality( tn ) << "): ";
         for( int i=0; i<(int)reps.size(); i++ ){
           Debug("inst-fmf") << reps[i] << " ";
@@ -291,6 +292,7 @@ void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort 
         ra.set( tn, reps );
       }
     }
+    Debug("inst-fmf") << std::endl;
     d_inst_group.push_back( ra );
     d_inst_nodes.push_back( std::vector< Node >() );
   }
@@ -301,7 +303,7 @@ int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, i
     Debug("inst-fmf-debug") << "Add matches for " << f << "..." << std::endl;
     RepAlphabetIterator riter( d_quantEngine, f, &d_inst_group.back() );
     d_inst_nodes.back().push_back( f );
-    bool addedLemma = false;
+    int addedLemmas = 0;
     while( !riter.isFinished() ){
       //while( !riter.isFinished() && didInstantiation( f, riter ) ){
       //  riter.increment();
@@ -314,12 +316,12 @@ int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, i
         Debug("inst-fmf-debug") << "Try to add match " << std::endl;
         m.debugPrint("inst-fmf-debug");
         if( d_quantEngine->addInstantiation( f, m ) ){
-          addedLemma = true;
+          addedLemmas++;
         }
       }
     }
     Debug("inst-fmf-debug") << "finished." << std::endl;
-    if( !addedLemma ){
+    if( addedLemmas==0 ){
       return STATUS_SAT;
     }
   }

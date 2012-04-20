@@ -237,6 +237,8 @@ private:
 
   /** list of all quantifiers */
   std::vector< Node > d_quants;
+  /** list of quantifiers asserted in the current context */
+  context::CDList<Node> d_forall_asserts;
   /** map from universal quantifiers to the list of variables */
   std::map< Node, std::vector< Node > > d_vars;
   /** map from universal quantifiers to the list of skolem constants */
@@ -330,6 +332,10 @@ public:
   int getNumQuantifiers() { return (int)d_quants.size(); }
   /** get quantifier */
   Node getQuantifier( int i ) { return d_quants[i]; }
+  /** get number of asserted quantifiers */
+  int getNumAssertedQuantifiers() { return (int)d_forall_asserts.size(); }
+  /** get asserted quantifier */
+  Node getAssertedQuantifier( int i ) { return d_forall_asserts[i]; }
   /** get instantiation constants */
   void getInstantiationConstantsFor( Node f, std::vector< Node >& ics ) { 
     ics.insert( ics.begin(), d_inst_constants[f].begin(), d_inst_constants[f].end() ); 

@@ -13,8 +13,8 @@ using namespace CVC4::theory::quantifiers;
 //#define IE_PRINT_PROCESS_TIMES
 
 InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th ) :
-d_th( th ), d_forall_asserts( d_th->getContext() ), d_in_instRound( false, d_th->getContext() ){
-  d_in_instRound_no_c = false;
+d_th( th ){
+
 }
 
 QuantifiersEngine* InstantiationEngine::getQuantifiersEngine(){
@@ -29,7 +29,6 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( getQuantifiersEngine()->getInstantiator( i ) ){
       getQuantifiersEngine()->getInstantiator( i )->resetInstantiationRound( effort );
-      //getQuantifiersEngine()->getInstantiator( i )->resetInstantiationStrategies();
     }
   }
   getQuantifiersEngine()->getTermDatabase()->resetInstantiationRound( effort );
@@ -38,10 +37,6 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   d_inst_round_status = InstStrategy::STATUS_UNFINISHED;
   //while unfinished, try effort level=0,1,2....
   while( d_inst_round_status==InstStrategy::STATUS_UNFINISHED && e<=eLimit ){
-    //if( e==3 ){
-    //  std::cout << "unknown ";
-    //  exit( 24 );
-    //}
     Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
     d_inst_round_status = InstStrategy::STATUS_SAT;
     //instantiate each quantifier
@@ -119,50 +114,51 @@ void InstantiationEngine::check( Theory::Effort e ){
     std::cout << "Run instantiation round " << e << " " << ierCounter << std::endl;
 #endif
     bool quantActive = false;
-    //for each n in d_forall_asserts,
+    //for each quantifier currently asserted,
     // such that the counterexample literal is not in positive in d_counterexample_asserts
-    for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
-      if( (*i).second ) {
-        Node n = (*i).first;
-        Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( n );
-        if( !cel.isNull() && !Options::current()->finiteModelFind ){
-          bool active, value;
-          bool ceValue = false;
-          if( d_th->getValuation().hasSatValue( cel, value ) ){
-            active = value;
-            ceValue = true;
-          }else{
-            active = true;
-          }
-          getQuantifiersEngine()->setActive( n, active );
-          if( active ){
-            Debug("quantifiers") << "  Active : " << n;
-            quantActive = true;
-          }else{
-            Debug("quantifiers") << "  NOT active : " << n;
-            if( d_th->getValuation().isDecision( cel ) ){
-              Debug("quant-req-phase") << "Bad decision : " << cel << std::endl;
-            }
-            //note that the counterexample literal must not be a decision
-            Assert( !d_th->getValuation().isDecision( cel ) );
-          }
-          if( d_th->getValuation().hasSatValue( n, value ) ){
-            Debug("quantifiers") << ", value = " << value;
-          }
-          if( ceValue ){
-            Debug("quantifiers") << ", ce is asserted";
-          }
-          Debug("quantifiers") << std::endl;
+   // for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
+    //  if( (*i).second ) {
+    for( int i=0; i<(int)getQuantifiersEngine()->getNumAssertedQuantifiers(); i++ ){
+      Node n = getQuantifiersEngine()->getAssertedQuantifier( i );
+      Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( n );
+      if( !cel.isNull() && !Options::current()->finiteModelFind ){
+        bool active, value;
+        bool ceValue = false;
+        if( d_th->getValuation().hasSatValue( cel, value ) ){
+          active = value;
+          ceValue = true;
         }else{
-          getQuantifiersEngine()->setActive( n, true );
-          quantActive = true;
-          Debug("quantifiers") << "  Active : " << n << ", no ce assigned." << std::endl;
+          active = true;
         }
-        Debug("quantifiers-relevance")  << "Quantifier : " << n << std::endl;
-        Debug("quantifiers-relevance")  << "   Relevance : " << getQuantifiersEngine()->getRelevance( n ) << std::endl;
-        Debug("quantifiers") << "   Relevance : " << getQuantifiersEngine()->getRelevance( n ) << std::endl;
+        getQuantifiersEngine()->setActive( n, active );
+        if( active ){
+          Debug("quantifiers") << "  Active : " << n;
+          quantActive = true;
+        }else{
+          Debug("quantifiers") << "  NOT active : " << n;
+          if( d_th->getValuation().isDecision( cel ) ){
+            Debug("quant-req-phase") << "Bad decision : " << cel << std::endl;
+          }
+          //note that the counterexample literal must not be a decision
+          Assert( !d_th->getValuation().isDecision( cel ) );
+        }
+        if( d_th->getValuation().hasSatValue( n, value ) ){
+          Debug("quantifiers") << ", value = " << value;
+        }
+        if( ceValue ){
+          Debug("quantifiers") << ", ce is asserted";
+        }
+        Debug("quantifiers") << std::endl;
+      }else{
+        getQuantifiersEngine()->setActive( n, true );
+        quantActive = true;
+        Debug("quantifiers") << "  Active : " << n << ", no ce assigned." << std::endl;
       }
+      Debug("quantifiers-relevance")  << "Quantifier : " << n << std::endl;
+      Debug("quantifiers-relevance")  << "   Relevance : " << getQuantifiersEngine()->getRelevance( n ) << std::endl;
+      Debug("quantifiers") << "   Relevance : " << getQuantifiersEngine()->getRelevance( n ) << std::endl;
     }
+    //}
     if( quantActive ){
       bool addedLemmas = doInstantiationRound( e );
       //Debug("quantifiers-dec") << "Do instantiation, level = " << d_th->getValuation().getDecisionLevel() << std::endl;
@@ -234,7 +230,6 @@ void InstantiationEngine::registerQuantifier( Node f ){
 }
 
 void InstantiationEngine::assertNode( Node f ){
-  d_forall_asserts[f] = true;
   //if we are doing cbqi and have not added the lemma yet, do so
   if( doCbqi( f ) && d_cbqi_lemma_added.find( f )==d_cbqi_lemma_added.end() ){
     d_cbqi_lemma_added[f] = true;
@@ -336,22 +331,24 @@ void InstantiationEngine::debugSat( int reason ){
     //for( int i=1; i<=(int)d_th->getValuation().getDecisionLevel(); i++ ){
     //  Debug("quantifiers-sat") << "   " << i << ": " << d_th->getValuation().getDecision( i ) << std::endl;
     //}
-    for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
-      if( (*i).second ) {
-        Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( (*i).first );
-        Assert( !cel.isNull() );
-        bool value;
-        if( d_th->getValuation().hasSatValue( cel, value ) ){
-          if( !value ){
-            if( d_th->getValuation().isDecision( cel ) ){
-              Debug("quantifiers-sat") << "sat, but decided cel=" << cel << std::endl;
-              std::cout << "unknown ";
-              exit( 17 );
-            }
+    //for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
+    //  if( (*i).second ) {
+    for( int i=0; i<(int)getQuantifiersEngine()->getNumAssertedQuantifiers(); i++ ){
+      Node n = getQuantifiersEngine()->getAssertedQuantifier( i );
+      Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( n );
+      Assert( !cel.isNull() );
+      bool value;
+      if( d_th->getValuation().hasSatValue( cel, value ) ){
+        if( !value ){
+          if( d_th->getValuation().isDecision( cel ) ){
+            Debug("quantifiers-sat") << "sat, but decided cel=" << cel << std::endl;
+            std::cout << "unknown ";
+            exit( 17 );
           }
         }
       }
     }
+    //}
     Debug("quantifiers-sat") << "return SAT: Cbqi, no quantifier is active. " << std::endl;
     //static bool setTrust = false;
     //if( !setTrust ){

@@ -431,6 +431,7 @@ class TheoryEngine {
    * use of TNode safe).
    */
   context::CDList<TNode> d_decisionRequests;
+  context::CDHashMap<TNode, bool, TNodeHashFunction> d_decisionRequestsPolarity;
 
   /**
    * The index of the next decision requested by a theory.
@@ -672,6 +673,9 @@ public:
   TNode getNextDecisionRequest() {
     if(d_decisionRequestsIndex < d_decisionRequests.size()) {
       TNode req = d_decisionRequests[d_decisionRequestsIndex];
+      if( !d_decisionRequestsPolarity[req] ){
+        req = req.notNode();
+      }
       Debug("propagateAsDecision") << "TheoryEngine requesting decision["
                                    << d_decisionRequestsIndex << "]: "
                                    << req << std::endl;
