@@ -104,7 +104,10 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
 
     SatVariable v = lit.getSatVariable();
     // if (lit.isFalse() || lit.isTrue()) return false;
-    if (v == 0) return false;
+    if (v == 0) {
+      setJustified(node);
+      return false;
+    }
   } else {
     Trace("decision") << "no sat literal for this node" << std::endl;
   }
