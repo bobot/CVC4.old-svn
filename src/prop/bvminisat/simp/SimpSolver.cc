@@ -62,7 +62,6 @@ SimpSolver::SimpSolver(CVC4::context::Context* c) :
   , elim_heap          (ElimLt(n_occ))
   , bwdsub_assigns     (0)
   , n_touched          (0)
-  , clause_added       (false)
 {
   CVC4::StatisticsRegistry::registerStat(&total_eliminate_time); 
     vec<Lit> dummy(1,lit_Undef);
@@ -150,8 +149,6 @@ bool SimpSolver::addClause_(vec<Lit>& ps)
     for (int i = 0; i < ps.size(); i++)
         assert(!isEliminated(var(ps[i])));
 #endif
-
-    clause_added = true;
 
     int nclauses = clauses.size();
 

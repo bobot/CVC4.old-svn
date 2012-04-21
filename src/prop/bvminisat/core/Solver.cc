@@ -87,7 +87,7 @@ Solver::Solver(CVC4::context::Context* c) :
 
     // Parameters (the rest):
     //
-  , learntsize_factor(1), learntsize_inc(1.5)
+  , learntsize_factor((double)1/(double)3), learntsize_inc(1.5)
 
     // Parameters (experimental):
     //
@@ -116,7 +116,7 @@ Solver::Solver(CVC4::context::Context* c) :
   , propagation_budget (-1)
   , asynch_interrupt   (false)
   , only_bcp(false)
-  , d_explanations(c)
+  , clause_added(false)
 {}
 
 
@@ -169,6 +169,8 @@ bool Solver::addClause_(vec<Lit>& ps)
         else if (value(ps[i]) != l_False && ps[i] != p)
             ps[j++] = p = ps[i];
     ps.shrink(i - j);
+
+    clause_added = true;
 
     if (ps.size() == 0)
         return ok = false;
