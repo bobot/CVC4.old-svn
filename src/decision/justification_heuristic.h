@@ -35,6 +35,13 @@ namespace CVC4 {
 
 namespace decision {
 
+class GiveUpException : public Exception {
+public:
+  GiveUpException() : 
+    Exception("justification hueristic: giving up") {
+  }
+};/* class GiveUpException */
+
 class JustificationHeuristic : public DecisionStrategy {
   set<TNode> d_justified;
   unsigned  d_prvsIndex;
@@ -70,7 +77,12 @@ public:
 
       if(desiredVal == SAT_VALUE_UNKNOWN) desiredVal = SAT_VALUE_TRUE;
 
-      bool ret = findSplitterRec(assertions[i], desiredVal, &litDecision);
+      bool ret;
+      try {
+        ret = findSplitterRec(assertions[i], desiredVal, &litDecision);
+      }catch(GiveUpException &e) {
+        return prop::undefSatLiteral;
+      }
       if(ret == true) {
         Trace("decision") << "Yippee!!" << std::endl;
         d_prvsIndex = i;

@@ -152,8 +152,9 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
    * If not in theory of booleans, and not a "boolean" EQUAL (IFF),
    * then check if this is something to split-on? 
    */
-  if(tId != theory::THEORY_BOOL && 
-     !(k == kind::EQUAL && node[0].getType().isBoolean()) ) {
+  if(tId != theory::THEORY_BOOL
+     //      && !(k == kind::EQUAL && node[0].getType().isBoolean()) 
+     ) {
     if(litVal != SAT_VALUE_UNKNOWN) {
       setJustified(node);
       return false;
@@ -275,99 +276,96 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
     }
     break;
 
-      /*
-    case IMPLIES:
-      DebugAssert(d_cnfManager->numFanins(v) == 2, "Expected 2 fanins");
-      if (value == Var::FALSE_VAL) {
-        litTmp = d_cnfManager->getFanin(v, 0);
-        if (findSplitterRec(litTmp, Var::TRUE_VAL, litDecision)) {
+  case kind::IMPLIES:
+    Assert(node.getNumChildren() == 2, "Expected 2 fanins");
+    if (desiredVal == SAT_VALUE_FALSE) {
+      if (findSplitterRec(node[0], SAT_VALUE_TRUE, litDecision)) {
+        return true;
+      }
+      if (findSplitterRec(node[1], SAT_VALUE_FALSE, litDecision)) {
+        return true;
+      }
+      Assert(litPresent == false || litVal == SAT_VALUE_FALSE, "Output should be justified");
+      setJustified(node);
+      return false;
+    }
+    else {
+      if (tryGetSatValue(node[0]) != SAT_VALUE_TRUE) {
+        if (findSplitterRec(node[0], SAT_VALUE_FALSE, litDecision)) {
           return true;
         }
-        litTmp = d_cnfManager->getFanin(v, 1);
-        if (findSplitterRec(litTmp, Var::FALSE_VAL, litDecision)) {
-          return true;
-        }
-        DebugAssert(getValue(v) == Var::FALSE_VAL, "Output should be justified");
-        setJustified(v);
+        Assert(litPresent == false || litVal == SAT_VALUE_TRUE, "Output should be justified");
+        setJustified(node);
         return false;
       }
-      else {
-        litTmp = d_cnfManager->getFanin(v, 0);
-        if (getValue(litTmp) != Var::TRUE_VAL) {
-          if (findSplitterRec(litTmp, Var::FALSE_VAL, litDecision)) {
-            return true;
-          }
-          DebugAssert(getValue(v) == Var::TRUE_VAL, "Output should be justified");
-          setJustified(v);
-          return false;
-        }
-        litTmp = d_cnfManager->getFanin(v, 1);
-        if (getValue(litTmp) != Var::FALSE_VAL) {
-          if (findSplitterRec(litTmp, Var::TRUE_VAL, litDecision)) {
-            return true;
-          }
-          DebugAssert(getValue(v) == Var::TRUE_VAL, "Output should be justified");
-          setJustified(v);
-          return false;
-        }
-        DebugAssert(false, "No controlling input found (3)");
-      }
-      break;
-    case IFF: {
-      litTmp = d_cnfManager->getFanin(v, 0);
-      Var::Val val = getValue(litTmp);
-      if (val != Var::UNKNOWN) {
-        if (findSplitterRec(litTmp, val, litDecision)) {
+      if (tryGetSatValue(node[1]) != SAT_VALUE_FALSE) {
+        if (findSplitterRec(node[1], SAT_VALUE_TRUE, litDecision)) {
           return true;
         }
-        if (value == Var::FALSE_VAL) val = Var::invertValue(val);
-        litTmp = d_cnfManager->getFanin(v, 1);
+        Assert(litPresent == false || litVal == SAT_VALUE_TRUE, "Output should be justified");
+        setJustified(node);
+        return false;
+      }
+      Assert(false, "No controlling input found (3)");
+    }
+    break;
+  case kind::IFF: {
+    SatValue val = tryGetSatValue(node[0]);
+    if (val != SAT_VALUE_UNKNOWN) {
+      if (findSplitterRec(node[0], val, litDecision)) {
+        return true;
+      }
+      if (desiredVal == SAT_VALUE_FALSE) val = invertValue(val);
 
-        if (findSplitterRec(litTmp, val, litDecision)) {
-          return true;
-        }
-        DebugAssert(getValue(v) == value, "Output should be justified");
-        setJustified(v);
-        return false;
+      if (findSplitterRec(node[1], val, litDecision)) {
+        return true;
       }
-      else {
-        val = getValue(d_cnfManager->getFanin(v, 1));
-        if (val == Var::UNKNOWN) val = Var::FALSE_VAL;
-        if (value == Var::FALSE_VAL) val = Var::invertValue(val);
-        if (findSplitterRec(litTmp, val, litDecision)) {
-          return true;
-        }
-        DebugAssert(false, "Unable to find controlling input (4)");
-      }
-      break;
+      Assert(litPresent == false || litVal == desiredVal, "Output should be justified");
+      setJustified(node);
+      return false;
     }
-    case XOR: {
-      litTmp = d_cnfManager->getFanin(v, 0);
-      Var::Val val = getValue(litTmp);
-      if (val != Var::UNKNOWN) {
-        if (findSplitterRec(litTmp, val, litDecision)) {
-          return true;
-        }
-        if (value == Var::TRUE_VAL) val = Var::invertValue(val);
-        litTmp = d_cnfManager->getFanin(v, 1);
-        if (findSplitterRec(litTmp, val, litDecision)) {
-          return true;
-        }
-        DebugAssert(getValue(v) == value, "Output should be justified");
-        setJustified(v);
-        return false;
+    else {
+      val = tryGetSatValue(node[1]);
+      if (val == SAT_VALUE_UNKNOWN) val = SAT_VALUE_FALSE;
+      if (desiredVal == SAT_VALUE_FALSE) val = invertValue(val);
+      if (findSplitterRec(node[1], val, litDecision)) {
+        return true;
       }
-      else {
-        val = getValue(d_cnfManager->getFanin(v, 1));
-        if (val == Var::UNKNOWN) val = Var::FALSE_VAL;
-        if (value == Var::TRUE_VAL) val = Var::invertValue(val);
-        if (findSplitterRec(litTmp, val, litDecision)) {
-          return true;
-        }
-        DebugAssert(false, "Unable to find controlling input (5)");
-      }
-      break;
+      Assert(false, "Unable to find controlling input (4)");
     }
+    break;
+  }
+    
+  case kind::XOR: {
+    SatValue val = tryGetSatValue(node[0]);
+    if (val != SAT_VALUE_UNKNOWN) {
+      if (findSplitterRec(node[0], val, litDecision)) {
+        return true;
+      }
+      if (desiredVal == SAT_VALUE_TRUE) val = invertValue(val);
+
+      if (findSplitterRec(node[1], val, litDecision)) {
+        return true;
+      }
+      Assert(litPresent == false || litVal == desiredVal, "Output should be justified");
+      setJustified(node);
+      return false;
+    }
+    else {
+      SatValue val = tryGetSatValue(node[1]);
+      if (val == SAT_VALUE_UNKNOWN) val = SAT_VALUE_FALSE;
+      if (desiredVal == SAT_VALUE_TRUE) val = invertValue(val);
+      if (findSplitterRec(node[1], val, litDecision)) {
+        return true;
+      }
+      Assert(false, "Unable to find controlling input (5)");
+    }
+    break;
+  }
+
+  case kind::ITE:
+    throw GiveUpException();
+    /*
     case ITE: {
       Lit cIf = d_cnfManager->getFanin(v, 0);
       Lit cThen = d_cnfManager->getFanin(v, 1);
