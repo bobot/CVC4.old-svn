@@ -41,6 +41,7 @@
 
 #include "justification_heuristic.h"
 
+#include "expr/kind.h"
 
 /***
 
@@ -59,14 +60,14 @@ CVC3 code <---->  this code
 
 ***/
 
-void JustificationHeuristic::setJustified(SatVariable v)
+void JustificationHeuristic::setJustified(TNode n)
 {
-  d_justified.insert(v);
+  d_justified.insert(n);
 }
 
-bool JustificationHeuristic::checkJustified(SatVariable v)
+bool JustificationHeuristic::checkJustified(TNode n)
 {
-  return d_justified.find(v) != d_justified.end();
+  return d_justified.find(n) != d_justified.end();
 }
 
 SatValue invertValue(SatValue v)
@@ -76,9 +77,12 @@ SatValue invertValue(SatValue v)
   else return SAT_VALUE_TRUE;
 }
 
-bool JustificationHeuristic::findSplitterRec(SatLiteral lit, SatValue desiredVal, SatLiteral* litDecision)
+bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, SatLiteral* litDecision)
 //bool SearchSat::findSplitterRec(Lit lit, Var::Val value, Lit* litDecision)
 {
+  Trace("decision") 
+    << "findSplitterRec(" << node << ", " << desiredVal << ", .. )" << std::endl; 
+
   // if(not ) {
   //   //    Warning() << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
   //   return false;
@@ -92,11 +96,18 @@ bool JustificationHeuristic::findSplitterRec(SatLiteral lit, SatValue desiredVal
    */
 
   // Var v = lit.getVar();
-  SatVariable v = lit.getSatVariable();
-  SatValue litVal =  d_decisionEngine->getSatValue(lit);
+  SatValue litVal = tryGetSatValue(node);
+  bool litPresent = false;
+  if(d_decisionEngine->hasSatLiteral(node) ) {
+    SatLiteral lit = d_decisionEngine->getSatLiteral(node);
+    litPresent = true;
 
-  // if (lit.isFalse() || lit.isTrue()) return false;
-  if (v == 0) return false;
+    SatVariable v = lit.getSatVariable();
+    // if (lit.isFalse() || lit.isTrue()) return false;
+    if (v == 0) return false;
+  } else {
+    Trace("decision") << "no sat literal for this node" << std::endl;
+  }
 
 
   /* You'd better know what you want */
@@ -109,17 +120,19 @@ bool JustificationHeuristic::findSplitterRec(SatLiteral lit, SatValue desiredVal
   Assert(litVal == desiredVal || litVal == SAT_VALUE_UNKNOWN, 
          "invariant voilated");
 
-
-  if (checkJustified(v)) return false;
-
-  if (lit.isNegated()) {
+  if (node.getKind() == kind::NOT) {
     desiredVal = invertValue(desiredVal);
+    node = node[0];
   }
 
-  Node node = d_decisionEngine->getNode(lit);
-  Trace("decision") << "lit = " << lit << std::endl;
-  Trace("decision") << node.getKind() << std::endl;
-  Trace("decision") << node << std::endl;
+  if (checkJustified(node)) return false;
+
+  Kind k = node.getKind();
+  Trace("findSpitterRec") << "kind = " << k << std::endl;
+  theory::TheoryId tId = theory::kindToTheoryId(k);
+  Trace("findSplitterRec") << "theoryId = " << tId << std::endl;
+  Trace("findSplitterRec") << "node = " << node << std::endl;
+  Trace("findSplitterRec") << "litVal = " << litVal << std::endl;
 
   /*
   if (d_cnfManager->numFanins(v) == 0) {
@@ -133,17 +146,29 @@ bool JustificationHeuristic::findSplitterRec(SatLiteral lit, SatValue desiredVal
     }
   }
   */
-  if(node.getNumChildren() == 0) {
+
+
+  /**
+   * If not in theory of booleans, and not a "boolean" EQUAL (IFF),
+   * then check if this is something to split-on? 
+   */
+  if(tId != theory::THEORY_BOOL && 
+     !(k == kind::EQUAL && node[0].getType().isBoolean()) ) {
     if(litVal != SAT_VALUE_UNKNOWN) {
-      setJustified(v);
+      setJustified(node);
       return false;
     } else {
-      *litDecision = SatLiteral(v, desiredVal == SAT_VALUE_TRUE );
+      Assert(d_decisionEngine->hasSatLiteral(node));
+      SatVariable v = d_decisionEngine->getSatLiteral(node).getSatVariable();
+      *litDecision = SatLiteral(v, desiredVal != SAT_VALUE_TRUE );
+      Trace("decision") << "decision " << *litDecision << std::endl;
+      Trace("decision") << "Found something to split. Glad to be able to serve you." << std::endl;
       return true;
     }
   }
 
 
+  /*** TODO: Term ITEs ***/
   /*
   else if (d_cnfManager->concreteVar(v).isAbsAtomicFormula()) {
     // This node represents a predicate with embedded ITE's
@@ -208,42 +233,49 @@ bool JustificationHeuristic::findSplitterRec(SatLiteral lit, SatValue desiredVal
       return true;
     }
   }
+  */
 
-  int kind = d_cnfManager->concreteVar(v).getKind();
-  Var::Val valHard = Var::FALSE_VAL;
-  switch (kind) {
-    case AND:
-      valHard = Var::TRUE_VAL;
-    case OR:
-      if (value == valHard) {
-        n = d_cnfManager->numFanins(v);
-        for (i=0; i < n; ++i) {
-          litTmp = d_cnfManager->getFanin(v, i);
-          if (findSplitterRec(litTmp, valHard, litDecision)) {
+  SatValue valHard = SAT_VALUE_FALSE;
+  switch (k) {
+  case kind::AND:
+    valHard = SAT_VALUE_TRUE;
+  case kind::OR:
+    if (desiredVal == valHard) {
+      int n = node.getNumChildren();
+      for(int i = 0; i < n; ++i) {
+        if (findSplitterRec(node[i], valHard, litDecision)) {
+          return true;
+        }
+      }
+      Assert(litPresent == false || litVal == valHard, "Output should be justified");
+      setJustified(node);
+      return false;
+    }
+    else {
+      SatValue valEasy = invertValue(valHard);
+      int n = node.getNumChildren();
+      for(int i = 0; i < n; ++i) {
+        // Trace("decision") << " node[i] = " << node[i] << " " << tryGetSatValue(node[i]) << std::endl;
+        if ( tryGetSatValue(node[i]) != valHard) {
+          // Trace("decision") << "hi"<< std::endl;
+          if (findSplitterRec(node[i], valEasy, litDecision)) {
             return true;
           }
+          Assert(litPresent == false || litVal == valEasy, "Output should be justified");
+          setJustified(node);
+          return false;
         }
-        DebugAssert(getValue(v) == valHard, "Output should be justified");
-        setJustified(v);
-        return false;
       }
-      else {
-        Var::Val valEasy = Var::invertValue(valHard);
-        n = d_cnfManager->numFanins(v);
-        for (i=0; i < n; ++i) {
-          litTmp = d_cnfManager->getFanin(v, i);
-          if (getValue(litTmp) != valHard) {
-            if (findSplitterRec(litTmp, valEasy, litDecision)) {
-              return true;
-            }
-            DebugAssert(getValue(v) == valEasy, "Output should be justified");
-            setJustified(v);
-            return false;
-          }
-        }
-        DebugAssert(false, "No controlling input found (2)");
-      }
-      break;
+      // Trace("decision") << " * ** " << std::endl;
+      // Trace("decision") << node.getKind() << " " << node << std::endl;
+      // for(int i = 0; i < node.getNumChildren(); ++i) 
+      //   Trace("decision") << "child: " << tryGetSatValue(node[i]) << std::endl;
+      // Trace("decision") << "node: " << tryGetSatValue(node) << std::endl;
+      Assert(false, "No controlling input found (2)");
+    }
+    break;
+
+      /*
     case IMPLIES:
       DebugAssert(d_cnfManager->numFanins(v) == 2, "Expected 2 fanins");
       if (value == Var::FALSE_VAL) {
@@ -380,14 +412,15 @@ bool JustificationHeuristic::findSplitterRec(SatLiteral lit, SatValue desiredVal
       setJustified(v);
       return false;
     }
-    default:
-      DebugAssert(false, "Unexpected Boolean operator");
-      break;
+      */
+  default:
+    Assert(false, "Unexpected Boolean operator");
+    break;
   }
-  FatalAssert(false, "Should be unreachable");
-  ------------------------------------------------  */
-  return false;
 
+  /* Swap order of these two once we handle all cases */
+  return false;
   Unreachable();
+
 
 }/* findRecSplit method */

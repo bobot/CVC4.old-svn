@@ -36,12 +36,18 @@ namespace CVC4 {
 namespace decision {
 
 class JustificationHeuristic : public DecisionStrategy {
-  set<SatVariable> d_justified;
+  set<TNode> d_justified;
   unsigned  d_prvsIndex;
+  IntStat d_helfulness;
 public:
   JustificationHeuristic(CVC4::DecisionEngine* de) : 
-    DecisionStrategy(de) {
+    DecisionStrategy(de),
+    d_helfulness("decision::jh::helpfulness", 0) {
+    StatisticsRegistry::registerStat(&d_helfulness);
     Trace("decision") << "Justification heuristic enabled" << std::endl;
+  }
+  ~JustificationHeuristic() {
+    StatisticsRegistry::unregisterStat(&d_helfulness);
   }
   prop::SatLiteral getNext() {
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
@@ -51,23 +57,28 @@ public:
     for(unsigned i = d_prvsIndex; i < assertions.size(); ++i) {
       SatLiteral litDecision;
 
-      /* Make sure there is a literal corresponding to the node  */
-      if( not d_decisionEngine->hasSatLiteral(assertions[i]) ) {
-        //    Warning() << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
+      Trace("decision") << assertions[i] << std::endl;
+
+      SatValue desiredVal = SAT_VALUE_UNKNOWN;
+
+      if(d_decisionEngine->hasSatLiteral(assertions[i]) ) {
+        desiredVal = d_decisionEngine->getSatValue( d_decisionEngine->getSatLiteral(assertions[i]) );
+        Trace("decision") << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
         continue;
         //    Assert(not lit.isNull());
       }
-      
-      SatLiteral lit = d_decisionEngine->getSatLiteral(assertions[i]);
-      SatValue desiredVal = d_decisionEngine->getSatValue(lit);
+
       if(desiredVal == SAT_VALUE_UNKNOWN) desiredVal = SAT_VALUE_TRUE;
-      bool ret = findSplitterRec(lit, desiredVal, &litDecision);
+
+      bool ret = findSplitterRec(assertions[i], desiredVal, &litDecision);
       if(ret == true) {
+        Trace("decision") << "Yippee!!" << std::endl;
         d_prvsIndex = i;
         return litDecision;
       }
     }
 
+    Trace("decision") << "Nothing to split on " << std::endl;
     return prop::undefSatLiteral;
   } 
   bool needSimplifiedPreITEAssertions() { return true; }
@@ -82,11 +93,23 @@ public:
   }
 private:
   /* Do all the hardwork. */ 
-  bool findSplitterRec(SatLiteral lit, SatValue value, SatLiteral* litDecision);
+  bool findSplitterRec(Node node, SatValue value, SatLiteral* litDecision);
 
   /* Helper functions */
-  void setJustified(SatVariable v);
-  bool checkJustified(SatVariable v);
+  void setJustified(TNode);
+  bool checkJustified(TNode);
+  
+  /* If literal exists corresponding to the node return
+     that. Otherwise an UNKNOWN */
+  SatValue tryGetSatValue(Node n)
+  {
+    if(d_decisionEngine->hasSatLiteral(n) ) {
+      return d_decisionEngine->getSatValue(d_decisionEngine->getSatLiteral(n));
+    } else {
+      return SAT_VALUE_UNKNOWN;
+    }
+  }
+
 };/* class JustificationHeuristic */
 
 }/* namespace decision */
