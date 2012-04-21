@@ -59,6 +59,11 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
       d_equalityEngine.addTerm(d_false);
       d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
 
+      // add disequality between 0 and 1 bits
+      d_equalityEngine.addDisequality(utils::mkConst(BitVector((unsigned)1, (unsigned)0)),
+                                      utils::mkConst(BitVector((unsigned)1, (unsigned)1)),
+                                      d_true);
+
       // The kinds we are treating as function application in congruence
       d_equalityEngine.addFunctionKind(kind::BITVECTOR_CONCAT);
       //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_AND);
