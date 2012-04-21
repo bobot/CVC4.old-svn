@@ -55,6 +55,9 @@ class Solver {
     /** To notify */
     Notify* notify;
 
+    /** Cvc4 context */
+    CVC4::context::Context* c;
+
 public:
 
     // Constructor/Destructor:
