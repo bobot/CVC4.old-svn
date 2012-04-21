@@ -255,9 +255,9 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       SatValue valEasy = invertValue(valHard);
       int n = node.getNumChildren();
       for(int i = 0; i < n; ++i) {
-        // Trace("decision") << " node[i] = " << node[i] << " " << tryGetSatValue(node[i]) << std::endl;
+        Trace("findSplitterRec") << " node[i] = " << node[i] << " " << tryGetSatValue(node[i]) << std::endl;
         if ( tryGetSatValue(node[i]) != valHard) {
-          // Trace("decision") << "hi"<< std::endl;
+          Trace("findSplitterRec") << "hi"<< std::endl;
           if (findSplitterRec(node[i], valEasy, litDecision)) {
             return true;
           }
@@ -266,11 +266,11 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
           return false;
         }
       }
-      // Trace("decision") << " * ** " << std::endl;
-      // Trace("decision") << node.getKind() << " " << node << std::endl;
-      // for(int i = 0; i < node.getNumChildren(); ++i) 
-      //   Trace("decision") << "child: " << tryGetSatValue(node[i]) << std::endl;
-      // Trace("decision") << "node: " << tryGetSatValue(node) << std::endl;
+      Trace("findSplitterRec") << " * ** " << std::endl;
+      Trace("findSplitterRec") << node.getKind() << " " << node << std::endl;
+      for(unsigned i = 0; i < node.getNumChildren(); ++i) 
+        Trace("findSplitterRec") << "child: " << tryGetSatValue(node[i]) << std::endl;
+      Trace("findSplitterRec") << "node: " << tryGetSatValue(node) << std::endl;
       Assert(false, "No controlling input found (2)");
     }
     break;

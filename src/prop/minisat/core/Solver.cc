@@ -370,8 +370,9 @@ Lit Solver::pickBranchLit()
     }
 #endif /* CVC4_REPLAY */
 
-    // Theory requests
-    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+    // Theory/DE requests
+    bool stopSearch = false;
+    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
     while (nextLit != lit_Undef) {
       if(value(var(nextLit)) == l_Undef) {
         Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
@@ -379,7 +380,10 @@ Lit Solver::pickBranchLit()
       } else {
         Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit << " but it already has an assignment" << std::endl;
       }
-      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
+    }
+    if(stopSearch) {
+      interrupt();
     }
 
     Var next = var_Undef;

@@ -976,6 +976,12 @@ Result SmtEngine::check() {
   Trace("limit") << "SmtEngine::check(): cumulative millis " << d_cumulativeTimeUsed
                  << ", conflicts " << d_cumulativeResourceUsed << endl;
 
+  if(result.isUnknown() and d_decisionEngine != NULL) {
+    Result deResult = d_decisionEngine->getResult();
+    if(not deResult.isUnknown())
+      result = deResult;
+  }
+
   return result;
 }
 

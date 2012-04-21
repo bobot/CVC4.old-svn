@@ -37,7 +37,7 @@ public:
 
   virtual ~DecisionStrategy() { }
 
-  virtual prop::SatLiteral getNext() = 0;
+  virtual prop::SatLiteral getNext(bool&) = 0;
   
   virtual bool needSimplifiedPreITEAssertions() { return false; }
   

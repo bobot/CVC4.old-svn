@@ -49,7 +49,7 @@ public:
   ~JustificationHeuristic() {
     StatisticsRegistry::unregisterStat(&d_helfulness);
   }
-  prop::SatLiteral getNext() {
+  prop::SatLiteral getNext(bool &stopSearch) {
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
 
     const vector<Node>& assertions = d_decisionEngine->getAssertions();
@@ -64,7 +64,7 @@ public:
       if(d_decisionEngine->hasSatLiteral(assertions[i]) ) {
         desiredVal = d_decisionEngine->getSatValue( d_decisionEngine->getSatLiteral(assertions[i]) );
         Trace("decision") << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
-        continue;
+        //    continue;
         //    Assert(not lit.isNull());
       }
 
@@ -79,6 +79,16 @@ public:
     }
 
     Trace("decision") << "Nothing to split on " << std::endl;
+
+    bool alljustified = true;
+    for(unsigned i = 0 ; i < assertions.size() && alljustified ; ++i)
+      alljustified &= assertions[i].getKind() == kind::NOT ? 
+        checkJustified(assertions[i][0]) : checkJustified(assertions[i]);
+    Assert(alljustified);
+
+    stopSearch = alljustified;
+    d_decisionEngine->setResult(SAT_VALUE_TRUE);
+
     return prop::undefSatLiteral;
   } 
   bool needSimplifiedPreITEAssertions() { return true; }

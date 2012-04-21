@@ -85,7 +85,7 @@ public:
 
   void enqueueTheoryLiteral(const SatLiteral& l);
 
-  SatLiteral getNextDecisionRequest();
+  SatLiteral getNextDecisionRequest(bool& stopSearch);
 
   bool theoryNeedCheck() const;
 
