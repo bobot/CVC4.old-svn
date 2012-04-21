@@ -195,14 +195,19 @@ void InstantiationEngine::registerQuantifier( Node f ){
   if( doCbqi( f ) ){
     Debug("cbqi") << "Do cbqi for " << f << std::endl;
     //make the counterexample body
+#if 0
     Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
                                   getQuantifiersEngine()->d_inst_constants[f].begin(),
                                   getQuantifiersEngine()->d_inst_constants[f].end() );
+#else
+    Node ceBody = getQuantifiersEngine()->getSubstitutedNode( f[1], f );
+#endif
     getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
     //code for counterexample-based quantifier instantiation
     //get the counterexample literal
     Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
     getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
+    getQuantifiersEngine()->setInstantiationConstantAttr( ceLit, f );
     // set attributes, mark all literals in the body of n as dependent on cel
     registerLiterals( ceLit, f );
     getQuantifiersEngine()->generatePhaseReqs( f );
@@ -290,6 +295,7 @@ bool InstantiationEngine::doCbqi( Node f ){
 
 
 void InstantiationEngine::registerLiterals( Node n, Node f ){
+#if 0
   if( !n.hasAttribute(InstConstantAttribute()) ){
     bool setAttr = false;
     if( n.getKind()==INST_CONSTANT ){
@@ -323,6 +329,23 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
       n.setAttribute(nma,true);
     }
   }
+#else
+  if( n.getAttribute(InstConstantAttribute())==f ){
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      registerLiterals( n[i], f );
+    }
+    if( !getQuantifiersEngine()->getCounterexampleLiteralFor( f ).isNull() ){
+      if( getQuantifiersEngine()->d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
+        if( n!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) && 
+            n.notNode()!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) ){
+          Debug("quant-dep-dec") << "Make " << n << " dependent on ";
+          Debug("quant-dep-dec") << getQuantifiersEngine()->getCounterexampleLiteralFor( f ) << std::endl;
+          d_th->getOutputChannel().dependentDecision( getQuantifiersEngine()->getCounterexampleLiteralFor( f ), n );
+        }
+      }
+    }
+  }
+#endif
 }
 
 void InstantiationEngine::debugSat( int reason ){

@@ -51,18 +51,29 @@ class PredModel
 {
 private:
   Node d_op;
+  QuantifiersEngine* d_qe;
+  std::map< Node, std::vector< Node > > d_reqs[2];
 public:
+  PredModel(){}
   PredModel( Node op, QuantifiersEngine* qe );
   ~PredModel(){}
+
+  void addRequirement( Node f, Node p, bool phase );
+  /** debug print */
+  void debugPrint( const char* c );
 };
 
 class FunctionModel
 {
 private:
   Node d_op;
+  QuantifiersEngine* d_qe;
 public:
+  FunctionModel(){}
   FunctionModel( Node op, QuantifiersEngine* qe );
   ~FunctionModel(){}
+  /** debug print */
+  void debugPrint( const char* c );
 };
 
 class RepAlphabetIterator;
@@ -75,6 +86,9 @@ private:
 private:
   //build representatives
   void buildRepresentatives();
+private:
+  void processPredicate( Node f, Node p, bool phase );
+  void processEquality( Node f, Node eq, bool phase );
 public:
   FmfModel( QuantifiersEngine* qe, StrongSolverTheoryUf* ss );
   ~FmfModel(){}
@@ -86,6 +100,7 @@ public:
   RepAlphabet* getReps() { return &d_ra; }
 public:
   int acceptCurrent( RepAlphabetIterator* rai );
+  void debugPrint( const char* c );
 };
 
 }

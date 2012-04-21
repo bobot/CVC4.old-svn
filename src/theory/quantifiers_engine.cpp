@@ -169,6 +169,7 @@ void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
     if( Trigger::isAtomicTrigger( n ) ){
       if( !n.hasAttribute(InstConstantAttribute()) ){
         Debug("term-db") << "register trigger term " << n << std::endl;
+        //std::cout << "register trigger term " << n << std::endl;
         Node op = n.getOperator();
         d_op_map[op].push_back( n );
         d_type_map[ n.getType() ].push_back( n );

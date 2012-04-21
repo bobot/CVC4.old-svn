@@ -56,12 +56,51 @@ void RepAlphabet::debugPrint( const char* c ){
   }
 }
 
+PredModel::PredModel( Node op, QuantifiersEngine* qe ) : d_op( op ), d_qe( qe ){
+
+}
+
+void PredModel::addRequirement( Node f, Node p, bool phase ){
+  d_reqs[ phase ? 1 : 0 ][ f ].push_back( p );
+}
+
+void PredModel::debugPrint( const char* c ){
+  Debug( c ) << "Predicate " << d_op << std::endl;
+  Debug( c ) << "   Phase reqs:" << std::endl;
+  for( int i=0; i<2; i++ ){
+    for( std::map< Node, std::vector< Node > >::iterator it = d_reqs[i].begin(); it != d_reqs[i].end(); ++it ){
+      Debug( c ) << "      " << it->first << std::endl;
+      for( int j=0; j<(int)it->second.size(); j++ ){
+        Debug( c ) << "         " << it->second[j] << " -> " << (i==1) << std::endl;
+      }
+    }
+  }
+  Node trueNode = NodeManager::currentNM()->mkConst<bool>( true );
+  Debug( c ) << std::endl;
+  Debug( c ) << "   Ground asserts:" << std::endl;
+  for( int i=0; i<(int)d_qe->getTermDatabase()->d_op_map[ d_op ].size(); i++ ){
+    Node n = d_qe->getTermDatabase()->d_op_map[ d_op ][i];
+    Debug( c ) << "      " << n << " -> ";
+    Debug( c ) << d_qe->getEqualityQuery()->areEqual( n, trueNode ) << std::endl;
+  }
+}
+
+FunctionModel::FunctionModel( Node op, QuantifiersEngine* qe ) : d_op( op ), d_qe( qe ){
+  //look at ground assertions
+}
+
+void FunctionModel::debugPrint( const char* c ){
+
+}
+
 FmfModel::FmfModel( QuantifiersEngine* qe, StrongSolverTheoryUf* ss ) : d_quantEngine( qe ), d_ss( ss ){
 
 }
 
 void FmfModel::buildModel(){
   buildRepresentatives();
+
+
   //now analyze quantifiers
   for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
     Node f = d_quantEngine->getAssertedQuantifier( i );
@@ -70,30 +109,29 @@ void FmfModel::buildModel(){
          it != d_quantEngine->d_phase_reqs[f].end(); ++it ){
       Node n = it->first;
       Debug("fmf-model-req") << "   " << n << " -> " << it->second << std::endl;
-    }
-    for( std::map< Node, bool >::iterator it = d_quantEngine->d_phase_reqs_equality[f].begin(); 
-          it != d_quantEngine->d_phase_reqs_equality[f].end(); ++it ){
-      Node n = it->first;
-      Node t = d_quantEngine->d_phase_reqs_equality_term[f][n];
-      Debug("fmf-model-req") << "   " << n << ( it->second ? " == " : " != " ) << t << std::endl;
-      if( n.getKind()==INST_CONSTANT ){
-        t = d_quantEngine->getEqualityQuery()->getRepresentative( t );
-        if( it->second ){
-        
-        }else{
-          int tValue = d_ra.getIndexFor( t );
-          if( tValue!=-1 ){
-            int index = (int)n.getAttribute(InstVarNumAttribute());
-            Debug("fmf-model") << "*** Restrict ( " << index << " -> " << tValue << " )" << std::endl;
-          }
-        }
-      }else if( Trigger::isSimpleTrigger( n ) ){
-        t = d_quantEngine->getEqualityQuery()->getRepresentative( t );
-        Node op = n.getOperator();
+      if( n.getKind()==APPLY_UF ){
+        processPredicate( f, n, it->second );
+      }else if( n.getKind()==EQUAL ){
+        processEquality( f, n, it->second );
       }
     }
   }
   Debug("fmf-model") << "Done." << std::endl;
+  debugPrint("fmf-model-complete");
+
+
+}
+
+void FmfModel::processPredicate( Node f, Node p, bool phase ){
+  Node op = p.getOperator();
+  if( d_pred_model.find( op )==d_pred_model.end() ){
+    d_pred_model[ op ] = PredModel( op, d_quantEngine );
+  }
+  d_pred_model[ op ].addRequirement( f, p, phase );
+}
+
+void FmfModel::processEquality( Node f, Node eq, bool phase ){
+  
 }
 
 void FmfModel::buildRepresentatives(){
@@ -135,4 +173,14 @@ void FmfModel::buildRepresentatives(){
 
 int FmfModel::acceptCurrent( RepAlphabetIterator* rai ){
   return -1;
+}
+
+void FmfModel::debugPrint( const char* c ){
+  Debug( c ) << "Representatives: " << std::endl;
+  d_ra.debugPrint( c );
+  Debug( c ) << "Predicates: " << std::endl;
+  for( std::map< Node, PredModel >::iterator it = d_pred_model.begin(); it != d_pred_model.end(); ++it ){
+    it->second.debugPrint( c );
+    Debug( c ) << std::endl;
+  }
 }
