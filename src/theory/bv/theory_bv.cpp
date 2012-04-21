@@ -127,6 +127,11 @@ void TheoryBV::preRegisterTerm(TNode node) {
     d_bitblaster->bbAtom(node);
   }
 
+  if (Options::current()->bitvector_eager_bitblast) {
+    // don't use the equality engine in the eager bit-blasting
+    return;
+  }
+
   if (d_useEqualityEngine) {
     switch (node.getKind()) {
       case kind::EQUAL:
@@ -147,6 +152,11 @@ void TheoryBV::preRegisterTerm(TNode node) {
 void TheoryBV::check(Effort e)
 {
   BVDebug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
+
+  if (Options::current()->bitvector_eager_bitblast) {
+    while (!done()) { get(); }
+    return;
+  }
 
   while (!done() && !d_conflict) {
     Assertion assertion = get();

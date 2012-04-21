@@ -283,6 +283,9 @@ struct CVC4_PUBLIC Options {
   /** Filter depending on length of lemma */
   int sharingFilterByLength;
 
+  /** Bitblast eagerly to the main sat solver */
+  bool bitvector_eager_bitblast;
+
   Options();
 
   /**

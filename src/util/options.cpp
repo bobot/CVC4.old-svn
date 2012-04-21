@@ -119,7 +119,8 @@ Options::Options() :
   threadArgv(),
   thread_id(-1),
   separateOutput(false),
-  sharingFilterByLength(-1)
+  sharingFilterByLength(-1),
+  bitvector_eager_bitblast(false)
 {
 }
 
@@ -186,10 +187,11 @@ Additional CVC4 options:\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
-   --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n \
+   --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n\
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
+   --bitblast-eager       eagerly bitblast the bitvectors to the main SAT solver\n\
 ";
 
 
@@ -369,7 +371,8 @@ enum OptionValue {
   TIME_LIMIT,
   TIME_LIMIT_PER,
   RESOURCE_LIMIT,
-  RESOURCE_LIMIT_PER
+  RESOURCE_LIMIT_PER,
+  BITVECTOR_EAGER_BITBLAST
 };/* enum OptionValue */
 
 /**
@@ -460,6 +463,7 @@ static struct option cmdlineOptions[] = {
   { "tlimit-per" , required_argument, NULL, TIME_LIMIT_PER },
   { "rlimit"     , required_argument, NULL, RESOURCE_LIMIT       },
   { "rlimit-per" , required_argument, NULL, RESOURCE_LIMIT_PER   },
+  { "bitblast-eager", no_argument, NULL, BITVECTOR_EAGER_BITBLAST },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -851,7 +855,11 @@ throw(OptionException) {
         perCallResourceLimit = (unsigned long) i;
         break;
       }
-
+    case BITVECTOR_EAGER_BITBLAST:
+      {
+        bitvector_eager_bitblast = true;
+        break;
+      }
     case RANDOM_SEED:
       satRandomSeed = atof(optarg);
       break;

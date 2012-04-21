@@ -48,6 +48,9 @@ class BVSatSolverInterface;
 }
 
 namespace theory {
+
+class OutputChannel;
+
 namespace bv {
 
 typedef std::vector<Node> Bits;
@@ -55,7 +58,6 @@ typedef std::vector<Node> Bits;
 std::string toString (Bits& bits); 
 
 class TheoryBV;
-
 
 /** 
  * The Bitblaster that manages the mapping between Nodes 
@@ -83,6 +85,7 @@ class Bitblaster {
   typedef Node   (*AtomBBStrategy) (TNode, Bitblaster*); 
 
   // sat solver used for bitblasting and associated CnfStream
+  theory::OutputChannel*             d_bvOutput;
   prop::BVSatSolverInterface*        d_satSolver; 
   prop::CnfStream*                   d_cnfStream;
 
@@ -99,9 +102,6 @@ class Bitblaster {
   private:
   bool          hasBBTerm(TNode node); 
   void          getBBTerm(TNode node, Bits& bits);
-
-
-
 
   /// function tables for the various bitblasting strategies indexed by node kind
   TermBBStrategy d_termBBStrategies[kind::LAST_KIND];

@@ -36,7 +36,6 @@ namespace CVC4 {
 namespace theory {
 namespace bv{
 
-
 std::string toString(Bits&  bits) {
   ostringstream os; 
   for (int i = bits.size() - 1; i >= 0; --i) {
@@ -54,6 +53,7 @@ std::string toString(Bits&  bits) {
 /////// Bitblaster 
 
 Bitblaster::Bitblaster(context::Context* c, bv::TheoryBV* bv) :
+    d_bvOutput(bv->d_out),
     d_termCache(),
     d_bitblastedAtoms(),
     d_assertedAtoms(c),
@@ -99,8 +99,13 @@ void Bitblaster::bbAtom(TNode node) {
   Node atom_definition = mkNode(kind::IFF, node, atom_bb);
   // do boolean simplifications if possible
   Node rewritten = Rewriter::rewrite(atom_definition);
-  d_cnfStream->convertAndAssert(rewritten, true, false);
-  d_bitblastedAtoms.insert(node); 
+
+  if (!Options::current()->bitvector_eager_bitblast) {
+    d_cnfStream->convertAndAssert(rewritten, true, false);
+    d_bitblastedAtoms.insert(node);
+  } else {
+    d_bvOutput->lemma(rewritten, false);
+  }
 }
 
 
@@ -159,9 +164,11 @@ Node Bitblaster::bbOptimize(TNode node) {
 /// Public methods
 
 void Bitblaster::addAtom(TNode atom) {
-  d_cnfStream->ensureLiteral(atom);
-  SatLiteral lit = d_cnfStream->getLiteral(atom);
-  d_satSolver->addMarkerLiteral(lit); 
+  if (!Options::current()->bitvector_eager_bitblast) {
+    d_cnfStream->ensureLiteral(atom);
+    SatLiteral lit = d_cnfStream->getLiteral(atom);
+    d_satSolver->addMarkerLiteral(lit);
+  }
 }
 
 void Bitblaster::explain(TNode atom, std::vector<TNode>& explanation) {
