@@ -59,7 +59,7 @@ public:
   prop::SatLiteral getNext(bool &stopSearch) {
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
 
-    d_justified.clear();
+    d_justified.clear(); d_prvsIndex = 0;
 
     const vector<Node>& assertions = d_decisionEngine->getAssertions();
 
@@ -87,7 +87,7 @@ public:
       }
       if(ret == true) {
         Trace("decision") << "Yippee!!" << std::endl;
-        d_prvsIndex = i;
+        //d_prvsIndex = i;
         return litDecision;
       }
     }
@@ -95,9 +95,16 @@ public:
     Trace("decision") << "Nothing to split on " << std::endl;
 
     bool alljustified = true;
-    for(unsigned i = 0 ; i < assertions.size() && alljustified ; ++i)
+    for(unsigned i = 0 ; i < assertions.size() && alljustified ; ++i) {
       alljustified &= assertions[i].getKind() == kind::NOT ? 
         checkJustified(assertions[i][0]) : checkJustified(assertions[i]);
+      if(Debug.isOn("decision")) {
+	bool x = assertions[i].getKind() == kind::NOT ? 
+        checkJustified(assertions[i][0]) : checkJustified(assertions[i]);
+	if(x==false)
+	  Debug("decision") << "****** Not justified [i="<<i<<"]: " << assertions[i] << std::endl;
+      }
+    }
     Assert(alljustified);
 
     stopSearch = alljustified;

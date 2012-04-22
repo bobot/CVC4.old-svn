@@ -36,6 +36,9 @@ DecisionEngine::DecisionEngine() :
 {
   const Options* options = Options::current();
   Trace("decision") << "Creating decision engine" << std::endl;
+
+  if(options->incrementalSolving) return;
+
   if(options->decisionMode == Options::DECISION_STRATEGY_INTERNAL) { }
   if(options->decisionMode == Options::DECISION_STRATEGY_JUSTIFICATION) {
     DecisionStrategy* ds = new decision::JustificationHeuristic(this);

@@ -373,7 +373,7 @@ Lit Solver::pickBranchLit()
     // Theory/DE requests
     bool stopSearch = false;
     nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
-    while (nextLit != lit_Undef) {
+    while (stopSearch ==false && nextLit != lit_Undef) {
       if(value(var(nextLit)) == l_Undef) {
         Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
         return nextLit;
@@ -383,7 +383,7 @@ Lit Solver::pickBranchLit()
       nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
     }
     if(stopSearch) {
-      interrupt();
+      return lit_Undef;
     }
 
     Var next = var_Undef;
