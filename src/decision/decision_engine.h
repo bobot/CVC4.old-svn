@@ -94,6 +94,14 @@ public:
     return ret;
   }
 
+  /** Is the DecisionEngine in a state where it has solved everything? */
+  bool isDone() {
+    Trace("decision") << "DecisionEngine::isDone() returning "
+		      << (d_result != SAT_VALUE_UNKNOWN ? "true" : "false")
+		      << std::endl;
+    return d_result != SAT_VALUE_UNKNOWN;
+  }
+
   /** */
   Result getResult() {
     switch(d_result) {
@@ -129,6 +137,7 @@ public:
   }
   void informSimplifiedPreITEAssertions(const vector<Node> &assertions);
 
+  void addAssertion(Node n);
 
   // Interface for Strategies to use stuff stored in Decision Engine
   // (which was possibly requested by them on initialization)

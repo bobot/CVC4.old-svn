@@ -55,11 +55,23 @@ void DecisionEngine::enableStrategy(DecisionStrategy* ds)
 
 void DecisionEngine::informSimplifiedPreITEAssertions(const vector<Node> &assertions)
 {
+  d_result = SAT_VALUE_UNKNOWN;
   d_assertions.reserve(assertions.size());
   for(unsigned i = 0; i < assertions.size(); ++i)
     d_assertions.push_back(assertions[i]);
   for(unsigned i = 0; i < d_needSimplifiedPreITEAssertions.size(); ++i)
     d_needSimplifiedPreITEAssertions[i]->notifyAssertionsAvailable();
 }
+
+void DecisionEngine::addAssertion(Node n)
+{
+  d_result = SAT_VALUE_UNKNOWN;
+  if(needSimplifiedPreITEAssertions()) {
+    d_assertions.push_back(n);
+  }
+  for(unsigned i = 0; i < d_needSimplifiedPreITEAssertions.size(); ++i)
+    d_needSimplifiedPreITEAssertions[i]->notifyAssertionsAvailable();
+}
+  
 
 }/* CVC4 namespace */

@@ -183,5 +183,9 @@ void TheoryProxy::checkTime() {
   d_propEngine->checkTime();
 }
 
+bool TheoryProxy::isDecisionEngineDone() {
+  d_decisionEngine->isDone();
+}
+
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */

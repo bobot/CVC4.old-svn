@@ -112,6 +112,8 @@ public:
 
   void checkTime();
 
+  bool isDecisionEngineDone();
+
 };/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */
