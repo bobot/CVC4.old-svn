@@ -71,6 +71,9 @@ public:
   virtual void addCandidate( Node n ) {}
   /** call this at the beginning of each instantiation round */
   virtual void resetInstantiationRound() = 0;
+public:
+  /** legal candidate */
+  static bool isLegalCandidate( Node n );
 };
 
 /** candidate generator queue (for manual candidate generation) */

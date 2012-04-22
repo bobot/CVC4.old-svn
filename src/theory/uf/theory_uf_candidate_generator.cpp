@@ -56,7 +56,7 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
     while( d_term_iter<d_term_iter_limit ){
       Node n = d_ith->getQuantifiersEngine()->getTermDatabase()->d_op_map[d_op][d_term_iter];
       d_term_iter++;
-      if( !n.getAttribute(NoMatchAttribute()) ){
+      if( isLegalCandidate( n ) ){
         return n;
       }
     }
@@ -67,7 +67,7 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
         Node n = (*d_eqc);
         ++d_eqc;
         if( n.getKind()==APPLY_UF && n.getOperator()==d_op ){
-          if( !n.getAttribute(NoMatchAttribute()) ){
+          if( isLegalCandidate( n ) ){
             return n;
           }
         }

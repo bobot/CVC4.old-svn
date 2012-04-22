@@ -68,10 +68,13 @@ class FunctionModel
 private:
   Node d_op;
   QuantifiersEngine* d_qe;
+  std::map< Node, std::map< Node, std::vector< Node > > > d_reqs[2];
 public:
   FunctionModel(){}
   FunctionModel( Node op, QuantifiersEngine* qe );
   ~FunctionModel(){}
+  /** add requirement */
+  void addRequirement( Node f, Node t, Node te, bool phase );
   /** debug print */
   void debugPrint( const char* c );
 };

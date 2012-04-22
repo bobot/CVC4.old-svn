@@ -207,7 +207,10 @@ void InstantiationEngine::registerQuantifier( Node f ){
     //get the counterexample literal
     Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
     getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
+#if 0
+#else
     getQuantifiersEngine()->setInstantiationConstantAttr( ceLit, f );
+#endif
     // set attributes, mark all literals in the body of n as dependent on cel
     registerLiterals( ceLit, f );
     getQuantifiersEngine()->generatePhaseReqs( f );

@@ -28,8 +28,12 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 
+bool CandidateGenerator::isLegalCandidate( Node n ){
+  return !n.getAttribute(NoMatchAttribute()) && ( !Options::current()->cbqi || !n.hasAttribute(InstConstantAttribute()) );
+}
+
 void CandidateGeneratorQueue::addCandidate( Node n ) {
-  if( !n.getAttribute(NoMatchAttribute()) ){
+  if( isLegalCandidate( n ) ){
     d_candidates.push_back( n ); 
   }
 }

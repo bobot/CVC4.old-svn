@@ -89,8 +89,29 @@ FunctionModel::FunctionModel( Node op, QuantifiersEngine* qe ) : d_op( op ), d_q
   //look at ground assertions
 }
 
-void FunctionModel::debugPrint( const char* c ){
+void FunctionModel::addRequirement( Node f, Node t, Node te, bool phase ){
+  d_reqs[ phase ? 1 : 0 ][ f ][ t ].push_back( te );
+}
 
+void FunctionModel::debugPrint( const char* c ){
+  Debug( c ) << "Function " << d_op << std::endl;
+  Debug( c ) << "   Phase reqs:" << std::endl;
+  for( int i=0; i<2; i++ ){
+    for( std::map< Node, std::map< Node, std::vector< Node > > >::iterator it = d_reqs[i].begin(); it != d_reqs[i].end(); ++it ){
+      for( std::map< Node, std::vector< Node > >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
+        for( int j=0; j<(int)it2->second.size(); j++ ){
+          Debug( c ) << "         " << it2->first << ( i==1 ? "==" : "!=" ) << it2->second[j] << std::endl;
+        }
+      }
+    }
+  }
+  Debug( c ) << "   Ground asserts:" << std::endl;
+  for( int i=0; i<(int)d_qe->getTermDatabase()->d_op_map[ d_op ].size(); i++ ){
+    Node n = d_qe->getTermDatabase()->d_op_map[ d_op ][i];
+    Node r = d_qe->getEqualityQuery()->getRepresentative( n );
+    Debug( c ) << "      " << n << " = ";
+    Debug( c ) << r << std::endl;
+  }
 }
 
 FmfModel::FmfModel( QuantifiersEngine* qe, StrongSolverTheoryUf* ss ) : d_quantEngine( qe ), d_ss( ss ){
@@ -131,7 +152,20 @@ void FmfModel::processPredicate( Node f, Node p, bool phase ){
 }
 
 void FmfModel::processEquality( Node f, Node eq, bool phase ){
-  
+  if( eq[0].getKind()==APPLY_UF ){
+    Node op = eq[0].getOperator();
+    if( d_func_model.find( op )==d_func_model.end() ){
+      d_func_model[ op ] = FunctionModel( op, d_quantEngine );
+    }
+    d_func_model[ op ].addRequirement( f, eq[0], eq[1], phase );
+  }
+  if( eq[1].getKind()==APPLY_UF ){
+    Node op = eq[1].getOperator();
+    if( d_func_model.find( op )==d_func_model.end() ){
+      d_func_model[ op ] = FunctionModel( op, d_quantEngine );
+    }
+    d_func_model[ op ].addRequirement( f, eq[1], eq[0], phase );
+  }
 }
 
 void FmfModel::buildRepresentatives(){
@@ -180,6 +214,11 @@ void FmfModel::debugPrint( const char* c ){
   d_ra.debugPrint( c );
   Debug( c ) << "Predicates: " << std::endl;
   for( std::map< Node, PredModel >::iterator it = d_pred_model.begin(); it != d_pred_model.end(); ++it ){
+    it->second.debugPrint( c );
+    Debug( c ) << std::endl;
+  }
+  Debug( c ) << "Functions: " << std::endl;
+  for( std::map< Node, FunctionModel >::iterator it = d_func_model.begin(); it != d_func_model.end(); ++it ){
     it->second.debugPrint( c );
     Debug( c ) << std::endl;
   }
