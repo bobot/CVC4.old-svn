@@ -83,19 +83,14 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
   Trace("decision") 
     << "findSplitterRec(" << node << ", " << desiredVal << ", .. )" << std::endl; 
 
-  // if(not ) {
-  //   //    Warning() << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
-  //   return false;
-  //   //    Assert(not lit.isNull());
-  // }
+  /* Handle NOT as a special case */
+  if (node.getKind() == kind::NOT) {
+    desiredVal = invertValue(desiredVal);
+    node = node[0];
+  }
 
-  /** 
-   * TODO -- Base case. Way CVC3 seems to handle is that it has
-   * literals correpsonding to true and false. We'll have to take care
-   * somewhere else.
-   */
+  if (checkJustified(node)) return false;
 
-  // Var v = lit.getVar();
   SatValue litVal = tryGetSatValue(node);
   bool litPresent = false;
   if(d_decisionEngine->hasSatLiteral(node) ) {
@@ -114,25 +109,18 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
 
 
   /* You'd better know what you want */
-  // DebugAssert(value != Var::UNKNOWN, "expected known value");
   Assert(desiredVal != SAT_VALUE_UNKNOWN, "expected known value");
 
   /* Good luck, hope you can get what you want */
-  // DebugAssert(getValue(lit) == value || getValue(lit) == Var::UNKNOWN,
-  //             "invariant violated");
   Assert(litVal == desiredVal || litVal == SAT_VALUE_UNKNOWN, 
          "invariant voilated");
 
-  if (node.getKind() == kind::NOT) {
-    desiredVal = invertValue(desiredVal);
-    node = node[0];
-  }
-
-  if (checkJustified(node)) return false;
-
+  /* What type of node is this */
   Kind k = node.getKind();
-  Trace("findSpitterRec") << "kind = " << k << std::endl;
   theory::TheoryId tId = theory::kindToTheoryId(k);
+
+  /* Some debugging stuff */
+  Trace("findSpitterRec") << "kind = " << k << std::endl;
   Trace("findSplitterRec") << "theoryId = " << tId << std::endl;
   Trace("findSplitterRec") << "node = " << node << std::endl;
   Trace("findSplitterRec") << "litVal = " << litVal << std::endl;
@@ -162,6 +150,8 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       setJustified(node);
       return false;
     } else {
+      if(not d_decisionEngine->hasSatLiteral(node))
+        throw GiveUpException();
       Assert(d_decisionEngine->hasSatLiteral(node));
       SatVariable v = d_decisionEngine->getSatLiteral(node).getSatVariable();
       *litDecision = SatLiteral(v, desiredVal != SAT_VALUE_TRUE );
@@ -331,7 +321,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       val = tryGetSatValue(node[1]);
       if (val == SAT_VALUE_UNKNOWN) val = SAT_VALUE_FALSE;
       if (desiredVal == SAT_VALUE_FALSE) val = invertValue(val);
-      if (findSplitterRec(node[1], val, litDecision)) {
+      if (findSplitterRec(node[0], val, litDecision)) {
         return true;
       }
       Assert(false, "Unable to find controlling input (4)");
@@ -339,7 +329,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
     break;
   }
     
-  case kind::XOR: {
+  case kind::XOR:throw GiveUpException(); {
     SatValue val = tryGetSatValue(node[0]);
     if (val != SAT_VALUE_UNKNOWN) {
       if (findSplitterRec(node[0], val, litDecision)) {
@@ -358,7 +348,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       SatValue val = tryGetSatValue(node[1]);
       if (val == SAT_VALUE_UNKNOWN) val = SAT_VALUE_FALSE;
       if (desiredVal == SAT_VALUE_TRUE) val = invertValue(val);
-      if (findSplitterRec(node[1], val, litDecision)) {
+      if (findSplitterRec(node[0], val, litDecision)) {
         return true;
       }
       Assert(false, "Unable to find controlling input (5)");
