@@ -269,7 +269,8 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
     }
     break;
 
-  case kind::IMPLIES:throw GiveUpException();
+  case kind::IMPLIES:
+    //throw GiveUpException();
     Assert(node.getNumChildren() == 2, "Expected 2 fanins");
     if (desiredVal == SAT_VALUE_FALSE) {
       if (findSplitterRec(node[0], SAT_VALUE_TRUE, litDecision)) {
@@ -302,7 +303,9 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       Assert(false, "No controlling input found (3)");
     }
     break;
-  case kind::IFF: throw GiveUpException();{
+  case kind::IFF: 
+    //throw GiveUpException();
+    {
     SatValue val = tryGetSatValue(node[0]);
     if (val != SAT_VALUE_UNKNOWN) {
       if (findSplitterRec(node[0], val, litDecision)) {
@@ -329,7 +332,9 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
     break;
   }
     
-  case kind::XOR:throw GiveUpException(); {
+  case kind::XOR:
+    //throw GiveUpException();
+    {
     SatValue val = tryGetSatValue(node[0]);
     if (val != SAT_VALUE_UNKNOWN) {
       if (findSplitterRec(node[0], val, litDecision)) {
