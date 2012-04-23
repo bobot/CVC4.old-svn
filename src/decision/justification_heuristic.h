@@ -46,13 +46,16 @@ class JustificationHeuristic : public DecisionStrategy {
   set<TNode> d_justified;
   unsigned  d_prvsIndex;
   IntStat d_helfulness;
+  IntStat d_giveup;
   TimerStat d_timestat;
 public:
   JustificationHeuristic(CVC4::DecisionEngine* de):
-  DecisionStrategy(de),
+    DecisionStrategy(de),
     d_helfulness("decision::jh::helpfulness", 0),
+    d_giveup("decision::jh::giveup", 0),
     d_timestat("decision::jh::time") {
     StatisticsRegistry::registerStat(&d_helfulness);
+    StatisticsRegistry::registerStat(&d_giveup);
     StatisticsRegistry::registerStat(&d_timestat);
     Trace("decision") << "Justification heuristic enabled" << std::endl;
   }
