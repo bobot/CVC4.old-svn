@@ -46,18 +46,24 @@ class JustificationHeuristic : public DecisionStrategy {
   set<TNode> d_justified;
   unsigned  d_prvsIndex;
   IntStat d_helfulness;
+  TimerStat d_timestat;
 public:
-  JustificationHeuristic(CVC4::DecisionEngine* de) : 
-    DecisionStrategy(de),
-    d_helfulness("decision::jh::helpfulness", 0) {
+  JustificationHeuristic(CVC4::DecisionEngine* de):
+  DecisionStrategy(de),
+    d_helfulness("decision::jh::helpfulness", 0),
+    d_timestat("decision::jh::time") {
     StatisticsRegistry::registerStat(&d_helfulness);
+    StatisticsRegistry::registerStat(&d_timestat);
     Trace("decision") << "Justification heuristic enabled" << std::endl;
   }
   ~JustificationHeuristic() {
     StatisticsRegistry::unregisterStat(&d_helfulness);
+    StatisticsRegistry::unregisterStat(&d_timestat);
   }
   prop::SatLiteral getNext(bool &stopSearch) {
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
+
+    TimerStat::CodeTimer codeTimer(d_timestat);
 
     d_justified.clear(); d_prvsIndex = 0;
 
@@ -88,6 +94,7 @@ public:
       if(ret == true) {
         Trace("decision") << "Yippee!!" << std::endl;
         //d_prvsIndex = i;
+	++d_helfulness;
         return litDecision;
       }
     }

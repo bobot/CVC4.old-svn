@@ -100,7 +100,7 @@ public:
 		      << (d_result != SAT_VALUE_UNKNOWN)
 		      << (d_result != SAT_VALUE_UNKNOWN ? "true" : "false")
 		      << std::endl;
-    return d_result != SAT_VALUE_UNKNOWN;
+    return (d_result != SAT_VALUE_UNKNOWN);
   }
 
   /** */
