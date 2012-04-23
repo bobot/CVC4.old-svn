@@ -76,6 +76,7 @@ class Bitblaster {
     , d_bv(bv)
     {}
     bool notify(prop::SatLiteral lit);
+    void notify(prop::SatClause& clause);
   };
   
   typedef __gnu_cxx::hash_map <Node, Bits, TNodeHashFunction >              TermDefMap;

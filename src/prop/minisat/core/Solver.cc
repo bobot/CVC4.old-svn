@@ -1019,7 +1019,7 @@ lbool Solver::search(int nof_conflicts)
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
             }
 
-            if (false && theoryConflict) {
+            if (theoryConflict && Options::current()->sat_refine_conflicts) {
               check_type = CHECK_FINAL_FAKE;
             } else {
               check_type = CHECK_WITH_THEORY;

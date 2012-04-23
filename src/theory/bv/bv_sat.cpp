@@ -353,6 +353,18 @@ bool Bitblaster::MinisatNotify::notify(prop::SatLiteral lit) {
   return d_bv->storePropagation(d_cnf->getNode(lit), TheoryBV::SUB_BITBLASTER);
 };
 
+void Bitblaster::MinisatNotify::notify(prop::SatClause& clause) {
+  if (clause.size() > 1) {
+    NodeBuilder<> lemmab(kind::OR);
+    for (unsigned i = 0; i < clause.size(); ++ i) {
+      lemmab << d_cnf->getNode(clause[i]);
+    }
+    Node lemma = lemmab;
+    d_bv->d_out->lemma(lemma);
+  } else {
+    d_bv->d_out->lemma(d_cnf->getNode(clause[0]));
+  }
+};
 
 
 } /*bv namespace */

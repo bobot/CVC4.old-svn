@@ -39,6 +39,11 @@ private:
     bool notify(BVMinisat::Lit lit) {
       return d_notify->notify(toSatLiteral(lit));
     }
+    void notify(BVMinisat::vec<BVMinisat::Lit>& clause) {
+      SatClause satClause;
+      toSatClause(clause, satClause);
+      d_notify->notify(satClause);
+    }
   };
 
   BVMinisat::SimpSolver* d_minisat;

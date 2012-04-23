@@ -208,7 +208,7 @@ void TheoryBV::check(Effort e)
     return;
   }
 
-  if (e == EFFORT_FULL) {
+  if (e == EFFORT_FULL || Options::current()->bitvector_eager_fullcheck) {
     Assert(done() && !d_conflict);
     BVDebug("bitvector") << "TheoryBV::check " << e << "\n";
     bool ok = d_bitblaster->solve();

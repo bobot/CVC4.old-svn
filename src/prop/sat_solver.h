@@ -84,7 +84,12 @@ public:
      * with an "unknown" answer.
      */
     virtual bool notify(SatLiteral lit) = 0;
-  };
+
+    /**
+     * Notify about a learnt clause.
+     */
+    virtual void notify(SatClause& clause) = 0;
+};
 
   virtual void setNotify(Notify* notify) = 0; 
   

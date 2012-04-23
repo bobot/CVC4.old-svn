@@ -286,6 +286,15 @@ struct CVC4_PUBLIC Options {
   /** Bitblast eagerly to the main sat solver */
   bool bitvector_eager_bitblast;
 
+  /** Fullcheck at each check */
+  bool bitvector_eager_fullcheck;
+
+  /** Bitblast eagerly to the main sat solver */
+  bool bitvector_share_lemmas;
+
+  /** Refine conflicts by doing another full check after a conflict */
+  bool sat_refine_conflicts;
+
   Options();
 
   /**

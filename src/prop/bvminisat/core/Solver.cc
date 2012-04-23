@@ -24,8 +24,10 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/Solver.h"
 #include <vector>
 #include <iostream>
+
 #include "util/output.h"
 #include "util/utility.h"
+#include "util/options.h"
 
 using namespace BVMinisat;
 
@@ -376,12 +378,24 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, UIP uip
     out_learnt.shrink(i - j);
     tot_literals += out_learnt.size();
 
+    bool clause_all_marker = true;
+    for (int i = 0; i < out_learnt.size(); ++ i) {
+      if (marker[var(out_learnt[i])] == 0) {
+        clause_all_marker = false;
+        break;
+      }
+    }
+
     // Find correct backtrack level:
     //
-    if (out_learnt.size() == 1)
-        out_btlevel = 0;
+    if (out_learnt.size() == 1) {
+      out_btlevel = 0;
+    }
     else{
         int max_i = 1;
+        if (marker[var(out_learnt[0])] == 0) {
+          clause_all_marker = false;
+        }
         // Find the first literal assigned at the next-highest level:
         for (int i = 2; i < out_learnt.size(); i++)
             if (level(var(out_learnt[i])) > level(var(out_learnt[max_i])))
@@ -391,6 +405,10 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, UIP uip
         out_learnt[max_i] = out_learnt[1];
         out_learnt[1]     = p;
         out_btlevel       = level(var(p));
+    }
+
+    if (out_learnt.size() > 0 && clause_all_marker && CVC4::Options::current()->bitvector_share_lemmas) {
+      notify->notify(out_learnt);
     }
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
@@ -501,7 +519,10 @@ lbool Solver::assertAssumption(Lit p, bool propagate) {
   if (c->getLevel() > 0) {
     assumptions.push(p);
   } else {
-    addClause(p);
+    if (!addClause(p)) {
+      conflict.push(~p);
+      return l_False;
+    }
   }
 
   // run the propagation

@@ -46,6 +46,12 @@ public:
    * with an "unknown" answer.
    */
   virtual bool notify(Lit lit) = 0;
+
+  /**
+   * Notify about a new learnt clause with marked literals only.
+   */
+  virtual void notify(vec<Lit>& learnt) = 0;
+
 };
 
 //=================================================================================================
