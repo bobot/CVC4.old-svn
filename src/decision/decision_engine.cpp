@@ -26,12 +26,13 @@ using namespace std;
 
 namespace CVC4 {
 
-DecisionEngine::DecisionEngine() :
+DecisionEngine::DecisionEngine(context::Context *c) :
   d_enabledStrategies(),
   d_needSimplifiedPreITEAssertions(),
   d_assertions(),
   d_cnfStream(NULL),
   d_satSolver(NULL),
+  d_satContext(c),
   d_result(SAT_VALUE_UNKNOWN)
 {
   const Options* options = Options::current();
@@ -41,7 +42,7 @@ DecisionEngine::DecisionEngine() :
 
   if(options->decisionMode == Options::DECISION_STRATEGY_INTERNAL) { }
   if(options->decisionMode == Options::DECISION_STRATEGY_JUSTIFICATION) {
-    DecisionStrategy* ds = new decision::JustificationHeuristic(this);
+    DecisionStrategy* ds = new decision::JustificationHeuristic(this, d_satContext);
     enableStrategy(ds);
   }
 }

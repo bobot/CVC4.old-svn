@@ -26,10 +26,9 @@
 #include "decision_engine.h"
 #include "decision_strategy.h"
 
-#include "prop/sat_solver_types.h"
+#include "context/cdhashset.h"
 #include "expr/node.h"
-
-using namespace CVC4::prop;
+#include "prop/sat_solver_types.h"
 
 namespace CVC4 {
 
@@ -43,14 +42,16 @@ public:
 };/* class GiveUpException */
 
 class JustificationHeuristic : public DecisionStrategy {
-  set<TNode> d_justified;
-  unsigned  d_prvsIndex;
+  context::CDHashSet<TNode,TNodeHashFunction> d_justified;
+  context::CDO<unsigned>  d_prvsIndex;
   IntStat d_helfulness;
   IntStat d_giveup;
   TimerStat d_timestat;
 public:
-  JustificationHeuristic(CVC4::DecisionEngine* de):
-    DecisionStrategy(de),
+  JustificationHeuristic(CVC4::DecisionEngine* de, context::Context *c):
+    DecisionStrategy(de, c),
+    d_justified(c),
+    d_prvsIndex(c, 0),
     d_helfulness("decision::jh::helpfulness", 0),
     d_giveup("decision::jh::giveup", 0),
     d_timestat("decision::jh::time") {
@@ -67,8 +68,6 @@ public:
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
 
     TimerStat::CodeTimer codeTimer(d_timestat);
-
-    d_justified.clear(); d_prvsIndex = 0;
 
     const vector<Node>& assertions = d_decisionEngine->getAssertions();
 
@@ -129,8 +128,8 @@ public:
                       << std::endl;
     /* clear the justifcation labels -- reconsider if/when to do
        this */
-    d_justified.clear();
-    d_prvsIndex = 0;
+    //d_justified.clear();
+    //d_prvsIndex = 0;
   }
 private:
   /* Do all the hardwork. */ 

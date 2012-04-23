@@ -25,13 +25,17 @@ namespace CVC4 {
 
 class DecisionEngine;
 
+namespace context {
+class Context;
+}
+
 namespace decision {
 
 class DecisionStrategy {
 protected:
    DecisionEngine* d_decisionEngine;
 public:
-  DecisionStrategy(DecisionEngine* de) :
+  DecisionStrategy(DecisionEngine* de, context::Context *c) :
     d_decisionEngine(de) {
   }
 

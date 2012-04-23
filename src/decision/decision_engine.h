@@ -47,15 +47,19 @@ class DecisionEngine {
   DPLLSatSolverInterface* d_satSolver;
 
   SatValue d_result;
+
+  context::Context* d_satContext;
 public:
   // Necessary functions
 
   /** Constructor, enables decision stragies based on options */
-  DecisionEngine();
+  DecisionEngine(context::Context *c);
 
   /** Destructor, currently does nothing */
   ~DecisionEngine() {
     Trace("decision") << "Destroying decision engine" << std::endl;
+    for(unsigned i = 0; i < d_enabledStrategies.size(); ++i)
+      delete d_enabledStrategies[i];
   }
   
   // void setPropEngine(PropEngine* pe) {
