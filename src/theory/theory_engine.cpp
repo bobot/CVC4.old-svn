@@ -59,6 +59,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_decisionRequests(context),
   d_decisionRequestsIndex(context, 0),
   d_combineTheoriesTime("TheoryEngine::combineTheoriesTime"),
+  d_inPreregister(false),
   d_preRegistrationVisitor(this, context),
   d_sharedTermsVisitor(d_sharedTerms)
 {
@@ -84,17 +85,35 @@ TheoryEngine::~TheoryEngine() {
 }
 
 void TheoryEngine::preRegister(TNode preprocessed) {
+
   if(Dump.isOn("missed-t-propagations")) {
     d_possiblePropagations.push_back(preprocessed);
   }
 
-  // Pre-register the terms in the atom
-  bool multipleTheories = NodeVisitor<PreRegisterVisitor>::run(d_preRegistrationVisitor, preprocessed);
-  if (multipleTheories) {
-    // Collect the shared terms if there are multipe theories
-    NodeVisitor<SharedTermsVisitor>::run(d_sharedTermsVisitor, preprocessed);
-    // Mark the multiple theories flag
-    d_sharedTermsExist = true;
+  d_preregisterQueue.push(preprocessed);
+
+  if (!d_inPreregister) {
+    // We're in pre-register
+    d_inPreregister = true;
+
+    // Process the pre-registration queue
+    while (!d_preregisterQueue.empty()) {
+      // Get the next atom to pre-register
+      preprocessed = d_preregisterQueue.front();
+      d_preregisterQueue.pop();
+
+      // Pre-register the terms in the atom
+      bool multipleTheories = NodeVisitor<PreRegisterVisitor>::run(d_preRegistrationVisitor, preprocessed);
+      if (multipleTheories) {
+        // Collect the shared terms if there are multipe theories
+        NodeVisitor<SharedTermsVisitor>::run(d_sharedTermsVisitor, preprocessed);
+        // Mark the multiple theories flag
+        d_sharedTermsExist = true;
+      }
+    }
+
+    // Leaving pre-register
+    d_inPreregister = false;
   }
 }
 
@@ -617,7 +636,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
 void TheoryEngine::assertFact(TNode node)
 {
   Trace("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
-  Trace("theory::assertFact") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
+  Trace("theory::assertions") << "TheoryEngine::assertFact(" << node << "): d_sharedTermsExist = " << (d_sharedTermsExist ? "true" : "false") << std::endl;
 
   d_propEngine->checkTime();
 
@@ -626,8 +645,12 @@ void TheoryEngine::assertFact(TNode node)
   TNode atom = negated ? node[0] : node;
   Theory* theory = theoryOf(atom);
 
-  //TODO: there is probably a bug here if shared terms start to exist after some asseritons have been processed
+
+
+  //TODO: there is probably a bug here if shared terms start to exist after some assertions have been processed
   if (d_sharedTermsExist) {
+
+    Trace("theory::assertions") << "TheoryEngine::assertFact(" << node << "): hasShared terms = " << (d_sharedTerms.hasSharedTerms(atom) ? "true" : "false") << std::endl;
 
     // If any shared terms, notify the theories
     if (d_sharedTerms.hasSharedTerms(atom)) {

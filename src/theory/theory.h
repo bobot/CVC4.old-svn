@@ -619,6 +619,11 @@ public:
     return set | (1 << theory);
   }
 
+  /** Add the theory to the set. If no set specified, just returns a singleton set */
+  static inline Set setRemove(TheoryId theory, Set set = 0) {
+    return set ^ (1 << theory);
+  }
+
   /** Check if the set contains the theory */
   static inline bool setContains(TheoryId theory, Set set) {
     return set & (1 << theory);

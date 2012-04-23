@@ -119,17 +119,18 @@ TheoryBV::Statistics::~Statistics() {
 
 void TheoryBV::preRegisterTerm(TNode node) {
   BVDebug("bitvector-preregister") << "TheoryBV::preRegister(" << node << ")" << std::endl;
+
+  if (Options::current()->bitvector_eager_bitblast) {
+    // don't use the equality engine in the eager bit-blasting
+    return;
+  }
+
   if (node.getKind() == kind::EQUAL ||
       node.getKind() == kind::BITVECTOR_ULT ||
       node.getKind() == kind::BITVECTOR_ULE ||
       node.getKind() == kind::BITVECTOR_SLT ||
       node.getKind() == kind::BITVECTOR_SLE) {
     d_bitblaster->bbAtom(node);
-  }
-
-  if (Options::current()->bitvector_eager_bitblast) {
-    // don't use the equality engine in the eager bit-blasting
-    return;
   }
 
   if (d_useEqualityEngine) {
@@ -154,7 +155,19 @@ void TheoryBV::check(Effort e)
   BVDebug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
 
   if (Options::current()->bitvector_eager_bitblast) {
-    while (!done()) { get(); }
+    while (!done()) {
+      Assertion assertion = get();
+      TNode fact = assertion.assertion;
+      if (fact.getKind() == kind::NOT) {
+        if (fact[0].getKind() != kind::BITVECTOR_BITOF) {
+          d_bitblaster->bbAtom(fact[0]);
+        }
+      } else {
+        if (fact.getKind() != kind::BITVECTOR_BITOF) {
+          d_bitblaster->bbAtom(fact);
+        }
+      }
+    }
     return;
   }
 
@@ -260,9 +273,7 @@ void TheoryBV::propagate(Effort e) {
     Node normalized = Rewriter::rewrite(literal);
 
     if (!d_valuation.hasSatValue(normalized, satValue) || satValue) {
-      if (!satValue) {
-        d_out->propagate(literal);
-      }
+      d_out->propagate(literal);
     } else {
       Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(): in conflict, normalized = " << normalized << std::endl;
 
@@ -403,7 +414,7 @@ Node TheoryBV::explain(TNode node) {
 
 void TheoryBV::addSharedTerm(TNode t) {
   Debug("bitvector::sharing") << spaces(getContext()->getLevel()) << "TheoryBV::addSharedTerm(" << t << ")" << std::endl;
-  if (d_useEqualityEngine) {
+  if (!Options::current()->bitvector_eager_bitblast && d_useEqualityEngine) {
     d_equalityEngine.addTriggerTerm(t);
   }
 }
@@ -411,6 +422,10 @@ void TheoryBV::addSharedTerm(TNode t) {
 
 EqualityStatus TheoryBV::getEqualityStatus(TNode a, TNode b)
 {
+  if (Options::current()->bitvector_eager_bitblast) {
+    return EQUALITY_UNKNOWN;
+  }
+
   if (d_useEqualityEngine) {
     if (d_equalityEngine.areEqual(a, b)) {
       // The terms are implied to be equal
