@@ -97,6 +97,7 @@ public:
   /** Is the DecisionEngine in a state where it has solved everything? */
   bool isDone() {
     Trace("decision") << "DecisionEngine::isDone() returning "
+		      << (d_result != SAT_VALUE_UNKNOWN)
 		      << (d_result != SAT_VALUE_UNKNOWN ? "true" : "false")
 		      << std::endl;
     return d_result != SAT_VALUE_UNKNOWN;
