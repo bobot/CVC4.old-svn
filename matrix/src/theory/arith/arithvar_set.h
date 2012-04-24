@@ -184,6 +184,140 @@ typedef ArithVarSetImpl<false> ArithVarSet;
 typedef ArithVarSetImpl<true> PermissiveBackArithVarSet;
 
 
+template <class T>
+class ArithVarMap {
+public:
+  typedef std::vector<ArithVar> VarList;
+
+private:
+  //List of the ArithVars in the multi set.
+  VarList d_list;
+
+  //Each ArithVar in the set is mapped to its position in d_list.
+  //Each ArithVar not in the set is mapped to ARITHVAR_SENTINEL
+  std::vector<size_t> d_posVector;
+
+  //Count of the number of elements in the array
+  std::vector<T> d_image;
+
+
+  void increaseSize(ArithVar max){
+    Assert(max >= allocated());
+    d_posVector.resize(max+1, ARITHVAR_SENTINEL);
+    d_image.resize(max+1);
+  }
+
+public:
+  typedef VarList::const_iterator const_iterator;
+
+  ArithVarMap() :  d_list(), d_posVector(), d_image() {}
+
+  size_t size() const {
+    return d_list.size();
+  }
+
+  bool empty() const {
+    return d_list.empty();
+  }
+
+  /* Similar to a clear(), but the datastructures are not reset in size. */
+  void purge() {
+    while(!empty()){
+      pop_back();
+    }
+    Assert(empty());
+  }
+
+  /* Similar to a std::vector::clear() */
+  void clear() {
+    d_list.clear();
+    d_posVector.clear();
+    d_image.clear();
+    Assert(empty());
+  }
+
+  bool isKey(ArithVar x) const{
+    if( x >= d_posVector.size()){
+      return false;
+    }else{
+      Assert(x <  allocated());
+      return d_posVector[x] != ARITHVAR_SENTINEL;
+    }
+  }
+
+  /**
+   * Invalidates iterators.
+   */
+  void set(ArithVar key, const T& value){
+    if( key >= allocated()){
+      increaseSize(key);
+    }
+
+    if(!isKey(key)){
+      d_posVector[key] = size();
+      d_list.push_back(key);
+    }
+    d_image[key] = value;
+  }
+
+  T& get(ArithVar key){
+    Assert(isKey(key));
+    return d_image[key];
+  }
+
+
+  const T& operator[](ArithVar key) const {
+    Assert(isKey(key));
+    return d_image[key];
+  }
+
+
+  const_iterator begin() const{ return d_list.begin(); }
+  const_iterator end() const{ return d_list.end(); }
+
+  const VarList& getKeys() const{
+    return d_list;
+  }
+
+  /** Invalidates iterators */
+  void remove(ArithVar x){
+    Assert(isKey(x));
+    swapToBack(x);
+    Assert(d_list.back() == x);
+    pop_back();
+  }
+
+  ArithVar pop_back() {
+    Assert(!empty());
+    ArithVar atBack = d_list.back();
+    d_posVector[atBack] = ARITHVAR_SENTINEL;
+    d_image[atBack] = T();
+    d_list.pop_back();
+    return atBack;
+  }
+
+ private:
+
+  size_t allocated() const {
+    Assert(d_posVector.size() == d_image.size());
+    return d_posVector.size();
+  }
+
+  /** Swaps a member x to the back of d_list. */
+  void swapToBack(ArithVar x){
+    Assert(isKey(x));
+
+    unsigned currentPos = d_posVector[x];
+    ArithVar atBack = d_list.back();
+
+    d_list[currentPos] = atBack;
+    d_posVector[atBack] = currentPos;
+
+    d_list[size() - 1] = x;
+    d_posVector[x] = size() - 1;
+  }
+}; /* class ArithVarMap<T> */
+
 /**
  * ArithVarMultiset
  */
@@ -318,6 +452,7 @@ public:
     d_posVector[x] = size() - 1;
   }
 };
+
 
 class CDArithVarSet {
 private:
