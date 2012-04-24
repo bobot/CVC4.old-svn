@@ -50,7 +50,7 @@ private:
     }
 
     void notify(TNode t1, TNode t2) {
-      Debug("arith::congruences") << "DifferenceNotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
+      Debug("arith::congruences") << "ArithCongruenceNotify::notify(" << t1 << ", " << t2 << ")" << std::endl;
       Node equality = t1.eqNode(t2);
       d_acm.propagate(equality);
     }
@@ -115,12 +115,16 @@ private:
   void pushBack(TNode n){
     d_explanationMap.insert(n, d_propagatations.size());
     d_propagatations.enqueue(n);
+
+    ++(d_statistics.d_propagations);
   }
 
   void pushBack(TNode n, TNode r){
     d_explanationMap.insert(r, d_propagatations.size());
     d_explanationMap.insert(n, d_propagatations.size());
     d_propagatations.enqueue(n);
+
+    ++(d_statistics.d_propagations);
   }
 
   bool propagate(TNode x);
@@ -185,7 +189,25 @@ public:
 
 
   void addSharedTerm(Node x);
-};/* class DifferenceManager */
+
+private:
+  class Statistics {
+  public:
+    IntStat d_watchedVariables;
+    IntStat d_watchedVariableIsZero;
+    IntStat d_watchedVariableIsNotZero;
+
+    IntStat d_equalsConstantCalls;
+
+    IntStat d_propagations;
+    IntStat d_propagateConstraints;
+    IntStat d_conflicts;
+
+    Statistics();
+    ~Statistics();
+  } d_statistics;
+
+};/* class CongruenceManager */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

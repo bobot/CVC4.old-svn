@@ -8,7 +8,7 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-  ArithCongruenceManager::ArithCongruenceManager(context::Context* c, ConstraintDatabase& cd, TNodeCallBack& setup, const ArithVarNodeMap& av2Node)
+ArithCongruenceManager::ArithCongruenceManager(context::Context* c, ConstraintDatabase& cd, TNodeCallBack& setup, const ArithVarNodeMap& av2Node)
   : d_conflict(c),
     d_notify(*this),
     d_keepAlive(c),
@@ -21,12 +21,42 @@ namespace arith {
     d_false(mkBoolNode(false))
 {}
 
+ArithCongruenceManager::Statistics::Statistics():
+  d_watchedVariables("theory::arith::congruence::watchedVariables", 0),
+  d_watchedVariableIsZero("theory::arith::congruence::watchedVariableIsZero", 0),
+  d_watchedVariableIsNotZero("theory::arith::congruence::watchedVariableIsNotZero", 0),
+  d_equalsConstantCalls("theory::arith::congruence::equalsConstantCalls", 0),
+  d_propagations("theory::arith::congruence::propagations", 0),
+  d_propagateConstraints("theory::arith::congruence::propagateConstraints", 0),
+  d_conflicts("theory::arith::congruence::conflicts", 0)
+{
+  StatisticsRegistry::registerStat(&d_watchedVariables);
+  StatisticsRegistry::registerStat(&d_watchedVariableIsZero);
+  StatisticsRegistry::registerStat(&d_watchedVariableIsNotZero);
+  StatisticsRegistry::registerStat(&d_equalsConstantCalls);
+  StatisticsRegistry::registerStat(&d_propagations);
+  StatisticsRegistry::registerStat(&d_propagateConstraints);
+  StatisticsRegistry::registerStat(&d_conflicts);
+}
+
+ArithCongruenceManager::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_watchedVariables);
+  StatisticsRegistry::unregisterStat(&d_watchedVariableIsZero);
+  StatisticsRegistry::unregisterStat(&d_watchedVariableIsNotZero);
+  StatisticsRegistry::unregisterStat(&d_equalsConstantCalls);
+  StatisticsRegistry::unregisterStat(&d_propagations);
+  StatisticsRegistry::unregisterStat(&d_propagateConstraints);
+  StatisticsRegistry::unregisterStat(&d_conflicts);
+}
+
 void ArithCongruenceManager::watchedVariableIsZero(Constraint lb, Constraint ub){
   Assert(lb->isLowerBound());
   Assert(ub->isUpperBound());
   Assert(lb->getVariable() == ub->getVariable());
   Assert(lb->getValue().sgn() == 0);
   Assert(ub->getValue().sgn() == 0);
+
+  ++(d_statistics.d_watchedVariableIsZero);
 
   ArithVar s = lb->getVariable();
   Node reason = ConstraintValue::explainConflict(lb,ub);
@@ -38,6 +68,8 @@ void ArithCongruenceManager::watchedVariableIsZero(Constraint lb, Constraint ub)
 void ArithCongruenceManager::watchedVariableIsZero(Constraint eq){
   Assert(eq->isEquality());
   Assert(eq->getValue().sgn() == 0);
+
+  ++(d_statistics.d_watchedVariableIsZero);
 
   ArithVar s = eq->getVariable();
 
@@ -51,19 +83,21 @@ void ArithCongruenceManager::watchedVariableIsZero(Constraint eq){
 }
 
 void ArithCongruenceManager::watchedVariableCannotBeZero(Constraint c){
+  ++(d_statistics.d_watchedVariableIsNotZero);
+
   ArithVar s = c->getVariable();
 
   //Explain for conflict is correct as these proofs are generated and stored eagerly
   //These will be safe for propagation later as well
   Node reason = c->explainForConflict();
-  
+
   d_keepAlive.push_back(reason);
   assertionToEqualityEngine(false, s, reason);
 }
 
 
 bool ArithCongruenceManager::propagate(TNode x){
-  Debug("arith::differenceManager")<< "ArithCongruenceManager::propagate("<<x<<")"<<std::endl;
+  Debug("arith::congruenceManager")<< "ArithCongruenceManager::propagate("<<x<<")"<<std::endl;
   if(inConflict()){
     return true;
   }
@@ -77,9 +111,11 @@ bool ArithCongruenceManager::propagate(TNode x){
     if(rewritten.getConst<bool>()){
       return true;
     }else{
+      ++(d_statistics.d_conflicts);
+
       Node conf = explainInternal(x);
       d_conflict.set(conf);
-      std::cout << "rewritten to false " << conf << std::endl;
+      Debug("arith::congruenceManager") << "rewritten to false "<<x<<" with explanation "<< conf << std::endl;
       return false;
     }
   }
@@ -88,14 +124,13 @@ bool ArithCongruenceManager::propagate(TNode x){
 
   Constraint c = d_constraintDatabase.lookup(rewritten);
   if(c == NullConstraint){
-    //using setup as there may not be a corresponding difference literal yet
+    //using setup as there may not be a corresponding congruence literal yet
     d_setupLiteral(rewritten);
     c = d_constraintDatabase.lookup(rewritten);
     Assert(c != NullConstraint);
-    //c = d_constraintDatabase.addLiteral(rewritten);
   }
 
-  Debug("arith::differenceManager")<< "x is "
+  Debug("arith::congruenceManager")<< "x is "
                                    <<  c->hasProof() << " "
                                    << (x == rewritten) << " "
                                    << c->canBePropagated() << " "
@@ -107,8 +142,9 @@ bool ArithCongruenceManager::propagate(TNode x){
     Node conf = expC.andNode(neg);
     Node final = flattenAnd(conf);
 
+    ++(d_statistics.d_conflicts);
     d_conflict.set(final);
-    Debug("arith::differenceManager") << "differenceManager found a conflict " << final << std::endl;
+    Debug("arith::congruenceManager") << "congruenceManager found a conflict " << final << std::endl;
     return false;
   }
 
@@ -129,6 +165,8 @@ bool ArithCongruenceManager::propagate(TNode x){
 
     c->setEqualityEngineProof();
     if(c->canBePropagated() && !c->assertedToTheTheory()){
+
+      ++(d_statistics.d_propagateConstraints);
       c->propagate();
     }
   }else if(!c->hasProof() && x == rewritten){
@@ -145,16 +183,16 @@ bool ArithCongruenceManager::propagate(TNode x){
 void ArithCongruenceManager::explain(TNode literal, std::vector<TNode>& assumptions) {
   TNode lhs, rhs;
   switch (literal.getKind()) {
-    case kind::EQUAL:
-      lhs = literal[0];
-      rhs = literal[1];
-      break;
-    case kind::NOT:
-      lhs = literal[0];
-      rhs = d_false;
-      break;
-    default:
-      Unreachable();
+  case kind::EQUAL:
+    lhs = literal[0];
+    rhs = literal[1];
+    break;
+  case kind::NOT:
+    lhs = literal[0];
+    rhs = d_false;
+    break;
+  default:
+    Unreachable();
   }
   d_ee.explainEquality(lhs, rhs, assumptions);
 }
@@ -202,22 +240,17 @@ void ArithCongruenceManager::explain(TNode external, NodeBuilder<>& out){
 void ArithCongruenceManager::addWatchedPair(ArithVar s, TNode x, TNode y){
   Assert(!isWatchedVariable(s));
 
-  Debug("arith::differenceManager")
+  Debug("arith::congruenceManager")
     << "addWatchedPair(" << s << ", " << x << ", " << y << ")" << std::endl;
-  
+
+
+  ++(d_statistics.d_watchedVariables);
+
   d_watchedVariables.add(s);
 
   Node eq = x.eqNode(y);
   d_watchedEqualities[s] = eq;
 }
-
-// void ArithCongruenceManager::addAssertionToEqualityEngine(bool eq, TNode x, TNode y, TNode reason){  
-//   if(eq){
-//     d_ee.addEquality(x, y, reason);
-//   }else{
-//     d_ee.addDisequality(x, y, reason);
-//   }
-// }
 
 void ArithCongruenceManager::assertionToEqualityEngine(bool isEquality, ArithVar s, TNode reason){
   Assert(isWatchedVariable(s));
@@ -229,20 +262,22 @@ void ArithCongruenceManager::assertionToEqualityEngine(bool isEquality, ArithVar
   TNode y = eq[1];
 
   if(isEquality){
-     d_ee.addEquality(x, y, reason);
-   }else{
-     d_ee.addDisequality(x, y, reason);
-   }
+    d_ee.addEquality(x, y, reason);
+  }else{
+    d_ee.addDisequality(x, y, reason);
+  }
 }
 
 void ArithCongruenceManager::equalsConstant(Constraint c){
   Assert(c->isEquality());
 
-  std::cout << "equals constant " << c << std::endl;
+  ++(d_statistics.d_equalsConstantCalls);
+  Debug("equalsConstant") << "equals constant " << c << std::endl;
 
   ArithVar x = c->getVariable();
   Node xAsNode = d_av2Node.asNode(x);
   Node asRational = mkRationalNode(c->getValue().getNoninfinitesimalPart());
+
 
   //No guarentee this is in normal form!
   Node eq = xAsNode.eqNode(asRational);
@@ -250,7 +285,7 @@ void ArithCongruenceManager::equalsConstant(Constraint c){
 
   Node reason = c->explainForConflict();
   d_keepAlive.push_back(reason);
-  
+
   d_ee.addEquality(xAsNode, asRational, reason);
 }
 
@@ -259,8 +294,9 @@ void ArithCongruenceManager::equalsConstant(Constraint lb, Constraint ub){
   Assert(ub->isUpperBound());
   Assert(lb->getVariable() == ub->getVariable());
 
-  std::cout << "equals constant " << lb << std::endl
-            << ub << std::endl;
+  ++(d_statistics.d_equalsConstantCalls);
+  Debug("equalsConstant") << "equals constant " << lb << std::endl
+                          << ub << std::endl;
 
   ArithVar x = lb->getVariable();
   Node reason = ConstraintValue::explainConflict(lb,ub);
@@ -273,50 +309,11 @@ void ArithCongruenceManager::equalsConstant(Constraint lb, Constraint ub){
   d_keepAlive.push_back(eq);
   d_keepAlive.push_back(reason);
 
-  
+
   d_ee.addEquality(xAsNode, asRational, reason);
 }
 
-// void ArithCongruenceManager::addAssertionToEqualityEngine(bool eq, ArithVar s, TNode reason){
-//   Assert(isDifferenceSlack(s));
-
-//   TNode x = d_differences[s].x;
-//   TNode y = d_differences[s].y;
-
-//   if(eq){
-//     d_ee.addEquality(x, y, reason);
-//   }else{
-//     d_ee.addDisequality(x, y, reason);
-//   }
-// }
-
-// void ArithCongruenceManager::dequeueLiterals(){
-//   Assert(d_hasSharedTerms);
-//   while(!d_literalsQueue.empty() && !inConflict()){
-//     const LiteralsQueueElem& front = d_literalsQueue.front();
-//     d_literalsQueue.dequeue();
-
-//     addAssertionToEqualityEngine(front.d_eq, front.d_var, front.d_reason);
-//   }
-// }
-
-// void ArithCongruenceManager::enableSharedTerms(){
-//   Assert(!d_hasSharedTerms);
-//   d_hasSharedTerms = true;
-//   dequeueLiterals();
-// }
-
-// void ArithCongruenceManager::assertLiteral(bool eq, ArithVar s, TNode reason){
-//   d_literalsQueue.enqueue(LiteralsQueueElem(eq, s, reason));
-//   if(d_hasSharedTerms){
-//     dequeueLiterals();
-//   }
-// }
-
 void ArithCongruenceManager::addSharedTerm(Node x){
-  // if(!d_hasSharedTerms){
-  //   enableSharedTerms();
-  // }
   d_ee.addTriggerTerm(x);
 }
 
