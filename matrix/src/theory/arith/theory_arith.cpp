@@ -33,7 +33,7 @@
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/partial_model.h"
-#include "theory/arith/tableau.h"
+#include "theory/arith/matrix.h"
 #include "theory/arith/arithvar_set.h"
 
 #include "theory/arith/arith_rewriter.h"
@@ -632,10 +632,11 @@ ArithVar TheoryArith::findShortestBasicRow(ArithVar variable){
 
   Tableau::ColIterator basicIter = d_tableau.colIterator(variable);
   for(; !basicIter.atEnd(); ++basicIter){
-    const TableauEntry& entry = *basicIter;
+    const Tableau::Entry& entry = *basicIter;
     Assert(entry.getColVar() == variable);
-    ArithVar basic = entry.getRowVar();
-    uint32_t rowLength = d_tableau.getRowLength(basic);
+    RowIndex ridx = entry.getRowIndex();
+    ArithVar basic = d_tableau.rowIndexToBasic(ridx);
+    uint32_t rowLength = d_tableau.getRowLength(ridx);
     if((rowLength < bestRowLength) ||
        (rowLength == bestRowLength && basic < bestBasic)){
       bestBasic = basic;
@@ -1772,8 +1773,9 @@ void TheoryArith::propagateCandidates(){
     }else{
       Tableau::ColIterator basicIter = d_tableau.colIterator(var);
       for(; !basicIter.atEnd(); ++basicIter){
-        const TableauEntry& entry = *basicIter;
-        ArithVar rowVar = entry.getRowVar();
+        const Tableau::Entry& entry = *basicIter;
+        RowIndex ridx = entry.getRowIndex();
+        ArithVar rowVar = d_tableau.rowIndexToBasic(ridx);
         Assert(entry.getColVar() == var);
         Assert(d_tableau.isBasic(rowVar));
         if(d_tableau.getRowLength(rowVar) <= Options::current()->arithPropagateMaxLength){

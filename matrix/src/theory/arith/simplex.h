@@ -54,7 +54,7 @@
 #include "theory/arith/arith_priority_queue.h"
 #include "theory/arith/arithvar_set.h"
 #include "theory/arith/delta_rational.h"
-#include "theory/arith/tableau.h"
+#include "theory/arith/matrix.h"
 #include "theory/arith/partial_model.h"
 #include "theory/arith/linear_equality.h"
 
