@@ -176,7 +176,7 @@ template <bool above>
 ArithVar SimplexDecisionProcedure::selectSlack(ArithVar x_i, SimplexDecisionProcedure::PreferenceFunction pref){
   ArithVar slack = ARITHVAR_SENTINEL;
 
-  for(Tableau::RowIterator iter = d_tableau.rowIterator(x_i); !iter.atEnd();  ++iter){
+  for(Tableau::RowIterator iter = d_tableau.basicRowIterator(x_i); !iter.atEnd();  ++iter){
     const Tableau::Entry& entry = *iter;
     ArithVar nonbasic = entry.getColVar();
     if(nonbasic == x_i) continue;
@@ -476,7 +476,7 @@ Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar
 
   NodeBuilder<> conflict(kind::AND);
   bool anyWeakenings = false;
-  for(Tableau::RowIterator i = d_tableau.rowIterator(basicVar); !i.atEnd(); ++i){
+  for(Tableau::RowIterator i = d_tableau.basicRowIterator(basicVar); !i.atEnd(); ++i){
     const Tableau::Entry& entry = *i;
     ArithVar v = entry.getColVar();
     const Rational& coeff = entry.getCoefficient();

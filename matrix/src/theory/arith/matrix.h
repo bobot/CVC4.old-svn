@@ -396,6 +396,8 @@ public:
   Matrix()
   : d_rows(),
     d_columns(),
+    d_mergeBuffer(),
+    d_rowInMergeBuffer(ROW_INDEX_SENTINEL),
     d_entriesInUse(0),
     d_entries(),
     d_zero(0)
@@ -404,6 +406,8 @@ public:
   Matrix(const T& zero)
   : d_rows(),
     d_columns(),
+    d_mergeBuffer(),
+    d_rowInMergeBuffer(ROW_INDEX_SENTINEL),
     d_entriesInUse(0),
     d_entries(),
     d_zero(zero)
@@ -462,9 +466,7 @@ public:
   }
 
   void increaseSize(){
-    ArithVar v = d_columns.size();
     d_columns.push_back(ColumnVector<T>(&d_entries));
-    d_mergeBuffer.set(v, std::make_pair(ENTRYID_SENTINEL, false));
   }
 
   const RowVector<T>& getRow(RowIndex r) const {
@@ -871,9 +873,13 @@ public:
     return getColumn(x).begin();
   }
 
-  RowIterator rowIterator(RowIndex r) const {
-    return getRow(r).begin();
+  RowIterator basicRowIterator(ArithVar basic) const {
+    return getRow(basicToRowIndex(basic)).begin();
   }
+
+  // RowIterator rowIterator(RowIndex r) const {
+  //   return getRow(r).begin();
+  // }
 
   /**
    * Adds a row to the tableau.

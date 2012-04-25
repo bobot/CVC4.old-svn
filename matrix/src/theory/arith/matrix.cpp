@@ -233,14 +233,14 @@ void Tableau::rowPivot(ArithVar basicOld, ArithVar basicNew){
 
   RowIndex rid = basicToRowIndex(basicOld);
 
-  EntryID newBasicID = findOnRow(basicOld, basicNew);
+  EntryID newBasicID = findOnRow(rid, basicNew);
 
   Assert(newBasicID != ENTRYID_SENTINEL);
 
   Tableau::Entry& newBasicEntry = d_entries.get(newBasicID);
   Rational negInverseA_rs = -(newBasicEntry.getCoefficient().inverse());
 
-  for(RowIterator i = rowIterator(basicOld); !i.atEnd(); ++i){
+  for(RowIterator i = basicRowIterator(basicOld); !i.atEnd(); ++i){
     EntryID id = i.getID();
     Tableau::Entry& entry = d_entries.get(id);
 
@@ -397,8 +397,10 @@ void Tableau::addRow(ArithVar basic,
   RowIndex newRow = Matrix<Rational>::addRow(coefficients, variables);
   addEntry(newRow, basic, Rational(-1));
 
+  Assert(d_rowIndex2basic.size() == newRow);
+
   d_basic2RowIndex.set(basic, newRow);
-  d_rowIndex2basic[newRow] = basic;
+  d_rowIndex2basic.push_back(basic);
 
 
   if(Debug.isOn("matrix")){ printMatrix(); }
