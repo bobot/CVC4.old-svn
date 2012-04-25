@@ -27,7 +27,6 @@ libarith_la_SOURCES = \
 	partial_model.cpp \
 	linear_equality.h \
 	linear_equality.cpp \
-	arithvar_set.h \
 	matrix.h \
 	matrix.cpp \
 	arith_priority_queue.h \

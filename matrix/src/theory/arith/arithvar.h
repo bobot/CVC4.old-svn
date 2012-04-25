@@ -34,7 +34,7 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-typedef uint32_t ArithVar;
+typedef size_t ArithVar;
 const ArithVar ARITHVAR_SENTINEL = std::numeric_limits<ArithVar>::max();
 
 //Maps from Nodes -> ArithVars, and vice versa

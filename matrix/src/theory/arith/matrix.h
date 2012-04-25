@@ -24,8 +24,9 @@
 #include "expr/node.h"
 #include "expr/attribute.h"
 
+#include "util/dense_map.h"
+
 #include "theory/arith/arithvar.h"
-#include "theory/arith/arithvar_set.h"
 #include "theory/arith/normal_form.h"
 
 #include <queue>
@@ -36,10 +37,10 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-typedef uint32_t EntryID;
+typedef size_t EntryID;
 const EntryID ENTRYID_SENTINEL = std::numeric_limits<EntryID>::max();
 
-typedef uint32_t RowIndex;
+typedef size_t RowIndex;
 const RowIndex ROW_INDEX_SENTINEL  = std::numeric_limits<RowIndex>::max();
 
 template<class T>
