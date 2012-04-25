@@ -67,18 +67,15 @@ public:
     d_coefficient()
   {}
 
-  // MatrixEntry(RowIndex row, ArithVar col,
-  //             EntryID nextRowEntry, EntryID nextColEntry,
-  //             EntryID prevRowEntry, EntryID prevColEntry,
-  //             const T& coeff):
-  //   d_rowIndex(row),
-  //   d_colVar(col),
-  //   d_nextRow(nextRowEntry),
-  //   d_nextCol(nextColEntry),
-  //   d_prevRow(prevRowEntry),
-  //   d_prevCol(prevColEntry),
-  //   d_coefficient(coeff)
-  // {}
+  MatrixEntry(RowIndex row, ArithVar col, const T& coeff):
+     d_rowIndex(row),
+     d_colVar(col),
+     d_nextRow(ENTRYID_SENTINEL),
+     d_nextCol(ENTRYID_SENTINEL),
+     d_prevRow(ENTRYID_SENTINEL),
+     d_prevCol(ENTRYID_SENTINEL),
+     d_coefficient(coeff)
+  {}
 
 private:
   bool unusedConsistent() const {
@@ -117,17 +114,10 @@ public:
     d_prevCol = id;
   }
 
-  void setRowIndex(RowIndex newRowIndex){
-    d_rowIndex = newRowIndex;
-  }
-
   RowIndex getRowIndex() const{
     return d_rowIndex;
   }
 
-  void setColVar(ArithVar cv){
-    d_colVar = cv;
-  }
   ArithVar getColVar() const{
     return d_colVar;
   }
@@ -422,9 +412,7 @@ protected:
 
     EntryID newId = d_entries.newEntry();
     Entry& newEntry = d_entries.get(newId);
-    newEntry.setRowIndex(row);
-    newEntry.setColVar(col);
-    newEntry.setCoefficient(coeff);
+    newEntry = Entry(row, col, coeff);
 
     Assert(newEntry.getCoefficient() != 0);
 
