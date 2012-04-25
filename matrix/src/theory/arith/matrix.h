@@ -303,6 +303,7 @@ public:
   }
   void remove(EntryID id){
     Assert(d_size > 0);
+    --d_size;
     if(isRow){
       EntryID prevRow = d_entries->get(id).getPrevRowEntryID();
       EntryID nextRow = d_entries->get(id).getNextRowEntryID();
@@ -433,7 +434,7 @@ protected:
 
     d_rows[row].insert(newId);
     d_columns[col].insert(newId);
-}
+  }
 
   void removeEntry(EntryID id){
     Assert(d_entriesInUse > 0);
@@ -556,9 +557,10 @@ public:
       ArithVar colVar = entry.getColVar();
 
       ++i;
-      Assert(!d_mergeBuffer[colVar].second);
-      EntryID bufferEntry = d_mergeBuffer[colVar].first;
-      if(bufferEntry != ENTRYID_SENTINEL){
+
+      if(d_mergeBuffer.isKey(colVar)){
+        EntryID bufferEntry = d_mergeBuffer[colVar].first;
+        Assert(!d_mergeBuffer[colVar].second);
         d_mergeBuffer.get(colVar).second = true;
 
         const Entry& other = d_entries.get(bufferEntry);
