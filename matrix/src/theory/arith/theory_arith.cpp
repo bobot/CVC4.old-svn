@@ -1768,7 +1768,7 @@ void TheoryArith::propagateCandidates(){
   for(; i != end; ++i){
     ArithVar var = *i;
     if(d_tableau.isBasic(var) &&
-       d_tableau.getRowLength(var) <= Options::current()->arithPropagateMaxLength){
+       d_tableau.getRowLength(d_tableau.basicToRowIndex(var)) <= Options::current()->arithPropagateMaxLength){
       d_candidateBasics.softAdd(var);
     }else{
       Tableau::ColIterator basicIter = d_tableau.colIterator(var);
@@ -1778,7 +1778,7 @@ void TheoryArith::propagateCandidates(){
         ArithVar rowVar = d_tableau.rowIndexToBasic(ridx);
         Assert(entry.getColVar() == var);
         Assert(d_tableau.isBasic(rowVar));
-        if(d_tableau.getRowLength(rowVar) <= Options::current()->arithPropagateMaxLength){
+        if(d_tableau.getRowLength(ridx) <= Options::current()->arithPropagateMaxLength){
           d_candidateBasics.softAdd(rowVar);
         }
       }

@@ -76,7 +76,6 @@ void LinearEqualityModule::update(ArithVar x_i, const DeltaRational& v){
 
   d_partialModel.setAssignment(x_i, v);
 
-  Assert(d_tableau.getNumRows() >= d_tableau.getRowLength(x_i));
   //double difference = ((double)d_tableau.getNumRows()) - ((double) d_tableau.getRowLength(x_i));
 
   //(d_statistics.d_avgNumRowsNotContainingOnUpdate).addEntry(difference);
@@ -126,7 +125,7 @@ void LinearEqualityModule::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaRatio
   // Pivots
   ++(d_statistics.d_statPivots);
 
-  Assert(d_tableau.getNumRows() >= d_tableau.getRowLength(x_j));
+  Assert(d_tableau.getNumColumns() >= d_tableau.getRowLength(d_tableau.basicToRowIndex(x_j)));
   //double difference = ((double)d_tableau.getNumRows()) - ((double) d_tableau.getRowLength(x_j));
   //(d_statistics.d_avgNumRowsNotContainingOnPivot).addEntry(difference);
   d_tableau.pivot(x_i, x_j);

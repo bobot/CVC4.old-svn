@@ -457,6 +457,10 @@ public:
     return d_rows.size();
   }
 
+  size_t getNumColumns() const {
+    return d_columns.size();
+  }
+
   void increaseSize(){
     ArithVar v = d_columns.size();
     d_columns.push_back(ColumnVector<T>(&d_entries));
@@ -836,7 +840,7 @@ private:
   std::vector<ArithVar> d_rowIndex2basic;
 
 public:
-  Tableau() : Matrix<Rational>(Rational(0,0)) {}
+  Tableau() : Matrix<Rational>(Rational(0)) {}
 
   typedef Matrix<Rational>::ColIterator ColIterator;
   typedef Matrix<Rational>::RowIterator RowIterator;
