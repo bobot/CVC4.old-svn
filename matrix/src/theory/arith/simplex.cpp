@@ -344,7 +344,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  Options::current()->arithPivotThreshold;
     if(!useVarOrderPivot){
-      d_pivotsInRound.addMultiset(x_i);
+      d_pivotsInRound.add(x_i);
     }
 
 

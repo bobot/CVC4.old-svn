@@ -380,10 +380,10 @@ private:
   Node AssertDisequality(Constraint constraint);
 
   /** Tracks the bounds that were updated in the current round. */
-  PermissiveBackArithVarSet d_updatedBounds;
+  ArithVarSetNew d_updatedBounds;
 
   /** Tracks the basic variables where propagatation might be possible. */
-  PermissiveBackArithVarSet d_candidateBasics;
+  ArithVarSetNew d_candidateBasics;
 
   bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
   void clearUpdates(){ d_updatedBounds.purge(); }

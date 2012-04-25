@@ -32,7 +32,7 @@ private:
    * If this is 0 or cannot be 0, this can be signalled.
    * The pair of terms for the congruence is stored in watched equalities.
    */
-  PermissiveBackArithVarSet d_watchedVariables;
+  ArithVarSetNew d_watchedVariables;
   /** d_watchedVariables |-> (= x y) */
   ArithVarToNodeMap d_watchedEqualities;
 

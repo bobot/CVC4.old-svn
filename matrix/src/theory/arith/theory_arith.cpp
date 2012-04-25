@@ -1763,8 +1763,8 @@ void TheoryArith::propagateCandidates(){
 
   if(d_updatedBounds.empty()){ return; }
 
-  PermissiveBackArithVarSet::const_iterator i = d_updatedBounds.begin();
-  PermissiveBackArithVarSet::const_iterator end = d_updatedBounds.end();
+  ArithVarSetNew::const_iterator i = d_updatedBounds.begin();
+  ArithVarSetNew::const_iterator end = d_updatedBounds.end();
   for(; i != end; ++i){
     ArithVar var = *i;
     if(d_tableau.isBasic(var) &&
@@ -1787,7 +1787,8 @@ void TheoryArith::propagateCandidates(){
   d_updatedBounds.purge();
 
   while(!d_candidateBasics.empty()){
-    ArithVar candidate = d_candidateBasics.pop_back();
+    ArithVar candidate = d_candidateBasics.back();
+    d_candidateBasics.pop_back();
     Assert(d_tableau.isBasic(candidate));
     propagateCandidate(candidate);
   }

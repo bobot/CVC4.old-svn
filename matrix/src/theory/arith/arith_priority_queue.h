@@ -136,7 +136,7 @@ private:
    */
   ArithVarArray d_varOrderQueue;
 
-  PermissiveBackArithVarSet d_varSet;
+  ArithVarSetNew d_varSet;
 
   /**
    * Reference to the arithmetic partial model for checking if a variable

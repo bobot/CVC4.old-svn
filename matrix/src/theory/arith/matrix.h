@@ -369,7 +369,7 @@ protected:
 
   /* The merge buffer is used to store a row in order to optimize row addition. */
   typedef std::pair<EntryID, bool> PosUsedPair;
-  typedef ArithVarMap< PosUsedPair > RowToPosUsedPairMap;
+  typedef DenseMap< PosUsedPair > RowToPosUsedPairMap;
   RowToPosUsedPairMap d_mergeBuffer;
 
   /* The row that is in the merge buffer. */
@@ -824,18 +824,22 @@ protected:
  * The tableau should only be updated via pivot calls.
  */
 class Tableau : public Matrix<Rational> {
+public:
 private:
+  typedef DenseMap<RowIndex> BasicToRowMap;
   // Set of all of the basic variables in the tableau.
   // ArithVarMap<RowIndex> : ArithVar |-> RowIndex
-  ArithVarMap<RowIndex> d_basic2RowIndex;
+  BasicToRowMap d_basic2RowIndex;
   // RowIndex |-> Basic Variable
   std::vector<ArithVar> d_rowIndex2basic;
 
 public:
+
   Tableau() : Matrix<Rational>(Rational(0)) {}
 
   typedef Matrix<Rational>::ColIterator ColIterator;
   typedef Matrix<Rational>::RowIterator RowIterator;
+  typedef BasicToRowMap::const_iterator BasicIterator;
 
   typedef MatrixEntry<Rational> Entry;
 
@@ -843,10 +847,10 @@ public:
     return d_basic2RowIndex.isKey(v);
   }
 
-  ArithVarSet::const_iterator beginBasic() const {
+  BasicIterator beginBasic() const {
     return d_basic2RowIndex.begin();
   }
-  ArithVarSet::const_iterator endBasic() const {
+  BasicIterator endBasic() const {
     return d_basic2RowIndex.end();
   }
 

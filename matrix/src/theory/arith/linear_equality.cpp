@@ -166,8 +166,8 @@ void LinearEqualityModule::debugPivot(ArithVar x_i, ArithVar x_j){
  *   }
  */
 void LinearEqualityModule::debugCheckTableau(){
-  ArithVarSet::const_iterator basicIter = d_tableau.beginBasic();
-  ArithVarSet::const_iterator endIter = d_tableau.endBasic();
+  Tableau::BasicIterator basicIter = d_tableau.beginBasic(),
+    endIter = d_tableau.endBasic();
   for(; basicIter != endIter; ++basicIter){
     ArithVar basic = *basicIter;
     DeltaRational sum;
