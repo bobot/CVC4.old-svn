@@ -27,9 +27,8 @@
 #include "context/cdqueue.h"
 #include "expr/node.h"
 
-#include "util/dense_map.h"
-
 #include "theory/arith/arithvar.h"
+#include "theory/arith/arithvar_set.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/matrix.h"
 #include "theory/arith/arith_rewriter.h"
@@ -381,10 +380,10 @@ private:
   Node AssertDisequality(Constraint constraint);
 
   /** Tracks the bounds that were updated in the current round. */
-  DenseSet d_updatedBounds;
+  ArithVarSetNew d_updatedBounds;
 
   /** Tracks the basic variables where propagatation might be possible. */
-  DenseSet d_candidateBasics;
+  ArithVarSetNew d_candidateBasics;
 
   bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
   void clearUpdates(){ d_updatedBounds.purge(); }
