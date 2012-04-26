@@ -136,7 +136,7 @@ private:
    */
   ArithVarArray d_varOrderQueue;
 
-  ArithVarSetNew d_varSet;
+  DenseSet d_varSet;
 
   /**
    * Reference to the arithmetic partial model for checking if a variable

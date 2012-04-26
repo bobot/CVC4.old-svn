@@ -28,13 +28,13 @@
 #include "util/rational.h"
 #include "util/integer.h"
 #include "util/boolean_simplification.h"
+#include "util/dense_map.h"
 
 
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/partial_model.h"
 #include "theory/arith/matrix.h"
-#include "theory/arith/arithvar_set.h"
 
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/constraint.h"
@@ -1763,8 +1763,8 @@ void TheoryArith::propagateCandidates(){
 
   if(d_updatedBounds.empty()){ return; }
 
-  ArithVarSetNew::const_iterator i = d_updatedBounds.begin();
-  ArithVarSetNew::const_iterator end = d_updatedBounds.end();
+  DenseSet::const_iterator i = d_updatedBounds.begin();
+  DenseSet::const_iterator end = d_updatedBounds.end();
   for(; i != end; ++i){
     ArithVar var = *i;
     if(d_tableau.isBasic(var) &&

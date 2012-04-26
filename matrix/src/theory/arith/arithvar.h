@@ -14,7 +14,7 @@
  ** \brief Defines ArithVar which is the internal representation of variables in arithmetic
  **
  ** This defines ArithVar which is the internal representation of variables in
- ** arithmetic. This is a typedef from uint32_t to ArithVar.
+ ** arithmetic. This is a typedef from Index to ArithVar.
  ** This file also provides utilities for ArithVars.
  **/
 
@@ -35,7 +35,6 @@
 namespace CVC4 {
 namespace theory {
 namespace arith {
-
 
 typedef Index ArithVar;
 const ArithVar ARITHVAR_SENTINEL = std::numeric_limits<ArithVar>::max();
