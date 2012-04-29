@@ -92,24 +92,21 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
     node = node[0];
   }
 
+  /* Base case */
   if (checkJustified(node)) return false;
 
+  // We don't always have a sat literal, so remember that. Will need
+  // it for some assertions we make.
+  bool litPresent = d_decisionEngine->hasSatLiteral(node);
+
+  // Get value of sat literal for the node, if there is one
   SatValue litVal = tryGetSatValue(node);
-  bool litPresent = false;
-  if(d_decisionEngine->hasSatLiteral(node) ) {
-    SatLiteral lit = d_decisionEngine->getSatLiteral(node);
-    litPresent = true;
 
-    SatVariable v = lit.getSatVariable();
-    // if (lit.isFalse() || lit.isTrue()) return false;
-    if (v == 0) {
-      setJustified(node);
-      return false;
+  if(Trace.isOn("decision")) {
+    if(!litPresent) {
+      Trace("decision") << "no sat literal for this node" << std::endl;
     }
-  } else {
-    Trace("decision") << "no sat literal for this node" << std::endl;
   }
-
 
   /* You'd better know what you want */
   Assert(desiredVal != SAT_VALUE_UNKNOWN, "expected known value");
@@ -119,7 +116,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
          "invariant voilated");
 
   /* What type of node is this */
-  Kind k = node.getKind();
+  Kind k = node.getKind();	
   theory::TheoryId tId = theory::kindToTheoryId(k);
 
   /* Some debugging stuff */
@@ -170,7 +167,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
     // For now, we the assertion doesn't hold because
     if(!d_decisionEngine->hasSatLiteral(node)
        && !d_decisionEngine->hasSatLiteral(rnode) ) {
-      WarningOnce() << "WARNING: DecisionEngine: missing sat literal" << std::endl;
+      //WarningOnce() << "WARNING: DecisionEngine: missing sat literal" << std::endl;
       throw GiveUpException();
     }
 
@@ -273,6 +270,12 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
 
   SatValue valHard = SAT_VALUE_FALSE;
   switch (k) {
+
+  case kind::CONST_BOOLEAN:
+    Assert(node.getConst<bool>() == false || desiredVal == SAT_VALUE_TRUE);
+    Assert(node.getConst<bool>() == true || desiredVal == SAT_VALUE_FALSE);
+    setJustified(node);
+    return false;
 
   case kind::AND:
     valHard = SAT_VALUE_TRUE;
@@ -406,62 +409,47 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
     break;
   }
 
-  case kind::ITE:
-    throw GiveUpException();
-    /*
-    case ITE: {
-      Lit cIf = d_cnfManager->getFanin(v, 0);
-      Lit cThen = d_cnfManager->getFanin(v, 1);
-      Lit cElse = d_cnfManager->getFanin(v, 2);
-      if (getValue(cIf) == Var::UNKNOWN) {
-        if (getValue(cElse) == value ||
-            getValue(cThen) == Var::invertValue(value)) {
-          ret = findSplitterRec(cIf, Var::FALSE_VAL, litDecision);
-        }
-        else {
-          ret = findSplitterRec(cIf, Var::TRUE_VAL, litDecision);
-        }
-        if (!ret) {
-          cout << d_cnfManager->concreteVar(cIf.getVar()) << endl;
-          DebugAssert(false,"No controlling input found (6)");
-        }	  
-        return true;
+  case kind::ITE: {
+    //[0]: if, [1]: then, [2]: else
+    SatValue ifVal = tryGetSatValue(node[0]);
+    if (ifVal == SAT_VALUE_UNKNOWN) {
+      
+      // are we better off trying false? if not, try true
+      SatValue ifDesiredVal = 
+        (tryGetSatValue(node[2]) == desiredVal ||
+	 tryGetSatValue(node[1]) == invertValue(desiredVal))
+	? SAT_VALUE_FALSE : SAT_VALUE_TRUE;
+
+      if(findSplitterRec(node[0], ifDesiredVal, litDecision)) {
+	return true;
       }
-      else if (getValue(cIf) == Var::TRUE_VAL) {
-        if (findSplitterRec(cIf, Var::TRUE_VAL, litDecision)) {
-            return true;
-        }
-        if (cThen.isVar() && cThen.getVar() != v &&
-            (getValue(cThen) == Var::UNKNOWN ||
-             getValue(cThen) == value) &&
-            findSplitterRec(cThen, value, litDecision)) {
-          return true;
-        }
+      Assert(false, "No controlling input found (6)");
+    } else {
+
+      // Try to justify 'if'
+      if (findSplitterRec(node[0], ifVal, litDecision)) {
+	return true;
       }
-      else {
-        if (findSplitterRec(cIf, Var::FALSE_VAL, litDecision)) {
-          return true;
-        }
-        if (cElse.isVar() && cElse.getVar() != v &&
-            (getValue(cElse) == Var::UNKNOWN ||
-             getValue(cElse) == value) &&
-            findSplitterRec(cElse, value, litDecision)) {
-          return true;
-        }
+
+      // If that was successful, we need to go into only one of 'then'
+      // or 'else'
+      int ch = (ifVal == SAT_VALUE_TRUE) ? 1 : 2;
+      int chVal = tryGetSatValue(node[ch]);
+      if( (chVal == SAT_VALUE_UNKNOWN || chVal == desiredVal)
+	  && findSplitterRec(node[ch], desiredVal, litDecision) ) {
+	return true;
       }
-      DebugAssert(getValue(v) == value, "Output should be justified");
-      setJustified(v);
-      return false;
     }
-      */
+    Assert(litPresent == false || litVal == desiredVal,
+	   "Output should be justified");
+    setJustified(node);
+    return false;
+  }
+
   default:
     Assert(false, "Unexpected Boolean operator");
     break;
-  }
+  }//end of switch(k)
 
-  /* Swap order of these two once we handle all cases */
-  return false;
   Unreachable();
-
-
 }/* findRecSplit method */
