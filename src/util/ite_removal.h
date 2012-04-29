@@ -26,6 +26,9 @@
 
 namespace CVC4 {
 
+struct IteRewriteAttrTag {};
+typedef expr::Attribute<IteRewriteAttrTag, Node> IteRewriteAttr;
+
 class RemoveITE {
 
 public:

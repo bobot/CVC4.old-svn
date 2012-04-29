@@ -27,9 +27,6 @@ using namespace std;
 
 namespace CVC4 {
 
-struct IteRewriteAttrTag {};
-typedef expr::Attribute<IteRewriteAttrTag, Node> IteRewriteAttr;
-
 void RemoveITE::run(std::vector<Node>& output) {
   for (unsigned i = 0, i_end = output.size(); i < i_end; ++ i) {
     output[i] = run(output[i], output);

@@ -41,7 +41,10 @@
 
 #include "justification_heuristic.h"
 
+#include "expr/node_manager.h"
 #include "expr/kind.h"
+#include "theory/rewriter.h"
+#include "util/ite_removal.h"
 
 /***
 
@@ -141,11 +144,50 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
 
   /**
    * If not in theory of booleans, and not a "boolean" EQUAL (IFF),
-   * then check if this is something to split-on? 
+   * then check if this is something to split-on.
    */
   if(tId != theory::THEORY_BOOL
      //      && !(k == kind::EQUAL && node[0].getType().isBoolean()) 
      ) {
+    // node could have been rewritten because a child is ITE.
+    NodeManager *nodeManager = NodeManager::currentNM();
+    Node rnode;
+    if(nodeManager->getAttribute(node, IteRewriteAttr(), rnode)) {
+      // OK. So we saved the rewritten node, if there is one.
+
+      // call rewriter
+      if(!rnode.isNull())
+       rnode = theory::Rewriter::rewrite(rnode);
+    }
+
+    // Either we have a sat literal for this node, or for the ITE
+    // removed node
+    /*Assert(d_decisionEngine->hasSatLiteral(node) ||
+           (!rnode.isNull()
+            && d_decisionEngine->hasSatLiteral(rnode))
+	    );*/
+
+    // For now, we the assertion doesn't hold because
+    if(!d_decisionEngine->hasSatLiteral(node)
+       && !d_decisionEngine->hasSatLiteral(rnode) ) {
+      WarningOnce() << "WARNING: DecisionEngine: missing sat literal" << std::endl;
+      throw GiveUpException();
+    }
+
+    if(not rnode.isNull()) {
+      Trace("jh-ite") << "Found an ite which we can tackle" 
+		      << " node = " << node
+		      << " rnode = " << rnode << std::endl;
+
+      // Sanity check: make sure the non-rewritten node isn't in sat
+      // solver (remove this assert if it doesn't hold for some
+      // reasons I can't forsee right now)
+      Assert(!d_decisionEngine->hasSatLiteral(node));
+    }
+
+    // if node has embedded ites -- which currently happens iff it got
+    // replaced during ite removal -- then try to resolve that
+
     if(litVal != SAT_VALUE_UNKNOWN) {
       setJustified(node);
       return false;
@@ -231,8 +273,10 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
 
   SatValue valHard = SAT_VALUE_FALSE;
   switch (k) {
+
   case kind::AND:
     valHard = SAT_VALUE_TRUE;
+
   case kind::OR:
     if (desiredVal == valHard) {
       int n = node.getNumChildren();
@@ -303,6 +347,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       Assert(false, "No controlling input found (3)");
     }
     break;
+
   case kind::IFF: 
     //throw GiveUpException();
     {
