@@ -43,7 +43,7 @@ void EqClassInfo::setMember( Node n, TermDb* db ){
   }
 }
 
-//get has function 
+//get has function
 bool EqClassInfo::hasFunction( Node op ){
   return d_funs.find( op )!=d_funs.end();
 }
@@ -79,7 +79,7 @@ Instantiator( c, qe, th )
     }
     d_isup = new InstStrategyUserPatterns( this, qe );
     addInstStrategy( d_isup );
-    InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( this, qe, Trigger::TS_ALL, 
+    InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( this, qe, Trigger::TS_ALL,
                                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT, 3 );
     i_ag->setGenerateAdditional( true );
     addInstStrategy( i_ag );
@@ -122,6 +122,7 @@ void InstantiatorTheoryUf::assertNode( Node assertion )
 {
   Debug("quant-uf-assert") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
   //preRegisterTerm( assertion );
+  //d_quantEngine->addTermToDatabase( assertion );
 }
 
 void InstantiatorTheoryUf::addUserPattern( Node f, Node pat ){
@@ -257,11 +258,11 @@ void InstantiatorTheoryUf::merge( TNode a, TNode b ){
 
 /** assert terms are disequal */
 void InstantiatorTheoryUf::assertDisequal( TNode a, TNode b, TNode reason ){
-  
+
 }
 
-EqClassInfo* InstantiatorTheoryUf::getEquivalenceClassInfo( Node n ) { 
-  return d_eqc_ops.find( n )==d_eqc_ops.end() ? NULL : d_eqc_ops[n]; 
+EqClassInfo* InstantiatorTheoryUf::getEquivalenceClassInfo( Node n ) {
+  return d_eqc_ops.find( n )==d_eqc_ops.end() ? NULL : d_eqc_ops[n];
 }
 EqClassInfo* InstantiatorTheoryUf::getOrCreateEquivalenceClassInfo( Node n ){
   Assert( n==getRepresentative( n ) );
@@ -270,7 +271,7 @@ EqClassInfo* InstantiatorTheoryUf::getOrCreateEquivalenceClassInfo( Node n ){
     eci->setMember( n, d_quantEngine->getTermDatabase() );
     d_eqc_ops[n] = eci;
   }
-  return d_eqc_ops[n]; 
+  return d_eqc_ops[n];
 }
 
 void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
@@ -285,7 +286,7 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
     Node g = (*it).first;
     Debug("efficient-e-match") << "  Checking application " << g << std::endl;
     //look at all parent/child pairs
-    for( std::map< Node, std::map< Node, std::vector< InvertedPathString > > >::iterator itf = d_pc_pairs[g].begin(); 
+    for( std::map< Node, std::map< Node, std::vector< InvertedPathString > > >::iterator itf = d_pc_pairs[g].begin();
          itf != d_pc_pairs[g].end(); ++itf ){
       //f/g is a parent/child pair
       Node f = itf->first;
@@ -293,7 +294,7 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
         //DO_THIS: determine if f in pfuns( b ), only do the follow if so
         Debug("efficient-e-match") << "    Checking parent application " << f << std::endl;
         //scan through the list of inverted path strings/candidate generators
-        for( std::map< Node, std::vector< InvertedPathString > >::iterator cit = itf->second.begin(); 
+        for( std::map< Node, std::vector< InvertedPathString > >::iterator cit = itf->second.begin();
             cit != itf->second.end(); ++cit ){
           Node pat = cit->first;
           Debug("efficient-e-match") << "      Checking pattern " << pat << std::endl;
@@ -340,7 +341,7 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
         if( eci_b->hasParent( g ) ){
           Debug("efficient-e-match") << "    Checking parent application " << g << std::endl;
           //if f in pfuns( a ) and g is in pfuns( b ), only do the follow if so
-          for( std::map< Node, std::vector< IpsPair > >::iterator cit = it2->second.begin(); 
+          for( std::map< Node, std::vector< IpsPair > >::iterator cit = it2->second.begin();
                cit != it2->second.end(); ++cit ){
             Node pat = cit->first;
             for( int c=0; c<(int)cit->second.size(); c++ ){
@@ -368,7 +369,7 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
         }
       }
     }
-  } 
+  }
 }
 
 void InstantiatorTheoryUf::collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms, int index ){
@@ -436,7 +437,7 @@ bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, std:
   return addedTerm;
 }
 
-void InstantiatorTheoryUf::registerPatternElementPairs2( Node opat, Node pat, InvertedPathString& ips, 
+void InstantiatorTheoryUf::registerPatternElementPairs2( Node opat, Node pat, InvertedPathString& ips,
                                                        std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >& ips_map  ){
   Assert( pat.getKind()==APPLY_UF );
   //add information for possible pp-pair
@@ -487,7 +488,7 @@ void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, N
     registerPatternElementPairs( pat );
   }
   d_pat_cand_gens[pat].push_back( cg );
-  
+
   //take all terms from the uf term db and add to candidate generator
   Node op = pat.getOperator();
   TermDb* db = d_quantEngine->getTermDatabase();
@@ -501,7 +502,7 @@ void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, N
 
 void InstantiatorTheoryUf::outputEqClass( const char* c, Node n ){
   if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( n ) ){
-    EqClassIterator eqc_iter( getRepresentative( n ), 
+    EqClassIterator eqc_iter( getRepresentative( n ),
                               &((TheoryUF*)d_th)->d_equalityEngine );
     bool firstTime = true;
     while( !eqc_iter.isFinished() ){

@@ -92,17 +92,20 @@ private:
 private:
   void processPredicate( Node f, Node p, bool phase );
   void processEquality( Node f, Node eq, bool phase );
+private:
+  int evaluate( RepAlphabetIterator* rai, Node n, bool phaseReq );
+  int evaluateLiteral( RepAlphabetIterator* rai, Node lit, bool phaseReq );
 public:
   FmfModel( QuantifiersEngine* qe, StrongSolverTheoryUf* ss );
   ~FmfModel(){}
-  
+
   std::map< Node, PredModel > d_pred_model;
   std::map< Node, FunctionModel > d_func_model;
 
   void buildModel();
   RepAlphabet* getReps() { return &d_ra; }
 public:
-  int acceptCurrent( RepAlphabetIterator* rai );
+  void validate( RepAlphabetIterator* rai );
   void debugPrint( const char* c );
 };
 

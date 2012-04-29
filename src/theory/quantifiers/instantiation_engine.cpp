@@ -104,9 +104,9 @@ void InstantiationEngine::check( Theory::Effort e ){
   if( ( e==Theory::EFFORT_FULL  && ierCounter%2==0 ) || e==Theory::EFFORT_LAST_CALL ){
   //if( e==Theory::EFFORT_LAST_CALL ){
     if( e==Theory::EFFORT_LAST_CALL ){
-      ++(getQuantifiersEngine()->d_statistics.d_instantiation_rounds_lc); 
+      ++(getQuantifiersEngine()->d_statistics.d_instantiation_rounds_lc);
     }else{
-      ++(getQuantifiersEngine()->d_statistics.d_instantiation_rounds); 
+      ++(getQuantifiersEngine()->d_statistics.d_instantiation_rounds);
     }
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
@@ -314,7 +314,7 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
     if( setAttr ){
       if( !getQuantifiersEngine()->getCounterexampleLiteralFor( f ).isNull() ){
         if( getQuantifiersEngine()->d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
-          if( n!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) && 
+          if( n!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) &&
               n.notNode()!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) ){
             Debug("quant-dep-dec") << "Make " << n << " dependent on ";
             Debug("quant-dep-dec") << getQuantifiersEngine()->getCounterexampleLiteralFor( f ) << std::endl;
@@ -339,7 +339,7 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
     }
     if( !getQuantifiersEngine()->getCounterexampleLiteralFor( f ).isNull() ){
       if( getQuantifiersEngine()->d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
-        if( n!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) && 
+        if( n!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) &&
             n.notNode()!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) ){
           Debug("quant-dep-dec") << "Make " << n << " dependent on ";
           Debug("quant-dep-dec") << getQuantifiersEngine()->getCounterexampleLiteralFor( f ) << std::endl;

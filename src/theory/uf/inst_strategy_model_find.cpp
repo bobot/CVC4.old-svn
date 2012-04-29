@@ -30,31 +30,24 @@ using namespace CVC4::theory::uf;
 
 RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, FmfModel* model ) : d_f( f ), d_model( model ){
   d_index.resize( f[0].getNumChildren(), 0 );
+  d_model->validate( this );
 }
 
 void RepAlphabetIterator::increment( QuantifiersEngine* qe ){
   Assert( !isFinished() );
   int counter = 0;
-  do{
-    //increment d_index
-    while( d_index[counter]==(int)(d_model->getReps()->d_type_reps[d_f[0][counter].getType()].size()-1) ){
-      d_index[counter] = 0;
-      counter++;
-      if( counter==(int)d_index.size() ){
-        d_index.clear();
-        return;
-      }
+  //increment d_index
+  while( d_index[counter]==(int)(d_model->getReps()->d_type_reps[d_f[0][counter].getType()].size()-1) ){
+    d_index[counter] = 0;
+    counter++;
+    if( counter==(int)d_index.size() ){
+      d_index.clear();
+      return;
     }
-    d_index[counter]++;
-    //check if this is an acceptable instantiation to try
-    counter = d_model->acceptCurrent( this );
-    //if not, try next value for d_index[counter]
-    if( counter!=-1 ){
-      for( int i=0; i<counter; i++ ){
-        d_index[i] = 0;
-      }
-    }
-  }while( counter!=-1 );
+  }
+  d_index[counter]++;
+  d_model->validate( this );
+
 }
 
 bool RepAlphabetIterator::isFinished(){
@@ -71,6 +64,15 @@ Node RepAlphabetIterator::getTerm( int i ){
   TypeNode tn = d_f[0][i].getType();
   Assert( d_model->getReps()->d_type_reps.find( tn )!=d_model->getReps()->d_type_reps.end() );
   return d_model->getReps()->d_type_reps[tn][d_index[i]];
+}
+
+void RepAlphabetIterator::calculateTerms( QuantifiersEngine* qe ){
+  d_terms.clear();
+  d_ic.clear();
+  for( int i=0; i<qe->getNumInstantiationConstants( d_f ); i++ ){
+    d_terms.push_back( getTerm( i ) );
+    d_ic.push_back( qe->getInstantiationConstant( d_f, i ) );
+  }
 }
 
 InstStrategyFiniteModelFind::InstStrategyFiniteModelFind( context::Context* c, InstantiatorTheoryUf* ith, StrongSolverTheoryUf* ss, QuantifiersEngine* qe ) : InstStrategy( qe ), d_ith( ith ), d_ss( ss ){

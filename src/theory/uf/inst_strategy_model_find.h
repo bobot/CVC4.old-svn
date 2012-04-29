@@ -35,11 +35,14 @@ public:
   Node d_f;
   FmfModel* d_model;
   std::vector< int > d_index;
+  std::vector< Node > d_ic;
+  std::vector< Node > d_terms;
   void increment( QuantifiersEngine* qe );
   bool isFinished();
   void getMatch( QuantifiersEngine* qe, InstMatch& m );
   Node getTerm( int i );
   int getNumTerms() { return d_f[0].getNumChildren(); }
+  void calculateTerms( QuantifiersEngine* qe );
 };
 
 //instantiation strategies

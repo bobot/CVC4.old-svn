@@ -211,23 +211,53 @@ void TermDb::resetInstantiationRound( Theory::Effort effort ){
   int nonCongruentCount = 0;
   int congruentCount = 0;
   int alreadyCongruentCount = 0;
-  //rebuild d_op_map_trie for each operation, calculate all congruent terms
+  //rebuild d_func/pred_map_trie for each operation, this will calculate all congruent terms
   for( std::map< Node, std::vector< Node > >::iterator it = d_op_map.begin(); it != d_op_map.end(); ++it ){
-    d_op_map_trie[ it->first ].d_data.clear();
-    for( int i=0; i<(int)it->second.size(); i++ ){
-      Node n = it->second[i];
-      if( !n.getAttribute(NoMatchAttribute()) ){
-        if( !d_op_map_trie[ it->first ].addTerm( d_quantEngine, n ) ){
-          NoMatchAttribute nma;
-          n.setAttribute(nma,true);
-          congruentCount++;
-        }else{
-          nonCongruentCount++;
-        }
+    if( !it->second.empty() ){
+      if( it->second[0].getType()==NodeManager::currentNM()->booleanType() ){
+        d_pred_map_trie[ 0 ][ it->first ].d_data.clear();
+        d_pred_map_trie[ 1 ][ it->first ].d_data.clear();
       }else{
-        congruentCount++;
-        alreadyCongruentCount++;
+        d_func_map_trie[ it->first ].d_data.clear();
+        for( int i=0; i<(int)it->second.size(); i++ ){
+          Node n = it->second[i];
+          if( !n.getAttribute(NoMatchAttribute()) ){
+            if( !d_func_map_trie[ it->first ].addTerm( d_quantEngine, n ) ){
+              NoMatchAttribute nma;
+              n.setAttribute(nma,true);
+              congruentCount++;
+            }else{
+              nonCongruentCount++;
+            }
+          }else{
+            congruentCount++;
+            alreadyCongruentCount++;
+          }
+        }
       }
+    }
+  }
+  for( int i=0; i<2; i++ ){
+    Node n = NodeManager::currentNM()->mkConst( i==1 );
+    uf::EqClassIterator eqc = uf::EqClassIterator( d_quantEngine->getEqualityQuery()->getRepresentative( n ),
+                              ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
+    while( !eqc.isFinished() ){
+      Node en = (*eqc);
+      if( en.getKind()==APPLY_UF && !en.hasAttribute(InstConstantAttribute()) ){
+        if( !en.getAttribute(NoMatchAttribute()) ){
+          Node op = en.getOperator();
+          if( d_pred_map_trie[i][op].addTerm( d_quantEngine, en ) ){
+            NoMatchAttribute nma;
+            n.setAttribute(nma,true);
+            congruentCount++;
+          }else{
+            nonCongruentCount++;
+          }
+        }else{
+          alreadyCongruentCount++;
+        }
+      }
+      ++eqc;
     }
   }
   //std::cout << "Congruent/Non-Congruent = ";
@@ -552,7 +582,7 @@ void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
       }else{
         ++(d_statistics.d_lit_phase_nreq);
       }
-    } 
+    }
   }else{
     d_statistics.d_lit_phase_nreq += (int)nodes.size();
   }
@@ -625,7 +655,7 @@ void QuantifiersEngine::generatePhaseReqs( Node f ){
       }
     }
   }
-  
+
 }
 
 Node QuantifiersEngine::getSubstitutedNode( Node n, Node f ){

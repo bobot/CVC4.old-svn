@@ -32,6 +32,7 @@ Instantiator( c, ie, th ){
 
 void InstantiatorTheoryDatatypes::assertNode( Node assertion ){
   Debug("quant-datatypes-assert") << "InstantiatorTheoryDatatypes::check: " << assertion << std::endl;
+  //d_quantEngine->addTermToDatabase( assertion );
   if( Options::current()->cbqi ){
     if( assertion.hasAttribute(InstConstantAttribute()) ){
       setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
@@ -68,7 +69,7 @@ int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e, 
 }
 
 Node InstantiatorTheoryDatatypes::getValueFor( Node n ){
-  //simply get the ground value for n in the current model, if it exists, 
+  //simply get the ground value for n in the current model, if it exists,
   //  or return an arbitrary ground term otherwise
   Debug("quant-datatypes-debug")  << "get value for " << n << std::endl;
   if( !n.hasAttribute(InstConstantAttribute()) ){

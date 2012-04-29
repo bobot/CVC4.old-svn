@@ -41,6 +41,7 @@ void InstantiatorTheoryArrays::preRegisterTerm( Node t ){
 
 void InstantiatorTheoryArrays::assertNode( Node assertion ){
   Debug("quant-arrays-assert") << "InstantiatorTheoryArrays::assertNode: " << assertion << std::endl;
+  //d_quantEngine->addTermToDatabase( assertion );
 }
 
 
@@ -49,5 +50,5 @@ void InstantiatorTheoryArrays::processResetInstantiationRound( Theory::Effort ef
 }
 
 int InstantiatorTheoryArrays::process( Node f, Theory::Effort effort, int e, int limitInst ){
-  return InstStrategy::STATUS_SAT; 
+  return InstStrategy::STATUS_SAT;
 }

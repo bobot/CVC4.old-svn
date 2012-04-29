@@ -63,7 +63,6 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_propagatedLiterals(context),
   d_propagatedLiteralsIndex(context, 0),
   d_decisionRequests(context),
-  d_decisionRequestsPolarity(context),
   d_decisionRequestsIndex(context, 0),
   d_combineTheoriesTime("TheoryEngine::combineTheoriesTime"),
   d_preRegistrationVisitor(this, context),
@@ -799,18 +798,7 @@ void TheoryEngine::propagateAsDecision(TNode literal, theory::TheoryId theory) {
 
   Assert(d_propEngine->isSatLiteral(literal.getKind() == kind::NOT ? literal[0] : literal), "OutputChannel::propagateAsDecision() requires a SAT literal (or negation of one)");
 
-  TNode lit = literal.getKind()==kind::NOT ? literal[0] : literal;
-  d_decisionRequestsPolarity[ lit ] = literal.getKind()!=kind::NOT;
-  //AJR-hack-temp (should maybe do something like this, but this currently breaks fmf)
-  //for( int i=d_decisionRequestsIndex; i<(int)d_decisionRequests.size(); i++ ){
-  //  if( d_decisionRequests[i]==lit ){
-  //    return;
-  //  }
-  //}
-  ////AJR-hack-temp-end
-
-  d_decisionRequests.push_back(lit);
-
+  d_decisionRequests.push_back(literal);
 }
 
 theory::EqualityStatus TheoryEngine::getEqualityStatus(TNode a, TNode b) {

@@ -96,7 +96,7 @@ public:
   /** return whether this is a multi-trigger */
   bool isMultiTrigger() { return d_nodes.size()>1; }
 public:
-  /** add all available instantiations exhaustively, in any equivalence class 
+  /** add all available instantiations exhaustively, in any equivalence class
       if limitInst>0, limitInst is the max # of instantiations to try */
   int addInstantiations( InstMatch& baseMatch, int instLimit = 0, bool addSplits = false );
   /** mkTrigger method
@@ -112,13 +112,13 @@ public:
     TR_GET_OLD,     //return a previous trigger if it had already been created
     TR_RETURN_NULL  //return null if a duplicate is found
   };
-  static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, 
-                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW, 
-                             bool smartMultiTrigger = false ); 
-  static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, Node n, 
-                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW, 
-                             bool smartMultiTrigger = false ); 
-private:  
+  static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes,
+                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW,
+                             bool smartMultiTrigger = false );
+  static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, Node n,
+                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW,
+                             bool smartMultiTrigger = false );
+private:
   /** is subterm of trigger usable */
   static bool isUsable( Node n, Node f );
   /** collect all APPLY_UF pattern terms for f in n */
@@ -145,6 +145,7 @@ public:
   static bool isVariableSubsume( Node n1, Node n2 );
   /** get var contains */
   static void getVarContains( Node f, std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains );
+  static void getVarContainsNode( Node f, Node n, std::vector< Node >& varContains );
   /** get pattern arithmetic */
   static bool getPatternArithmetic( Node f, Node n, std::map< Node, Node >& coeffs );
 

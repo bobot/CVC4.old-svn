@@ -126,7 +126,7 @@ void FmfModel::buildModel(){
   for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
     Node f = d_quantEngine->getAssertedQuantifier( i );
     Debug("fmf-model-req") << "Phase requirements for " << f << ": " << std::endl;
-    for( std::map< Node, bool >::iterator it = d_quantEngine->d_phase_reqs[f].begin(); 
+    for( std::map< Node, bool >::iterator it = d_quantEngine->d_phase_reqs[f].begin();
          it != d_quantEngine->d_phase_reqs[f].end(); ++it ){
       Node n = it->first;
       Debug("fmf-model-req") << "   " << n << " -> " << it->second << std::endl;
@@ -140,7 +140,7 @@ void FmfModel::buildModel(){
   Debug("fmf-model") << "Done." << std::endl;
   debugPrint("fmf-model-complete");
 
-
+  //try to complete model? TODO
 }
 
 void FmfModel::processPredicate( Node f, Node p, bool phase ){
@@ -152,14 +152,14 @@ void FmfModel::processPredicate( Node f, Node p, bool phase ){
 }
 
 void FmfModel::processEquality( Node f, Node eq, bool phase ){
-  if( eq[0].getKind()==APPLY_UF ){
+  if( eq[0].getKind()==APPLY_UF && eq[0].hasAttribute(InstConstantAttribute()) ){
     Node op = eq[0].getOperator();
     if( d_func_model.find( op )==d_func_model.end() ){
       d_func_model[ op ] = FunctionModel( op, d_quantEngine );
     }
     d_func_model[ op ].addRequirement( f, eq[0], eq[1], phase );
   }
-  if( eq[1].getKind()==APPLY_UF ){
+  if( eq[1].getKind()==APPLY_UF && eq[1].hasAttribute(InstConstantAttribute()) ){
     Node op = eq[1].getOperator();
     if( d_func_model.find( op )==d_func_model.end() ){
       d_func_model[ op ] = FunctionModel( op, d_quantEngine );
@@ -205,8 +205,134 @@ void FmfModel::buildRepresentatives(){
   Debug("inst-fmf") << std::endl;
 }
 
-int FmfModel::acceptCurrent( RepAlphabetIterator* rai ){
+void FmfModel::validate( RepAlphabetIterator* rai ){
+#if 0
+  //see if instantiation is already true in current model
+  int eVal;
+  do{
+    //calculate represenative terms we are currently considering
+    rai->calculateTerms( d_quantEngine );
+    //if eVal is not -1, then the instantiation is already true in the model,
+    // and eVal is the highest index in rai which we can safely iterate
+    eVal = evaluate( rai, d_quantEngine->getCounterexampleBody( rai->d_f ), true );
+    if( eVal!=-1 ){
+      for( int i=0; i<eVal; i++ ){
+        rai->d_index[i] = 0;
+      }
+      rai->d_index[eVal]++;
+    }
+  }while( eVal!=-1 );
+#endif
+}
+
+//if evaluate( rai, n, phaseReq ) = eVal,
+// if eVal = -1
+//   then the instantiation specified by rai cannot be proven to be equal to phaseReq
+// otherwise,
+//   the instantiations {rai->d_index[0]...rai->d_index[eVal], * .... *} are equal to phaseReq in the current model
+int FmfModel::evaluate( RepAlphabetIterator* rai, Node n, bool phaseReq ){
+  EqualityQuery* q = d_quantEngine->getEqualityQuery();
+  if( n.getKind()==NOT ){
+    return evaluate( rai, n, !phaseReq );
+  }else if( n.getKind()==AND || n.getKind()==OR || n.getKind()==IMPLIES ){
+    bool followPhase = ( n.getKind()==AND && !phaseReq ) || ( n.getKind()!=AND && phaseReq );
+    int newVal = followPhase ? -1 : (int)rai->d_index.size();
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      bool newPhaseReq = ( ( n.getKind()==IMPLIES && i==0 ) ? !phaseReq : phaseReq );
+      int eVal = evaluate( rai, n[i], newPhaseReq );
+      if( followPhase ){
+        if( eVal==(int)rai->d_index.size() ){
+          return eVal;
+        }else if( eVal>newVal ){
+          newVal = eVal;
+        }
+      }else{
+        if( eVal==-1 ){
+          return eVal;
+        }else if( eVal<newVal ){
+          newVal = eVal;
+        }
+      }
+    }
+    return newVal;
+  }else if( n.getKind()==IFF || n.getKind()==XOR ){
+    bool equalPhase = ( n.getKind()==IFF && phaseReq ) || ( n.getKind()==XOR && !phaseReq );
+    int newVal = -1;
+    for( int p=0; p<2; p++ ){
+      int eVal[2];
+      bool success = true;
+      for( int i=0; i<2; i++ ){
+        bool newPhaseReq = equalPhase ? p==0 : p==i;
+        eVal[i] = evaluate( rai, n[i], newPhaseReq );
+        if( eVal[i]<=newVal ){
+          success = false;
+          break;
+        }
+      }
+      if( success ){
+        newVal = ( eVal[0]>eVal[1] ? eVal[1] : eVal[0] );
+      }
+    }
+    return newVal;
+  }else if( n.getKind()==ITE ){
+    int newVal = -1;
+    for( int p=0; p<2; p++ ){
+      int eVal = evaluate( rai, n[0], p==0 );
+      if( eVal>newVal ){
+        int eValC = evaluate( rai, n[p+1], phaseReq );
+        if( eValC>newVal ){
+          newVal = ( eVal>eValC ? eValC : eVal );
+        }
+      }
+    }
+    return newVal;
+  }else if( n.getKind()==EQUAL || n.getKind()==APPLY_UF ){
+    return evaluateLiteral( rai, n, phaseReq );
+  }
   return -1;
+}
+
+int FmfModel::evaluateLiteral( RepAlphabetIterator* rai, Node lit, bool phaseReq ){
+  Node s_lit = lit;
+  if( lit.hasAttribute(InstConstantAttribute()) ){
+    s_lit = lit.substitute( rai->d_ic.begin(), rai->d_ic.end(), rai->d_terms.begin(), rai->d_terms.end() );
+  }
+  bool success = false;
+  EqualityQuery* q = d_quantEngine->getEqualityQuery();
+  if( s_lit.getKind()==APPLY_UF ){
+    if( q->areEqual( s_lit, NodeManager::currentNM()->mkConst( phaseReq ) ) ){
+      success = true;
+    }else{
+      //look at complete model? TODO
+    }
+  }else if( s_lit.getKind()==EQUAL ){
+    if( phaseReq && q->areEqual( s_lit[0], s_lit[1] ) ){
+      success = true;
+    }else if( !phaseReq && q->areDisequal( s_lit[0], s_lit[1] ) ){
+      success = true;
+    }else{
+      //look at complete model? TODO
+    }
+  }
+  if( success ){
+    std::vector< Node > fv;
+    if( lit.hasAttribute(InstConstantAttribute()) ){
+      Trigger::getVarContainsNode( rai->d_f, lit, fv );
+    }
+    int minIndex = (int)rai->d_index.size();
+    for( int i=0; i<(int)fv.size(); i++ ){
+      int index = fv[i].getAttribute(InstVarNumAttribute());
+      if( index==0 ){
+        return 0;
+      }else if( index<minIndex ){
+        minIndex = index;
+      }
+    }
+    //try to generalize?  TODO
+    return minIndex;
+  }else{
+    return -1;
+  }
 }
 
 void FmfModel::debugPrint( const char* c ){

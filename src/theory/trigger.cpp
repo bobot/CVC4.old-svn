@@ -61,7 +61,7 @@ int Trigger::trCount = 0;
 Trigger::TrTrie Trigger::d_tr_trie;
 
 /** trigger class constructor */
-Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool smartMultiTrigger ) : 
+Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool smartMultiTrigger ) :
 d_quantEngine( qe ), d_f( f ){
   trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
@@ -97,7 +97,7 @@ d_quantEngine( qe ), d_f( f ){
     ++(qe->d_statistics.d_multi_triggers);
   }
 }
-void Trigger::computeVarContains( Node n ) { 
+void Trigger::computeVarContains( Node n ) {
   if( d_var_contains.find( n )==d_var_contains.end() ){
     d_var_contains[n].clear();
     computeVarContains2( n, n );
@@ -148,7 +148,7 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
   return addedLemmas;
 }
 
-Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool keepAll, int trOption, 
+Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool keepAll, int trOption,
                              bool smartMultiTrigger ){
   std::vector< Node > trNodes;
   if( !keepAll ){
@@ -227,7 +227,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       if( trOption==TR_GET_OLD ){
         //just return old trigger
         return t;
-      }else{  
+      }else{
         return NULL;
       }
     }
@@ -354,7 +354,7 @@ bool Trigger::collectPatTerms2( QuantifiersEngine* qe, Node f, Node n, std::map<
           retVal = true;
         }
       }
-      if( n.getKind()==FORALL ){   
+      if( n.getKind()==FORALL ){
 #ifdef NESTED_PATTERN_SELECTION
         //if( collectPatTerms2( qe, f, qe->getOrCreateCounterexampleBody( n ), patMap, tstrt ) ){
         //  retVal = true;
@@ -490,6 +490,15 @@ void Trigger::getVarContains( Node f, std::vector< Node >& pats, std::map< Node,
       if( d_var_contains[pats[i]][j].getAttribute(InstConstantAttribute())==f ){
         varContains[ pats[i] ].push_back( d_var_contains[pats[i]][j] );
       }
+    }
+  }
+}
+
+void Trigger::getVarContainsNode( Node f, Node n, std::vector< Node >& varContains ){
+  computeVarContains( n );
+  for( int j=0; j<(int)d_var_contains[n].size(); j++ ){
+    if( d_var_contains[n][j].getAttribute(InstConstantAttribute())==f ){
+      varContains.push_back( d_var_contains[n][j] );
     }
   }
 }

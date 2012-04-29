@@ -833,7 +833,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
 //                if( d_setDepends.find( s )==d_setDepends.end() ){
 //                  d_setDepends[ s ] = true;
 //                  for( int t=0; t<2; t++ ){
-//                    if( s[t].hasAttribute(InstConstantAttribute()) && 
+//                    if( s[t].hasAttribute(InstConstantAttribute()) &&
 //                        ( t==0 || s[0].getAttribute(InstConstantAttribute())!=s[1].getAttribute(InstConstantAttribute()) ) ){
 //                      Node f = s[t].getAttribute(InstConstantAttribute());
 //                      d_th->getOutputChannel().dependentDecision( d_th->getQuantifiersEngine()->getCounterexampleLiteralFor( f ), s );
@@ -898,7 +898,7 @@ void StrongSolverTheoryUf::ConflictFind::propagate( Theory::Effort level, Output
       d_is_cardinality_requested = true;
       d_is_cardinality_requested_c = true;
     }
-#else
+#elif 1
     bool requestCurrent = false;
     for( std::map< int, Node >::iterator it = d_cardinality_literal.begin(); it != d_cardinality_literal.end(); ++it ){
       Node cn = it->second;
@@ -912,6 +912,12 @@ void StrongSolverTheoryUf::ConflictFind::propagate( Theory::Effort level, Output
       }
     }
     if( requestCurrent ){
+      out->propagateAsDecision( d_cardinality_literal[ getCardinality() ] );
+      Debug("uf-ss-prop-as-dec") << "Propagate as decision " << d_cardinality_literal[ getCardinality() ] << " " << d_cardinality_literal[ getCardinality() ][0].getType() << std::endl;
+    }
+#else
+    Node cn = d_cardinality_literal[ getCardinality() ];
+    if( d_cardinality_assertions.find( cn )==d_cardinality_assertions.end() ){
       out->propagateAsDecision( d_cardinality_literal[ getCardinality() ] );
       Debug("uf-ss-prop-as-dec") << "Propagate as decision " << d_cardinality_literal[ getCardinality() ] << " " << d_cardinality_literal[ getCardinality() ][0].getType() << std::endl;
     }
@@ -1157,12 +1163,16 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
       d_conf_find[tn]->setCardinality( d_conf_find[tn]->getCardinality() + 1, d_out );
       //also increment the cardinality of related types? DO_THIS
       //std::cout << d_conf_find[tn]->getCardinality() << " ";
+#if 0
+      //give up permanently on this cardinality
+      d_out->lemma( n );
+#endif
     }
   }else{
     if( isDecision ){
       for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
         if( !it->second->hasCardinalityAsserted() ){
-          //FIXME: this is too strict: theory propagations are showing up as isDecision=true, but 
+          //FIXME: this is too strict: theory propagations are showing up as isDecision=true, but
           // a theory propagation is not a decision.
 
           //std::cout << "Assert " << n << " " << isDecision << std::endl;

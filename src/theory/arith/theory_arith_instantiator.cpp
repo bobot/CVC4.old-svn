@@ -31,7 +31,7 @@ using namespace CVC4::theory::arith;
 
 #define USE_ARITH_INSTANTIATION
 
-InstStrategySimplex::InstStrategySimplex( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) : 
+InstStrategySimplex::InstStrategySimplex( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) :
     InstStrategy( ie ), d_th( th ), d_counter( 0 ){
   d_negOne = NodeManager::currentNM()->mkConst( Rational(-1) );
 }
@@ -123,7 +123,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 //            if( d_quantEngine->addInstantiation( f, m, true ) ){
 //              ++(d_th->d_statistics.d_instantiations_match_pure);
 //              ++(d_th->d_statistics.d_instantiations);
-//              addedLemma = true;  
+//              addedLemma = true;
 //            }
 //          }else{
 //            NodeBuilder<> plus_term(kind::PLUS);
@@ -152,7 +152,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 //            for( std::map< Node, Node >::iterator it = d_th->d_tableaux_ce_term[x].begin(); it != d_th->d_tableaux_ce_term[x].end(); ++it ){
 //              Node n = it->first;
 //              //substitute in matches
-//              n = n.substitute( vars.begin(), vars.end(), matches.begin(), matches.end() ); 
+//              n = n.substitute( vars.begin(), vars.end(), matches.begin(), matches.end() );
 //              plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, d_th->getTableauxValue( n ) );
 //            }
 //            term = plus_term.getNumChildren()==1 ? plus_term.getChild( 0 ) : plus_term;
@@ -191,7 +191,7 @@ void InstantiatorTheoryArith::assertNode( Node assertion ){
       Node f = assertion.getAttribute(InstConstantAttribute());
       Node cel = d_quantEngine->getCounterexampleLiteralFor( f );
       Assert( !cel.isNull() );
-      Assert( d_quantEngine->getTheoryEngine()->getPropEngine()->isSatLiteral( cel ) ); 
+      Assert( d_quantEngine->getTheoryEngine()->getPropEngine()->isSatLiteral( cel ) );
       bool value;
       //Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );
       if( !((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) ){
@@ -200,7 +200,8 @@ void InstantiatorTheoryArith::assertNode( Node assertion ){
       }
     }
   }
-} 
+  //d_quantEngine->addTermToDatabase( assertion );
+}
 
 void InstantiatorTheoryArith::preRegisterTerm( Node t ){
   //d_quantEngine->addTermToDatabase( t );
@@ -235,7 +236,7 @@ void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort eff
           setHasConstraintsFrom( f );
           //set tableaux term
           if( t.getNumChildren()==0 ){
-            d_tableaux_term[x] = NodeManager::currentNM()->mkConst( Rational(0) ); 
+            d_tableaux_term[x] = NodeManager::currentNM()->mkConst( Rational(0) );
           }else if( t.getNumChildren()==1 ){
             d_tableaux_term[x] = t.getChild( 0 );
           }else{
@@ -343,7 +344,7 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
 
 //say instantiation row x for quantifier f is coeff*var + A*t[e] + term = beta,
 // where var is an instantiation constant from f,
-// t[e] is a vector of terms containing instantiation constants from f, 
+// t[e] is a vector of terms containing instantiation constants from f,
 // and term is a ground term (c1*t1 + ... + cn*tn).
 // We construct the term ( beta - term )/coeff to use as an instantiation for var.
 bool InstantiatorTheoryArith::doInstantiation( Node f, Node term, ArithVar x, InstMatch& m, Node var ){
@@ -407,7 +408,7 @@ Node InstantiatorTheoryArith::getTableauxValue( ArithVar v, bool minus_delta ){
                                                     NodeManager::currentNM()->mkConst( drv.getInfinitesimalPart() ) );
     // add (or subtract) this delta component from the value of v
     val = NodeManager::currentNM()->mkNode( minus_delta ? MINUS : PLUS, val, delta );
-  } 
+  }
 #endif
   return val;
 }
@@ -417,9 +418,9 @@ Node InstantiatorTheoryArith::getDelta( Node n ){
   if( it==d_deltas.end() ){
     std::ostringstream os;
     os << "delta_" << d_deltas.size();
-    Node delta = NodeManager::currentNM()->mkVar( os.str(), n.getType() ); 
+    Node delta = NodeManager::currentNM()->mkVar( os.str(), n.getType() );
     d_deltas[ n.getType() ] = delta;
-    Node gt = NodeManager::currentNM()->mkNode( GT, delta, NodeManager::currentNM()->mkConst( Rational(0) ) ); 
+    Node gt = NodeManager::currentNM()->mkNode( GT, delta, NodeManager::currentNM()->mkConst( Rational(0) ) );
     //add split
 #ifdef ARITH_INSTANTIATOR_STRONG_DELTA_LEMMA
     d_quantEngine->addLemma( gt );

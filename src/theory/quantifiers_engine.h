@@ -95,8 +95,8 @@ public:
   /** set no instantiate */
   void setNoInstantiate( Node n ) { d_no_instantiate.push_back( n ); }
   /** should instantiate */
-  bool shouldInstantiate( Node n ) { 
-    return std::find( d_no_instantiate_temp.begin(), d_no_instantiate_temp.end(), n )==d_no_instantiate_temp.end(); 
+  bool shouldInstantiate( Node n ) {
+    return std::find( d_no_instantiate_temp.begin(), d_no_instantiate_temp.end(), n )==d_no_instantiate_temp.end();
   }
 };
 
@@ -114,7 +114,7 @@ protected:
   /** has constraints from quantifier */
   std::map< Node, bool > d_hasConstraints;
   /** is instantiation strategy active */
-  bool isActiveStrategy( InstStrategy* is ) { 
+  bool isActiveStrategy( InstStrategy* is ) {
     return d_instStrategyActive.find( is )!=d_instStrategyActive.end() && d_instStrategyActive[is];
   }
   /** add inst strategy */
@@ -195,8 +195,10 @@ public:
   ~TermDb(){}
   /** map from APPLY_UF operators to ground terms for that operator */
   std::map< Node, std::vector< Node > > d_op_map;
-  /** map from APPLY_UF operators to trie */
-  std::map< Node, TermArgTrie > d_op_map_trie;
+  /** map from APPLY_UF functions to trie */
+  std::map< Node, TermArgTrie > d_func_map_trie;
+  /** map from APPLY_UF predicates to trie */
+  std::map< Node, TermArgTrie > d_pred_map_trie[2];
   /** map from type nodes to terms of that type */
   std::map< TypeNode, std::vector< Node > > d_type_map;
   /** add a term to the database */
@@ -337,8 +339,8 @@ public:
   /** get asserted quantifier */
   Node getAssertedQuantifier( int i ) { return d_forall_asserts[i]; }
   /** get instantiation constants */
-  void getInstantiationConstantsFor( Node f, std::vector< Node >& ics ) { 
-    ics.insert( ics.begin(), d_inst_constants[f].begin(), d_inst_constants[f].end() ); 
+  void getInstantiationConstantsFor( Node f, std::vector< Node >& ics ) {
+    ics.insert( ics.begin(), d_inst_constants[f].begin(), d_inst_constants[f].end() );
   }
   /** get the i^th instantiation constant of f */
   Node getInstantiationConstant( Node f, int i ) { return d_inst_constants[f][i]; }
