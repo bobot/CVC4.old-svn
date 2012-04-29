@@ -92,37 +92,21 @@ Instantiator( c, qe, th )
 }
 
 void InstantiatorTheoryUf::preRegisterTerm( Node t ){
-  switch(t.getKind()) {
-  case kind::EQUAL:
-    d_quantEngine->addTermToDatabase( t[0] );
-    d_quantEngine->addTermToDatabase( t[1] );
-    break;
-  case kind::NOT:
-    if( t[0].getKind()==EQUAL || t[0].getKind()==IFF ){
-      d_quantEngine->addTermToDatabase( t[0][0] );
-      d_quantEngine->addTermToDatabase( t[0][1] );
-    }else if( t[0].getKind()==APPLY_UF ){
-      d_quantEngine->addTermToDatabase( t[0] );
-    }
-    break;
-  case kind::CARDINALITY_CONSTRAINT:
-    break;
-  default:
-    d_quantEngine->addTermToDatabase( t );
-    break;
-  }
-  if( t.hasAttribute(InstConstantAttribute()) ){
-    setHasConstraintsFrom( t.getAttribute(InstConstantAttribute()) );
-  }else if( t.getKind()==NOT && t[0].hasAttribute(InstConstantAttribute()) ){
-    setHasConstraintsFrom( t[0].getAttribute(InstConstantAttribute()) );
-  }
+  //d_quantEngine->addTermToDatabase( t );
 }
 
 void InstantiatorTheoryUf::assertNode( Node assertion )
 {
   Debug("quant-uf-assert") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
   //preRegisterTerm( assertion );
-  //d_quantEngine->addTermToDatabase( assertion );
+  d_quantEngine->addTermToDatabase( assertion );
+  if( Options::current()->cbqi ){
+    if( assertion.hasAttribute(InstConstantAttribute()) ){
+      setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+    }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
+      setHasConstraintsFrom( assertion[0].getAttribute(InstConstantAttribute()) );
+    }
+  }
 }
 
 void InstantiatorTheoryUf::addUserPattern( Node f, Node pat ){

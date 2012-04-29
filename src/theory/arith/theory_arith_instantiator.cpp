@@ -183,6 +183,10 @@ Instantiator( c, ie, th ){
   }
 }
 
+void InstantiatorTheoryArith::preRegisterTerm( Node t ){
+
+}
+
 void InstantiatorTheoryArith::assertNode( Node assertion ){
   Debug("quant-arith-assert") << "InstantiatorTheoryArith::check: " << assertion << std::endl;
   ////this is just for debugging....
@@ -200,11 +204,14 @@ void InstantiatorTheoryArith::assertNode( Node assertion ){
   //    }
   //  }
   //}
-  //d_quantEngine->addTermToDatabase( assertion );
-}
-
-void InstantiatorTheoryArith::preRegisterTerm( Node t ){
-  //d_quantEngine->addTermToDatabase( t );
+  d_quantEngine->addTermToDatabase( assertion );
+  if( Options::current()->cbqi ){
+    if( assertion.hasAttribute(InstConstantAttribute()) ){
+      setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+    }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
+      setHasConstraintsFrom( assertion[0].getAttribute(InstConstantAttribute()) );
+    }
+  }
 }
 
 void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort effort ){

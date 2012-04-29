@@ -31,17 +31,19 @@ Instantiator( c, ie, th ){
 }
 
 void InstantiatorTheoryArrays::preRegisterTerm( Node t ){
-  d_quantEngine->addTermToDatabase( t );
-  //if( t.hasAttribute(InstConstantAttribute()) ){
-  //  setHasConstraintsFrom( t.getAttribute(InstConstantAttribute()) );
-  //}else if( t.getKind()==NOT && t[0].hasAttribute(InstConstantAttribute()) ){
-  //  setHasConstraintsFrom( t[0].getAttribute(InstConstantAttribute()) );
-  //}
+
 }
 
 void InstantiatorTheoryArrays::assertNode( Node assertion ){
   Debug("quant-arrays-assert") << "InstantiatorTheoryArrays::assertNode: " << assertion << std::endl;
-  //d_quantEngine->addTermToDatabase( assertion );
+  d_quantEngine->addTermToDatabase( assertion );
+  if( Options::current()->cbqi ){
+    if( assertion.hasAttribute(InstConstantAttribute()) ){
+      setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+    }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
+      setHasConstraintsFrom( assertion[0].getAttribute(InstConstantAttribute()) );
+    }
+  }
 }
 
 

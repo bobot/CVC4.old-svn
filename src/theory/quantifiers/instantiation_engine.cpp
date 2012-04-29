@@ -366,11 +366,10 @@ void InstantiationEngine::debugSat( int reason ){
 }
 
 void InstantiationEngine::propagate( Theory::Effort level ){
-#if 0
   //propagate as decision all counterexample literals that are not asserted
   for( std::map< Node, bool >::iterator it = d_cbqi_lemma_added.begin(); it != d_cbqi_lemma_added.end(); ++it ){
     if( it->second ){
-      Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( it->first );
+      Node cel = d_ce_lit[ it->first ];
       bool value;
       if( !d_th->getValuation().hasSatValue( cel, value ) ){
         //if not already set, propagate as decision
@@ -378,5 +377,4 @@ void InstantiationEngine::propagate( Theory::Effort level ){
       }
     }
   }
-#endif
 }

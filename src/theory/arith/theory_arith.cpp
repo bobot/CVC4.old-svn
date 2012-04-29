@@ -1174,6 +1174,12 @@ void TheoryArith::check(Effort effortLevel){
       d_out->conflict(c);
       return;
     }
+
+    //AJR-hack
+    if( getInstantiator() ){
+      getInstantiator()->assertNode( assertion );
+    }
+    //AJR-hack-end
   }
 
 
