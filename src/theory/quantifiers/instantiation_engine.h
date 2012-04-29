@@ -37,6 +37,11 @@ private:
   int d_inst_round_status;
   /** cbqi lemmas added */
   std::map< Node, bool > d_cbqi_lemma_added;
+  /** map from universal quantifiers to their counterexample literals */
+  std::map< Node, Node > d_ce_lit;
+private:
+  bool hasAddedCbqiLemma( Node f );
+  void addCbqiLemma( Node f );
 private:
   /** helper functions */
   bool hasNonArithmeticVariable( Node f );
@@ -47,7 +52,7 @@ private:
   /** do instantiation round */
   bool doInstantiationRound( Theory::Effort effort );
   /** register literals of n, f is the quantifier it belongs to */
-  void registerLiterals( Node n, Node f );
+  //void registerLiterals( Node n, Node f );
 private:
   enum{
     SAT_CBQI,
@@ -62,8 +67,11 @@ public:
   void check( Theory::Effort e );
   void registerQuantifier( Node f );
   void assertNode( Node f );
-  Node explain(TNode n){return Node::null();};
-
+  Node explain(TNode n){ return Node::null(); }
+  void propagate( Theory::Effort level );
+public:
+  /** get the corresponding counterexample literal for quantified formula node n */
+  Node getCounterexampleLiteralFor( Node f ) { return d_ce_lit.find( f )==d_ce_lit.end() ? Node::null() : d_ce_lit[ f ]; }
 };
 
 }

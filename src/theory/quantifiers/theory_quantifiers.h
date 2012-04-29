@@ -53,6 +53,7 @@ public:
   void preRegisterTerm(TNode n);
   void presolve();
   void check(Effort e);
+  void propagate(Effort level);
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }

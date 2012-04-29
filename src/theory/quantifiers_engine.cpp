@@ -368,6 +368,12 @@ void QuantifiersEngine::assertNode( Node f ){
   }
 }
 
+void QuantifiersEngine::propagate( Theory::Effort level ){
+  for( int i=0; i<(int)d_modules.size(); i++ ){
+    d_modules[i]->propagate( level );
+  }
+}
+
 void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
   if( d_term_db ){
     std::vector< Node > added;
@@ -635,8 +641,8 @@ void QuantifiersEngine::computePhaseReqs( Node n, bool polarity, std::map< Node,
   }
 }
 
-void QuantifiersEngine::generatePhaseReqs( Node f ){
-  computePhaseReqs( getCounterexampleBody( f ), false, d_phase_reqs[f] );
+void QuantifiersEngine::generatePhaseReqs( Node f, Node n ){
+  computePhaseReqs( n, false, d_phase_reqs[f] );
   Debug("inst-engine-phase-req") << "Phase requirements for " << f << ":" << std::endl;
   //now, compute if any patterns are equality required
   for( std::map< Node, bool >::iterator it = d_phase_reqs[f].begin(); it != d_phase_reqs[f].end(); ++it ){

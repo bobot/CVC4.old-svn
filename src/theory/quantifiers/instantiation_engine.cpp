@@ -21,7 +21,39 @@ QuantifiersEngine* InstantiationEngine::getQuantifiersEngine(){
   return d_th->getQuantifiersEngine();
 }
 
+bool InstantiationEngine::hasAddedCbqiLemma( Node f ) { 
+  return d_cbqi_lemma_added.find( f ) != d_cbqi_lemma_added.end() && d_cbqi_lemma_added[f];
+}
+
+void InstantiationEngine::addCbqiLemma( Node f ){
+  Assert( doCbqi( f ) && !hasAddedCbqiLemma( f ) );
+  d_cbqi_lemma_added[f] = true;
+  //add counterexample lemma
+  NodeBuilder<> nb(kind::OR);
+  nb << f << d_ce_lit[ f ];
+  Node lem = nb;
+  Debug("cbqi-debug") << "Counterexample lemma : " << lem << std::endl;
+  d_th->getOutputChannel().lemma( lem );
+}
+
 bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
+  //if counterexample-based quantifier instantiation is active
+  if( Options::current()->cbqi ){
+    //check if any cbqi lemma has not been added yet
+    bool addedLemma = false;
+    for( int i=0; i<(int)getQuantifiersEngine()->getNumAssertedQuantifiers(); i++ ){
+      Node f = getQuantifiersEngine()->getAssertedQuantifier( i );
+      if( doCbqi( f ) && !hasAddedCbqiLemma( f ) ){
+        //add cbqi lemma
+        addCbqiLemma( f );
+        addedLemma = true;
+      }
+    }
+    if( addedLemma ){
+      return true;
+    }
+  }
+  //if not, proceed to instantiation round
   Debug("inst-engine") << "IE: Instantiation Round." << std::endl;
   Debug("inst-engine-ctrl") << "IE: Instantiation Round." << std::endl;
   //reset instantiators
@@ -32,8 +64,9 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
     }
   }
   getQuantifiersEngine()->getTermDatabase()->resetInstantiationRound( effort );
-  int eLimit = effort==Theory::EFFORT_LAST_CALL ? 10 : 2;
+  //iterate over an internal effort level e
   int e = 0;
+  int eLimit = effort==Theory::EFFORT_LAST_CALL ? 10 : 2;
   d_inst_round_status = InstStrategy::STATUS_UNFINISHED;
   //while unfinished, try effort level=0,1,2....
   while( d_inst_round_status==InstStrategy::STATUS_UNFINISHED && e<=eLimit ){
@@ -45,7 +78,6 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
       Debug("inst-engine-debug") << "IE: Instantiate " << f << "..." << std::endl;
       //if this quantifier is active
       if( getQuantifiersEngine()->getActive( f ) ){
-        //std::cout << "Process " << f << " " << effort << " " << e << std::endl;
         //int e_use = getQuantifiersEngine()->getRelevance( f )==-1 ? e - 1 : e;
         int e_use = e;
         if( e_use>=0 ){
@@ -53,16 +85,13 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
           for( int i=0; i<theory::THEORY_LAST; i++ ){
             if( getQuantifiersEngine()->getInstantiator( i ) ){
               Debug("inst-engine-debug") << "Do " << getQuantifiersEngine()->getInstantiator( i )->identify() << " " << e_use << std::endl;
-              //std::cout << "Do " << d_instTable[i]->identify() << " " << e << std::endl;
               int limitInst = 0;
               int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e_use, limitInst );
               Debug("inst-engine-debug") << " -> status is " << quantStatus << std::endl;
-              //std::cout << " -> status is " << d_instTable[i]->getStatus() << std::endl;
               InstStrategy::updateStatus( d_inst_round_status, quantStatus );
             }
           }
         }
-        //std::cout << "Done" << std::endl;
       }
     }
     //do not consider another level if already added lemma at this level
@@ -120,8 +149,8 @@ void InstantiationEngine::check( Theory::Effort e ){
     //  if( (*i).second ) {
     for( int i=0; i<(int)getQuantifiersEngine()->getNumAssertedQuantifiers(); i++ ){
       Node n = getQuantifiersEngine()->getAssertedQuantifier( i );
-      Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( n );
-      if( !cel.isNull() && !Options::current()->finiteModelFind ){
+      Node cel = d_ce_lit[ n ];
+      if( hasAddedCbqiLemma( n ) && !cel.isNull() ){
         bool active, value;
         bool ceValue = false;
         if( d_th->getValuation().hasSatValue( cel, value ) ){
@@ -192,39 +221,31 @@ void InstantiationEngine::check( Theory::Effort e ){
 
 void InstantiationEngine::registerQuantifier( Node f ){
   //std::cout << "do cbqi " << f << " ? " << std::endl;
+  Node ceBody = getQuantifiersEngine()->getOrCreateCounterexampleBody( f );
   if( doCbqi( f ) ){
+    //code for counterexample-based quantifier instantiation
     Debug("cbqi") << "Do cbqi for " << f << std::endl;
     //make the counterexample body
-#if 0
-    Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
-                                  getQuantifiersEngine()->d_inst_constants[f].begin(),
-                                  getQuantifiersEngine()->d_inst_constants[f].end() );
-#else
-    Node ceBody = getQuantifiersEngine()->getSubstitutedNode( f[1], f );
-#endif
-    getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
-    //code for counterexample-based quantifier instantiation
+    //Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
+    //                              getQuantifiersEngine()->d_inst_constants[f].begin(),
+    //                              getQuantifiersEngine()->d_inst_constants[f].end() );
     //get the counterexample literal
     Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
-    getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
-#if 0
-#else
+    d_ce_lit[ f ] = ceLit;
     getQuantifiersEngine()->setInstantiationConstantAttr( ceLit, f );
-#endif
     // set attributes, mark all literals in the body of n as dependent on cel
-    registerLiterals( ceLit, f );
-    getQuantifiersEngine()->generatePhaseReqs( f );
+    //registerLiterals( ceLit, f );
     //require any decision on cel to be phase=true
     d_th->getOutputChannel().requirePhase( ceLit, true );
     Debug("cbqi-debug") << "Require phase " << ceLit << " = true." << std::endl;
   }else{
-    getQuantifiersEngine()->addTermToDatabase( getQuantifiersEngine()->getOrCreateCounterexampleBody( f ), true );
-    //compute phase requirements
-    getQuantifiersEngine()->generatePhaseReqs( f );
+    getQuantifiersEngine()->addTermToDatabase( ceBody, true );
     //need to tell which instantiators will be responsible
     //by default, just chose the UF instantiator
     getQuantifiersEngine()->getInstantiator( theory::THEORY_UF )->setHasConstraintsFrom( f );
   }
+  //compute phase requirements
+  getQuantifiersEngine()->generatePhaseReqs( f, ceBody );
 
   //take into account user patterns
   if( f.getNumChildren()==3 ){
@@ -239,14 +260,8 @@ void InstantiationEngine::registerQuantifier( Node f ){
 
 void InstantiationEngine::assertNode( Node f ){
   //if we are doing cbqi and have not added the lemma yet, do so
-  if( doCbqi( f ) && d_cbqi_lemma_added.find( f )==d_cbqi_lemma_added.end() ){
-    d_cbqi_lemma_added[f] = true;
-    //add counterexample lemma
-    NodeBuilder<> nb(kind::OR);
-    nb << f << getQuantifiersEngine()->d_ce_lit[ f ];
-    Node lem = nb;
-    Debug("cbqi-debug") << "Counterexample lemma : " << lem << std::endl;
-    d_th->getOutputChannel().lemma( lem );
+  if( doCbqi( f ) && !hasAddedCbqiLemma( f ) ){
+    addCbqiLemma( f );
   }
 }
 
@@ -296,60 +311,22 @@ bool InstantiationEngine::doCbqi( Node f ){
 
 
 
-
-void InstantiationEngine::registerLiterals( Node n, Node f ){
-#if 0
-  if( !n.hasAttribute(InstConstantAttribute()) ){
-    bool setAttr = false;
-    if( n.getKind()==INST_CONSTANT ){
-      setAttr = true;
-    }else{
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        registerLiterals( n[i], f );
-        if( n[i].hasAttribute(InstConstantAttribute()) ){
-          setAttr = true;
-        }
-      }
-    }
-    if( setAttr ){
-      if( !getQuantifiersEngine()->getCounterexampleLiteralFor( f ).isNull() ){
-        if( getQuantifiersEngine()->d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
-          if( n!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) &&
-              n.notNode()!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) ){
-            Debug("quant-dep-dec") << "Make " << n << " dependent on ";
-            Debug("quant-dep-dec") << getQuantifiersEngine()->getCounterexampleLiteralFor( f ) << std::endl;
-            d_th->getOutputChannel().dependentDecision( getQuantifiersEngine()->getCounterexampleLiteralFor( f ), n );
-          }
-        }
-      }
-      if( n.getKind()==FORALL ){
-        Debug("cbqi-debug") << "Set instantiation constant attribute on " << n << std::endl;
-      }
-      InstConstantAttribute ica;
-      n.setAttribute(ica,f);
-      //also set the no-match attribute
-      NoMatchAttribute nma;
-      n.setAttribute(nma,true);
-    }
-  }
-#else
-  if( n.getAttribute(InstConstantAttribute())==f ){
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      registerLiterals( n[i], f );
-    }
-    if( !getQuantifiersEngine()->getCounterexampleLiteralFor( f ).isNull() ){
-      if( getQuantifiersEngine()->d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
-        if( n!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) &&
-            n.notNode()!=getQuantifiersEngine()->getCounterexampleLiteralFor( f ) ){
-          Debug("quant-dep-dec") << "Make " << n << " dependent on ";
-          Debug("quant-dep-dec") << getQuantifiersEngine()->getCounterexampleLiteralFor( f ) << std::endl;
-          d_th->getOutputChannel().dependentDecision( getQuantifiersEngine()->getCounterexampleLiteralFor( f ), n );
-        }
-      }
-    }
-  }
-#endif
-}
+//void InstantiationEngine::registerLiterals( Node n, Node f ){
+//  if( n.getAttribute(InstConstantAttribute())==f ){
+//    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+//      registerLiterals( n[i], f );
+//    }
+//    if( !d_ce_lit[ f ].isNull() ){
+//      if( getQuantifiersEngine()->d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
+//        if( n!=d_ce_lit[ f ] && n.notNode()!=d_ce_lit[ f ] ){
+//          Debug("quant-dep-dec") << "Make " << n << " dependent on ";
+//          Debug("quant-dep-dec") << d_ce_lit[ f ] << std::endl;
+//          d_th->getOutputChannel().dependentDecision( d_ce_lit[ f ], n );
+//        }
+//      }
+//    }
+//  }
+//}
 
 void InstantiationEngine::debugSat( int reason ){
   if( reason==SAT_CBQI ){
@@ -360,8 +337,8 @@ void InstantiationEngine::debugSat( int reason ){
     //for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
     //  if( (*i).second ) {
     for( int i=0; i<(int)getQuantifiersEngine()->getNumAssertedQuantifiers(); i++ ){
-      Node n = getQuantifiersEngine()->getAssertedQuantifier( i );
-      Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( n );
+      Node f = getQuantifiersEngine()->getAssertedQuantifier( i );
+      Node cel = d_ce_lit[ f ];
       Assert( !cel.isNull() );
       bool value;
       if( d_th->getValuation().hasSatValue( cel, value ) ){
@@ -386,4 +363,20 @@ void InstantiationEngine::debugSat( int reason ){
     //std::cout << "sat ";
     //exit( 11 );
   }
+}
+
+void InstantiationEngine::propagate( Theory::Effort level ){
+#if 0
+  //propagate as decision all counterexample literals that are not asserted
+  for( std::map< Node, bool >::iterator it = d_cbqi_lemma_added.begin(); it != d_cbqi_lemma_added.end(); ++it ){
+    if( it->second ){
+      Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( it->first );
+      bool value;
+      if( !d_th->getValuation().hasSatValue( cel, value ) ){
+        //if not already set, propagate as decision
+        d_th->getOutputChannel().propagateAsDecision( cel );
+      }
+    }
+  }
+#endif
 }

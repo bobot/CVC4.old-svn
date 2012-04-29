@@ -167,6 +167,7 @@ public:
   /* Called for new quantifiers */
   virtual void registerQuantifier( Node n ) = 0;
   virtual void assertNode( Node n ) = 0;
+  virtual void propagate( Theory::Effort level ) = 0;
   virtual Node explain(TNode n) = 0;
 };
 
@@ -251,12 +252,10 @@ private:
   std::map< Node, Node > d_bound_body;
   /** instantiation constants to universal quantifiers */
   std::map< Node, Node > d_inst_constants_map;
-  /** map from universal quantifiers to the list of instantiation constants */
-  std::map< Node, std::vector< Node > > d_inst_constants;
   /** map from universal quantifiers to their counterexample body */
   std::map< Node, Node > d_counterexample_body;
-  /** map from universal quantifiers to their counterexample literals */
-  std::map< Node, Node > d_ce_lit;
+  /** map from universal quantifiers to the list of instantiation constants */
+  std::map< Node, std::vector< Node > > d_inst_constants;
   /** map from quantifiers to whether they are active */
   BoolMap d_active;
   /** lemmas produced */
@@ -312,6 +311,8 @@ public:
   void registerPattern( std::vector<Node> & pattern);
   /** assert (universal) quantifier */
   void assertNode( Node f );
+  /** propagate */
+  void propagate( Theory::Effort level );
 public:
   /** add lemma lem */
   bool addLemma( Node lem );
@@ -352,8 +353,6 @@ public:
   Node getCounterexampleBody( Node f ) { return d_counterexample_body[ f ]; }
   /** get or create the ce body f[e/x] */
   Node getOrCreateCounterexampleBody( Node f );
-  /** get the corresponding counterexample literal for quantified formula node n */
-  Node getCounterexampleLiteralFor( Node f ) { return d_ce_lit.find( f )==d_ce_lit.end() ? Node::null() : d_ce_lit[ f ]; }
   /** get the skolemized body f[e/x] */
   Node getSkolemizedBody( Node f );
   /** set active */
@@ -375,7 +374,7 @@ public:
   /** helper functions compute phase requirements */
   static void computePhaseReqs( Node n, bool polarity, std::map< Node, bool >& phaseReqs );
   /** compute phase requirements */
-  void generatePhaseReqs( Node f );
+  void generatePhaseReqs( Node f, Node n );
 public:
   /** returns node n with bound vars of f replaced by instantiation constants of f
       node n : is the futur pattern

@@ -127,6 +127,10 @@ void TheoryQuantifiers::check(Effort e) {
   d_quantEngine->check( e );
 }
 
+void TheoryQuantifiers::propagate(Effort level){
+  d_quantEngine->propagate( level );
+}
+
 void TheoryQuantifiers::assertUniversal( Node n ){
   Assert( n.getKind()==FORALL );
   if( !n.hasAttribute(InstConstantAttribute()) ){
