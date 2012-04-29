@@ -119,8 +119,9 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_INTS);
     break;
 
-  case Smt::QF_LRA:
   case Smt::QF_RDL:
+  case Smt::QF_LRA:
+  case Smt::QF_NRA:
     addTheory(THEORY_REALS);
     break;
 
@@ -154,6 +155,11 @@ void Smt2::setLogic(const std::string& name) {
 
   case Smt::QF_ABV:
     addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_BITVECTORS);
+    break;
+
+  case Smt::QF_UFBV:
+    addOperator(kind::APPLY_UF);
     addTheory(THEORY_BITVECTORS);
     break;
 
