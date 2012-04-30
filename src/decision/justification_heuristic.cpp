@@ -47,11 +47,14 @@
 #include "util/ite_removal.h"
 
 /***
+Here's the main idea
 
-Summary of the algorithm:
+   Given a boolean formula "node", the goal is to try to make it
+evaluate to "desiredVal" (true/false). for instance if "node" is a AND
+formula we want to make it evaluate to true, we'd like one of the
+children to be true. this is done recursively.
 
-
-
+   
 ***/
 
 /*
@@ -72,6 +75,30 @@ bool JustificationHeuristic::checkJustified(TNode n)
 {
   return d_justified.find(n) != d_justified.end();
 }
+
+SatValue JustificationHeuristic::tryGetSatValue(Node n)
+{
+  Debug("decision") << "   "  << n << " has sat value " << " ";
+  if(d_decisionEngine->hasSatLiteral(n) ) {
+    Debug("decision") << d_decisionEngine->getSatValue(n) << std::endl;
+    return d_decisionEngine->getSatValue(n);
+  } else {
+    Debug("decision") << "NO SAT LITERAL" << std::endl;
+
+    NodeManager *nodeManager = NodeManager::currentNM();
+    Node rnode;
+    if(nodeManager->getAttribute(n, IteRewriteAttr(), rnode)) {
+      if(d_decisionEngine->hasSatLiteral(rnode)) {
+        //Aha! so it got rewritten, that is why.
+        Debug("decision") << " ..but, we have for rewritten one "
+                          << d_decisionEngine->getSatValue(rnode);
+        return d_decisionEngine->getSatValue(rnode);
+      }
+    }//end of if(...IteRewriteAttr...)
+    return SAT_VALUE_UNKNOWN;
+  }//end of else
+}
+
 
 SatValue invertValue(SatValue v)
 {
@@ -98,6 +125,13 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
   // We don't always have a sat literal, so remember that. Will need
   // it for some assertions we make.
   bool litPresent = d_decisionEngine->hasSatLiteral(node);
+  if(litPresent == false) {
+    NodeManager *nodeManager = NodeManager::currentNM();
+    Node rnode;
+    if(nodeManager->getAttribute(node, IteRewriteAttr(), rnode))
+      if(d_decisionEngine->hasSatLiteral(rnode))
+        litPresent = true;
+  }
 
   // Get value of sat literal for the node, if there is one
   SatValue litVal = tryGetSatValue(node);
@@ -107,6 +141,8 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       Trace("decision") << "no sat literal for this node" << std::endl;
     }
   }
+
+  //Assert(litPresent); -- fails
 
   /* You'd better know what you want */
   Assert(desiredVal != SAT_VALUE_UNKNOWN, "expected known value");
@@ -154,7 +190,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
 
       // call rewriter
       if(!rnode.isNull())
-       rnode = theory::Rewriter::rewrite(rnode);
+        rnode = theory::Rewriter::rewrite(rnode);
     }
 
     // Either we have a sat literal for this node, or for the ITE
@@ -167,24 +203,34 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
     // For now, we the assertion doesn't hold because
     if(!d_decisionEngine->hasSatLiteral(node)
        && !d_decisionEngine->hasSatLiteral(rnode) ) {
-      //WarningOnce() << "WARNING: DecisionEngine: missing sat literal" << std::endl;
+      // WarningOnce() << "WARNING: DecisionEngine: missing sat literal" 
+      // 		    << std::endl;
       throw GiveUpException();
     }
 
     if(not rnode.isNull()) {
       Trace("jh-ite") << "Found an ite which we can tackle" 
-		      << " node = " << node
-		      << " rnode = " << rnode << std::endl;
+                      << " node = " << node
+                      << " rnode = " << rnode << std::endl;
 
       // Sanity check: make sure the non-rewritten node isn't in sat
       // solver (remove this assert if it doesn't hold for some
       // reasons I can't forsee right now)
       Assert(!d_decisionEngine->hasSatLiteral(node));
+      
+      Assert(d_decisionEngine->hasSatLiteral(rnode));
+      
+      // something inside has an ite which was replaced
+      /*if(findAndHandleTermITE(node, SAT_VALUE_UNKNOWN, litDecision))
+        return true;*/
+      
+      // for the rest of the code
+      node = rnode;
+      
     }
 
     // if node has embedded ites -- which currently happens iff it got
     // replaced during ite removal -- then try to resolve that
-
     if(litVal != SAT_VALUE_UNKNOWN) {
       setJustified(node);
       return false;

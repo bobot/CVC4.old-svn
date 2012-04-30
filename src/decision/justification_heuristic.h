@@ -141,17 +141,7 @@ private:
   
   /* If literal exists corresponding to the node return
      that. Otherwise an UNKNOWN */
-  SatValue tryGetSatValue(Node n)
-  {
-    Debug("decision") << "   "  << n << " has sat value " << " ";
-    if(d_decisionEngine->hasSatLiteral(n) ) {
-      Debug("decision") << d_decisionEngine->getSatValue(d_decisionEngine->getSatLiteral(n)) << std::endl;
-      return d_decisionEngine->getSatValue(d_decisionEngine->getSatLiteral(n));
-    } else {
-      Debug("decision") << "NO SAT LITERAL" << std::endl;
-      return SAT_VALUE_UNKNOWN;
-    }
-  }
+  SatValue tryGetSatValue(Node n);
 
 };/* class JustificationHeuristic */
 
