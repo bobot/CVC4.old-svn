@@ -223,6 +223,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       // something inside has an ite which was replaced
       /*if(findAndHandleTermITE(node, SAT_VALUE_UNKNOWN, litDecision))
         return true;*/
+      throw GiveUpException();
       
       // for the rest of the code
       node = rnode;
