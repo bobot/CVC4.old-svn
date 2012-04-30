@@ -25,6 +25,7 @@
 #include "context/cdlist.h"
 #include "context/cdhashset.h"
 #include "context/cdqueue.h"
+#include "context/cdmaybe.h"
 #include "expr/node.h"
 
 #include "util/dense_map.h"
@@ -60,7 +61,8 @@ namespace arith {
  */
 class TheoryArith : public Theory {
 private:
-  bool rowImplication(ArithVar v, bool upperBound, const DeltaRational& r);
+  bool inferredBound(ArithVar v, bool upperBound, const DeltaRational& r);
+
 
   /**
    * This counter is false if nothing has been done since the last cut.
@@ -168,7 +170,6 @@ private:
   /**
    * List of all of the inequalities asserted in the current context.
    */
-  //context::CDHashSet<Node, NodeHashFunction> d_diseq;
   context::CDQueue<Constraint> d_diseqQueue;
 
 
@@ -197,8 +198,8 @@ private:
   /**
    * Some integer variables can be replaced with pseudoboolean
    * variables internally.  This map is built up at static learning
-   * time for top-level asserted expressions of the shape "x = 0 OR x
-   * = 1".  This substitution map is then applied in preprocess().
+   * time for top-level asserted expressions of the shape
+   * "x = 0 OR x = 1".  This substitution map is then applied in preprocess().
    *
    * Note that expressions of the shape "x >= 0 AND x <= 1" are
    * already substituted for PB versions at solve() time and won't
@@ -236,6 +237,9 @@ private:
   };
   PushCallBack d_conflictCallBack;
 
+  bool inConflict(){
+    return !d_conflicts.empty();
+  }
 
   /**
    * A copy of the tableau immediately after removing variables
@@ -373,13 +377,13 @@ private:
    * c is the value of the new bound.
    *
    * If this new bound is in conflict with the other bound,
-   * a node describing this conflict is returned.
-   * If this new bound is not in conflict, Node::null() is returned.
+   * a conflict is put on d_conflicts and true is returned.
+   * If this new bound is not known to be in conflict, false is returned.
    */
-  Node AssertLower(Constraint constraint);
-  Node AssertUpper(Constraint constraint);
-  Node AssertEquality(Constraint constraint);
-  Node AssertDisequality(Constraint constraint);
+  bool AssertLower(Constraint constraint);
+  bool AssertUpper(Constraint constraint);
+  bool AssertEquality(Constraint constraint);
+  bool AssertDisequality(Constraint constraint);
 
   /** Tracks the bounds that were updated in the current round. */
   DenseSet d_updatedBounds;
@@ -390,8 +394,8 @@ private:
   bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
   void clearUpdates(){ d_updatedBounds.purge(); }
 
-  void propagateCandidates();
-  void propagateCandidate(ArithVar basic);
+  bool propagateCandidates();
+  bool propagateCandidate(ArithVar basic);
   bool propagateCandidateBound(ArithVar basic, bool upperBound);
 
   inline bool propagateCandidateLowerBound(ArithVar basic){
@@ -408,10 +412,17 @@ private:
 
   /**
    * Handles the case splitting for check() for a new assertion.
-   * Returns a conflict if one was found.
-   * Returns Node::null if no conflict was found.
+   * Returns true if a conflict was raised.
+   * Returns false if no conflict was found.
    */
-  Node assertionCases(TNode assertion);
+  bool assertConstraint(Constraint c);
+  bool detectLinearEqualityConflict();
+
+  /** Returns a Constraint from the fact queue.
+   * Potenially does additional setup and checking.
+   * Returns NullConstraint if this is known to be in conflict
+   */
+  Constraint getConstraintFromFacts();
 
   /**
    * Returns the basic variable with the shorted row containg a non-basic variable.
@@ -425,8 +436,8 @@ private:
    */
   bool entireStateIsConsistent();
 
-  bool isImpliedUpperBound(ArithVar var, Node exp);
-  bool isImpliedLowerBound(ArithVar var, Node exp);
+  //bool isImpliedUpperBound(ArithVar var, Node exp);
+  //bool isImpliedLowerBound(ArithVar var, Node exp);
 
   void internalExplain(TNode n, NodeBuilder<>& explainBuilder);
 

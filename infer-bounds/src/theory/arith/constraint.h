@@ -403,6 +403,15 @@ public:
   bool isUpperBound() const{
     return d_type == UpperBound;
   }
+  bool isStrictUpperBound() const{
+    Assert(isUpperBound());
+    return getValue().infinitesimalSgn() < 0;
+  }
+
+  bool isStrictLowerBound() const{
+    Assert(isLowerBound());
+    return getValue().infinitesimalSgn() > 0;
+  }
 
   bool isSplit() const {
     return d_split;
