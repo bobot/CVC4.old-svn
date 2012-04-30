@@ -85,7 +85,7 @@ SatValue JustificationHeuristic::tryGetSatValue(Node n)
   } else {
     Debug("decision") << "NO SAT LITERAL" << std::endl;
 
-    NodeManager *nodeManager = NodeManager::currentNM();
+    /*NodeManager *nodeManager = NodeManager::currentNM();
     Node rnode;
     if(nodeManager->getAttribute(n, IteRewriteAttr(), rnode)) {
       if(d_decisionEngine->hasSatLiteral(rnode)) {
@@ -94,7 +94,7 @@ SatValue JustificationHeuristic::tryGetSatValue(Node n)
                           << d_decisionEngine->getSatValue(rnode);
         return d_decisionEngine->getSatValue(rnode);
       }
-    }//end of if(...IteRewriteAttr...)
+      }//end of if(...IteRewriteAttr...)*/
     return SAT_VALUE_UNKNOWN;
   }//end of else
 }
@@ -125,13 +125,13 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
   // We don't always have a sat literal, so remember that. Will need
   // it for some assertions we make.
   bool litPresent = d_decisionEngine->hasSatLiteral(node);
-  if(litPresent == false) {
+  /*if(litPresent == false) {
     NodeManager *nodeManager = NodeManager::currentNM();
     Node rnode;
     if(nodeManager->getAttribute(node, IteRewriteAttr(), rnode))
       if(d_decisionEngine->hasSatLiteral(rnode))
         litPresent = true;
-  }
+        }*/
 
   // Get value of sat literal for the node, if there is one
   SatValue litVal = tryGetSatValue(node);
@@ -183,7 +183,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
      //      && !(k == kind::EQUAL && node[0].getType().isBoolean()) 
      ) {
     // node could have been rewritten because a child is ITE.
-    NodeManager *nodeManager = NodeManager::currentNM();
+    /*NodeManager *nodeManager = NodeManager::currentNM();
     Node rnode;
     if(nodeManager->getAttribute(node, IteRewriteAttr(), rnode)) {
       // OK. So we saved the rewritten node, if there is one.
@@ -191,7 +191,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       // call rewriter
       if(!rnode.isNull())
         rnode = theory::Rewriter::rewrite(rnode);
-    }
+        }*/
 
     // Either we have a sat literal for this node, or for the ITE
     // removed node
@@ -201,7 +201,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
 	    );*/
 
     // For now, we the assertion doesn't hold because
-    if(!d_decisionEngine->hasSatLiteral(node)
+    /*if(!d_decisionEngine->hasSatLiteral(node)
        && !d_decisionEngine->hasSatLiteral(rnode) ) {
       // WarningOnce() << "WARNING: DecisionEngine: missing sat literal" 
       // 		    << std::endl;
@@ -221,14 +221,14 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
       Assert(d_decisionEngine->hasSatLiteral(rnode));
       
       // something inside has an ite which was replaced
-      /*if(findAndHandleTermITE(node, SAT_VALUE_UNKNOWN, litDecision))
-        return true;*/
+      //if(findAndHandleTermITE(node, SAT_VALUE_UNKNOWN, litDecision))
+      //return true;
       throw GiveUpException();
       
       // for the rest of the code
       node = rnode;
       
-    }
+      }*/
 
     // if node has embedded ites -- which currently happens iff it got
     // replaced during ite removal -- then try to resolve that
