@@ -1166,18 +1166,12 @@ Constraint TheoryArith::getConstraintFromFacts(){
   Assert(!done());
   Node assertion = get();
   Constraint constraint = d_constraintDatabase.lookup(assertion);
-  ArithVar x_i = constraint->getVariable();
 
   Kind simpleKind = Comparison::comparisonKind(assertion);
   Assert(simpleKind != UNDEFINED_KIND);
   Assert(constraint != NullConstraint ||
          simpleKind == EQUAL ||
          simpleKind == DISTINCT );
-  Assert(!isInteger(x_i) ||
-         simpleKind == EQUAL ||
-         simpleKind == DISTINCT ||
-         simpleKind == GEQ ||
-         simpleKind == LT);
   if(simpleKind == EQUAL || simpleKind == DISTINCT){
     Node eq = (simpleKind == DISTINCT) ? assertion[0] : assertion;
 
@@ -1188,6 +1182,14 @@ Constraint TheoryArith::getConstraintFromFacts(){
     }
   }
   Assert(constraint != NullConstraint);
+  ArithVar x_i = constraint->getVariable();
+
+  Assert(!isInteger(x_i) ||
+         simpleKind == EQUAL ||
+         simpleKind == DISTINCT ||
+         simpleKind == GEQ ||
+         simpleKind == LT);
+
   if(constraint->negationHasProof()){
     Constraint negation = constraint->getNegation();
     if(negation->isSelfExplaining()){
@@ -1204,7 +1206,7 @@ Constraint TheoryArith::getConstraintFromFacts(){
     negation->explainForConflict(nb);
     Node conflict = nb;
     Debug("arith::eq") << "conflict" << conflict << endl;
-    d_out->conflict(conflict);
+    d_pushConflict(conflict);
     return NullConstraint;
   }
   Assert(!constraint->hasLiteral() || constraint->getLiteral() == assertion);
@@ -1784,7 +1786,6 @@ bool TheoryArith::inferredBound(ArithVar v, bool upperBound, const DeltaRational
       bool inConflict =  assertConstraint(constraint);
       if(inConflict){
         cout << "uncaught conflict " << endl;
-        Unreachable();
       }
       return true;
     }

@@ -23,7 +23,7 @@ TESTS =	\
 	arith-int-042.cvc \
 	arith-int-042.min.cvc \
 	arith-int-047.cvc \
-	arith-int-050.cvc \
+	arith-int-048.cvc \
 	arith-int-082.cvc \
 	arith-int-084.cvc \
 	arith-int-085.cvc \
@@ -117,8 +117,8 @@ EXTRA_DIST = $(TESTS) \
 	arith-int-100.cvc
 
 FAILING_TESTS = \
-	arith-int-048.cvc \
-	arith-int-013.cvc
+	arith-int-013.cvc \
+	arith-int-050.cvc
 
 #if CVC4_BUILD_PROFILE_COMPETITION
 #else
