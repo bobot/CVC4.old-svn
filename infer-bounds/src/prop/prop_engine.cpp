@@ -91,15 +91,11 @@ PropEngine::~PropEngine() {
   delete d_satSolver;
 }
 
-void PropEngine::processAssertionsStart() {
-  d_theoryEngine->preprocessStart();
-}
-
 void PropEngine::assertFormula(TNode node) {
   Assert(!d_inCheckSat, "Sat solver in solve()!");
   Debug("prop") << "assertFormula(" << node << ")" << endl;
   // Assert as non-removable
-  d_cnfStream->convertAndAssert(d_theoryEngine->preprocess(node), false, false);
+  d_cnfStream->convertAndAssert(node, false, false);
 }
 
 void PropEngine::assertLemma(TNode node, bool negated, bool removable) {
@@ -110,6 +106,15 @@ void PropEngine::assertLemma(TNode node, bool negated, bool removable) {
     Dump("learned") << AssertCommand(BoolExpr(node.toExpr()));
   } else if(Dump.isOn("lemmas")) {
     Dump("lemmas") << AssertCommand(BoolExpr(node.toExpr()));
+  }
+
+  /* Tell decision engine */
+  if(negated) {
+    NodeBuilder<> nb(kind::NOT);
+    nb << node;
+    d_decisionEngine->addAssertion(nb.constructNode());
+  } else {
+    d_decisionEngine->addAssertion(node);
   }
 
   //TODO This comment is now false

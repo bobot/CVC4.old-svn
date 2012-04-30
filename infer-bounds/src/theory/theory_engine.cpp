@@ -38,18 +38,19 @@ using namespace CVC4;
 using namespace CVC4::theory;
 
 TheoryEngine::TheoryEngine(context::Context* context,
-                           context::UserContext* userContext)
+                           context::UserContext* userContext,
+                           const LogicInfo& logicInfo)
 : d_propEngine(NULL),
   d_context(context),
   d_userContext(userContext),
-  d_activeTheories(context, 0),
+  d_logicInfo(logicInfo),
   d_notify(*this),
   d_sharedTerms(d_notify, context),
   d_ppCache(),
   d_possiblePropagations(),
   d_hasPropagated(context),
   d_inConflict(context, false),
-  d_sharedTermsExist(context, false),
+  d_sharedTermsExist(logicInfo.isSharingEnabled()),
   d_hasShutDown(false),
   d_incomplete(context, false),
   d_sharedLiteralsIn(context),
@@ -93,8 +94,6 @@ void TheoryEngine::preRegister(TNode preprocessed) {
   if (multipleTheories) {
     // Collect the shared terms if there are multipe theories
     NodeVisitor<SharedTermsVisitor>::run(d_sharedTermsVisitor, preprocessed);
-    // Mark the multiple theories flag
-    d_sharedTermsExist = true;
   }
 }
 
@@ -110,7 +109,7 @@ void TheoryEngine::check(Theory::Effort effort) {
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-    if (theory::TheoryTraits<THEORY>::hasCheck && isActive(THEORY)) { \
+    if (theory::TheoryTraits<THEORY>::hasCheck && d_logicInfo.isTheoryEnabled(THEORY)) { \
        reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->check(effort); \
        if (d_inConflict) { \
          break; \
@@ -135,9 +134,9 @@ void TheoryEngine::check(Theory::Effort effort) {
       Debug("theory") << "TheoryEngine::check(" << effort << "): running check" << std::endl;
 
       if (Debug.isOn("theory::assertions")) {
-        for (unsigned theoryId = 0; theoryId < THEORY_LAST; ++ theoryId) {
+        for (TheoryId theoryId = THEORY_FIRST; theoryId < THEORY_LAST; ++theoryId) {
           Theory* theory = d_theoryTable[theoryId];
-          if (theory && Theory::setContains((TheoryId)theoryId, d_activeTheories)) {
+          if (theory && d_logicInfo.isTheoryEnabled(theoryId)) {
             Debug("theory::assertions") << "--------------------------------------------" << std::endl;
             Debug("theory::assertions") << "Assertions of " << theory->getId() << ": " << std::endl;
             context::CDList<Assertion>::const_iterator it = theory->facts_begin(), it_end = theory->facts_end();
@@ -248,7 +247,7 @@ void TheoryEngine::combineTheories() {
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-  if (theory::TheoryTraits<THEORY>::isParametric && isActive(THEORY)) { \
+  if (theory::TheoryTraits<THEORY>::isParametric && d_logicInfo.isTheoryEnabled(THEORY)) { \
      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->getCareGraph(careGraph); \
   }
 
@@ -309,7 +308,7 @@ void TheoryEngine::propagate(Theory::Effort effort) {
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-  if (theory::TheoryTraits<THEORY>::hasPropagate && isActive(THEORY)) { \
+  if (theory::TheoryTraits<THEORY>::hasPropagate && d_logicInfo.isTheoryEnabled(THEORY)) { \
     reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->propagate(effort); \
   }
 
@@ -447,7 +446,7 @@ void TheoryEngine::notifyRestart() {
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-  if (theory::TheoryTraits<THEORY>::hasNotifyRestart && isActive(THEORY)) { \
+  if (theory::TheoryTraits<THEORY>::hasNotifyRestart && d_logicInfo.isTheoryEnabled(THEORY)) { \
     reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->notifyRestart(); \
   }
 
@@ -482,7 +481,7 @@ void TheoryEngine::shutdown() {
   d_hasShutDown = true;
 
   // Shutdown all the theories
-  for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
+  for(TheoryId theoryId = theory::THEORY_FIRST; theoryId < theory::THEORY_LAST; ++theoryId) {
     if(d_theoryTable[theoryId]) {
       theoryOf(static_cast<TheoryId>(theoryId))->shutdown();
     }
@@ -626,7 +625,6 @@ void TheoryEngine::assertFact(TNode node)
   TNode atom = negated ? node[0] : node;
   Theory* theory = theoryOf(atom);
 
-  //TODO: there is probably a bug here if shared terms start to exist after some asseritons have been processed
   if (d_sharedTermsExist) {
 
     // If any shared terms, notify the theories
@@ -642,7 +640,6 @@ void TheoryEngine::assertFact(TNode node)
           }
         }
         d_sharedTerms.markNotified(term, theories);
-        markActive(theories);
       }
     }
 
@@ -665,7 +662,7 @@ void TheoryEngine::assertFact(TNode node)
       // TODO: have processSharedLiteral propagate disequalities?
       if (node.getKind() == kind::EQUAL) {
         // Don't have to assert it - this will be taken care of by processSharedLiteral
-        Assert(isActive(theory->getId()));
+        Assert(d_logicInfo.isTheoryEnabled(theory->getId()));
         return;
       }
     }
@@ -678,7 +675,7 @@ void TheoryEngine::assertFact(TNode node)
 
   // Assert the fact to the appropriate theory and mark it active
   theory->assertFact(node, true);
-  markActive(Theory::setInsert(theory->getId()));
+  Assert(d_logicInfo.isTheoryEnabled(theory->getId()));
 }
 
 void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
@@ -935,4 +932,21 @@ void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
     Assert(properConflict(conflict));
     lemma(conflict, true, false);
   }
+}
+
+
+//Conflict from shared terms database
+void TheoryEngine::sharedConflict(TNode conflict) {
+  // Mark that we are in conflict
+  d_inConflict = true;
+
+  if(Dump.isOn("t-conflicts")) {
+    Dump("t-conflicts") << CommentCommand("theory conflict: expect unsat")
+                        << CheckSatCommand(conflict.toExpr());
+  }
+
+  Node fullConflict = explain(ExplainTask(d_sharedTerms.explain(conflict), SHARED_DATABASE_EXPLANATION));
+  Assert(properConflict(fullConflict));
+  Debug("theory") << "TheoryEngine::sharedConflict(" << conflict << "): " << fullConflict << std::endl;
+  lemma(fullConflict, true, false);
 }
