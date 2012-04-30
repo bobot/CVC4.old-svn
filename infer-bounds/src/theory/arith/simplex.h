@@ -71,6 +71,7 @@ namespace arith {
 
 class SimplexDecisionProcedure {
 private:
+  DenseSet d_successes;
 
   /** Linear equality module. */
   LinearEqualityModule& d_linEq;

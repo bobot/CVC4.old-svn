@@ -203,6 +203,7 @@ Node betterConflict(TNode x, TNode y){
 
 bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_findConflictOnTheQueueTime);
+  Assert(d_successes.empty());
 
   switch(type){
   case BeforeDiffSearch:     ++(d_statistics.d_attemptBeforeDiffSearch); break;
@@ -211,22 +212,23 @@ bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
   case DuringVarOrderSearch: ++(d_statistics.d_attemptDuringVarOrderSearch); break;
   case AfterVarOrderSearch:  ++(d_statistics.d_attemptAfterVarOrderSearch); break;
   }
+  
 
-  bool success = false;
+  //bool success = false;
   ArithPriorityQueue::const_iterator i = d_queue.begin();
   ArithPriorityQueue::const_iterator end = d_queue.end();
   for(; i != end; ++i){
     ArithVar x_i = *i;
 
-    if(d_tableau.isBasic(x_i)){
+    if(d_tableau.isBasic(x_i) && !d_successes.isMember(x_i)){
       Node possibleConflict = checkBasicForConflict(x_i);
       if(!possibleConflict.isNull()){
-        success = true;
+        d_successes.add(x_i);
         reportConflict(possibleConflict);
       }
     }
   }
-  if(success){
+  if(!d_successes.empty()){
     switch(type){
     case BeforeDiffSearch:     ++(d_statistics.d_successBeforeDiffSearch); break;
     case DuringDiffSearch:     ++(d_statistics.d_successDuringDiffSearch); break;
@@ -234,8 +236,11 @@ bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
     case DuringVarOrderSearch: ++(d_statistics.d_successDuringVarOrderSearch); break;
     case AfterVarOrderSearch:  ++(d_statistics.d_successAfterVarOrderSearch); break;
     }
+    d_successes.purge();
+    return true;
+  }else{
+    return false;
   }
-  return success;
 }
 
 bool SimplexDecisionProcedure::findModel(){

@@ -235,7 +235,7 @@ private:
       d_list.push_back(n);
     }
   };
-  PushCallBack d_conflictCallBack;
+  PushCallBack d_pushConflict;
 
   bool inConflict(){
     return !d_conflicts.empty();
@@ -416,7 +416,8 @@ private:
    * Returns false if no conflict was found.
    */
   bool assertConstraint(Constraint c);
-  bool detectLinearEqualityConflict();
+  //bool detectLinearEqualityConflict();
+  void outputConflictsAndResetState();
 
   /** Returns a Constraint from the fact queue.
    * Potenially does additional setup and checking.
