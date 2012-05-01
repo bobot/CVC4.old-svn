@@ -99,6 +99,17 @@ SatValue JustificationHeuristic::tryGetSatValue(Node n)
   }//end of else
 }
 
+void JustificationHeuristic::getITEs(TNode n, vector<TNode> &v)
+{
+  IteCache::iterator it = d_iteCache.find(n);
+  if(it != d_iteCache.end()) {
+    v = it->second;
+    return;
+  } else {
+    // Compute the list of ITEs
+    // v = d_iteCache[n];
+  }
+}
 
 SatValue invertValue(SatValue v)
 {

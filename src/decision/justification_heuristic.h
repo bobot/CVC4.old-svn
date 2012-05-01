@@ -41,15 +41,34 @@ public:
   }
 };/* class GiveUpException */
 
-class JustificationHeuristic : public DecisionStrategy {
+class JustificationHeuristic : public ITEDecisionStrategy {
+  typedef hash_map<TNode,std::vector<TNode>,TNodeHashFunction> IteCache;
+
+  // being 'justified' is monotonic with respect to decisions
   context::CDHashSet<TNode,TNodeHashFunction> d_justified;
   context::CDO<unsigned>  d_prvsIndex;
+
   IntStat d_helfulness;
   IntStat d_giveup;
   TimerStat d_timestat;
+
+  /**
+   * A copy of the assertions that need to be justified
+   * directly. Doesn't have ones introduced during during ITE-removal.
+   */
+  std::vector<TNode> d_assertions;   
+  //TNode is fine since decisionEngine has them too
+
+  /** map from ite-rewrite skolem to a boolean-ite assertion */
+  hash_map<TNode,TNode,TNodeHashFunction> d_iteAssertions;
+  // 'key' being TNode is fine since if a skolem didn't exist anywhere,
+  // we won't look it up. as for 'value', same reason as d_assertions
+
+  /** Cache for ITE skolems present in a atomic formula */
+  IteCache d_iteCache;
 public:
   JustificationHeuristic(CVC4::DecisionEngine* de, context::Context *c):
-    DecisionStrategy(de, c),
+    ITEDecisionStrategy(de, c),
     d_justified(c),
     d_prvsIndex(c, 0),
     d_helfulness("decision::jh::helpfulness", 0),
@@ -69,16 +88,14 @@ public:
 
     TimerStat::CodeTimer codeTimer(d_timestat);
 
-    const vector<Node>& assertions = d_decisionEngine->getAssertions();
-
-    for(unsigned i = d_prvsIndex; i < assertions.size(); ++i) {
+    for(unsigned i = d_prvsIndex; i < d_assertions.size(); ++i) {
       SatLiteral litDecision;
 
-      Trace("decision") << assertions[i] << std::endl;
+      Trace("decision") << d_assertions[i] << std::endl;
 
       SatValue desiredVal = SAT_VALUE_UNKNOWN;
 
-      if(d_decisionEngine->hasSatLiteral(assertions[i]) ) {
+      if(d_decisionEngine->hasSatLiteral(d_assertions[i]) ) {
         //desiredVal = d_decisionEngine->getSatValue( d_decisionEngine->getSatLiteral(assertions[i]) );
         Trace("decision") << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
         //    continue;
@@ -89,7 +106,7 @@ public:
 
       bool ret;
       try {
-        ret = findSplitterRec(assertions[i], desiredVal, &litDecision);
+        ret = findSplitterRec(d_assertions[i], desiredVal, &litDecision);
       }catch(GiveUpException &e) {
         return prop::undefSatLiteral;
       }
@@ -104,14 +121,16 @@ public:
     Trace("decision") << "Nothing to split on " << std::endl;
 
     bool alljustified = true;
-    for(unsigned i = 0 ; i < assertions.size() && alljustified ; ++i) {
-      alljustified &= assertions[i].getKind() == kind::NOT ? 
-        checkJustified(assertions[i][0]) : checkJustified(assertions[i]);
+    for(unsigned i = 0 ; i < d_assertions.size() && alljustified ; ++i) {
+      alljustified &= d_assertions[i].getKind() == kind::NOT ? 
+        checkJustified(d_assertions[i][0]) :
+        checkJustified(d_assertions[i]);
+
       if(Debug.isOn("decision")) {
-	bool x = assertions[i].getKind() == kind::NOT ? 
-        checkJustified(assertions[i][0]) : checkJustified(assertions[i]);
+	bool x = d_assertions[i].getKind() == kind::NOT ? 
+        checkJustified(d_assertions[i][0]) : checkJustified(d_assertions[i]);
 	if(x==false)
-	  Debug("decision") << "****** Not justified [i="<<i<<"]: " << assertions[i] << std::endl;
+	  Debug("decision") << "****** Not justified [i="<<i<<"]: " << d_assertions[i] << std::endl;
       }
     }
     Assert(alljustified);
@@ -120,16 +139,25 @@ public:
     d_decisionEngine->setResult(SAT_VALUE_TRUE);
 
     return prop::undefSatLiteral;
-  } 
-  bool needSimplifiedPreITEAssertions() { return true; }
-  void notifyAssertionsAvailable() {
-    Trace("decision") << "JustificationHeuristic::notifyAssertionsAvailable()" 
-                      << "  size = " << d_decisionEngine->getAssertions().size()
-                      << std::endl;
-    /* clear the justifcation labels -- reconsider if/when to do
-       this */
-    //d_justified.clear();
-    //d_prvsIndex = 0;
+  }
+
+  void addAssertions(const std::vector<Node> &assertions,
+                     unsigned assertionsEnd,
+                     IteSkolemMap iteSkolemMap) {
+    Trace("decision")
+      << "JustificationHeuristic::addAssertions()" 
+      << " size = " << d_decisionEngine->getAssertions().size()
+      << " assertionsEnd = " << assertionsEnd
+      << std::endl;
+
+    for(unsigned i = 0; i < assertionsEnd; ++i)
+      d_assertions.push_back(assertions[i]);
+    
+    for(IteSkolemMap::iterator i = iteSkolemMap.begin();
+        i != iteSkolemMap.end(); ++i) {
+      Assert(i->second >= assertionsEnd && i->second < assertions.size());
+      d_iteAssertions[i->first] = assertions[i->second];
+    }
   }
 private:
   /* Do all the hardwork. */ 
@@ -143,6 +171,8 @@ private:
      that. Otherwise an UNKNOWN */
   SatValue tryGetSatValue(Node n);
 
+  /* Get list of all ITEs for the atomic formula v */
+  void getITEs(TNode n, vector<TNode> &v);
 };/* class JustificationHeuristic */
 
 }/* namespace decision */
