@@ -422,7 +422,7 @@ public:
 
   /**
    * Light wrapper for calling setCanBePropagated(),
-   * on this and this-d_negation.
+   * on this and this->d_negation.
    */
   void setPreregistered(){
     setCanBePropagated();
