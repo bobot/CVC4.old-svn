@@ -122,7 +122,7 @@ Options::Options() :
   literalMatchMode(LITERAL_MATCH_NONE),
   cbqi(false),
   cbqiSetByUser(false),
-  flipDecision(true),
+  flipDecision(false),
   dioSolver(true),
   arithRewriteEq(true),
   lemmaOutputChannel(NULL),
@@ -209,7 +209,7 @@ Additional CVC4 options:\n\
    --literal-matching=MODE  choose literal matching mode\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [on by default only for arithmetic]\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
-   --disable-flip-decision turns off flip decision heuristic\n\
+   --enable-flip-decision turns on flip decision heuristic\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n \
    --threads=N            sets the number of solver threads\n\
@@ -410,7 +410,7 @@ enum OptionValue {
   LITERAL_MATCHING,
   ENABLE_CBQI,
   DISABLE_CBQI,
-  DISABLE_FLIP_DECISION,
+  ENABLE_FLIP_DECISION,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
   PORTFOLIO_FILTER_LENGTH,
@@ -513,7 +513,7 @@ static struct option cmdlineOptions[] = {
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
   { "disable-cbqi", no_argument, NULL, DISABLE_CBQI },
-  { "disable-flip-decision", no_argument, NULL, DISABLE_FLIP_DECISION },
+  { "enable-flip-decision", no_argument, NULL, ENABLE_FLIP_DECISION },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
@@ -938,8 +938,8 @@ throw(OptionException) {
       cbqi = false;
       cbqiSetByUser = true;
       break;
-    case DISABLE_FLIP_DECISION:
-      flipDecision = false;
+    case ENABLE_FLIP_DECISION:
+      flipDecision = true;
       break;
     case TIME_LIMIT:
       {

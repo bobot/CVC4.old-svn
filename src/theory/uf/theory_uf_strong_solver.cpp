@@ -1163,10 +1163,8 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
       d_conf_find[tn]->setCardinality( d_conf_find[tn]->getCardinality() + 1, d_out );
       //also increment the cardinality of related types? DO_THIS
       //std::cout << d_conf_find[tn]->getCardinality() << " ";
-#if 0
       //give up permanently on this cardinality
       d_out->lemma( n );
-#endif
     }
   }else{
     if( isDecision ){

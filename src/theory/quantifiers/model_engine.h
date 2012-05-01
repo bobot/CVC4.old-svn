@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file fmf_model.h
+/*! \file instantiation_engine.h
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -11,20 +11,25 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief fmf model
+ ** \brief Instantiation Engine classes
  **/
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__FMF_MODEL_H
-#define __CVC4__FMF_MODEL_H
+#ifndef __CVC4__MODEL_ENGINE_H
+#define __CVC4__MODEL_ENGINE_H
 
 #include "theory/quantifiers_engine.h"
+#include "theory/quantifiers/theory_quantifiers.h"
 
 namespace CVC4 {
 namespace theory {
-namespace uf {
 
+namespace uf{
+  class StrongSolverTheoryUf;
+}
+
+namespace quantifiers {
 
 /** this class stores a representative alphabet */
 class RepAlphabet {
@@ -45,6 +50,26 @@ public:
   int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
   /** debug print */
   void debugPrint( const char* c );
+};
+
+class ModelEngine;
+
+/** this class iterates over a RepAlphabet */
+class RepAlphabetIterator {
+public:
+  RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model );
+  ~RepAlphabetIterator(){}
+  Node d_f;
+  ModelEngine* d_model;
+  std::vector< int > d_index;
+  std::vector< Node > d_ic;
+  std::vector< Node > d_terms;
+  void increment( QuantifiersEngine* qe );
+  bool isFinished();
+  void getMatch( QuantifiersEngine* qe, InstMatch& m );
+  Node getTerm( int i );
+  int getNumTerms() { return d_f[0].getNumChildren(); }
+  void calculateTerms( QuantifiersEngine* qe );
 };
 
 class PredModel
@@ -79,34 +104,33 @@ public:
   void debugPrint( const char* c );
 };
 
-class RepAlphabetIterator;
-
-class FmfModel{
+class ModelEngine : public QuantifiersModule
+{
 private:
+  TheoryQuantifiers* d_th;
   QuantifiersEngine* d_quantEngine;
-  StrongSolverTheoryUf* d_ss;
+  uf::StrongSolverTheoryUf* d_ss;
   RepAlphabet d_ra;
+  std::map< Node, PredModel > d_pred_model;
+  std::map< Node, FunctionModel > d_func_model;
 private:
   //build representatives
   void buildRepresentatives();
-private:
-  void processPredicate( Node f, Node p, bool phase );
-  void processEquality( Node f, Node eq, bool phase );
-private:
-  int evaluate( RepAlphabetIterator* rai, Node n, bool phaseReq );
-  int evaluateLiteral( RepAlphabetIterator* rai, Node lit, bool phaseReq );
 public:
-  FmfModel( QuantifiersEngine* qe, StrongSolverTheoryUf* ss );
-  ~FmfModel(){}
-
-  std::map< Node, PredModel > d_pred_model;
-  std::map< Node, FunctionModel > d_func_model;
-
-  void buildModel();
+  ModelEngine( TheoryQuantifiers* th );
+  ~ModelEngine(){}
   RepAlphabet* getReps() { return &d_ra; }
 public:
-  void validate( RepAlphabetIterator* rai );
+  void check( Theory::Effort e );
+  void registerQuantifier( Node f );
+  void assertNode( Node f );
+  Node explain(TNode n){ return Node::null(); }
+  void propagate( Theory::Effort level ){}
   void debugPrint( const char* c );
+public:
+  void validate( RepAlphabetIterator* rai );
+private:
+  void buildModel();
 };
 
 }

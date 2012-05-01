@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file fmf_model.cpp
+/*! \file model_engine.cpp
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -11,22 +11,24 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Implementation of fmf model
+ ** \brief Implementation of model engine class
  **/
 
-#include "theory/uf/inst_strategy_model_find.h"
-#include "theory/uf/theory_uf.h"
-#include "theory/uf/theory_uf_instantiator.h"
+
+#include "theory/quantifiers/model_engine.h"
 
 #include "theory/theory_engine.h"
 #include "theory/uf/equality_engine_impl.h"
+#include "theory/uf/theory_uf.h"
+#include "theory/uf/theory_uf_strong_solver.h"
+#include "theory/uf/theory_uf_instantiator.h"
 
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
-using namespace CVC4::theory::uf;
+using namespace CVC4::theory::quantifiers;
 
 RepAlphabet::RepAlphabet( RepAlphabet& ra, QuantifiersEngine* qe ){
   //translate to current representatives
@@ -53,6 +55,53 @@ void RepAlphabet::debugPrint( const char* c ){
     for( int i=0; i<(int)it->second.size(); i++ ){
       Debug( c ) << "   " << i << ": " << it->second[i] << std::endl;
     }
+  }
+}
+
+RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model ) : d_f( f ), d_model( model ){
+  d_index.resize( f[0].getNumChildren(), 0 );
+  d_model->validate( this );
+}
+
+void RepAlphabetIterator::increment( QuantifiersEngine* qe ){
+  Assert( !isFinished() );
+  int counter = 0;
+  //increment d_index
+  while( d_index[counter]==(int)(d_model->getReps()->d_type_reps[d_f[0][counter].getType()].size()-1) ){
+    d_index[counter] = 0;
+    counter++;
+    if( counter==(int)d_index.size() ){
+      d_index.clear();
+      return;
+    }
+  }
+  d_index[counter]++;
+  d_model->validate( this );
+
+}
+
+bool RepAlphabetIterator::isFinished(){
+  return d_index.empty();
+}
+
+void RepAlphabetIterator::getMatch( QuantifiersEngine* ie, InstMatch& m ){
+  for( int i=0; i<(int)d_index.size(); i++ ){
+    m.d_map[ ie->getInstantiationConstant( d_f, i ) ] = getTerm( i );
+  }
+}
+
+Node RepAlphabetIterator::getTerm( int i ){
+  TypeNode tn = d_f[0][i].getType();
+  Assert( d_model->getReps()->d_type_reps.find( tn )!=d_model->getReps()->d_type_reps.end() );
+  return d_model->getReps()->d_type_reps[tn][d_index[i]];
+}
+
+void RepAlphabetIterator::calculateTerms( QuantifiersEngine* qe ){
+  d_terms.clear();
+  d_ic.clear();
+  for( int i=0; i<qe->getNumInstantiationConstants( d_f ); i++ ){
+    d_terms.push_back( getTerm( i ) );
+    d_ic.push_back( qe->getInstantiationConstant( d_f, i ) );
   }
 }
 
@@ -114,14 +163,53 @@ void FunctionModel::debugPrint( const char* c ){
   }
 }
 
-FmfModel::FmfModel( QuantifiersEngine* qe, StrongSolverTheoryUf* ss ) : d_quantEngine( qe ), d_ss( ss ){
+ModelEngine::ModelEngine( TheoryQuantifiers* th ){
+  d_th = th;
+  d_quantEngine = th->getQuantifiersEngine();
+  d_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
+}
+
+void ModelEngine::check( Theory::Effort e ){
+  if( e==Theory::EFFORT_LAST_CALL ){
+    //build the model
+    buildModel();
+    //try exhaustive instantiation
+    int addedLemmas = 0;
+    for( int i=0; i<d_quantEngine->getNumAssertedQuantifiers(); i++ ){
+      Node f = d_quantEngine->getAssertedQuantifier( i );
+      Debug("inst-fmf-debug") << "Add matches for " << f << "..." << std::endl;
+      RepAlphabetIterator riter( d_quantEngine, f, this );
+      while( !riter.isFinished() ){
+        InstMatch m;
+        riter.getMatch( d_quantEngine, m );
+        riter.increment( d_quantEngine );
+        Debug("inst-fmf-debug") << "Try to add match " << std::endl;
+        m.debugPrint("inst-fmf-debug");
+        if( d_quantEngine->addInstantiation( f, m ) ){
+          addedLemmas++;
+        }
+      }
+      Debug("inst-fmf-debug") << "finished." << std::endl;
+    }
+    d_quantEngine->flushLemmas( &d_th->getOutputChannel() );
+    //if( addedLemmas==0 ){
+    //  std::cout << "Completed with no instantiations." << std::endl;
+    //}
+  }
+}
+
+void ModelEngine::registerQuantifier( Node f ){
 
 }
 
-void FmfModel::buildModel(){
+void ModelEngine::assertNode( Node f ){
+
+}
+
+void ModelEngine::buildModel(){
   buildRepresentatives();
 
-
+#if 0
   //now analyze quantifiers
   for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
     Node f = d_quantEngine->getAssertedQuantifier( i );
@@ -139,36 +227,11 @@ void FmfModel::buildModel(){
   }
   Debug("fmf-model") << "Done." << std::endl;
   debugPrint("fmf-model-complete");
-
+#endif
   //try to complete model? TODO
 }
 
-void FmfModel::processPredicate( Node f, Node p, bool phase ){
-  Node op = p.getOperator();
-  if( d_pred_model.find( op )==d_pred_model.end() ){
-    d_pred_model[ op ] = PredModel( op, d_quantEngine );
-  }
-  d_pred_model[ op ].addRequirement( f, p, phase );
-}
-
-void FmfModel::processEquality( Node f, Node eq, bool phase ){
-  if( eq[0].getKind()==APPLY_UF && eq[0].hasAttribute(InstConstantAttribute()) ){
-    Node op = eq[0].getOperator();
-    if( d_func_model.find( op )==d_func_model.end() ){
-      d_func_model[ op ] = FunctionModel( op, d_quantEngine );
-    }
-    d_func_model[ op ].addRequirement( f, eq[0], eq[1], phase );
-  }
-  if( eq[1].getKind()==APPLY_UF && eq[1].hasAttribute(InstConstantAttribute()) ){
-    Node op = eq[1].getOperator();
-    if( d_func_model.find( op )==d_func_model.end() ){
-      d_func_model[ op ] = FunctionModel( op, d_quantEngine );
-    }
-    d_func_model[ op ].addRequirement( f, eq[1], eq[0], phase );
-  }
-}
-
-void FmfModel::buildRepresentatives(){
+void ModelEngine::buildRepresentatives(){
   d_ra.clear();
   Debug("inst-fmf") << "Setting up model find, initialize representatives." << std::endl;
   //std::cout << "Instantiation Round" << std::endl;
@@ -205,137 +268,12 @@ void FmfModel::buildRepresentatives(){
   Debug("inst-fmf") << std::endl;
 }
 
-void FmfModel::validate( RepAlphabetIterator* rai ){
-#if 0
-  //see if instantiation is already true in current model
-  int eVal;
-  do{
-    //calculate represenative terms we are currently considering
-    rai->calculateTerms( d_quantEngine );
-    //if eVal is not -1, then the instantiation is already true in the model,
-    // and eVal is the highest index in rai which we can safely iterate
-    eVal = evaluate( rai, d_quantEngine->getCounterexampleBody( rai->d_f ), true );
-    if( eVal!=-1 ){
-      for( int i=0; i<eVal; i++ ){
-        rai->d_index[i] = 0;
-      }
-      rai->d_index[eVal]++;
-    }
-  }while( eVal!=-1 );
-#endif
+//this function will probably be removed
+void ModelEngine::validate( RepAlphabetIterator* rai ){
+
 }
 
-//if evaluate( rai, n, phaseReq ) = eVal,
-// if eVal = -1
-//   then the instantiation specified by rai cannot be proven to be equal to phaseReq
-// otherwise,
-//   the instantiations {rai->d_index[0]...rai->d_index[eVal], * .... *} are equal to phaseReq in the current model
-int FmfModel::evaluate( RepAlphabetIterator* rai, Node n, bool phaseReq ){
-  EqualityQuery* q = d_quantEngine->getEqualityQuery();
-  if( n.getKind()==NOT ){
-    return evaluate( rai, n, !phaseReq );
-  }else if( n.getKind()==AND || n.getKind()==OR || n.getKind()==IMPLIES ){
-    bool followPhase = ( n.getKind()==AND && !phaseReq ) || ( n.getKind()!=AND && phaseReq );
-    int newVal = followPhase ? -1 : (int)rai->d_index.size();
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      bool newPhaseReq = ( ( n.getKind()==IMPLIES && i==0 ) ? !phaseReq : phaseReq );
-      int eVal = evaluate( rai, n[i], newPhaseReq );
-      if( followPhase ){
-        if( eVal==(int)rai->d_index.size() ){
-          return eVal;
-        }else if( eVal>newVal ){
-          newVal = eVal;
-        }
-      }else{
-        if( eVal==-1 ){
-          return eVal;
-        }else if( eVal<newVal ){
-          newVal = eVal;
-        }
-      }
-    }
-    return newVal;
-  }else if( n.getKind()==IFF || n.getKind()==XOR ){
-    bool equalPhase = ( n.getKind()==IFF && phaseReq ) || ( n.getKind()==XOR && !phaseReq );
-    int newVal = -1;
-    for( int p=0; p<2; p++ ){
-      int eVal[2];
-      bool success = true;
-      for( int i=0; i<2; i++ ){
-        bool newPhaseReq = equalPhase ? p==0 : p==i;
-        eVal[i] = evaluate( rai, n[i], newPhaseReq );
-        if( eVal[i]<=newVal ){
-          success = false;
-          break;
-        }
-      }
-      if( success ){
-        newVal = ( eVal[0]>eVal[1] ? eVal[1] : eVal[0] );
-      }
-    }
-    return newVal;
-  }else if( n.getKind()==ITE ){
-    int newVal = -1;
-    for( int p=0; p<2; p++ ){
-      int eVal = evaluate( rai, n[0], p==0 );
-      if( eVal>newVal ){
-        int eValC = evaluate( rai, n[p+1], phaseReq );
-        if( eValC>newVal ){
-          newVal = ( eVal>eValC ? eValC : eVal );
-        }
-      }
-    }
-    return newVal;
-  }else if( n.getKind()==EQUAL || n.getKind()==APPLY_UF ){
-    return evaluateLiteral( rai, n, phaseReq );
-  }
-  return -1;
-}
-
-int FmfModel::evaluateLiteral( RepAlphabetIterator* rai, Node lit, bool phaseReq ){
-  Node s_lit = lit;
-  if( lit.hasAttribute(InstConstantAttribute()) ){
-    s_lit = lit.substitute( rai->d_ic.begin(), rai->d_ic.end(), rai->d_terms.begin(), rai->d_terms.end() );
-  }
-  bool success = false;
-  EqualityQuery* q = d_quantEngine->getEqualityQuery();
-  if( s_lit.getKind()==APPLY_UF ){
-    if( q->areEqual( s_lit, NodeManager::currentNM()->mkConst( phaseReq ) ) ){
-      success = true;
-    }else{
-      //look at complete model? TODO
-    }
-  }else if( s_lit.getKind()==EQUAL ){
-    if( phaseReq && q->areEqual( s_lit[0], s_lit[1] ) ){
-      success = true;
-    }else if( !phaseReq && q->areDisequal( s_lit[0], s_lit[1] ) ){
-      success = true;
-    }else{
-      //look at complete model? TODO
-    }
-  }
-  if( success ){
-    std::vector< Node > fv;
-    if( lit.hasAttribute(InstConstantAttribute()) ){
-      Trigger::getVarContainsNode( rai->d_f, lit, fv );
-    }
-    int minIndex = (int)rai->d_index.size();
-    for( int i=0; i<(int)fv.size(); i++ ){
-      int index = fv[i].getAttribute(InstVarNumAttribute());
-      if( index==0 ){
-        return 0;
-      }else if( index<minIndex ){
-        minIndex = index;
-      }
-    }
-    //try to generalize?  TODO
-    return minIndex;
-  }else{
-    return -1;
-  }
-}
-
-void FmfModel::debugPrint( const char* c ){
+void ModelEngine::debugPrint( const char* c ){
   Debug( c ) << "Representatives: " << std::endl;
   d_ra.debugPrint( c );
   Debug( c ) << "Predicates: " << std::endl;

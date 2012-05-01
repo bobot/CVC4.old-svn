@@ -21,6 +21,7 @@
 #include "theory/valuation.h"
 #include "theory/quantifiers_engine.h"
 #include "theory/quantifiers/instantiation_engine.h"
+#include "theory/quantifiers/model_engine.h"
 #include "expr/kind.h"
 #include "util/Assert.h"
 #include <map>
@@ -44,8 +45,12 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
-  qe->addModule( new InstantiationEngine( this ) );
   d_inst = new InstantiatorTheoryQuantifiers( c, qe, this );
+  if( Options::current()->finiteModelFind ){
+    qe->addModule( new ModelEngine( this ) );
+  }else{
+    qe->addModule( new InstantiationEngine( this ) );
+  }
 }
 
 

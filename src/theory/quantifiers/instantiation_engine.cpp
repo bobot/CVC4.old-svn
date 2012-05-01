@@ -1,3 +1,19 @@
+/*********************                                                        */
+/*! \file instantiation_engine.cpp
+ ** \verbatim
+ ** Original author: ajreynol
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief Implementation of instantiation engine class
+ **/
+
 #include "theory/quantifiers/instantiation_engine.h"
 
 #include "theory/theory_engine.h"
@@ -132,11 +148,6 @@ void InstantiationEngine::check( Theory::Effort e ){
   }
   if( ( e==Theory::EFFORT_FULL  && ierCounter%2==0 ) || e==Theory::EFFORT_LAST_CALL ){
   //if( e==Theory::EFFORT_LAST_CALL ){
-    if( e==Theory::EFFORT_LAST_CALL ){
-      ++(getQuantifiersEngine()->d_statistics.d_instantiation_rounds_lc);
-    }else{
-      ++(getQuantifiersEngine()->d_statistics.d_instantiation_rounds);
-    }
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);

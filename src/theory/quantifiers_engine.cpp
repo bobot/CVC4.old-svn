@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file instantiation_engine.cpp
+/*! \file quantifiers_engine.cpp
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Implementation of instantiation engine class
+ ** \brief Implementation of quantifiers engine class
  **/
 
 #include "theory/quantifiers_engine.h"
@@ -279,6 +279,11 @@ Instantiator* QuantifiersEngine::getInstantiator( int id ){
 }
 
 void QuantifiersEngine::check( Theory::Effort e ){
+  if( e==Theory::EFFORT_LAST_CALL ){
+    ++(d_statistics.d_instantiation_rounds_lc);
+  }else{
+    ++(d_statistics.d_instantiation_rounds);
+  }
   for( int i=0; i<(int)d_modules.size(); i++ ){
     d_modules[i]->check( e );
   }
