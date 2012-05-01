@@ -558,9 +558,6 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
         // if vl.isIntegral then m.getConstant().isOne()
         if(!vl.isIntegral() || m.getConstant().isOne()){
           minVar = var;
-          if(vl.isIntegral()){
-            cout << "solving!" << var << endl;
-          }
         }
       }
     }
@@ -574,10 +571,6 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
       // Add the substitution if not recursive
       Assert(elim == Rewriter::rewrite(elim));
       Assert(!elim.hasSubterm(minVar));
-
-      cout << "TheoryArith::solve(): substitution " << minVar << " |-> " << elim << endl;
-      cout << "minVar is integral " << minVar.getType().isInteger()
-           << "right " << right.isIntegral() << endl;
 
       if (!minVar.getType().isInteger() || right.isIntegral()) {
         // cannot eliminate integers here unless we know the resulting
