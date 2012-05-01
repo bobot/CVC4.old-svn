@@ -207,7 +207,7 @@ Additional CVC4 options:\n\
    --use-fmf-region-sat   use region-based SAT heuristic for fmf\n\
    --efficient-e-matching use efficient E-matching\n\
    --literal-matching=MODE  choose literal matching mode\n\
-   --enable-cbqi          turns on counterexample-based quantifier instantiation [on by default only for arithmetic]\n\
+   --enable-cbqi          turns on counterexample-based quantifier instantiation [off by default]\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
    --enable-flip-decision turns on flip decision heuristic\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
