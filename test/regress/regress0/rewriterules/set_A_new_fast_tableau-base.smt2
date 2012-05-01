@@ -1,5 +1,5 @@
 ;; A new fast tableau-base ... Domenico Cantone et Calogero G.Zarba
-(set-logic LIA)
+(set-logic AUFLIA)
 (set-info :status unsat)
 
 ;; don't use a datatypes for currently focusing in uf

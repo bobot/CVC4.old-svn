@@ -1,5 +1,5 @@
 ;; try to solve datatypes with rewriterules
-(set-logic LIA)
+(set-logic AUFLIA)
 (set-info :status sat)
 
 ;; lists 2 nil

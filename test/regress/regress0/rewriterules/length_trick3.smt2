@@ -1,7 +1,7 @@
 ;; Same than length.smt2 but the nil case is not a rewrite rule
 ;; So here the rewrite rules have no guards length
 
-(set-logic LIA)
+(set-logic AUFLIA)
 (set-info :status unsat)
 
 ;; don't use a datatypes for currently focusing in uf
