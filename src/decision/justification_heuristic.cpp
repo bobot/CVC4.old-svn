@@ -99,15 +99,27 @@ SatValue JustificationHeuristic::tryGetSatValue(Node n)
   }//end of else
 }
 
-void JustificationHeuristic::getITEs(TNode n, vector<TNode> &v)
+void JustificationHeuristic::computeITEs(TNode n, IteList &l)
+{
+  for(unsigned i=0; i<n.getNumChildren(); ++i) {
+    SkolemMap::iterator it2 = d_iteAssertions.find(n[i]);
+    if(it2 != d_iteAssertions.end())
+      d_iteCache[n].push_back(it2->second);
+    computeITEs(n[i], l);
+  }
+}
+
+const IteList& JustificationHeuristic::getITEs(TNode n)
 {
   IteCache::iterator it = d_iteCache.find(n);
   if(it != d_iteCache.end()) {
-    v = it->second;
-    return;
+    return it->second;
   } else {
     // Compute the list of ITEs
-    // v = d_iteCache[n];
+    // TODO: optimize by avoiding multiple lookup for d_iteCache[n]
+    d_iteCache[n] = vector<TNode>();
+    computeITEs(n, d_iteCache[n]);
+    return d_iteCache[n];
   }
 }
 
@@ -131,7 +143,7 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
   }
 
   /* Base case */
-  if (checkJustified(node)) return false;
+  if (checkJustified(node) || d_visited.find(node) != d_visited.end()) return false;
 
   // We don't always have a sat literal, so remember that. Will need
   // it for some assertions we make.
@@ -193,6 +205,56 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
   if(tId != theory::THEORY_BOOL
      //      && !(k == kind::EQUAL && node[0].getType().isBoolean()) 
      ) {
+
+    const IteList& l = getITEs(node);
+    Debug("jh-ite") << " ite size = " << l.size() << std::endl;
+    d_visited.insert(node);
+    for(unsigned i = 0; i < l.size(); ++i) {
+      Assert(l[i].getKind() == kind::ITE, "Expected ITE");
+      Debug("jh-ite") << " i = " << i 
+                      << " l[i] = " << l[i] << std::endl;
+      if (checkJustified(l[i])) continue;
+
+      SatValue desiredVal = SAT_VALUE_TRUE; //NOTE: Reusing variable
+      bool litPresent = d_decisionEngine->hasSatLiteral(l[i]);
+
+      // Handle the ITE to catch the case when a variable is its own
+      // fanin
+      SatValue ifVal = tryGetSatValue(l[i][0]);
+      if (ifVal == SAT_VALUE_UNKNOWN) {
+        // are we better off trying false? if not, try true
+        SatValue ifDesiredVal = 
+          (tryGetSatValue(l[i][2]) == desiredVal ||
+           tryGetSatValue(l[i][1]) == invertValue(desiredVal))
+          ? SAT_VALUE_FALSE : SAT_VALUE_TRUE;
+
+        if(findSplitterRec(l[i][0], ifDesiredVal, litDecision)) {
+          return true;
+        }
+        Assert(false, "No controlling input found (1)");
+      } else {
+
+        // Try to justify 'if'
+        if (findSplitterRec(l[i][0], ifVal, litDecision)) {
+          return true;
+        }
+
+        // If that was successful, we need to go into only one of 'then'
+        // or 'else'
+        int ch = (ifVal == SAT_VALUE_TRUE) ? 1 : 2;
+        int chVal = tryGetSatValue(l[i][ch]);
+        if( d_visited.find(l[i]) == d_visited.end()
+            && (chVal == SAT_VALUE_UNKNOWN || chVal == desiredVal)
+            && findSplitterRec(l[i][ch], desiredVal, litDecision) ) {
+          return true;
+        }
+      }
+      Assert(litPresent == false || litVal == desiredVal,
+             "Output should be justified");
+      setJustified(l[i]);
+    }
+    d_visited.erase(node);
+
     // node could have been rewritten because a child is ITE.
     /*NodeManager *nodeManager = NodeManager::currentNM();
     Node rnode;

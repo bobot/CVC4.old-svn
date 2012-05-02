@@ -1065,7 +1065,7 @@ void SmtEnginePrivate::processAssertions() {
   }
 
   // Push the formula to decision engine
-  Assert(realAssertionsEnd == d_assertionsToCheck.size());
+  Assert(iteRewriteAssertionsEnd == d_assertionsToCheck.size());
   d_smt.d_decisionEngine->addAssertions
     (d_assertionsToCheck, realAssertionsEnd, d_iteSkolemMap);
 

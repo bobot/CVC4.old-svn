@@ -34,6 +34,8 @@ namespace CVC4 {
 
 namespace decision {
 
+typedef std::vector<TNode> IteList;
+
 class GiveUpException : public Exception {
 public:
   GiveUpException() : 
@@ -42,7 +44,8 @@ public:
 };/* class GiveUpException */
 
 class JustificationHeuristic : public ITEDecisionStrategy {
-  typedef hash_map<TNode,std::vector<TNode>,TNodeHashFunction> IteCache;
+  typedef hash_map<TNode,IteList,TNodeHashFunction> IteCache;
+  typedef hash_map<TNode,TNode,TNodeHashFunction> SkolemMap;
 
   // being 'justified' is monotonic with respect to decisions
   context::CDHashSet<TNode,TNodeHashFunction> d_justified;
@@ -60,12 +63,13 @@ class JustificationHeuristic : public ITEDecisionStrategy {
   //TNode is fine since decisionEngine has them too
 
   /** map from ite-rewrite skolem to a boolean-ite assertion */
-  hash_map<TNode,TNode,TNodeHashFunction> d_iteAssertions;
+  SkolemMap d_iteAssertions;
   // 'key' being TNode is fine since if a skolem didn't exist anywhere,
   // we won't look it up. as for 'value', same reason as d_assertions
 
   /** Cache for ITE skolems present in a atomic formula */
   IteCache d_iteCache;
+  hash_set<TNode,TNodeHashFunction> d_visited;
 public:
   JustificationHeuristic(CVC4::DecisionEngine* de, context::Context *c):
     ITEDecisionStrategy(de, c),
@@ -87,6 +91,8 @@ public:
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
 
     TimerStat::CodeTimer codeTimer(d_timestat);
+
+    d_visited.clear();
 
     for(unsigned i = d_prvsIndex; i < d_assertions.size(); ++i) {
       SatLiteral litDecision;
@@ -146,7 +152,7 @@ public:
                      IteSkolemMap iteSkolemMap) {
     Trace("decision")
       << "JustificationHeuristic::addAssertions()" 
-      << " size = " << d_decisionEngine->getAssertions().size()
+      << " size = " << assertions.size()
       << " assertionsEnd = " << assertionsEnd
       << std::endl;
 
@@ -171,8 +177,11 @@ private:
      that. Otherwise an UNKNOWN */
   SatValue tryGetSatValue(Node n);
 
-  /* Get list of all ITEs for the atomic formula v */
-  void getITEs(TNode n, vector<TNode> &v);
+  /* Get list of all term-ITEs for the atomic formula v */
+  const IteList& getITEs(TNode n);
+
+  /* Compute all term-ITEs in a node recursively */
+  void computeITEs(TNode n, IteList &l);
 };/* class JustificationHeuristic */
 
 }/* namespace decision */
