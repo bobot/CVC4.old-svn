@@ -308,11 +308,6 @@ class TheoryEngine {
   context::CDO<bool> d_inConflict;
 
   /**
-   * Does the context contain terms shared among multiple theories.
-   */
-  context::CDO<bool> d_sharedTermsExist;
-
-  /**
    * Explain the equality literals and push all the explaining literals
    * into the builder. All the non-equality literals are pushed to the
    * builder.
@@ -488,8 +483,9 @@ class TheoryEngine {
 
     // Remove the ITEs and assert to prop engine
     std::vector<Node> additionalLemmas;
+    IteSkolemMap iteSkolemMap;
     additionalLemmas.push_back(node);
-    RemoveITE::run(additionalLemmas);
+    RemoveITE::run(additionalLemmas, iteSkolemMap);
     additionalLemmas[0] = theory::Rewriter::rewrite(additionalLemmas[0]);
     d_propEngine->assertLemma(additionalLemmas[0], negated, removable);
     for (unsigned i = 1; i < additionalLemmas.size(); ++ i) {
