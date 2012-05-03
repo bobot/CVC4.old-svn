@@ -214,16 +214,12 @@ bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
   case AfterVarOrderSearch:  ++(d_statistics.d_attemptAfterVarOrderSearch); break;
   }
 
-  if(d_conflictVariable != ARITHVAR_SENTINEL){
-    d_successes.add(d_conflictVariable);
-  }
-
   ArithPriorityQueue::const_iterator i = d_queue.begin();
   ArithPriorityQueue::const_iterator end = d_queue.end();
   for(; i != end; ++i){
     ArithVar x_i = *i;
 
-    if(d_tableau.isBasic(x_i) && !d_successes.isMember(x_i)){
+    if(x_i != d_conflictVariable && d_tableau.isBasic(x_i) && !d_successes.isMember(x_i)){
       Node possibleConflict = checkBasicForConflict(x_i);
       if(!possibleConflict.isNull()){
         d_successes.add(x_i);
@@ -400,7 +396,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     if(CHECK_AFTER_PIVOT){
       Node possibleConflict = checkBasicForConflict(x_j);
       if(!possibleConflict.isNull()){
-        d_conflictVariable = x_i;
+        d_conflictVariable = x_j;
         reportConflict(possibleConflict);
         return true; // unsat
       }
