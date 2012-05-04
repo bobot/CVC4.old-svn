@@ -1,0 +1,5 @@
+a, b, c : BOOLEAN;
+
+% EXPECT: valid
+QUERY a AND (b AND c) <=> (a AND b) AND c;
+% EXIT: 20
