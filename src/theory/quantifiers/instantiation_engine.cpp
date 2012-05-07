@@ -270,10 +270,10 @@ void InstantiationEngine::registerQuantifier( Node f ){
 }
 
 void InstantiationEngine::assertNode( Node f ){
-  //if we are doing cbqi and have not added the lemma yet, do so
-  if( doCbqi( f ) && !hasAddedCbqiLemma( f ) ){
-    addCbqiLemma( f );
-  }
+  ////if we are doing cbqi and have not added the lemma yet, do so
+  //if( doCbqi( f ) && !hasAddedCbqiLemma( f ) ){
+  //  addCbqiLemma( f );
+  //}
 }
 
 bool InstantiationEngine::hasApplyUf( Node f ){
@@ -385,6 +385,7 @@ void InstantiationEngine::propagate( Theory::Effort level ){
       if( !d_th->getValuation().hasSatValue( cel, value ) ){
         //if not already set, propagate as decision
         d_th->getOutputChannel().propagateAsDecision( cel );
+        Debug("cbqi-prop-as-dec") << "CBQI: propagate as decision " << cel << std::endl;
       }
     }
   }

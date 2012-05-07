@@ -218,7 +218,7 @@ InstantiatorTheoryUf::Statistics::~Statistics(){
 
 /** new node */
 void InstantiatorTheoryUf::newEqClass( TNode n ){
-
+  d_quantEngine->addTermToDatabase( n );
 }
 
 /** merge */
