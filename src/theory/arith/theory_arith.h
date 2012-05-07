@@ -60,6 +60,7 @@ namespace arith {
  */
 class TheoryArith : public Theory {
 private:
+  bool rowImplication(ArithVar v, bool upperBound, const DeltaRational& r);
 
   /**
    * This counter is false if nothing has been done since the last cut.
@@ -259,7 +260,7 @@ private:
   DeltaRational getDeltaValue(TNode n);
 
 public:
-  TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
   virtual ~TheoryArith();
 
   /**
@@ -270,8 +271,6 @@ public:
   void check(Effort e);
   void propagate(Effort e);
   Node explain(TNode n);
-
-  void notifyEq(TNode lhs, TNode rhs);
 
   Node getValue(TNode n);
 

@@ -133,7 +133,7 @@ class TheoryEngine {
    * Used for "missed-t-propagations" dumping mode only.  A set of all
    * theory-propagable literals.
    */
-  std::vector<TNode> d_possiblePropagations;
+  context::CDList<TNode> d_possiblePropagations;
 
   /**
    * Used for "missed-t-propagations" dumping mode only.  A
@@ -259,11 +259,6 @@ class TheoryEngine {
    * Are we in conflict.
    */
   context::CDO<bool> d_inConflict;
-
-  /**
-   * Does the context contain terms shared among multiple theories.
-   */
-  bool d_sharedTermsExist;
 
   /**
    * Explain the equality literals and push all the explaining literals
@@ -496,8 +491,7 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this));
-    d_theoryTable[theoryId]->d_logicInfo = &d_logicInfo;
+    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo);
   }
 
   /**

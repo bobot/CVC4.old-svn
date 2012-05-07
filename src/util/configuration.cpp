@@ -19,6 +19,8 @@
  **/
 
 #include <string>
+#include <string.h>
+#include <stdlib.h>
 #include <sstream>
 
 #include "util/configuration.h"
@@ -131,7 +133,8 @@ bool Configuration::isBuiltWithTlsSupport() {
 
 unsigned Configuration::getNumDebugTags() {
 #if CVC4_DEBUG
-  return sizeof(Debug_tags) / sizeof(Debug_tags[0]);
+  /* -1 because a NULL pointer is inserted as the last value */
+  return sizeof(Debug_tags) / sizeof(Debug_tags[0]) - 1;
 #else /* CVC4_DEBUG */
   return 0;
 #endif /* CVC4_DEBUG */
@@ -146,9 +149,25 @@ char const* const* Configuration::getDebugTags() {
 #endif /* CVC4_DEBUG */
 }
 
+int strcmpptr(const char **s1, const char **s2){
+  return strcmp(*s1,*s2);
+}
+
+bool Configuration::isDebugTag(char const *){
+#if CVC4_DEBUG
+  unsigned ntags = getNumDebugTags();
+  char const* const* tags = getDebugTags();
+  return (bsearch(&optarg, tags, ntags, sizeof(char *),
+                  (int(*)(const void*,const void*))strcmpptr) != NULL);
+#else /* CVC4_DEBUG */
+  return false;
+#endif /* CVC4_DEBUG */
+}
+
 unsigned Configuration::getNumTraceTags() {
 #if CVC4_TRACING
-  return sizeof(Trace_tags) / sizeof(Trace_tags[0]);
+  /* -1 because a NULL pointer is inserted as the last value */
+  return sizeof(Trace_tags) / sizeof(Trace_tags[0]) - 1;
 #else /* CVC4_TRACING */
   return 0;
 #endif /* CVC4_TRACING */
@@ -160,6 +179,17 @@ char const* const* Configuration::getTraceTags() {
 #else /* CVC4_TRACING */
   static char const* no_tags[] = { NULL };
   return no_tags;
+#endif /* CVC4_TRACING */
+}
+
+bool Configuration::isTraceTag(char const *){
+#if CVC4_TRACING
+  unsigned ntags = getNumTraceTags();
+  char const* const* tags = getTraceTags();
+  return (bsearch(&optarg, tags, ntags, sizeof(char *),
+                  (int(*)(const void*,const void*))strcmpptr) != NULL);
+#else /* CVC4_TRACING */
+  return false;
 #endif /* CVC4_TRACING */
 }
 
