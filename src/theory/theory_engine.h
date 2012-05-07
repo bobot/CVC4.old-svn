@@ -466,7 +466,8 @@ class TheoryEngine {
     // WARNING: Below this point don't assume additionalLemmas[0] to be not negated.
 
     // assert to decision engine
-    d_decisionEngine->addAssertions(additionalLemmas, 1, iteSkolemMap);
+    if(!removable)
+      d_decisionEngine->addAssertions(additionalLemmas, 1, iteSkolemMap);
 
     // Mark that we added some lemmas
     d_lemmasAdded = true;
