@@ -101,10 +101,11 @@ SatValue JustificationHeuristic::tryGetSatValue(Node n)
 
 void JustificationHeuristic::computeITEs(TNode n, IteList &l)
 {
+  Debug("jh-ite") << " computeITEs( " << n << ", &l)\n";
   for(unsigned i=0; i<n.getNumChildren(); ++i) {
     SkolemMap::iterator it2 = d_iteAssertions.find(n[i]);
     if(it2 != d_iteAssertions.end())
-      d_iteCache[n].push_back(it2->second);
+      l.push_back(it2->second);
     computeITEs(n[i], l);
   }
 }
@@ -134,16 +135,18 @@ bool JustificationHeuristic::findSplitterRec(Node node, SatValue desiredVal, Sat
 //bool SearchSat::findSplitterRec(Lit lit, Var::Val value, Lit* litDecision)
 {
   Trace("decision") 
-    << "findSplitterRec(" << node << ", " << desiredVal << ", .. )" << std::endl; 
+    << "findSplitterRec(" << node << ", " 
+    << desiredVal << ", .. )" << std::endl; 
 
   /* Handle NOT as a special case */
-  if (node.getKind() == kind::NOT) {
+  while (node.getKind() == kind::NOT) {
     desiredVal = invertValue(desiredVal);
     node = node[0];
   }
 
   /* Base case */
-  if (checkJustified(node) || d_visited.find(node) != d_visited.end()) return false;
+  if (checkJustified(node) || d_visited.find(node) != d_visited.end())
+    return false;
 
   // We don't always have a sat literal, so remember that. Will need
   // it for some assertions we make.

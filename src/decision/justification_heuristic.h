@@ -128,15 +128,15 @@ public:
 
     bool alljustified = true;
     for(unsigned i = 0 ; i < d_assertions.size() && alljustified ; ++i) {
-      alljustified &= d_assertions[i].getKind() == kind::NOT ? 
-        checkJustified(d_assertions[i][0]) :
-        checkJustified(d_assertions[i]);
+      TNode curass = d_assertions[i];
+      while(curass.getKind() == kind::NOT)
+        curass = curass[0];
+      alljustified &= checkJustified(curass);
 
       if(Debug.isOn("decision")) {
-	bool x = d_assertions[i].getKind() == kind::NOT ? 
-        checkJustified(d_assertions[i][0]) : checkJustified(d_assertions[i]);
-	if(x==false)
-	  Debug("decision") << "****** Not justified [i="<<i<<"]: " << d_assertions[i] << std::endl;
+	if(!checkJustified(curass))
+	  Debug("decision") << "****** Not justified [i="<<i<<"]: " 
+                            << d_assertions[i] << std::endl;
       }
     }
     Assert(alljustified);
@@ -162,6 +162,10 @@ public:
     for(IteSkolemMap::iterator i = iteSkolemMap.begin();
         i != iteSkolemMap.end(); ++i) {
       Assert(i->second >= assertionsEnd && i->second < assertions.size());
+      if(Debug.isOn("jh-ite")) {
+        Debug("jh-ite") << " jh-ite: " << (i->first) << " maps to "
+                        << assertions[(i->second)] << std::endl;
+      }
       d_iteAssertions[i->first] = assertions[i->second];
     }
   }
