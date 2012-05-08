@@ -69,6 +69,12 @@ class JustificationHeuristic : public ITEDecisionStrategy {
 
   /** Cache for ITE skolems present in a atomic formula */
   IteCache d_iteCache;
+
+  /**
+   * This is used to prevent infinite loop when trying to find a
+   * splitter. Can happen when exploring assertion corresponding to a
+   * term-ITE.
+   */
   hash_set<TNode,TNodeHashFunction> d_visited;
 public:
   JustificationHeuristic(CVC4::DecisionEngine* de, context::Context *c):
@@ -89,43 +95,26 @@ public:
   }
   prop::SatLiteral getNext(bool &stopSearch) {
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
-
     TimerStat::CodeTimer codeTimer(d_timestat);
 
     d_visited.clear();
 
     for(unsigned i = d_prvsIndex; i < d_assertions.size(); ++i) {
-      SatLiteral litDecision;
-
       Trace("decision") << d_assertions[i] << std::endl;
 
-      SatValue desiredVal = SAT_VALUE_UNKNOWN;
+      // Sanity check: if it was false, aren't we inconsistent?
+      Assert( tryGetSatValue(d_assertions[i]) != SAT_VALUE_FALSE);
 
-      if(d_decisionEngine->hasSatLiteral(d_assertions[i]) ) {
-        //desiredVal = d_decisionEngine->getSatValue( d_decisionEngine->getSatLiteral(assertions[i]) );
-        Trace("decision") << "JustificationHeuristic encountered a variable not in SatSolver." << std::endl;
-        //    continue;
-        //    Assert(not lit.isNull());
-      }
+      SatValue desiredVal = SAT_VALUE_TRUE;
+      SatLiteral litDecision = findSplitter(d_assertions[i], desiredVal);
 
-      if(desiredVal == SAT_VALUE_UNKNOWN) desiredVal = SAT_VALUE_TRUE;
-
-      bool ret;
-      try {
-        ret = findSplitterRec(d_assertions[i], desiredVal, &litDecision);
-      }catch(GiveUpException &e) {
-        return prop::undefSatLiteral;
-      }
-      if(ret == true) {
-        Trace("decision") << "Yippee!!" << std::endl;
-        //d_prvsIndex = i;
-	++d_helfulness;
+      if(litDecision != undefSatLiteral)
         return litDecision;
-      }
     }
 
-    Trace("decision") << "Nothing to split on " << std::endl;
+    Trace("decision") << "jh: Nothing to split on " << std::endl;
 
+#if defined CVC4_ASSERTIONS || defined CVC4_DEBUG
     bool alljustified = true;
     for(unsigned i = 0 ; i < d_assertions.size() && alljustified ; ++i) {
       TNode curass = d_assertions[i];
@@ -140,10 +129,11 @@ public:
       }
     }
     Assert(alljustified);
+#endif
 
-    stopSearch = alljustified;
+    // SAT solver can stop...
+    stopSearch = true;
     d_decisionEngine->setResult(SAT_VALUE_TRUE);
-
     return prop::undefSatLiteral;
   }
 
@@ -156,22 +146,49 @@ public:
       << " assertionsEnd = " << assertionsEnd
       << std::endl;
 
+    // Save the 'real' assertions locally
     for(unsigned i = 0; i < assertionsEnd; ++i)
       d_assertions.push_back(assertions[i]);
-    
+
+    // Save mapping between ite skolems and ite assertions
     for(IteSkolemMap::iterator i = iteSkolemMap.begin();
         i != iteSkolemMap.end(); ++i) {
       Assert(i->second >= assertionsEnd && i->second < assertions.size());
-      if(Debug.isOn("jh-ite")) {
-        Debug("jh-ite") << " jh-ite: " << (i->first) << " maps to "
-                        << assertions[(i->second)] << std::endl;
-      }
+      Debug("jh-ite") << " jh-ite: " << (i->first) << " maps to "
+                      << assertions[(i->second)] << std::endl;
       d_iteAssertions[i->first] = assertions[i->second];
     }
   }
+
+  /* Compute justified */
+  bool computeJustified() {
+    
+  }
 private:
-  /* Do all the hardwork. */ 
-  bool findSplitterRec(Node node, SatValue value, SatLiteral* litDecision);
+  SatLiteral findSplitter(TNode node, SatValue desiredVal)
+  {
+    bool ret;
+    SatLiteral litDecision;
+    try {
+      ret = findSplitterRec(node, desiredVal, &litDecision);
+    }catch(GiveUpException &e) {
+      return prop::undefSatLiteral;
+    }
+    if(ret == true) {
+      Trace("decision") << "Yippee!!" << std::endl;
+      //d_prvsIndex = i;
+      ++d_helfulness;
+      return litDecision;
+    } else {
+      return undefSatLiteral;
+    }
+  }
+  
+  /** 
+   * Do all the hardwork. 
+   * @param findFirst returns
+   */ 
+  bool findSplitterRec(TNode node, SatValue value, SatLiteral* litDecision);
 
   /* Helper functions */
   void setJustified(TNode);
