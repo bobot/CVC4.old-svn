@@ -36,13 +36,14 @@ const bool d_useEqualityEngine = true;
 const bool d_useSatPropagation = true;
 
 
-TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation)
-  : Theory(THEORY_BV, c, u, out, valuation),
+TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo)
+  : Theory(THEORY_BV, c, u, out, valuation, logicInfo),
     d_context(c),
     d_assertions(c),
     d_bitblaster(new Bitblaster(c, this) ),
-    d_statistics(),
     d_alreadyPropagatedSet(c),
+    d_statistics(),
+    d_sharedTermsSet(c),
     d_notify(*this),
     d_equalityEngine(d_notify, c, "theory::bv::TheoryBV"),
     d_conflict(c, false),
@@ -216,7 +217,7 @@ void TheoryBV::check(Effort e)
 
   // If in conflict, output the conflict
   if (d_conflict) {
-    BVDebug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::check(): conflict " << d_conflictNode << std::endl;
+    BVDebug("bitvector") << spaces(getSatContext()->getLevel()) << "TheoryBV::check(): conflict " << d_conflictNode;
     d_out->conflict(d_conflictNode);
     return;
   }
@@ -256,37 +257,57 @@ Node TheoryBV::getValue(TNode n) {
 
 
 void TheoryBV::propagate(Effort e) {
-
-  BVDebug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate()" << std::endl;
+  BVDebug("bitvector") << spaces(getSatContext()->getLevel()) << "TheoryBV::propagate()" << std::endl;
 
   if (d_conflict) {
     return;
   }
 
-  // get new propagations from the equality engine
-  for (; d_literalsToPropagateIndex < d_literalsToPropagate.size(); d_literalsToPropagateIndex = d_literalsToPropagateIndex + 1)
+  // go through stored propagations
+  for (; d_literalsToPropagateIndex < d_literalsToPropagate.size();
+       d_literalsToPropagateIndex = d_literalsToPropagateIndex + 1)
   {
     TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
-    BVDebug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(): propagating from equality engine: " << literal << std::endl;
-    bool satValue;
-
     Node normalized = Rewriter::rewrite(literal);
 
-    if (!d_valuation.hasSatValue(normalized, satValue) || satValue) {
-      d_out->propagate(literal);
-    } else {
-      Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(): in conflict, normalized = " << normalized << std::endl;
-
-      Node negatedLiteral;
-      std::vector<TNode> assumptions;
-      if (normalized != d_false) {
+    TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;  
+    // check if it's a shared equality in the current context
+    if (atom.getKind() != kind::EQUAL || d_valuation.isSatLiteral(normalized) ||
+        (d_sharedTermsSet.find(atom[0]) != d_sharedTermsSet.end() &&
+         d_sharedTermsSet.find(atom[1]) != d_sharedTermsSet.end())) {
+    
+      bool satValue;
+      if (!d_valuation.hasSatValue(normalized, satValue) || satValue) {
+        // check if we already propagated the negation
+        Node neg_literal = literal.getKind() == kind::NOT ? (Node)literal[0] : mkNot(literal); 
+        if (d_alreadyPropagatedSet.find(neg_literal) != d_alreadyPropagatedSet.end()) {
+          Debug("bitvector") << spaces(getSatContext()->getLevel()) << "TheoryBV::propagate(): in conflict " << literal << " and its negation both propagated \n"; 
+          // we are in conflict
+          std::vector<TNode> assumptions;
+          explain(literal, assumptions);
+          explain(neg_literal, assumptions);
+          d_conflictNode = mkAnd(assumptions); 
+          d_conflict = true;
+          return; 
+        }
+        
+        BVDebug("bitvector") << spaces(getSatContext()->getLevel()) << "TheoryBV::propagate(): " << literal << std::endl;
+        d_out->propagate(literal);
+        d_alreadyPropagatedSet.insert(literal); 
+      } else {
+        Debug("bitvector") << spaces(getSatContext()->getLevel()) << "TheoryBV::propagate(): in conflict, normalized = " << normalized << std::endl;
+        
+        Node negatedLiteral;
+        std::vector<TNode> assumptions;
+        if (normalized != d_false) {
         negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
         assumptions.push_back(negatedLiteral);
+        }
+        explain(literal, assumptions);
+        d_conflictNode = mkAnd(assumptions);
+        d_conflict = true;
+        return;
       }
-      explain(literal, assumptions);
-      d_conflictNode = mkAnd(assumptions);
-      d_conflict = true;
-      return;
     }
   }
 }
@@ -320,11 +341,11 @@ Theory::PPAssertStatus TheoryBV::ppAssert(TNode in, SubstitutionMap& outSubstitu
 
 bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
 {
-  Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::storePropagation(" << literal  << ") " <<subtheory << std::endl;
+  Debug("bitvector") << spaces(getSatContext()->getLevel()) << "TheoryBV::storePropagation(" << literal  << ")" << std::endl;
 
   // If already in conflict, no more propagation
   if (d_conflict) {
-    Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::storePropagation(" << literal << "): already in conflict" << std::endl;
+    Debug("bitvector") << spaces(getSatContext()->getLevel()) << "TheoryBV::storePropagation(" << literal << "): already in conflict" << std::endl;
     return false;
   }
 
@@ -342,8 +363,9 @@ bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
   bool satValue = false;
   bool hasSatValue = d_valuation.hasSatValue(literal, satValue);
   // If asserted, we might be in conflict
+
   if (hasSatValue && !satValue) {
-      Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(" << literal << ") => conflict" << std::endl;
+      Debug("bitvector-prop") << spaces(getSatContext()->getLevel()) << "TheoryBV::storePropagation(" << literal << ") => conflict" << std::endl;
       std::vector<TNode> assumptions;
       Node negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
       assumptions.push_back(negatedLiteral);
@@ -354,7 +376,7 @@ bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
   }
 
   // Nothing, just enqueue it for propagation and mark it as asserted already
-  Debug("bitvector") << spaces(getContext()->getLevel()) << "TheoryBV::propagate(" << literal << ") => enqueuing for propagation" << std::endl;
+  Debug("bitvector-prop") << spaces(getSatContext()->getLevel()) << "TheoryBV::storePropagation(" << literal << ") => enqueuing for propagation" << std::endl;
   d_literalsToPropagate.push_back(literal);
 
   return true;
@@ -413,7 +435,8 @@ Node TheoryBV::explain(TNode node) {
 
 
 void TheoryBV::addSharedTerm(TNode t) {
-  Debug("bitvector::sharing") << spaces(getContext()->getLevel()) << "TheoryBV::addSharedTerm(" << t << ")" << std::endl;
+  Debug("bitvector::sharing") << spaces(getSatContext()->getLevel()) << "TheoryBV::addSharedTerm(" << t << ")" << std::endl;
+  d_sharedTermsSet.insert(t); 
   if (!Options::current()->bitvector_eager_bitblast && d_useEqualityEngine) {
     d_equalityEngine.addTriggerTerm(t);
   }

@@ -26,7 +26,7 @@ ConstraintType constraintTypeOfComparison(const Comparison& cmp){
       if(l.leadingCoefficientIsPositive()){ // (< x c)
         return UpperBound;
       }else{
-        return LowerBound; // (< (-x) c) 
+        return LowerBound; // (< (-x) c)
       }
     }
   case GT:
@@ -325,7 +325,7 @@ Constraint ConstraintValue::getCeiling() {
 
   DeltaRational ceiling(getValue().ceiling());
 
-#warning "Optimize via the iterator"
+  // TODO: "Optimize via the iterator"
   return d_database->getConstraint(getVariable(), getType(), ceiling);
 }
 
@@ -334,7 +334,7 @@ Constraint ConstraintValue::getFloor() {
 
   DeltaRational floor(Rational(getValue().floor()));
 
-#warning "Optimize via the iterator"
+  // TODO: "Optimize via the iterator"
   return d_database->getConstraint(getVariable(), getType(), floor);
 }
 
@@ -444,14 +444,13 @@ Constraint ConstraintValue::makeNegation(ArithVar v, ConstraintType t, const Del
   }
 }
 
-ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap,
-                                       DifferenceManager& dm)
+ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap, ArithCongruenceManager& cm)
   : d_varDatabases(),
     d_toPropagate(satContext),
     d_proofs(satContext, false),
     d_watches(new Watches(satContext, userContext)),
     d_av2nodeMap(av2nodeMap),
-    d_differenceManager(dm),
+    d_congruenceManager(cm),
     d_satContext(satContext),
     d_satAllocationLevel(d_satContext->getLevel())
 {
@@ -483,7 +482,8 @@ Constraint ConstraintDatabase::getConstraint(ArithVar v, ConstraintType t, const
     }else{
       pair<SortedConstraintMapIterator, bool> negInsertAttempt;
       negInsertAttempt = scm.insert(make_pair(negC->getValue(), ValueCollection()));
-      Assert(negInsertAttempt.second);
+      Assert(negInsertAttempt.second
+             || ! negInsertAttempt.first->second.hasConstraintOfType(negC->getType()));
       negPos = negInsertAttempt.first;
     }
 
@@ -997,12 +997,12 @@ Constraint ConstraintDatabase::getBestImpliedBound(ArithVar v, ConstraintType t,
 }
 Node ConstraintDatabase::eeExplain(const ConstraintValue* const c) const{
   Assert(c->hasLiteral());
-  return d_differenceManager.explain(c->getLiteral());
+  return d_congruenceManager.explain(c->getLiteral());
 }
 
 void ConstraintDatabase::eeExplain(const ConstraintValue* const c, NodeBuilder<>& nb) const{
   Assert(c->hasLiteral());
-  d_differenceManager.explain(c->getLiteral(), nb);
+  d_congruenceManager.explain(c->getLiteral(), nb);
 }
 
 bool ConstraintDatabase::variableDatabaseIsSetup(ArithVar v) const {

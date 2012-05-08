@@ -27,6 +27,7 @@
 #include "theory/valuation.h"
 #include "theory/substitutions.h"
 #include "theory/output_channel.h"
+#include "theory/logic_info.h"
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "context/cdo.h"
@@ -129,14 +130,19 @@ private:
   TheoryId d_id;
 
   /**
-   * The context for the Theory.
+   * The SAT search context for the Theory.
    */
-  context::Context* d_context;
+  context::Context* d_satContext;
 
   /**
-   * The user context for the Theory.
+   * The user level assertion context for the Theory.
    */
   context::UserContext* d_userContext;
+
+  /**
+   * Information about the logic we're operating within.
+   */
+  const LogicInfo& d_logicInfo;
 
   /**
    * The assertFact() queue.
@@ -199,19 +205,20 @@ protected:
   /**
    * Construct a Theory.
    */
-  Theory(TheoryId id, context::Context* context, context::UserContext* userContext,
-         OutputChannel& out, Valuation valuation) throw() :
-    d_id(id),
-    d_context(context),
-    d_userContext(userContext),
-    d_facts(context),
-    d_factsHead(context, 0),
-    d_sharedTermsIndex(context, 0),
-    d_careGraph(0),
-    d_computeCareGraphTime(statName(id, "computeCareGraphTime")),
-    d_sharedTerms(context),
-    d_out(&out),
-    d_valuation(valuation)
+  Theory(TheoryId id, context::Context* satContext, context::UserContext* userContext,
+         OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) throw()
+  : d_id(id)
+  , d_satContext(satContext)
+  , d_userContext(userContext)
+  , d_logicInfo(logicInfo)
+  , d_facts(satContext)
+  , d_factsHead(satContext, 0)
+  , d_sharedTermsIndex(satContext, 0)
+  , d_careGraph(0)
+  , d_computeCareGraphTime(statName(id, "computeCareGraphTime"))
+  , d_sharedTerms(satContext)
+  , d_out(&out)
+  , d_valuation(valuation)
   {
     StatisticsRegistry::registerStat(&d_computeCareGraphTime);
   }
@@ -255,6 +262,10 @@ protected:
     }
         
     return fact;
+  }
+
+  const LogicInfo& getLogicInfo() const {
+    return d_logicInfo;
   }
 
   /**
@@ -383,10 +394,10 @@ public:
   }
 
   /**
-   * Get the context associated to this Theory.
+   * Get the SAT context associated to this Theory.
    */
-  context::Context* getContext() const {
-    return d_context;
+  context::Context* getSatContext() const {
+    return d_satContext;
   }
 
   /**
@@ -419,7 +430,7 @@ public:
    * Assert a fact in the current context.
    */
   void assertFact(TNode assertion, bool isPreregistered) {
-    Trace("theory") << "Theory<" << getId() << ">::assertFact[" << d_context->getLevel() << "](" << assertion << ", " << (isPreregistered ? "true" : "false") << ")" << std::endl;
+    Trace("theory") << "Theory<" << getId() << ">::assertFact[" << d_satContext->getLevel() << "](" << assertion << ", " << (isPreregistered ? "true" : "false") << ")" << std::endl;
     d_facts.push_back(Assertion(assertion, isPreregistered));
   }
 
@@ -445,19 +456,6 @@ public:
    * sub-theories to enable more efficient theory-combination.
    */
   virtual EqualityStatus getEqualityStatus(TNode a, TNode b) { return EQUALITY_UNKNOWN; }
-
-  /**
-   * This method is called by the shared term manager when a shared
-   * term lhs which this theory cares about (either because it
-   * received a previous addSharedTerm call with lhs or because it
-   * received a previous notifyEq call with lhs as the second
-   * argument) becomes equal to another shared term rhs.  This call
-   * also serves as notice to the theory that the shared term manager
-   * now considers rhs the representative for this equivalence class
-   * of shared terms, so future notifications for this class will be
-   * based on rhs not lhs.
-   */
-  virtual void notifyEq(TNode lhs, TNode rhs) { }
 
   /**
    * Check the current assignment's consistency.

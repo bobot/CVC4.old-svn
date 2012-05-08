@@ -66,10 +66,10 @@ private:
     
   /** Context dependent set of atoms we already propagated */
   context::CDHashSet<TNode, TNodeHashFunction> d_alreadyPropagatedSet;
-
+  context::CDHashSet<TNode, TNodeHashFunction> d_sharedTermsSet;
 public:
 
-  TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
   ~TheoryBV(); 
 
   void preRegisterTerm(TNode n);
@@ -105,13 +105,13 @@ private:
     NotifyClass(TheoryBV& uf): d_bv(uf) {}
 
     bool notify(TNode propagation) {
-      Debug("bitvector") << spaces(d_bv.getContext()->getLevel()) << "NotifyClass::notify(" << propagation << ")" << std::endl;
+      Debug("bitvector") << spaces(d_bv.getSatContext()->getLevel()) << "NotifyClass::notify(" << propagation << ")" << std::endl;
       // Just forward to bv
       return d_bv.storePropagation(propagation, SUB_EQUALITY);
     }
 
     void notify(TNode t1, TNode t2) {
-      Debug("arrays") << spaces(d_bv.getContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
+      Debug("arrays") << spaces(d_bv.getSatContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
       // Propagate equality between shared terms
       Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
       d_bv.storePropagation(t1.eqNode(t2), SUB_EQUALITY);

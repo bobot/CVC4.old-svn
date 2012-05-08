@@ -34,6 +34,7 @@ static const bool CHECK_AFTER_PIVOT = true;
 static const uint32_t VARORDER_CHECK_PERIOD = 200;
 
 SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq, NodeCallBack& conflictChannel) :
+  d_conflictVariable(ARITHVAR_SENTINEL),
   d_linEq(linEq),
   d_partialModel(d_linEq.getPartialModel()),
   d_tableau(d_linEq.getTableau()),
@@ -176,8 +177,8 @@ template <bool above>
 ArithVar SimplexDecisionProcedure::selectSlack(ArithVar x_i, SimplexDecisionProcedure::PreferenceFunction pref){
   ArithVar slack = ARITHVAR_SENTINEL;
 
-  for(Tableau::RowIterator iter = d_tableau.rowIterator(x_i); !iter.atEnd();  ++iter){
-    const TableauEntry& entry = *iter;
+  for(Tableau::RowIterator iter = d_tableau.basicRowIterator(x_i); !iter.atEnd();  ++iter){
+    const Tableau::Entry& entry = *iter;
     ArithVar nonbasic = entry.getColVar();
     if(nonbasic == x_i) continue;
 
@@ -203,6 +204,7 @@ Node betterConflict(TNode x, TNode y){
 
 bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_findConflictOnTheQueueTime);
+  Assert(d_successes.empty());
 
   switch(type){
   case BeforeDiffSearch:     ++(d_statistics.d_attemptBeforeDiffSearch); break;
@@ -212,21 +214,20 @@ bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
   case AfterVarOrderSearch:  ++(d_statistics.d_attemptAfterVarOrderSearch); break;
   }
 
-  bool success = false;
   ArithPriorityQueue::const_iterator i = d_queue.begin();
   ArithPriorityQueue::const_iterator end = d_queue.end();
   for(; i != end; ++i){
     ArithVar x_i = *i;
 
-    if(d_tableau.isBasic(x_i)){
+    if(x_i != d_conflictVariable && d_tableau.isBasic(x_i) && !d_successes.isMember(x_i)){
       Node possibleConflict = checkBasicForConflict(x_i);
       if(!possibleConflict.isNull()){
-        success = true;
+        d_successes.add(x_i);
         reportConflict(possibleConflict);
       }
     }
   }
-  if(success){
+  if(!d_successes.empty()){
     switch(type){
     case BeforeDiffSearch:     ++(d_statistics.d_successBeforeDiffSearch); break;
     case DuringDiffSearch:     ++(d_statistics.d_successDuringDiffSearch); break;
@@ -234,11 +235,16 @@ bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
     case DuringVarOrderSearch: ++(d_statistics.d_successDuringVarOrderSearch); break;
     case AfterVarOrderSearch:  ++(d_statistics.d_successAfterVarOrderSearch); break;
     }
+    d_successes.purge();
+    return true;
+  }else{
+    return false;
   }
-  return success;
 }
 
 bool SimplexDecisionProcedure::findModel(){
+  Assert(d_conflictVariable == ARITHVAR_SENTINEL);
+
   if(d_queue.empty()){
     return false;
   }
@@ -293,6 +299,7 @@ bool SimplexDecisionProcedure::findModel(){
   // means that the assignment we can always empty these queues.
   d_queue.clear();
   d_pivotsInRound.purge();
+  d_conflictVariable = ARITHVAR_SENTINEL;
 
   Assert(!d_queue.inCollectionMode());
   d_queue.transitionToCollectionMode();
@@ -344,7 +351,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  Options::current()->arithPivotThreshold;
     if(!useVarOrderPivot){
-      d_pivotsInRound.addMultiset(x_i);
+      d_pivotsInRound.add(x_i);
     }
 
 
@@ -363,6 +370,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);
         Node conflict = generateConflictBelowLowerBound(x_i); //unsat
+        d_conflictVariable = x_i;
         reportConflict(conflict);
         return true;
       }
@@ -374,6 +382,8 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);
         Node conflict = generateConflictAboveUpperBound(x_i); //unsat
+
+        d_conflictVariable = x_i;
         reportConflict(conflict);
         return true;
       }
@@ -386,6 +396,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     if(CHECK_AFTER_PIVOT){
       Node possibleConflict = checkBasicForConflict(x_j);
       if(!possibleConflict.isNull()){
+        d_conflictVariable = x_j;
         reportConflict(possibleConflict);
         return true; // unsat
       }
@@ -476,8 +487,8 @@ Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar
 
   NodeBuilder<> conflict(kind::AND);
   bool anyWeakenings = false;
-  for(Tableau::RowIterator i = d_tableau.rowIterator(basicVar); !i.atEnd(); ++i){
-    const TableauEntry& entry = *i;
+  for(Tableau::RowIterator i = d_tableau.basicRowIterator(basicVar); !i.atEnd(); ++i){
+    const Tableau::Entry& entry = *i;
     ArithVar v = entry.getColVar();
     const Rational& coeff = entry.getCoefficient();
     bool weakening = false;

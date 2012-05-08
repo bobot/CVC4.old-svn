@@ -67,7 +67,9 @@ void PreRegisterVisitor::visit(TNode current, TNode parent) {
   Theory::Set theories;
 
   Debug("register") << "PreRegisterVisitor::visit(" << current << "," << parent << ")" << std::endl;
-  Debug("register::internal") << toString() << std::endl;
+  if (Debug.isOn("register::internal")) {
+    Debug("register::internal") << toString() << std::endl;
+  }
 
   // Get the theories of the terms
   TheoryId currentTheoryId = Theory::theoryOf(current);
@@ -101,7 +103,10 @@ void PreRegisterVisitor::start(TNode node) {
 }
 
 bool PreRegisterVisitor::done(TNode node) {
-  d_engine->markActive(d_theories[node]);
+// <<<<<<< .working
+//   d_engine->markActive(d_theories[node]);
+// =======
+// >>>>>>> .merge-right.r3396
   return d_multipleTheories;
 }
 

@@ -90,13 +90,13 @@ class TheoryEngine {
   theory::Theory* d_theoryTable[theory::THEORY_LAST];
 
   /**
-   * A bitmap of theories that are "active" for the current run.  We
-   * mark a theory active when we first see a term or type belonging to
-   * it.  This is important because we can optimize for single-theory
-   * runs (no sharing), can reduce the cost of walking the DAG on
-   * registration, etc.
+   * A collection of theories that are "active" for the current run.
+   * This set is provided by the user (as a logic string, say, in SMT-LIBv2
+   * format input), or else by default it's all-inclusive.  This is important
+   * because we can optimize for single-theory runs (no sharing), can reduce
+   * the cost of walking the DAG on registration, etc.
    */
-  context::CDO<theory::Theory::Set> d_activeTheories;
+  const LogicInfo& d_logicInfo;
 
   // NotifyClass: template helper class for Shared Terms Database
   class NotifyClass :public SharedTermsDatabase::SharedTermsNotifyClass {
@@ -129,7 +129,7 @@ class TheoryEngine {
    * Used for "missed-t-propagations" dumping mode only.  A set of all
    * theory-propagable literals.
    */
-  std::vector<TNode> d_possiblePropagations;
+  context::CDList<TNode> d_possiblePropagations;
 
   /**
    * Used for "missed-t-propagations" dumping mode only.  A
@@ -257,11 +257,6 @@ class TheoryEngine {
   context::CDO<bool> d_inConflict;
 
   /**
-   * Does the context contain terms shared among multiple theories.
-   */
-  context::CDO<bool> d_sharedTermsExist;
-
-  /**
    * Explain the equality literals and push all the explaining literals
    * into the builder. All the non-equality literals are pushed to the
    * builder.
@@ -277,6 +272,11 @@ class TheoryEngine {
    * Called by the theories to notify of a conflict.
    */
   void conflict(TNode conflict, theory::TheoryId theoryId);
+
+  /**
+   * Called by shared terms database to notify of a conflict.
+   */
+  void sharedConflict(TNode conflict);
 
   /**
    * Debugging flag to ensure that shutdown() is called before the
@@ -302,13 +302,6 @@ class TheoryEngine {
    */
   void spendResource() throw() {
     d_propEngine->spendResource();
-  }
-
-  /**
-   * Is the theory active.
-   */
-  bool isActive(theory::TheoryId theory) {
-    return theory::Theory::setContains(theory, d_activeTheories);
   }
 
   struct SharedLiteral {
@@ -353,7 +346,13 @@ class TheoryEngine {
 
   void propagateSharedLiteral(TNode literal, TNode original, theory::TheoryId theory)
   {
-    d_propagatedSharedLiterals.push_back(SharedLiteral(literal, original, theory));
+    if (literal.getKind() == kind::CONST_BOOLEAN) {
+      Assert(!literal.getConst<bool>());
+      sharedConflict(original);
+    }
+    else {
+      d_propagatedSharedLiterals.push_back(SharedLiteral(literal, original, theory));
+    }
   }
 
   /**
@@ -433,8 +432,9 @@ class TheoryEngine {
 
     // Remove the ITEs and assert to prop engine
     std::vector<Node> additionalLemmas;
+    IteSkolemMap iteSkolemMap;
     additionalLemmas.push_back(node);
-    RemoveITE::run(additionalLemmas);
+    RemoveITE::run(additionalLemmas, iteSkolemMap);
     additionalLemmas[0] = theory::Rewriter::rewrite(additionalLemmas[0]);
     d_propEngine->assertLemma(additionalLemmas[0], negated, removable);
     for (unsigned i = 1; i < additionalLemmas.size(); ++ i) {
@@ -458,7 +458,7 @@ class TheoryEngine {
 public:
 
   /** Constructs a theory engine */
-  TheoryEngine(context::Context* context, context::UserContext* userContext);
+  TheoryEngine(context::Context* context, context::UserContext* userContext, const LogicInfo& logic);
 
   /** Destroys a theory engine */
   ~TheoryEngine();
@@ -471,7 +471,7 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this));
+    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo);
   }
 
   /**
@@ -479,13 +479,6 @@ public:
    * should go in here.
    */
   void setLogic(std::string logic);
-
-  /**
-   * Mark a theory active if it's not already.
-   */
-  void markActive(theory::Theory::Set theories) {
-    d_activeTheories = theory::Theory::setUnion(d_activeTheories, theories);
-  }
 
   inline void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
