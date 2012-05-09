@@ -31,6 +31,26 @@ namespace uf{
 
 namespace quantifiers {
 
+
+class ModelTree
+{
+private:
+  void setValue2( QuantifiersEngine* qe, Node n, Node v, int argIndex );
+  Node getValue2( QuantifiersEngine* qe, Node n, int& depIndex, int argIndex );
+public:
+  ModelTree(){}
+  /** the data */
+  std::map< Node, ModelTree > d_data;
+  Node d_value;
+  std::vector< Node > d_explicit;
+public:
+  bool isEmpty() { return d_data.empty() && d_explicit.empty(); }
+  void setValue( QuantifiersEngine* qe, Node n, Node v ) { setValue2( qe, n, v, 0 ); }
+  Node getValue( QuantifiersEngine* qe, Node n, int& depIndex ) { return getValue2( qe, n, depIndex, 0 ); }
+public:
+  void debugPrint( const char* c, int ind = 0, int arg = 0 );
+};
+
 /** this class stores a representative alphabet */
 class RepAlphabet {
 public:
@@ -78,6 +98,7 @@ private:
   Node d_op;
   QuantifiersEngine* d_qe;
   std::map< Node, std::vector< Node > > d_reqs[2];
+  ModelTree d_tree;
 public:
   PredModel(){}
   PredModel( Node op, QuantifiersEngine* qe );
@@ -94,6 +115,7 @@ private:
   Node d_op;
   QuantifiersEngine* d_qe;
   std::map< Node, std::map< Node, std::vector< Node > > > d_reqs[2];
+  ModelTree d_tree;
 public:
   FunctionModel(){}
   FunctionModel( Node op, QuantifiersEngine* qe );
@@ -104,6 +126,9 @@ public:
   void debugPrint( const char* c );
 };
 
+
+
+
 class ModelEngine : public QuantifiersModule
 {
 private:
@@ -113,6 +138,11 @@ private:
   RepAlphabet d_ra;
   std::map< Node, PredModel > d_pred_model;
   std::map< Node, FunctionModel > d_func_model;
+  //int evaluate( RepAlphabetIterator* rai, Node n, bool phaseReq, std::vector< Node >& modelExt );
+  //int evaluateLiteral( RepAlphabetIterator* rai, Node lit, bool phaseReq, std::vector< Node >& modelExt );
+private:
+  void processPredicate( Node f, Node p, bool phase );
+  void processEquality( Node f, Node eq, bool phase );
 private:
   //build representatives
   void buildRepresentatives();

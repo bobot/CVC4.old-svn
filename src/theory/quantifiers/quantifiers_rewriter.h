@@ -38,46 +38,41 @@ public:
   static bool isLiteral( Node n );
   static bool isCube( Node n );
 private:
-  static void computeArgs( std::map< Node, bool >& active, Node n );
-  static void computeArgs( std::vector< Node >& args, std::vector< Node >& activeArgs, Node n );
-  static Node computePrenex( Node body, std::vector< Node >& args, std::vector< Node >& exArgs, bool pol );
-  static Node computePrenex( Node body, std::vector< Node >& args );
+  static void addNodeToOrBuilder( Node n, NodeBuilder<>& t );
   static Node mkForAll( std::vector< Node >& args, Node body, Node ipl );
+  static void computeArgs( std::vector< Node >& args, std::vector< Node >& activeArgs, Node n );
   static bool hasArg( std::vector< Node >& args, Node n );
   static void setNestedQuantifiers( Node n, Node q );
-  static Node computeVarElimination( Node n );
+private:
+  static void computeArgs( std::map< Node, bool >& active, Node n );
+  static Node computePreSkolem2( Node body, std::vector< Node >& args, bool pol );
+  static Node computePrenex2( Node body, std::vector< Node >& args, bool pol );
+  static Node computeClause( Node n );
+  static Node computeCNF2( Node n, std::vector< Node >& args, NodeBuilder<>& defs, bool forcePred );
+private:
+  static Node computeMiniscoping( std::vector< Node >& args, Node body, Node ipl, bool isNested = false );
+  static Node computePreSkolem( Node f );
+  static Node computePrenex( Node f );
+  static Node computeVarElimination( Node f );
+  static Node computeCNF( Node f );
+private:
+  static Node rewriteQuants( Node n, bool isNested = false );
 public:
-
+  static RewriteResponse preRewrite(TNode in);
   static RewriteResponse postRewrite(TNode in);
-
-  static RewriteResponse preRewrite(TNode in) {
-    Debug("quantifiers-rewrite-debug") << "pre-rewriting " << in << std::endl;
-    if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
-      if( !in.hasAttribute(NestedQuantAttribute()) ){
-        setNestedQuantifiers( in[ 1 ], in );
-      }
-    }
-    return RewriteResponse(REWRITE_DONE, in);
-  }
-
   static Node rewriteEquality(TNode equality) {
     return postRewrite(equality).node;
   }
-
   static inline void init() {}
   static inline void shutdown() {}
-
-  /** returns a literal, writes new quantifier definitions into nb */
-  //static Node mkPredicate( std::vector< Node >& args, Node body, NodeBuilder<>& defs );
-
-  static Node rewriteQuant( std::vector< Node >& args, Node body, NodeBuilder<>& defs, Node ipl, bool isNested = false, 
-                            bool isExists = false );
+private:
   /** options */
   static bool doMiniscopingNoFreeVar();
   static bool doMiniscopingAnd();
-  static bool doMiniscopingAndExt();
-  static bool doPrenex();
-  static bool doVarElimination();
+  static bool doPreSkolem( Node f );
+  static bool doPrenex( Node f );
+  static bool doVarElimination( Node f );
+  static bool doCNF( Node f );
 };/* class QuantifiersRewriter */
 
 }/* CVC4::theory::quantifiers namespace */

@@ -146,7 +146,7 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
   ++r->nb_matched;
   if(rewrite_instantiation) im.applyRewrite();
   if(representative_instantiation)
-    im.makeRepresentative( getQuantifiersEngine()->getEqualityQuery() );
+    im.makeRepresentative( getQuantifiersEngine() );
 
   if(!cache_match || !r->inCache(*this,im)){
     ++r->nb_applied;

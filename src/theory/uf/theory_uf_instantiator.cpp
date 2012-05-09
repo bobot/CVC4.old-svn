@@ -77,8 +77,12 @@ Instantiator( c, qe, th )
     if( Options::current()->cbqi ){
       addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     }
-    d_isup = new InstStrategyUserPatterns( this, qe );
-    addInstStrategy( d_isup );
+    if( Options::current()->userPatternsQuant ){
+      d_isup = new InstStrategyUserPatterns( this, qe );
+      addInstStrategy( d_isup );
+    }else{
+      d_isup = NULL;
+    }
     InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( this, qe, Trigger::TS_ALL,
                                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT, 3 );
     i_ag->setGenerateAdditional( true );

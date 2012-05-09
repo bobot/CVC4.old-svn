@@ -132,17 +132,23 @@ void InstMatch::makeComplete( Node f, QuantifiersEngine* qe ){
   }
 }
 
-void InstMatch::makeInternal( EqualityQuery* q ){
+void InstMatch::makeInternal( QuantifiersEngine* qe ){
   for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
-    if( it->second.hasAttribute(InstConstantAttribute()) ){
-      d_map[ it->first ] = q->getInternalRepresentative( it->second );
+    if( Options::current()->cbqi && it->second.hasAttribute(InstConstantAttribute()) ){
+      d_map[ it->first ] = qe->getEqualityQuery()->getInternalRepresentative( it->second );
+      if( Options::current()->cbqi && it->second.hasAttribute(InstConstantAttribute()) ){
+        d_map[ it->first ] = qe->getFreeVariableForInstConstant( it->first );
+      }
     }
   }
 }
 
-void InstMatch::makeRepresentative( EqualityQuery* q ){
+void InstMatch::makeRepresentative( QuantifiersEngine* qe ){
   for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
-    d_map[ it->first ] = q->getInternalRepresentative( it->second );
+    d_map[ it->first ] = qe->getEqualityQuery()->getInternalRepresentative( it->second );
+    if( Options::current()->cbqi && it->second.hasAttribute(InstConstantAttribute()) ){
+      d_map[ it->first ] = qe->getFreeVariableForInstConstant( it->first );
+    }
   }
 }
 
@@ -152,13 +158,13 @@ void InstMatch::applyRewrite(){
   }
 }
 
-void InstMatch::computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match ){
+void InstMatch::computeTermVec( QuantifiersEngine* qe, const std::vector< Node >& vars, std::vector< Node >& match ){
   for( int i=0; i<(int)vars.size(); i++ ){
     std::map< Node, Node >::iterator it = d_map.find( vars[i] );
     if( it!=d_map.end() && !it->second.isNull() ){
       match.push_back( it->second );
     }else{
-      match.push_back( ie->getFreeVariableForInstConstant( vars[i] ) );
+      match.push_back( qe->getFreeVariableForInstConstant( vars[i] ) );
     }
   }
 }
@@ -171,6 +177,7 @@ void InstMatch::computeTermVec( const std::vector< Node >& vars, std::vector< No
 
 /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
 void InstMatchTrie::addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index, ImtIndexOrder* imtio ){
+  //std::cout << "Add " << index << " " << f[0].getNumChildren() << std::endl;
   if( index<f[0].getNumChildren() && ( !imtio || index<(int)imtio->d_order.size() ) ){
     int i_index = imtio ? imtio->d_order[index] : index;
     Node n = m.d_map[ qe->getInstantiationConstant( f, i_index ) ];
@@ -180,6 +187,7 @@ void InstMatchTrie::addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, 
 
 /** exists match */
 bool InstMatchTrie::existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, int index, ImtIndexOrder* imtio ){
+  //std::cout << "Exists " << index << " " << f[0].getNumChildren() << std::endl;
   if( index==f[0].getNumChildren() || ( imtio && index==(int)imtio->d_order.size() ) ){
     return true;
   }else{
@@ -620,9 +628,8 @@ bool InstMatchGenerator::nonunifiable( TNode t0, const std::vector<Node> & vars)
   return false;
 }
 
-int InstMatchGenerator::addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+int InstMatchGenerator::addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
   //now, try to add instantiation for each match produced
-  Node f = d_match_pattern.getAttribute(InstConstantAttribute());
   int addedLemmas = 0;
   InstMatch m;
   while( getNextMatch( m, qe ) ){
@@ -807,7 +814,7 @@ void InstMatchGeneratorMulti::collectInstantiations2( QuantifiersEngine* qe, Ins
   }
 }
 
-int InstMatchGeneratorMulti::addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+int InstMatchGeneratorMulti::addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
   int addedLemmas = 0;
   Debug("smart-multi-trigger") << "Process smart multi trigger" << std::endl;
   for( int i=0; i<(int)d_children.size(); i++ ){
@@ -815,7 +822,7 @@ int InstMatchGeneratorMulti::addInstantiations( InstMatch& baseMatch, Quantifier
     std::vector< InstMatch > newMatches;
     InstMatch m;
     while( d_children[i]->getNextMatch( m, qe ) ){
-      m.makeRepresentative( qe->getEqualityQuery() );
+      m.makeRepresentative( qe );
       newMatches.push_back( InstMatch( &m ) );
       m.clear();
     }
@@ -838,7 +845,7 @@ int InstMatchGeneratorMulti::addInstantiations( InstMatch& baseMatch, Quantifier
   return addedLemmas;
 }
 
-int InstMatchGeneratorSimple::addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+int InstMatchGeneratorSimple::addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
   InstMatch m;
   m.add( baseMatch );
   int addedLemmas = 0;

@@ -281,7 +281,7 @@ Instantiator* QuantifiersEngine::getInstantiator( int id ){
 void QuantifiersEngine::check( Theory::Effort e ){
   if( e==Theory::EFFORT_LAST_CALL ){
     ++(d_statistics.d_instantiation_rounds_lc);
-  }else{
+  }else if( e==Theory::EFFORT_FULL ){
     ++(d_statistics.d_instantiation_rounds);
   }
   for( int i=0; i<(int)d_modules.size(); i++ ){
@@ -351,6 +351,8 @@ void QuantifiersEngine::registerQuantifier( Node f ){
     for( int i=0; i<(int)d_modules.size(); i++ ){
       d_modules[i]->registerQuantifier( f );
     }
+    Node ceBody = getOrCreateCounterexampleBody( f );
+    generatePhaseReqs( f, ceBody );
     //also register it with the strong solver
     if( Options::current()->finiteModelFind ){
       ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( f );
@@ -434,10 +436,10 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
     uint64_t maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
       if( terms[i].hasAttribute(InstConstantAttribute()) ){
-        //std::cout << "***& Bad Instantiate " << f << " with " << std::endl;
-        //for( int i=0; i<(int)terms.size(); i++ ){
-        //  std::cout << "   " << terms[i] << std::endl;
-        //}
+        Debug("inst")<< "***& Bad Instantiate " << f << " with " << std::endl;
+        for( int i=0; i<(int)terms.size(); i++ ){
+          Debug("inst") << "   " << terms[i] << std::endl;
+        }
         std::cout << "Bad instantiation, unknown ";
         exit( 19 );
       }else{
@@ -467,7 +469,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 
 bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits ){
   m.makeComplete( f, this );
-  m.makeRepresentative( d_eq_query );
+  m.makeRepresentative( this );
   Debug("quant-duplicate") << "After make rep: " << m << std::endl;
   if( !d_inst_match_trie[f].addInstMatch( this, f, m, true ) ){
     Debug("quant-duplicate") << " -> Already exists." << std::endl;

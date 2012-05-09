@@ -115,13 +115,16 @@ Options::Options() :
   miniscopeQuantFreeVar(true),
   prenexQuant(true),
   varElimQuant(false),
-  smartMultiTriggers(true),
+  cnfQuant(false),
+  preSkolemQuant(false),
+  smartTriggers(true),
   finiteModelFind(false),
   fmfRegionSat(false),
   efficientEMatching(false),
   literalMatchMode(LITERAL_MATCH_NONE),
   cbqi(false),
   cbqiSetByUser(false),
+  userPatternsQuant(true),
   flipDecision(false),
   dioSolver(true),
   arithRewriteEq(true),
@@ -200,15 +203,18 @@ Additional CVC4 options:\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
    --disable-miniscope-quant     disable miniscope quantifiers\n\
    --disable-miniscope-quant-fv  disable miniscope quantifiers for ground subformulas\n\
-   --disable-prenex-quant disable prenexing of quantifiers\n\
-   --var-elim-quant       enable variable elimination of quantifiers\n\
-   --disable-smart-multi-triggers   disable smart multi-triggers\n\
+   --disable-prenex-quant disable prenexing of quantified formulas\n\
+   --var-elim-quant       enable variable elimination of quantified formulas\n\
+   --cnf-quant            apply CNF conversion to quantified formulas\n\
+   --pre-skolem-quant     apply skolemization eagerly to bodies of quantified formulas\n\
+   --disable-smart-triggers   disable smart triggers\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --use-fmf-region-sat   use region-based SAT heuristic for fmf\n\
    --efficient-e-matching use efficient E-matching\n\
    --literal-matching=MODE  choose literal matching mode\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [off by default]\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
+   --ignore-user-patterns ignore user-provided patterns for quantifier instantiation\n\
    --enable-flip-decision turns on flip decision heuristic\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n \
@@ -403,6 +409,8 @@ enum OptionValue {
   DISABLE_MINISCOPE_QUANT_FV,
   DISABLE_PRENEX_QUANT,
   VAR_ELIM_QUANT,
+  CNF_QUANT,
+  PRE_SKOLEM_QUANT,
   DISABLE_SMART_MULTI_TRIGGERS,
   FINITE_MODEL_FIND,
   FMF_REGION_SAT,
@@ -410,6 +418,7 @@ enum OptionValue {
   LITERAL_MATCHING,
   ENABLE_CBQI,
   DISABLE_CBQI,
+  IGNORE_USER_PATTERNS,
   ENABLE_FLIP_DECISION,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
@@ -506,13 +515,16 @@ static struct option cmdlineOptions[] = {
   { "disable-miniscope-quant-fv", no_argument, NULL, DISABLE_MINISCOPE_QUANT_FV },
   { "disable-prenex-quant", no_argument, NULL, DISABLE_PRENEX_QUANT },
   { "var-elim-quant", no_argument, NULL, VAR_ELIM_QUANT },
-  { "disable-smart-multi-triggers", no_argument, NULL, DISABLE_SMART_MULTI_TRIGGERS },
+  { "cnf-quant", no_argument, NULL, CNF_QUANT },
+  { "pre-skolem-quant", no_argument, NULL, PRE_SKOLEM_QUANT },
+  { "disable-smart-triggers", no_argument, NULL, DISABLE_SMART_MULTI_TRIGGERS },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
   { "disable-cbqi", no_argument, NULL, DISABLE_CBQI },
+  { "ignore-user-patterns", no_argument, NULL, IGNORE_USER_PATTERNS },
   { "enable-flip-decision", no_argument, NULL, ENABLE_FLIP_DECISION },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
@@ -903,8 +915,14 @@ throw(OptionException) {
     case VAR_ELIM_QUANT:
       varElimQuant = true;
       break;
+    case CNF_QUANT:
+      cnfQuant = true;
+      break;
+    case PRE_SKOLEM_QUANT:
+      preSkolemQuant = true;
+      break;
     case DISABLE_SMART_MULTI_TRIGGERS:
-      smartMultiTriggers = false;
+      smartTriggers = false;
       break;
     case FINITE_MODEL_FIND:
       finiteModelFind = true;
@@ -937,6 +955,9 @@ throw(OptionException) {
     case DISABLE_CBQI:
       cbqi = false;
       cbqiSetByUser = true;
+      break;
+    case IGNORE_USER_PATTERNS:
+      userPatternsQuant = false;
       break;
     case ENABLE_FLIP_DECISION:
       flipDecision = true;

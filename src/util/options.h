@@ -276,9 +276,21 @@ struct CVC4_PUBLIC Options {
   bool varElimQuant;
 
   /** 
-   * Whether to use smart multi-triggers
+   * Whether to CNF quantifier bodies
    */
-  bool smartMultiTriggers;
+  bool cnfQuant;
+
+  /**
+   * Whether to pre-skolemize quantifier bodies.
+   * For example, forall x. ( P( x ) => (exists y. f( y ) = x) ) will be rewritten to
+   *   forall x. P( x ) => f( S( x ) ) = x 
+   */
+  bool preSkolemQuant;
+
+  /** 
+   * Whether to use smart triggers
+   */
+  bool smartTriggers;
 
   /**
    * Whether to use finite model find heuristic
@@ -318,6 +330,11 @@ struct CVC4_PUBLIC Options {
    * quantifier instantiation be enabled or disabled.
    */
   bool cbqiSetByUser;
+
+  /** 
+   * Whether to use user patterns for pattern-based instantiation
+   */
+  bool userPatternsQuant;
 
   /** 
    * Whether to use flip decision (useful when cbqi=true)

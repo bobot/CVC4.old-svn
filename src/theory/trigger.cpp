@@ -61,18 +61,16 @@ int Trigger::trCount = 0;
 Trigger::TrTrie Trigger::d_tr_trie;
 
 /** trigger class constructor */
-Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool smartMultiTrigger ) :
+Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool smartTriggers ) :
 d_quantEngine( qe ), d_f( f ){
   trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
-  if( smartMultiTrigger ){
+  if( smartTriggers ){
     if( d_nodes.size()==1 ){
-      if( isSimpleTrigger( d_nodes[0] ) ){
-        //d_mg = new InstMatchGeneratorSimple( f, d_nodes[0] );
-        d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
-      }else{
-        d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
-      }
+      //if( isSimpleTrigger( d_nodes[0] ) ){
+      //  d_mg = new InstMatchGeneratorSimple( f, d_nodes[0] );
+      //}
+      d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
     }else{
       d_mg = new InstMatchGeneratorMulti( f, d_nodes, qe, matchOption );
     }
@@ -137,7 +135,7 @@ bool Trigger::getMatch( Node t, InstMatch& m ){
 
 
 int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSplits ){
-  int addedLemmas = d_mg->addInstantiations( baseMatch, d_quantEngine, instLimit, addSplits );
+  int addedLemmas = d_mg->addInstantiations( d_f, baseMatch, d_quantEngine, instLimit, addSplits );
   if( addedLemmas>0 ){
     Debug("inst-trigger") << "Added " << addedLemmas << " lemmas, trigger was ";
     for( int i=0; i<(int)d_nodes.size(); i++ ){
@@ -149,7 +147,7 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
 }
 
 Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool keepAll, int trOption,
-                             bool smartMultiTrigger ){
+                             bool smartTriggers ){
   std::vector< Node > trNodes;
   if( !keepAll ){
     //only take nodes that contribute variables to the trigger when added
@@ -232,14 +230,14 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       }
     }
   }
-  Trigger* t = new Trigger( qe, f, trNodes, matchOption, smartMultiTrigger );
+  Trigger* t = new Trigger( qe, f, trNodes, matchOption, smartTriggers );
   d_tr_trie.addTrigger( trNodes, t );
   return t;
 }
-Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, Node n, int matchOption, bool keepAll, int trOption, bool smartMultiTrigger ){
+Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, Node n, int matchOption, bool keepAll, int trOption, bool smartTriggers ){
   std::vector< Node > nodes;
   nodes.push_back( n );
-  return mkTrigger( qe, f, nodes, matchOption, keepAll, trOption, smartMultiTrigger );
+  return mkTrigger( qe, f, nodes, matchOption, keepAll, trOption, smartTriggers );
 }
 
 bool Trigger::isUsableTrigger( std::vector< Node >& nodes, Node f ){

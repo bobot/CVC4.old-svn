@@ -35,8 +35,6 @@ private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
   /** status of instantiation round (one of InstStrategy::STATUS_*) */
   int d_inst_round_status;
-  /** cbqi lemmas added */
-  std::map< Node, bool > d_cbqi_lemma_added;
   /** map from universal quantifiers to their counterexample literals */
   std::map< Node, Node > d_ce_lit;
 private:

@@ -132,13 +132,13 @@ public:
   /** make complete */
   void makeComplete( Node f, QuantifiersEngine* qe );
   /** make internal: ensure that no term in d_map contains instantiation constants */
-  void makeInternal( EqualityQuery* q );
+  void makeInternal( QuantifiersEngine* qe );
   /** make representative */
-  void makeRepresentative( EqualityQuery* q );
+  void makeRepresentative( QuantifiersEngine* qe );
   /** apply rewrite */
   void applyRewrite();
   /** compute d_match */
-  void computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match );
+  void computeTermVec( QuantifiersEngine* qe, const std::vector< Node >& vars, std::vector< Node >& match );
   /** compute d_match */
   void computeTermVec( const std::vector< Node >& vars, std::vector< Node >& match );
   /** clear */
@@ -288,7 +288,7 @@ public:
       given Node can't match the pattern */
   virtual bool nonunifiable( TNode t, const std::vector<Node> & vars) = 0;
   /** add instantiations directly */
-  virtual int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ) = 0;
+  virtual int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ) = 0;
 };
 
 
@@ -360,7 +360,7 @@ public:
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars);
   /** add instantiations */
-  int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
 };
 
 /** smart multi-trigger implementation */
@@ -407,7 +407,7 @@ public:
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
   /** add instantiations */
-  int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
 };
 
 class TermArgTrie;
@@ -438,7 +438,7 @@ public:
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
   /** add instantiations */
-  int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
 };
 
 }/* CVC4::theory namespace */

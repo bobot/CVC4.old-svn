@@ -144,7 +144,7 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
     //check match option
     int matchOption = Options::current()->efficientEMatching ? InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH : 0;
     d_user_gen[f].push_back( Trigger::mkTrigger( d_quantEngine, f, nodes, matchOption, true, Trigger::TR_MAKE_NEW, 
-                                                 Options::current()->smartMultiTriggers ) );
+                                                 Options::current()->smartTriggers ) );
   }
 }
  
@@ -193,10 +193,10 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
         }
         if( processTrigger ){
           //if( tr->isMultiTrigger() ) 
-            //std::cout << "  Process " << (*tr) << " for " << f << "..." << std::endl;
+            Debug("quant-uf-strategy-auto-gen-triggers") << "  Process " << (*tr) << "..." << std::endl;
           int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
           //if( tr->isMultiTrigger() ) 
-            //std::cout << "  Done, numInst = " << numInst << "." << std::endl;
+            Debug("quant-uf-strategy-auto-gen-triggers") << "  Done, numInst = " << numInst << "." << std::endl;
           if( d_tr_strategy==Trigger::TS_MIN_TRIGGER ){
             d_th->d_statistics.d_instantiations_auto_gen_min += numInst;
           }else{
@@ -206,10 +206,10 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
             d_quantEngine->d_statistics.d_multi_trigger_instantiations += numInst;
           }
           //d_quantEngine->d_hasInstantiated[f] = true;
-          Debug("quant-uf-strategy") << "done." << std::endl;
         }
       }
     }
+    Debug("quant-uf-strategy") << "done." << std::endl;
     //std::cout << "done" << std::endl;
   }
   return STATUS_UNKNOWN;
@@ -300,7 +300,7 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
     Trigger* tr = NULL;
     if( d_is_single_trigger[ patTerms[0] ] ){
       tr = Trigger::mkTrigger( d_quantEngine, f, patTerms[0], matchOption, false, Trigger::TR_RETURN_NULL, 
-                               Options::current()->smartMultiTriggers );
+                               Options::current()->smartTriggers );
       d_single_trigger_gen[ patTerms[0] ] = true;
     }else{
       //if we are re-generating triggers, shuffle based on some method
@@ -314,7 +314,7 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
       }
       //will possibly want to get an old trigger
       tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchOption, false, Trigger::TR_GET_OLD, 
-                               Options::current()->smartMultiTriggers );
+                               Options::current()->smartTriggers );
     }
     if( tr ){
       if( tr->isMultiTrigger() ){
@@ -345,7 +345,7 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
             if( d_quantEngine->getNumQuantifiersForSymbol( patTerms[index].getOperator() )<=nqfs_curr ){
               d_single_trigger_gen[ patTerms[index] ] = true;
               Trigger* tr2 = Trigger::mkTrigger( d_quantEngine, f, patTerms[index], matchOption, false, Trigger::TR_RETURN_NULL, 
-                                                 Options::current()->smartMultiTriggers );
+                                                 Options::current()->smartTriggers );
               if( tr2 ){
                 //std::cout << "Add additional trigger " << patTerms[index] << std::endl;
                 tr2->resetInstantiationRound();
