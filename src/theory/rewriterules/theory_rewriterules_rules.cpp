@@ -244,8 +244,8 @@ RewriteRule::RewriteRule(TheoryRewriteRules & re,
                          std::vector<Node> & to_r, bool drr) :
   d_split(willDecide(b)),
   trigger(tr), body(b), new_terms(nt), free_vars(), inst_vars(),
-  body_match(re.getContext()),trigger_for_body_match(tr2),
-  d_cache(re.getContext(),re.getQuantifiersEngine()), directrr(drr){
+  body_match(re.getSatContext()),trigger_for_body_match(tr2),
+  d_cache(re.getSatContext(),re.getQuantifiersEngine()), directrr(drr){
   free_vars.swap(fv); inst_vars.swap(iv); guards.swap(g); to_remove.swap(to_r);
 };
 

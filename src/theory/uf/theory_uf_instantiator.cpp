@@ -255,7 +255,7 @@ EqClassInfo* InstantiatorTheoryUf::getEquivalenceClassInfo( Node n ) {
 EqClassInfo* InstantiatorTheoryUf::getOrCreateEquivalenceClassInfo( Node n ){
   Assert( n==getRepresentative( n ) );
   if( d_eqc_ops.find( n )==d_eqc_ops.end() ){
-    EqClassInfo* eci = new EqClassInfo( d_th->getContext() );
+    EqClassInfo* eci = new EqClassInfo( d_th->getSatContext() );
     eci->setMember( n, d_quantEngine->getTermDatabase() );
     d_eqc_ops[n] = eci;
   }

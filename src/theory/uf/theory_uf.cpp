@@ -29,8 +29,8 @@ namespace theory {
 namespace uf {
 
 /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
-  Theory(THEORY_UF, c, u, out, valuation, qe),
+TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
+  Theory(THEORY_UF, c, u, out, valuation, logicInfo, qe),
   d_notify(*this),
   d_equalityEngine(d_notify, c, "theory::uf::TheoryUF"),
   d_conflict(c, false),

@@ -141,7 +141,7 @@ private:
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-  TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe);
+  TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
 
   void check(Effort);
   void propagate(Effort);

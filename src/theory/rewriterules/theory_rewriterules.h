@@ -192,6 +192,7 @@ private:
                      context::UserContext* u,
                      OutputChannel& out,
                      Valuation valuation,
+                     const LogicInfo& logicInfo,
                      QuantifiersEngine* qe);
 
   /** Usual function for theories */

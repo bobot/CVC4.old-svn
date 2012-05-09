@@ -45,7 +45,7 @@ private:
   /** number of restarts */
   int d_numRestarts;
 public:
-  TheoryQuantifiers(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe );
+  TheoryQuantifiers(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   ~TheoryQuantifiers();
 
   void addSharedTerm(TNode t);

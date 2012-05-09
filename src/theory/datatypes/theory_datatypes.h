@@ -143,13 +143,12 @@ private:
   CongruenceClosureExplainer<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::APPLY_CONSTRUCTOR, kind::APPLY_SELECTOR)> d_cce;
 
 public:
-  TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe);
+  TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   ~TheoryDatatypes();
   void preRegisterTerm(TNode n);
   void presolve();
 
   void addSharedTerm(TNode t);
-  void notifyEq(TNode lhs, TNode rhs);
   void check(Effort e);
   Node getValue(TNode n);
   void shutdown() { }

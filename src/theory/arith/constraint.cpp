@@ -26,7 +26,7 @@ ConstraintType constraintTypeOfComparison(const Comparison& cmp){
       if(l.leadingCoefficientIsPositive()){ // (< x c)
         return UpperBound;
       }else{
-        return LowerBound; // (< (-x) c) 
+        return LowerBound; // (< (-x) c)
       }
     }
   case GT:
@@ -325,7 +325,7 @@ Constraint ConstraintValue::getCeiling() {
 
   DeltaRational ceiling(getValue().ceiling());
 
-#warning "Optimize via the iterator"
+  // TODO: "Optimize via the iterator"
   return d_database->getConstraint(getVariable(), getType(), ceiling);
 }
 
@@ -334,7 +334,7 @@ Constraint ConstraintValue::getFloor() {
 
   DeltaRational floor(Rational(getValue().floor()));
 
-#warning "Optimize via the iterator"
+  // TODO: "Optimize via the iterator"
   return d_database->getConstraint(getVariable(), getType(), floor);
 }
 
@@ -482,7 +482,8 @@ Constraint ConstraintDatabase::getConstraint(ArithVar v, ConstraintType t, const
     }else{
       pair<SortedConstraintMapIterator, bool> negInsertAttempt;
       negInsertAttempt = scm.insert(make_pair(negC->getValue(), ValueCollection()));
-      Assert(negInsertAttempt.second);
+      Assert(negInsertAttempt.second
+             || ! negInsertAttempt.first->second.hasConstraintOfType(negC->getType()));
       negPos = negInsertAttempt.first;
     }
 

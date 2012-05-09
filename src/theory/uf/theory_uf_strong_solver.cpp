@@ -101,7 +101,7 @@ void StrongSolverTheoryUf::ConflictFind::Region::combine( StrongSolverTheoryUf::
 void StrongSolverTheoryUf::ConflictFind::Region::setRep( Node n, bool valid ){
   Assert( hasRep( n )!=valid );
   if( d_nodes.find( n )==d_nodes.end() && valid ){
-    d_nodes[n] = new RegionNodeInfo( d_cf->d_th->getContext() );
+    d_nodes[n] = new RegionNodeInfo( d_cf->d_th->getSatContext() );
   }
   d_nodes[n]->d_valid = valid;
   d_reps_size = d_reps_size + ( valid ? 1 : -1 );
@@ -539,7 +539,7 @@ void StrongSolverTheoryUf::ConflictFind::newEqClass( Node n ){
       //Assert( d_regions[ d_regions_index ]->d_valid );
       Assert( d_regions[ d_regions_index ]->getNumReps()==0 );
     }else{
-      d_regions.push_back( new Region( this, d_th->getContext() ) );
+      d_regions.push_back( new Region( this, d_th->getSatContext() ) );
     }
     d_regions[ d_regions_index ]->setRep( n, true );
     d_regions_index = d_regions_index + 1;
@@ -1244,7 +1244,7 @@ void StrongSolverTheoryUf::preRegisterType( TypeNode tn ){
     //  std::cout << "n/a ";
     //  exit( 29 );
     //}
-    d_conf_find[tn] = new ConflictFind( tn, d_th->getContext(), d_th );
+    d_conf_find[tn] = new ConflictFind( tn, d_th->getSatContext(), d_th );
     //if( d_conf_types.empty() ){
     //assign cardinality restriction
     d_statistics.d_max_model_size.maxAssign( 1 );

@@ -129,8 +129,9 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
                                        context::UserContext* u,
                                        OutputChannel& out,
                                        Valuation valuation,
+                                       const LogicInfo& logicInfo,
                                        QuantifiersEngine* qe) :
-  Theory(THEORY_REWRITERULES, c, u, out, valuation,qe),
+  Theory(THEORY_REWRITERULES, c, u, out, valuation, logicInfo, qe),
   d_rules(c), d_ruleinsts(c), d_guardeds(c), d_checkLevel(c,0),
   d_explanations(c), d_ruleinsts_to_add()
   {
@@ -335,8 +336,8 @@ Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, const RuleInst* ri,
       else      return AFALSE;
     };
     //Not watched so IDONTNOW
-    l = new(getContext()->getCMM())
-      GList(true, getContext());//,
+    l = new(getSatContext()->getCMM())
+      GList(true, getSatContext());//,
             //ContextMemoryAllocator<Guarded>(getContext()->getCMM()));
     d_guardeds.insert(g ,l);//.insertDataFromContextMemory(g, l);
     /* TODO Add register propagation */
