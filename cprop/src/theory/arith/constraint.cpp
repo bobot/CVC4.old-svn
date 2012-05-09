@@ -1050,29 +1050,15 @@ void mutuallyExclusive(std::vector<Node>& out, Constraint a, Constraint b){
   out.push_back(orderOr);
 }
 
-void ConstraintDatabase::outputAllUnateLemmas(std::vector<Node>& out, ArithVar v) const{
+void ConstraintDatabase::outputUnateInequalityLemmas(std::vector<Node>& out, ArithVar v) const{
   SortedConstraintMap& scm = getVariableSCM(v);
-
-  SortedConstraintMapConstIterator outer;
+  SortedConstraintMapConstIterator scm_iter = scm.begin();
   SortedConstraintMapConstIterator scm_end = scm.end();
-
-  vector<Constraint> equalities;
-  for(outer = scm.begin(); outer != scm_end; ++outer){
-    const ValueCollection& vc = outer->second;
-    if(vc.hasEquality()){
-      Constraint eq = vc.getEquality();
-      if(eq->hasLiteral()){
-        equalities.push_back(eq);
-      }
-    }
-  }
-
   Constraint prev = NullConstraint;
   //get transitive unates
   //Only lower bounds or upperbounds should be done.
-  for(outer = scm.begin(); outer != scm_end; ++outer){
-    const ValueCollection& vc = outer->second;
-
+  for(; scm_iter != scm_end; ++scm_iter){
+    const ValueCollection& vc = scm_iter->second;
     if(vc.hasUpperBound()){
       Constraint ub = vc.getUpperBound();
       if(ub->hasLiteral()){
@@ -1083,6 +1069,26 @@ void ConstraintDatabase::outputAllUnateLemmas(std::vector<Node>& out, ArithVar v
       }
     }
   }
+}
+
+void ConstraintDatabase::outputUnateEqualityLemmas(std::vector<Node>& out, ArithVar v) const{
+
+  vector<Constraint> equalities;
+
+  SortedConstraintMap& scm = getVariableSCM(v);
+  SortedConstraintMapConstIterator scm_iter = scm.begin();
+  SortedConstraintMapConstIterator scm_end = scm.end();
+
+  for(; scm_iter != scm_end; ++scm_iter){
+    const ValueCollection& vc = scm_iter->second;
+    if(vc.hasEquality()){
+      Constraint eq = vc.getEquality();
+      if(eq->hasLiteral()){
+        equalities.push_back(eq);
+      }
+    }
+  }
+
   vector<Constraint>::const_iterator i, j, eq_end = equalities.end();
   for(i = equalities.begin(); i != eq_end; ++i){
     Constraint at_i = *i;
@@ -1106,9 +1112,9 @@ void ConstraintDatabase::outputAllUnateLemmas(std::vector<Node>& out, ArithVar v
     Constraint ub = hasUB ?
       vc.getUpperBound() : eq->getStrictlyWeakerUpperBound(true, false);
 
-    if(hasUB && hasLB && !eq->isSplit()){
-      out.push_back(eq->split());
-    }
+    // if(hasUB && hasLB && !eq->isSplit()){
+    //   out.push_back(eq->split());
+    // }
     if(lb != NullConstraint){
       implies(out, eq, lb);
     }
@@ -1116,14 +1122,19 @@ void ConstraintDatabase::outputAllUnateLemmas(std::vector<Node>& out, ArithVar v
       implies(out, eq, ub);
     }
   }
-  }
+}
 
-void ConstraintDatabase::outputAllUnateLemmas(std::vector<Node>& lemmas) const{
+void ConstraintDatabase::outputUnateEqualityLemmas(std::vector<Node>& lemmas) const{
   for(ArithVar v = 0, N = d_varDatabases.size(); v < N; ++v){
-    outputAllUnateLemmas(lemmas, v);
+    outputUnateEqualityLemmas(lemmas, v);
   }
 }
 
+void ConstraintDatabase::outputUnateInequalityLemmas(std::vector<Node>& lemmas) const{
+  for(ArithVar v = 0, N = d_varDatabases.size(); v < N; ++v){
+    outputUnateInequalityLemmas(lemmas, v);
+  }
+}
 
 }/* arith namespace */
 }/* theory namespace */

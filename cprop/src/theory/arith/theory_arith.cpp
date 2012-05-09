@@ -1625,16 +1625,41 @@ void TheoryArith::presolve(){
     callCount = callCount + 1;
   }
 
-  if(Options::current()->arithUnateLemmaMode == Options::ALL_UNATE){
-    vector<Node> lemmas;
-    d_constraintDatabase.outputAllUnateLemmas(lemmas);
-    vector<Node>::const_iterator i = lemmas.begin(), i_end = lemmas.end();
-    for(; i != i_end; ++i){
-      Node lem = *i;
-      Debug("arith::oldprop") << " lemma lemma duck " <<lem << endl;
-      d_out->lemma(lem);
-    }
+  vector<Node> lemmas;
+  switch(Options::current()->arithUnateLemmaMode){
+  case Options::NO_UNATE:
+    break;
+  case Options::INEQUALITIES:
+    d_constraintDatabase.outputUnateInequalityLemmas(lemmas);
+    break;
+  case Options::EQUALITIES:
+    d_constraintDatabase.outputUnateEqualityLemmas(lemmas);
+    break;
+  case Options::ALL_UNATE:
+    d_constraintDatabase.outputUnateInequalityLemmas(lemmas);
+    d_constraintDatabase.outputUnateEqualityLemmas(lemmas);
+    break;
+  default:
+    Unhandled(Options::current()->arithUnateLemmaMode);
   }
+
+  vector<Node>::const_iterator i = lemmas.begin(), i_end = lemmas.end();
+  for(; i != i_end; ++i){
+    Node lem = *i;
+    Debug("arith::oldprop") << " lemma lemma duck " <<lem << endl;
+    d_out->lemma(lem);
+  }
+
+  // if(Options::current()->arithUnateLemmaMode == Options::ALL_UNATE){
+  //   vector<Node> lemmas;
+  //   d_constraintDatabase.outputAllUnateLemmas(lemmas);
+  //   vector<Node>::const_iterator i = lemmas.begin(), i_end = lemmas.end();
+  //   for(; i != i_end; ++i){
+  //     Node lem = *i;
+  //     Debug("arith::oldprop") << " lemma lemma duck " <<lem << endl;
+  //     d_out->lemma(lem);
+  //   }
+  // }
 
   d_learner.clear();
 }

@@ -203,7 +203,7 @@ Additional CVC4 options:\n\
                           (Griggio, JSAT 2012)\n\
    --disable-arith-rewrite-equalities   turns off the preprocessing rewrite\n\
                           turning equalities into a conjunction of inequalities.\n \
-  UF:\n\
+ UF:\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al.,\n\
                           CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
