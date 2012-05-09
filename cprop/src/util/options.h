@@ -219,12 +219,17 @@ struct CVC4_PUBLIC Options {
   /** Restart interval increase factor for Minisat */
   double satRestartInc;
 
-  /** Turn on and of arithmetic propagation. */
-  bool arithPropagation;
+  /** Determines the type of Unate Lemmas that are generated at presolve time.*/
+  typedef enum { NO_UNATE, INEQUALITIES, EQUALITIES, ALL_UNATE} ArithUnateLemmaMode;
+  ArithUnateLemmaMode arithUnateLemmaMode;
+
+  /** Determines the mode of arithmetic propagation. */
+  typedef enum { NO_PROP, TIGHTEN, OLD} ArithPropagationMode;
+  ArithPropagationMode arithPropagationMode;
 
   /** The pivot rule for arithmetic */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
-  ArithPivotRule pivotRule;
+  ArithPivotRule arithPivotRule;
 
   /**
    * The number of pivots before Bland's pivot rule is used on a basic
@@ -241,7 +246,7 @@ struct CVC4_PUBLIC Options {
    * Whether to do the linear diophantine equation solver
    * in Arith as described by Griggio JSAT 2012 (on by default).
    */
-  bool dioSolver;
+  bool arithDioSolver;
 
   /**
    * Whether to split (= x y) into (and (<= x y) (>= x y)) in

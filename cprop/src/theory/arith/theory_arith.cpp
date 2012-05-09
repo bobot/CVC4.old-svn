@@ -1182,7 +1182,7 @@ void TheoryArith::check(Effort effortLevel){
   Node possibleConflict = Node::null();
   if(!emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()){
 
-    if(!emmittedConflictOrSplit && Options::current()->dioSolver){
+    if(!emmittedConflictOrSplit && Options::current()->arithDioSolver){
       possibleConflict = callDioSolver();
       if(possibleConflict != Node::null()){
         Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
@@ -1191,7 +1191,7 @@ void TheoryArith::check(Effort effortLevel){
       }
     }
 
-    if(!emmittedConflictOrSplit && d_hasDoneWorkSinceCut && Options::current()->dioSolver){
+    if(!emmittedConflictOrSplit && d_hasDoneWorkSinceCut && Options::current()->arithDioSolver){
       Node possibleLemma = dioCutting();
       if(!possibleLemma.isNull()){
         Debug("arith") << "dio cut   " << possibleLemma << endl;
@@ -1356,7 +1356,7 @@ Node TheoryArith::explain(TNode n) {
 
 
 void TheoryArith::propagate(Effort e) {
-  if(Options::current()->arithPropagation && hasAnyUpdates()){
+  if(Options::current()->arithPropagationMode == Options::OLD && hasAnyUpdates()){
     propagateCandidates();
   }else{
     clearUpdates();
@@ -1625,7 +1625,7 @@ void TheoryArith::presolve(){
     callCount = callCount + 1;
   }
 
-  if(Options::current()->arithPropagation ){
+  if(Options::current()->arithUnateLemmaMode == Options::ALL_UNATE){
     vector<Node> lemmas;
     d_constraintDatabase.outputAllUnateLemmas(lemmas);
     vector<Node>::const_iterator i = lemmas.begin(), i_end = lemmas.end();
