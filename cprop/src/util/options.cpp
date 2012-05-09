@@ -99,20 +99,20 @@ Options::Options() :
   replayFilename(""),
   replayStream(NULL),
   replayLog(NULL),
-  arithPropagation(true),
   satRandomFreq(0.0),
   satRandomSeed(91648253),// Minisat's default value
   satVarDecay(0.95),
   satClauseDecay(0.999),
   satRestartFirst(25),
   satRestartInc(3.0),
+  arithPropagation(true),
   pivotRule(MINIMUM),
   arithPivotThreshold(16),
   arithPropagateMaxLength(16),
-  ufSymmetryBreaker(false),
-  ufSymmetryBreakerSetByUser(false),
   dioSolver(true),
   arithRewriteEq(true),
+  ufSymmetryBreaker(false),
+  ufSymmetryBreakerSetByUser(false),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
   threads(2),// default should be 1 probably, but say 2 for now
@@ -176,18 +176,18 @@ Additional CVC4 options:\n\
    --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
    --replay=file          replay decisions from file\n\
    --replay-log=file      log decisions and propagations to file\n\
-   --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
-   --pivot-threshold=N   sets the number of heuristic pivots per variable per simplex instance\n\
-   --prop-row-length=N    sets the maximum row length to be used in propagation\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
    --restart-int-base=I   sets the base restart interval for the sat solver (I=25 by default)\n\
    --restart-int-inc=F    sets the restart interval increase factor for the sat solver (F=3.0 by default)\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
-   --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
-   --disable-symmetry-breaker turns off UF symmetry breaker\n\
+   --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
+   --pivot-threshold=N    sets the number of heuristic pivots per variable per simplex instance\n\
+   --prop-row-length=N    sets the maximum row length to be used in propagation\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n \
+   --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
+   --disable-symmetry-breaker turns off UF symmetry breaker\n\
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
@@ -362,13 +362,13 @@ enum OptionValue {
   EAGER_TYPE_CHECKING,
   REPLAY,
   REPLAY_LOG,
-  PIVOT_RULE,
   PRINT_WINNER,
   RANDOM_FREQUENCY,
   RANDOM_SEED,
   SAT_RESTART_FIRST,
   SAT_RESTART_INC,
   ARITHMETIC_PROPAGATION,
+  ARITHMETIC_PIVOT_RULE,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   ARITHMETIC_DIO_SOLVER,
@@ -453,15 +453,15 @@ static struct option cmdlineOptions[] = {
   { "incremental", no_argument      , NULL, 'i' },
   { "replay"     , required_argument, NULL, REPLAY      },
   { "replay-log" , required_argument, NULL, REPLAY_LOG  },
-  { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
-  { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
-  { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
   { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
   { "random-seed" , required_argument, NULL, RANDOM_SEED  },
   { "restart-int-base", required_argument, NULL, SAT_RESTART_FIRST },
   { "restart-int-inc", required_argument, NULL, SAT_RESTART_INC },
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
+  { "pivot-rule" , required_argument, NULL, ARITHMETIC_PIVOT_RULE  },
+  { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
+  { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
   { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
   { "disable-arith-rewrite-equalities", no_argument, NULL, ARITHMETIC_REWRITE_EQUALITIES },
   { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
@@ -837,18 +837,6 @@ throw(OptionException) {
 #endif /* CVC4_REPLAY */
       break;
 
-    case ARITHMETIC_PROPAGATION:
-      arithPropagation = false;
-      break;
-
-    case ARITHMETIC_DIO_SOLVER:
-      dioSolver = false;
-      break;
-
-    case ARITHMETIC_REWRITE_EQUALITIES:
-      arithRewriteEq = false;
-      break;
-
     case ENABLE_SYMMETRY_BREAKER:
       ufSymmetryBreaker = true;
       ufSymmetryBreakerSetByUser = true;
@@ -927,7 +915,11 @@ throw(OptionException) {
       }
       break;
 
-    case PIVOT_RULE:
+    case ARITHMETIC_PROPAGATION:
+      arithPropagation = false;
+      break;
+
+    case ARITHMETIC_PIVOT_RULE:
       if(!strcmp(optarg, "min")) {
         pivotRule = MINIMUM;
         break;
@@ -955,6 +947,14 @@ throw(OptionException) {
 
     case ARITHMETIC_PROP_MAX_LENGTH:
       arithPropagateMaxLength = atoi(optarg);
+      break;
+
+    case ARITHMETIC_DIO_SOLVER:
+      dioSolver = false;
+      break;
+
+    case ARITHMETIC_REWRITE_EQUALITIES:
+      arithRewriteEq = false;
       break;
 
     case SHOW_DEBUG_TAGS:

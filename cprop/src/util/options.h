@@ -195,9 +195,6 @@ struct CVC4_PUBLIC Options {
   /** Log to write replay instructions to; NULL if not logging. */
   std::ostream* replayLog;
 
-  /** Turn on and of arithmetic propagation. */
-  bool arithPropagation;
-
   /**
    * Frequency for the sat solver to make random decisions.
    * Should be between 0 and 1.
@@ -222,6 +219,9 @@ struct CVC4_PUBLIC Options {
   /** Restart interval increase factor for Minisat */
   double satRestartInc;
 
+  /** Turn on and of arithmetic propagation. */
+  bool arithPropagation;
+
   /** The pivot rule for arithmetic */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
   ArithPivotRule pivotRule;
@@ -238,18 +238,6 @@ struct CVC4_PUBLIC Options {
   uint16_t arithPropagateMaxLength;
 
   /**
-   * Whether to do the symmetry-breaking preprocessing in UF as
-   * described by Deharbe et al. in CADE 2011 (on by default).
-   */
-  bool ufSymmetryBreaker;
-
-  /**
-   * Whether the user explicitly requested that the symmetry
-   * breaker be enabled or disabled.
-   */
-  bool ufSymmetryBreakerSetByUser;
-
-  /**
    * Whether to do the linear diophantine equation solver
    * in Arith as described by Griggio JSAT 2012 (on by default).
    */
@@ -260,6 +248,18 @@ struct CVC4_PUBLIC Options {
    * arithmetic preprocessing.
    */
   bool arithRewriteEq;
+
+  /**
+   * Whether to do the symmetry-breaking preprocessing in UF as
+   * described by Deharbe et al. in CADE 2011 (on by default).
+   */
+  bool ufSymmetryBreaker;
+
+  /**
+   * Whether the user explicitly requested that the symmetry
+   * breaker be enabled or disabled.
+   */
+  bool ufSymmetryBreakerSetByUser;
 
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;
