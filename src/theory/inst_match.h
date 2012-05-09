@@ -261,7 +261,7 @@ private:
    *  [diverge].
    */
   bool existsInstMatch( Tree * root,
-                        mapIter current, mapIter end,
+                        mapIter & current, mapIter & end,
                         Tree * & e, mapIter & diverge) const;
 
 public:

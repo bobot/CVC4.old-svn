@@ -50,9 +50,13 @@ void InstMatchTrie2<modEq>::addSubTree( Tree * root, mapIter current, mapIter en
 /** exists match */
 template<bool modEq>
 bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
-                                            mapIter current, mapIter end,
+                                            mapIter & current, mapIter & end,
                                             Tree * & e, mapIter & diverge) const{
-  if( current == end ) return true; //Already their
+  if( current == end ) {
+    Debug("Trie2") << "Trie2 Bottom " << std::endl;
+    --current;
+    return true;
+  }; //Already their
 
   if (current->first > diverge->first){
     // this point is the deepest point currently seen map are ordered
@@ -64,9 +68,11 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
   typename InstMatchTrie2<modEq>::Tree::MLevel::iterator it =
     root->e.find( n );
   if( it!=root->e.end() &&
-      existsInstMatch( (*it).second, ++current, end, e, diverge) )
+      existsInstMatch( (*it).second, ++current, end, e, diverge) ){
+    Debug("Trie2") << "Trie2 Directly here " << n << std::endl;
+    --current;
     return true;
-
+  }
   Assert( it==root->e.end() || e != root );
 
   // Even if n is in the trie others of the equivalence class
@@ -82,11 +88,15 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
       typename InstMatchTrie2<modEq>::Tree::MLevel::iterator itc =
         root->e.find( en );
       if( itc!=root->e.end() &&
-          existsInstMatch( (*itc).second, ++current, end, e, diverge) )
+          existsInstMatch( (*itc).second, ++current, end, e, diverge) ){
+        Debug("Trie2") << "Trie2 Indirectly here by equality " << n << " = " << en << std::endl;
+        --current;
         return true;
+      }
       Assert( itc==root->e.end() || e != root );
     }
   }
+  --current;
   return false;
 }
 
