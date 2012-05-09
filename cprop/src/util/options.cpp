@@ -384,7 +384,8 @@ void Options::printLanguageHelp(std::ostream& out) {
  * any collision.
  */
 enum OptionValue {
-  SMTCOMP = 256, /* avoid clashing with char options */
+  OPTION_VALUE_BEGIN = 256, /* avoid clashing with char options */
+  SMTCOMP, 
   STATS,
   SEGV_NOSPIN,
   OUTPUT_LANGUAGE,
@@ -438,7 +439,8 @@ enum OptionValue {
   TIME_LIMIT,
   TIME_LIMIT_PER,
   RESOURCE_LIMIT,
-  RESOURCE_LIMIT_PER
+  RESOURCE_LIMIT_PER,
+  OPTION_VALUE_END
 };/* enum OptionValue */
 
 /**
@@ -1145,7 +1147,8 @@ throw(OptionException) {
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.
-      if(optopt == 0) { // was a long option
+      if(optopt == 0 ||  // was a long option
+         (optopt >= OPTION_VALUE_BEGIN && optopt <= OPTION_VALUE_END)) { // OptionValue option
         throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
       } else { // was a short option
         throw OptionException(string("option `-") + char(optopt) + "' missing its required argument");
