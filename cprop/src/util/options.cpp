@@ -106,7 +106,7 @@ Options::Options() :
   satRestartFirst(25),
   satRestartInc(3.0),
   arithUnateLemmaMode(ALL_UNATE),
-  arithPropagationMode(OLD),
+  arithPropagationMode(OLD_PROP),
   arithPivotRule(MINIMUM),
   arithPivotThreshold(16),
   arithPropagateMaxLength(16),
@@ -339,11 +339,12 @@ Modes currently supported by the --unate-lemmas option:\n\
 static const string propagationModeHelp = "\
 This decides on kind of propagation arithmetic attempts to do during the search.\n\
 + none\n\
-+ tighten\n\
++ new\n\
+ use constraints to do unate propagation\n\
++old\n\
   infers bounds on basic variables using the upper and lower bounds of the\n\
   non-basic variables in the tableau.\n\
-+old\n\
-  Similar to tighten, but it only keeps bounds if an existing atom is kept.\n\
++both\n\
 ";
 
 static const string pivotRulesHelp = "\
@@ -1001,11 +1002,14 @@ throw(OptionException) {
       if(!strcmp(optarg, "none")) {
         arithPropagationMode = NO_PROP;
         break;
-      } else if(!strcmp(optarg, "tighten")) {
-        arithPropagationMode = TIGHTEN;
+      } else if(!strcmp(optarg, "new")) {
+        arithPropagationMode = NEW_PROP;
         break;
       } else if(!strcmp(optarg, "old")) {
-        arithPropagationMode = OLD;
+        arithPropagationMode = OLD_PROP;
+        break;
+      } else if(!strcmp(optarg, "both")) {
+        arithPropagationMode = BOTH;
         break;
       } else if(!strcmp(optarg, "help")) {
         puts(propagationModeHelp.c_str());

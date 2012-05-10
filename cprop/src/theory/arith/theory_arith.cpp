@@ -92,6 +92,7 @@ TheoryArith::Statistics::Statistics():
   d_simplifyTimer("theory::arith::simplifyTimer"),
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_presolveTime("theory::arith::presolveTime"),
+  d_newPropTime("::newPropTimer"),
   d_externalBranchAndBounds("theory::arith::externalBranchAndBounds",0),
   d_initialTableauSize("theory::arith::initialTableauSize", 0),
   d_currSetToSmaller("theory::arith::currSetToSmaller", 0),
@@ -112,6 +113,7 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_staticLearningTimer);
 
   StatisticsRegistry::registerStat(&d_presolveTime);
+  StatisticsRegistry::registerStat(&d_newPropTime);
 
   StatisticsRegistry::registerStat(&d_externalBranchAndBounds);
 
@@ -137,6 +139,7 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_staticLearningTimer);
 
   StatisticsRegistry::unregisterStat(&d_presolveTime);
+  StatisticsRegistry::unregisterStat(&d_newPropTime);
 
   StatisticsRegistry::unregisterStat(&d_externalBranchAndBounds);
 
@@ -148,6 +151,11 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_boundComputationTime);
   StatisticsRegistry::unregisterStat(&d_boundComputations);
   StatisticsRegistry::unregisterStat(&d_boundPropagations);
+}
+
+void TheoryArith::clearUpdates(){
+  d_updatedBounds.purge();
+  d_currentPropagationList.clear();
 }
 
 void TheoryArith::zeroDifferenceDetected(ArithVar x){
@@ -222,6 +230,9 @@ Node TheoryArith::AssertLower(Constraint constraint){
       }
     }
   }
+
+  d_currentPropagationList.push_back(constraint);
+  d_currentPropagationList.push_back(d_partialModel.getLowerBoundConstraint(x_i));
 
   d_partialModel.setLowerBoundConstraint(constraint);
 
@@ -306,6 +317,10 @@ Node TheoryArith::AssertUpper(Constraint constraint){
 
   }
 
+  d_currentPropagationList.push_back(constraint);
+  d_currentPropagationList.push_back(d_partialModel.getUpperBoundConstraint(x_i));
+  //It is fine if this is NullConstraint
+
   d_partialModel.setUpperBoundConstraint(constraint);
 
   if(d_congruenceManager.isWatchedVariable(x_i)){
@@ -380,6 +395,9 @@ Node TheoryArith::AssertEquality(Constraint constraint){
 
   // Don't bother to check whether x_i != c_i is in d_diseq
   // The a and (not a) should never be on the fact queue
+  d_currentPropagationList.push_back(constraint);
+  d_currentPropagationList.push_back(d_partialModel.getLowerBoundConstraint(x_i));
+  d_currentPropagationList.push_back(d_partialModel.getUpperBoundConstraint(x_i));
 
   d_partialModel.setUpperBoundConstraint(constraint);
   d_partialModel.setLowerBoundConstraint(constraint);
@@ -1126,6 +1144,7 @@ bool TheoryArith::hasIntegerModel(){
 
 
 void TheoryArith::check(Effort effortLevel){
+  Assert(d_currentPropagationList.empty());
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
   d_hasDoneWorkSinceCut = d_hasDoneWorkSinceCut || !done();
@@ -1167,11 +1186,54 @@ void TheoryArith::check(Effort effortLevel){
     for(size_t i = 0, i_end = d_conflicts.size(); i < i_end; ++i){
       Node conflict = d_conflicts[i];
       Debug("arith::conflict") << "d_conflicts[" << i << "] " << conflict << endl;
-      d_out->conflict(conflict);      
+      d_out->conflict(conflict);
     }
     emmittedConflictOrSplit = true;
   }else{
     d_partialModel.commitAssignmentChanges();
+  }
+
+  if(!emmittedConflictOrSplit &&
+     (Options::current()->arithPropagationMode == Options::NEW_PROP ||
+      Options::current()->arithPropagationMode == Options::BOTH)){
+    TimerStat::CodeTimer codeTimer(d_statistics.d_newPropTime);
+
+    while(!d_currentPropagationList.empty()){
+      Constraint curr = d_currentPropagationList.front();
+      d_currentPropagationList.pop_front();
+
+      ConstraintType t = curr->getType();
+      Assert(t == Disequality, "Disequalities are not allowed in d_currentPropagation");
+
+
+      switch(t){
+      case LowerBound:
+        {
+          Constraint prev = d_currentPropagationList.front();
+          d_currentPropagationList.pop_front();
+          d_constraintDatabase.unatePropLowerBound(curr, prev);
+          break;
+        }
+      case UpperBound:
+        {
+          Constraint prev = d_currentPropagationList.front();
+          d_currentPropagationList.pop_front();
+          d_constraintDatabase.unatePropUpperBound(curr, prev);
+          break;
+        }
+      case Equality:
+        {
+          Constraint prevLB = d_currentPropagationList.front();
+          d_currentPropagationList.pop_front();
+          Constraint prevUB = d_currentPropagationList.front();
+          d_currentPropagationList.pop_front();
+          d_constraintDatabase.unatePropEquality(curr, prevLB, prevUB);
+        }
+        break;
+      default:
+        Unhandled(curr->getType());
+      }
+    }
   }
 
 
@@ -1179,9 +1241,8 @@ void TheoryArith::check(Effort effortLevel){
     emmittedConflictOrSplit = splitDisequalities();
   }
 
-  Node possibleConflict = Node::null();
   if(!emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()){
-
+    Node possibleConflict = Node::null();
     if(!emmittedConflictOrSplit && Options::current()->arithDioSolver){
       possibleConflict = callDioSolver();
       if(possibleConflict != Node::null()){
@@ -1356,7 +1417,9 @@ Node TheoryArith::explain(TNode n) {
 
 
 void TheoryArith::propagate(Effort e) {
-  if(Options::current()->arithPropagationMode == Options::OLD && hasAnyUpdates()){
+  if((Options::current()->arithPropagationMode == Options::OLD_PROP &&
+      Options::current()->arithPropagationMode == Options::BOTH)
+     && hasAnyUpdates()){
     propagateCandidates();
   }else{
     clearUpdates();

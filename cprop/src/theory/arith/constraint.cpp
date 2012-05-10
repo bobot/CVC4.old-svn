@@ -530,6 +530,19 @@ ConstraintDatabase::~ConstraintDatabase(){
   Assert(d_nodetoConstraintMap.empty());
 }
 
+ConstraintDatabase::Statistics::Statistics():
+  d_unatePropagateCalls("theory::arith::cd::unatePropagateCalls", 0),
+  d_unatePropagateImplications("theory::arith::cd::unatePropagateImplications", 0)
+{
+  StatisticsRegistry::registerStat(&d_unatePropagateCalls);
+  StatisticsRegistry::registerStat(&d_unatePropagateImplications);
+
+}
+ConstraintDatabase::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_unatePropagateCalls);
+  StatisticsRegistry::unregisterStat(&d_unatePropagateImplications);
+}
+
 void ConstraintDatabase::addVariable(ArithVar v){
   Assert(v == d_varDatabases.size());
   d_varDatabases.push_back(new PerVariableDatabase(v));
@@ -1134,6 +1147,54 @@ void ConstraintDatabase::outputUnateInequalityLemmas(std::vector<Node>& lemmas) 
   for(ArithVar v = 0, N = d_varDatabases.size(); v < N; ++v){
     outputUnateInequalityLemmas(lemmas, v);
   }
+}
+
+void ConstraintDatabase::unatePropLowerBound(Constraint curr, Constraint prev){
+  Assert(curr != prev);
+  Assert(curr != NullConstraint);
+  bool hasPrev = ! (prev == NullConstraint);
+  Assert(!hasPrev || curr->getValue() > prev->getValue());
+
+  ++d_statistics.d_unatePropagateCalls;
+
+  const SortedConstraintMap& scm = curr->constraintSet();
+  const SortedConstraintMapConstIterator scm_begin = scm.begin();
+  SortedConstraintMapConstIterator scm_i = curr->d_variablePosition;
+
+  //Ignore the first ValueCollection
+  // NOPE: (>= p c) then (= p c) NOPE
+  // NOPE: (>= p c) then (not (= p c)) NOPE
+
+  while(scm_i != scm_begin){
+    --scm_i; // move the iterator back
+
+    const ValueCollection& vc = scm_i->second;
+
+    //If it has the previous element, do nothing!
+    if(hasPrev && vc.hasConstraintOfType(prev->getType())){
+      Assert(vc.getConstraintOfType(prev->getType()) == prev);
+      break;
+    }
+
+    //Don't worry about implying the negation of upperbound.
+    //These should all be handled by propagating the LowerBounds!
+    if(vc.hasLowerBound()){
+      Constraint lb = vc.getLowerBound();
+      if(!lb->isTrue()){ lb->impliedBy(curr); }
+    }
+    if(vc.hasDisequality()){
+      Constraint dis = vc.getDisequality();
+      if(!dis->isTrue()){ dis->impliedBy(curr); }
+    }
+  }
+}
+
+void ConstraintDatabase::unatePropUpperBound(Constraint curr, Constraint prev){
+  cout << "unatePropUpperBound " << curr << " " << prev << endl;
+}
+
+void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, Constraint prevUB){
+  cout << "unatePropEquality " << curr << " " << prevLB << " " << prevUB << endl;
 }
 
 }/* arith namespace */

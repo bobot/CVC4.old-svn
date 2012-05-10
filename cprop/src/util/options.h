@@ -224,7 +224,7 @@ struct CVC4_PUBLIC Options {
   ArithUnateLemmaMode arithUnateLemmaMode;
 
   /** Determines the mode of arithmetic propagation. */
-  typedef enum { NO_PROP, TIGHTEN, OLD} ArithPropagationMode;
+  typedef enum { NO_PROP, NEW_PROP, OLD_PROP, BOTH} ArithPropagationMode;
   ArithPropagationMode arithPropagationMode;
 
   /** The pivot rule for arithmetic */

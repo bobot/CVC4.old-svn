@@ -846,6 +846,21 @@ public:
   void outputUnateInequalityLemmas(std::vector<Node>& lemmas) const;
   void outputUnateInequalityLemmas(std::vector<Node>& lemmas, ArithVar v) const;
 
+
+  void unatePropLowerBound(Constraint curr, Constraint prev);
+  void unatePropUpperBound(Constraint curr, Constraint prev);
+  void unatePropEquality(Constraint curr, Constraint prevLB, Constraint prevUB);
+
+private:
+  class Statistics {
+  public:
+    IntStat d_unatePropagateCalls;
+    IntStat d_unatePropagateImplications;
+
+    Statistics();
+    ~Statistics();
+  } d_statistics;
+
 }; /* ConstraintDatabase */
 
 }/* CVC4::theory::arith namespace */
