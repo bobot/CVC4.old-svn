@@ -364,7 +364,8 @@ ${all_modules_option_handlers}
 #line 359 "${template}"
 
     case ':':
-      // This can be a long or short option, and the way to get at the name of it is different.
+      // This can be a long or short option, and the way to get at the
+      // name of it is different.
       if(optopt == 0) { // was a long option
         throw OptionException(std::string("option `") + argv[optind - 1] + "' missing its required argument");
       } else { // was a short option

@@ -23,17 +23,24 @@
 
 #include <stdint.h> 
 #include "util/stats.h"
-
+#include "context/cdlist.h"
 
 // DPLLT Minisat
-#include "prop/minisat/core/Solver.h"
 #include "prop/minisat/core/SolverTypes.h"
-#include "prop/minisat/simp/SimpSolver.h"
 
 // BV Minisat
-#include "prop/bvminisat/core/Solver.h"
 #include "prop/bvminisat/core/SolverTypes.h"
-#include "prop/bvminisat/simp/SimpSolver.h"
+
+
+namespace Minisat{
+class Solver;
+class SimpSolver; 
+}
+
+namespace BVMinisat{
+class Solver;
+class SimpSolver; 
+}
 
 
 namespace CVC4 {
@@ -144,6 +151,8 @@ public:
 
   virtual void pop() = 0;
 
+  virtual bool properExplanation(SatLiteral lit, SatLiteral expl) const = 0;
+
 }; 
 
 // toodo add ifdef
@@ -154,7 +163,7 @@ class MinisatSatSolver: public BVSatSolverInterface {
 
   MinisatSatSolver();
 public:
-  ~MinisatSatSolver() {delete d_minisat;}
+  ~MinisatSatSolver();
   void addClause(SatClause& clause, bool removable);
 
   SatVariable newVar(bool theoryAtom = false);
@@ -171,10 +180,10 @@ public:
   SatLiteralValue value(SatLiteral l);
   SatLiteralValue modelValue(SatLiteral l);
 
-
   void unregisterVar(SatLiteral lit);
   void renewVar(SatLiteral lit, int level = -1);
   int getAssertionLevel() const;
+
 
   // helper methods for converting from the internal Minisat representation
 
@@ -187,7 +196,6 @@ public:
   static void  toMinisatClause(SatClause& clause, BVMinisat::vec<BVMinisat::Lit>& minisat_clause);
   static void  toSatClause    (BVMinisat::vec<BVMinisat::Lit>& clause, SatClause& sat_clause); 
 
-
   class Statistics {
   public:
     ReferenceStat<uint64_t> d_statStarts, d_statDecisions;
@@ -196,84 +204,14 @@ public:
     ReferenceStat<uint64_t> d_statLearntsLiterals,  d_statMaxLiterals;
     ReferenceStat<uint64_t> d_statTotLiterals;
     ReferenceStat<int> d_statEliminatedVars;
-    Statistics() :
-      d_statStarts("theory::bv::bvminisat::starts"),
-      d_statDecisions("theory::bv::bvminisat::decisions"),
-      d_statRndDecisions("theory::bv::bvminisat::rnd_decisions"),
-      d_statPropagations("theory::bv::bvminisat::propagations"),
-      d_statConflicts("theory::bv::bvminisat::conflicts"),
-      d_statClausesLiterals("theory::bv::bvminisat::clauses_literals"),
-      d_statLearntsLiterals("theory::bv::bvminisat::learnts_literals"),
-      d_statMaxLiterals("theory::bv::bvminisat::max_literals"),
-      d_statTotLiterals("theory::bv::bvminisat::tot_literals"),
-      d_statEliminatedVars("theory::bv::bvminisat::eliminated_vars")
-    {
-      StatisticsRegistry::registerStat(&d_statStarts);
-      StatisticsRegistry::registerStat(&d_statDecisions);
-      StatisticsRegistry::registerStat(&d_statRndDecisions);
-      StatisticsRegistry::registerStat(&d_statPropagations);
-      StatisticsRegistry::registerStat(&d_statConflicts);
-      StatisticsRegistry::registerStat(&d_statClausesLiterals);
-      StatisticsRegistry::registerStat(&d_statLearntsLiterals);
-      StatisticsRegistry::registerStat(&d_statMaxLiterals);
-      StatisticsRegistry::registerStat(&d_statTotLiterals);
-      StatisticsRegistry::registerStat(&d_statEliminatedVars);
-    }
-    ~Statistics() {
-      StatisticsRegistry::unregisterStat(&d_statStarts);
-      StatisticsRegistry::unregisterStat(&d_statDecisions);
-      StatisticsRegistry::unregisterStat(&d_statRndDecisions);
-      StatisticsRegistry::unregisterStat(&d_statPropagations);
-      StatisticsRegistry::unregisterStat(&d_statConflicts);
-      StatisticsRegistry::unregisterStat(&d_statClausesLiterals);
-      StatisticsRegistry::unregisterStat(&d_statLearntsLiterals);
-      StatisticsRegistry::unregisterStat(&d_statMaxLiterals);
-      StatisticsRegistry::unregisterStat(&d_statTotLiterals);
-      StatisticsRegistry::unregisterStat(&d_statEliminatedVars);
-    }
-    
-    void init(BVMinisat::SimpSolver* minisat){
-      d_statStarts.setData(minisat->starts);
-      d_statDecisions.setData(minisat->decisions);
-      d_statRndDecisions.setData(minisat->rnd_decisions);
-      d_statPropagations.setData(minisat->propagations);
-      d_statConflicts.setData(minisat->conflicts);
-      d_statClausesLiterals.setData(minisat->clauses_literals);
-      d_statLearntsLiterals.setData(minisat->learnts_literals);
-      d_statMaxLiterals.setData(minisat->max_literals);
-      d_statTotLiterals.setData(minisat->tot_literals);
-      d_statEliminatedVars.setData(minisat->eliminated_vars);
-    }
+    Statistics();
+    ~Statistics();
+    void init(BVMinisat::SimpSolver* minisat);
   };
   
   Statistics d_statistics;
   friend class SatSolverFactory;
 }; 
-
-
-// class PicosatSatSolver: public SatSolverInterface {
-  
-// public:
-//   PicosatSatSolver();
-  
-//   void addClause(SatClause& clause, bool removable);
-
-//   SatVariable newVar(bool theoryAtom = false);
-
-//   void markUnremovable(SatLiteral lit); 
-  
-//   SatLiteralValue solve(unsigned long& resource = 0);
-  
-//   SatLiteralValue solve(const std::vector<SatLiteral>& assumptions); 
-
-//   void interrupt();
-
-//   SatLiteralValue value(SatLiteral l);
-
-//   SatLiteralValue modelValue(SatLiteral l);
-  
-// };
-
 
 
 class DPLLMinisatSatSolver : public DPLLSatSolverInterface {
@@ -317,6 +255,8 @@ public:
 
   SatLiteralValue modelValue(SatLiteral l);
 
+  bool properExplanation(SatLiteral lit, SatLiteral expl) const;
+
   /** Incremental interface */ 
   
   int getAssertionLevel() const;
@@ -337,49 +277,9 @@ public:
     ReferenceStat<uint64_t> d_statLearntsLiterals,  d_statMaxLiterals;
     ReferenceStat<uint64_t> d_statTotLiterals;
   public:
-    Statistics() :
-      d_statStarts("sat::starts"),
-      d_statDecisions("sat::decisions"),
-      d_statRndDecisions("sat::rnd_decisions"),
-      d_statPropagations("sat::propagations"),
-      d_statConflicts("sat::conflicts"),
-      d_statClausesLiterals("sat::clauses_literals"),
-      d_statLearntsLiterals("sat::learnts_literals"),
-      d_statMaxLiterals("sat::max_literals"),
-      d_statTotLiterals("sat::tot_literals")
-    {
-      StatisticsRegistry::registerStat(&d_statStarts);
-      StatisticsRegistry::registerStat(&d_statDecisions);
-      StatisticsRegistry::registerStat(&d_statRndDecisions);
-      StatisticsRegistry::registerStat(&d_statPropagations);
-      StatisticsRegistry::registerStat(&d_statConflicts);
-      StatisticsRegistry::registerStat(&d_statClausesLiterals);
-      StatisticsRegistry::registerStat(&d_statLearntsLiterals);
-      StatisticsRegistry::registerStat(&d_statMaxLiterals);
-      StatisticsRegistry::registerStat(&d_statTotLiterals);
-    }
-    ~Statistics() {
-      StatisticsRegistry::unregisterStat(&d_statStarts);
-      StatisticsRegistry::unregisterStat(&d_statDecisions);
-      StatisticsRegistry::unregisterStat(&d_statRndDecisions);
-      StatisticsRegistry::unregisterStat(&d_statPropagations);
-      StatisticsRegistry::unregisterStat(&d_statConflicts);
-      StatisticsRegistry::unregisterStat(&d_statClausesLiterals);
-      StatisticsRegistry::unregisterStat(&d_statLearntsLiterals);
-      StatisticsRegistry::unregisterStat(&d_statMaxLiterals);
-      StatisticsRegistry::unregisterStat(&d_statTotLiterals);
-    }
-    void init(Minisat::SimpSolver* d_minisat){
-      d_statStarts.setData(d_minisat->starts);
-      d_statDecisions.setData(d_minisat->decisions);
-      d_statRndDecisions.setData(d_minisat->rnd_decisions);
-      d_statPropagations.setData(d_minisat->propagations);
-      d_statConflicts.setData(d_minisat->conflicts);
-      d_statClausesLiterals.setData(d_minisat->clauses_literals);
-      d_statLearntsLiterals.setData(d_minisat->learnts_literals);
-      d_statMaxLiterals.setData(d_minisat->max_literals);
-      d_statTotLiterals.setData(d_minisat->tot_literals);
-    }
+    Statistics();
+    ~Statistics();
+    void init(Minisat::SimpSolver* d_minisat);
   };
   Statistics d_statistics;
 
@@ -390,8 +290,6 @@ class SatSolverFactory {
 public:
   static  MinisatSatSolver*      createMinisat();
   static  DPLLMinisatSatSolver*  createDPLLMinisat(); 
-  //static  PicosatSatSolver*      createPicosat();
-  //static  DPLLPicosatSatSolver*      createDPLLPicosat(context::Context* context); 
 }; 
 
 }/* prop namespace */

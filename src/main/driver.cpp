@@ -262,7 +262,7 @@ int runCvc4(int argc, char* argv[], Options& opts) {
     ParserBuilder parserBuilder(&exprMgr, filename, opts);
 
     if( inputFromStdin ) {
-      parserBuilder.withStreamInput(cin);
+      parserBuilder.withLineBufferedStreamInput(cin);
     }
 
     Parser *parser = parserBuilder.build();

@@ -117,12 +117,12 @@ void TheoryEngine::check(Theory::Effort effort) {
     // Clear any leftover propagated equalities
     d_propagatedEqualities.clear();
 
-    // Mark the lemmas flag (no lemmas added)
-    d_lemmasAdded = false;
-
     // Mark the output channel unused (if this is FULL_EFFORT, and nothing
     // is done by the theories, no additional check will be needed)
     d_outputChannelUsed = false;
+
+    // Mark the lemmas flag (no lemmas added)
+    d_lemmasAdded = false;
 
     while (true) {
 
@@ -274,12 +274,14 @@ void TheoryEngine::combineTheories() {
 
       if (value) {
         SharedEquality sharedEquality(toAssert, normalizedEquality, theory::THEORY_LAST, carePair.theory);
-        Assert(d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end());
-        d_propagatedEqualities.push_back(sharedEquality);
+        if (d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end()) {
+          d_propagatedEqualities.push_back(sharedEquality);
+        }
       } else {
         SharedEquality sharedEquality(toAssert.notNode(), normalizedEquality.notNode(), theory::THEORY_LAST, carePair.theory);
-        Assert(d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end());
-        d_propagatedEqualities.push_back(sharedEquality);
+        if (d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end()) {
+          d_propagatedEqualities.push_back(sharedEquality);
+        }
       }
     } else {
        Debug("sharing") << "TheoryEngine::combineTheories(): requesting a split " << std::endl;
@@ -573,8 +575,10 @@ void TheoryEngine::assertFact(TNode node)
   // Get the atom
   TNode atom = node.getKind() == kind::NOT ? node[0] : node;
 
-  // Assert the fact to the apropriate theory
-  theoryOf(atom)->assertFact(node, true);
+  // Assert the fact to the appropriate theory and mark it active
+  Theory* theory = theoryOf(atom);
+  theory->assertFact(node, true);
+  markActive(Theory::setInsert(theory->getId()));
 
   // If any shared terms, notify the theories
   if (d_sharedTerms.hasSharedTerms(atom)) {
