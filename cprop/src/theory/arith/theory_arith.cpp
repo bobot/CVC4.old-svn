@@ -1228,8 +1228,8 @@ void TheoryArith::check(Effort effortLevel){
           Constraint prevUB = d_currentPropagationList.front();
           d_currentPropagationList.pop_front();
           d_constraintDatabase.unatePropEquality(curr, prevLB, prevUB);
+          break;
         }
-        break;
       default:
         Unhandled(curr->getType());
       }
