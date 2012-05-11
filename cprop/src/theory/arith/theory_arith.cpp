@@ -1203,7 +1203,7 @@ void TheoryArith::check(Effort effortLevel){
       d_currentPropagationList.pop_front();
 
       ConstraintType t = curr->getType();
-      Assert(t == Disequality, "Disequalities are not allowed in d_currentPropagation");
+      Assert(t != Disequality, "Disequalities are not allowed in d_currentPropagation");
 
 
       switch(t){

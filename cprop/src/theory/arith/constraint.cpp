@@ -1154,12 +1154,11 @@ void ConstraintDatabase::outputUnateInequalityLemmas(std::vector<Node>& lemmas) 
 }
 
 void ConstraintDatabase::unatePropLowerBound(Constraint curr, Constraint prev){
+  Debug("arith::unate") << "unatePropLowerBound " << curr << " " << prev << endl;
   Assert(curr != prev);
   Assert(curr != NullConstraint);
   bool hasPrev = ! (prev == NullConstraint);
   Assert(!hasPrev || curr->getValue() > prev->getValue());
-
-  cout << "unatePropLowerBound " << curr << " " << prev << endl;
 
   ++d_statistics.d_unatePropagateCalls;
 
@@ -1177,8 +1176,9 @@ void ConstraintDatabase::unatePropLowerBound(Constraint curr, Constraint prev){
     const ValueCollection& vc = scm_i->second;
 
     //If it has the previous element, do nothing and stop!
-    if(hasPrev && vc.hasConstraintOfType(prev->getType())){
-      Assert(vc.getConstraintOfType(prev->getType()) == prev);
+    if(hasPrev &&
+       vc.hasConstraintOfType(prev->getType())
+       && vc.getConstraintOfType(prev->getType()) == prev){
       break;
     }
 
@@ -1188,6 +1188,7 @@ void ConstraintDatabase::unatePropLowerBound(Constraint curr, Constraint prev){
       Constraint lb = vc.getLowerBound();
       if(!lb->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
+        Debug("arith::unate") << "unatePropLowerBound " << curr << " implies " << lb << endl;
         lb->impliedBy(curr);
       }
     }
@@ -1195,6 +1196,7 @@ void ConstraintDatabase::unatePropLowerBound(Constraint curr, Constraint prev){
       Constraint dis = vc.getDisequality();
       if(!dis->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
+        Debug("arith::unate") << "unatePropLowerBound " << curr << " implies " << dis << endl;
         dis->impliedBy(curr);
       }
     }
@@ -1202,12 +1204,11 @@ void ConstraintDatabase::unatePropLowerBound(Constraint curr, Constraint prev){
 }
 
 void ConstraintDatabase::unatePropUpperBound(Constraint curr, Constraint prev){
+  Debug("arith::unate") << "unatePropUpperBound " << curr << " " << prev << endl;
   Assert(curr != prev);
   Assert(curr != NullConstraint);
   bool hasPrev = ! (prev == NullConstraint);
-  Assert(!hasPrev || curr->getValue() > prev->getValue());
-
-  cout << "unatePropUpperBound " << curr << " " << prev << endl;
+  Assert(!hasPrev || curr->getValue() < prev->getValue());
 
   ++d_statistics.d_unatePropagateCalls;
 
@@ -1219,8 +1220,9 @@ void ConstraintDatabase::unatePropUpperBound(Constraint curr, Constraint prev){
     const ValueCollection& vc = scm_i->second;
 
     //If it has the previous element, do nothing and stop!
-    if(hasPrev && vc.hasConstraintOfType(prev->getType())){
-      Assert(vc.getConstraintOfType(prev->getType()) == prev);
+    if(hasPrev &&
+       vc.hasConstraintOfType(prev->getType()) &&
+       vc.getConstraintOfType(prev->getType()) == prev){
       break;
     }
     //Don't worry about implying the negation of upperbound.
@@ -1229,12 +1231,14 @@ void ConstraintDatabase::unatePropUpperBound(Constraint curr, Constraint prev){
       Constraint ub = vc.getUpperBound();
       if(!ub->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
+        Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << ub << endl;
         ub->impliedBy(curr);
       }
     }
     if(vc.hasDisequality()){
       Constraint dis = vc.getDisequality();
       if(!dis->isTrue()){
+        Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << dis << endl;
         ++d_statistics.d_unatePropagateImplications;
         dis->impliedBy(curr);
       }
@@ -1243,8 +1247,9 @@ void ConstraintDatabase::unatePropUpperBound(Constraint curr, Constraint prev){
 }
 
 void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, Constraint prevUB){
-  cout << "unatePropEquality " << curr << " " << prevLB << " " << prevUB << endl;
-  Assert(curr != prev);
+  Debug("arith::unate") << "unatePropEquality " << curr << " " << prevLB << " " << prevUB << endl;
+  Assert(curr != prevLB);
+  Assert(curr != prevUB);
   Assert(curr != NullConstraint);
   bool hasPrevLB = ! (prevLB == NullConstraint);
   bool hasPrevUB = ! (prevUB == NullConstraint);
@@ -1276,6 +1281,7 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
       Constraint lb = vc.getLowerBound();
       if(!lb->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
+        Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << lb << endl;
         lb->impliedBy(curr);
       }
     }
@@ -1283,6 +1289,7 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
       Constraint dis = vc.getDisequality();
       if(!dis->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
+        Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << dis << endl;
         dis->impliedBy(curr);
       }
     }
@@ -1304,6 +1311,7 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
       Constraint ub = vc.getUpperBound();
       if(!ub->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
+        Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << ub << endl;
         ub->impliedBy(curr);
       }
     }
@@ -1311,6 +1319,7 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
       Constraint dis = vc.getDisequality();
       if(!dis->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
+        Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << dis << endl;
         dis->impliedBy(curr);
       }
     }
