@@ -1295,11 +1295,9 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
     }
   }
   Assert(scm_i == scm_curr);
-  if(hasPrevUB){
-    if(scm_i != scm_last){
-      ++scm_i;
-    }
-  }
+  if(!hasPrevUB || scm_i != scm_last){
+    ++scm_i;
+  } // hasPrevUB implies scm_i != scm_last
 
   for(; scm_i != scm_last; ++scm_i){
     // between the curr and the previous UB imply the upperbounds and disequalities.
@@ -1311,7 +1309,7 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
       Constraint ub = vc.getUpperBound();
       if(!ub->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
-        Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << ub << endl;
+        Debug("arith::unate") << "unateProp " << curr << " implies " << ub << endl;
         ub->impliedBy(curr);
       }
     }
@@ -1319,7 +1317,7 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
       Constraint dis = vc.getDisequality();
       if(!dis->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
-        Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << dis << endl;
+        Debug("arith::unate") << "unateProp " << curr << " implies " << dis << endl;
         dis->impliedBy(curr);
       }
     }
