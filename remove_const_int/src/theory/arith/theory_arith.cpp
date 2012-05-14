@@ -1481,8 +1481,7 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
         ArithVar var = d_arithvarNodeMap.asArithVar(n);
         return d_partialModel.getAssignment(var);
       }else{
-        Warning() << "you did not setup this up!: " << n << endl;
-        return DeltaRational();
+        Unreachable();
       }
     }
   }
