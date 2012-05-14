@@ -101,12 +101,12 @@ public:
 
     const SubrangeBounds& bounds = type.getConst<SubrangeBounds>();
     if(bounds.lower.hasBound()) {
-      return NodeManager::currentNM()->mkConst(bounds.lower.getBound());
+      return NodeManager::currentNM()->mkConst(Rational(bounds.lower.getBound()));
     }
     if(bounds.upper.hasBound()) {
-      return NodeManager::currentNM()->mkConst(bounds.upper.getBound());
+      return NodeManager::currentNM()->mkConst(Rational(bounds.upper.getBound()));
     }
-    return NodeManager::currentNM()->mkConst(Integer(0));
+    return NodeManager::currentNM()->mkConst(Rational(0));
   }
 };/* class SubrangeProperties */
 
