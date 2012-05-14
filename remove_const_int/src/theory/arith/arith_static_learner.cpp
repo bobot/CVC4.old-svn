@@ -192,47 +192,6 @@ void ArithStaticLearner::process(TNode n, NodeBuilder<>& learned, const TNodeSet
       break;
     }
 
-    Integer k1, k2;
-    Assert(false); // fixme
-    // if(c1.getType().getConst<TypeConstant>() == INTEGER_TYPE) {
-    //   k1 = c1.getConst<Integer>();
-    // } else {
-    //   Rational r = c1.getConst<Rational>();
-    //   if(r.getDenominator() == 1) {
-    //     k1 = r.getNumerator();
-    //   } else {
-    //     break;
-    //   }
-    // }
-    // if(c2.getType().getConst<TypeConstant>() == INTEGER_TYPE) {
-    //   k2 = c2.getConst<Integer>();
-    // } else {
-    //   Rational r = c2.getConst<Rational>();
-    //   if(r.getDenominator() == 1) {
-    //     k2 = r.getNumerator();
-    //   } else {
-    //     break;
-    //   }
-    // }
-    // if(k1 > k2) {
-    //   swap(k1, k2);
-    // }
-    // if(k1 + 1 == k2) {
-    //   Debug("arith::static") << "==> found " << n << endl
-    //                          << "    which indicates " << var << " \\in { "
-    //                          << k1 << " , " << k2 << " }" << endl;
-    //   c1 = NodeManager::currentNM()->mkConst(Rational(k1));
-    //   c2 = NodeManager::currentNM()->mkConst(Rational(k2));
-    //   Node lhs = NodeBuilder<2>(kind::GEQ) << var << c1;
-    //   Node rhs = NodeBuilder<2>(kind::LEQ) << var << c2;
-    //   Node l = lhs && rhs;
-    //   Debug("arith::static") << "    learned: " << l << endl;
-    //   learned << l;
-    //   if(k1 == 0) {
-    //     Assert(k2 == 1);
-    //     replaceWithPseudoboolean(var);
-    //   }
-    // }
     break;
   }
   default: // Do nothing
