@@ -32,8 +32,12 @@ class ArithConstantTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
       throw (TypeCheckingExceptionPrivate, AssertionException) {
-    if (n.getKind() == kind::CONST_RATIONAL) return nodeManager->realType();
-    return nodeManager->integerType();
+    Assert(n.getKind() == kind::CONST_RATIONAL);
+    if(n.getConst<Rational>().isIntegral()){
+      return nodeManager->integerType();
+    }else{
+      return nodeManager->realType();
+    }
   }
 };/* class ArithConstantTypeRule */
 
