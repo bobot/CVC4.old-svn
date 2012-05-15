@@ -126,6 +126,14 @@ Solver::Solver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, 
   , asynch_interrupt   (false)
 {
   PROOF(ProofManager::initSatProof(this);)
+
+  // Create the constant variables
+  varTrue = newVar(true, false, false);
+  varFalse = newVar(false, false, false);
+
+  // Assert the constants
+  uncheckedEnqueue(mkLit(varTrue, false));
+  uncheckedEnqueue(mkLit(varFalse, true));
 }
 
 
@@ -190,16 +198,26 @@ CRef Solver::reason(Var x) {
 
     // Compute the assertion level for this clause
     int explLevel = 0;
-    for (int i = 0; i < explanation.size(); ++ i) {
+    int i, j;
+    for (i = 0, j = 0; i < explanation.size(); ++ i) {
       int varLevel = intro_level(var(explanation[i]));
       if (varLevel > explLevel) {
         explLevel = varLevel;
       }
       Assert(value(explanation[i]) != l_Undef);
       Assert(i == 0 || trail_index(var(explanation[0])) > trail_index(var(explanation[i])));
+      // ignore zero level literals
+      if (i == 0 || level(var(explanation[i])) > 0) {
+        explanation[j++] = explanation[i];
+      }
+    }
+    explanation.shrink(i - j);
+    if (j == 1) {
+      // Add not TRUE to the clause
+      explanation.push(mkLit(varTrue, true));
     }
 
-    // Construct the reason (level 0)
+    // Construct the reason
     CRef real_reason = ca.alloc(explLevel, explanation, true);
     vardata[x] = mkVarData(real_reason, level(x), intro_level(x), trail_index(x));
     clauses_removable.push(real_reason);
@@ -657,6 +675,7 @@ CRef Solver::propagate(TheoryCheckType type)
 {
     CRef confl = CRef_Undef;
     recheck = false;
+    theoryConflict = false;
 
     ScopedBool scoped_bool(minisat_busy, true);
 
@@ -694,7 +713,11 @@ CRef Solver::propagate(TheoryCheckType type)
         // If no conflict, do the theory check
         if (confl == CRef_Undef && type != CHECK_WITHOUTH_THEORY) {
             // Do the theory check
-            theoryCheck(CVC4::theory::Theory::EFFORT_STANDARD);
+            if (type == CHECK_FINAL_FAKE) {
+              theoryCheck(CVC4::theory::Theory::EFFORT_FULL);
+            } else {
+              theoryCheck(CVC4::theory::Theory::EFFORT_STANDARD);
+            }
             // Pick up the theory propagated literals
             propagateTheory();
             // If there are lemmas (or conflicts) update them
@@ -1018,8 +1041,12 @@ lbool Solver::search(int nof_conflicts)
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
             }
 
-             // We have a conflict so, we are going back to standard checks
-            check_type = CHECK_WITH_THEORY;
+            if (theoryConflict && Options::current()->sat_refine_conflicts) {
+              check_type = CHECK_FINAL_FAKE;
+            } else {
+              check_type = CHECK_WITH_THEORY;
+            }
+
         } else {
 
 	    // If this was a final check, we are satisfiable
@@ -1043,6 +1070,8 @@ lbool Solver::search(int nof_conflicts)
 		}
                 return l_True;
               }
+            } else if (check_type == CHECK_FINAL_FAKE) {
+              check_type = CHECK_WITH_THEORY;
             }
 
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()) {
@@ -1088,6 +1117,8 @@ lbool Solver::search(int nof_conflicts)
 
                 if (next == lit_Undef) {
                     // We need to do a full theory check to confirm
+                  Debug("minisat::search") << "Doing a full theoy check..."
+                                           << std::endl;
                     check_type = CHECK_FINAL;
                     continue;
                 }
@@ -1503,14 +1534,6 @@ CRef Solver::updateLemmas() {
             conflict = CRef_Lazy;
           }
         } else {
-//          if (Debug.isOn("minisat::lemmas")) {
-//          	Debug("minisat::lemmas") << "Solver::updateLemmas(): " << lemma[0] << " from ";
-//          	Clause& c = ca[lemma_ref];
-//          	for (int i = 0; i < c.size(); ++ i) {
-//          	   Debug("minisat::lemmas") << c[i] << "(" << value(c[i]) << "," << level(var(c[i])) << "," << trail_index(var(c[i])) << ") "; 
-//          	} 
-//			Debug("minisat::lemmas") << std::endl; 
-//          }
           Debug("minisat::lemmas") << "lemma size is " << lemma.size() << std::endl;
           uncheckedEnqueue(lemma[0], lemma_ref);
           if(lemma.size() == 1 && assertionLevel > 0) {
@@ -1527,6 +1550,10 @@ CRef Solver::updateLemmas() {
   // Clear the lemmas
   lemmas.clear();
   lemmas_removable.clear();
+
+  if (conflict != CRef_Undef) {
+    theoryConflict = true;
+  }
 
   return conflict;
 }

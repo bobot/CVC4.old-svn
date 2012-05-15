@@ -42,12 +42,6 @@ namespace bv {
 /// forward declarations 
 class Bitblaster;
 
-static inline std::string spaces(int level)
-{
-  std::string indentStr(level, ' ');
-  return indentStr;
-}
-
 class TheoryBV : public Theory {
 
 
@@ -61,20 +55,18 @@ private:
   
   /** Bitblaster */
   Bitblaster* d_bitblaster; 
-  Node d_true;
-  Node d_false;
-    
+
+  context::CDList<TNode> d_bitblastQueue; 
+  
   /** Context dependent set of atoms we already propagated */
   context::CDHashSet<TNode, TNodeHashFunction> d_alreadyPropagatedSet;
-
+  context::CDHashSet<TNode, TNodeHashFunction> d_sharedTermsSet;
 public:
 
   TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
   ~TheoryBV(); 
 
   void preRegisterTerm(TNode n);
-
-  //void registerTerm(TNode n) { }
 
   void check(Effort e);
 
@@ -84,7 +76,6 @@ public:
 
   std::string identify() const { return std::string("TheoryBV"); }
 
-  //Node preprocessTerm(TNode term);
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions); 
 
 private:
@@ -102,22 +93,47 @@ private:
   
   // Added by Clark
   // NotifyClass: template helper class for d_equalityEngine - handles call-back from congruence closure module
-  class NotifyClass {
+  class NotifyClass : public eq::EqualityEngineNotify {
+
     TheoryBV& d_bv;
+
   public:
+
     NotifyClass(TheoryBV& uf): d_bv(uf) {}
 
-    bool notify(TNode propagation) {
-      Debug("bitvector") << spaces(d_bv.getSatContext()->getLevel()) << "NotifyClass::notify(" << propagation << ")" << std::endl;
-      // Just forward to bv
-      return d_bv.propagate(propagation);
+    bool eqNotifyTriggerEquality(TNode equality, bool value) {
+      Debug("bitvector") << "NotifyClass::eqNotifyTriggerEquality(" << equality << ", " << (value ? "true" : "false" )<< ")" << std::endl;
+      if (value) {
+        return d_bv.storePropagation(equality, SUB_EQUALITY);
+      } else {
+        return d_bv.storePropagation(equality.notNode(), SUB_EQUALITY);
+      }
     }
 
-    void notify(TNode t1, TNode t2) {
-      Debug("arrays") << spaces(d_bv.getSatContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
-      // Propagate equality between shared terms
-      Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
-      d_bv.propagate(t1.eqNode(t2));
+    bool eqNotifyTriggerPredicate(TNode predicate, bool value) {
+      Debug("bitvector") << "NotifyClass::eqNotifyTriggerPredicate(" << predicate << ", " << (value ? "true" : "false" )<< ")" << std::endl;
+      if (value) {
+        return d_bv.storePropagation(predicate, SUB_EQUALITY);
+      } else {
+        return d_bv.storePropagation(predicate.notNode(), SUB_EQUALITY);
+      }
+    }
+
+    bool eqNotifyTriggerTermEquality(TNode t1, TNode t2, bool value) {
+      Debug("bitvector") << "NotifyClass::eqNotifyTriggerTermMerge(" << t1 << ", " << t2 << std::endl;
+      if (value) {
+        return d_bv.storePropagation(t1.eqNode(t2), SUB_EQUALITY);
+      } else {
+        return d_bv.storePropagation(t1.eqNode(t2).notNode(), SUB_EQUALITY);
+      }
+    }
+
+    bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
+      Debug("bitvector") << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << std::endl;
+      if (Theory::theoryOf(t1) == THEORY_BOOL) {
+        return d_bv.storePropagation(t1.iffNode(t2), SUB_EQUALITY);
+      }
+      return d_bv.storePropagation(t1.eqNode(t2), SUB_EQUALITY);
     }
   };
 
@@ -125,7 +141,7 @@ private:
   NotifyClass d_notify;
 
   /** Equaltity engine */
-  uf::EqualityEngine<NotifyClass> d_equalityEngine;
+  eq::EqualityEngine d_equalityEngine;
 
   // Are we in conflict?
   context::CDO<bool> d_conflict;
@@ -141,16 +157,44 @@ private:
 
   context::CDQueue<Node> d_toBitBlast;
 
-  /** Should be called to propagate the literal.  */
-  bool propagate(TNode literal);
+  enum SubTheory {
+    SUB_EQUALITY = 1,
+    SUB_BITBLASTER = 2
+  };
 
-  /** Explain why this literal is true by adding assumptions */
+  /**
+   * Keeps a map from nodes to the subtheory that propagated it so that we can explain it
+   * properly.
+   */
+  typedef context::CDHashMap<Node, SubTheory, NodeHashFunction> PropagatedMap;
+  PropagatedMap d_propagatedBy;
+
+  bool propagatedBy(TNode literal, SubTheory subtheory) const {
+    PropagatedMap::const_iterator find = d_propagatedBy.find(literal);
+    if (find == d_propagatedBy.end()) return false;
+    else return (*find).second == subtheory;
+  }
+
+  /** Should be called to propagate the literal.  */
+  bool storePropagation(TNode literal, SubTheory subtheory);
+
+  /**
+   * Explains why this literal (propagated by subtheory) is true by adding assumptions.
+   */
   void explain(TNode literal, std::vector<TNode>& assumptions);
 
   void addSharedTerm(TNode t);
 
   EqualityStatus getEqualityStatus(TNode a, TNode b);
 
+  friend class Bitblaster;
+
+  inline std::string indent()
+  {
+    std::string indentStr(getSatContext()->getLevel(), ' ');
+    return indentStr;
+  }
+  
 public:
 
   void propagate(Effort e);

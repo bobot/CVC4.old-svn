@@ -146,6 +146,14 @@ struct CVC4_PUBLIC Options {
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
 
+  /** Whether to do the ite-simplification pass */
+  bool doITESimp;
+
+  /**
+   * Whether the user explicitly requested ite simplification
+   */
+  bool doITESimpSetByUser;
+
   /** Whether we're in interactive mode or not */
   bool interactive;
 
@@ -255,6 +263,11 @@ struct CVC4_PUBLIC Options {
   bool arithRewriteEq;
 
   /**
+   * Whether the flag was set by the user
+   */
+  bool arithRewriteEqSetByUser;
+
+  /**
    * Whether to do the symmetry-breaking preprocessing in UF as
    * described by Deharbe et al. in CADE 2011 (on by default).
    */
@@ -265,6 +278,7 @@ struct CVC4_PUBLIC Options {
    * breaker be enabled or disabled.
    */
   bool ufSymmetryBreakerSetByUser;
+
 
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;
@@ -287,6 +301,18 @@ struct CVC4_PUBLIC Options {
 
   /** Filter depending on length of lemma */
   int sharingFilterByLength;
+
+  /** Bitblast eagerly to the main sat solver */
+  bool bitvectorEagerBitblast;
+
+  /** Fullcheck at each check */
+  bool bitvectorEagerFullcheck;
+
+  /** Bitblast eagerly to the main sat solver */
+  bool bitvectorShareLemmas;
+
+  /** Refine conflicts by doing another full check after a conflict */
+  bool sat_refine_conflicts;
 
   Options();
 
