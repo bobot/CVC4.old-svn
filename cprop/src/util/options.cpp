@@ -113,7 +113,7 @@ Options::Options() :
   arithPivotThreshold(16),
   arithPropagateMaxLength(16),
   arithDioSolver(true),
-  arithRewriteEq(true),
+  arithRewriteEq(false),
   arithRewriteEqSetByUser(false),
   ufSymmetryBreaker(false),
   ufSymmetryBreakerSetByUser(false),
