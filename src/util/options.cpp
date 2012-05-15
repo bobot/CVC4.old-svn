@@ -80,7 +80,7 @@ Options::Options() :
   printWinner(false),
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
   simplificationModeSetByUser(false),
-  decisionMode(DECISION_STRATEGY_JUSTIFICATION),
+  decisionMode(DECISION_STRATEGY_RELEVANCY),
   decisionModeSetByUser(false),
   doStaticLearning(true),
   doITESimp(false),
@@ -247,6 +247,10 @@ internal (default)\n\
 \n\
 justification\n\
 + An ATGP-inspired justification heuristic\n\
+\n\
+relevancy\n\
++ Under devel so don't know what this will be\n\
+  If seeing this in trunk, bug Kshitij to update this help\n\
 ";
 
 static const string dumpHelp = "\
@@ -759,6 +763,9 @@ throw(OptionException) {
         decisionModeSetByUser = true;
       } else if(!strcmp(optarg, "justification")) {
         decisionMode = DECISION_STRATEGY_JUSTIFICATION;
+        decisionModeSetByUser = true;
+      } else if(!strcmp(optarg, "relevancy")) {
+        decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;
       } else if(!strcmp(optarg, "help")) {
         puts(decisionHelp.c_str());

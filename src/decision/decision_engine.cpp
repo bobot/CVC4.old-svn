@@ -18,6 +18,7 @@
 
 #include "decision/decision_engine.h"
 #include "decision/justification_heuristic.h"
+#include "decision/relevancy.h"
 
 #include "expr/node.h"
 #include "util/options.h"
@@ -49,6 +50,12 @@ namespace CVC4 {
     enableStrategy(ds);
     d_needIteSkolemMap.push_back(ds);
   }
+  if(options->decisionMode == Options::DECISION_STRATEGY_RELEVANCY) {
+    ITEDecisionStrategy* ds = 
+      new decision::Relevancy(this, d_satContext);
+    enableStrategy(ds);
+    d_needIteSkolemMap.push_back(ds);
+  }
 }
 
 void DecisionEngine::enableStrategy(DecisionStrategy* ds)
@@ -68,10 +75,9 @@ void DecisionEngine::addAssertions(const vector<Node> &assertions)
   //   d_assertions.push_back(assertions[i]); 
 }
 
-void DecisionEngine::addAssertions
-  (const vector<Node> &assertions,
-   unsigned assertionsEnd,
-   IteSkolemMap iteSkolemMap) 
+void DecisionEngine::addAssertions(const vector<Node> &assertions,
+                                   unsigned assertionsEnd,
+                                   IteSkolemMap iteSkolemMap)
 {
   // new assertions, reset whatever result we knew
   d_result = SAT_VALUE_UNKNOWN;

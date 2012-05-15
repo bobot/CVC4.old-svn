@@ -92,10 +92,15 @@ void MinisatSatSolver::initialize(context::Context* context, TheoryProxy* theory
 
   d_context = context;
 
+  if( Options::current()->decisionMode != Options::DECISION_STRATEGY_INTERNAL ) {
+    Notice() << "minisat: Incremental solving is disabled"
+             << " unless using internal decision strategy." << std::endl;
+  }
+
   // Create the solver
   d_minisat = new Minisat::SimpSolver(theoryProxy, d_context,
                                       Options::current()->incrementalSolving || 
-                                      Options::current()->decisionMode == Options::DECISION_STRATEGY_JUSTIFICATION );
+                                      Options::current()->decisionMode != Options::DECISION_STRATEGY_INTERNAL );
   // Setup the verbosity
   d_minisat->verbosity = (Options::current()->verbosity > 0) ? 1 : -1;
 

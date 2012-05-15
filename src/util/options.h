@@ -136,7 +136,8 @@ struct CVC4_PUBLIC Options {
     /**
      * Use the justification heuristic
      */
-    DECISION_STRATEGY_JUSTIFICATION
+    DECISION_STRATEGY_JUSTIFICATION,
+    DECISION_STRATEGY_RELEVANCY
   } DecisionMode;
   /** When/whether to use any decision strategies */
   DecisionMode decisionMode;
