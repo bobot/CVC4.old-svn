@@ -402,7 +402,8 @@ private:
 
   bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
   void clearUpdates();
-#warning "do better names"
+
+  void revertOutOfConflict();
 
   void propagateCandidates();
   void propagateCandidate(ArithVar basic);

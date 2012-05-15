@@ -153,9 +153,14 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_boundPropagations);
 }
 
+void TheoryArith::revertOutOfConflict(){
+  d_partialModel.revertAssignmentChanges();
+  clearUpdates();
+  d_currentPropagationList.clear();
+}
+
 void TheoryArith::clearUpdates(){
   d_updatedBounds.purge();
-  d_currentPropagationList.clear();
 }
 
 void TheoryArith::zeroDifferenceDetected(ArithVar x){
@@ -1155,17 +1160,16 @@ void TheoryArith::check(Effort effortLevel){
     Node possibleConflict = assertionCases(assertion);
 
     if(!possibleConflict.isNull()){
-      d_partialModel.revertAssignmentChanges();
+      revertOutOfConflict();
+
       Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
-      clearUpdates();
       d_out->conflict(possibleConflict);
       return;
     }
     if(d_congruenceManager.inConflict()){
       Node c = d_congruenceManager.conflict();
-      d_partialModel.revertAssignmentChanges();
+      revertOutOfConflict();
       Debug("arith::conflict") << "difference manager conflict   " << c << endl;
-      clearUpdates();
       d_out->conflict(c);
       return;
     }
@@ -1180,8 +1184,7 @@ void TheoryArith::check(Effort effortLevel){
   Assert(d_conflicts.empty());
   bool foundConflict = d_simplex.findModel();
   if(foundConflict){
-    d_partialModel.revertAssignmentChanges();
-    clearUpdates();
+    revertOutOfConflict();
 
     Assert(!d_conflicts.empty());
     for(size_t i = 0, i_end = d_conflicts.size(); i < i_end; ++i){
@@ -1235,7 +1238,10 @@ void TheoryArith::check(Effort effortLevel){
         Unhandled(curr->getType());
       }
     }
+  }else{
+    d_currentPropagationList.clear();
   }
+  Assert( d_currentPropagationList.empty());
 
 
   if(!emmittedConflictOrSplit && fullEffort(effortLevel)){
@@ -1247,6 +1253,7 @@ void TheoryArith::check(Effort effortLevel){
     if(!emmittedConflictOrSplit && Options::current()->arithDioSolver){
       possibleConflict = callDioSolver();
       if(possibleConflict != Node::null()){
+        revertOutOfConflict();
         Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
         d_out->conflict(possibleConflict);
         emmittedConflictOrSplit = true;
