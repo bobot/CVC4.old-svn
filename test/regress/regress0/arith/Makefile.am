@@ -1,4 +1,4 @@
-SUBDIRS = . integers
+SUBDIRS = .
 
 BINARY = cvc4
 if PROOF_REGRESSIONS

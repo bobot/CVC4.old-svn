@@ -23,16 +23,12 @@
 #include <map>
 #include "theory/rewriter.h"
 #include "expr/command.h"
-#include "theory/uf/equality_engine_impl.h"
-
 
 using namespace std;
-
 
 namespace CVC4 {
 namespace theory {
 namespace arrays {
-
 
 // These are the options that produce the best empirical results on QF_AX benchmarks.
 // eagerLemmas = true
@@ -58,14 +54,13 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_numNonLinear("theory::arrays::number of calls to setNonLinear", 0),
   d_numSharedArrayVarSplits("theory::arrays::number of shared array var splits", 0),
   d_checkTimer("theory::arrays::checkTime"),
-  d_ppNotify(),
-  d_ppEqualityEngine(d_ppNotify, u, "theory::arrays::TheoryArraysPP"),
+  d_ppEqualityEngine(u, "theory::arrays::TheoryArraysPP"),
   d_ppFacts(u),
   //  d_ppCache(u),  
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
-  d_mayEqualNotify(),
-  d_mayEqualEqualityEngine(d_mayEqualNotify, c, "theory::arrays::TheoryArraysMayEqual"),
+  d_isPreRegistered(c),
+  d_mayEqualEqualityEngine(c, "theory::arrays::TheoryArraysMayEqual"),
   d_notify(*this),
   d_equalityEngine(d_notify, c, "theory::arrays::TheoryArrays"),
   d_conflict(c, false),
@@ -90,14 +85,6 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
 
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
-
-  d_ppEqualityEngine.addTerm(d_true);
-  d_ppEqualityEngine.addTerm(d_false);
-  d_ppEqualityEngine.addTriggerEquality(d_true, d_false, d_false);
-
-  d_equalityEngine.addTerm(d_true);
-  d_equalityEngine.addTerm(d_false);
-  d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
 
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::SELECT);
@@ -281,7 +268,7 @@ Theory::PPAssertStatus TheoryArrays::ppAssert(TNode in, SubstitutionMap& outSubs
     case kind::EQUAL:
     {
       d_ppFacts.push_back(in);
-      d_ppEqualityEngine.addEquality(in[0], in[1], in);
+      d_ppEqualityEngine.assertEquality(in, true, in);
       if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
         outSubstitutions.addSubstitution(in[0], in[1]);
         return PP_ASSERT_STATUS_SOLVED;
@@ -299,7 +286,7 @@ Theory::PPAssertStatus TheoryArrays::ppAssert(TNode in, SubstitutionMap& outSubs
              in[0].getKind() == kind::IFF );
       Node a = in[0][0];
       Node b = in[0][1];
-      d_ppEqualityEngine.addDisequality(a, b, in);
+      d_ppEqualityEngine.assertEquality(in[0], false, in);
       break;
     }
     default:
@@ -335,10 +322,8 @@ bool TheoryArrays::propagate(TNode literal)
       Debug("arrays") << spaces(getSatContext()->getLevel()) << "TheoryArrays::propagate(" << literal << ", normalized = " << normalized << ") => conflict" << std::endl;
       std::vector<TNode> assumptions;
       Node negatedLiteral;
-      if (normalized != d_false) {
-        negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
-        assumptions.push_back(negatedLiteral);
-      }
+      negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
+      assumptions.push_back(negatedLiteral);
       explain(literal, assumptions);
       d_conflictNode = mkAnd(assumptions);
       d_conflict = true;
@@ -357,71 +342,47 @@ bool TheoryArrays::propagate(TNode literal)
 
 
 void TheoryArrays::explain(TNode literal, std::vector<TNode>& assumptions) {
-  TNode lhs, rhs;
-  switch (literal.getKind()) {
-    case kind::EQUAL:
-      lhs = literal[0];
-      rhs = literal[1];
-      break;
-    case kind::SELECT:
-      lhs = literal;
-      rhs = d_true;
-      break;
-    case kind::NOT:
-      if (literal[0].getKind() == kind::EQUAL) {
-        // Disequalities
-        d_equalityEngine.explainDisequality(literal[0][0], literal[0][1], assumptions);
-        return;
-      } else {
-        // Predicates
-        lhs = literal[0];
-        rhs = d_false;
-        break;
-      }
-    case kind::CONST_BOOLEAN:
-      // we get to explain true = false, since we set false to be the trigger of this
-      lhs = d_true;
-      rhs = d_false;
-      break;
-    default:
-      Unreachable();
+  // Do the work
+  bool polarity = literal.getKind() != kind::NOT;
+  TNode atom = polarity ? literal : literal[0];
+  if (atom.getKind() == kind::EQUAL || atom.getKind() == kind::IFF) {
+    d_equalityEngine.explainEquality(atom[0], atom[1], polarity, assumptions);
+  } else {
+    d_equalityEngine.explainPredicate(atom, polarity, assumptions);
   }
-  d_equalityEngine.explainEquality(lhs, rhs, assumptions);
 }
 
 
-  /**
-   * Stores in d_infoMap the following information for each term a of type array:
-   *
-   *    - all i, such that there exists a term a[i] or a = store(b i v)
-   *      (i.e. all indices it is being read atl; store(b i v) is implicitly read at
-   *      position i due to the implicit axiom store(b i v)[i] = v )
-   *
-   *    - all the stores a is congruent to (this information is context dependent)
-   *
-   *    - all store terms of the form store (a i v) (i.e. in which a appears
-   *      directly; this is invariant because no new store terms are created)
-   *
-   * Note: completeness depends on having pre-register called on all the input
-   *       terms before starting to instantiate lemmas.
-   */
+/**
+ * Stores in d_infoMap the following information for each term a of type array:
+ *
+ *    - all i, such that there exists a term a[i] or a = store(b i v)
+ *      (i.e. all indices it is being read atl; store(b i v) is implicitly read at
+ *      position i due to the implicit axiom store(b i v)[i] = v )
+ *
+ *    - all the stores a is congruent to (this information is context dependent)
+ *
+ *    - all store terms of the form store (a i v) (i.e. in which a appears
+ *      directly; this is invariant because no new store terms are created)
+ *
+ * Note: completeness depends on having pre-register called on all the input
+ *       terms before starting to instantiate lemmas.
+ */
 void TheoryArrays::preRegisterTerm(TNode node)
 {
   Debug("arrays") << spaces(getSatContext()->getLevel()) << "TheoryArrays::preRegisterTerm(" << node << ")" << std::endl;
-
   switch (node.getKind()) {
   case kind::EQUAL:
-    // Add the terms
-    //    d_equalityEngine.addTerm(node[0]);
-    //    d_equalityEngine.addTerm(node[1]);
-    d_equalityEngine.addTerm(node);
     // Add the trigger for equality
-    d_equalityEngine.addTriggerEquality(node[0], node[1], node);
-    d_equalityEngine.addTriggerDisequality(node[0], node[1], node.notNode());
+    d_equalityEngine.addTriggerEquality(node);
     break;
   case kind::SELECT: {
+    // Invariant: array terms should be preregistered before being added to the equality engine
+    if (d_equalityEngine.hasTerm(node)) {
+      Assert(d_isPreRegistered.find(node) != d_isPreRegistered.end());
+      return;
+    }
     // Reads
-    d_equalityEngine.addTerm(node);
     TNode store = d_equalityEngine.getRepresentative(node[0]);
 
     // Apply RIntro1 rule to any stores equal to store if not done already
@@ -435,35 +396,37 @@ void TheoryArrays::preRegisterTerm(TNode node)
         Assert(s.getKind()==kind::STORE);
         Node ni = nm->mkNode(kind::SELECT, s, s[1]);
         if (ni != node) {
-          Assert(!d_equalityEngine.hasTerm(ni));
           preRegisterTerm(ni);
         }
-        d_equalityEngine.addEquality(ni, s[2], d_true);
+        d_equalityEngine.assertEquality(ni.eqNode(s[2]), true, d_true);
         Assert(++it == stores->end());
       }
     }
 
+    d_equalityEngine.addTerm(node);
     // Maybe it's a predicate
     // TODO: remove this or keep it if we allow Boolean elements in arrays.
     if (node.getType().isBoolean()) {
       // Get triggered for both equal and dis-equal
-      d_equalityEngine.addTriggerEquality(node, d_true, node);
-      d_equalityEngine.addTriggerEquality(node, d_false, node.notNode());
+      d_equalityEngine.addTriggerPredicate(node);
     }
 
     d_infoMap.addIndex(node[0], node[1]);
-    checkRowForIndex(node[1], store);
     d_reads.push_back(node);
+    Assert((d_isPreRegistered.insert(node), true));
+    checkRowForIndex(node[1], store);
     break;
   }
   case kind::STORE: {
+    // Invariant: array terms should be preregistered before being added to the equality engine
+    Assert(!d_equalityEngine.hasTerm(node));
     d_equalityEngine.addTriggerTerm(node);
 
     TNode a = node[0];
     //    TNode i = node[1];
     //    TNode v = node[2];
 
-    d_mayEqualEqualityEngine.addEquality(node, a, d_true);
+    d_mayEqualEqualityEngine.assertEquality(node.eqNode(a), true, d_true);
 
     // NodeManager* nm = NodeManager::currentNM();
     // Node ni = nm->mkNode(kind::SELECT, node, i);
@@ -484,12 +447,15 @@ void TheoryArrays::preRegisterTerm(TNode node)
     // Variables etc
     if (node.getType().isArray()) {
       d_equalityEngine.addTriggerTerm(node);
+      Assert(d_equalityEngine.getSize(node) == 1);
     }
     else {
       d_equalityEngine.addTerm(node);
     }
     break;
   }
+  // Invariant: preregistered terms are exactly the terms in the equality engine
+  Assert(d_equalityEngine.hasTerm(node));
 }
 
 
@@ -508,10 +474,8 @@ void TheoryArrays::propagate(Effort e)
         Debug("arrays") << spaces(getSatContext()->getLevel()) << "TheoryArrays::propagate(): in conflict, normalized = " << normalized << std::endl;
         Node negatedLiteral;
         std::vector<TNode> assumptions;
-        if (normalized != d_false) {
-          negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
-          assumptions.push_back(negatedLiteral);
-        }
+        negatedLiteral = normalized.getKind() == kind::NOT ? (Node) normalized[0] : normalized.notNode();
+        assumptions.push_back(negatedLiteral);
         explain(literal, assumptions);
         d_conflictNode = mkAnd(assumptions);
         d_conflict = true;
@@ -727,17 +691,17 @@ void TheoryArrays::check(Effort e) {
     // Do the work
     switch (fact.getKind()) {
       case kind::EQUAL:
-        d_equalityEngine.addEquality(fact[0], fact[1], fact);
+        d_equalityEngine.assertEquality(fact, true, fact);
         break;
       case kind::SELECT:
-        d_equalityEngine.addPredicate(fact, true, fact);
+        d_equalityEngine.assertPredicate(fact, true, fact);
         break;
       case kind::NOT:
         if (fact[0].getKind() == kind::SELECT) {
-          d_equalityEngine.addPredicate(fact[0], false, fact);
+          d_equalityEngine.assertPredicate(fact[0], false, fact);
         } else if (!d_equalityEngine.areDisequal(fact[0][0], fact[0][1])) {
           // Assert the dis-equality
-          d_equalityEngine.addDisequality(fact[0][0], fact[0][1], fact);
+          d_equalityEngine.assertEquality(fact[0], false, fact);
 
           // Apply ArrDiseq Rule if diseq is between arrays
           if(fact[0][0].getType().isArray()) {
@@ -764,7 +728,7 @@ void TheoryArrays::check(Effort e) {
             if (!d_equalityEngine.hasTerm(bk)) {
               preRegisterTerm(bk);
             }
-            d_equalityEngine.addDisequality(ak, bk, fact);
+            d_equalityEngine.assertEquality(ak.eqNode(bk), false, fact);
             Trace("arrays-lem")<<"Arrays::addExtLemma "<< ak << " /= " << bk <<"\n";
             ++d_numExt;
           }
@@ -807,14 +771,11 @@ Node TheoryArrays::mkAnd(std::vector<TNode>& conjunctions)
   for (; i < conjunctions.size(); ++i) {
     t = conjunctions[i];
 
-    // Remove true node - represents axiomatically true assertion
-    if (t == d_true) continue;
-
     // Expand explanation resulting from propagating a ROW lemma
     if (t.getKind() == kind::OR) {
       if ((explained.find(t) == explained.end())) {
         Assert(t[1].getKind() == kind::EQUAL);
-        d_equalityEngine.explainDisequality(t[1][0], t[1][1], conjunctions);
+        d_equalityEngine.explainEquality(t[1][0], t[1][1], false, conjunctions);
         explained.insert(t);
       }
       continue;
@@ -947,9 +908,8 @@ void TheoryArrays::checkRIntro1(TNode a, TNode b)
     NodeManager* nm = NodeManager::currentNM();
     d_infoMap.setRIntro1Applied(s);
     Node ni = nm->mkNode(kind::SELECT, s, s[1]);
-    Assert(!d_equalityEngine.hasTerm(ni));
     preRegisterTerm(ni);
-    d_equalityEngine.addEquality(ni, s[2], d_true);
+    d_equalityEngine.assertEquality(ni.eqNode(s[2]), true, d_true);
   }
 }
 
@@ -1004,7 +964,7 @@ void TheoryArrays::mergeArrays(TNode a, TNode b)
       }
     }
 
-    d_mayEqualEqualityEngine.addEquality(a, b, d_true);
+    d_mayEqualEqualityEngine.assertEquality(a.eqNode(b), true, d_true);
 
     checkRowLemmas(a,b);
     checkRowLemmas(b,a);
@@ -1178,7 +1138,9 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
   if (d_propagateLemmas) {
     if (d_equalityEngine.areDisequal(i,j)) {
       Trace("arrays-lem") << spaces(getSatContext()->getLevel()) <<"Arrays::queueRowLemma: propagating aj = bj ("<<aj<<", "<<bj<<")\n";
-      Node reason = nm->mkNode(kind::OR, aj.eqNode(bj), i.eqNode(j));
+      Node aj_eq_bj = aj.eqNode(bj);
+      Node i_eq_j = i.eqNode(j);
+      Node reason = nm->mkNode(kind::OR, aj_eq_bj, i_eq_j);
       d_permRef.push_back(reason);
       if (!ajExists) {
         preRegisterTerm(aj);
@@ -1186,15 +1148,17 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
       if (!bjExists) {
         preRegisterTerm(bj);
       }
-      d_equalityEngine.addEquality(aj, bj, reason);
+      d_equalityEngine.assertEquality(aj_eq_bj, true, reason);
       ++d_numProp;
       return;
     }
     if (bothExist && d_equalityEngine.areDisequal(aj,bj)) {
       Trace("arrays-lem") << spaces(getSatContext()->getLevel()) <<"Arrays::queueRowLemma: propagating i = j ("<<i<<", "<<j<<")\n";
-      Node reason = nm->mkNode(kind::OR, i.eqNode(j), aj.eqNode(bj));
+      Node aj_eq_bj = aj.eqNode(bj);
+      Node i_eq_j = i.eqNode(j);
+      Node reason = nm->mkNode(kind::OR, i_eq_j, aj_eq_bj);
       d_permRef.push_back(reason);
-      d_equalityEngine.addEquality(i, j, reason);
+      d_equalityEngine.assertEquality(i_eq_j, true, reason);
       ++d_numProp;
       return;
     }
@@ -1217,9 +1181,55 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
   // TODO: maybe add triggers here
 
   if (d_eagerLemmas || bothExist) {
-    Node eq1 = nm->mkNode(kind::EQUAL, aj, bj);
-    Node eq2 = nm->mkNode(kind::EQUAL, i, j);
-    Node lemma = nm->mkNode(kind::OR, eq2, eq1);
+
+    // Make sure that any terms introduced by rewriting are appropriately stored in the equality database
+    Node aj2 = Rewriter::rewrite(aj);
+    if (aj != aj2) {
+      if (!ajExists) {
+        preRegisterTerm(aj);
+      }
+      if (!d_equalityEngine.hasTerm(aj2)) {
+        preRegisterTerm(aj2);
+      }
+      d_equalityEngine.assertEquality(aj.eqNode(aj2), true, d_true);
+    }
+    Node bj2 = Rewriter::rewrite(bj);
+    if (bj != bj2) {
+      if (!bjExists) {
+        preRegisterTerm(bj);
+      }
+      if (!d_equalityEngine.hasTerm(bj2)) {
+        preRegisterTerm(bj2);
+      }
+      d_equalityEngine.assertEquality(bj.eqNode(bj2), true, d_true);
+    }
+    if (aj2 == bj2) {
+      return;
+    }
+
+    // construct lemma
+    Node eq1 = aj2.eqNode(bj2);
+    Node eq1_r = Rewriter::rewrite(eq1);
+    if (eq1_r == d_true) {
+      if (!d_equalityEngine.hasTerm(aj2)) {
+        preRegisterTerm(aj2);
+      }
+      if (!d_equalityEngine.hasTerm(bj2)) {
+        preRegisterTerm(bj2);
+      }
+      d_equalityEngine.assertEquality(eq1, true, d_true);
+      return;
+    }
+
+    Node eq2 = i.eqNode(j);
+    Node eq2_r = Rewriter::rewrite(eq2);
+    if (eq2_r == d_true) {
+      d_equalityEngine.assertEquality(eq2, true, d_true);
+      return;
+    }
+
+    Node lemma = nm->mkNode(kind::OR, eq2_r, eq1_r);
+
     Trace("arrays-lem")<<"Arrays::addRowLemma adding "<<lemma<<"\n";
     d_RowAlreadyAdded.insert(lem);
     d_out->lemma(lemma);
@@ -1250,20 +1260,68 @@ void TheoryArrays::dischargeLemmas()
     NodeManager* nm = NodeManager::currentNM();
     Node aj = nm->mkNode(kind::SELECT, a, j);
     Node bj = nm->mkNode(kind::SELECT, b, j);
+    bool ajExists = d_equalityEngine.hasTerm(aj);
+    bool bjExists = d_equalityEngine.hasTerm(bj);
 
     // Check for redundant lemma
     // TODO: more checks possible (i.e. check d_RowAlreadyAdded in context)
     if (d_equalityEngine.areEqual(i,j) ||
         d_equalityEngine.areEqual(a,b) ||
-        (d_equalityEngine.hasTerm(aj) && d_equalityEngine.hasTerm(bj) && d_equalityEngine.areEqual(aj,bj))) {
+        (ajExists && bjExists && d_equalityEngine.areEqual(aj,bj))) {
+      d_RowQueue.push(l);
+      continue;
+    }
+
+    // Make sure that any terms introduced by rewriting are appropriately stored in the equality database
+    Node aj2 = Rewriter::rewrite(aj);
+    if (aj != aj2) {
+      if (!ajExists) {
+        preRegisterTerm(aj);
+      }
+      if (!d_equalityEngine.hasTerm(aj2)) {
+        preRegisterTerm(aj2);
+      }
+      d_equalityEngine.assertEquality(aj.eqNode(aj2), true, d_true);
+    }
+    Node bj2 = Rewriter::rewrite(bj);
+    if (bj != bj2) {
+      if (!bjExists) {
+        preRegisterTerm(bj);
+      }
+      if (!d_equalityEngine.hasTerm(bj2)) {
+        preRegisterTerm(bj2);
+      }
+      d_equalityEngine.assertEquality(bj.eqNode(bj2), true, d_true);
+    }
+    if (aj2 == bj2) {
       d_RowQueue.push(l);
       continue;
     }
 
     // construct lemma
-    Node eq1 = nm->mkNode(kind::EQUAL, aj, bj);
-    Node eq2 = nm->mkNode(kind::EQUAL, i, j);
-    Node lem = nm->mkNode(kind::OR, eq2, eq1);
+    Node eq1 = aj2.eqNode(bj2);
+    Node eq1_r = Rewriter::rewrite(eq1);
+    if (eq1_r == d_true) {
+      if (!d_equalityEngine.hasTerm(aj2)) {
+        preRegisterTerm(aj2);
+      }
+      if (!d_equalityEngine.hasTerm(bj2)) {
+        preRegisterTerm(bj2);
+      }
+      d_equalityEngine.assertEquality(eq1, true, d_true);
+      d_RowQueue.push(l);
+      continue;
+    }
+
+    Node eq2 = i.eqNode(j);
+    Node eq2_r = Rewriter::rewrite(eq2);
+    if (eq2_r == d_true) {
+      d_equalityEngine.assertEquality(eq2, true, d_true);
+      d_RowQueue.push(l);
+      continue;
+    }
+    
+    Node lem = nm->mkNode(kind::OR, eq2_r, eq1_r);
 
     Trace("arrays-lem")<<"Arrays::addRowLemma adding "<<lem<<"\n";
     d_RowAlreadyAdded.insert(l);

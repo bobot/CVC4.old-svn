@@ -476,6 +476,7 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
 }
 
 void TheoryArith::addSharedTerm(TNode n){
+  Debug("arith::addSharedTerm") << "addSharedTerm: " << n << endl;
   d_congruenceManager.addSharedTerm(n);
   if(!n.isConst() && !isSetup(n)){
     Polynomial poly = Polynomial::parsePolynomial(n);
@@ -1001,8 +1002,8 @@ Node TheoryArith::assertionCases(TNode assertion){
       if(Debug.isOn("whytheoryenginewhy")){
         debugPrintFacts();
       }
-      Warning() << "arith: Theory engine is sending me both a literal and its negation?"
-                << "BOOOOOOOOOOOOOOOOOOOOOO!!!!"<< endl;
+//      Warning() << "arith: Theory engine is sending me both a literal and its negation?"
+//                << "BOOOOOOOOOOOOOOOOOOOOOO!!!!"<< endl;
     }
     Debug("arith::eq") << constraint << endl;
     Debug("arith::eq") << negation << endl;
@@ -1484,10 +1485,14 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
 
 
   default:
-  {
-    ArithVar var = d_arithvarNodeMap.asArithVar(n);
-    return d_partialModel.getAssignment(var);
-  }
+    {
+      if(isSetup(n)){
+        ArithVar var = d_arithvarNodeMap.asArithVar(n);
+        return d_partialModel.getAssignment(var);
+      }else{
+        Unreachable();
+      }
+    }
   }
 }
 

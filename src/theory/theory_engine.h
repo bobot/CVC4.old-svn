@@ -41,7 +41,7 @@
 #include "util/stats.h"
 #include "util/hash.h"
 #include "util/cache.h"
-#include "util/ite_removal.h"
+#include "theory/ite_simplifier.h"
 
 namespace CVC4 {
 
@@ -123,6 +123,7 @@ class TheoryEngine {
   SharedTermsDatabase d_sharedTerms;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
+  typedef std::hash_map<TNode, Node, TNodeHashFunction> TNodeMap;
 
   /**
   * Cache for theory-preprocessing of assertions
@@ -309,8 +310,10 @@ class TheoryEngine {
   }
 
   struct SharedLiteral {
-    /** The node/theory pair for the assertion */
-    /** THEORY_LAST indicates this is a SAT literal and should be sent to the SAT solver */
+    /**
+     * The node/theory pair for the assertion. THEORY_LAST indicates this is a SAT
+     * literal and should be sent to the SAT solver
+     */
     NodeTheoryPair toAssert;
     /** This is the node that we will use to explain it */
     Node toExplain;
@@ -319,7 +322,7 @@ class TheoryEngine {
     : toAssert(assertion, receivingTheory),
       toExplain(original)
     { }
-  };/* struct SharedLiteral */
+  };
 
   /**
    * Map from nodes to theories.
@@ -474,6 +477,9 @@ class TheoryEngine {
 
   /** Time spent in theory combination */
   TimerStat d_combineTheoriesTime;
+
+  Node d_true;
+  Node d_false;
 
 public:
 
@@ -727,6 +733,15 @@ private:
 
   /** Visitor for collecting shared terms */
   SharedTermsVisitor d_sharedTermsVisitor;
+
+  /** Prints the assertions to the debug stream */
+  void printAssertions(const char* tag);
+
+  /** For preprocessing pass simplifying ITEs */
+  ITESimplifier d_iteSimplifier;
+
+public:
+  Node ppSimpITE(TNode assertion);
 
 };/* class TheoryEngine */
 
