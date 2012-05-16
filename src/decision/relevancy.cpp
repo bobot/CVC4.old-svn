@@ -202,15 +202,13 @@ bool Relevancy::findSplitterRec(TNode node,
     }
   }
 
-  bool ret;
-  SatValue valHard = SAT_VALUE_FALSE;
+  bool ret = false;
   switch (k) {
 
   case kind::CONST_BOOLEAN:
     Assert(node.getConst<bool>() == false || desiredVal == SAT_VALUE_TRUE);
     Assert(node.getConst<bool>() == true  || desiredVal == SAT_VALUE_FALSE);
-    setJustified(node);
-    return false;
+    break;
 
   case kind::AND:
     if (desiredVal == SAT_VALUE_FALSE) ret = handleOrTrue(node, SAT_VALUE_FALSE);
@@ -223,60 +221,35 @@ bool Relevancy::findSplitterRec(TNode node,
     break;
 
   case kind::IMPLIES:
-    //throw GiveUpException();
     Assert(node.getNumChildren() == 2, "Expected 2 fanins");
     if (desiredVal == SAT_VALUE_FALSE) {
-      if (findSplitterRec(node[0], SAT_VALUE_TRUE)) {
-        return true;
-      }
-      if (findSplitterRec(node[1], SAT_VALUE_FALSE)) {
-        return true;
-      }
-      Assert(litPresent == false || litVal == SAT_VALUE_FALSE, 
-             "Output should be justified");
-      setJustified(node);
-      return false;
+      ret = findSplitterRec(node[0], SAT_VALUE_TRUE);
+      if(ret) break;
+      ret = findSplitterRec(node[1], SAT_VALUE_FALSE);
+      break;
     }
     else {
       if (tryGetSatValue(node[0]) != SAT_VALUE_TRUE) {
-        if (findSplitterRec(node[0], SAT_VALUE_FALSE)) {
-          return true;
-        }
-        Assert(litPresent == false || litVal == SAT_VALUE_TRUE, 
-               "Output should be justified");
-        setJustified(node);
-        return false;
+        ret = findSplitterRec(node[0], SAT_VALUE_FALSE);
+        break;
       }
       if (tryGetSatValue(node[1]) != SAT_VALUE_FALSE) {
-        if (findSplitterRec(node[1], SAT_VALUE_TRUE)) {
-          return true;
-        }
-        Assert(litPresent == false || litVal == SAT_VALUE_TRUE, 
-               "Output should be justified");
-        setJustified(node);
-        return false;
+        ret = findSplitterRec(node[1], SAT_VALUE_TRUE);
+        break;
       }
       Assert(false, "No controlling input found (3)");
     }
     break;
 
-  case kind::IFF: 
+  case kind::IFF:
     //throw GiveUpException();
     {
     SatValue val = tryGetSatValue(node[0]);
     if (val != SAT_VALUE_UNKNOWN) {
-      if (findSplitterRec(node[0], val)) {
-        return true;
-      }
+      ret = findSplitterRec(node[0], val);
+      if (ret) break;
       if (desiredVal == SAT_VALUE_FALSE) val = invertValue(val);
-
-      if (findSplitterRec(node[1], val)) {
-        return true;
-      }
-      Assert(litPresent == false || litVal == desiredVal, 
-             "Output should be justified");
-      setJustified(node);
-      return false;
+      ret = findSplitterRec(node[1], val);
     }
     else {
       val = tryGetSatValue(node[1]);
@@ -303,7 +276,7 @@ bool Relevancy::findSplitterRec(TNode node,
       if (findSplitterRec(node[1], val)) {
         return true;
       }
-      Assert(litPresent == false || litVal == desiredVal, 
+      Assert(litPresent == false || litVal == desiredVal,
              "Output should be justified");
       setJustified(node);
       return false;
@@ -396,8 +369,9 @@ bool Relevancy::handleOrTrue(Node node, SatValue desiredVal) {
           (node.getKind() == kind::OR  and desiredVal == SAT_VALUE_TRUE) );
 
   int n = node.getNumChildren();
+  SatValue desiredValInverted = invertValue(desiredVal);
   for(int i = 0; i < n; ++i) {
-    if ( tryGetSatValue(node[i]) != invertValue(desiredVal) ) {
+    if ( tryGetSatValue(node[i]) != desiredValInverted ) {
       return findSplitterRec(node[i], desiredVal);
     }
   }
