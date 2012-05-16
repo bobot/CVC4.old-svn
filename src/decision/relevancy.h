@@ -222,8 +222,9 @@ private:
    */ 
   bool findSplitterRec(TNode node, SatValue value);
   // Functions to make findSplitterRec modular...
-  bool handleOrFalse(Node node, SatValue desiredVal);
-  bool handleOrTrue(Node node, SatValue desiredVal);
+  bool handleOrFalse(TNode node, SatValue desiredVal);
+  bool handleOrTrue(TNode node, SatValue desiredVal);
+  bool handleITE(TNode node, SatValue desiredVal);
 
   /* Helper functions */
   void setJustified(TNode);

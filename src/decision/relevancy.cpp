@@ -244,10 +244,8 @@ bool Relevancy::findSplitterRec(TNode node,
 
   case kind::XOR:
     flipCaseVal = SAT_VALUE_TRUE;
-  case kind::IFF:
-    //throw GiveUpException();
-    {
-      // flipCaseVal = SAT_VALUE_FALSE  --- done at initialization
+  case kind::IFF: {
+    // flipCaseVal = SAT_VALUE_FALSE  --- done at initialization
     SatValue val = tryGetSatValue(node[0]);
     if (val != SAT_VALUE_UNKNOWN) {
       ret = findSplitterRec(node[0], val);
@@ -266,42 +264,9 @@ bool Relevancy::findSplitterRec(TNode node,
     break;
   }
 
-  case kind::ITE: {
-    //[0]: if, [1]: then, [2]: else
-    SatValue ifVal = tryGetSatValue(node[0]);
-    if (ifVal == SAT_VALUE_UNKNOWN) {
-      
-      // are we better off trying false? if not, try true
-      SatValue ifDesiredVal = 
-        (tryGetSatValue(node[2]) == desiredVal ||
-	 tryGetSatValue(node[1]) == invertValue(desiredVal))
-	? SAT_VALUE_FALSE : SAT_VALUE_TRUE;
-
-      if(findSplitterRec(node[0], ifDesiredVal)) {
-	return true;
-      }
-      Assert(false, "No controlling input found (6)");
-    } else {
-
-      // Try to justify 'if'
-      if (findSplitterRec(node[0], ifVal)) {
-	return true;
-      }
-
-      // If that was successful, we need to go into only one of 'then'
-      // or 'else'
-      int ch = (ifVal == SAT_VALUE_TRUE) ? 1 : 2;
-      int chVal = tryGetSatValue(node[ch]);
-      if( (chVal == SAT_VALUE_UNKNOWN || chVal == desiredVal)
-	  && findSplitterRec(node[ch], desiredVal) ) {
-	return true;
-      }
-    }
-    Assert(litPresent == false || litVal == desiredVal,
-	   "Output should be justified");
-    setJustified(node);
-    return false;
-  }
+  case kind::ITE:
+    ret = handleITE(node, desiredVal);
+    break;
 
   default:
     Assert(false, "Unexpected Boolean operator");
@@ -318,7 +283,7 @@ bool Relevancy::findSplitterRec(TNode node,
   Unreachable();
 }/* findRecSplit method */
 
-bool Relevancy::handleOrFalse(Node node, SatValue desiredVal) {
+bool Relevancy::handleOrFalse(TNode node, SatValue desiredVal) {
   Debug("jh-findSplitterRec") << " handleOrFalse (" << node << ", "
                               << desiredVal << std::endl;
 
@@ -334,7 +299,7 @@ bool Relevancy::handleOrFalse(Node node, SatValue desiredVal) {
   return false;      
 }
 
-bool Relevancy::handleOrTrue(Node node, SatValue desiredVal) {
+bool Relevancy::handleOrTrue(TNode node, SatValue desiredVal) {
   Debug("jh-findSplitterRec") << " handleOrTrue (" << node << ", "
                               << desiredVal << std::endl;
 
@@ -361,3 +326,38 @@ bool Relevancy::handleOrTrue(Node node, SatValue desiredVal) {
   Assert(false, "No controlling input found");
   return false;
 }
+
+bool Relevancy::handleITE(TNode node, SatValue desiredVal)
+{
+  Debug("jh-findSplitterRec") << " handleITE (" << node << ", "
+                              << desiredVal << std::endl;
+
+  //[0]: if, [1]: then, [2]: else
+  SatValue ifVal = tryGetSatValue(node[0]);
+  if (ifVal == SAT_VALUE_UNKNOWN) {
+      
+    // are we better off trying false? if not, try true
+    SatValue ifDesiredVal = 
+      (tryGetSatValue(node[2]) == desiredVal ||
+       tryGetSatValue(node[1]) == invertValue(desiredVal))
+      ? SAT_VALUE_FALSE : SAT_VALUE_TRUE;
+
+    if(findSplitterRec(node[0], ifDesiredVal)) return true;
+
+    Assert(false, "No controlling input found (6)");
+  } else {
+
+    // Try to justify 'if'
+    if(findSplitterRec(node[0], ifVal)) return true;
+
+    // If that was successful, we need to go into only one of 'then'
+    // or 'else'
+    int ch = (ifVal == SAT_VALUE_TRUE) ? 1 : 2;
+    int chVal = tryGetSatValue(node[ch]);
+    if( (chVal == SAT_VALUE_UNKNOWN || chVal == desiredVal) &&
+        findSplitterRec(node[ch], desiredVal) ) {
+      return true;
+    }
+  }// else (...ifVal...)
+  return false;
+}//handleITE
