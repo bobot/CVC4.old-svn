@@ -255,9 +255,8 @@ bool Relevancy::findSplitterRec(TNode node,
       val = tryGetSatValue(node[1]);
       if (val == SAT_VALUE_UNKNOWN) val = SAT_VALUE_FALSE;
       if (desiredVal == SAT_VALUE_FALSE) val = invertValue(val);
-      if (findSplitterRec(node[0], val)) {
-        return true;
-      }
+      ret = findSplitterRec(node[0], val);
+      if(ret) break;
       Assert(false, "Unable to find controlling input (4)");
     }
     break;
