@@ -203,6 +203,7 @@ bool Relevancy::findSplitterRec(TNode node,
   }
 
   bool ret = false;
+  SatValue flipCaseVal = SAT_VALUE_FALSE;
   switch (k) {
 
   case kind::CONST_BOOLEAN:
@@ -241,53 +242,26 @@ bool Relevancy::findSplitterRec(TNode node,
     }
     break;
 
+  case kind::XOR:
+    flipCaseVal = SAT_VALUE_TRUE;
   case kind::IFF:
     //throw GiveUpException();
     {
+      // flipCaseVal = SAT_VALUE_FALSE  --- done at initialization
     SatValue val = tryGetSatValue(node[0]);
     if (val != SAT_VALUE_UNKNOWN) {
       ret = findSplitterRec(node[0], val);
       if (ret) break;
-      if (desiredVal == SAT_VALUE_FALSE) val = invertValue(val);
+      if (desiredVal == flipCaseVal) val = invertValue(val);
       ret = findSplitterRec(node[1], val);
     }
     else {
       val = tryGetSatValue(node[1]);
       if (val == SAT_VALUE_UNKNOWN) val = SAT_VALUE_FALSE;
-      if (desiredVal == SAT_VALUE_FALSE) val = invertValue(val);
+      if (desiredVal == flipCaseVal) val = invertValue(val);
       ret = findSplitterRec(node[0], val);
       if(ret) break;
       Assert(false, "Unable to find controlling input (4)");
-    }
-    break;
-  }
-    
-  case kind::XOR:
-    //throw GiveUpException();
-    {
-    SatValue val = tryGetSatValue(node[0]);
-    if (val != SAT_VALUE_UNKNOWN) {
-      if (findSplitterRec(node[0], val)) {
-        return true;
-      }
-      if (desiredVal == SAT_VALUE_TRUE) val = invertValue(val);
-
-      if (findSplitterRec(node[1], val)) {
-        return true;
-      }
-      Assert(litPresent == false || litVal == desiredVal,
-             "Output should be justified");
-      setJustified(node);
-      return false;
-    }
-    else {
-      SatValue val = tryGetSatValue(node[1]);
-      if (val == SAT_VALUE_UNKNOWN) val = SAT_VALUE_FALSE;
-      if (desiredVal == SAT_VALUE_TRUE) val = invertValue(val);
-      if (findSplitterRec(node[0], val)) {
-        return true;
-      }
-      Assert(false, "Unable to find controlling input (5)");
     }
     break;
   }
