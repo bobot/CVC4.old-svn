@@ -689,6 +689,10 @@ void TheoryEngine::assertFact(TNode node)
         }
         d_sharedTerms.markNotified(term, theories);
       }
+      if (d_propagatedSharedLiterals.size() > 0) {
+        Debug("theory") << "TheoryEngine::assertFact: distributing shared literals from new shared terms" << std::endl;
+        outputSharedLiterals();
+      }
     }
 
     if (atom.getKind() == kind::EQUAL &&
@@ -704,7 +708,7 @@ void TheoryEngine::assertFact(TNode node)
       d_sharedLiteralsIn[node] = THEORY_LAST;
       d_sharedTerms.processSharedLiteral(node, node);
       if (d_propagatedSharedLiterals.size() > 0) {
-        Debug("theory") << "TheoryEngine::assertFact: distributing shared literals" << std::endl;
+        Debug("theory") << "TheoryEngine::assertFact: distributing shared literals from new assertion" << std::endl;
         outputSharedLiterals();
       }
       // TODO: have processSharedLiteral propagate disequalities?
@@ -768,14 +772,8 @@ void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
     Node normalizedLiteral = Rewriter::rewrite(literal);
     if (d_propEngine->isSatLiteral(normalizedLiteral)) {
       // If there is a literal, propagate it to SAT
-      if (d_propEngine->hasValue(normalizedLiteral, value)) {
-        // if we are propagting something that already has a sat value we better be the same
-        Debug("theory") << "literal " << literal << ", normalized = " << normalizedLiteral << ", propagated by " << theory << " but already has a sat value " << (value ? "true" : "false") << std::endl;
-        Assert(value);
-      } else {
-        SharedLiteral sharedLiteral(normalizedLiteral, literal, theory::THEORY_LAST);
-        d_propagatedSharedLiterals.push_back(sharedLiteral);
-      }
+      SharedLiteral sharedLiteral(normalizedLiteral, literal, theory::THEORY_LAST);
+      d_propagatedSharedLiterals.push_back(sharedLiteral);
     }
     // Assert to interested theories
     Debug("shared-in") << "TheoryEngine::propagate: asserting shared node: " << literal << std::endl;

@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file bv_sat.h
+/*! \file bitblaster.h
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
@@ -18,8 +18,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__BV__SAT_H
-#define __CVC4__BV__SAT_H
+#ifndef __CVC4__BITBLASTER_H
+#define __CVC4__BITBLASTER_H
 
 
 #include "expr/node.h"
@@ -33,6 +33,7 @@
 #include "context/cdhashset.h"
 #include "context/cdlist.h"
 
+#include "theory/theory.h"
 #include "theory_bv_utils.h"
 #include "util/stats.h"
 #include "bitblast_strategies.h"
@@ -99,10 +100,10 @@ class Bitblaster {
 
   /// helper methods
   public:
-  bool          hasBBAtom(TNode node);    
+  bool          hasBBAtom(TNode node) const;
   private:
-  bool          hasBBTerm(TNode node); 
-  void          getBBTerm(TNode node, Bits& bits);
+  bool          hasBBTerm(TNode node) const;
+  void          getBBTerm(TNode node, Bits& bits) const;
 
   /// function tables for the various bitblasting strategies indexed by node kind
   TermBBStrategy d_termBBStrategies[kind::LAST_KIND];
@@ -132,6 +133,8 @@ public:
   void getConflict(std::vector<TNode>& conflict); 
   void explain(TNode atom, std::vector<TNode>& explanation);
 
+  EqualityStatus getEqualityStatus(TNode a, TNode b);
+
 private:
 
   
@@ -155,4 +158,4 @@ private:
 
 } /* CVC4 namespace */
 
-#endif /* __CVC4__BV__SAT_H */
+#endif /* __CVC4__BITBLASTER_H */
