@@ -206,7 +206,6 @@ bool Relevancy::findSplitterRec(TNode node,
   case kind::XOR:
     flipCaseVal = SAT_VALUE_TRUE;
   case kind::IFF: {
-    // flipCaseVal = SAT_VALUE_FALSE  --- done at initialization
     SatValue val = tryGetSatValue(node[0]);
     if (val != SAT_VALUE_UNKNOWN) {
       ret = findSplitterRec(node[0], val);

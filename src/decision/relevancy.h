@@ -89,9 +89,10 @@ class Relevancy : public ITEDecisionStrategy {
   hash_set<TNode,TNodeHashFunction> d_visited;
 
   /** 
-   * May-relevancy of a node is an integer, intially the in-degree of
-   * the node. If it gets set to 0, it is irrelevant.
+   * May-relevancy of a node is an integer. For a node n, it becomes
+   * irrelevant when d_maxRelevancy[n] = d_relevancy[n]
    */
+  hash_map<TNode,int,TNodeHashFunction> d_maxRelevancy;
   context::CDHashMap<TNode,int,TNodeHashFunction> d_relevancy;
 
   /**
@@ -167,6 +168,12 @@ public:
     return prop::undefSatLiteral;
   }
 
+  void traverseAssertion(TNode n) {
+    d_maxRelevancy[n]++;
+    for(unsigned i = 0; i < n.getNumChildren(); ++i)
+      traverseAssertion(n[i]);
+  }
+
   void addAssertions(const std::vector<Node> &assertions,
                      unsigned assertionsEnd,
                      IteSkolemMap iteSkolemMap) {
@@ -177,8 +184,10 @@ public:
       << std::endl;
 
     // Save the 'real' assertions locally
-    for(unsigned i = 0; i < assertionsEnd; ++i)
+    for(unsigned i = 0; i < assertionsEnd; ++i) {
       d_assertions.push_back(assertions[i]);
+      traverseAssertion(assertions[i]);
+    }
 
     // Save mapping between ite skolems and ite assertions
     for(IteSkolemMap::iterator i = iteSkolemMap.begin();
@@ -187,6 +196,7 @@ public:
       Debug("jh-ite") << " jh-ite: " << (i->first) << " maps to "
                       << assertions[(i->second)] << std::endl;
       d_iteAssertions[i->first] = assertions[i->second];
+      traverseAssertion(assertions[i->second]);
     }
   }
 
@@ -218,7 +228,9 @@ private:
   
   /** 
    * Do all the hardwork. 
-   * @param findFirst returns
+   * Return 'true' if the node cannot be justfied, 'false' it it can be.
+   * Sets 'd_curDecision' if unable to justify (depending on the mode)
+   * If 'd_computeRelevancy' is on does multiple backtrace
    */ 
   bool findSplitterRec(TNode node, SatValue value);
   // Functions to make findSplitterRec modular...
