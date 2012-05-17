@@ -168,12 +168,6 @@ public:
     return prop::undefSatLiteral;
   }
 
-  void traverseAssertion(TNode n) {
-    d_maxRelevancy[n]++;
-    for(unsigned i = 0; i < n.getNumChildren(); ++i)
-      traverseAssertion(n[i]);
-  }
-
   void addAssertions(const std::vector<Node> &assertions,
                      unsigned assertionsEnd,
                      IteSkolemMap iteSkolemMap) {
@@ -186,7 +180,7 @@ public:
     // Save the 'real' assertions locally
     for(unsigned i = 0; i < assertionsEnd; ++i) {
       d_assertions.push_back(assertions[i]);
-      traverseAssertion(assertions[i]);
+      if(d_computeRelevancy) increaseMaxRelevancy(assertions[i]);
     }
 
     // Save mapping between ite skolems and ite assertions
@@ -196,7 +190,7 @@ public:
       Debug("jh-ite") << " jh-ite: " << (i->first) << " maps to "
                       << assertions[(i->second)] << std::endl;
       d_iteAssertions[i->first] = assertions[i->second];
-      traverseAssertion(assertions[i->second]);
+      if(d_computeRelevancy) increaseMaxRelevancy(assertions[i->second]);
     }
   }
 
@@ -251,6 +245,13 @@ private:
 
   /* Compute all term-ITEs in a node recursively */
   void computeITEs(TNode n, IteList &l);
+
+  /* */
+  void increaseMaxRelevancy(TNode n) {
+    d_maxRelevancy[n]++;
+    for(unsigned i = 0; i < n.getNumChildren(); ++i)
+      increaseMaxRelevancy(n[i]);
+  }
 };/* class Relevancy */
 
 }/* namespace decision */
