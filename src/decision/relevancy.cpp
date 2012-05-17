@@ -143,47 +143,8 @@ bool Relevancy::findSplitterRec(TNode node,
       Assert(l[i].getKind() == kind::ITE, "Expected ITE");
       Debug("jh-ite") << " i = " << i 
                       << " l[i] = " << l[i] << std::endl;
-      if (checkJustified(l[i])) continue;
-
-      SatValue desiredVal = SAT_VALUE_TRUE; //NOTE: Reusing variable
-#ifdef CVC4_ASSERTIONS
-      bool litPresent = d_decisionEngine->hasSatLiteral(l[i]);
-#endif
-
-      // Handle the ITE to catch the case when a variable is its own
-      // fanin
-      SatValue ifVal = tryGetSatValue(l[i][0]);
-      if (ifVal == SAT_VALUE_UNKNOWN) {
-        // are we better off trying false? if not, try true
-        SatValue ifDesiredVal = 
-          (tryGetSatValue(l[i][2]) == desiredVal ||
-           tryGetSatValue(l[i][1]) == invertValue(desiredVal))
-          ? SAT_VALUE_FALSE : SAT_VALUE_TRUE;
-
-        if(findSplitterRec(l[i][0], ifDesiredVal)) {
-          return true;
-        }
-        Assert(false, "No controlling input found (1)");
-      } else {
-
-        // Try to justify 'if'
-        if (findSplitterRec(l[i][0], ifVal)) {
-          return true;
-        }
-
-        // If that was successful, we need to go into only one of 'then'
-        // or 'else'
-        int ch = (ifVal == SAT_VALUE_TRUE) ? 1 : 2;
-        int chVal = tryGetSatValue(l[i][ch]);
-        if( d_visited.find(l[i]) == d_visited.end()
-            && (chVal == SAT_VALUE_UNKNOWN || chVal == desiredVal)
-            && findSplitterRec(l[i][ch], desiredVal) ) {
-          return true;
-        }
-      }
-      Assert(litPresent == false || litVal == desiredVal,
-             "Output should be justified");
-      setJustified(l[i]);
+      if(findSplitterRec(l[i], SAT_VALUE_TRUE))
+        return true;
     }
     d_visited.erase(node);
 
