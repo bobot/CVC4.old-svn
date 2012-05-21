@@ -1240,6 +1240,7 @@ void TheoryArith::check(Effort effortLevel){
       }
     }
   }else{
+    TimerStat::CodeTimer codeTimer(d_statistics.d_newPropTime);
     d_currentPropagationList.clear();
   }
   Assert( d_currentPropagationList.empty());
@@ -1426,7 +1427,7 @@ Node TheoryArith::explain(TNode n) {
 
 
 void TheoryArith::propagate(Effort e) {
-  if((Options::current()->arithPropagationMode == Options::OLD_PROP &&
+  if((Options::current()->arithPropagationMode == Options::OLD_PROP ||
       Options::current()->arithPropagationMode == Options::BOTH)
      && hasAnyUpdates()){
     propagateCandidates();
