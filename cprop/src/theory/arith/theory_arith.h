@@ -112,30 +112,24 @@ private:
 
   /**
    * (For the moment) the type hierarchy goes as:
-   * PsuedoBoolean <: Integer <: Real
+   * Integer <: Real
    * The type number of a variable is an integer representing the most specific
    * type of the variable. The possible values of type number are:
    */
   enum ArithType
     {
       ATReal = 0,
-      ATInteger = 1,
-      ATPsuedoBoolean = 2
+      ATInteger = 1
    };
 
   std::vector<ArithType> d_variableTypes;
   inline ArithType nodeToArithType(TNode x) const {
-    return x.getType().isPseudoboolean() ? ATPsuedoBoolean :
-      (x.getType().isInteger() ? ATInteger : ATReal);
+    return (x.getType().isInteger() ? ATInteger : ATReal);
   }
 
-  /** Returns true if x is of type Integer or PsuedoBoolean. */
+  /** Returns true if x is of type Integer. */
   inline bool isInteger(ArithVar x) const {
     return d_variableTypes[x] >= ATInteger;
-  }
-  /** Returns true if x is of type PsuedoBoolean. */
-  inline bool isPsuedoBoolean(ArithVar x) const {
-    return d_variableTypes[x] == ATPsuedoBoolean;
   }
 
   /** This is the set of variables initially introduced as slack variables. */
@@ -230,7 +224,7 @@ private:
    * If d >= s_TABLEAU_RESET_DENSITY * d_initialDensity, the tableau
    * is set to d_initialTableau.
    */
-  bool d_rowHasBeenAdded;
+  bool d_tableauSizeHasBeenModified;
   double d_tableauResetDensity;
   uint32_t d_tableauResetPeriod;
   static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
