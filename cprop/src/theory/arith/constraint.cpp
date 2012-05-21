@@ -1129,9 +1129,9 @@ void ConstraintDatabase::outputUnateEqualityLemmas(std::vector<Node>& out, Arith
     Constraint ub = hasUB ?
       vc.getUpperBound() : eq->getStrictlyWeakerUpperBound(true, false);
 
-    // if(hasUB && hasLB && !eq->isSplit()){
-    //   out.push_back(eq->split());
-    // }
+    if(hasUB && hasLB && !eq->isSplit()){
+      out.push_back(eq->split());
+    }
     if(lb != NullConstraint){
       implies(out, eq, lb);
     }
