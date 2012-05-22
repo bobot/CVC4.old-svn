@@ -76,7 +76,15 @@ SimplexDecisionProcedure::Statistics::Statistics():
   d_weakeningSuccesses("theory::arith::weakening::success",0),
   d_weakenings("theory::arith::weakening::total",0),
   d_weakenTime("theory::arith::weakening::time"),
-  d_simplexConflicts("theory::arith::simplexConflicts",0)
+  d_simplexConflicts("theory::arith::simplexConflicts",0),
+  d_findModelTimer("simplex::findModelTimer"),
+  d_pivotsInLastCheck("simplex::pivotsInLastCheck",0),
+  d_lastCheckTimer("simplex::lastCheckTimer"),
+  d_simplexChecks("simplex::checks",0),
+  d_conflictChecks("simplex::checks::conflicts",0),
+  d_pivotsInConflictChecks("simplex::checks::conflicts::pivots",0),
+  d_satChecks("simplex::checks::sat",0),
+  d_pivotsInSatChecks("simplex::checks::sat::pivots",0)
 {
   StatisticsRegistry::registerStat(&d_statUpdateConflicts);
 
@@ -99,6 +107,15 @@ SimplexDecisionProcedure::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_weakenTime);
 
   StatisticsRegistry::registerStat(&d_simplexConflicts);
+
+  StatisticsRegistry::registerStat(&d_findModelTimer);
+  StatisticsRegistry::registerStat(&d_pivotsInLastCheck);
+  StatisticsRegistry::registerStat(&d_lastCheckTimer);
+  StatisticsRegistry::registerStat(&d_simplexChecks);
+  StatisticsRegistry::registerStat(&d_conflictChecks);
+  StatisticsRegistry::registerStat(&d_pivotsInConflictChecks);
+  StatisticsRegistry::registerStat(&d_satChecks);
+  StatisticsRegistry::registerStat(&d_pivotsInSatChecks);
 }
 
 SimplexDecisionProcedure::Statistics::~Statistics(){
@@ -123,6 +140,15 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_weakenTime);
 
   StatisticsRegistry::unregisterStat(&d_simplexConflicts);
+
+  StatisticsRegistry::unregisterStat(&d_findModelTimer);
+  StatisticsRegistry::unregisterStat(&d_pivotsInLastCheck);
+  StatisticsRegistry::unregisterStat(&d_lastCheckTimer);
+  StatisticsRegistry::unregisterStat(&d_simplexChecks);
+  StatisticsRegistry::unregisterStat(&d_conflictChecks);
+  StatisticsRegistry::unregisterStat(&d_pivotsInConflictChecks);
+  StatisticsRegistry::unregisterStat(&d_satChecks);
+  StatisticsRegistry::unregisterStat(&d_pivotsInSatChecks);
 }
 
 
@@ -248,8 +274,13 @@ bool SimplexDecisionProcedure::findModel(){
   if(d_queue.empty()){
     return false;
   }
-  bool foundConflict = false;
+  d_statistics.d_pivotsInLastCheck = 0;
+  d_statistics.d_lastCheckTimer.reset();
+  TimerStat::CodeTimer lastCheckTimer(d_statistics.d_lastCheckTimer);
+  TimerStat::CodeTimer findModelTimer(d_statistics.d_findModelTimer);
+  ++d_statistics.d_simplexChecks;
 
+  bool foundConflict = false;
   static CVC4_THREADLOCAL(unsigned int) instance = 0;
   instance = instance + 1;
   Debug("arith::findModel") << "begin findModel()" << instance << endl;
@@ -308,6 +339,14 @@ bool SimplexDecisionProcedure::findModel(){
   Assert(d_queue.inCollectionMode());
 
   Debug("arith::findModel") << "end findModel() " << instance << endl;
+
+  if(foundConflict){
+    ++d_statistics.d_conflictChecks;
+    d_statistics.d_pivotsInConflictChecks += d_statistics.d_pivotsInLastCheck.getData();
+  }else{
+    ++d_statistics.d_satChecks;
+    d_statistics.d_pivotsInSatChecks += d_statistics.d_pivotsInLastCheck.getData();
+  }
 
   return foundConflict;
 }
@@ -377,6 +416,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       DeltaRational l_i = d_partialModel.getLowerBound(x_i);
       d_linEq.pivotAndUpdate(x_i, x_j, l_i);
 
+      ++d_statistics.d_pivotsInLastCheck;
     }else if(d_partialModel.strictlyGreaterThanUpperBound(x_i, beta_i)){
       x_j = selectSlackLowerBound(x_i, pf);
       if(x_j == ARITHVAR_SENTINEL ){
@@ -389,6 +429,8 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       }
       DeltaRational u_i = d_partialModel.getUpperBound(x_i);
       d_linEq.pivotAndUpdate(x_i, x_j, u_i);
+
+      ++d_statistics.d_pivotsInLastCheck;
     }
     Assert(x_j != ARITHVAR_SENTINEL);
 

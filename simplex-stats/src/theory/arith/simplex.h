@@ -263,8 +263,28 @@ private:
     IntStat d_weakeningAttempts, d_weakeningSuccesses, d_weakenings;
     TimerStat d_weakenTime;
 
-
+    /**
+     * Total number of conflicts found.
+     * As a single check can have multiple conlficts is is not necessarily equal to
+     * d_conflictChecks.
+     */
     IntStat d_simplexConflicts;
+
+    TimerStat d_findModelTimer; /** Total time spent by findModel */
+
+    IntStat d_pivotsInLastCheck; /** Number of pivots in the most recent call to check.*/
+    TimerStat d_lastCheckTimer; /**Time spent in the last check.*/
+
+    /** Check calls with at least one inconsistent variable.
+     * Because of examples that time out:
+     * d_conflictChecks + d_satChecks <= d_simplexChecks, and
+     * d_simplexChecks <=  d_conflictChecks + d_satChecks + 1
+     */
+    IntStat d_simplexChecks;
+    IntStat d_conflictChecks; /* Check calls ending in conflict. */
+    IntStat d_pivotsInConflictChecks;
+    IntStat d_satChecks; /* Check calls ending with a model. */
+    IntStat d_pivotsInSatChecks;
 
     Statistics();
     ~Statistics();
