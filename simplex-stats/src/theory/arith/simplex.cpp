@@ -84,7 +84,8 @@ SimplexDecisionProcedure::Statistics::Statistics():
   d_conflictChecks("simplex::checks::conflicts",0),
   d_pivotsInConflictChecks("simplex::checks::conflicts::pivots",0),
   d_satChecks("simplex::checks::sat",0),
-  d_pivotsInSatChecks("simplex::checks::sat::pivots",0)
+  d_pivotsInSatChecks("simplex::checks::sat::pivots",0),
+  d_varOrderPivots("simplex::varOrderPivots",0)
 {
   StatisticsRegistry::registerStat(&d_statUpdateConflicts);
 
@@ -116,6 +117,9 @@ SimplexDecisionProcedure::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_pivotsInConflictChecks);
   StatisticsRegistry::registerStat(&d_satChecks);
   StatisticsRegistry::registerStat(&d_pivotsInSatChecks);
+
+
+  StatisticsRegistry::registerStat(&d_varOrderPivots);
 }
 
 SimplexDecisionProcedure::Statistics::~Statistics(){
@@ -149,6 +153,8 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_pivotsInConflictChecks);
   StatisticsRegistry::unregisterStat(&d_satChecks);
   StatisticsRegistry::unregisterStat(&d_pivotsInSatChecks);
+
+  StatisticsRegistry::unregisterStat(&d_varOrderPivots);
 }
 
 
@@ -417,6 +423,9 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       d_linEq.pivotAndUpdate(x_i, x_j, l_i);
 
       ++d_statistics.d_pivotsInLastCheck;
+      if(useVarOrderPivot){
+        ++d_statistics.d_varOrderPivots;
+      }
     }else if(d_partialModel.strictlyGreaterThanUpperBound(x_i, beta_i)){
       x_j = selectSlackLowerBound(x_i, pf);
       if(x_j == ARITHVAR_SENTINEL ){
@@ -431,6 +440,9 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       d_linEq.pivotAndUpdate(x_i, x_j, u_i);
 
       ++d_statistics.d_pivotsInLastCheck;
+      if(useVarOrderPivot){
+        ++d_statistics.d_varOrderPivots;
+      }
     }
     Assert(x_j != ARITHVAR_SENTINEL);
 

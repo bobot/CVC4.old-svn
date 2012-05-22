@@ -275,6 +275,9 @@ private:
     IntStat d_pivotsInLastCheck; /** Number of pivots in the most recent call to check.*/
     TimerStat d_lastCheckTimer; /**Time spent in the last check.*/
 
+    /** Number of uses of the variable order pivots. */
+    IntStat d_varOrderPivots;
+
     /** Check calls with at least one inconsistent variable.
      * Because of examples that time out:
      * d_conflictChecks + d_satChecks <= d_simplexChecks, and
