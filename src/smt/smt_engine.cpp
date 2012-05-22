@@ -405,6 +405,18 @@ void SmtEngine::setLogicInternal(const LogicInfo& logic) throw() {
   } else {
     theory::Theory::setUninterpretedSortOwner(theory::THEORY_UF);
   }
+  // Turn on ite simplification only for QF_LIA
+  if(! Options::current()->doITESimpSetByUser) {
+    bool iteSimp = logic.isPure(theory::THEORY_ARITH) && logic.isLinear() && !logic.isDifferenceLogic() && !logic.isQuantified() && !logic.areRealsUsed();
+    Trace("smt") << "setting ite simplification to " << iteSimp << std::endl;
+    NodeManager::currentNM()->getOptions()->doITESimp = iteSimp;
+  }
+  // Turn on ite simplification only for pure arithmetic
+  if(! Options::current()->arithRewriteEqSetByUser) {
+    bool arithRewriteEq = logic.isPure(theory::THEORY_ARITH) && !logic.isQuantified();
+    Trace("smt") << "setting arith rewrite equalities " << arithRewriteEq << std::endl;
+    NodeManager::currentNM()->getOptions()->arithRewriteEq = arithRewriteEq;
+  }
 }
 
 void SmtEngine::setInfo(const std::string& key, const SExpr& value)
