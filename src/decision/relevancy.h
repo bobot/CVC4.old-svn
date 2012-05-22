@@ -98,6 +98,7 @@ class Relevancy : public ITEDecisionStrategy {
   /**
    * do we do "multiple-backtrace" to try to justify a node
    */
+  bool d_multipleBacktrace;
   bool d_computeRelevancy;     // are we in a mode where we compute relevancy?
 
   /** current decision for the recursive call */
@@ -111,6 +112,7 @@ public:
     d_giveup("decision::jh::giveup", 0),
     d_timestat("decision::jh::time"),
     d_relevancy(c),
+    d_multipleBacktrace(false),
     d_computeRelevancy(true),
     d_curDecision(NULL)
   {
@@ -177,12 +179,6 @@ public:
       << " assertionsEnd = " << assertionsEnd
       << std::endl;
 
-    // Save the 'real' assertions locally
-    for(unsigned i = 0; i < assertionsEnd; ++i) {
-      d_assertions.push_back(assertions[i]);
-      if(d_computeRelevancy) increaseMaxRelevancy(assertions[i]);
-    }
-
     // Save mapping between ite skolems and ite assertions
     for(IteSkolemMap::iterator i = iteSkolemMap.begin();
         i != iteSkolemMap.end(); ++i) {
@@ -190,8 +186,14 @@ public:
       Debug("jh-ite") << " jh-ite: " << (i->first) << " maps to "
                       << assertions[(i->second)] << std::endl;
       d_iteAssertions[i->first] = assertions[i->second];
-      if(d_computeRelevancy) increaseMaxRelevancy(assertions[i->second]);
     }
+
+    // Save the 'real' assertions locally
+    for(unsigned i = 0; i < assertionsEnd; ++i) {
+      d_assertions.push_back(assertions[i]);
+      if(d_computeRelevancy) increaseMaxRelevancy(assertions[i]);
+    }
+
   }
 
   /* Compute justified */
@@ -212,7 +214,6 @@ private:
     }
     if(ret == true) {
       Trace("decision") << "Yippee!!" << std::endl;
-      //d_prvsIndex = i;
       ++d_helfulness;
       return litDecision;
     } else {
@@ -246,11 +247,49 @@ private:
   /* Compute all term-ITEs in a node recursively */
   void computeITEs(TNode n, IteList &l);
 
+  /* Checks whether something is an atomic formula or not */
+  bool isAtomicFormula(TNode n) {
+    return theory::kindToTheoryId(n.getKind()) != theory::THEORY_BOOL;
+  }
+  
   /* */
   void increaseMaxRelevancy(TNode n) {
+    if(d_visited.find(n) != d_visited.end()) return;
+
     d_maxRelevancy[n]++;
-    for(unsigned i = 0; i < n.getNumChildren(); ++i)
-      increaseMaxRelevancy(n[i]);
+    if(d_maxRelevancy[n] > 1) return;   // don't update children multiple times
+    
+    // Part to make the recursive call
+    if(isAtomicFormula(n)) {
+      d_visited.insert(n);
+      const IteList& l = getITEs(n);
+      for(unsigned i = 0; i < l.size(); ++i)
+        increaseMaxRelevancy(l[i]);
+      d_visited.erase(n);
+      return;
+    } else {
+      for(unsigned i = 0; i < n.getNumChildren(); ++i)
+        increaseMaxRelevancy(n[i]);
+    } //else (...atomic formula...)
+  }
+
+  void increaseRelevancy(TNode n) {
+    d_relevancy[n] = d_relevancy[n] + 1;
+    // increase relevancy, and don't increase for children unless...
+    if(d_relevancy[n] != d_maxRelevancy[n])
+      return;
+    // ...we have become unreachable from the root
+    if(isAtomicFormula(n)) {
+      d_visited.insert(n);
+      const IteList& l = getITEs(n);
+      for(unsigned i = 0; i < l.size(); ++i)
+        increaseRelevancy(l[i]);
+      d_visited.erase(n);
+      return;
+    } else {
+      for(unsigned i = 0; i < n.getNumChildren(); ++i)
+        increaseRelevancy(n[i]);
+    }
   }
 };/* class Relevancy */
 

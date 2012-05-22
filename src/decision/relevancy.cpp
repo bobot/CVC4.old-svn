@@ -33,6 +33,7 @@
 void Relevancy::setJustified(TNode n)
 {
   d_justified.insert(n);
+  if(d_computeRelevancy) increaseRelevancy(n);
 }
 
 bool Relevancy::checkJustified(TNode n)
@@ -193,13 +194,14 @@ bool Relevancy::findSplitterRec(TNode node,
     else {
       if (tryGetSatValue(node[0]) != SAT_VALUE_TRUE) {
         ret = findSplitterRec(node[0], SAT_VALUE_FALSE);
-        break;
+        //if(!ret || !d_multipleBacktrace) 
+          break;
       }
       if (tryGetSatValue(node[1]) != SAT_VALUE_FALSE) {
         ret = findSplitterRec(node[1], SAT_VALUE_TRUE);
         break;
       }
-      Assert(false, "No controlling input found (3)");
+      Assert(d_multipleBacktrace, "No controlling input found (3)");
     }
     break;
 
@@ -270,9 +272,23 @@ bool Relevancy::handleOrTrue(TNode node, SatValue desiredVal) {
   SatValue desiredValInverted = invertValue(desiredVal);
   for(int i = 0; i < n; ++i) {
     if ( tryGetSatValue(node[i]) != desiredValInverted ) {
-      return findSplitterRec(node[i], desiredVal);
+      // PRE RELEVANCY return findSplitterRec(node[i], desiredVal);
+      bool ret = findSplitterRec(node[i], desiredVal);
+      if(ret) {
+        // Splitter could be found... so can't justify this node
+        if(!d_multipleBacktrace)
+          return true;
+      }
+      else  {
+        // Splitter couldn't be found... should be justified
+        return false;
+      }
     }
   }
+  // Multiple backtrace is on, so must have reached here because
+  // everything had splitter
+  if(d_multipleBacktrace) return true;
+
   if(Debug.isOn("jh-findSplitterRec")) {
     Debug("jh-findSplitterRec") << " * ** " << std::endl;
     Debug("jh-findSplitterRec") << node.getKind() << " "
@@ -303,7 +319,7 @@ bool Relevancy::handleITE(TNode node, SatValue desiredVal)
       ? SAT_VALUE_FALSE : SAT_VALUE_TRUE;
 
     if(findSplitterRec(node[0], ifDesiredVal)) return true;
-
+    
     Assert(false, "No controlling input found (6)");
   } else {
 
