@@ -363,6 +363,14 @@ public:
     return *this;
   }
 
+  /** Increment the underlying integer statistic by the given amount. */
+  IntStat& operator=(int64_t val) {
+    if(__CVC4_USE_STATISTICS) {
+      d_data = val;
+    }
+    return *this;
+  }
+
   /** Keep the maximum of the current statistic value and the given one. */
   void maxAssign(int64_t val) {
     if(__CVC4_USE_STATISTICS) {
@@ -681,11 +689,12 @@ class CVC4_PUBLIC CodeTimer;
 
 /**
  * A timer statistic.  The timer can be started and stopped
- * arbitrarily, like a stopwatch; the value of the statistic at the
- * end is the accumulated time over all (start,stop) pairs.
+ * arbitrarily, like a stopwatch. The value of the statistic at the
+ * end is either the accumulated time over all (start,stop) pairs.
+ * Additionally the timer can be reset to 0.
  */
 class CVC4_PUBLIC TimerStat : public BackedStat<timespec> {
-
+private:
   // strange: timespec isn't placed in 'std' namespace ?!
   /** The last start time of this timer */
   timespec d_start;
@@ -703,7 +712,7 @@ public:
    */
   TimerStat(const std::string& name) :
     BackedStat< timespec >(name, timespec()),
-    d_running(false) {
+    d_running(false){
     /* timespec is POD and so may not be initialized to zero;
      * here, ensure it is */
     d_data.tv_sec = d_data.tv_nsec = 0;
@@ -717,6 +726,9 @@ public:
    * accumulated time.
    */
   void stop();
+
+  /** Resets the timer to zero elapsed time.*/
+  void reset();
 
 };/* class TimerStat */
 

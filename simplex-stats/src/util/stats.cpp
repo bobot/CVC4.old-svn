@@ -117,6 +117,13 @@ void TimerStat::stop() {
   }
 }/* TimerStat::stop() */
 
+void TimerStat::reset(){
+  if(__CVC4_USE_STATISTICS){
+    // TODO: maybe this should be restricted to when d_running is false?
+    d_data.tv_sec = d_data.tv_nsec = 0;
+  }
+}
+
 RegisterStatistic::RegisterStatistic(ExprManager& em, Stat* stat) :
   d_reg(NULL),
   d_stat(stat) {
