@@ -99,7 +99,6 @@ void TheoryEngine::preRegister(TNode preprocessed) {
   if(Dump.isOn("missed-t-propagations")) {
     d_possiblePropagations.push_back(preprocessed);
   }
-  //<<<<<<< .working
   d_preregisterQueue.push(preprocessed);
 
   if (!d_inPreregister) {
@@ -117,21 +116,12 @@ void TheoryEngine::preRegister(TNode preprocessed) {
       if (multipleTheories) {
         // Collect the shared terms if there are multipe theories
         NodeVisitor<SharedTermsVisitor>::run(d_sharedTermsVisitor, preprocessed);
-        // Mark the multiple theories flag
-        //d_sharedTermsExist = true;
       }
     }
+
     // Leaving pre-register
     d_inPreregister = false;
   }
-// =======
-  // Pre-register the terms in the atom
-  // bool multipleTheories = NodeVisitor<PreRegisterVisitor>::run(d_preRegistrationVisitor, preprocessed);
-  // if (multipleTheories) {
-  //   // Collect the shared terms if there are multipe theories
-  //   NodeVisitor<SharedTermsVisitor>::run(d_sharedTermsVisitor, preprocessed);
-  //   //>>>>>>> .merge-right.r3396
-  // }
 }
 
 /**

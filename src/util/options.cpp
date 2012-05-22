@@ -136,9 +136,9 @@ Options::Options() :
   thread_id(-1),
   separateOutput(false),
   sharingFilterByLength(-1),
-  bitvector_eager_bitblast(false),
-  bitvector_share_lemmas(false),
-  bitvector_eager_fullcheck(false),
+  bitvectorEagerBitblast(false),
+  bitvectorEagerFullcheck(false),
+  bitvectorShareLemmas(false),
   sat_refine_conflicts(false)
 {
 }
@@ -629,7 +629,7 @@ throw(OptionException) {
 
     case 'd':
       if(Configuration::isDebugBuild() && Configuration::isTracingBuild()) {
-        if(!Configuration::isDebugTag(optarg)) {
+        if(!Configuration::isDebugTag(optarg) && !Configuration::isTraceTag(optarg)) {
           throw OptionException(string("debug tag ") + optarg +
                                 string(" not available"));
         }
@@ -1042,17 +1042,17 @@ throw(OptionException) {
       }
     case BITVECTOR_EAGER_BITBLAST:
       {
-        bitvector_eager_bitblast = true;
+        bitvectorEagerBitblast = true;
         break;
       }
     case BITVECTOR_EAGER_FULLCHECK:
       {
-        bitvector_eager_fullcheck = true;
+        bitvectorEagerFullcheck = true;
         break;
       }
     case BITVECTOR_SHARE_LEMMAS:
       {
-        bitvector_share_lemmas = true;
+        bitvectorShareLemmas = true;
         break;
       }
     case SAT_REFINE_CONFLICTS:

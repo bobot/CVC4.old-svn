@@ -146,6 +146,11 @@ struct CVC4_PUBLIC Options {
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
 
+  /**
+   * Whether the user explicitly requested ite simplification
+   */
+  bool doITESimpSetByUser;
+
   /** Whether we're in interactive mode or not */
   bool interactive;
 
@@ -381,13 +386,13 @@ struct CVC4_PUBLIC Options {
   int sharingFilterByLength;
 
   /** Bitblast eagerly to the main sat solver */
-  bool bitvector_eager_bitblast;
+  bool bitvectorEagerBitblast;
 
   /** Fullcheck at each check */
-  bool bitvector_eager_fullcheck;
+  bool bitvectorEagerFullcheck;
 
   /** Bitblast eagerly to the main sat solver */
-  bool bitvector_share_lemmas;
+  bool bitvectorShareLemmas;
 
   /** Refine conflicts by doing another full check after a conflict */
   bool sat_refine_conflicts;
