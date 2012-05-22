@@ -175,7 +175,15 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   SatLiteral lit;
   if (!hasLiteral(node)) {
     // If no literal, we'll make one
-    lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
+    if (node.getKind() == kind::CONST_BOOLEAN) {
+      if (node.getConst<bool>()) {
+        lit = SatLiteral(d_satSolver->trueVar());
+      } else {
+        lit = SatLiteral(d_satSolver->falseVar());
+      }
+    } else {
+      lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
+    }
     d_translationCache[node].literal = lit;
     d_translationCache[node.notNode()].literal = ~lit;
   } else {
@@ -226,7 +234,7 @@ SatLiteral CnfStream::convertAtom(TNode node) {
 
   Assert(!isTranslated(node), "atom already mapped!");
   // boolean variables are not theory literals
-  bool theoryLiteral = node.getKind() != kind::VARIABLE && !node.getType().isPseudoboolean();
+  bool theoryLiteral = node.getKind() != kind::VARIABLE;
   SatLiteral lit = newLiteral(node, theoryLiteral);
 
   if(node.getKind() == kind::CONST_BOOLEAN) {

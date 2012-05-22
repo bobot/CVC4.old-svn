@@ -17,15 +17,27 @@
  ** \todo document this file
  **/
 
-#include "cvc4_private.h"
-
-#pragma once
-
 #include "theory/uf/equality_engine.h"
 
 namespace CVC4 {
 namespace theory {
-namespace uf {
+namespace eq {
+
+/**
+ * Data used in the BFS search through the equality graph.
+ */
+struct BfsData {
+  // The current node
+  EqualityNodeId nodeId;
+  // The index of the edge we traversed
+  EqualityEdgeId edgeId;
+  // Index in the queue of the previous node. Shouldn't be too much of them, at most the size
+  // of the biggest equivalence class
+  size_t previousIndex;
+
+  BfsData(EqualityNodeId nodeId = null_id, EqualityEdgeId edgeId = null_edge, size_t prev = 0)
+  : nodeId(nodeId), edgeId(edgeId), previousIndex(prev) {}
+};
 
 class ScopedBool {
   bool& watch;
@@ -40,20 +52,74 @@ public:
   }
 };
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::enqueue(const MergeCandidate& candidate) {
+EqualityEngineNotifyNone EqualityEngine::s_notifyNone;
+
+void EqualityEngine::init() {
+  Debug("equality") << "EqualityEdge::EqualityEngine(): id_null = " << +null_id << std::endl;
+  Debug("equality") << "EqualityEdge::EqualityEngine(): edge_null = " << +null_edge << std::endl;
+  Debug("equality") << "EqualityEdge::EqualityEngine(): trigger_null = " << +null_trigger << std::endl;
+  d_true = NodeManager::currentNM()->mkConst<bool>(true);
+  d_false = NodeManager::currentNM()->mkConst<bool>(false);
+  addTerm(d_true);
+  addTerm(d_false);
+
+  d_triggerDatabaseAllocatedSize = 100000;
+  d_triggerDatabase = (char*) malloc(d_triggerDatabaseAllocatedSize);
+} 
+
+EqualityEngine::~EqualityEngine() throw(AssertionException) {
+  free(d_triggerDatabase);
+}
+
+
+EqualityEngine::EqualityEngine(context::Context* context, std::string name) 
+: ContextNotifyObj(context)
+, d_context(context)
+, d_performNotify(true)
+, d_notify(s_notifyNone)
+, d_applicationLookupsCount(context, 0)
+, d_nodesCount(context, 0)
+, d_assertedEqualitiesCount(context, 0)
+, d_equalityTriggersCount(context, 0)
+, d_constantRepresentativesSize(context, 0)
+, d_constantsSize(context, 0)
+, d_stats(name)
+, d_triggerDatabaseSize(context, 0)
+, d_triggerTermSetUpdatesSize(context, 0)
+{
+  init();
+}
+
+EqualityEngine::EqualityEngine(EqualityEngineNotify& notify, context::Context* context, std::string name)
+: ContextNotifyObj(context)
+, d_context(context)
+, d_performNotify(true)
+, d_notify(notify)
+, d_applicationLookupsCount(context, 0)
+, d_nodesCount(context, 0)
+, d_assertedEqualitiesCount(context, 0)
+, d_equalityTriggersCount(context, 0)
+, d_constantRepresentativesSize(context, 0)
+, d_constantsSize(context, 0)
+, d_stats(name)
+, d_triggerDatabaseSize(context, 0)
+, d_triggerTermSetUpdatesSize(context, 0)
+{
+  init();
+}
+
+void EqualityEngine::enqueue(const MergeCandidate& candidate) {
     Debug("equality") << "EqualityEngine::enqueue(" << candidate.toString(*this) << ")" << std::endl;
     d_propagationQueue.push(candidate);
 }
 
-template <typename NotifyClass>
-EqualityNodeId EqualityEngine<NotifyClass>::newApplicationNode(TNode original, EqualityNodeId t1, EqualityNodeId t2) {
+EqualityNodeId EqualityEngine::newApplicationNode(TNode original, EqualityNodeId t1, EqualityNodeId t2) {
   Debug("equality") << "EqualityEngine::newApplicationNode(" << original << ", " << t1 << ", " << t2 << ")" << std::endl;
 
   ++ d_stats.functionTermsCount;
 
   // Get another id for this
-  EqualityNodeId funId = newNode(original, true);
+  EqualityNodeId funId = newNode(original);
   FunctionApplication funOriginal(t1, t2);
   // The function application we're creating
   EqualityNodeId t1ClassId = getEqualityNode(t1).getFind();
@@ -64,7 +130,7 @@ EqualityNodeId EqualityEngine<NotifyClass>::newApplicationNode(TNode original, E
   d_applications[funId] = FunctionApplicationPair(funOriginal, funNormalized);
 
   // Add the lookup data, if it's not already there
-  typename ApplicationIdsMap::iterator find = d_applicationLookup.find(funNormalized);
+  ApplicationIdsMap::iterator find = d_applicationLookup.find(funNormalized);
   if (find == d_applicationLookup.end()) {
     // When we backtrack, if the lookup is not there anymore, we'll add it again
     Debug("equality") << "EqualityEngine::newApplicationNode(" << original << ", " << t1 << ", " << t2 << "): no lookup, setting up" << std::endl;
@@ -87,10 +153,9 @@ EqualityNodeId EqualityEngine<NotifyClass>::newApplicationNode(TNode original, E
   return funId;
 }
 
-template <typename NotifyClass>
-EqualityNodeId EqualityEngine<NotifyClass>::newNode(TNode node, bool isApplication) {
+EqualityNodeId EqualityEngine::newNode(TNode node) {
 
-  Debug("equality") << "EqualityEngine::newNode(" << node << ", " << (isApplication ? "function" : "regular") << ")" << std::endl;
+  Debug("equality") << "EqualityEngine::newNode(" << node << ")" << std::endl;
 
   ++ d_stats.termsCount;
 
@@ -106,21 +171,39 @@ EqualityNodeId EqualityEngine<NotifyClass>::newNode(TNode node, bool isApplicati
   // Add it to the equality graph
   d_equalityGraph.push_back(+null_edge);
   // Mark the no-individual trigger
-  d_nodeIndividualTrigger.push_back(+null_id);
+  d_nodeIndividualTrigger.push_back(+null_set_id);
+  // Mark non-constant by default
+  d_constantRepresentative.push_back(node.isConst() ? newId : +null_id);
   // Add the equality node to the nodes
   d_equalityNodes.push_back(EqualityNode(newId));
 
   // Increase the counters
   d_nodesCount = d_nodesCount + 1;
 
-  Debug("equality") << "EqualityEngine::newNode(" << node << ", " << (isApplication ? "function" : "regular") << ") => " << newId << std::endl;
+  Debug("equality") << "EqualityEngine::newNode(" << node << ") => " << newId << std::endl;
+
+  // If the node is a constant, assert all the dis-eqalities
+  if (node.isConst() && node.getKind() != kind::CONST_BOOLEAN) {
+
+    TypeNode nodeType = node.getType();
+    for (unsigned i = 0; i < d_constants.size(); ++ i) {
+      TNode constant = d_constants[i];
+      if (constant.getType().isComparableTo(nodeType)) {
+        Debug("equality::constants") << "adding const dis-equality " << node << " != " << constant << std::endl;
+        assertEquality(node.eqNode(constant), false, d_true);
+      }
+    }
+
+    d_constants.push_back(node);
+    d_constantsSize = d_constantsSize + 1;
+
+    propagate();
+  }
 
   return newId;
 }
 
-
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addTerm(TNode t) {
+void EqualityEngine::addTerm(TNode t) {
 
   Debug("equality") << "EqualityEngine::addTerm(" << t << ")" << std::endl;
 
@@ -148,47 +231,40 @@ void EqualityEngine<NotifyClass>::addTerm(TNode t) {
     }
   } else {
     // Otherwise we just create the new id
-    result = newNode(t, false);
+    result = newNode(t);
   }
 
   Debug("equality") << "EqualityEngine::addTerm(" << t << ") => " << result << std::endl;
 }
 
-template <typename NotifyClass>
-bool EqualityEngine<NotifyClass>::hasTerm(TNode t) const {
+bool EqualityEngine::hasTerm(TNode t) const {
   return d_nodeIds.find(t) != d_nodeIds.end();
 }
 
-template <typename NotifyClass>
-EqualityNodeId EqualityEngine<NotifyClass>::getNodeId(TNode node) const {
+EqualityNodeId EqualityEngine::getNodeId(TNode node) const {
   Assert(hasTerm(node), node.toString().c_str());
   return (*d_nodeIds.find(node)).second;
 }
 
-template <typename NotifyClass>
-EqualityNode& EqualityEngine<NotifyClass>::getEqualityNode(TNode t) {
+EqualityNode& EqualityEngine::getEqualityNode(TNode t) {
   return getEqualityNode(getNodeId(t));
 }
 
-template <typename NotifyClass>
-EqualityNode& EqualityEngine<NotifyClass>::getEqualityNode(EqualityNodeId nodeId) {
+EqualityNode& EqualityEngine::getEqualityNode(EqualityNodeId nodeId) {
   Assert(nodeId < d_equalityNodes.size());
   return d_equalityNodes[nodeId];
 }
 
-template <typename NotifyClass>
-const EqualityNode& EqualityEngine<NotifyClass>::getEqualityNode(TNode t) const {
+const EqualityNode& EqualityEngine::getEqualityNode(TNode t) const {
   return getEqualityNode(getNodeId(t));
 }
 
-template <typename NotifyClass>
-const EqualityNode& EqualityEngine<NotifyClass>::getEqualityNode(EqualityNodeId nodeId) const {
+const EqualityNode& EqualityEngine::getEqualityNode(EqualityNodeId nodeId) const {
   Assert(nodeId < d_equalityNodes.size());
   return d_equalityNodes[nodeId];
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addEqualityInternal(TNode t1, TNode t2, TNode reason) {
+void EqualityEngine::assertEqualityInternal(TNode t1, TNode t2, TNode reason) {
 
   Debug("equality") << "EqualityEngine::addEqualityInternal(" << t1 << "," << t2 << ")" << std::endl;
 
@@ -204,55 +280,35 @@ void EqualityEngine<NotifyClass>::addEqualityInternal(TNode t1, TNode t2, TNode 
   propagate();
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addPredicate(TNode t, bool polarity, TNode reason) {
-
+void EqualityEngine::assertPredicate(TNode t, bool polarity, TNode reason) {
   Debug("equality") << "EqualityEngine::addPredicate(" << t << "," << (polarity ? "true" : "false") << ")" << std::endl;
-
-  addEqualityInternal(t, polarity ? d_true : d_false, reason);
+  Assert(t.getKind() != kind::EQUAL, "Use assertEquality instead");
+  assertEqualityInternal(t, polarity ? d_true : d_false, reason);
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addEquality(TNode t1, TNode t2, TNode reason) {
-
-  Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;
-
-  addEqualityInternal(t1, t2, reason);
-
-  Node equality = t1.eqNode(t2);
-  addEqualityInternal(equality, d_true, reason);
+void EqualityEngine::assertEquality(TNode eq, bool polarity, TNode reason) {
+  Debug("equality") << "EqualityEngine::addEquality(" << eq << "," << (polarity ? "true" : "false") << std::endl;
+  if (polarity) {
+    // Add equality between terms
+    assertEqualityInternal(eq[0], eq[1], reason);
+    // Add eq = true for dis-equality propagation
+    assertEqualityInternal(eq, d_true, reason);
+  } else {
+    assertEqualityInternal(eq, d_false, reason);
+    Node eqSymm = eq[1].eqNode(eq[0]);
+    assertEqualityInternal(eqSymm, d_false, reason);
+  }
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addDisequality(TNode t1, TNode t2, TNode reason) {
-
-  Debug("equality") << "EqualityEngine::addDisequality(" << t1 << "," << t2 << ")" << std::endl;
-
-  Node equality1 = t1.eqNode(t2);
-  addEqualityInternal(equality1, d_false, reason);
- 
-  Node equality2 = t2.eqNode(t1);
-  addEqualityInternal(equality2, d_false, reason);
-}
-
-
-template <typename NotifyClass>
-TNode EqualityEngine<NotifyClass>::getRepresentative(TNode t) const {
-
+TNode EqualityEngine::getRepresentative(TNode t) const {
   Debug("equality::internal") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
-
   Assert(hasTerm(t));
-
-  // Both following commands are semantically const
   EqualityNodeId representativeId = getEqualityNode(t).getFind();
-
   Debug("equality::internal") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
-
   return d_nodes[representativeId];
 }
 
-template <typename NotifyClass>
-bool EqualityEngine<NotifyClass>::areEqual(TNode t1, TNode t2) const {
+bool EqualityEngine::areEqual(TNode t1, TNode t2) const {
   Debug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ")" << std::endl;
 
   Assert(hasTerm(t1));
@@ -267,8 +323,7 @@ bool EqualityEngine<NotifyClass>::areEqual(TNode t1, TNode t2) const {
   return rep1 == rep2;
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& class2, std::vector<TriggerId>& triggers) {
+bool EqualityEngine::merge(EqualityNode& class1, EqualityNode& class2, std::vector<TriggerId>& triggers) {
 
   Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << ")" << std::endl;
 
@@ -315,7 +370,6 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
 
   } while (currentId != class2Id);
 
-
   // Update class2 table lookup and information
   Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): updating lookups of " << class2Id << std::endl;
   do {
@@ -336,7 +390,7 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
       EqualityNodeId aNormalized = getEqualityNode(fun.a).getFind();
       EqualityNodeId bNormalized = getEqualityNode(fun.b).getFind();
       FunctionApplication funNormalized(aNormalized, bNormalized);
-      typename ApplicationIdsMap::iterator find = d_applicationLookup.find(funNormalized);
+      ApplicationIdsMap::iterator find = d_applicationLookup.find(funNormalized);
       if (find != d_applicationLookup.end()) {
         // Applications fun and the funNormalized can be merged due to congruence
         if (getEqualityNode(funId).getFind() != getEqualityNode(find->second).getFind()) {
@@ -357,27 +411,96 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
   // Now merge the lists
   class1.merge<true>(class2);
 
-  // Notfiy the triggers
-  EqualityNodeId class1triggerId = d_nodeIndividualTrigger[class1Id];
-  EqualityNodeId class2triggerId = d_nodeIndividualTrigger[class2Id];
-  if (class2triggerId != +null_id) {
-    if (class1triggerId == +null_id) {
-      // If class1 is not an individual trigger, but class2 is, mark it
-      d_nodeIndividualTrigger[class1Id] = class2triggerId;
-      // Add it to the list for backtracking
-      d_individualTriggers.push_back(class1Id);
-      d_individualTriggersSize = d_individualTriggersSize + 1;  
-    } else {
-      // Notify when done
+  // Check for constants
+  EqualityNodeId class2constId = d_constantRepresentative[class2Id];
+  if (class2constId != +null_id) {
+    EqualityNodeId class1constId = d_constantRepresentative[class1Id];
+    if (class1constId != +null_id) {
       if (d_performNotify) {
-        d_notify.notify(d_nodes[class1triggerId], d_nodes[class2triggerId]); 
+        TNode const1 = d_nodes[class1constId];
+        TNode const2 = d_nodes[class2constId];
+        if (!d_notify.eqNotifyConstantTermMerge(const1, const2)) {
+          return false;
+       } 
       }
+    } else {
+      // If the class we're merging in is constant, mark the representative as constant
+      d_constantRepresentative[class1Id] = d_constantRepresentative[class2Id];
+      d_constantRepresentatives.push_back(class1Id);
+      d_constantRepresentativesSize = d_constantRepresentativesSize + 1;  
+    }
+  }
+
+  // Notify the trigger term merges
+  TriggerTermSetRef class2triggerRef = d_nodeIndividualTrigger[class2Id];
+  if (class2triggerRef != +null_set_id) {
+    TriggerTermSetRef class1triggerRef = d_nodeIndividualTrigger[class1Id];
+    if (class1triggerRef == +null_set_id) {
+      // If class1 doesn't have individual triggers, but class2 does, mark it
+      d_nodeIndividualTrigger[class1Id] = class2triggerRef;
+      // Add it to the list for backtracking
+      d_triggerTermSetUpdates.push_back(TriggerSetUpdate(class1Id, +null_set_id));
+      d_triggerTermSetUpdatesSize = d_triggerTermSetUpdatesSize + 1;
+    } else {
+      // Get the triggers
+      TriggerTermSet& class1triggers = getTriggerTermSet(class1triggerRef);
+      TriggerTermSet& class2triggers = getTriggerTermSet(class2triggerRef);
+      
+      // Initialize the merged set
+      d_newSetTags = Theory::setUnion(class1triggers.tags, class2triggers.tags);
+      d_newSetTriggersSize = 0;
+      
+      int i1 = 0;
+      int i2 = 0;
+      Theory::Set tags1 = class1triggers.tags;
+      Theory::Set tags2 = class2triggers.tags;
+      TheoryId tag1 = Theory::setPop(tags1);
+      TheoryId tag2 = Theory::setPop(tags2);
+      
+      // Comparing the THEORY_LAST is OK because all other theories are
+      // smaller, and will therefore be preferred
+      while (tag1 != THEORY_LAST || tag2 != THEORY_LAST) 
+      {
+        if (tag1 < tag2) {
+          // copy tag1 
+          d_newSetTriggers[d_newSetTriggersSize++] = class1triggers.triggers[i1++];
+          tag1 = Theory::setPop(tags1);
+        } else if (tag1 > tag2) {
+          // copy tag2
+          d_newSetTriggers[d_newSetTriggersSize++] = class2triggers.triggers[i2++];
+          tag2 = Theory::setPop(tags2);
+        } else {
+          // copy tag1 
+          EqualityNodeId tag1id = d_newSetTriggers[d_newSetTriggersSize++] = class1triggers.triggers[i1++];
+          // since they are both tagged notify of merge
+          if (d_performNotify) {
+            EqualityNodeId tag2id = class2triggers.triggers[i2++];
+            if (!d_notify.eqNotifyTriggerTermEquality(tag1, d_nodes[tag1id], d_nodes[tag2id], true)) {
+              return false;
+            }
+          }
+          // Next tags
+          tag1 = Theory::setPop(tags1);
+          tag2 = Theory::setPop(tags2);
+        }
+      }   
+      
+      // Add the new trigger set, if different from previous one
+      if (class1triggers.tags != class2triggers.tags) {
+        // Add it to the list for backtracking
+        d_triggerTermSetUpdates.push_back(TriggerSetUpdate(class1Id, class1triggerRef));
+        d_triggerTermSetUpdatesSize = d_triggerTermSetUpdatesSize + 1;
+        // Mark the the new set as a trigger 
+        d_nodeIndividualTrigger[class1Id] = newTriggerTermSet();
+      }  
     }	
   }
+
+  // Everything fine
+  return true;
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::undoMerge(EqualityNode& class1, EqualityNode& class2, EqualityNodeId class2Id) {
+void EqualityEngine::undoMerge(EqualityNode& class1, EqualityNode& class2, EqualityNodeId class2Id) {
 
   Debug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << ")" << std::endl;
 
@@ -409,8 +532,7 @@ void EqualityEngine<NotifyClass>::undoMerge(EqualityNode& class1, EqualityNode& 
 
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::backtrack() {
+void EqualityEngine::backtrack() {
 
   Debug("equality::backtrack") << "backtracking" << std::endl;
 
@@ -445,14 +567,23 @@ void EqualityEngine<NotifyClass>::backtrack() {
     d_equalityEdges.resize(2 * d_assertedEqualitiesCount);
   }
 
-  if (d_individualTriggers.size() > d_individualTriggersSize) {
+  if (d_triggerTermSetUpdates.size() > d_triggerTermSetUpdatesSize) {
     // Unset the individual triggers
-    for (int i = d_individualTriggers.size() - 1, i_end = d_individualTriggersSize; i >= i_end; -- i) {
-      d_nodeIndividualTrigger[d_individualTriggers[i]] = +null_id;
+    for (int i = d_triggerTermSetUpdates.size() - 1, i_end = d_triggerTermSetUpdatesSize; i >= i_end; -- i) {
+      const TriggerSetUpdate& update = d_triggerTermSetUpdates[i];
+      d_nodeIndividualTrigger[update.classId] = update.oldValue;
     }
-    d_individualTriggers.resize(d_individualTriggersSize);
+    d_triggerTermSetUpdates.resize(d_triggerTermSetUpdatesSize);
   }
   
+  if (d_constantRepresentatives.size() > d_constantRepresentativesSize) {
+    // Unset the constant representatives
+    for (int i = d_constantRepresentatives.size() - 1, i_end = d_constantRepresentativesSize; i >= i_end; -- i) {
+      d_constantRepresentative[d_constantRepresentatives[i]] = +null_id;
+    }
+    d_constantRepresentatives.resize(d_constantRepresentativesSize);
+  }
+
   if (d_equalityTriggers.size() > d_equalityTriggersCount) {
     // Unlink the triggers from the lists
     for (int i = d_equalityTriggers.size() - 1, i_end = d_equalityTriggersCount; i >= i_end; -- i) {
@@ -492,13 +623,15 @@ void EqualityEngine<NotifyClass>::backtrack() {
     d_applications.resize(d_nodesCount);
     d_nodeTriggers.resize(d_nodesCount);
     d_nodeIndividualTrigger.resize(d_nodesCount);
+    d_constantRepresentative.resize(d_nodesCount);
     d_equalityGraph.resize(d_nodesCount);
     d_equalityNodes.resize(d_nodesCount);
   }
+
+  d_constants.resize(d_constantsSize);
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addGraphEdge(EqualityNodeId t1, EqualityNodeId t2, MergeReasonType type, TNode reason) {
+void EqualityEngine::addGraphEdge(EqualityNodeId t1, EqualityNodeId t2, MergeReasonType type, TNode reason) {
   Debug("equality") << "EqualityEngine::addGraphEdge(" << d_nodes[t1] << "," << d_nodes[t2] << "," << reason << ")" << std::endl;
   EqualityEdgeId edge = d_equalityEdges.size();
   d_equalityEdges.push_back(EqualityEdge(t2, d_equalityGraph[t1], type, reason));
@@ -511,8 +644,7 @@ void EqualityEngine<NotifyClass>::addGraphEdge(EqualityNodeId t1, EqualityNodeId
   }
 }
 
-template <typename NotifyClass>
-std::string EqualityEngine<NotifyClass>::edgesToString(EqualityEdgeId edgeId) const {
+std::string EqualityEngine::edgesToString(EqualityEdgeId edgeId) const {
   std::stringstream out;
   bool first = true;
   if (edgeId == null_edge) {
@@ -529,69 +661,51 @@ std::string EqualityEngine<NotifyClass>::edgesToString(EqualityEdgeId edgeId) co
   return out.str();
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::explainEquality(TNode t1, TNode t2, std::vector<TNode>& equalities) {
+void EqualityEngine::explainEquality(TNode t1, TNode t2, bool polarity, std::vector<TNode>& equalities) {
   Debug("equality") << "EqualityEngine::explainEquality(" << t1 << "," << t2 << ")" << std::endl;
 
   // Don't notify during this check
-  ScopedBool turnOfNotify(d_performNotify, false);
+  ScopedBool turnOffNotify(d_performNotify, false);
 
   // Add the terms (they might not be there)
   addTerm(t1);
   addTerm(t2);
 
-  Assert(getRepresentative(t1) == getRepresentative(t2),
-         "Cannot explain an equality, because the two terms are not equal!\n"
-         "The representative of %s\n"
-         "                   is %s\n"
-         "The representative of %s\n"
-         "                   is %s",
-         t1.toString().c_str(), getRepresentative(t1).toString().c_str(),
-         t2.toString().c_str(), getRepresentative(t2).toString().c_str());
+  if (polarity) {
+    // Get the explanation
+    EqualityNodeId t1Id = getNodeId(t1);
+    EqualityNodeId t2Id = getNodeId(t2);
+    getExplanation(t1Id, t2Id, equalities);
+  } else {
+    // Add the equality
+    Node equality = t1.eqNode(t2);
+    addTerm(equality);
 
-  // Get the explanation
-  EqualityNodeId t1Id = getNodeId(t1);
-  EqualityNodeId t2Id = getNodeId(t2);
-  getExplanation(t1Id, t2Id, equalities);
-
+    // Get the explanation
+    EqualityNodeId equalityId = getNodeId(equality);
+    EqualityNodeId falseId = getNodeId(d_false);
+    getExplanation(equalityId, falseId, equalities);
+  }
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::explainDisequality(TNode t1, TNode t2, std::vector<TNode>& equalities) {
-  Debug("equality") << "EqualityEngine::explainDisequality(" << t1 << "," << t2 << ")" << std::endl;
+void EqualityEngine::explainPredicate(TNode p, bool polarity, std::vector<TNode>& assertions) {
+  Debug("equality") << "EqualityEngine::explainEquality(" << p << ")" << std::endl;
 
   // Don't notify during this check
-  ScopedBool turnOfNotify(d_performNotify, false);
+  ScopedBool turnOffNotify(d_performNotify, false);
 
   // Add the terms
-  addTerm(t1);
-  addTerm(t2);
+  addTerm(p);
 
-  // Add the equality
-  Node equality = t1.eqNode(t2);
-  addTerm(equality);
-
-  Assert(getRepresentative(equality) == getRepresentative(d_false),
-         "Cannot explain the dis-equality, because the two terms are not dis-equal!\n"
-         "The representative of %s\n"
-         "                   is %s\n"
-         "The representative of %s\n"
-         "                   is %s",
-         equality.toString().c_str(), getRepresentative(equality).toString().c_str(),
-         d_false.toString().c_str(), getRepresentative(d_false).toString().c_str());
-
-  // Get the explanation 
-  EqualityNodeId equalityId = getNodeId(equality);
-  EqualityNodeId falseId = getNodeId(d_false);
-  getExplanation(equalityId, falseId, equalities);
-
+  // Get the explanation
+  getExplanation(getNodeId(p), getNodeId(polarity ? d_true : d_false), assertions);
 }
 
-
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::getExplanation(EqualityNodeId t1Id, EqualityNodeId t2Id, std::vector<TNode>& equalities) const {
+void EqualityEngine::getExplanation(EqualityNodeId t1Id, EqualityNodeId t2Id, std::vector<TNode>& equalities) const {
 
   Debug("equality") << "EqualityEngine::getExplanation(" << d_nodes[t1Id] << "," << d_nodes[t2Id] << ")" << std::endl;
+
+  Assert(getEqualityNode(t1Id).getFind() == getEqualityNode(t2Id).getFind());
 
   // If the nodes are the same, we're done
   if (t1Id == t2Id) return;
@@ -682,15 +796,28 @@ void EqualityEngine<NotifyClass>::getExplanation(EqualityNodeId t1Id, EqualityNo
   }
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addTriggerDisequality(TNode t1, TNode t2, TNode trigger) {
-  Node equality = t1.eqNode(t2);
-  addTerm(equality);
-  addTriggerEquality(equality, d_false, trigger);
+void EqualityEngine::addTriggerEquality(TNode eq) {
+  Assert(eq.getKind() == kind::EQUAL);
+  // Add the terms
+  addTerm(eq);
+  // Positive trigger
+  addTriggerEqualityInternal(eq[0], eq[1], eq, true);
+  // Negative trigger
+  addTriggerEqualityInternal(eq, d_false, eq, false);
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addTriggerEquality(TNode t1, TNode t2, TNode trigger) {
+void EqualityEngine::addTriggerPredicate(TNode predicate) {
+  Assert(predicate.getKind() != kind::NOT && predicate.getKind() != kind::EQUAL);
+  Assert(d_congruenceKinds.tst(predicate.getKind()), "No point in adding non-congruence predicates");
+  // Add the term
+  addTerm(predicate);
+  // Positive trigger
+  addTriggerEqualityInternal(predicate, d_true, predicate, true);
+  // Negative trigger
+  addTriggerEqualityInternal(predicate, d_false, predicate, false);
+}
+
+void EqualityEngine::addTriggerEqualityInternal(TNode t1, TNode t2, TNode trigger, bool polarity) {
 
   Debug("equality") << "EqualityEngine::addTrigger(" << t1 << ", " << t2 << ", " << trigger << ")" << std::endl;
 
@@ -713,9 +840,9 @@ void EqualityEngine<NotifyClass>::addTriggerEquality(TNode t1, TNode t2, TNode t
   TriggerId t1NewTriggerId = d_equalityTriggers.size();
   TriggerId t2NewTriggerId = t1NewTriggerId | 1;
   d_equalityTriggers.push_back(Trigger(t1classId, t1TriggerId));
-  d_equalityTriggersOriginal.push_back(trigger);
+  d_equalityTriggersOriginal.push_back(TriggerInfo(trigger, polarity));
   d_equalityTriggers.push_back(Trigger(t2classId, t2TriggerId));
-  d_equalityTriggersOriginal.push_back(trigger);
+  d_equalityTriggersOriginal.push_back(TriggerInfo(trigger, polarity));
 
   // Update the counters
   d_equalityTriggersCount = d_equalityTriggersCount + 2;
@@ -728,7 +855,7 @@ void EqualityEngine<NotifyClass>::addTriggerEquality(TNode t1, TNode t2, TNode t
   if (t1classId == t2classId) {
     Debug("equality") << "EqualityEngine::addTrigger(" << t1 << "," << t2 << "): triggered at setup time" << std::endl;
     if (d_performNotify) {
-      d_notify.notify(trigger); // Don't care about the return value
+      d_notify.eqNotifyTriggerEquality(trigger, polarity); // Don't care about the return value
     }
   }
 
@@ -739,8 +866,7 @@ void EqualityEngine<NotifyClass>::addTriggerEquality(TNode t1, TNode t2, TNode t
   Debug("equality") << "EqualityEngine::addTrigger(" << t1 << "," << t2 << ") => (" << t1NewTriggerId << ", " << t2NewTriggerId << ")" << std::endl;
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::propagate() {
+void EqualityEngine::propagate() {
 
   Debug("equality") << "EqualityEngine::propagate()" << std::endl;
 
@@ -783,25 +909,29 @@ void EqualityEngine<NotifyClass>::propagate() {
     if (node2.getSize() > node1.getSize()) {
       Debug("equality") << "EqualityEngine::propagate(): merging " << d_nodes[current.t1Id]<< " into " << d_nodes[current.t2Id] << std::endl;
       d_assertedEqualities.push_back(Equality(t2classId, t1classId));
-      merge(node2, node1, triggers);
+      done = !merge(node2, node1, triggers);
     } else {
       Debug("equality") << "EqualityEngine::propagate(): merging " << d_nodes[current.t2Id] << " into " << d_nodes[current.t1Id] << std::endl;
       d_assertedEqualities.push_back(Equality(t1classId, t2classId));
-      merge(node1, node2, triggers);
+      done = !merge(node1, node2, triggers);
     }
 
     // Notify the triggers
-    if (d_performNotify) {
-      for (size_t trigger = 0, trigger_end = triggers.size(); trigger < trigger_end && !done; ++ trigger) {
+    if (d_performNotify && !done) {
+      for (size_t trigger_i = 0, trigger_end = triggers.size(); trigger_i < trigger_end && !done; ++ trigger_i) {
+        const TriggerInfo& triggerInfo = d_equalityTriggersOriginal[triggers[trigger_i]];
         // Notify the trigger and exit if it fails
-        done = !d_notify.notify(d_equalityTriggersOriginal[triggers[trigger]]);
+        if (triggerInfo.trigger.getKind() == kind::EQUAL) {
+          done = !d_notify.eqNotifyTriggerEquality(triggerInfo.trigger, triggerInfo.polarity);
+        } else {
+          done = !d_notify.eqNotifyTriggerPredicate(triggerInfo.trigger, triggerInfo.polarity);
+        }
       }
     }
   }
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::debugPrintGraph() const {
+void EqualityEngine::debugPrintGraph() const {
   for (EqualityNodeId nodeId = 0; nodeId < d_nodes.size(); ++ nodeId) {
 
     Debug("equality::graph") << d_nodes[nodeId] << " " << nodeId << "(" << getEqualityNode(nodeId).getFind() << "):";
@@ -817,11 +947,10 @@ void EqualityEngine<NotifyClass>::debugPrintGraph() const {
   }
 }
 
-template <typename NotifyClass>
-bool EqualityEngine<NotifyClass>::areEqual(TNode t1, TNode t2)
+bool EqualityEngine::areEqual(TNode t1, TNode t2)
 {
   // Don't notify during this check
-  ScopedBool turnOfNotify(d_performNotify, false);
+  ScopedBool turnOffNotify(d_performNotify, false);
 
   // Add the terms
   addTerm(t1);
@@ -832,17 +961,18 @@ bool EqualityEngine<NotifyClass>::areEqual(TNode t1, TNode t2)
   return equal;
 }
 
-template <typename NotifyClass>
-bool EqualityEngine<NotifyClass>::areDisequal(TNode t1, TNode t2)
+bool EqualityEngine::areDisequal(TNode t1, TNode t2)
 {
   // Don't notify during this check
-  ScopedBool turnOfNotify(d_performNotify, false);
+  ScopedBool turnOffNotify(d_performNotify, false);
 
   // Add the terms
   addTerm(t1);
   addTerm(t2);
 
   // Check (t1 = t2) = false
+  // No need to check the symmetric version: we can only deduce a disequality from an existing
+  // diseqality, and each of those is asserted in the symmetric version also
   Node equality = t1.eqNode(t2);
   addTerm(equality);
   if (getEqualityNode(equality).getFind() == getEqualityNode(d_false).getFind()) {
@@ -853,18 +983,17 @@ bool EqualityEngine<NotifyClass>::areDisequal(TNode t1, TNode t2)
   return false;
 }
 
-template <typename NotifyClass>
-size_t EqualityEngine<NotifyClass>::getSize(TNode t)
+size_t EqualityEngine::getSize(TNode t)
 {
   // Add the term
   addTerm(t);
   return getEqualityNode(getEqualityNode(t).getFind()).getSize();
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addTriggerTerm(TNode t) 
+void EqualityEngine::addTriggerTerm(TNode t, TheoryId tag)
 {
-  Debug("equality::internal") << "EqualityEngine::addTriggerTerm(" << t << ")" << std::endl;
+  Debug("equality::internal") << "EqualityEngine::addTriggerTerm(" << t << ", " << tag << ")" << std::endl;
+  Assert(tag != THEORY_LAST);
 
   // Add the term if it's not already there
   addTerm(t);
@@ -874,37 +1003,70 @@ void EqualityEngine<NotifyClass>::addTriggerTerm(TNode t)
   EqualityNode& eqNode = getEqualityNode(eqNodeId);
   EqualityNodeId classId = eqNode.getFind();
 
-  if (d_nodeIndividualTrigger[classId] != +null_id) {  
-    // No need to keep it, just propagate the existing individual triggers
+  // Possibly existing set of triggers
+  TriggerTermSetRef triggerSetRef = d_nodeIndividualTrigger[classId];
+  if (triggerSetRef != +null_set_id && getTriggerTermSet(triggerSetRef).hasTrigger(tag)) {
+    // If the term already is in the equivalence class that a tagged representative, just notify
     if (d_performNotify) {
-      d_notify.notify(t, d_nodes[d_nodeIndividualTrigger[classId]]); 
+      EqualityNodeId triggerId = getTriggerTermSet(triggerSetRef).getTrigger(tag);
+      d_notify.eqNotifyTriggerTermEquality(tag, t, d_nodes[triggerId], true);
     }
   } else {
+
+    // Setup the data for the new set
+    if (triggerSetRef != null_set_id) {
+      // Get the existing set
+      TriggerTermSet& triggerSet = getTriggerTermSet(triggerSetRef);
+      // Initialize the new set for copy/insert
+      d_newSetTags = Theory::setInsert(tag, triggerSet.tags);
+      d_newSetTriggersSize = 0;
+      // Copy into to new one, and insert the new tag/id      
+      unsigned i = 0;
+      Theory::Set tags = d_newSetTags;
+      TheoryId current; 
+      while ((current = Theory::setPop(tags)) != THEORY_LAST) {
+        // Remove from the tags
+        tags = Theory::setRemove(current, tags);
+        // Insert the id into the triggers
+        d_newSetTriggers[d_newSetTriggersSize++] = 
+          current == tag ? eqNodeId : triggerSet.triggers[i++];
+      }
+    } else {
+      // Setup a singleton 
+      d_newSetTags = Theory::setInsert(tag);
+      d_newSetTriggers[0] = eqNodeId;
+      d_newSetTriggersSize = 1;
+    }
+
     // Add it to the list for backtracking
-    d_individualTriggers.push_back(classId);
-    d_individualTriggersSize = d_individualTriggersSize + 1; 
-    // Mark the class id as a trigger
-    d_nodeIndividualTrigger[classId] = eqNodeId;
+    d_triggerTermSetUpdates.push_back(TriggerSetUpdate(classId, triggerSetRef));
+    d_triggerTermSetUpdatesSize = d_triggerTermSetUpdatesSize + 1;
+    // Mark the the new set as a trigger 
+    d_nodeIndividualTrigger[classId] = newTriggerTermSet();
   }
 }
 
-template <typename NotifyClass>
-bool EqualityEngine<NotifyClass>::isTriggerTerm(TNode t) const {
+bool EqualityEngine::isTriggerTerm(TNode t, TheoryId tag) const {
   if (!hasTerm(t)) return false;
   EqualityNodeId classId = getEqualityNode(t).getFind();
-  return d_nodeIndividualTrigger[classId] != +null_id;
+  TriggerTermSetRef triggerSetRef = d_nodeIndividualTrigger[classId];
+  return triggerSetRef != +null_set_id && getTriggerTermSet(triggerSetRef).hasTrigger(tag);
 }
 
 
-template <typename NotifyClass>
-TNode EqualityEngine<NotifyClass>::getTriggerTermRepresentative(TNode t) const {
-  Assert(isTriggerTerm(t));
+TNode EqualityEngine::getTriggerTermRepresentative(TNode t, TheoryId tag) const {
+  Assert(isTriggerTerm(t, tag));
   EqualityNodeId classId = getEqualityNode(t).getFind();
-  return d_nodes[d_nodeIndividualTrigger[classId]];
+  const TriggerTermSet& triggerSet = getTriggerTermSet(d_nodeIndividualTrigger[classId]);
+  unsigned i = 0;
+  Theory::Set tags = triggerSet.tags;
+  while (Theory::setPop(tags) != tag) {
+    ++ i;
+  }
+  return d_nodes[triggerSet.triggers[i]];
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::storeApplicationLookup(FunctionApplication& funNormalized, EqualityNodeId funId) {
+void EqualityEngine::storeApplicationLookup(FunctionApplication& funNormalized, EqualityNodeId funId) {
   Assert(d_applicationLookup.find(funNormalized) == d_applicationLookup.end());
   d_applicationLookup[funNormalized] = funId;
   d_applicationLookups.push_back(funNormalized);
@@ -914,8 +1076,7 @@ void EqualityEngine<NotifyClass>::storeApplicationLookup(FunctionApplication& fu
   Assert(d_applicationLookupsCount == d_applicationLookups.size());
 }
 
-template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::getUseListTerms(TNode t, std::set<TNode>& output) {
+void EqualityEngine::getUseListTerms(TNode t, std::set<TNode>& output) {
   if (hasTerm(t)) {
     // Get the equivalence class
     EqualityNodeId classId = getEqualityNode(t).getFind();
@@ -940,6 +1101,31 @@ void EqualityEngine<NotifyClass>::getUseListTerms(TNode t, std::set<TNode>& outp
     } while (currentId != classId);
   }
 }
+
+EqualityEngine::TriggerTermSetRef EqualityEngine::newTriggerTermSet() {
+  // Size of the required set
+  size_t size = sizeof(TriggerTermSet) + d_newSetTriggersSize*sizeof(EqualityNodeId);
+  // Align the size
+  size = (size + 7) & ~((size_t)7);
+  // Reallocate if necessary
+  if (d_triggerDatabaseSize + size > d_triggerDatabaseAllocatedSize) {
+    d_triggerDatabaseAllocatedSize *= 2;
+    d_triggerDatabase = (char*) realloc(d_triggerDatabase, d_triggerDatabaseAllocatedSize);
+  }
+  // New reference
+  TriggerTermSetRef newTriggerSetRef = d_triggerDatabaseSize;
+  // Update the size
+  d_triggerDatabaseSize = d_triggerDatabaseSize + size;
+  // Copy the information
+  TriggerTermSet& newSet = getTriggerTermSet(newTriggerSetRef);
+  newSet.tags = d_newSetTags;
+  for (unsigned i = 0; i < d_newSetTriggersSize; ++i) {
+    newSet.triggers[i] = d_newSetTriggers[i];
+  }
+  // Return the new reference
+  return newTriggerSetRef;
+}
+
 
 } // Namespace uf
 } // Namespace theory

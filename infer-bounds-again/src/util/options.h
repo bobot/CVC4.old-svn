@@ -146,6 +146,14 @@ struct CVC4_PUBLIC Options {
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
 
+  /** Whether to do the ite-simplification pass */
+  bool doITESimp;
+
+  /**
+   * Whether the user explicitly requested ite simplification
+   */
+  bool doITESimpSetByUser;
+
   /** Whether we're in interactive mode or not */
   bool interactive;
 
@@ -195,9 +203,6 @@ struct CVC4_PUBLIC Options {
   /** Log to write replay instructions to; NULL if not logging. */
   std::ostream* replayLog;
 
-  /** Turn on and of arithmetic propagation. */
-  bool arithPropagation;
-
   /**
    * Frequency for the sat solver to make random decisions.
    * Should be between 0 and 1.
@@ -222,9 +227,17 @@ struct CVC4_PUBLIC Options {
   /** Restart interval increase factor for Minisat */
   double satRestartInc;
 
+  /** Determines the type of Arithmetic Presolve Lemmas are generated.*/
+  typedef enum { NO_PRESOLVE_LEMMAS, INEQUALITY_PRESOLVE_LEMMAS, EQUALITY_PRESOLVE_LEMMAS, ALL_PRESOLVE_LEMMAS} ArithUnateLemmaMode;
+  ArithUnateLemmaMode arithUnateLemmaMode;
+
+  /** Determines the mode of arithmetic propagation. */
+  typedef enum { NO_PROP, UNATE_PROP, BOUND_INFERENCE_PROP, BOTH_PROP} ArithPropagationMode;
+  ArithPropagationMode arithPropagationMode;
+
   /** The pivot rule for arithmetic */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
-  ArithPivotRule pivotRule;
+  ArithPivotRule arithPivotRule;
 
   /**
    * The number of pivots before Bland's pivot rule is used on a basic
@@ -238,6 +251,23 @@ struct CVC4_PUBLIC Options {
   uint16_t arithPropagateMaxLength;
 
   /**
+   * Whether to do the linear diophantine equation solver
+   * in Arith as described by Griggio JSAT 2012 (on by default).
+   */
+  bool arithDioSolver;
+
+  /**
+   * Whether to split (= x y) into (and (<= x y) (>= x y)) in
+   * arithmetic preprocessing.
+   */
+  bool arithRewriteEq;
+
+  /**
+   * Whether the flag was set by the user
+   */
+  bool arithRewriteEqSetByUser;
+
+  /**
    * Whether to do the symmetry-breaking preprocessing in UF as
    * described by Deharbe et al. in CADE 2011 (on by default).
    */
@@ -249,17 +279,6 @@ struct CVC4_PUBLIC Options {
    */
   bool ufSymmetryBreakerSetByUser;
 
-  /**
-   * Whether to do the linear diophantine equation solver
-   * in Arith as described by Griggio JSAT 2012 (on by default).
-   */
-  bool dioSolver;
-
-  /**
-   * Whether to split (= x y) into (and (<= x y) (>= x y)) in
-   * arithmetic preprocessing.
-   */
-  bool arithRewriteEq;
 
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;
@@ -282,6 +301,18 @@ struct CVC4_PUBLIC Options {
 
   /** Filter depending on length of lemma */
   int sharingFilterByLength;
+
+  /** Bitblast eagerly to the main sat solver */
+  bool bitvectorEagerBitblast;
+
+  /** Fullcheck at each check */
+  bool bitvectorEagerFullcheck;
+
+  /** Bitblast eagerly to the main sat solver */
+  bool bitvectorShareLemmas;
+
+  /** Refine conflicts by doing another full check after a conflict */
+  bool sat_refine_conflicts;
 
   Options();
 

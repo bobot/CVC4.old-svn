@@ -38,6 +38,8 @@
 #include <string>
 #include <iostream>
 
+#include <strings.h>
+
 namespace CVC4 {
 
 class TheoryEngine;
@@ -612,6 +614,34 @@ public:
   /** A set of all theories */
   static const Set AllTheories = (1 << theory::THEORY_LAST) - 1;
 
+  /** Pops a first theory off the set */
+  static inline TheoryId setPop(Set& set) {
+    uint32_t i = ffs(set); // Find First Set (bit)
+    if (i == 0) { return THEORY_LAST; }
+    TheoryId id = (TheoryId)(i-1);
+    set = setRemove(id, set);
+    return id;
+  }
+
+  /** Returns the size of a set of theories */
+  static inline size_t setSize(Set set) {
+    size_t count = 0;
+    while (setPop(set) != THEORY_LAST) {
+      ++ count;
+    }
+    return count;
+  }
+
+  /** Returns the index size of a set of theories */
+  static inline size_t setIndex(TheoryId id, Set set) {
+    Assert (setContains(id, set));
+    size_t count = 0;
+    while (setPop(set) != id) {
+      ++ count;
+    }
+    return count;
+  }
+
   /** Add the theory to the set. If no set specified, just returns a singleton set */
   static inline Set setInsert(TheoryId theory, Set set = 0) {
     return set | (1 << theory);
@@ -619,7 +649,7 @@ public:
 
   /** Add the theory to the set. If no set specified, just returns a singleton set */
   static inline Set setRemove(TheoryId theory, Set set = 0) {
-    return set ^ (1 << theory);
+    return setDifference(set, setInsert(theory));
   }
 
   /** Check if the set contains the theory */
@@ -656,13 +686,15 @@ public:
     return ss.str();
   }
 
+  typedef context::CDList<Assertion>::const_iterator assertions_iterator;
+
   /**
    * Provides access to the facts queue, primarily intended for theory
    * debugging purposes.
    *
    * @return the iterator to the beginning of the fact queue
    */
-  context::CDList<Assertion>::const_iterator facts_begin() const {
+  assertions_iterator facts_begin() const {
     return d_facts.begin();
   }
 
@@ -672,9 +704,11 @@ public:
    *
    * @return the iterator to the end of the fact queue
    */
-  context::CDList<Assertion>::const_iterator facts_end() const {
+  assertions_iterator facts_end() const {
     return d_facts.end();
   }
+
+  typedef context::CDList<TNode>::const_iterator shared_terms_iterator;
 
   /**
    * Provides access to the shared terms, primarily intended for theory
@@ -682,7 +716,7 @@ public:
    *
    * @return the iterator to the beginning of the shared terms list
    */
-  context::CDList<TNode>::const_iterator shared_terms_begin() const {
+  shared_terms_iterator shared_terms_begin() const {
     return d_sharedTerms.begin();
   }
 
@@ -692,7 +726,7 @@ public:
    *
    * @return the iterator to the end of the shared terms list
    */
-  context::CDList<TNode>::const_iterator shared_terms_end() const {
+  shared_terms_iterator shared_terms_end() const {
     return d_sharedTerms.end();
   }
 
