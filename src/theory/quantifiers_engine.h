@@ -204,8 +204,8 @@ public:
   std::map< TypeNode, std::vector< Node > > d_type_map;
   /** add a term to the database */
   void addTerm( Node n, std::vector< Node >& added, bool withinQuant = false );
-  /** reset instantiation round */
-  void resetInstantiationRound( Theory::Effort effort );
+  /** reset (calculate which terms are active) */
+  void reset( Theory::Effort effort );
   /** set active */
   void setMatchingActive( bool a ) { d_matching_active = a; }
   /** get active */
@@ -350,9 +350,7 @@ public:
   std::vector<Node> createInstVariable( std::vector<Node> & vars );
 public:
   /** get the ce body f[e/x] */
-  Node getCounterexampleBody( Node f ) { return d_counterexample_body[ f ]; }
-  /** get or create the ce body f[e/x] */
-  Node getOrCreateCounterexampleBody( Node f );
+  Node getCounterexampleBody( Node f );
   /** get the skolemized body f[e/x] */
   Node getSkolemizedBody( Node f );
   /** set active */

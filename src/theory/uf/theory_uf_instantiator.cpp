@@ -135,9 +135,12 @@ void InstantiatorTheoryUf::debugPrint( const char* c )
 
 }
 
+bool InstantiatorTheoryUf::hasTerm( Node a ){
+  return ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( a );
+}
+
 bool InstantiatorTheoryUf::areEqual( Node a, Node b ){
-  if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( a ) &&
-      ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( b ) ){
+  if( hasTerm( a ) && hasTerm( b ) ){
     return ((TheoryUF*)d_th)->d_equalityEngine.areEqual( a, b );
   }else{
     return a==b;
@@ -145,8 +148,7 @@ bool InstantiatorTheoryUf::areEqual( Node a, Node b ){
 }
 
 bool InstantiatorTheoryUf::areDisequal( Node a, Node b ){
-  if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( a ) &&
-      ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( b ) ){
+  if( hasTerm( a ) && hasTerm( b ) ){
     return ((TheoryUF*)d_th)->d_equalityEngine.areDisequal( a, b );
   }else{
     return false;
@@ -154,7 +156,7 @@ bool InstantiatorTheoryUf::areDisequal( Node a, Node b ){
 }
 
 Node InstantiatorTheoryUf::getRepresentative( Node a ){
-  if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( a ) ){
+  if( hasTerm( a ) ){
     return ((TheoryUF*)d_th)->d_equalityEngine.getRepresentative( a );
   }else{
     return a;
@@ -163,7 +165,7 @@ Node InstantiatorTheoryUf::getRepresentative( Node a ){
 
 Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
   if( d_ground_reps.find( a )==d_ground_reps.end() ){
-    if( !((TheoryUF*)d_th)->d_equalityEngine.hasTerm( a ) ){
+    if( !hasTerm( a ) ){
       return a;
     }else{
       Node rep = getRepresentative( a );

@@ -120,6 +120,7 @@ Options::Options() :
   smartTriggers(true),
   finiteModelFind(false),
   fmfRegionSat(false),
+  fmfModelBasedInst(true),
   efficientEMatching(false),
   literalMatchMode(LITERAL_MATCH_NONE),
   cbqi(false),
@@ -209,7 +210,8 @@ Additional CVC4 options:\n\
    --pre-skolem-quant     apply skolemization eagerly to bodies of quantified formulas\n\
    --disable-smart-triggers   disable smart triggers\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
-   --use-fmf-region-sat   use region-based SAT heuristic for fmf\n\
+   --use-fmf-region-sat   use region-based SAT heuristic for finite model finding\n\
+   --disable-fmf-model-inst  disable model-based instantiation for finite model finding\n\
    --efficient-e-matching use efficient E-matching\n\
    --literal-matching=MODE  choose literal matching mode\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [off by default]\n\
@@ -414,6 +416,7 @@ enum OptionValue {
   DISABLE_SMART_MULTI_TRIGGERS,
   FINITE_MODEL_FIND,
   FMF_REGION_SAT,
+  DISABLE_FMF_MODEL_BASED_INST,
   EFFICIENT_E_MATCHING,
   LITERAL_MATCHING,
   ENABLE_CBQI,
@@ -520,6 +523,7 @@ static struct option cmdlineOptions[] = {
   { "disable-smart-triggers", no_argument, NULL, DISABLE_SMART_MULTI_TRIGGERS },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
+  { "disable-fmf-model-inst", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
@@ -929,6 +933,9 @@ throw(OptionException) {
       break;
     case FMF_REGION_SAT:
       fmfRegionSat = true;
+      break;
+    case DISABLE_FMF_MODEL_BASED_INST:
+      fmfModelBasedInst = false;
       break;
     case EFFICIENT_E_MATCHING:
       efficientEMatching = true;

@@ -120,6 +120,7 @@ private:
   std::map< Node, EqClassInfo* > d_eqc_ops;
 public:
   /** general queries about equality */
+  bool hasTerm( Node a );
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
@@ -180,6 +181,7 @@ public:
   EqualityQueryInstantiatorTheoryUf( InstantiatorTheoryUf* ith ) : d_ith( ith ){}
   ~EqualityQueryInstantiatorTheoryUf(){}
   /** general queries about equality */
+  bool hasTerm( Node a ) { return d_ith->hasTerm( a ); }
   Node getRepresentative( Node a ) { return d_ith->getRepresentative( a ); }
   bool areEqual( Node a, Node b ) { return d_ith->areEqual( a, b ); }
   bool areDisequal( Node a, Node b ) { return d_ith->areDisequal( a, b ); }

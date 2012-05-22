@@ -207,7 +207,7 @@ void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
   }
 }
 
-void TermDb::resetInstantiationRound( Theory::Effort effort ){
+void TermDb::reset( Theory::Effort effort ){
   int nonCongruentCount = 0;
   int congruentCount = 0;
   int alreadyCongruentCount = 0;
@@ -246,9 +246,9 @@ void TermDb::resetInstantiationRound( Theory::Effort effort ){
       if( en.getKind()==APPLY_UF && !en.hasAttribute(InstConstantAttribute()) ){
         if( !en.getAttribute(NoMatchAttribute()) ){
           Node op = en.getOperator();
-          if( d_pred_map_trie[i][op].addTerm( d_quantEngine, en ) ){
+          if( !d_pred_map_trie[i][op].addTerm( d_quantEngine, en ) ){
             NoMatchAttribute nma;
-            n.setAttribute(nma,true);
+            en.setAttribute(nma,true);
             congruentCount++;
           }else{
             nonCongruentCount++;
@@ -260,8 +260,9 @@ void TermDb::resetInstantiationRound( Theory::Effort effort ){
       ++eqc;
     }
   }
-  //std::cout << "Congruent/Non-Congruent = ";
-  //std::cout << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
+  Debug("term-db-cong") << "TermDb: Reset" << std::endl;
+  Debug("term-db-cong") << "Congruent/Non-Congruent = ";
+  Debug("term-db-cong") << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
 }
 
 
@@ -351,7 +352,7 @@ void QuantifiersEngine::registerQuantifier( Node f ){
     for( int i=0; i<(int)d_modules.size(); i++ ){
       d_modules[i]->registerQuantifier( f );
     }
-    Node ceBody = getOrCreateCounterexampleBody( f );
+    Node ceBody = getCounterexampleBody( f );
     generatePhaseReqs( f, ceBody );
     //also register it with the strong solver
     if( Options::current()->finiteModelFind ){
@@ -541,12 +542,16 @@ void QuantifiersEngine::flushLemmas( OutputChannel* out ){
   d_lemmas_waiting.clear();
 }
 
-Node QuantifiersEngine::getOrCreateCounterexampleBody( Node f ){
-  if( d_counterexample_body.find( f )==d_counterexample_body.end() ){
+Node QuantifiersEngine::getCounterexampleBody( Node f ){
+  std::map< Node, Node >::iterator it = d_counterexample_body.find( f );
+  if( it==d_counterexample_body.end() ){
     makeInstantiationConstantsFor( f );
-    d_counterexample_body[ f ] = getSubstitutedNode( f[1], f );
+    Node n = getSubstitutedNode( f[1], f );
+    d_counterexample_body[ f ] = n;
+    return n;
+  }else{
+    return it->second;
   }
-  return d_counterexample_body[ f ];
 }
 
 Node QuantifiersEngine::getSkolemizedBody( Node f ){

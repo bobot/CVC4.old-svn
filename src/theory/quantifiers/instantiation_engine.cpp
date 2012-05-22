@@ -50,7 +50,7 @@ void InstantiationEngine::addCbqiLemma( Node f ){
   //                              getQuantifiersEngine()->d_inst_constants[f].begin(),
   //                              getQuantifiersEngine()->d_inst_constants[f].end() );
   //get the counterexample literal
-  Node ceBody = getQuantifiersEngine()->getOrCreateCounterexampleBody( f );
+  Node ceBody = getQuantifiersEngine()->getCounterexampleBody( f );
   Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
   d_ce_lit[ f ] = ceLit;
   getQuantifiersEngine()->setInstantiationConstantAttr( ceLit, f );
@@ -94,7 +94,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
       getQuantifiersEngine()->getInstantiator( i )->resetInstantiationRound( effort );
     }
   }
-  getQuantifiersEngine()->getTermDatabase()->resetInstantiationRound( effort );
+  getQuantifiersEngine()->getTermDatabase()->reset( effort );
   //iterate over an internal effort level e
   int e = 0;
   int eLimit = effort==Theory::EFFORT_LAST_CALL ? 10 : 2;
@@ -247,7 +247,7 @@ void InstantiationEngine::check( Theory::Effort e ){
 
 void InstantiationEngine::registerQuantifier( Node f ){
   //std::cout << "do cbqi " << f << " ? " << std::endl;
-  Node ceBody = getQuantifiersEngine()->getOrCreateCounterexampleBody( f );
+  Node ceBody = getQuantifiersEngine()->getCounterexampleBody( f );
   if( !doCbqi( f ) ){
     getQuantifiersEngine()->addTermToDatabase( ceBody, true );
     //need to tell which instantiators will be responsible

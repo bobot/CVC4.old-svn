@@ -31,26 +31,6 @@ namespace uf{
 
 namespace quantifiers {
 
-
-class ModelTree
-{
-private:
-  void setValue2( QuantifiersEngine* qe, Node n, Node v, int argIndex );
-  Node getValue2( QuantifiersEngine* qe, Node n, int& depIndex, int argIndex );
-public:
-  ModelTree(){}
-  /** the data */
-  std::map< Node, ModelTree > d_data;
-  Node d_value;
-  std::vector< Node > d_explicit;
-public:
-  bool isEmpty() { return d_data.empty() && d_explicit.empty(); }
-  void setValue( QuantifiersEngine* qe, Node n, Node v ) { setValue2( qe, n, v, 0 ); }
-  Node getValue( QuantifiersEngine* qe, Node n, int& depIndex ) { return getValue2( qe, n, depIndex, 0 ); }
-public:
-  void debugPrint( const char* c, int ind = 0, int arg = 0 );
-};
-
 /** this class stores a representative alphabet */
 class RepAlphabet {
 public:
@@ -69,7 +49,7 @@ public:
   /** returns index in d_type_reps for node n */
   int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
   /** debug print */
-  void debugPrint( const char* c );
+  void debugPrint( const char* c, QuantifiersEngine* qe );
 };
 
 class ModelEngine;
@@ -84,46 +64,122 @@ public:
   std::vector< int > d_index;
   std::vector< Node > d_ic;
   std::vector< Node > d_terms;
+  /** increment the iterator */
+  void increment2( QuantifiersEngine* qe, int counter ); 
   void increment( QuantifiersEngine* qe );
+  /** is the iterator finished? */
   bool isFinished();
+  /** produce the match that this iterator represents */
   void getMatch( QuantifiersEngine* qe, InstMatch& m );
+  /** get functions */
   Node getTerm( int i );
   int getNumTerms() { return d_f[0].getNumChildren(); }
+  /** refresh d_term to be current with d_index */
   void calculateTerms( QuantifiersEngine* qe );
+  /** debug print */
+  void debugPrint( const char* c );
+  void debugPrintSmall( const char* c );
+  //for debugging
+  int d_inst_skipped;
+  int d_inst_tried;
+  int d_inst_tests;
 };
 
-class PredModel
+
+class UfModelTree
+{
+private:
+  //helper function for set value
+  void setValue2( QuantifiersEngine* qe, Node n, Node v, int argIndex, bool ground );
+  //helper function for get value
+  Node getValue2( QuantifiersEngine* qe, Node n, int& depIndex, int argIndex );
+  ////helper function for get constant value
+  //Node getConstantValue2( QuantifiersEngine* qe, Node n, int argIndex );
+  //helper function for simplify
+  void simplify2( Node op, Node defaultVal, int argIndex );
+  //helper function for is total
+  bool isTotal2( Node op, int argIndex );
+public:
+  UfModelTree(){}
+  /** the data */
+  std::map< Node, UfModelTree > d_data;
+  /** the value of this tree node (if all paths lead to same value) */
+  Node d_value;
+  /** which terms have been defined as d_value */
+  //std::vector< Node > d_explicit;
+public:
+  //is this model tree empty?
+  bool isEmpty() { return d_data.empty(); }
+  /** setValue function
+    *
+    * For each argument of n with ModelBasisAttribute() set to true will be considered default arguments if ground=false
+    *
+    */
+  void setValue( QuantifiersEngine* qe, Node n, Node v, bool ground = true );
+  /**  getValue function
+    *
+    *  returns $val, the value of ground term n
+    *  Say n is f( t_0...t_n )
+    *    depIndex is the index for which every term of the form f( t_0 ... t_depIndex, *,... * ) is equal to $val
+    *    for example, if g( x_0, x_1, x_2 ) := lambda x_0 x_1 x_2. if( x_1==a ) b else c,
+    *      then g( a, a, a ) would return b with depIndex = 1
+    *  If ground = true, we are asking whether the term n is constant (assumes that all non-model basis arguments are ground)
+    *
+    */
+  Node getValue( QuantifiersEngine* qe, Node n, int& depIndex );
+  ///** getConstant Value function
+  //  *
+  //  * given term n, where n may contain model basis arguments
+  //  * if n is constant for its entire domain, then this function returns the value of its domain
+  //  * otherwise, it returns null
+  //  * for example, if f( x_0, x_1 ) := if( x_0 = a ) b else if( x_1 = a ) a else b,
+  //  *   then f( a, e ) would return b, while f( e, a ) would return null
+  //  *
+  //  */
+  //Node getConstantValue( QuantifiersEngine* qe, Node n ){ return getConstantValue2( qe, n, 0 ); }
+  /** simplify function */
+  void simplify( Node op ) { simplify2( op, Node::null(), 0 ); }
+  // is total ?
+  bool isTotal( Node op ) { return isTotal2( op, 0 ); }
+public:
+  void debugPrint( const char* c, QuantifiersEngine* qe, int ind = 0, int arg = 0 );
+};
+
+class UfModel
 {
 private:
   Node d_op;
-  QuantifiersEngine* d_qe;
+  ModelEngine* d_me;
   std::map< Node, std::vector< Node > > d_reqs[2];
-  ModelTree d_tree;
+  std::map< Node, std::map< Node, std::vector< Node > > > d_eq_reqs[2];
+  std::vector< Node > d_ground_asserts;
+  bool d_model_constructed;
 public:
-  PredModel(){}
-  PredModel( Node op, QuantifiersEngine* qe );
-  ~PredModel(){}
-
-  void addRequirement( Node f, Node p, bool phase );
-  /** debug print */
-  void debugPrint( const char* c );
-};
-
-class FunctionModel
-{
-private:
-  Node d_op;
-  QuantifiersEngine* d_qe;
-  std::map< Node, std::map< Node, std::vector< Node > > > d_reqs[2];
-  ModelTree d_tree;
+  UfModel(){}
+  UfModel( Node op, ModelEngine* qe );
+  ~UfModel(){}
+  //data structure that stores the model
+  UfModelTree d_tree;
+  /** set value */
+  void setValue( Node n, Node v, bool ground = true );
+  /** simplify */
+  void simplify() { d_tree.simplify( d_op ); }
 public:
-  FunctionModel(){}
-  FunctionModel( Node op, QuantifiersEngine* qe );
-  ~FunctionModel(){}
   /** add requirement */
-  void addRequirement( Node f, Node t, Node te, bool phase );
+  void addRequirement( Node f, Node p, bool phase );
+  /** add equality requirement */
+  void addEqRequirement( Node f, Node t, Node te, bool phase );
   /** debug print */
   void debugPrint( const char* c );
+  /** get constant value */
+  Node getConstantValue( QuantifiersEngine* qe, Node n );
+  /** is empty */
+  bool isEmpty() { return d_ground_asserts.empty(); }
+  /** is constant */
+  bool isConstant();
+public:
+  /** build model */
+  void buildModel();
 };
 
 
@@ -131,25 +187,57 @@ public:
 
 class ModelEngine : public QuantifiersModule
 {
+  friend class UfModel;
 private:
   TheoryQuantifiers* d_th;
   QuantifiersEngine* d_quantEngine;
   uf::StrongSolverTheoryUf* d_ss;
+  //which quantifiers have been initialized
+  std::map< Node, bool > d_quant_init;
+  //map from ops to model basis terms
+  std::map< Node, Node > d_model_basis_term;
+  //map from instantiation terms to their model basis equivalent
+  std::map< Node, Node > d_model_basis;
+  //the model we are working with
   RepAlphabet d_ra;
-  std::map< Node, PredModel > d_pred_model;
-  std::map< Node, FunctionModel > d_func_model;
-  //int evaluate( RepAlphabetIterator* rai, Node n, bool phaseReq, std::vector< Node >& modelExt );
-  //int evaluateLiteral( RepAlphabetIterator* rai, Node lit, bool phaseReq, std::vector< Node >& modelExt );
+  std::map< Node, UfModel > d_uf_model;
+  //map from model basis terms to quantifiers that are pro/con their definition
+  std::map< Node, std::vector< Node > > d_quant_pro_con[2];
+  std::map< Node, bool > d_quant_sat;
 private:
-  void processPredicate( Node f, Node p, bool phase );
-  void processEquality( Node f, Node eq, bool phase );
+  int evaluate( RepAlphabetIterator* rai, Node n, bool phaseReq );
+  bool evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, bool phaseReq, std::vector< Node >& fv_deps, bool calc_fv_deps = false );
+  Node evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps, bool calc_fv_deps = false );
+private:
+  //queries about equality
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
+private:
+  bool useModel();
 private:
   //build representatives
   void buildRepresentatives();
+  //initialize model
+  void initializeModel();
+  //analyze quantifiers
+  void analyzeQuantifiers();
+private:
+  //register instantiation terms with their corresponding model basis terms
+  void registerModelBasis( Node n, Node gn );
+  //for building UF model
+  void initializeUf( Node n );
+  void initializeUfModel( Node op );
+  void processPredicate( Node f, Node p, bool phase );
+  void processEquality( Node f, Node eq, bool phase );
 public:
   ModelEngine( TheoryQuantifiers* th );
   ~ModelEngine(){}
+  //get quantifiers engine
+  QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }
+  //get representatives
   RepAlphabet* getReps() { return &d_ra; }
+  //get default term for op
+  Node getModelBasisTerm( Node op );
 public:
   void check( Theory::Effort e );
   void registerQuantifier( Node f );
@@ -158,9 +246,7 @@ public:
   void propagate( Theory::Effort level ){}
   void debugPrint( const char* c );
 public:
-  void validate( RepAlphabetIterator* rai );
-private:
-  void buildModel();
+  void increment( RepAlphabetIterator* rai );
 };
 
 }

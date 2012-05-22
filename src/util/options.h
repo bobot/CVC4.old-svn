@@ -302,6 +302,11 @@ struct CVC4_PUBLIC Options {
    */
   bool fmfRegionSat;
 
+  /**
+   * Whether to use model-based exhaustive instantiation for finite model finding
+   */
+  bool fmfModelBasedInst;
+
   /** 
    * Whether to use efficient E-matching 
    */

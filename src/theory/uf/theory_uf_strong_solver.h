@@ -29,6 +29,10 @@
 
 namespace CVC4 {
 namespace theory {
+
+struct ModelBasisAttributeId {};
+typedef expr::Attribute<ModelBasisAttributeId, bool> ModelBasisAttribute;
+
 namespace uf {
 
 class TheoryUF;
@@ -89,6 +93,8 @@ public:
       //disequalities needed for this clique to happen
       NodeBoolMap d_splits;
       context::CDO< unsigned > d_splitsSize;
+      /** get split */
+      Node getBestSplit();
     private:
       //number of valid representatives in this region
       context::CDO< unsigned > d_reps_size;
@@ -131,10 +137,12 @@ public:
       bool check( Theory::Effort level, unsigned cardinality, std::vector< Node >& clique );
       /** has splits */
       bool hasSplits() { return d_splitsSize>0; }
-      /** get split */
-      Node getBestSplit();
+      /** add split */
+      void addSplit( OutputChannel* out );
       /** get representatives */
       void getRepresentatives( std::vector< Node >& reps );
+      /** minimize */
+      bool minimize( OutputChannel* out );
       /** get external disequalities */
       void getNumExternalDisequalities( std::map< Node, int >& num_ext_disequalities );
       //print debug
@@ -174,13 +182,11 @@ public:
     bool isValid( int ri ) { return ri>=0 && ri<(int)d_regions_index && d_regions[ ri ]->d_valid; }
     /** check ambiguous terms */
     bool disambiguateTerms( OutputChannel* out );
+  private:
     /** cardinality operating with */
-    int d_cardinality;
+    context::CDO< int > d_cardinality;
     /** type */
     TypeNode d_type;
-    /** literals we have called for set depends */
-    //std::map< Node, bool > d_setDepends;
-  private:
     /** cardinality lemma term */
     Node d_cardinality_lemma_term;
     /** cardinality literals */
@@ -192,10 +198,9 @@ public:
   public:
     ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) :
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
-        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ), d_type( tn ), 
+        d_reps( c, 0 ), d_cardinality( c, 1 ), d_term_amb( c ), d_type( tn ),
         d_cardinality_assertions( c ), d_is_cardinality_set( c, false ),
-        d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ), d_hasCard( c, false ),
-        d_cardinality_master( NULL ){}
+        d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ), d_hasCard( c, false ){}
     ~ConflictFind(){}
     /** new node */
     void newEqClass( Node n );
@@ -216,9 +221,13 @@ public:
     /** set cardinality */
     void setCardinality( int c, OutputChannel* out );
     /** get cardinality */
-    inline int getCardinality() { return d_cardinality_master ? d_cardinality_master->getCardinality() : d_cardinality; }
+    int getCardinality() { return d_cardinality; }
     /** get representatives */
     void getRepresentatives( std::vector< Node >& reps );
+    /** get model basis term */
+    Node getModelBasisTerm() { return d_cardinality_lemma_term; }
+    /** minimize */
+    bool minimize( OutputChannel* out );
     /** get cardinality lemma */
     Node getCardinalityLemma();
   public:
@@ -230,12 +239,6 @@ public:
     bool d_is_cardinality_requested;
     /** whether a positive cardinality constraint has been asserted */
     context::CDO< bool > d_hasCard;
-  private:
-    /** cardinality master (just use cardinality of the master) */
-    ConflictFind* d_cardinality_master;
-  public:
-    /** set master */
-    void setMaster( ConflictFind* master ) { d_cardinality_master = master; }
   }; /** class ConflictFind */
 private:
   /** The output channel for the strong solver. */
@@ -287,6 +290,10 @@ public:
   int getCardinality( TypeNode t );
   /** get representatives */
   void getRepresentatives( TypeNode t, std::vector< Node >& reps );
+  /** get model term */
+  Node getModelBasisTerm( TypeNode t );
+  /** minimize */
+  bool minimize();
 
   class Statistics {
   public:
@@ -302,18 +309,8 @@ public:
 
   /** is relavant type */
   static bool isRelevantType( TypeNode t );
-  /** are types related? */
-  bool areTypesRelated( TypeNode t1, TypeNode t2 ) {
-    return d_type_relate[t1].find( t2 )!=d_type_relate[t1].end() && d_type_relate[t1][t2];
-  }
   /** involves relavant type */
   static bool involvesRelevantType( Node n );
-private:
-  /** Types whose cardinality constraints are related to one another:
-      A type T1 is related to a type T2 if there exists a term whose top symbol is a
-      function of type ( ... x T1 x ... ) -> T2, or vice versa.
-  */
-  std::map< TypeNode, std::map< TypeNode, bool > > d_type_relate;
 };/* class StrongSolverTheoryUf */
 
 }
