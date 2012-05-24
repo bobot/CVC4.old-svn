@@ -288,6 +288,7 @@ private:
 private:
   //map from terms to the models used to calculate their value
   std::map< Node, UfModelTreeOrdered > d_eval_term_model;
+  std::map< Node, bool > d_eval_term_use_default_model;
   void makeEvalTermModel( Node n );
   //index ordering to use for each term
   std::map< Node, std::vector< int > > d_eval_term_index_order;

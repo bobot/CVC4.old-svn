@@ -203,13 +203,16 @@ RewriteResponse QuantifiersRewriter::postRewrite(TNode in) {
     }
     bool isNested = in.hasAttribute(NestedQuantAttribute());
     //compute miniscoping first
-    Node n = computeNNF( body );
+    Node n = body;//computeNNF( body ); TODO: compute NNF here (current bad idea since arithmetic rewrites equalities)
+    if( body!=n ){
+      std::cout << "NNF " << body << " -> " << n << std::endl;
+    }
     n = computeMiniscoping( args, n, ipl, isNested );
     if( in.getKind()==kind::EXISTS ){
       n = n.getKind()==NOT ? n[0] : n.notNode();
     }
     //compute other rewrite options for each produced quantifier
-    n = rewriteQuants( n, isNested );
+    n = rewriteQuants( n, isNested, true );
     //print if changed
     if( in!=n ){
       if( in.hasAttribute(NestedQuantAttribute()) ){
@@ -267,9 +270,7 @@ Node QuantifiersRewriter::computeNNF( Node body ){
     for( int i=0; i<(int)body.getNumChildren(); i++ ){
       Node nc = computeNNF( body[i] );
       children.push_back( nc );
-      if( nc!=body[i] ){
-        childrenChanged = true;
-      }
+      childrenChanged = childrenChanged || nc!=body[i];
     }
     if( childrenChanged ){
       return NodeManager::currentNM()->mkNode( body.getKind(), children );
@@ -653,34 +654,38 @@ Node QuantifiersRewriter::computeMiniscoping( std::vector< Node >& args, Node bo
   return mkForAll( args, body, ipl );
 }
 
-Node QuantifiersRewriter::rewriteQuants( Node n, bool isNested ){
+Node QuantifiersRewriter::rewriteQuants( Node n, bool isNested, bool duringRewrite ){
   if( n.getKind()==FORALL ){
-    Node prev = n;
-    for( int op=0; op<COMPUTE_LAST; op++ ){
-      if( doOperation( n, isNested, op ) ){
-        Node prev2 = n;
-        n = computeOperation( n, op );
-        if( prev2!=n ){
-          Debug("quantifiers-rewrite-op") << "Rewrite op " << op << ": rewrite " << prev2 << std::endl;
-          Debug("quantifiers-rewrite-op") << " to " << std::endl;
-          Debug("quantifiers-rewrite-op") << n << std::endl;
-        }
-      }
-    }
-    if( prev==n ){
-      return n;
-    }else{
-      //rewrite again until fix point is reached
-      return rewriteQuants( n, isNested );
-    }
+    return rewriteQuant( n, isNested, duringRewrite );
   }else if( isLiteral( n ) ){
     return n;
   }else{
     NodeBuilder<> tt(n.getKind());
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      tt << rewriteQuants( n[i], isNested );
+      tt << rewriteQuants( n[i], isNested, duringRewrite );
     }
     return tt.constructNode();
+  }
+}
+
+Node QuantifiersRewriter::rewriteQuant( Node n, bool isNested, bool duringRewrite ){
+  Node prev = n;
+  for( int op=0; op<COMPUTE_LAST; op++ ){
+    if( doOperation( n, isNested, op, duringRewrite ) ){
+      Node prev2 = n;
+      n = computeOperation( n, op );
+      if( prev2!=n ){
+        Debug("quantifiers-rewrite-op") << "Rewrite op " << op << ": rewrite " << prev2 << std::endl;
+        Debug("quantifiers-rewrite-op") << " to " << std::endl;
+        Debug("quantifiers-rewrite-op") << n << std::endl;
+      }
+    }
+  }
+  if( prev==n ){
+    return n;
+  }else{
+    //rewrite again until fix point is reached
+    return rewriteQuant( n, isNested, duringRewrite );
   }
 }
 
@@ -700,17 +705,17 @@ bool QuantifiersRewriter::doMiniscopingAnd(){
   }
 }
 
-bool QuantifiersRewriter::doOperation( Node f, bool isNested, int computeOption ){
+bool QuantifiersRewriter::doOperation( Node f, bool isNested, int computeOption, bool duringRewrite ){
   if( computeOption==COMPUTE_NNF ){
-    return true;
+    return false;//TODO: compute NNF (current bad idea since arithmetic rewrites equalities)
   }else if( computeOption==COMPUTE_PRE_SKOLEM ){
-    return Options::current()->preSkolemQuant;
+    return Options::current()->preSkolemQuant && !duringRewrite;
   }else if( computeOption==COMPUTE_PRENEX ){
     return Options::current()->prenexQuant;
   }else if( computeOption==COMPUTE_VAR_ELIMINATION ){
     return Options::current()->varElimQuant;
   }else if( computeOption==COMPUTE_CNF ){
-    return Options::current()->cnfQuant;// || Options::current()->finiteModelFind;
+    return Options::current()->cnfQuant && !duringRewrite;// || Options::current()->finiteModelFind;
   }else{
     return false;
   }

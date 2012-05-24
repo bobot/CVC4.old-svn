@@ -62,8 +62,6 @@ private:
     COMPUTE_LAST
   };
   static Node computeOperation( Node f, int computeOption );
-private:
-  static Node rewriteQuants( Node n, bool isNested = false );
 public:
   static RewriteResponse preRewrite(TNode in);
   static RewriteResponse postRewrite(TNode in);
@@ -76,7 +74,10 @@ private:
   /** options */
   static bool doMiniscopingNoFreeVar();
   static bool doMiniscopingAnd();
-  static bool doOperation( Node f, bool isNested, int computeOption );
+  static bool doOperation( Node f, bool isNested, int computeOption, bool duringRewrite = true );
+public:
+  static Node rewriteQuants( Node n, bool isNested = false, bool duringRewrite = true );
+  static Node rewriteQuant( Node n, bool isNested = false, bool duringRewrite = true );
 };/* class QuantifiersRewriter */
 
 }/* CVC4::theory::quantifiers namespace */

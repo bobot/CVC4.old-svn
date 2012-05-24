@@ -270,6 +270,10 @@ private:
   std::map< Node, Theory* > d_owner;
   /** term database */
   TermDb* d_term_db;
+  /** universal quantifiers that have been rewritten */
+  std::map< Node, std::vector< Node > > d_quant_rewritten;
+  /** map from rewritten universal quantifiers to the quantifier they are the consequence of */
+  std::map< Node, Node > d_rewritten_quant;
 private:
   /** for computing relavance */
   /** map from quantifiers to symbols they contain */

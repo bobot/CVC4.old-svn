@@ -67,10 +67,11 @@ d_quantEngine( qe ), d_f( f ){
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
   if( smartTriggers ){
     if( d_nodes.size()==1 ){
-      //if( isSimpleTrigger( d_nodes[0] ) ){
-      //  d_mg = new InstMatchGeneratorSimple( f, d_nodes[0] );
-      //}
-      d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
+      if( isSimpleTrigger( d_nodes[0] ) ){
+        d_mg = new InstMatchGeneratorSimple( f, d_nodes[0] );
+      }else{
+        d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
+      }
     }else{
       d_mg = new InstMatchGeneratorMulti( f, d_nodes, qe, matchOption );
     }

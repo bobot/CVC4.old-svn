@@ -324,39 +324,66 @@ void QuantifiersEngine::makeInstantiationConstantsFor( Node f ){
 
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
-    ++(d_statistics.d_num_quant);
-    Assert( f.getKind()==FORALL );
-    //register quantifier
-    d_quants.push_back( f );
-    //make instantiation constants for f
-    makeInstantiationConstantsFor( f );
-    //compute symbols in f
-    std::vector< Node > syms;
-    computeSymbols( f[1], syms );
-    d_syms[f].insert( d_syms[f].begin(), syms.begin(), syms.end() );
-    //set initial relevance
-    int minRelevance = -1;
-    for( int i=0; i<(int)syms.size(); i++ ){
-      d_syms_quants[ syms[i] ].push_back( f );
-      int r = getRelevance( syms[i] );
-      if( r!=-1 && ( minRelevance==-1 || r<minRelevance ) ){
-        minRelevance = r;
+    //do dynamic rewriting of quantifier
+    std::vector< Node > quants;
+#if 0
+    Node nn = QuantifiersRewriter::rewriteQuant( f, false, false );
+    if( nf!=f ){
+      Debug("quantifiers-rewrite") << "*** dynamic-rewrite " << f << std::endl;
+      Debug("quantifiers-rewrite") << " to " << std::endl;
+      Debug("quantifiers-rewrite") << nf << std::endl;
+      //we will instead register all the rewritten quantifiers
+      if( nf.getKind()==FORALL ){
+        quants.push_back( nf );
+      }else if( nf.getKind()==AND ){
+        for( int i=0; i<(int)nf.getNumChildren(); i++ ){
+          quants.push_back( nf[i] );
+        }
+      }else{
+        //unhandled: rewrite must go to a quantifier, or conjunction of quantifiers
+        Assert( false );
       }
     }
-#ifdef COMPUTE_RELEVANCE
-    if( minRelevance!=-1 ){
-      setRelevance( f, minRelevance+1 );
-    }
+#else
+    quants.push_back( f );
 #endif
-    //register with each module
-    for( int i=0; i<(int)d_modules.size(); i++ ){
-      d_modules[i]->registerQuantifier( f );
-    }
-    Node ceBody = getCounterexampleBody( f );
-    generatePhaseReqs( f, ceBody );
-    //also register it with the strong solver
-    if( Options::current()->finiteModelFind ){
-      ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( f );
+    for( int q=0; q<(int)quants.size(); q++ ){
+      d_quant_rewritten[f].push_back( quants[q] );
+      d_rewritten_quant[ quants[q] ] = f;
+      ++(d_statistics.d_num_quant);
+      Assert( quants[q].getKind()==FORALL );
+      //register quantifier
+      d_quants.push_back( quants[q] );
+      //make instantiation constants for quants[q]
+      makeInstantiationConstantsFor( quants[q] );
+      //compute symbols in quants[q]
+      std::vector< Node > syms;
+      computeSymbols( quants[q][1], syms );
+      d_syms[quants[q]].insert( d_syms[quants[q]].begin(), syms.begin(), syms.end() );
+      //set initial relevance
+      int minRelevance = -1;
+      for( int i=0; i<(int)syms.size(); i++ ){
+        d_syms_quants[ syms[i] ].push_back( quants[q] );
+        int r = getRelevance( syms[i] );
+        if( r!=-1 && ( minRelevance==-1 || r<minRelevance ) ){
+          minRelevance = r;
+        }
+      }
+#ifdef COMPUTE_RELEVANCE
+      if( minRelevance!=-1 ){
+        setRelevance( quants[q], minRelevance+1 );
+      }
+#endif
+      //register with each module
+      for( int i=0; i<(int)d_modules.size(); i++ ){
+        d_modules[i]->registerQuantifier( quants[q] );
+      }
+      Node ceBody = getCounterexampleBody( quants[q] );
+      generatePhaseReqs( quants[q], ceBody );
+      //also register it with the strong solver
+      if( Options::current()->finiteModelFind ){
+        ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( quants[q] );
+      }
     }
   }
 }
@@ -422,7 +449,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
   Node body = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(),
                                  terms.begin(), terms.end() );
   NodeBuilder<> nb(kind::OR);
-  nb << f.notNode() << body;
+  nb << d_rewritten_quant[f].notNode() << body;
   Node lem = nb;
   if( addLemma( lem ) ){
     //std::cout << "     Added lemma : " << body << std::endl;
