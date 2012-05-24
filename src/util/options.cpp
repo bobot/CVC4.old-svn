@@ -83,6 +83,8 @@ Options::Options() :
   decisionMode(DECISION_STRATEGY_INTERNAL),
   decisionModeSetByUser(false),
   doStaticLearning(true),
+  doITESimp(false),
+  doITESimpSetByUser(false),
   interactive(false),
   interactiveSetByUser(false),
   perCallResourceLimit(0),
@@ -194,6 +196,8 @@ Additional CVC4 options:\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
    --decision=MODE        choose decision mode, see --decision=help\n\
    --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
+   --ite-simp             turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
+   --no-ite-simp          turn off ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
    --replay=file          replay decisions from file\n\
    --replay-log=file      log decisions and propagations to file\n\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\

@@ -30,6 +30,8 @@ libtheory_la_SOURCES = \
 	shared_terms_database.cpp \
 	term_registration_visitor.h \
 	term_registration_visitor.cpp \
+	ite_simplifier.h \
+	ite_simplifier.cpp \
 	quantifiers_engine.h \
 	quantifiers_engine.cpp \
 	instantiator_default.h \

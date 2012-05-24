@@ -79,6 +79,8 @@ TheoryEngine::TheoryEngine(context::Context* context,
   //AJR-hack-end
   Rewriter::init();
   StatisticsRegistry::registerStat(&d_combineTheoriesTime);
+  d_true = NodeManager::currentNM()->mkConst<bool>(true);
+  d_false = NodeManager::currentNM()->mkConst<bool>(false);
 }
 
 TheoryEngine::~TheoryEngine() {
@@ -352,7 +354,7 @@ void TheoryEngine::combineTheories() {
 
     if (carePair.a.isConst() && carePair.b.isConst()) {
       // TODO: equality engine should auto-detect these as disequal
-      d_sharedTerms.processSharedLiteral(carePair.a.eqNode(carePair.b).notNode(), NodeManager::currentNM()->mkConst<bool>(true));
+      d_sharedTerms.processSharedLiteral(carePair.a.eqNode(carePair.b).notNode(), d_true);
       continue;
     }
 
@@ -366,7 +368,7 @@ void TheoryEngine::combineTheories() {
 
       if (isTrivial) {
         value = normalizedEquality.getConst<bool>();
-        normalizedEquality = NodeManager::currentNM()->mkConst<bool>(true);
+        normalizedEquality = d_true;
       }
       else {
         d_sharedLiteralsIn[normalizedEquality] = theory::THEORY_LAST;
@@ -915,7 +917,7 @@ Node TheoryEngine::explain(ExplainTask toExplain)
 #endif
 
   // No need to explain "true"
-  explained.insert(ExplainTask(NodeManager::currentNM()->mkConst<bool>(true), SHARED_DATABASE_EXPLANATION));
+  explained.insert(ExplainTask(d_true, SHARED_DATABASE_EXPLANATION));
 
   while (true) {
 
@@ -1050,4 +1052,13 @@ void TheoryEngine::sharedConflict(TNode conflict) {
   Assert(properConflict(fullConflict));
   Debug("theory") << "TheoryEngine::sharedConflict(" << conflict << "): " << fullConflict << std::endl;
   lemma(fullConflict, true, false);
+}
+
+
+Node TheoryEngine::ppSimpITE(TNode assertion)
+{
+  Node result = d_iteSimplifier.simpITE(assertion);
+  result = d_iteSimplifier.simplifyWithCare(result);
+  result = Rewriter::rewrite(result);
+  return result;
 }

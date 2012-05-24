@@ -850,6 +850,7 @@ public:
   NodeTemplate<true> eqNode(const NodeTemplate<ref_count2>& right) const;
 
   NodeTemplate<true> notNode() const;
+  NodeTemplate<true> negate() const;
   template <bool ref_count2>
   NodeTemplate<true> andNode(const NodeTemplate<ref_count2>& right) const;
   template <bool ref_count2>
@@ -1117,6 +1118,12 @@ NodeTemplate<true> NodeTemplate<ref_count>::notNode() const {
 }
 
 template <bool ref_count>
+NodeTemplate<true> NodeTemplate<ref_count>::negate() const {
+  assertTNodeNotExpired();
+  return (getKind() == kind::NOT) ? NodeTemplate<true>(d_nv->getChild(0)) : NodeManager::currentNM()->mkNode(kind::NOT, *this);
+}
+
+template <bool ref_count>
 template <bool ref_count2>
 NodeTemplate<true>
 NodeTemplate<ref_count>::andNode(const NodeTemplate<ref_count2>& right) const {
@@ -1234,6 +1241,9 @@ TypeNode NodeTemplate<ref_count>::getType(bool check) const
 template <bool ref_count>
 inline Node
 NodeTemplate<ref_count>::substitute(TNode node, TNode replacement) const {
+  if (node == *this) {
+    return replacement;
+  }
   std::hash_map<TNode, TNode, TNodeHashFunction> cache;
   return substitute(node, replacement, cache);
 }
@@ -1242,6 +1252,12 @@ template <bool ref_count>
 Node
 NodeTemplate<ref_count>::substitute(TNode node, TNode replacement,
                                     std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const {
+  Assert(node != *this);
+
+  if (getNumChildren() == 0) {
+    return *this;
+  }
+
   // in cache?
   typename std::hash_map<TNode, TNode, TNodeHashFunction>::const_iterator i = cache.find(*this);
   if(i != cache.end()) {
@@ -1267,6 +1283,7 @@ NodeTemplate<ref_count>::substitute(TNode node, TNode replacement,
 
   // put in cache
   Node n = nb;
+  Assert(node != n);
   cache[*this] = n;
   return n;
 }
