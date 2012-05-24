@@ -42,12 +42,6 @@ namespace bv {
 /// forward declarations
 class Bitblaster;
 
-static inline std::string spaces(int level)
-{
-  std::string indentStr(level, ' ');
-  return indentStr;
-}
-
 class TheoryBV : public Theory {
 
 
@@ -60,8 +54,10 @@ private:
   context::CDList<TNode> d_assertions;
 
   /** Bitblaster */
-  Bitblaster* d_bitblaster;
+  Bitblaster* d_bitblaster; 
 
+  context::CDQueue<TNode> d_bitblastQueue; 
+  
   /** Context dependent set of atoms we already propagated */
   context::CDHashSet<TNode, TNodeHashFunction> d_alreadyPropagatedSet;
   context::CDHashSet<TNode, TNodeHashFunction> d_sharedTermsSet;
@@ -119,7 +115,7 @@ private:
       if (value) {
         return d_bv.storePropagation(predicate, SUB_EQUALITY);
       } else {
-       return d_bv.storePropagation(predicate, SUB_EQUALITY);
+        return d_bv.storePropagation(predicate.notNode(), SUB_EQUALITY);
       }
     }
     //AJR-hack
@@ -140,6 +136,9 @@ private:
 
     bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
       Debug("bitvector") << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << std::endl;
+      if (Theory::theoryOf(t1) == THEORY_BOOL) {
+        return d_bv.storePropagation(t1.iffNode(t2), SUB_EQUALITY);
+      }
       return d_bv.storePropagation(t1.eqNode(t2), SUB_EQUALITY);
     }
   };
@@ -196,6 +195,12 @@ private:
 
   friend class Bitblaster;
 
+  inline std::string indent()
+  {
+    std::string indentStr(getSatContext()->getLevel(), ' ');
+    return indentStr;
+  }
+  
 public:
 
   void propagate(Effort e);

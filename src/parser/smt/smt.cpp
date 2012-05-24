@@ -105,7 +105,7 @@ void Smt::addTheory(Theory theory) {
     seq->addCommand(new DeclareTypeCommand("Element", 0, elementType));
     preemptCommand(seq);
 
-    defineType("Array", getExprManager()->mkArrayType(indexType,elementType));
+    defineType("Array", getExprManager()->mkArrayType(indexType, elementType));
 
     addOperator(kind::SELECT);
     addOperator(kind::STORE);
@@ -119,17 +119,18 @@ void Smt::addTheory(Theory theory) {
     break;
   }
 
-  case THEORY_INT_ARRAYS:
-  case THEORY_INT_ARRAYS_EX: {
-    defineType("Array", getExprManager()->mkArrayType(getSort("Int"), getSort("Int")));
+  case THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX: {
+    defineType("Array1", getExprManager()->mkArrayType(getSort("Int"), getSort("Real")));
+    defineType("Array2", getExprManager()->mkArrayType(getSort("Int"), getSort("Array1")));
     addOperator(kind::SELECT);
     addOperator(kind::STORE);
     break;
   }
 
-  case THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX: {
-    defineType("Array1", getExprManager()->mkArrayType(getSort("Int"), getSort("Real")));
-    defineType("Array2", getExprManager()->mkArrayType(getSort("Int"), getSort("Array1")));
+  case THEORY_INT_ARRAYS:
+  case THEORY_INT_ARRAYS_EX: {
+    defineType("Array", getExprManager()->mkArrayType(getExprManager()->integerType(), getExprManager()->integerType()));
+
     addOperator(kind::SELECT);
     addOperator(kind::STORE);
     break;

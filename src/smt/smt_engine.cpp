@@ -930,13 +930,13 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
       SubrangeBounds bounds = t.getSubrangeBounds();
       Trace("constrainSubtypes") << "constrainSubtypes(): got bounds " << bounds << endl;
       if(bounds.lower.hasBound()) {
-        Node c = NodeManager::currentNM()->mkConst(bounds.lower.getBound());
+        Node c = NodeManager::currentNM()->mkConst(Rational(bounds.lower.getBound()));
         Node lb = NodeManager::currentNM()->mkNode(kind::LEQ, c, n);
         Trace("constrainSubtypes") << "constrainSubtypes(): assert " << lb << endl;
         assertions.push_back(lb);
       }
       if(bounds.upper.hasBound()) {
-        Node c = NodeManager::currentNM()->mkConst(bounds.upper.getBound());
+        Node c = NodeManager::currentNM()->mkConst(Rational(bounds.upper.getBound()));
         Node ub = NodeManager::currentNM()->mkNode(kind::LEQ, n, c);
         Trace("constrainSubtypes") << "constrainSubtypes(): assert " << ub << endl;
         assertions.push_back(ub);
@@ -1101,7 +1101,9 @@ void SmtEnginePrivate::processAssertions() {
 
   // begin: INVARIANT to maintain: no reordering of assertions or
   // introducing new ones
+#ifdef CVC4_ASSERTIONS
   unsigned iteRewriteAssertionsEnd = d_assertionsToCheck.size();
+#endif
 
   Trace("smt") << "SmtEnginePrivate::processAssertions() POST SIMPLIFICATION" << endl;
   Debug("smt") << " d_assertionsToPreprocess: " << d_assertionsToPreprocess.size() << endl;
