@@ -203,9 +203,6 @@ struct CVC4_PUBLIC Options {
   /** Log to write replay instructions to; NULL if not logging. */
   std::ostream* replayLog;
 
-  /** Turn on and of arithmetic propagation. */
-  bool arithPropagation;
-
   /**
    * Frequency for the sat solver to make random decisions.
    * Should be between 0 and 1.
@@ -230,9 +227,17 @@ struct CVC4_PUBLIC Options {
   /** Restart interval increase factor for Minisat */
   double satRestartInc;
 
+  /** Determines the type of Arithmetic Presolve Lemmas are generated.*/
+  typedef enum { NO_PRESOLVE_LEMMAS, INEQUALITY_PRESOLVE_LEMMAS, EQUALITY_PRESOLVE_LEMMAS, ALL_PRESOLVE_LEMMAS} ArithUnateLemmaMode;
+  ArithUnateLemmaMode arithUnateLemmaMode;
+
+  /** Determines the mode of arithmetic propagation. */
+  typedef enum { NO_PROP, UNATE_PROP, BOUND_INFERENCE_PROP, BOTH_PROP} ArithPropagationMode;
+  ArithPropagationMode arithPropagationMode;
+
   /** The pivot rule for arithmetic */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
-  ArithPivotRule pivotRule;
+  ArithPivotRule arithPivotRule;
 
   /**
    * The number of pivots before Bland's pivot rule is used on a basic
@@ -244,6 +249,23 @@ struct CVC4_PUBLIC Options {
    * The maximum row length that arithmetic will use for propagation.
    */
   uint16_t arithPropagateMaxLength;
+
+  /**
+   * Whether to do the linear diophantine equation solver
+   * in Arith as described by Griggio JSAT 2012 (on by default).
+   */
+  bool arithDioSolver;
+
+  /**
+   * Whether to split (= x y) into (and (<= x y) (>= x y)) in
+   * arithmetic preprocessing.
+   */
+  bool arithRewriteEq;
+
+  /**
+   * Whether the flag was set by the user
+   */
+  bool arithRewriteEqSetByUser;
 
   /**
    * Whether to do the symmetry-breaking preprocessing in UF as
@@ -348,23 +370,6 @@ struct CVC4_PUBLIC Options {
    * Whether to use flip decision (useful when cbqi=true)
    */
   bool flipDecision;
-
-  /**
-   * Whether to do the linear diophantine equation solver
-   * in Arith as described by Griggio JSAT 2012 (on by default).
-   */
-  bool dioSolver;
-
-  /**
-   * Whether to split (= x y) into (and (<= x y) (>= x y)) in
-   * arithmetic preprocessing.
-   */
-  bool arithRewriteEq;
-
-  /**
-   * Whether the flag was set by the user
-   */
-  bool arithRewriteEqSetByUser;
 
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;
