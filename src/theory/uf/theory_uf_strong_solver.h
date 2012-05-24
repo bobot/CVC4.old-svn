@@ -43,6 +43,7 @@ protected:
   typedef context::CDHashMap<Node, int, NodeHashFunction> NodeIntMap;
   typedef context::CDChunkList<Node> NodeList;
   typedef context::CDList<bool> BoolList;
+  typedef context::CDHashMap<TypeNode, bool, TypeNodeHashFunction> TypeNodeBoolMap;
 public:
   /** information for incremental conflict/clique finding for a particular sort */
   class ConflictFind {
@@ -134,7 +135,7 @@ public:
       /** get must merge */
       bool getMustCombine( int cardinality );
       /** check for cliques */
-      bool check( Theory::Effort level, unsigned cardinality, std::vector< Node >& clique );
+      bool check( Theory::Effort level, int cardinality, std::vector< Node >& clique );
       /** has splits */
       bool hasSplits() { return d_splitsSize>0; }
       /** add split */
@@ -211,7 +212,7 @@ public:
     /** assert cardinality */
     void assertCardinality( int c, bool val );
     /** whether cardinality has been asserted */
-    bool hasCardinalityAsserted();
+    bool hasCardinalityAsserted() { return d_hasCard; }
     /** check */
     void check( Theory::Effort level, OutputChannel* out );
     /** propagate */
@@ -225,7 +226,7 @@ public:
     /** get representatives */
     void getRepresentatives( std::vector< Node >& reps );
     /** get model basis term */
-    Node getModelBasisTerm() { return d_cardinality_lemma_term; }
+    Node getCardinalityTerm() { return d_cardinality_lemma_term; }
     /** minimize */
     bool minimize( OutputChannel* out );
     /** get cardinality lemma */
@@ -249,11 +250,12 @@ private:
   std::map< TypeNode, ConflictFind* > d_conf_find;
   /** all types */
   std::vector< TypeNode > d_conf_types;
+  /** whether conflict find data structures have been initialized */
+  TypeNodeBoolMap d_conf_find_init;
   /** pre register type */
   void preRegisterType( TypeNode tn );
-private:
-  /** waiting queues */
-  std::map< TypeNode, std::vector< Node > > d_new_eq_class_waiting;
+  /** get conflict find */
+  ConflictFind* getConflictFind( TypeNode tn );
 public:
   StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th);
   ~StrongSolverTheoryUf() {}
@@ -290,8 +292,8 @@ public:
   int getCardinality( TypeNode t );
   /** get representatives */
   void getRepresentatives( TypeNode t, std::vector< Node >& reps );
-  /** get model term */
-  Node getModelBasisTerm( TypeNode t );
+  /** get cardinality term */
+  Node getCardinalityTerm( TypeNode t );
   /** minimize */
   bool minimize();
 

@@ -378,6 +378,7 @@ Node QuantifiersRewriter::computeCNF( Node n, std::vector< Node >& args, NodeBui
         argTypes.push_back( activeArgs[i].getType() );
       }
       //create the predicate
+      Assert( argTypes.size()>0 );
       TypeNode typ = NodeManager::currentNM()->mkFunctionType( argTypes, NodeManager::currentNM()->booleanType() );
       std::stringstream ss;
       ss << "cnf_" << n.getKind() << "_" << n.getId();
@@ -709,7 +710,7 @@ bool QuantifiersRewriter::doOperation( Node f, bool isNested, int computeOption 
   }else if( computeOption==COMPUTE_VAR_ELIMINATION ){
     return Options::current()->varElimQuant;
   }else if( computeOption==COMPUTE_CNF ){
-    return Options::current()->cnfQuant || Options::current()->finiteModelFind;
+    return Options::current()->cnfQuant;// || Options::current()->finiteModelFind;
   }else{
     return false;
   }
