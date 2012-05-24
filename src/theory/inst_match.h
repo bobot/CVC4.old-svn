@@ -244,7 +244,7 @@ private:
   };
 
   EqualityQuery* d_eQ;
-  uf::EqualityEngine<uf::TheoryUF::NotifyClass> * d_eE;
+  eq::EqualityEngine* d_eE;
 
   /* before for the order of destruction */
   Tree d_data;

@@ -360,8 +360,10 @@ class TheoryEngine {
   }
 
   struct SharedLiteral {
-    /** The node/theory pair for the assertion */
-    /** THEORY_LAST indicates this is a SAT literal and should be sent to the SAT solver */
+    /**
+     * The node/theory pair for the assertion. THEORY_LAST indicates this is a SAT
+     * literal and should be sent to the SAT solver
+     */
     NodeTheoryPair toAssert;
     /** This is the node that we will use to explain it */
     Node toExplain;
@@ -370,7 +372,7 @@ class TheoryEngine {
     : toAssert(assertion, receivingTheory),
       toExplain(original)
     { }
-  };/* struct SharedLiteral */
+  };
 
   /**
    * Map from nodes to theories.
@@ -790,6 +792,9 @@ private:
 
   /** Visitor for collecting shared terms */
   SharedTermsVisitor d_sharedTermsVisitor;
+
+  /** Prints the assertions to the debug stream */
+  void printAssertions(const char* tag);
 
 };/* class TheoryEngine */
 

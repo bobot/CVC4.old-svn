@@ -45,21 +45,28 @@ class TheoryUF : public Theory {
   friend class StrongSolverTheoryUf;
 public:
 
-  class NotifyClass {
+  class NotifyClass : public eq::EqualityEngineNotify {
     TheoryUF& d_uf;
   public:
     NotifyClass(TheoryUF& uf): d_uf(uf) {}
 
-    bool notify(TNode propagation) {
-      Debug("uf") << "NotifyClass::notify(" << propagation << ")" << std::endl;
-      // Just forward to uf
-      return d_uf.propagate(propagation);
+    bool eqNotifyTriggerEquality(TNode equality, bool value) {
+      Debug("uf") << "NotifyClass::eqNotifyTriggerEquality(" << equality << ", " << (value ? "true" : "false" )<< ")" << std::endl;
+      if (value) {
+        return d_uf.propagate(equality);
+      } else {
+        // We use only literal triggers so taking not is safe
+        return d_uf.propagate(equality.notNode());
+      }
     }
 
-    void notify(TNode t1, TNode t2) {
-      Debug("uf") << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
-      Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
-      d_uf.propagate(equality);
+    bool eqNotifyTriggerPredicate(TNode predicate, bool value) {
+      Debug("uf") << "NotifyClass::eqNotifyTriggerPredicate(" << predicate << ", " << (value ? "true" : "false" )<< ")" << std::endl;
+      if (value) {
+        return d_uf.propagate(predicate);
+      } else {
+       return d_uf.propagate(predicate.notNode());
+      }
     }
 
     //AJR-hack
@@ -76,6 +83,24 @@ public:
       d_uf.notifyDisequal( t1, t2, reason );
     }
     //AJR-hack-end
+
+    bool eqNotifyTriggerTermEquality(TNode t1, TNode t2, bool value) {
+      Debug("uf") << "NotifyClass::eqNotifyTriggerTermMerge(" << t1 << ", " << t2 << std::endl;
+      if (value) {
+        return d_uf.propagate(t1.eqNode(t2));
+      } else {
+        return d_uf.propagate(t1.eqNode(t2).notNode());
+      }
+    }
+
+    bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
+      Debug("uf") << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << std::endl;
+      if (Theory::theoryOf(t1) == THEORY_BOOL) {
+        return d_uf.propagate(t1.iffNode(t2));
+      } else {
+        return d_uf.propagate(t1.eqNode(t2));
+      }
+    }
   };
 
 private:
@@ -89,7 +114,7 @@ private:
   //AJR-hack-end
 
   /** Equaltity engine */
-  EqualityEngine<NotifyClass> d_equalityEngine;
+  eq::EqualityEngine d_equalityEngine;
 
   /** Are we in conflict */
   context::CDO<bool> d_conflict;
@@ -98,7 +123,8 @@ private:
   Node d_conflictNode;
 
   /**
-   * Should be called to propagate the literal.
+   * Should be called to propagate the literal. We use a node here 
+   * since some of the propagated literals are not kept anywhere. 
    */
   bool propagate(TNode literal);
 
@@ -115,12 +141,6 @@ private:
 
   /** All the function terms that the theory has seen */
   context::CDList<TNode> d_functionsTerms;
-
-  /** True node for predicates = true */
-  Node d_true;
-
-  /** True node for predicates = false */
-  Node d_false;
 
   /** Symmetry analyzer */
   SymmetryBreaker d_symb;
@@ -161,7 +181,7 @@ public:
   }
 
   //AJR-hack
-  EqualityEngine<NotifyClass>* getEqualityEngine() { return &d_equalityEngine; }
+  eq::EqualityEngine* getEqualityEngine() { return &d_equalityEngine; }
   StrongSolverTheoryUf* getStrongSolver() { return d_thss; }
   //AJR-hack-end
 
@@ -194,11 +214,11 @@ public:
 class EqClassesIterator
 {
 private:
-  EqualityEngine<TheoryUF::NotifyClass>* d_ee;
+  eq::EqualityEngine* d_ee;
   size_t d_it;
 public:
   EqClassesIterator(){}
-  EqClassesIterator( EqualityEngine<TheoryUF::NotifyClass>* ee ) : d_ee( ee ){
+  EqClassesIterator( eq::EqualityEngine* ee ) : d_ee( ee ){
     d_it = 0;
     //for( int i=0; i<(int)d_ee->d_nodesCount; i++ ){
     //  std::cout << "{" << d_ee->d_nodes[i] << "}";
@@ -224,7 +244,7 @@ public:
     }
     return *this;
   }
-  EqClassesIterator& operator++(int) {
+  EqClassesIterator operator++(int) {
     EqClassesIterator i = *this;
     ++*this;
     return i;
@@ -236,12 +256,12 @@ class EqClassIterator
 {
 private:
   Node d_rep;
-  EqualityNode d_curr;
+  eq::EqualityNode d_curr;
   Node d_curr_node;
-  EqualityEngine<TheoryUF::NotifyClass>* d_ee;
+  eq::EqualityEngine* d_ee;
 public:
   EqClassIterator(){}
-  EqClassIterator( Node eqc, EqualityEngine<TheoryUF::NotifyClass>* ee ) : d_ee( ee ){
+  EqClassIterator( Node eqc, eq::EqualityEngine* ee ) : d_ee( ee ){
     Assert( d_ee->getRepresentative( eqc )==eqc );
     d_rep = eqc;
     d_curr_node = eqc;
@@ -265,7 +285,7 @@ public:
     }
     return *this;
   }
-  EqClassIterator& operator++(int) {
+  EqClassIterator operator++(int) {
     EqClassIterator i = *this;
     ++*this;
     return i;

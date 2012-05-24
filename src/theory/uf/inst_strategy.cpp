@@ -19,7 +19,7 @@
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
-#include "theory/uf/equality_engine_impl.h"
+#include "theory/uf/equality_engine.h"
 
 using namespace std;
 using namespace CVC4;

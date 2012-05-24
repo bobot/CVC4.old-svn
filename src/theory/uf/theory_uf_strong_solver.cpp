@@ -16,7 +16,7 @@
 
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf.h"
-#include "theory/uf/equality_engine_impl.h"
+#include "theory/uf/equality_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/theory_engine.h"
 
@@ -491,7 +491,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
         if( prev!=Node::null() ){
           //explain it2->first and prev
           std::vector< TNode > expl;
-          d_th->d_equalityEngine.explainEquality( it2->first, prev, expl );
+          d_th->d_equalityEngine.explainEquality( it2->first, prev, true, expl );
           for( int i=0; i<(int)expl.size(); i++ ){
             if( std::find( conflict.begin(), conflict.end(), expl[i] )==conflict.end() ){
               conflict.push_back( expl[i] );

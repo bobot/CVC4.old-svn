@@ -146,6 +146,9 @@ struct CVC4_PUBLIC Options {
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
 
+  /** Whether to do the ite-simplification pass */
+  bool doITESimp;
+
   /**
    * Whether the user explicitly requested ite simplification
    */

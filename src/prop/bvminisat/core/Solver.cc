@@ -119,7 +119,15 @@ Solver::Solver(CVC4::context::Context* c) :
   , conflict_budget    (-1)
   , propagation_budget (-1)
   , asynch_interrupt   (false)
-{}
+{
+  // Create the constant variables
+  varTrue = newVar(true, false);
+  varFalse = newVar(false, false);
+
+  // Assert the constants
+  uncheckedEnqueue(mkLit(varTrue, false));
+  uncheckedEnqueue(mkLit(varFalse, true));
+}
 
 
 Solver::~Solver()

@@ -17,7 +17,6 @@
 #include "theory/uf/theory_uf_candidate_generator.h"
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
-#include "theory/uf/equality_engine_impl.h"
 
 using namespace std;
 using namespace CVC4;

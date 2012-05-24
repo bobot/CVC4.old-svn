@@ -390,6 +390,8 @@ enum OptionValue {
   SIMPLIFICATION_MODE,
   DECISION_MODE,
   NO_STATIC_LEARNING,
+  ITE_SIMP,
+  NO_ITE_SIMP,
   INTERACTIVE,
   NO_INTERACTIVE,
   PRODUCE_ASSIGNMENTS,
@@ -499,6 +501,8 @@ static struct option cmdlineOptions[] = {
   { "simplification", required_argument, NULL, SIMPLIFICATION_MODE },
   { "decision", required_argument, NULL, DECISION_MODE },
   { "no-static-learning", no_argument, NULL, NO_STATIC_LEARNING },
+  { "ite-simp", no_argument, NULL, ITE_SIMP },
+  { "no-ite-simp", no_argument, NULL, NO_ITE_SIMP },
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
   { "produce-models", no_argument   , NULL, 'm' },
@@ -823,6 +827,16 @@ throw(OptionException) {
 
     case NO_STATIC_LEARNING:
       doStaticLearning = false;
+      break;
+
+    case ITE_SIMP:
+      doITESimp = true;
+      doITESimpSetByUser = true;
+      break;
+
+    case NO_ITE_SIMP:
+      doITESimp = false;
+      doITESimpSetByUser = true;
       break;
 
     case INTERACTIVE:
