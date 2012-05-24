@@ -598,6 +598,12 @@ public:
   /** The list of representatives that became constant. */ 
   std::vector<EqualityNodeId> d_constantRepresentatives;
 
+  /** List of all the constants. */
+  std::vector<TNode> d_constants;
+
+  /** Size of the constants list */
+  context::CDO<unsigned> d_constantsSize;
+
   /**
    * Adds the trigger with triggerId to the beginning of the trigger list of the node with id nodeId.
    */
