@@ -112,30 +112,24 @@ private:
 
   /**
    * (For the moment) the type hierarchy goes as:
-   * PsuedoBoolean <: Integer <: Real
+   * Integer <: Real
    * The type number of a variable is an integer representing the most specific
    * type of the variable. The possible values of type number are:
    */
   enum ArithType
     {
       ATReal = 0,
-      ATInteger = 1,
-      ATPsuedoBoolean = 2
+      ATInteger = 1
    };
 
   std::vector<ArithType> d_variableTypes;
   inline ArithType nodeToArithType(TNode x) const {
-    return x.getType().isPseudoboolean() ? ATPsuedoBoolean :
-      (x.getType().isInteger() ? ATInteger : ATReal);
+    return (x.getType().isInteger() ? ATInteger : ATReal);
   }
 
-  /** Returns true if x is of type Integer or PsuedoBoolean. */
+  /** Returns true if x is of type Integer. */
   inline bool isInteger(ArithVar x) const {
     return d_variableTypes[x] >= ATInteger;
-  }
-  /** Returns true if x is of type PsuedoBoolean. */
-  inline bool isPsuedoBoolean(ArithVar x) const {
-    return d_variableTypes[x] == ATPsuedoBoolean;
   }
 
   /** This is the set of variables initially introduced as slack variables. */
@@ -166,11 +160,26 @@ private:
   Comparison mkIntegerEqualityFromAssignment(ArithVar v);
 
   /**
-   * List of all of the inequalities asserted in the current context.
+   * List of all of the disequalities asserted in the current context that are not known
+   * to be satisfied.
    */
-  //context::CDHashSet<Node, NodeHashFunction> d_diseq;
   context::CDQueue<Constraint> d_diseqQueue;
 
+  /**
+   * Constraints that have yet to be processed by proagation work list.
+   * All of the elements have type of LowerBound, UpperBound, or
+   * Equality.
+   *
+   * This is empty at the beginning of every check call.
+   *
+   * If head()->getType() == LowerBound or UpperBound,
+   * then d_cPL[1] is the previous constraint in d_partialModel for the
+   * corresponding bound.
+   * If head()->getType() == Equality,
+   * then d_cPL[1] is the previous lowerBound in d_partialModel,
+   * and d_cPL[2] is the previous upperBound in d_partialModel.
+   */
+  std::deque<Constraint> d_currentPropagationList;
 
   /**
    * Manages information about the assignment and upper and lower bounds on
@@ -215,7 +224,7 @@ private:
    * If d >= s_TABLEAU_RESET_DENSITY * d_initialDensity, the tableau
    * is set to d_initialTableau.
    */
-  bool d_rowHasBeenAdded;
+  bool d_tableauSizeHasBeenModified;
   double d_tableauResetDensity;
   uint32_t d_tableauResetPeriod;
   static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
@@ -386,7 +395,9 @@ private:
   DenseSet d_candidateBasics;
 
   bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
-  void clearUpdates(){ d_updatedBounds.purge(); }
+  void clearUpdates();
+
+  void revertOutOfConflict();
 
   void propagateCandidates();
   void propagateCandidate(ArithVar basic);
@@ -450,6 +461,8 @@ private:
     TimerStat d_staticLearningTimer;
 
     TimerStat d_presolveTime;
+
+    TimerStat d_newPropTime;
 
     IntStat d_externalBranchAndBounds;
 

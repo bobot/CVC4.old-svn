@@ -573,9 +573,6 @@ public:
   /** Get the (singleton) type for reals. */
   inline TypeNode realType();
 
-  /** Get the (singleton) type for pseudobooleans. */
-  inline TypeNode pseudobooleanType();
-
   /** Get the (singleton) type for strings. */
   inline TypeNode stringType();
 
@@ -888,11 +885,6 @@ inline TypeNode NodeManager::integerType() {
 /** Get the (singleton) type for reals. */
 inline TypeNode NodeManager::realType() {
   return TypeNode(mkTypeConst<TypeConstant>(REAL_TYPE));
-}
-
-/** Get the (singleton) type for pseudobooleans. */
-inline TypeNode NodeManager::pseudobooleanType() {
-  return TypeNode(mkTypeConst<TypeConstant>(PSEUDOBOOLEAN_TYPE));
 }
 
 /** Get the (singleton) type for strings. */

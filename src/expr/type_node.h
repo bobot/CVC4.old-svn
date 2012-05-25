@@ -159,9 +159,7 @@ public:
    * @return true if expressions are equal, false otherwise
    */
   bool operator==(const TypeNode& typeNode) const {
-    return
-      d_nv == typeNode.d_nv ||
-      (typeNode.isReal() && this->isReal());
+    return d_nv == typeNode.d_nv;
   }
 
   /**
@@ -465,9 +463,6 @@ public:
   /** Is this the Real type? */
   bool isReal() const;
 
-  /** Is this the Pseudoboolean type? */
-  bool isPseudoboolean() const;
-
   /** Is this the String type? */
   bool isString() const;
 
@@ -598,7 +593,23 @@ public:
   /** Is this a kind type (i.e., the type of a type)? */
   bool isKind() const;
 
+
+  /**
+   * Returns the leastUpperBound in the extended type lattice of the two types.
+   * If this is \top, i.e. there is no inhabited type that contains both,
+   * a TypeNode such that isNull() is true is returned.
+   *
+   * For more information see: http://church.cims.nyu.edu/wiki/Cvc4_Type_Lattice
+   */
+  static TypeNode leastCommonTypeNode(TypeNode t0, TypeNode t1);
+
 private:
+
+  /**
+   * Returns the leastUpperBound in the extended type lattice of two
+   * predicate subtypes.
+   */
+  static TypeNode leastCommonPredicateSubtype(TypeNode t0, TypeNode t1);
 
   /**
    * Indents the given stream a given amount of spaces.
@@ -792,7 +803,6 @@ inline void TypeNode::printAst(std::ostream& out, int indent) const {
 inline bool TypeNode::isBoolean() const {
   return
     ( getKind() == kind::TYPE_CONSTANT && getConst<TypeConstant>() == BOOLEAN_TYPE ) ||
-      isPseudoboolean() ||
     ( isPredicateSubtype() && getSubtypeBaseType().isBoolean() );
 }
 
@@ -800,7 +810,6 @@ inline bool TypeNode::isInteger() const {
   return
     ( getKind() == kind::TYPE_CONSTANT && getConst<TypeConstant>() == INTEGER_TYPE ) ||
     isSubrange() ||
-    isPseudoboolean() ||
     ( isPredicateSubtype() && getSubtypeBaseType().isInteger() );
 }
 
@@ -811,20 +820,13 @@ inline bool TypeNode::isReal() const {
     ( isPredicateSubtype() && getSubtypeBaseType().isReal() );
 }
 
-inline bool TypeNode::isPseudoboolean() const {
-  return
-    ( getKind() == kind::TYPE_CONSTANT && getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE ) ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isPseudoboolean() );
-}
-
 inline bool TypeNode::isString() const {
   return getKind() == kind::TYPE_CONSTANT &&
     getConst<TypeConstant>() == STRING_TYPE;
 }
 
 inline bool TypeNode::isArray() const {
-  return getKind() == kind::ARRAY_TYPE ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isPseudoboolean() );
+  return getKind() == kind::ARRAY_TYPE;
 }
 
 inline TypeNode TypeNode::getArrayIndexType() const {
@@ -952,7 +954,12 @@ inline unsigned TypeNode::getBitVectorSize() const {
 
 inline const SubrangeBounds& TypeNode::getSubrangeBounds() const {
   Assert(isSubrange());
-  return getConst<SubrangeBounds>();
+  if(getKind() == kind::SUBRANGE_TYPE){
+    return getConst<SubrangeBounds>();
+  }else{
+    Assert(isPredicateSubtype());
+    return getSubtypeBaseType().getSubrangeBounds();
+  }
 }
 
 #ifdef CVC4_DEBUG
