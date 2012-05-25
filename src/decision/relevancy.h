@@ -105,10 +105,12 @@ class Relevancy : public RelevancyStrategy {
   bool d_multipleBacktrace;
   bool d_computeRelevancy;     // are we in a mode where we compute relevancy?
 
+  bool d_relevancyLeaves;
+
   /** current decision for the recursive call */
   SatLiteral* d_curDecision;
 public:
-  Relevancy(CVC4::DecisionEngine* de, context::Context *c):
+  Relevancy(CVC4::DecisionEngine* de, context::Context *c, bool relevancyLeaves):
     RelevancyStrategy(de, c),
     d_justified(c),
     d_prvsIndex(c, 0),
@@ -120,6 +122,7 @@ public:
     d_relevancy(c),
     d_multipleBacktrace(true),
     d_computeRelevancy(true),
+    d_relevancyLeaves(relevancyLeaves),
     d_curDecision(NULL)
   {
     StatisticsRegistry::registerStat(&d_helfulness);
@@ -127,7 +130,9 @@ public:
     StatisticsRegistry::registerStat(&d_polhelp);
     StatisticsRegistry::registerStat(&d_giveup);
     StatisticsRegistry::registerStat(&d_timestat);
-    Trace("decision") << "relevancy enabled" << std::endl;
+    Trace("decision") << "relevancy enabled with" << std::endl;
+    Trace("decision") << "  * relevancyLeaves: " << (d_relevancyLeaves ? "on" : "off")
+                      << std::endl;
   }
   ~Relevancy() {
     StatisticsRegistry::unregisterStat(&d_helfulness);
@@ -225,6 +230,7 @@ public:
       }      
     }
     if(d_maxRelevancy.find(n) == d_maxRelevancy.end()) return true;
+    if(d_relevancyLeaves && !isAtomicFormula(n)) return false;
     Debug("decision") << " maxRel: " << (d_maxRelevancy[n] )
                       << " rel: " << d_relevancy[n].get() << std::endl;
     // Assert(d_maxRelevancy.find(n) != d_maxRelevancy.end());

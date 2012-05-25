@@ -82,6 +82,7 @@ Options::Options() :
   simplificationModeSetByUser(false),
   decisionMode(DECISION_STRATEGY_RELEVANCY),
   decisionModeSetByUser(false),
+  decisionExtra(1),
   doStaticLearning(true),
   doITESimp(false),
   doITESimpSetByUser(false),
@@ -270,8 +271,10 @@ justification\n\
 + An ATGP-inspired justification heuristic\n\
 \n\
 relevancy\n\
-+ Under devel so don't know what this will be\n\
-  If seeing this in trunk, bug Kshitij to update this help\n\
++ Under development may-relevancy\n\
+\n\
+relevancy-leaves\n\
++ May-relevancy, but decide only on leaves\n\
 ";
 
 static const string dumpHelp = "\
@@ -830,6 +833,11 @@ throw(OptionException) {
         decisionModeSetByUser = true;
       } else if(!strcmp(optarg, "relevancy")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
+        decisionExtra &= ~(1 << 0);        // look at only leaves/atomic formulas
+        decisionModeSetByUser = true;
+      } else if(!strcmp(optarg, "relevancy-leaves")) {
+        decisionMode = DECISION_STRATEGY_RELEVANCY;
+        decisionExtra |= (1 << 0);        // look at only leaves/atomic formulas
         decisionModeSetByUser = true;
       } else if(!strcmp(optarg, "help")) {
         puts(decisionHelp.c_str());

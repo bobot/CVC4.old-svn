@@ -143,6 +143,13 @@ struct CVC4_PUBLIC Options {
   DecisionMode decisionMode;
   /** Whether the user set the decision strategy */
   bool decisionModeSetByUser;
+  /** 
+   * Extra settings for decision stuff, varies by strategy enabled
+   * - With DECISION_STRATEGY_RELEVANCY
+   *   > Least significant bit: true if one should only decide on leaves
+   */
+  int decisionExtra;
+  
 
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
