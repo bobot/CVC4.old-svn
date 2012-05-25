@@ -114,6 +114,10 @@ public:
 
   bool isDecisionEngineDone();
 
+  bool isDecisionRelevant(SatVariable var);
+
+  SatValue getDecisionPolarity(SatVariable var);
+
 };/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */

@@ -1090,14 +1090,10 @@ void SmtEnginePrivate::processAssertions() {
 
   {
     TimerStat::CodeTimer codeTimer(d_smt.d_iteRemovalTime);
-    // Remove ITEs
-    d_smt.d_numAssertionsPre += d_assertionsToCheck.size();
     // Remove ITEs, updating d_iteSkolemMap
+    d_smt.d_numAssertionsPre += d_assertionsToCheck.size();
     removeITEs();
     d_smt.d_numAssertionsPost += d_assertionsToCheck.size();
-    // This may need to be in a try-catch
-    // block. make regress is passing, so
-    // skipping for now --K
   }
 
   // begin: INVARIANT to maintain: no reordering of assertions or

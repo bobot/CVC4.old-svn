@@ -50,19 +50,22 @@ typedef std::vector<TNode> IteList;
 class RelGiveUpException : public Exception {
 public:
   RelGiveUpException() : 
-    Exception("justification hueristic: giving up") {
+    Exception("relevancy: giving up") {
   }
 };/* class GiveUpException */
 
-class Relevancy : public ITEDecisionStrategy {
+class Relevancy : public RelevancyStrategy {
   typedef hash_map<TNode,IteList,TNodeHashFunction> IteCache;
   typedef hash_map<TNode,TNode,TNodeHashFunction> SkolemMap;
+  typedef hash_map<TNode,SatValue,TNodeHashFunction> PolarityCache;
 
   // being 'justified' is monotonic with respect to decisions
   context::CDHashSet<TNode,TNodeHashFunction> d_justified;
   context::CDO<unsigned>  d_prvsIndex;
 
   IntStat d_helfulness;
+  IntStat d_polqueries;
+  IntStat d_polhelp;
   IntStat d_giveup;
   TimerStat d_timestat;
 
@@ -94,6 +97,7 @@ class Relevancy : public ITEDecisionStrategy {
    */
   hash_map<TNode,int,TNodeHashFunction> d_maxRelevancy;
   context::CDHashMap<TNode,int,TNodeHashFunction> d_relevancy;
+  PolarityCache d_polarityCache;
 
   /**
    * do we do "multiple-backtrace" to try to justify a node
@@ -105,25 +109,31 @@ class Relevancy : public ITEDecisionStrategy {
   SatLiteral* d_curDecision;
 public:
   Relevancy(CVC4::DecisionEngine* de, context::Context *c):
-    ITEDecisionStrategy(de, c),
+    RelevancyStrategy(de, c),
     d_justified(c),
     d_prvsIndex(c, 0),
-    d_helfulness("decision::jh::helpfulness", 0),
-    d_giveup("decision::jh::giveup", 0),
-    d_timestat("decision::jh::time"),
+    d_helfulness("decision::rel::preventedDecisions", 0),
+    d_polqueries("decision::rel::polarityQueries", 0),
+    d_polhelp("decision::rel::polarityHelp", 0),
+    d_giveup("decision::rel::giveup", 0),
+    d_timestat("decision::rel::time"),
     d_relevancy(c),
     d_multipleBacktrace(false),
     d_computeRelevancy(true),
     d_curDecision(NULL)
   {
     StatisticsRegistry::registerStat(&d_helfulness);
+    StatisticsRegistry::registerStat(&d_polqueries);
+    StatisticsRegistry::registerStat(&d_polhelp);
     StatisticsRegistry::registerStat(&d_giveup);
     StatisticsRegistry::registerStat(&d_timestat);
-    Trace("decision") << "Justification heuristic enabled" << std::endl;
-
+    Trace("decision") << "relevancy enabled" << std::endl;
   }
   ~Relevancy() {
     StatisticsRegistry::unregisterStat(&d_helfulness);
+    StatisticsRegistry::unregisterStat(&d_polqueries);
+    StatisticsRegistry::unregisterStat(&d_polhelp);
+    StatisticsRegistry::unregisterStat(&d_giveup);
     StatisticsRegistry::unregisterStat(&d_timestat);
   }
   prop::SatLiteral getNext(bool &stopSearch) {
@@ -131,6 +141,7 @@ public:
     TimerStat::CodeTimer codeTimer(d_timestat);
 
     d_visited.clear();
+    d_polarityCache.clear();
 
     for(unsigned i = d_prvsIndex; i < d_assertions.size(); ++i) {
       Trace("decision") << d_assertions[i] << std::endl;
@@ -141,9 +152,12 @@ public:
       SatValue desiredVal = SAT_VALUE_TRUE;
       SatLiteral litDecision = findSplitter(d_assertions[i], desiredVal);
 
-      if(litDecision != undefSatLiteral)
+      if(!d_computeRelevancy && litDecision != undefSatLiteral) {
+        d_prvsIndex = i;
         return litDecision;
+      }
     }
+    if(d_computeRelevancy) return undefSatLiteral;
 
     Trace("decision") << "jh: Nothing to split on " << std::endl;
 
@@ -196,6 +210,43 @@ public:
 
   }
 
+  bool isRelevant(TNode n) {
+    Trace("decision") << "isRelevant(" << n << ")" << std::endl;
+    if(Debug.isOn("decision")) {
+      if(d_maxRelevancy.find(n) == d_maxRelevancy.end()) {
+        // we are becuase of not getting information about literals
+        // created using newLiteral command... need to figure how to
+        // handle that
+        Warning() << "isRelevant: WARNING: didn't find node when we should had" << std::endl;
+        // Warning() doesn't work for some reason
+        cout << "isRelevant: WARNING: didn't find node when we should had" << std::endl;
+      }      
+    }
+    if(d_maxRelevancy.find(n) == d_maxRelevancy.end()) return true;
+    // Assert(d_maxRelevancy.find(n) != d_maxRelevancy.end());
+    if(d_maxRelevancy[n] == d_relevancy[n]) {
+      ++d_helfulness; // preventedDecisions
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  SatValue getPolarity(TNode n) {
+    Trace("decision") << "getPolarity(" << n << "): ";
+    Assert(n.getKind() != kind::NOT);
+    ++d_polqueries;
+    PolarityCache::iterator it = d_polarityCache.find(n);
+    if(it == d_polarityCache.end()) {
+      Trace("decision") << "don't know" << std::endl;
+      return SAT_VALUE_UNKNOWN;
+    } else {
+      ++d_polhelp;
+      Trace("decision") << it->second << std::endl;
+      return it->second;
+    }
+  }
+
   /* Compute justified */
   /*bool computeJustified() {
     
@@ -206,15 +257,19 @@ private:
     bool ret;
     SatLiteral litDecision;
     try {
+      // init
       d_curDecision = &litDecision;
+      
+      // solve
       ret = findSplitterRec(node, desiredVal);
+
+      // post
       d_curDecision = NULL;
     }catch(RelGiveUpException &e) {
       return prop::undefSatLiteral;
     }
     if(ret == true) {
       Trace("decision") << "Yippee!!" << std::endl;
-      ++d_helfulness;
       return litDecision;
     } else {
       return undefSatLiteral;
@@ -252,9 +307,57 @@ private:
     return theory::kindToTheoryId(n.getKind()) != theory::THEORY_BOOL;
   }
   
+  void decreaseRelevancy(TNode n) {
+    if(d_visited.find(n) != d_visited.end()) return;
+
+    if(d_relevancy[n] != d_maxRelevancy[n])
+      return;
+    d_relevancy[n] = d_relevancy[n] - 1;
+
+    if(isAtomicFormula(n)) {
+      d_visited.insert(n);
+      const IteList& l = getITEs(n);
+      for(unsigned i = 0; i < l.size(); ++i)
+        decreaseRelevancy(l[i]);
+      d_visited.erase(n);
+      return;
+    } else {
+      for(unsigned i = 0; i < n.getNumChildren(); ++i)
+        decreaseRelevancy(n[i]);
+    }
+  }
+
+  void increaseRelevancy(TNode n) {
+    if(d_visited.find(n) != d_visited.end()) return;
+
+    d_relevancy[n] = d_relevancy[n] + 1;
+    // increase relevancy, and don't increase for children unless...
+    if(d_relevancy[n] != d_maxRelevancy[n])
+      return;
+    // ...we have become unreachable from the root
+    if(isAtomicFormula(n)) {
+      d_visited.insert(n);
+      const IteList& l = getITEs(n);
+      for(unsigned i = 0; i < l.size(); ++i)
+        increaseRelevancy(l[i]);
+      d_visited.erase(n);
+      return;
+    } else {
+      for(unsigned i = 0; i < n.getNumChildren(); ++i)
+        increaseRelevancy(n[i]);
+    }
+  }
+
   /* */
   void increaseMaxRelevancy(TNode n) {
     if(d_visited.find(n) != d_visited.end()) return;
+
+    if(d_maxRelevancy[n] != 0 && d_maxRelevancy[n] == d_relevancy[n]) {
+      // recursively decrease for children, because they are now reachable
+      decreaseRelevancy(n);
+      // fix relevancy of this node which also changed in the process
+      d_relevancy[n] = d_relevancy[n] + 1;
+    }
 
     d_maxRelevancy[n]++;
     if(d_maxRelevancy[n] > 1) return;   // don't update children multiple times
@@ -273,24 +376,6 @@ private:
     } //else (...atomic formula...)
   }
 
-  void increaseRelevancy(TNode n) {
-    d_relevancy[n] = d_relevancy[n] + 1;
-    // increase relevancy, and don't increase for children unless...
-    if(d_relevancy[n] != d_maxRelevancy[n])
-      return;
-    // ...we have become unreachable from the root
-    if(isAtomicFormula(n)) {
-      d_visited.insert(n);
-      const IteList& l = getITEs(n);
-      for(unsigned i = 0; i < l.size(); ++i)
-        increaseRelevancy(l[i]);
-      d_visited.erase(n);
-      return;
-    } else {
-      for(unsigned i = 0; i < n.getNumChildren(); ++i)
-        increaseRelevancy(n[i]);
-    }
-  }
 };/* class Relevancy */
 
 }/* namespace decision */

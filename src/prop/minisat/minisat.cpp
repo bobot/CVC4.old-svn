@@ -69,6 +69,20 @@ SatValue MinisatSatSolver::toSatLiteralValue(Minisat::lbool res) {
   return SAT_VALUE_FALSE;
 }
 
+Minisat::lbool MinisatSatSolver::toMinisatlbool(SatValue val)
+{
+  if(val == SAT_VALUE_TRUE) return Minisat::lbool((uint8_t)0);
+  if(val == SAT_VALUE_UNKNOWN) return Minisat::lbool((uint8_t)2);
+  Assert(val == SAT_VALUE_FALSE);
+  return Minisat::lbool((uint8_t)1);
+}
+
+/*bool MinisatSatSolver::tobool(SatValue val)
+{
+  if(val == SAT_VALUE_TRUE) return true;
+  Assert(val == SAT_VALUE_FALSE);
+  return false;
+  }*/
 
 void MinisatSatSolver::toMinisatClause(SatClause& clause,
                                            Minisat::vec<Minisat::Lit>& minisat_clause) {

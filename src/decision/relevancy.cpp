@@ -82,7 +82,7 @@ bool Relevancy::findSplitterRec(TNode node,
                                 SatValue desiredVal)
 {
   Trace("decision") 
-    << "findSplitterRec(" << node << ", " 
+    << "findSplitterRec([" << node.getId() << "]" << node << ", " 
     << desiredVal << ", .. )" << std::endl; 
 
   /* Handle NOT as a special case */
@@ -92,8 +92,21 @@ bool Relevancy::findSplitterRec(TNode node,
   }
 
   /* Base case */
-  if (checkJustified(node) || d_visited.find(node) != d_visited.end())
+  if(checkJustified(node) || d_visited.find(node) != d_visited.end())
     return false;
+
+  /**
+   * If we have already explored the subtree for some desiredVal, we
+   * skip this and continue exploring the rest
+   */
+  if(d_polarityCache.find(node) == d_polarityCache.end()) {
+    d_polarityCache[node] = desiredVal;
+  } else {
+    Assert(d_multipleBacktrace || d_computeRelevancy);
+    return true;
+  }
+
+  d_visited.insert(node);
 
 #if defined CVC4_ASSERTIONS || defined CVC4_TRACING
   // We don't always have a sat literal, so remember that. Will need
@@ -139,18 +152,20 @@ bool Relevancy::findSplitterRec(TNode node,
     // replaced during ite removal -- then try to resolve that first
     const IteList& l = getITEs(node);
     Debug("jh-ite") << " ite size = " << l.size() << std::endl;
-    d_visited.insert(node);
     for(unsigned i = 0; i < l.size(); ++i) {
       Assert(l[i].getKind() == kind::ITE, "Expected ITE");
       Debug("jh-ite") << " i = " << i 
                       << " l[i] = " << l[i] << std::endl;
-      if(findSplitterRec(l[i], SAT_VALUE_TRUE))
+      if(findSplitterRec(l[i], SAT_VALUE_TRUE)) {
+        d_visited.erase(node);
         return true;
+      }
     }
-    d_visited.erase(node);
+    Debug("jh-ite") << " ite done " << l.size() << std::endl;
 
     if(litVal != SAT_VALUE_UNKNOWN) {
       setJustified(node);
+      d_visited.erase(node);
       return false;
     } else {
       /* if(not d_decisionEngine->hasSatLiteral(node))
@@ -160,6 +175,7 @@ bool Relevancy::findSplitterRec(TNode node,
       *d_curDecision = SatLiteral(v, desiredVal != SAT_VALUE_TRUE );
       Trace("decision") << "decision " << *d_curDecision << std::endl;
       Trace("decision") << "Found something to split. Glad to be able to serve you." << std::endl;
+      d_visited.erase(node);
       return true;
     }
   }
@@ -240,6 +256,7 @@ bool Relevancy::findSplitterRec(TNode node,
            "Output should be justified");
     setJustified(node);
   }
+  d_visited.erase(node);
   return ret;
 
   Unreachable();
@@ -253,12 +270,16 @@ bool Relevancy::handleOrFalse(TNode node, SatValue desiredVal) {
           (node.getKind() == kind::OR  and desiredVal == SAT_VALUE_FALSE) );
 
   int n = node.getNumChildren();
+  bool ret = false;
   for(int i = 0; i < n; ++i) {
     if (findSplitterRec(node[i], desiredVal)) {
-      return true;
+      if(!d_computeRelevancy) 
+        return true;
+      else
+        ret = true;
     }
   }
-  return false;      
+  return ret;
 }
 
 bool Relevancy::handleOrTrue(TNode node, SatValue desiredVal) {
