@@ -32,8 +32,12 @@
 
 void Relevancy::setJustified(TNode n)
 {
+  Debug("decision") << " marking [" << n.getId() << "]"<< n << "as justified" << std::endl;
   d_justified.insert(n);
-  if(d_computeRelevancy) increaseRelevancy(n);
+  if(d_computeRelevancy) {
+    d_relevancy[n] = d_maxRelevancy[n];
+    updateRelevancy(n);
+  }
 }
 
 bool Relevancy::checkJustified(TNode n)
@@ -91,9 +95,18 @@ bool Relevancy::findSplitterRec(TNode node,
     node = node[0];
   }
 
-  /* Base case */
-  if(checkJustified(node) || d_visited.find(node) != d_visited.end())
+  /* Avoid infinite loops */
+  if(d_visited.find(node) != d_visited.end()) {
+    Debug("decision") << " node repeated. kind was " << node.getKind() << std::endl;
+    Assert(false);
+    Assert(node.getKind() == kind::ITE);
     return false;
+  }
+
+  /* Base case */
+  if(checkJustified(node)) {
+    return false;
+  }
 
   /**
    * If we have already explored the subtree for some desiredVal, we
@@ -156,6 +169,7 @@ bool Relevancy::findSplitterRec(TNode node,
       Assert(l[i].getKind() == kind::ITE, "Expected ITE");
       Debug("jh-ite") << " i = " << i 
                       << " l[i] = " << l[i] << std::endl;
+      if(d_visited.find(node) != d_visited.end() ) continue;
       if(findSplitterRec(l[i], SAT_VALUE_TRUE)) {
         d_visited.erase(node);
         return true;
@@ -164,8 +178,8 @@ bool Relevancy::findSplitterRec(TNode node,
     Debug("jh-ite") << " ite done " << l.size() << std::endl;
 
     if(litVal != SAT_VALUE_UNKNOWN) {
-      setJustified(node);
       d_visited.erase(node);
+      setJustified(node);
       return false;
     } else {
       /* if(not d_decisionEngine->hasSatLiteral(node))
@@ -251,12 +265,12 @@ bool Relevancy::findSplitterRec(TNode node,
     break;
   }//end of switch(k)
 
+  d_visited.erase(node);
   if(ret == false) {
     Assert(litPresent == false || litVal ==  desiredVal,
            "Output should be justified");
     setJustified(node);
   }
-  d_visited.erase(node);
   return ret;
 
   Unreachable();

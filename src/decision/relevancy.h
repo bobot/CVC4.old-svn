@@ -118,7 +118,7 @@ public:
     d_giveup("decision::rel::giveup", 0),
     d_timestat("decision::rel::time"),
     d_relevancy(c),
-    d_multipleBacktrace(false),
+    d_multipleBacktrace(true),
     d_computeRelevancy(true),
     d_curDecision(NULL)
   {
@@ -205,7 +205,9 @@ public:
     // Save the 'real' assertions locally
     for(unsigned i = 0; i < assertionsEnd; ++i) {
       d_assertions.push_back(assertions[i]);
+      d_visited.clear();
       if(d_computeRelevancy) increaseMaxRelevancy(assertions[i]);
+      d_visited.clear();
     }
 
   }
@@ -223,7 +225,10 @@ public:
       }      
     }
     if(d_maxRelevancy.find(n) == d_maxRelevancy.end()) return true;
+    Debug("decision") << " maxRel: " << (d_maxRelevancy[n] )
+                      << " rel: " << d_relevancy[n].get() << std::endl;
     // Assert(d_maxRelevancy.find(n) != d_maxRelevancy.end());
+    Assert(0 <= d_relevancy[n] && d_relevancy[n] <= d_maxRelevancy[n]);
     if(d_maxRelevancy[n] == d_relevancy[n]) {
       ++d_helfulness; // preventedDecisions
       return false;
@@ -307,69 +312,52 @@ private:
     return theory::kindToTheoryId(n.getKind()) != theory::THEORY_BOOL;
   }
   
-  void decreaseRelevancy(TNode n) {
+  /** Recursively increase relevancies */
+  void updateRelevancy(TNode n) {
     if(d_visited.find(n) != d_visited.end()) return;
+
+    Assert(d_relevancy[n] <= d_maxRelevancy[n]);
 
     if(d_relevancy[n] != d_maxRelevancy[n])
       return;
-    d_relevancy[n] = d_relevancy[n] - 1;
 
+    d_visited.insert(n);
     if(isAtomicFormula(n)) {
-      d_visited.insert(n);
       const IteList& l = getITEs(n);
-      for(unsigned i = 0; i < l.size(); ++i)
-        decreaseRelevancy(l[i]);
-      d_visited.erase(n);
-      return;
+      for(unsigned i = 0; i < l.size(); ++i) {
+        if(d_visited.find(l[i]) == d_visited.end()) continue;
+        d_relevancy[l[i]] = d_relevancy[l[i]] + 1;
+        updateRelevancy(l[i]);
+      }
     } else {
-      for(unsigned i = 0; i < n.getNumChildren(); ++i)
-        decreaseRelevancy(n[i]);
+      for(unsigned i = 0; i < n.getNumChildren(); ++i) {
+        if(d_visited.find(n[i]) == d_visited.end()) continue;
+        d_relevancy[n[i]] = d_relevancy[n[i]] + 1;
+        updateRelevancy(n[i]);
+      }
     }
-  }
-
-  void increaseRelevancy(TNode n) {
-    if(d_visited.find(n) != d_visited.end()) return;
-
-    d_relevancy[n] = d_relevancy[n] + 1;
-    // increase relevancy, and don't increase for children unless...
-    if(d_relevancy[n] != d_maxRelevancy[n])
-      return;
-    // ...we have become unreachable from the root
-    if(isAtomicFormula(n)) {
-      d_visited.insert(n);
-      const IteList& l = getITEs(n);
-      for(unsigned i = 0; i < l.size(); ++i)
-        increaseRelevancy(l[i]);
-      d_visited.erase(n);
-      return;
-    } else {
-      for(unsigned i = 0; i < n.getNumChildren(); ++i)
-        increaseRelevancy(n[i]);
-    }
+    d_visited.erase(n);
   }
 
   /* */
   void increaseMaxRelevancy(TNode n) {
-    if(d_visited.find(n) != d_visited.end()) return;
 
-    if(d_maxRelevancy[n] != 0 && d_maxRelevancy[n] == d_relevancy[n]) {
-      // recursively decrease for children, because they are now reachable
-      decreaseRelevancy(n);
-      // fix relevancy of this node which also changed in the process
-      d_relevancy[n] = d_relevancy[n] + 1;
-    }
+    Debug("decision") 
+      << "increaseMaxRelevancy([" << n.getId() << "]" << n << ")" 
+      << std::endl;    
 
     d_maxRelevancy[n]++;
-    if(d_maxRelevancy[n] > 1) return;   // don't update children multiple times
+
+    // don't update children multiple times
+    if(d_visited.find(n) != d_visited.end()) return;
     
+    d_visited.insert(n);
     // Part to make the recursive call
     if(isAtomicFormula(n)) {
-      d_visited.insert(n);
       const IteList& l = getITEs(n);
       for(unsigned i = 0; i < l.size(); ++i)
-        increaseMaxRelevancy(l[i]);
-      d_visited.erase(n);
-      return;
+        if(d_visited.find(l[i]) == d_visited.end())
+          increaseMaxRelevancy(l[i]);
     } else {
       for(unsigned i = 0; i < n.getNumChildren(); ++i)
         increaseMaxRelevancy(n[i]);
