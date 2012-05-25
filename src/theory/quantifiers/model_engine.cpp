@@ -1078,15 +1078,19 @@ void ModelEngine::increment( RepAlphabetIterator* rai ){
         rai->d_inst_tests++;
         //if eVal is not (int)rai->d_index.size(), then the instantiation is already true in the model,
         // and eVal is the highest index in rai which we can safely iterate
-        int eVal = evaluate( rai, d_quantEngine->getCounterexampleBody( rai->d_f ), true );
-        Debug("fmf-model-eval") << "  Returned eVal = " << eVal << std::endl;
-        //std::cout << "Returned eVal = " << eVal << "/" << rai->d_index.size() << std::endl;
-        if( eVal<(int)rai->d_index.size() ){
+        int depIndex;
+        if( evaluate( rai, d_quantEngine->getCounterexampleBody( rai->d_f ), depIndex )==1 ){
+          Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
+          //std::cout << "Returned eVal = " << eVal << "/" << rai->d_index.size() << std::endl;
+          if( depIndex<(int)rai->d_index.size() ){
 #ifdef DISABLE_EVAL_SKIP_MULTIPLE
-          eVal = (int)rai->d_index.size()-1;
+            depIndex = (int)rai->d_index.size()-1;
 #endif
-          rai->increment2( d_quantEngine, eVal );
-          success = false;
+            rai->increment2( d_quantEngine, depIndex );
+            success = false;
+          }
+        }else{
+          Debug("fmf-model-eval") << "  Returned failure." << std::endl;
         }
       }
     }while( !success );
@@ -1098,82 +1102,122 @@ void ModelEngine::increment( RepAlphabetIterator* rai ){
 //   then the formula n instantiated with rai cannot be proven to be equal to phaseReq
 // otherwise,
 //   each n{rai->d_index[0]/x_0...rai->d_index[eVal]/x_eVal, */x_(eVal+1) ... */x_n } is equal to phaseReq in the current model
-int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, bool phaseReq ){
+int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
   ++(d_statistics.d_eval_formulas);
   //Debug("fmf-model-eval-debug") << "Evaluate " << n << " " << phaseReq << std::endl;
   if( n.getKind()==NOT ){
-    return evaluate( rai, n[0], !phaseReq );
+    int val = evaluate( rai, n[0], depIndex );
+    return val==1 ? -1 : ( val==-1 ? 1 : 0 );
   }else if( n.getKind()==OR || n.getKind()==AND || n.getKind()==IMPLIES ){
-    //check whether we are in a fortunate case or unfortunate case
-    bool followPhase = n.getKind()==AND ? !phaseReq : phaseReq;
-    int eVal = followPhase ? (int)rai->d_index.size() : -1;
+    int baseVal = n.getKind()==AND ? 1 : -1;
+    int eVal = baseVal;
+    int posDepIndex = (int)rai->d_index.size();
+    int negDepIndex = -1;
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
       //evaluate subterm
-      bool newPhaseReq = ( i==0 && n.getKind()==IMPLIES ) ? !phaseReq : phaseReq;
-      int eValT = evaluate( rai, n[i], newPhaseReq );
-      if( followPhase ){
-        if( eValT==-1 ){
-          return eValT;
-        }else if( eValT<eVal ){
-          eVal = eValT;
+      int childDepIndex;
+      Node nn = ( i==0 && n.getKind()==IMPLIES ) ? n[i].notNode() : n[i];
+      int eValT = evaluate( rai, nn, childDepIndex );
+      if( eValT==baseVal ){
+        if( eVal==baseVal ){
+          if( childDepIndex>negDepIndex ){
+            negDepIndex = childDepIndex;
+          }
         }
-      }else{
-        if( eValT==(int)rai->d_index.size() ){
-          return eValT;
-        }else if( eValT>eVal ){
-          eVal = eValT;
+      }else if( eValT==-baseVal ){
+        eVal = -baseVal;
+        if( childDepIndex<posDepIndex ){
+          posDepIndex = childDepIndex;
+          if( posDepIndex==-1 ){
+            break;
+          }
+        }
+      }else if( eValT==0 ){
+        if( eVal==baseVal ){
+          eVal = 0;
         }
       }
     }
-    return eVal;
-  }else if( n.getKind()==IFF || n.getKind()==XOR || n.getKind()==ITE || n.getKind()==FORALL ){
-    //do nothing
+    if( eVal!=0 ){
+      depIndex = eVal==-baseVal ? posDepIndex : negDepIndex;
+      return eVal;
+    }else{
+      return 0;
+    }
+  }else if( n.getKind()==IFF || n.getKind()==XOR ){
+    int depIndex1;
+    int eVal = evaluate( rai, n[0], depIndex1 );
+    if( eVal!=0 ){
+      int depIndex2;
+      int eVal2 = evaluate( rai, n.getKind()==XOR ? n[1].notNode() : n[1], depIndex2 );
+      if( eVal2!=0 ){
+        depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
+        return eVal==eVal2 ? 1 : -1;
+      }
+    }
+    return 0;
+  }else if( n.getKind()==ITE ){
+    int depIndex1;
+    int eVal = evaluate( rai, n[0], depIndex1 );
+    if( eVal==0 ){
+      //DO_THIS: evaluate children to see if they are the same value?
+      return 0;
+    }else{
+      int depIndex2;
+      int eValT = evaluate( rai, n[eVal==1 ? 1 : 2], depIndex2 );
+      depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
+      return eValT;
+    }
+  }else if( n.getKind()==FORALL ){
+    return 0;
   }else{
-    //if we know we will fail again, immediately return
-    if( d_eval_failed.find( n )!=d_eval_failed.end() ){
-      if( d_eval_failed[n] ){
-        return (int)rai->d_index.size();
-      }
-    }
+    ////if we know we will fail again, immediately return
+    //if( d_eval_failed.find( n )!=d_eval_failed.end() ){
+    //  if( d_eval_failed[n] ){
+    //    return -1;
+    //  }
+    //}
     //Debug("fmf-model-eval-debug") << "Evaluate literal " << n << std::endl;
     //this should be a literal
     Node gn = n.substitute( rai->d_ic.begin(), rai->d_ic.end(), rai->d_terms.begin(), rai->d_terms.end() );
     //Debug("fmf-model-eval-debug") << "  Ground version = " << gn << std::endl;
-    bool success = false;
+    int retVal = 0;
     std::vector< Node > fv_deps;
     if( n.getKind()==APPLY_UF ){
       //case for boolean predicates
-      Node bn = NodeManager::currentNM()->mkConst( phaseReq );
-      success = evaluateEquality( n, bn, gn, bn, true, fv_deps );
-    }else if( n.getKind()==EQUAL ){
-      //case for equality
-      success = evaluateEquality( n[0], n[1], gn[0], gn[1], phaseReq, fv_deps );
-    }
-    int maxIndex = -1;
-    for( int i=0; i<(int)fv_deps.size(); i++ ){
-      int index = rai->d_var_order[ fv_deps[i].getAttribute(InstVarNumAttribute()) ];
-      if( index>maxIndex ){
-        maxIndex = index;
-        if( index==(int)rai->d_index.size()-1 ){
-          break;
+      Node val = evaluateTerm( n, gn, fv_deps );
+      if( d_quantEngine->getEqualityQuery()->hasTerm( val ) ){
+        if( areEqual( val, NodeManager::currentNM()->mkConst( true ) ) ){
+          retVal = 1;
+        }else{
+          retVal = -1;
         }
       }
+    }else if( n.getKind()==EQUAL ){
+      //case for equality
+      retVal = evaluateEquality( n[0], n[1], gn[0], gn[1], fv_deps );
     }
-    Debug("fmf-model-eval-debug") << "Evaluate literal: success=" << success << ", depends = " << maxIndex << std::endl;
-    if( success ){
-      return maxIndex;
-    }else if( maxIndex<(int)rai->d_index.size()-1 ){
-      //store that we should not check this literal again until the instantiation at maxIndex changes
-      d_eval_failed_lits[ maxIndex ].push_back( n );
-      d_eval_failed[ n ] = true;
+    if( retVal!=0 ){
+      int maxIndex = -1;
+      for( int i=0; i<(int)fv_deps.size(); i++ ){
+        int index = rai->d_var_order[ fv_deps[i].getAttribute(InstVarNumAttribute()) ];
+        if( index>maxIndex ){
+          maxIndex = index;
+          if( index==(int)rai->d_index.size()-1 ){
+            break;
+          }
+        }
+      }
+      Debug("fmf-model-eval-debug") << "Evaluate literal: return " << retVal << ", depends = " << maxIndex << std::endl;
+      depIndex = maxIndex;
     }
+    return retVal;
   }
-  return (int)rai->d_index.size();
 }
 
-bool ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, bool phaseReq, std::vector< Node >& fv_deps ){
+int ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, std::vector< Node >& fv_deps ){
   ++(d_statistics.d_eval_eqs);
-  Debug("fmf-model-eval-debug") << "Evaluate equality: (" << phaseReq << ")" << std::endl;
+  Debug("fmf-model-eval-debug") << "Evaluate equality: " << std::endl;
   Debug("fmf-model-eval-debug") << "   " << n1 << " = " << n2 << std::endl;
   Debug("fmf-model-eval-debug") << "   " << gn1 << " = " << gn2 << std::endl;
   Node val1 = evaluateTerm( n1, gn1, fv_deps );
@@ -1183,14 +1227,14 @@ bool ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, bool p
   Debug("fmf-model-eval-debug") <<  " = ";
   printRepresentative( "fmf-model-eval-debug", d_quantEngine, val2 );
   Debug("fmf-model-eval-debug") << std::endl;
-  bool success = false;
-  if( phaseReq ){
-    success = areEqual( val1, val2 );
-  }else{
-    success = areDisequal( val1, val2 );
+  int retVal = 0;
+  if( areEqual( val1, val2 ) ){
+    retVal = 1;
+  }else if( areDisequal( val1, val2 ) ){
+    retVal = -1;
   }
-  if( success ){
-    Debug("fmf-model-eval-debug") << "   ---> Success" << std::endl;
+  if( retVal!=0 ){
+    Debug("fmf-model-eval-debug") << "   ---> Success, value = " << (retVal==1) << std::endl;
   }else{
     Debug("fmf-model-eval-debug") << "   ---> Failed" << std::endl;
   }
@@ -1199,7 +1243,7 @@ bool ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, bool p
     Debug("fmf-model-eval-debug") << fv_deps[i] << " ";
   }
   Debug("fmf-model-eval-debug") << std::endl;
-  return success;
+  return retVal;
 }
 
 Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){

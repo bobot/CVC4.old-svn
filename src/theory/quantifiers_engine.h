@@ -309,9 +309,9 @@ public:
   void addModule( QuantifiersModule* qm ) { d_modules.push_back( qm ); }
   /** check at level */
   void check( Theory::Effort e );
-  /** register quantifier */
+  /** register (non-rewritten) quantifier */
   void registerQuantifier( Node f );
-  /** register quantifier */
+  /** register (non-rewritten) quantifier */
   void registerPattern( std::vector<Node> & pattern);
   /** assert (universal) quantifier */
   void assertNode( Node f );

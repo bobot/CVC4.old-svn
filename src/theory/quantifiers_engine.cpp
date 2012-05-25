@@ -19,6 +19,7 @@
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/equality_engine_impl.h"
+#include "theory/quantifiers/quantifiers_rewriter.h"
 
 using namespace std;
 using namespace CVC4;
@@ -27,6 +28,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 //#define COMPUTE_RELEVANCE
+//#define REWRITE_ASSERTED_QUANTIFIERS
 
   /** reset instantiation */
 void InstStrategy::resetInstantiationRound( Theory::Effort effort ){
@@ -324,12 +326,12 @@ void QuantifiersEngine::makeInstantiationConstantsFor( Node f ){
 
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
-    //do dynamic rewriting of quantifier
     std::vector< Node > quants;
-#if 0
-    Node nn = QuantifiersRewriter::rewriteQuant( f, false, false );
+#ifdef REWRITE_ASSERTED_QUANTIFIERS
+    //do assertion-time rewriting of quantifier
+    Node nf = quantifiers::QuantifiersRewriter::rewriteQuant( f, false, false );
     if( nf!=f ){
-      Debug("quantifiers-rewrite") << "*** dynamic-rewrite " << f << std::endl;
+      Debug("quantifiers-rewrite") << "*** assert-rewrite " << f << std::endl;
       Debug("quantifiers-rewrite") << " to " << std::endl;
       Debug("quantifiers-rewrite") << nf << std::endl;
       //we will instead register all the rewritten quantifiers
@@ -343,6 +345,8 @@ void QuantifiersEngine::registerQuantifier( Node f ){
         //unhandled: rewrite must go to a quantifier, or conjunction of quantifiers
         Assert( false );
       }
+    }else{
+      quants.push_back( f );
     }
 #else
     quants.push_back( f );
@@ -397,9 +401,11 @@ void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
 
 void QuantifiersEngine::assertNode( Node f ){
   Assert( f.getKind()==FORALL );
-  d_forall_asserts.push_back( f );
-  for( int i=0; i<(int)d_modules.size(); i++ ){
-    d_modules[i]->assertNode( f );
+  for( int j=0; j<(int)d_quant_rewritten[f].size(); j++ ){
+    d_forall_asserts.push_back( d_quant_rewritten[f][j] );
+    for( int i=0; i<(int)d_modules.size(); i++ ){
+      d_modules[i]->assertNode( d_quant_rewritten[f][j] );
+    }
   }
 }
 
@@ -443,6 +449,10 @@ bool QuantifiersEngine::addLemma( Node lem ){
 
 bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 {
+    //std::cout << "***& Instantiate " << f << " with " << std::endl;
+    //for( int i=0; i<(int)terms.size(); i++ ){
+    //  std::cout << "   " << terms[i] << std::endl;
+    //}
   Assert( f.getKind()==FORALL );
   Assert( !f.hasAttribute(InstConstantAttribute()) );
   Assert( d_vars[f].size()==terms.size() && d_vars[f].size()==f[0].getNumChildren() );

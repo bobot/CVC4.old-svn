@@ -547,7 +547,7 @@ Node QuantifiersRewriter::computeOperation( Node f, int computeOption ){
       n = computeVarElimination( n, args, ipl );
     }while( prev!=n && !args.empty() );
   }else if( computeOption==COMPUTE_CNF ){
-    n = computeNNF( n );
+    //n = computeNNF( n );
     n = computeCNF( n, args, defs, false );
     ipl = Node::null();
   }

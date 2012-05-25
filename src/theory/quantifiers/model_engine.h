@@ -275,8 +275,8 @@ private:
   //map from quantifiers to if are constant SAT
   std::map< Node, bool > d_quant_sat;
 private:
-  int evaluate( RepAlphabetIterator* rai, Node n, bool phaseReq );
-  bool evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, bool phaseReq, std::vector< Node >& fv_deps );
+  int evaluate( RepAlphabetIterator* rai, Node n, int& depIndex );
+  int evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, std::vector< Node >& fv_deps );
   Node evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps );
   //temporary storing which literals have failed
   void clearEvalFailed( int index );
