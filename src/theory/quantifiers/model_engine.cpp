@@ -310,7 +310,7 @@ void UfModelTree::debugPrint( const char* c, QuantifiersEngine* qe, std::vector<
 UfModel::UfModel( Node op, ModelEngine* me ) : d_op( op ), d_me( me ), 
   d_model_constructed( false ), d_reconsider_model( false ){
 
-  d_tree = UfModelTreeOrdered( op );  TypeNode tn = d_op.getType();  tn = tn[(int)tn.getNumChildren()-1];  Assert( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) );  //look at ground assertions
+  d_tree = UfModelTreeOrdered( op );  TypeNode tn = d_op.getType();  tn = tn[(int)tn.getNumChildren()-1];  Assert( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) );  //look at ground assertions
   for( int i=0; i<(int)d_me->getQuantifiersEngine()->getTermDatabase()->d_op_map[ d_op ].size(); i++ ){
     Node n = d_me->getQuantifiersEngine()->getTermDatabase()->d_op_map[ d_op ][i];
     bool add = true;
@@ -511,7 +511,7 @@ void UfModel::debugPrint( const char* c ){
     d_tree.debugPrint( c, d_me->getQuantifiersEngine(), 3 );
     Debug( c ) << std::endl;
   }
-  //Debug( c ) << "   Phase reqs:" << std::endl;  //for( int i=0; i<2; i++ ){
+  //Debug( c ) << "   Phase reqs:" << std::endl;  //for( int i=0; i<2; i++ ){
   //  for( std::map< Node, std::vector< Node > >::iterator it = d_reqs[i].begin(); it != d_reqs[i].end(); ++it ){
   //    Debug( c ) << "      " << it->first << std::endl;
   //    for( int j=0; j<(int)it->second.size(); j++ ){
@@ -677,7 +677,7 @@ void ModelEngine::buildRepresentatives(){
   //"Representatives (" << reps.size() << ") for type " << tn << " (c=" << d_ss->getCardinality( tn ) << "): ";
 #endif
 }
-
+
 void ModelEngine::initializeModel(){
   d_uf_model.clear();
   d_quant_sat.clear();
