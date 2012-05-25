@@ -19,6 +19,7 @@
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/equality_engine.h"
+#include "theory/quantifiers/quantifiers_rewriter.h"
 
 using namespace std;
 using namespace CVC4;
@@ -27,6 +28,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 //#define COMPUTE_RELEVANCE
+//#define REWRITE_ASSERTED_QUANTIFIERS
 
   /** reset instantiation */
 void InstStrategy::resetInstantiationRound( Theory::Effort effort ){
@@ -207,7 +209,7 @@ void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
   }
 }
 
-void TermDb::resetInstantiationRound( Theory::Effort effort ){
+void TermDb::reset( Theory::Effort effort ){
   int nonCongruentCount = 0;
   int congruentCount = 0;
   int alreadyCongruentCount = 0;
@@ -246,9 +248,9 @@ void TermDb::resetInstantiationRound( Theory::Effort effort ){
       if( en.getKind()==APPLY_UF && !en.hasAttribute(InstConstantAttribute()) ){
         if( !en.getAttribute(NoMatchAttribute()) ){
           Node op = en.getOperator();
-          if( d_pred_map_trie[i][op].addTerm( d_quantEngine, en ) ){
+          if( !d_pred_map_trie[i][op].addTerm( d_quantEngine, en ) ){
             NoMatchAttribute nma;
-            n.setAttribute(nma,true);
+            en.setAttribute(nma,true);
             congruentCount++;
           }else{
             nonCongruentCount++;
@@ -260,8 +262,9 @@ void TermDb::resetInstantiationRound( Theory::Effort effort ){
       ++eqc;
     }
   }
-  //std::cout << "Congruent/Non-Congruent = ";
-  //std::cout << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
+  Debug("term-db-cong") << "TermDb: Reset" << std::endl;
+  Debug("term-db-cong") << "Congruent/Non-Congruent = ";
+  Debug("term-db-cong") << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
 }
 
 
@@ -323,39 +326,68 @@ void QuantifiersEngine::makeInstantiationConstantsFor( Node f ){
 
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
-    ++(d_statistics.d_num_quant);
-    Assert( f.getKind()==FORALL );
-    //register quantifier
-    d_quants.push_back( f );
-    //make instantiation constants for f
-    makeInstantiationConstantsFor( f );
-    //compute symbols in f
-    std::vector< Node > syms;
-    computeSymbols( f[1], syms );
-    d_syms[f].insert( d_syms[f].begin(), syms.begin(), syms.end() );
-    //set initial relevance
-    int minRelevance = -1;
-    for( int i=0; i<(int)syms.size(); i++ ){
-      d_syms_quants[ syms[i] ].push_back( f );
-      int r = getRelevance( syms[i] );
-      if( r!=-1 && ( minRelevance==-1 || r<minRelevance ) ){
-        minRelevance = r;
+    std::vector< Node > quants;
+#ifdef REWRITE_ASSERTED_QUANTIFIERS
+    //do assertion-time rewriting of quantifier
+    Node nf = quantifiers::QuantifiersRewriter::rewriteQuant( f, false, false );
+    if( nf!=f ){
+      Debug("quantifiers-rewrite") << "*** assert-rewrite " << f << std::endl;
+      Debug("quantifiers-rewrite") << " to " << std::endl;
+      Debug("quantifiers-rewrite") << nf << std::endl;
+      //we will instead register all the rewritten quantifiers
+      if( nf.getKind()==FORALL ){
+        quants.push_back( nf );
+      }else if( nf.getKind()==AND ){
+        for( int i=0; i<(int)nf.getNumChildren(); i++ ){
+          quants.push_back( nf[i] );
+        }
+      }else{
+        //unhandled: rewrite must go to a quantifier, or conjunction of quantifiers
+        Assert( false );
       }
+    }else{
+      quants.push_back( f );
     }
-#ifdef COMPUTE_RELEVANCE
-    if( minRelevance!=-1 ){
-      setRelevance( f, minRelevance+1 );
-    }
+#else
+    quants.push_back( f );
 #endif
-    //register with each module
-    for( int i=0; i<(int)d_modules.size(); i++ ){
-      d_modules[i]->registerQuantifier( f );
-    }
-    Node ceBody = getOrCreateCounterexampleBody( f );
-    generatePhaseReqs( f, ceBody );
-    //also register it with the strong solver
-    if( Options::current()->finiteModelFind ){
-      ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( f );
+    for( int q=0; q<(int)quants.size(); q++ ){
+      d_quant_rewritten[f].push_back( quants[q] );
+      d_rewritten_quant[ quants[q] ] = f;
+      ++(d_statistics.d_num_quant);
+      Assert( quants[q].getKind()==FORALL );
+      //register quantifier
+      d_quants.push_back( quants[q] );
+      //make instantiation constants for quants[q]
+      makeInstantiationConstantsFor( quants[q] );
+      //compute symbols in quants[q]
+      std::vector< Node > syms;
+      computeSymbols( quants[q][1], syms );
+      d_syms[quants[q]].insert( d_syms[quants[q]].begin(), syms.begin(), syms.end() );
+      //set initial relevance
+      int minRelevance = -1;
+      for( int i=0; i<(int)syms.size(); i++ ){
+        d_syms_quants[ syms[i] ].push_back( quants[q] );
+        int r = getRelevance( syms[i] );
+        if( r!=-1 && ( minRelevance==-1 || r<minRelevance ) ){
+          minRelevance = r;
+        }
+      }
+#ifdef COMPUTE_RELEVANCE
+      if( minRelevance!=-1 ){
+        setRelevance( quants[q], minRelevance+1 );
+      }
+#endif
+      //register with each module
+      for( int i=0; i<(int)d_modules.size(); i++ ){
+        d_modules[i]->registerQuantifier( quants[q] );
+      }
+      Node ceBody = getCounterexampleBody( quants[q] );
+      generatePhaseReqs( quants[q], ceBody );
+      //also register it with the strong solver
+      if( Options::current()->finiteModelFind ){
+        ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( quants[q] );
+      }
     }
   }
 }
@@ -369,9 +401,11 @@ void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
 
 void QuantifiersEngine::assertNode( Node f ){
   Assert( f.getKind()==FORALL );
-  d_forall_asserts.push_back( f );
-  for( int i=0; i<(int)d_modules.size(); i++ ){
-    d_modules[i]->assertNode( f );
+  for( int j=0; j<(int)d_quant_rewritten[f].size(); j++ ){
+    d_forall_asserts.push_back( d_quant_rewritten[f][j] );
+    for( int i=0; i<(int)d_modules.size(); i++ ){
+      d_modules[i]->assertNode( d_quant_rewritten[f][j] );
+    }
   }
 }
 
@@ -415,13 +449,17 @@ bool QuantifiersEngine::addLemma( Node lem ){
 
 bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 {
+    //std::cout << "***& Instantiate " << f << " with " << std::endl;
+    //for( int i=0; i<(int)terms.size(); i++ ){
+    //  std::cout << "   " << terms[i] << std::endl;
+    //}
   Assert( f.getKind()==FORALL );
   Assert( !f.hasAttribute(InstConstantAttribute()) );
   Assert( d_vars[f].size()==terms.size() && d_vars[f].size()==f[0].getNumChildren() );
   Node body = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(),
                                  terms.begin(), terms.end() );
   NodeBuilder<> nb(kind::OR);
-  nb << f.notNode() << body;
+  nb << d_rewritten_quant[f].notNode() << body;
   Node lem = nb;
   if( addLemma( lem ) ){
     //std::cout << "     Added lemma : " << body << std::endl;
@@ -541,12 +579,16 @@ void QuantifiersEngine::flushLemmas( OutputChannel* out ){
   d_lemmas_waiting.clear();
 }
 
-Node QuantifiersEngine::getOrCreateCounterexampleBody( Node f ){
-  if( d_counterexample_body.find( f )==d_counterexample_body.end() ){
+Node QuantifiersEngine::getCounterexampleBody( Node f ){
+  std::map< Node, Node >::iterator it = d_counterexample_body.find( f );
+  if( it==d_counterexample_body.end() ){
     makeInstantiationConstantsFor( f );
-    d_counterexample_body[ f ] = getSubstitutedNode( f[1], f );
+    Node n = getSubstitutedNode( f[1], f );
+    d_counterexample_body[ f ] = n;
+    return n;
+  }else{
+    return it->second;
   }
-  return d_counterexample_body[ f ];
 }
 
 Node QuantifiersEngine::getSkolemizedBody( Node f ){

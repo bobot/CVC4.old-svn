@@ -98,6 +98,8 @@ class EqualityQuery
 public:
   EqualityQuery(){}
   ~EqualityQuery(){}
+  /** contains term */
+  virtual bool hasTerm( Node a ) = 0;
   /** get the representative of the equivalence class of a */
   virtual Node getRepresentative( Node a ) = 0;
   /** returns true if a and b are equal in the current context */

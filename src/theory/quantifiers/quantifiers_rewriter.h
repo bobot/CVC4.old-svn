@@ -43,20 +43,25 @@ private:
   static void computeArgs( std::vector< Node >& args, std::vector< Node >& activeArgs, Node n );
   static bool hasArg( std::vector< Node >& args, Node n );
   static void setNestedQuantifiers( Node n, Node q );
-private:
   static void computeArgs( std::map< Node, bool >& active, Node n );
-  static Node computePreSkolem2( Node body, std::vector< Node >& args, bool pol );
-  static Node computePrenex2( Node body, std::vector< Node >& args, bool pol );
   static Node computeClause( Node n );
-  static Node computeCNF2( Node n, std::vector< Node >& args, NodeBuilder<>& defs, bool forcePred );
 private:
   static Node computeMiniscoping( std::vector< Node >& args, Node body, Node ipl, bool isNested = false );
-  static Node computePreSkolem( Node f );
-  static Node computePrenex( Node f );
-  static Node computeVarElimination( Node f );
-  static Node computeCNF( Node f );
+  static Node computeNNF( Node body );
+  static Node computeVarElimination( Node body, std::vector< Node >& args, Node& ipl );
+  static Node computeCNF( Node body, std::vector< Node >& args, NodeBuilder<>& defs, bool forcePred );
+  static Node computePrenex( Node body, std::vector< Node >& args, bool pol, bool polReq );
 private:
-  static Node rewriteQuants( Node n, bool isNested = false );
+  enum{
+    COMPUTE_NNF = 0,
+    COMPUTE_PRE_SKOLEM,
+    COMPUTE_PRENEX,
+    COMPUTE_VAR_ELIMINATION,
+    //COMPUTE_FLATTEN_ARGS_UF,
+    COMPUTE_CNF,
+    COMPUTE_LAST
+  };
+  static Node computeOperation( Node f, int computeOption );
 public:
   static RewriteResponse preRewrite(TNode in);
   static RewriteResponse postRewrite(TNode in);
@@ -69,10 +74,10 @@ private:
   /** options */
   static bool doMiniscopingNoFreeVar();
   static bool doMiniscopingAnd();
-  static bool doPreSkolem( Node f );
-  static bool doPrenex( Node f );
-  static bool doVarElimination( Node f );
-  static bool doCNF( Node f );
+  static bool doOperation( Node f, bool isNested, int computeOption, bool duringRewrite = true );
+public:
+  static Node rewriteQuants( Node n, bool isNested = false, bool duringRewrite = true );
+  static Node rewriteQuant( Node n, bool isNested = false, bool duringRewrite = true );
 };/* class QuantifiersRewriter */
 
 }/* CVC4::theory::quantifiers namespace */

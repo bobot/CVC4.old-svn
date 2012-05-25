@@ -204,8 +204,8 @@ public:
   std::map< TypeNode, std::vector< Node > > d_type_map;
   /** add a term to the database */
   void addTerm( Node n, std::vector< Node >& added, bool withinQuant = false );
-  /** reset instantiation round */
-  void resetInstantiationRound( Theory::Effort effort );
+  /** reset (calculate which terms are active) */
+  void reset( Theory::Effort effort );
   /** set active */
   void setMatchingActive( bool a ) { d_matching_active = a; }
   /** get active */
@@ -270,6 +270,10 @@ private:
   std::map< Node, Theory* > d_owner;
   /** term database */
   TermDb* d_term_db;
+  /** universal quantifiers that have been rewritten */
+  std::map< Node, std::vector< Node > > d_quant_rewritten;
+  /** map from rewritten universal quantifiers to the quantifier they are the consequence of */
+  std::map< Node, Node > d_rewritten_quant;
 private:
   /** for computing relavance */
   /** map from quantifiers to symbols they contain */
@@ -305,9 +309,9 @@ public:
   void addModule( QuantifiersModule* qm ) { d_modules.push_back( qm ); }
   /** check at level */
   void check( Theory::Effort e );
-  /** register quantifier */
+  /** register (non-rewritten) quantifier */
   void registerQuantifier( Node f );
-  /** register quantifier */
+  /** register (non-rewritten) quantifier */
   void registerPattern( std::vector<Node> & pattern);
   /** assert (universal) quantifier */
   void assertNode( Node f );
@@ -350,9 +354,7 @@ public:
   std::vector<Node> createInstVariable( std::vector<Node> & vars );
 public:
   /** get the ce body f[e/x] */
-  Node getCounterexampleBody( Node f ) { return d_counterexample_body[ f ]; }
-  /** get or create the ce body f[e/x] */
-  Node getOrCreateCounterexampleBody( Node f );
+  Node getCounterexampleBody( Node f );
   /** get the skolemized body f[e/x] */
   Node getSkolemizedBody( Node f );
   /** set active */
