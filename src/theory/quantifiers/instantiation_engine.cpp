@@ -104,8 +104,8 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
     Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
     d_inst_round_status = InstStrategy::STATUS_SAT;
     //instantiate each quantifier
-    for( int q=0; q<getQuantifiersEngine()->getNumQuantifiers(); q++ ){
-      Node f = getQuantifiersEngine()->getQuantifier( q );
+    for( int q=0; q<getQuantifiersEngine()->getNumAssertedQuantifiers(); q++ ){
+      Node f = getQuantifiersEngine()->getAssertedQuantifier( q );
       Debug("inst-engine-debug") << "IE: Instantiate " << f << "..." << std::endl;
       //if this quantifier is active
       if( getQuantifiersEngine()->getActive( f ) ){

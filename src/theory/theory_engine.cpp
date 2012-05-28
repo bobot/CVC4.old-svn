@@ -807,7 +807,7 @@ void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
     if (d_propEngine->hasValue(literal, value)) {
       // if we are propagting something that already has a sat value we better be the same
       Debug("theory") << "literal " << literal << ") propagated by " << theory << " but already has a sat value " << (value ? "true" : "false") << std::endl;
-      Assert(value);
+      //Assert(value);
     } else {
       d_propagatedLiterals.push_back(literal);
     }

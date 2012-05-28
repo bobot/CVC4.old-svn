@@ -596,6 +596,7 @@ void ModelEngine::check( Theory::Effort e ){
         //for( std::map< Node, UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
         //  it->second.simplify();
         //}
+        Debug("fmf-consistent") << std::endl;
         debugPrint("fmf-consistent");
       }
     }
@@ -680,9 +681,9 @@ void ModelEngine::buildRepresentatives(){
 void ModelEngine::initializeModel(){
   d_uf_model.clear();
   d_quant_sat.clear();
-  //for( int k=0; k<2; k++ ){
-  //  d_pro_con_quant[k].clear();
-  //}
+  for( int k=0; k<2; k++ ){
+    d_pro_con_quant[k].clear();
+  }
 
   ////now analyze quantifiers (temporary)
   //for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
@@ -1261,27 +1262,25 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
       if( n.getKind()==APPLY_UF ){
         Node op = gn.getOperator();
         //if it is a defined UF, then consult the interpretation
+        Node gnn = gn;
+        ++(d_statistics.d_eval_uf_terms);
+        int depIndex = 0;
+        //first we must evaluate the arguments
+        bool childrenChanged = false;
+        std::vector< Node > children;
+        children.push_back( op );
+        std::map< int, std::vector< Node > > children_var_deps;
+        //for each argument, calculate its value, and the variables its value depends upon
+        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+          Node nn = evaluateTerm( n[i], gn[i], children_var_deps[i] );
+          children.push_back( nn );
+          childrenChanged = childrenChanged || nn!=gn[i];
+        }
+        //remake gn if changed
+        if( childrenChanged ){
+          gnn = NodeManager::currentNM()->mkNode( APPLY_UF, children );
+        }
         if( d_uf_model.find( op )!=d_uf_model.end() ){
-          Node gnn = gn;
-          ++(d_statistics.d_eval_uf_terms);
-          int depIndex = 0;
-          //consult model for op to find real value
-          Assert( d_uf_model.find( op )!=d_uf_model.end() );
-          //first we must evaluate the arguments
-          bool childrenChanged = false;
-          std::vector< Node > children;
-          children.push_back( op );
-          std::map< int, std::vector< Node > > children_var_deps;
-          //for each argument, calculate its value, and the variables its value depends upon
-          for( int i=0; i<(int)n.getNumChildren(); i++ ){
-            Node nn = evaluateTerm( n[i], gn[i], children_var_deps[i] );
-            children.push_back( nn );
-            childrenChanged = childrenChanged || nn!=gn[i];
-          }
-          //remake gn if changed
-          if( childrenChanged ){
-            gnn = NodeManager::currentNM()->mkNode( APPLY_UF, children );
-          }
 #ifdef USE_INDEX_ORDERING
           //make the term model specifically for n
           makeEvalTermModel( n );
@@ -1298,29 +1297,34 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
           //now, consult the model
           val = d_uf_model[op].d_tree.getValue( d_quantEngine, gnn, depIndex );
 #endif
-          Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = " << gn << " = " << gnn << " = ";
-          printRepresentative( "fmf-model-eval-debug", d_quantEngine, val );
-          Debug("fmf-model-eval-debug") << ", depIndex = " << depIndex << std::endl;
-          if( !val.isNull() ){
-#ifdef USE_INDEX_ORDERING
-            for( int i=0; i<depIndex; i++ ){
-              Debug("fmf-model-eval-debug") << "Add variables from " << d_eval_term_index_order[n][i] << "..." << std::endl;
-              fv_deps.insert( fv_deps.end(), children_var_deps[d_eval_term_index_order[n][i]].begin(),
-                              children_var_deps[d_eval_term_index_order[n][i]].end() );
-            }
-#else
-            //calculate the free variables that the value depends on : take those in children_var_deps[0...depIndex-1]
-            for( std::map< int, std::vector< Node > >::iterator it = children_var_deps.begin(); it != children_var_deps.end(); ++it ){
-              if( it->first<depIndex ){
-                fv_deps.insert( fv_deps.end(), it->second.begin(), it->second.end() );
-              }
-            }
-#endif
-          }
-          ////cache the result
-          //d_eval_term_vals[gn] = val;
-          //d_eval_term_fv_deps[n][gn].insert( d_eval_term_fv_deps[n][gn].end(), fv_deps.begin(), fv_deps.end() );
+        }else{
+          d_eval_term_use_default_model[n] = true;
+          val = gnn;
+          depIndex = (int)n.getNumChildren();
         }
+        Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = " << gn << " = " << gnn << " = ";
+        printRepresentative( "fmf-model-eval-debug", d_quantEngine, val );
+        Debug("fmf-model-eval-debug") << ", depIndex = " << depIndex << std::endl;
+        if( !val.isNull() ){
+#ifdef USE_INDEX_ORDERING
+          for( int i=0; i<depIndex; i++ ){
+            int index = d_eval_term_use_default_model[n] ? i : d_eval_term_index_order[n][i];
+            Debug("fmf-model-eval-debug") << "Add variables from " << index << "..." << std::endl;
+            fv_deps.insert( fv_deps.end(), children_var_deps[index].begin(),
+                            children_var_deps[index].end() );
+          }
+#else
+          //calculate the free variables that the value depends on : take those in children_var_deps[0...depIndex-1]
+          for( std::map< int, std::vector< Node > >::iterator it = children_var_deps.begin(); it != children_var_deps.end(); ++it ){
+            if( it->first<depIndex ){
+              fv_deps.insert( fv_deps.end(), it->second.begin(), it->second.end() );
+            }
+          }
+#endif
+        }
+        ////cache the result
+        //d_eval_term_vals[gn] = val;
+        //d_eval_term_fv_deps[n][gn].insert( d_eval_term_fv_deps[n][gn].end(), fv_deps.begin(), fv_deps.end() );
       }
       return val;
     }
