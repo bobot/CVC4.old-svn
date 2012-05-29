@@ -176,7 +176,7 @@ bool StrongSolverTheoryUf::ConflictFind::Region::isDisequal( Node n1, Node n2, i
 }
 
 bool StrongSolverTheoryUf::ConflictFind::Region::getMustCombine( int cardinality ){
-  if( d_total_diseq_external>=cardinality ){
+  if( d_total_diseq_external>=long(cardinality) ){
     //The number of external disequalities is greater than or equal to cardinality.
     //Thus, a clique of size cardinality+1 may exist between nodes in d_regions[i] and other regions
     //Check if this is actually the case:  must have n nodes with outgoing degree (cardinality+1-n) for some n>0
@@ -216,8 +216,8 @@ struct sortInternalDegree {
 
 
 bool StrongSolverTheoryUf::ConflictFind::Region::check( Theory::Effort level, int cardinality, std::vector< Node >& clique ){
-  if( d_reps_size>cardinality ){
-    if( d_reps_size>cardinality && d_total_diseq_internal==d_reps_size*( d_reps_size - 1 ) ){
+  if( d_reps_size>long(cardinality) ){
+    if( d_reps_size>long(cardinality) && d_total_diseq_internal==d_reps_size*( d_reps_size - 1 ) ){
       //quick clique check, all reps form a clique
       for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
         if( it->second->d_valid ){
@@ -227,9 +227,9 @@ bool StrongSolverTheoryUf::ConflictFind::Region::check( Theory::Effort level, in
       return true;
     }else{
       //build test clique, up to size cardinality+1
-      if( d_testCliqueSize<=cardinality ){
+      if( d_testCliqueSize<=long(cardinality) ){
         std::vector< Node > newClique;
-        if( d_testCliqueSize<cardinality ){
+        if( d_testCliqueSize<long(cardinality) ){
           for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
             //if not in the test clique, add it to the set of new members
             if( it->second->d_valid && ( d_testClique.find( it->first )==d_testClique.end() || !d_testClique[ it->first ] ) ){
@@ -282,7 +282,7 @@ bool StrongSolverTheoryUf::ConflictFind::Region::check( Theory::Effort level, in
           d_testCliqueSize = d_testCliqueSize + 1;
         }
       }
-      Assert( d_testCliqueSize==cardinality+1 );
+      Assert( d_testCliqueSize==long(cardinality+1) );
       if( d_splitsSize==0 ){
         //test clique is a clique
         for( NodeBoolMap::iterator it = d_testClique.begin(); it != d_testClique.end(); ++it ){
@@ -463,7 +463,7 @@ void StrongSolverTheoryUf::ConflictFind::getDisequalitiesToRegions( int ri, std:
 
 void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& clique, OutputChannel* out ){
   Assert( d_cardinality>0 );
-  while( clique.size()>d_cardinality+1 ){
+  while( clique.size()>long(d_cardinality+1) ){
     clique.pop_back();
   }
   //found a clique

@@ -80,7 +80,7 @@ void RepAlphabet::debugPrint( const char* c, QuantifiersEngine* qe ){
 }
 
 RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model ){
-  for( int i=0; i<f[0].getNumChildren(); i++ ){
+  for( size_t i=0; i<f[0].getNumChildren(); i++ ){
     d_index_order.push_back( i );
   }
   initialize( qe, f, model );
@@ -95,12 +95,12 @@ void RepAlphabetIterator::initialize( QuantifiersEngine* qe, Node f, ModelEngine
   d_f = f;
   d_model = model;
   //store instantiation constants
-  for( int i=0; i<f[0].getNumChildren(); i++ ){
+  for( size_t i=0; i<f[0].getNumChildren(); i++ ){
     d_ic.push_back( qe->getInstantiationConstant( d_f, i ) );
     d_index.push_back( 0 );
   }
   //make the d_var_order mapping
-  for( int i=0; i<(int)d_index_order.size(); i++ ){
+  for( size_t i=0; i<d_index_order.size(); i++ ){
     d_var_order[d_index_order[i]] = i;
   }
   //for testing
@@ -194,7 +194,6 @@ Node UfModelTree::getValue( QuantifiersEngine* qe, Node n, std::vector< int >& i
     return d_value;
   }else{
     Node val;
-    int index = -1;
     int childDepIndex[2] = { argIndex, argIndex };
     for( int i=0; i<2; i++ ){
       //first check the argument, then check default
@@ -831,7 +830,7 @@ int ModelEngine::instantiateQuantifier( Node f ){
   int addedLemmas = 0;
   Debug("inst-fmf-ei") << "Add matches for " << f << "..." << std::endl;
   Debug("inst-fmf-ei") << "   Instantiation Constants: ";
-  for( int i=0; i<f[0].getNumChildren(); i++ ){
+  for( size_t i=0; i<f[0].getNumChildren(); i++ ){
     Debug("inst-fmf-ei") << d_quantEngine->getInstantiationConstant( f, i ) << " ";
   }
   Debug("inst-fmf-ei") << std::endl;
