@@ -106,12 +106,12 @@ void QuantifiersRewriter::computeArgs( std::vector< Node >& args, std::vector< N
   for( int i=0; i<(int)args.size(); i++ ){
     active[ args[i] ] = false;
   }
-  //std::cout << "For " << n << " : " << std::endl;
+  //Notice() << "For " << n << " : " << std::endl;
   computeArgs( active, n );
   activeArgs.clear();
   for( std::map< Node, bool >::iterator it = active.begin(); it != active.end(); ++it ){
     Node n = it->first;
-    //std::cout << "   " << it->first << " is " << it->second << std::endl;
+    //Notice() << "   " << it->first << " is " << it->second << std::endl;
     if( it->second ){ //only add bound variables that occur in body
       activeArgs.push_back( it->first );
     }
@@ -205,7 +205,7 @@ RewriteResponse QuantifiersRewriter::postRewrite(TNode in) {
     //compute miniscoping first
     Node n = body;//computeNNF( body ); TODO: compute NNF here (current bad idea since arithmetic rewrites equalities)
     if( body!=n ){
-      std::cout << "NNF " << body << " -> " << n << std::endl;
+      Notice() << "NNF " << body << " -> " << n << std::endl;
     }
     n = computeMiniscoping( args, n, ipl, isNested );
     if( in.getKind()==kind::EXISTS ){
@@ -257,7 +257,7 @@ Node QuantifiersRewriter::computeNNF( Node body ){
           children.push_back( computeNNF( nn ) );
         }
       }else{
-        std::cout << "Unhandled Quantifiers NNF: " << body << std::endl;
+        Notice() << "Unhandled Quantifiers NNF: " << body << std::endl;
         return body;
       }
       return NodeManager::currentNM()->mkNode( k, children );
@@ -281,13 +281,13 @@ Node QuantifiersRewriter::computeNNF( Node body ){
 }
 
 Node QuantifiersRewriter::computeVarElimination( Node body, std::vector< Node >& args, Node& ipl ){
-  //std::cout << "Compute var elimination for " << f << std::endl;
+  //Notice() << "Compute var elimination for " << f << std::endl;
   std::map< Node, bool > litPhaseReq;
   QuantifiersEngine::computePhaseReqs( body, false, litPhaseReq );
   std::vector< Node > vars;
   std::vector< Node > subs;
   for( std::map< Node, bool >::iterator it = litPhaseReq.begin(); it != litPhaseReq.end(); ++it ){
-    //std::cout << "   " << it->first << " -> " << ( it->second ? "true" : "false" ) << std::endl;
+    //Notice() << "   " << it->first << " -> " << ( it->second ? "true" : "false" ) << std::endl;
     if( it->first.getKind()==EQUAL ){
       if( it->second ){
         for( int i=0; i<2; i++ ){
@@ -311,7 +311,7 @@ Node QuantifiersRewriter::computeVarElimination( Node body, std::vector< Node >&
     }
   }
   if( !vars.empty() ){
-    //std::cout << "VE " << vars.size() << "/" << n[0].getNumChildren() << std::endl;
+    //Notice() << "VE " << vars.size() << "/" << n[0].getNumChildren() << std::endl;
     //remake with eliminated nodes
     body = body.substitute( vars.begin(), vars.end(), subs.begin(), subs.end() );
     body = Rewriter::rewrite( body );
@@ -454,7 +454,7 @@ Node QuantifiersRewriter::computeCNF( Node n, std::vector< Node >& args, NodeBui
           defs << NodeManager::currentNM()->mkNode( FORALL, bvl, tt.constructNode() );
         }
       }else{
-        std::cout << "Unhandled Quantifiers CNF: " << nt << std::endl;
+        Notice() << "Unhandled Quantifiers CNF: " << nt << std::endl;
       }
       return pred;
     }
@@ -586,7 +586,7 @@ Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node body, Node i
 }
 
 Node QuantifiersRewriter::computeMiniscoping( std::vector< Node >& args, Node body, Node ipl, bool isNested ){
-  //std::cout << "rewrite quant " << body << std::endl;
+  //Notice() << "rewrite quant " << body << std::endl;
   if( body.getKind()==FORALL ){
     //combine arguments
     std::vector< Node > newArgs;

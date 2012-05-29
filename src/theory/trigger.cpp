@@ -91,8 +91,8 @@ d_quantEngine( qe ), d_f( f ){
     }
   }else{
     Debug("multi-trigger") << "Multi-trigger " << (*this) << std::endl;
-    //std::cout << "Multi-trigger for " << f << " : " << std::endl;
-    //std::cout << "   " << (*this) << std::endl;
+    //Notice() << "Multi-trigger for " << f << " : " << std::endl;
+    //Notice() << "   " << (*this) << std::endl;
     ++(qe->d_statistics.d_multi_triggers);
   }
 }
@@ -218,7 +218,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
     //  trNew++;
     //}
     //if( (trNew+trOld)%100==0 ){
-    //  std::cout << "Trigger new old = " << trNew << " " << trOld << std::endl;
+    //  Notice() << "Trigger new old = " << trNew << " " << trOld << std::endl;
     //}
   }else{
     Trigger* t = d_tr_trie.getTrigger( trNodes );
@@ -467,16 +467,16 @@ bool Trigger::isVariableSubsume( Node n1, Node n2 ){
   if( n1==n2 ){
     return true;
   }else{
-    //std::cout << "is variable subsume ? " << n1 << " " << n2 << std::endl;
+    //Notice() << "is variable subsume ? " << n1 << " " << n2 << std::endl;
     computeVarContains( n1 );
     computeVarContains( n2 );
     for( int i=0; i<(int)d_var_contains[n2].size(); i++ ){
       if( std::find( d_var_contains[n1].begin(), d_var_contains[n1].end(), d_var_contains[n2][i] )==d_var_contains[n1].end() ){
-        //std::cout << "no" << std::endl;
+        //Notice() << "no" << std::endl;
         return false;
       }
     }
-    //std::cout << "yes" << std::endl;
+    //Notice() << "yes" << std::endl;
     return true;
   }
 }

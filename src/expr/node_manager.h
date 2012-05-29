@@ -1010,8 +1010,6 @@ inline TypeNode NodeManager::mkArrayType(TypeNode indexType,
     WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created an array type with a Boolean index or constituent type)" << std::endl;
   }
   Debug("arrays") << "making array type " << indexType << " " << constituentType << std::endl;
-  //std::cout << "arrays ";
-  //exit( 7 );
   return mkTypeNode(kind::ARRAY_TYPE, indexType, constituentType);
 }
 

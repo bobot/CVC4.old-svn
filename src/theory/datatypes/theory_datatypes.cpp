@@ -115,7 +115,7 @@ void TheoryDatatypes::check(Effort e) {
     Node assertion = get();
     if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") || Debug.isOn("datatypes-cycles")
         || Debug.isOn("datatypes-debug-pf") || Debug.isOn("datatypes-conflict") ) {
-      cout << "*** TheoryDatatypes::check(): " << assertion << endl;
+      Notice() << "*** TheoryDatatypes::check(): " << assertion << endl;
       d_currAsserts.push_back( assertion );
     }
 
@@ -217,7 +217,7 @@ void TheoryDatatypes::check(Effort e) {
       Node conflict = d_em.getConflict();
       if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ||
           Debug.isOn("datatypes-cycles") || Debug.isOn("datatypes-conflict") ){
-        cout << "Conflict constructed : " << conflict << endl;
+        Notice() << "Conflict constructed : " << conflict << endl;
       }
       if( conflict.getKind()!=kind::AND ){
         conflict = NodeManager::currentNM()->mkNode(kind::AND, conflict, conflict);
@@ -289,7 +289,7 @@ void TheoryDatatypes::check(Effort e) {
     }
   }
   if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ) {
-    cout << "TheoryDatatypes::check(): done" << endl;
+    Notice() << "TheoryDatatypes::check(): done" << endl;
   }
 }
 

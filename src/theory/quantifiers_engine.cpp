@@ -171,7 +171,7 @@ void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
     if( Trigger::isAtomicTrigger( n ) ){
       if( !n.hasAttribute(InstConstantAttribute()) ){
         Debug("term-db") << "register trigger term " << n << std::endl;
-        //std::cout << "register trigger term " << n << std::endl;
+        //Notice() << "register trigger term " << n << std::endl;
         Node op = n.getOperator();
         d_op_map[op].push_back( n );
         d_type_map[ n.getType() ].push_back( n );
@@ -291,7 +291,7 @@ void QuantifiersEngine::check( Theory::Effort e ){
     d_modules[i]->check( e );
   }
   //if( e==Theory::EFFORT_FULL ){
-  //  std::cout << "Done instantiation Round" << std::endl;
+  //  Notice() << "Done instantiation Round" << std::endl;
   //}
 }
 
@@ -427,7 +427,7 @@ void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
     }
 #endif
   }else{
-    std::cout << "Warning: no term database for quantifier engine." << std::endl;
+    Notice() << "Warning: no term database for quantifier engine." << std::endl;
   }
 }
 
@@ -449,9 +449,9 @@ bool QuantifiersEngine::addLemma( Node lem ){
 
 bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 {
-    //std::cout << "***& Instantiate " << f << " with " << std::endl;
+    //Notice() << "***& Instantiate " << f << " with " << std::endl;
     //for( int i=0; i<(int)terms.size(); i++ ){
-    //  std::cout << "   " << terms[i] << std::endl;
+    //  Notice() << "   " << terms[i] << std::endl;
     //}
   Assert( f.getKind()==FORALL );
   Assert( !f.hasAttribute(InstConstantAttribute()) );
@@ -462,15 +462,15 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
   nb << d_rewritten_quant[f].notNode() << body;
   Node lem = nb;
   if( addLemma( lem ) ){
-    //std::cout << "     Added lemma : " << body << std::endl;
-    //std::cout << "***& Instantiate " << f << " with " << std::endl;
+    //Notice() << "     Added lemma : " << body << std::endl;
+    //Notice() << "***& Instantiate " << f << " with " << std::endl;
     //for( int i=0; i<(int)terms.size(); i++ ){
-    //  std::cout << "   " << terms[i] << std::endl;
+    //  Notice() << "   " << terms[i] << std::endl;
     //}
 
-    //std::cout << "**INST" << std::endl;
+    //Notice() << "**INST" << std::endl;
     Debug("inst") << "*** Instantiate " << f << " with " << std::endl;
-    //std::cout << "*** Instantiate " << f << " with " << std::endl;
+    //Notice() << "*** Instantiate " << f << " with " << std::endl;
     uint64_t maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
       if( terms[i].hasAttribute(InstConstantAttribute()) ){
@@ -478,11 +478,10 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
         for( int i=0; i<(int)terms.size(); i++ ){
           Debug("inst") << "   " << terms[i] << std::endl;
         }
-        std::cout << "Bad instantiation, unknown ";
-        exit( 19 );
+        Unreachable("Bad instantiation");
       }else{
         Debug("inst") << "   " << terms[i];
-        //std::cout << "   " << terms[i] << std::endl;
+        //Notice() << "   " << terms[i] << std::endl;
         //Debug("inst-engine") << " " << terms[i].getAttribute(InstLevelAttribute());
         Debug("inst") << std::endl;
         if( terms[i].hasAttribute(InstLevelAttribute()) ){
@@ -523,18 +522,18 @@ bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits )
   //std::vector< Node > match;
   //m.computeTermVec( this, d_inst_constants[f], match );
 
-  //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
+  //Notice() << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
   //for( int i=0; i<(int)m->d_match.size(); i++ ){
-  //  std::cout << "   " << m->d_match[i] << std::endl;
+  //  Notice() << "   " << m->d_match[i] << std::endl;
   //}
 
   if( addInstantiation( f, match ) ){
     //d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)d_inst_constants[f].size() - m.d_map.size()/2 );
     //if( d_inst_constants[f].size()!=m.d_map.size() ){
-    //  //std::cout << "Unspec. " << std::endl;
-    //  //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
+    //  //Notice() << "Unspec. " << std::endl;
+    //  //Notice() << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
     //  //for( int i=0; i<(int)m->d_match.size(); i++ ){
-    //  //  std::cout << "   " << m->d_match[i] << std::endl;
+    //  //  Notice() << "   " << m->d_match[i] << std::endl;
     //  //}
     //  ++(d_statistics.d_inst_unspec);
     //}

@@ -317,7 +317,7 @@ void StrongSolverTheoryUf::ConflictFind::Region::addSplit( OutputChannel* out ){
   //Debug("uf-ss-lemma") << d_th->getEqualityEngine()->areDisequal( s[0], s[1] ) << std::endl;
   //Debug("uf-ss-lemma") << s[0].getType() << " " << s[1].getType() << std::endl;
   debugPrint("uf-ss-temp");
-  //std::cout << "*** Split on " << s << std::endl;
+  //Notice() << "*** Split on " << s << std::endl;
   //split on the equality s
   out->split( s );
   //tell the sat solver to explore the equals branch first
@@ -453,7 +453,7 @@ void StrongSolverTheoryUf::ConflictFind::getDisequalitiesToRegions( int ri, std:
           //  debugPrint( "uf-ss-temp" );
           //}
           Assert( isValid( d_regions_map[ (*it2).first ] ) );
-          //std::cout << "Found disequality with " << (*it2).first << ", region = " << d_regions_map[ (*it2).first ] << std::endl;
+          //Notice() << "Found disequality with " << (*it2).first << ", region = " << d_regions_map[ (*it2).first ] << std::endl;
           regions_diseq[ d_regions_map[ (*it2).first ] ]++;
         }
       }
@@ -532,7 +532,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
   Node cardNode = d_cardinality_literal[ d_cardinality ];
   conflictNode = NodeManager::currentNM()->mkNode( IMPLIES, conflictNode, cardNode.notNode() );
   Debug("uf-ss-lemma") << "*** Add clique conflict " << conflictNode << std::endl;
-  //std::cout << "*** Add clique conflict " << conflictNode << std::endl;
+  //Notice() << "*** Add clique conflict " << conflictNode << std::endl;
   out->lemma( conflictNode );
   ++( d_th->getStrongSolver()->d_statistics.d_clique_lemmas );
 
@@ -613,7 +613,7 @@ void StrongSolverTheoryUf::ConflictFind::assertDisequal( Node a, Node b, Node re
     Debug("uf-ss") << "Assert disequal " << a << " != " << b << "..." << std::endl;
     //if( reason.getKind()!=NOT || ( reason[0].getKind()!=EQUAL && reason[0].getKind()!=IFF ) ||
     //    a!=reason[0][0] || b!=reason[0][1] ){
-    //  std::cout << "Assert disequal " << a << " != " << b << ", reason = " << reason << "..." << std::endl;
+    //  Notice() << "Assert disequal " << a << " != " << b << ", reason = " << reason << "..." << std::endl;
     //}
     Debug("uf-ss-disequal") << "Assert disequal " << a << " != " << b << "..." << std::endl;
     //add to list of disequalities
@@ -640,7 +640,7 @@ void StrongSolverTheoryUf::ConflictFind::assertDisequal( Node a, Node b, Node re
       checkRegion( ai );
       checkRegion( bi );
     }
-    //std::cout << "done" << std::endl;
+    //Notice() << "done" << std::endl;
   }
 }
 
@@ -702,7 +702,7 @@ bool StrongSolverTheoryUf::ConflictFind::checkRegion( int ri, bool rec ){
       //std::vector< Node > clique;
       //if( d_regions[ri]->check( Theory::EFFORT_STANDARD, cardinality, clique ) ){
       //  //explain clique
-      //  std::cout << "found clique " << std::endl;
+      //  Notice() << "found clique " << std::endl;
       //}
       return true;
     }
@@ -753,7 +753,7 @@ bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out )
                 Assert( children.size()>1 );
                 Node lem = NodeManager::currentNM()->mkNode( OR, children );
                 Debug( "uf-ss-lemma" ) << "*** Diambiguate lemma : " << lem << std::endl;
-                //std::cout << "*** Diambiguate lemma : " << lem << std::endl;
+                //Notice() << "*** Diambiguate lemma : " << lem << std::endl;
                 out->lemma( lem );
                 d_term_amb[ eq ] = false;
                 lemmaAdded = true;
@@ -774,14 +774,14 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
   if( level>=Theory::EFFORT_STANDARD ){
     Assert( d_cardinality>0 );
     Debug("uf-ss") << "StrongSolverTheoryUf: Check " << level << " " << d_type << std::endl;
-    //std::cout << "StrongSolverTheoryUf: Check " << level << std::endl;
+    //Notice() << "StrongSolverTheoryUf: Check " << level << std::endl;
     if( d_reps<=(unsigned)d_cardinality ){
       Debug("uf-ss-debug") << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
       if( level==Theory::EFFORT_FULL ){
         Debug("uf-ss-sat") << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
-        //std::cout << "We have " << d_reps << " representatives for type " << d_type << ", <= " << cardinality << std::endl;
-        //std::cout << "Model size for " << d_type << " is " << cardinality << std::endl;
-        //std::cout << cardinality << " ";
+        //Notice() << "We have " << d_reps << " representatives for type " << d_type << ", <= " << cardinality << std::endl;
+        //Notice() << "Model size for " << d_type << " is " << cardinality << std::endl;
+        //Notice() << cardinality << " ";
       }
       return;
     }else{
@@ -821,7 +821,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
               //due to our invariants, we know no coloring conflicts will occur between regions, and thus
               //  we are SAT in this case.
               Debug("uf-ss-sat") << "SAT: regions = " << getNumRegions() << std::endl;
-              //std::cout << "Model size for " << d_type << " is " << cardinality << ", regions = " << getNumRegions() << std::endl;
+              //Notice() << "Model size for " << d_type << " is " << cardinality << ", regions = " << getNumRegions() << std::endl;
               debugPrint("uf-ss-sat");
             }
           }else{
@@ -927,9 +927,7 @@ void StrongSolverTheoryUf::ConflictFind::getRepresentatives( std::vector< Node >
       }
     }
   }else{
-    //not implemented
-    std::cout << "Build representatives for fmf region sat is not implemented" << std::endl;
-    exit( 28 );
+    Unimplemented("Build representatives for fmf region sat is not implemented");
   }
 }
 
@@ -1036,10 +1034,6 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
       d_conf_find[tn]->d_is_cardinality_requested = false;
       d_conf_find[tn]->d_is_cardinality_requested_c = false;
     }
-    //else{
-      //std::cout << "Error: Wrong positive cardinality node asserted " << std::endl;
-      //exit( 22 );
-    //}
   }else if( n.getKind()==NOT && n[0].getKind()==CARDINALITY_CONSTRAINT ){
     //must add new lemma
     Node nn = n[0];
@@ -1049,16 +1043,13 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
     long nCard = nn[1].getConst<Rational>().getNumerator().getLong();
     d_conf_find[tn]->assertCardinality( nCard, false );
     if( nCard==d_conf_find[tn]->getCardinality() ){
-      if( isDecision ){
-        std::cout << "Error: Negative cardinality node decided upon " << std::endl;
-        exit( 23 );
-      }
+      AlwaysAssert(!isDecision, "Error: Negative cardinality node decided upon");
       Debug("uf-ss-fmf") << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
-      //std::cout << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
+      //Notice() << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
       //increment to next cardinality
       d_statistics.d_max_model_size.maxAssign( d_conf_find[tn]->getCardinality() + 1 );
       d_conf_find[tn]->setCardinality( d_conf_find[tn]->getCardinality() + 1, d_out );
-      //std::cout << d_conf_find[tn]->getCardinality() << " ";
+      //Notice() << d_conf_find[tn]->getCardinality() << " ";
       ////give up permanently on this cardinality
       //d_out->lemma( n );
     }
@@ -1068,9 +1059,9 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
     //if( isDecision ){
     //  for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
     //    if( !it->second->hasCardinalityAsserted() ){
-    //      std::cout << "Assert " << n << " " << isDecision << std::endl;
-    //      std::cout << "Error: constraint asserted before cardinality for " << it->first << std::endl;
-    //      exit( 21 );
+    //      Notice() << "Assert " << n << " " << isDecision << std::endl;
+    //      Notice() << "Error: constraint asserted before cardinality for " << it->first << std::endl;
+    //      Unimplemented();
     //    }
     //  }
     //}
@@ -1117,14 +1108,12 @@ void StrongSolverTheoryUf::registerQuantifier( Node f ){
         Debug("uf-ss-na") << "Error: Cannot perform finite model finding on arithmetic quantifier";
         Debug("uf-ss-na") << " (" << f << ")";
         Debug("uf-ss-na") << std::endl;
-        std::cout << "n/a ";
-        exit( 63 );
+        Unimplemented("Cannot perform finite model finding on arithmetic quantifier");
       }else if( tn.isDatatype() ){
         Debug("uf-ss-na") << "Error: Cannot perform finite model finding on datatype quantifier";
         Debug("uf-ss-na") << " (" << f << ")";
         Debug("uf-ss-na") << std::endl;
-        std::cout << "n/a ";
-        exit( 64 );
+        Unimplemented("Cannot perform finite model finding on datatype quantifier");
       }
     }
   }
@@ -1136,8 +1125,7 @@ void StrongSolverTheoryUf::preRegisterType( TypeNode tn ){
     //enter into incremental finite model finding mode: try cardinality = 1 first
     //if( !d_conf_types.empty() ){
     //  Debug("uf-ss-na") << "Strong solver unimplemented for multiple sorts." << std::endl;
-    //  std::cout << "n/a ";
-    //  exit( 29 );
+    //  Unimplemented();
     //}
     d_conf_find[tn] = new ConflictFind( tn, d_th->getSatContext(), d_th );
     //assign cardinality restriction

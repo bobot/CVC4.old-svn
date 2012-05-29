@@ -39,10 +39,6 @@ using namespace std;
 using namespace CVC4;
 using namespace CVC4::theory;
 
-//AJR-hack-temp
-//#define TE_PRINT_PROCESS_TIMES
-//AJR-hack-temp-end
-
 TheoryEngine::TheoryEngine(context::Context* context,
                            context::UserContext* userContext,
                            const LogicInfo& logicInfo)
@@ -241,21 +237,9 @@ void TheoryEngine::check(Theory::Effort effort) {
 
       // If in full check and no lemmas added, run the combination
       if (Theory::fullEffort(effort) && d_logicInfo.isSharingEnabled()) {
-        //AJR-hack-temp
-#ifdef TE_PRINT_PROCESS_TIMES
-        double clSet = double(clock())/double(CLOCKS_PER_SEC);
-        std::cout << "Run combination." << std::endl;
-#endif
-        //AJR-hack-temp-end
         // Do the combination
         Debug("theory") << "TheoryEngine::check(" << effort << "): running combination" << std::endl;
         combineTheories();
-        //AJR-hack-temp
-#ifdef TE_PRINT_PROCESS_TIMES
-        double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-        std::cout << "Done run combination. " << (clSet2-clSet) << std::endl;
-#endif
-        //AJR-hack-temp-end
         // If we have any propagated shared literals, we enqueue them to the theories and re-check
         if (d_propagatedSharedLiterals.size() > 0) {
           Debug("theory") << "TheoryEngine::check(" << effort << "): distributing shared literals" << std::endl;

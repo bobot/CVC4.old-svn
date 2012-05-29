@@ -138,42 +138,6 @@ void TheoryUF::check(Effort level) {
   }
   //AJR-hack-end
 
-  //AJR-hack-temp
-  //if( !d_conflict && level==FULL_EFFORT ){
-    //EqClassesIterator eqc_iter( &d_equalityEngine );
-    //while( !eqc_iter.isFinished() ){
-    //  if( StrongSolverTheoryUf::isRelevantType( (*eqc_iter).getType() ) ){
-    //    std::cout << "Eq class [[" << (*eqc_iter) << "]]" << std::endl;
-    //    EqClassIterator eqc_iter2( *eqc_iter, &d_equalityEngine );
-    //    std::cout << "   ";
-    //    while( !eqc_iter2.isFinished() ){
-    //      std::cout << "[" << (*eqc_iter2) << "] ";
-    //      eqc_iter2++;
-    //    }
-    //    std::cout << std::endl;
-    //  }
-    //  eqc_iter++;
-    //}
-    //std::cout << std::endl;
-
-    //int count = 0;
-    //EqClassesIterator eqc_iter( &d_equalityEngine );
-    //while( !eqc_iter.isFinished() ){
-    //  if( StrongSolverTheoryUf::isRelevantType( (*eqc_iter).getType() ) ){
-    //    count++;
-    //  }
-    //  eqc_iter++;
-    //}
-    ////std::cout << "SAT, Equiv classes = ";
-    //std::cout << count << std::endl;
-
-    //std::cout << "   Current assumptions:" << std::endl;
-    //for( NodeList::const_iterator it = d_assertions_ajr.begin(); it!=d_assertions_ajr.end(); ++it ){
-    //  std::cout << "      " << (*it) << std::endl;
-    //}
-  //}
-  //AJR-hack-temp-end
-
 }/* TheoryUF::check() */
 
 void TheoryUF::propagate(Effort level) {

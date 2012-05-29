@@ -309,15 +309,7 @@ int runCvc4(int argc, char* argv[], Options& options) {
   RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
 
   if(options.statistics) {
-//AJR-hack-temp
-#if 1
-    pStatistics->flushInformation(std::cout);
-#else
-//AJR-hack-temp-end
     pStatistics->flushInformation(*options.err);
-//AJR-hack-temp
-#endif
-//AJR-hack-temp-end
   }
 
   return returnValue;

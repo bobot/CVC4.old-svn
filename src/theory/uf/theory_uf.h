@@ -220,10 +220,6 @@ public:
   EqClassesIterator(){}
   EqClassesIterator( eq::EqualityEngine* ee ) : d_ee( ee ){
     d_it = 0;
-    //for( int i=0; i<(int)d_ee->d_nodesCount; i++ ){
-    //  std::cout << "{" << d_ee->d_nodes[i] << "}";
-    //}
-    //std::cout << std::endl;
     if( d_it<d_ee->d_nodesCount && d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] ){
       (*this)++;
     }

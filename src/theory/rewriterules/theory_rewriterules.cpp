@@ -232,9 +232,9 @@ void TheoryRewriteRules::check(Effort level) {
       TNode g = (*p).first;
       const GList * const l = (*p).second;
       const Guarded & glast = l->back();
-      // cout << "Polled?:" << g << std::endl;
+      // Notice() << "Polled?:" << g << std::endl;
       if(glast.inst == RULEINST_TRUE||glast.inst == RULEINST_FALSE) continue;
-      // cout << "Polled!:" << g << "->" << (glast.inst == RULEINST_TRUE||glast.inst == RULEINST_FALSE) << std::endl;
+      // Notice() << "Polled!:" << g << "->" << (glast.inst == RULEINST_TRUE||glast.inst == RULEINST_FALSE) << std::endl;
       bool value;
       if(getValuation().hasSatValue(g,value)){
         if(value) polldone = true; //One guard is true so pass n check
@@ -242,7 +242,7 @@ void TheoryRewriteRules::check(Effort level) {
                              << " is " << (value ? "true" : "false") << std::endl;
         notification(g,value);
         //const Guarded & glast2 = (*l)[l->size()-1];
-        // cout << "Polled!!:" << g << "->" << (glast2.inst == RULEINST_TRUE||glast2.inst == RULEINST_FALSE) << std::endl;
+        // Notice() << "Polled!!:" << g << "->" << (glast2.inst == RULEINST_TRUE||glast2.inst == RULEINST_FALSE) << std::endl;
       };
     };
 
@@ -504,7 +504,7 @@ Node TheoryRewriteRules::explain(TNode n){
   ExplanationMap::const_iterator p = d_explanations.find(n);
   Assert(p!=d_explanations.end(),"I forget the explanation...");
   RuleInst i = (*p).second;
-  //std::cout << n << "<-" << *(i.rule) << std::endl;
+  //Notice() << n << "<-" << *(i.rule) << std::endl;
   return substGuards(&i, TCache ());
 }
 

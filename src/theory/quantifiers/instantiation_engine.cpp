@@ -133,7 +133,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   }
   Debug("inst-engine") << "All instantiators finished, # added lemmas = ";
   Debug("inst-engine") << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
-  //std::cout << "All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
+  //Notice() << "All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
   if( !getQuantifiersEngine()->hasAddedLemma() ){
     Debug("inst-engine-stuck") << "No instantiations produced at this state: " << std::endl;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
@@ -147,7 +147,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   }else{
     Debug("inst-engine-ctrl") << "---Done. " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
-    std::cout << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+    Notice() << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
 #endif
     //flush lemmas to output channel
     getQuantifiersEngine()->flushLemmas( &d_th->getOutputChannel() );
@@ -166,7 +166,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);
-    std::cout << "Run instantiation round " << e << " " << ierCounter << std::endl;
+    Notice() << "Run instantiation round " << e << " " << ierCounter << std::endl;
 #endif
     bool quantActive = false;
     //for each quantifier currently asserted,
@@ -240,13 +240,13 @@ void InstantiationEngine::check( Theory::Effort e ){
     }
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-    std::cout << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
+    Notice() << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
 #endif
   }
 }
 
 void InstantiationEngine::registerQuantifier( Node f ){
-  //std::cout << "do cbqi " << f << " ? " << std::endl;
+  //Notice() << "do cbqi " << f << " ? " << std::endl;
   Node ceBody = getQuantifiersEngine()->getCounterexampleBody( f );
   if( !doCbqi( f ) ){
     getQuantifiersEngine()->addTermToDatabase( ceBody, true );
@@ -260,7 +260,7 @@ void InstantiationEngine::registerQuantifier( Node f ){
     Node subsPat = getQuantifiersEngine()->getSubstitutedNode( f[2], f );
     //add patterns
     for( int i=0; i<(int)subsPat.getNumChildren(); i++ ){
-      //std::cout << "Add pattern " << subsPat[i] << " for " << f << std::endl;
+      //Notice() << "Add pattern " << subsPat[i] << " for " << f << std::endl;
       ((uf::InstantiatorTheoryUf*)getQuantifiersEngine()->getInstantiator( theory::THEORY_UF ))->addUserPattern( f, subsPat[i] );
     }
   }
@@ -351,11 +351,8 @@ void InstantiationEngine::debugSat( int reason ){
       bool value;
       if( d_th->getValuation().hasSatValue( cel, value ) ){
         if( !value ){
-          if( d_th->getValuation().isDecision( cel ) ){
-            Debug("quantifiers-sat") << "sat, but decided cel=" << cel << std::endl;
-            std::cout << "unknown ";
-            exit( 17 );
-          }
+          AlwaysAssert(! d_th->getValuation().isDecision( cel ),
+                       "bad decision on counterexample literal");
         }
       }
     }
@@ -364,12 +361,12 @@ void InstantiationEngine::debugSat( int reason ){
     //static bool setTrust = false;
     //if( !setTrust ){
     //  setTrust = true;
-    //  std::cout << "trust-";
+    //  Notice() << "trust-";
     //}
   }else if( reason==SAT_INST_STRATEGY ){
     Debug("quantifiers-sat") << "return SAT: No strategy chose to add an instantiation." << std::endl;
-    //std::cout << "sat ";
-    //exit( 11 );
+    //Notice() << "sat ";
+    //Unimplemented();
   }
 }
 

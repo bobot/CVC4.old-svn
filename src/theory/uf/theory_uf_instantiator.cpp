@@ -302,7 +302,7 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
               //add them as candidates to the candidate generator
               for( int t=0; t<(int)terms.size(); t++ ){
                 Debug("efficient-e-match") << terms[t] << " ";
-                //std::cout << "Add candidate (PC) " << terms[t] << std::endl;
+                //Notice() << "Add candidate (PC) " << terms[t] << std::endl;
                 for( int cg=0; cg<(int)d_pat_cand_gens[pat].size(); cg++ ){
                   d_pat_cand_gens[pat][cg]->addCandidate( terms[t] );
                 }
@@ -345,7 +345,7 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
                 //take intersection
                 for( int t=0; t<(int)a_terms.size(); t++ ){
                   if( std::find( b_terms.begin(), b_terms.end(), a_terms[t] )!=b_terms.end() ){
-                                //std::cout << "Add candidate (PP) " << a_terms[t] << std::endl;
+                                //Notice() << "Add candidate (PP) " << a_terms[t] << std::endl;
                     Debug("efficient-e-match") << "      -> Add term " << a_terms[t] << std::endl;
                     //add to all candidate generators having this term
                     for( int cg=0; cg<(int)d_pat_cand_gens[pat].size(); cg++ ){

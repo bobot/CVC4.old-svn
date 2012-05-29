@@ -199,7 +199,7 @@ public:
   public:
     ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) :
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
-        d_reps( c, 0 ), d_cardinality( c, 1 ), d_term_amb( c ), d_type( tn ),
+        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( c, 1 ), d_type( tn ),
         d_cardinality_assertions( c ), d_is_cardinality_set( c, false ),
         d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ), d_hasCard( c, false ){}
     ~ConflictFind(){}

@@ -107,7 +107,6 @@ bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
  InstMatchTrie2<modEq>::Tree * e = &d_data;
  mapIter diverge = begin;
  if( !existsInstMatch(e, begin, end, e, diverge ) ){
-   //std::cout << "~Exists, add." << std::endl;
    Assert(!diverge->second.isNull());
    size_t currLevel = d_mods.getContext()->getLevel();
    addSubTree( e, diverge, end, currLevel );
@@ -116,7 +115,6 @@ bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
      d_mods.push_back(make_pair(e,diverge->second));
    return true;
  }else{
-   //std::cout << "Exists, fail." << std::endl;
    return false;
  }
 }

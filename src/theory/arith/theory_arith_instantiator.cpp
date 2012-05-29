@@ -44,9 +44,9 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
   if( e<2 ){
     return STATUS_UNFINISHED;
   }else if( e==2 ){
-    //std::cout << f << std::endl;
-    //std::cout << "Num inst rows = " << d_th->d_instRows[f].size() << std::endl;
-    //std::cout << "Num inst constants = " << d_quantEngine->getNumInstantiationConstants( f ) << std::endl;
+    //Notice() << f << std::endl;
+    //Notice() << "Num inst rows = " << d_th->d_instRows[f].size() << std::endl;
+    //Notice() << "Num inst constants = " << d_quantEngine->getNumInstantiationConstants( f ) << std::endl;
     Debug("quant-arith-simplex") << "InstStrategySimplex check " << f << ", rows = " << d_th->d_instRows[f].size() << std::endl;
     for( int j=0; j<(int)d_th->d_instRows[f].size(); j++ ){
       ArithVar x = d_th->d_instRows[f][j];
@@ -189,21 +189,6 @@ void InstantiatorTheoryArith::preRegisterTerm( Node t ){
 
 void InstantiatorTheoryArith::assertNode( Node assertion ){
   Debug("quant-arith-assert") << "InstantiatorTheoryArith::check: " << assertion << std::endl;
-  ////this is just for debugging....
-  //if( assertion.hasAttribute(InstConstantAttribute())  ){
-  //  if( ((TheoryArith*)getTheory())->d_valuation.isDecision( assertion ) ){
-  //    Node f = assertion.getAttribute(InstConstantAttribute());
-  //    Node cel = d_quantEngine->getCounterexampleLiteralFor( f );
-  //    Assert( !cel.isNull() );
-  //    Assert( d_quantEngine->getTheoryEngine()->getPropEngine()->isSatLiteral( cel ) );
-  //    bool value;
-  //    //Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );
-  //    if( !((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) ){
-  //      std::cout << "unknown ";
-  //      exit( 18 );
-  //    }
-  //  }
-  //}
   d_quantEngine->addTermToDatabase( assertion );
   if( Options::current()->cbqi ){
     if( assertion.hasAttribute(InstConstantAttribute()) ){

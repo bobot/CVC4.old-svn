@@ -189,7 +189,7 @@ void UfModelTree::setValue( QuantifiersEngine* qe, Node n, Node v, std::vector< 
 //get value function
 Node UfModelTree::getValue( QuantifiersEngine* qe, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex ){
   if( !d_value.isNull() && isTotal( n.getOperator(), argIndex ) ){
-    //std::cout << "Constant, return " << d_value << ", depIndex = " << argIndex << std::endl;
+    //Notice() << "Constant, return " << d_value << ", depIndex = " << argIndex << std::endl;
     depIndex = argIndex;
     return d_value;
   }else{
@@ -215,8 +215,8 @@ Node UfModelTree::getValue( QuantifiersEngine* qe, Node n, std::vector< int >& i
     }
     //update depIndex
     depIndex = childDepIndex[0]>childDepIndex[1] ? childDepIndex[0] : childDepIndex[1];
-    //std::cout << "Return " << val << ", depIndex = " << depIndex;
-    //std::cout << " ( " << childDepIndex[0] << ", " << childDepIndex[1] << " )" << std::endl;
+    //Notice() << "Return " << val << ", depIndex = " << depIndex;
+    //Notice() << " ( " << childDepIndex[0] << ", " << childDepIndex[1] << " )" << std::endl;
     return val;
   }
 }
@@ -465,7 +465,7 @@ void UfModel::buildModel(){
 
 void UfModel::setValuePreference( Node f, Node n, bool isPro ){
   Node v = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n );
-  //std::cout << "Set value preference " << n << " = " << v << " " << isPro << std::endl;
+  //Notice() << "Set value preference " << n << " = " << v << " " << isPro << std::endl;
   if( std::find( d_values.begin(), d_values.end(), v )==d_values.end() ){
     d_values.push_back( v );
   }
@@ -556,7 +556,7 @@ void ModelEngine::check( Theory::Effort e ){
     }
     if( quantsInit ){
 #ifdef ME_PRINT_PROCESS_TIMES
-      std::cout << "---Instantiation Round---" << std::endl;
+      Notice() << "---Instantiation Round---" << std::endl;
 #endif
       Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
       ++(d_statistics.d_inst_rounds);
@@ -589,7 +589,7 @@ void ModelEngine::check( Theory::Effort e ){
         }
       }
 #ifdef ME_PRINT_PROCESS_TIMES
-      std::cout << "Added Lemmas = " << addedLemmas << std::endl;
+      Notice() << "Added Lemmas = " << addedLemmas << std::endl;
 #endif
       if( addedLemmas==0 ){
         //debugPrint("fmf-consistent");
@@ -630,7 +630,7 @@ bool ModelEngine::initializeQuantifier( Node f ){
     //    it != d_quantEngine->d_phase_reqs[f].end(); ++it ){
     //  Node n = it->first;
     //  if( n.getKind()==EQUAL && n[0].getKind()==INST_CONSTANT && n[1].getKind()==INST_CONSTANT ){
-    //    std::cout << "Unhandled phase req: " << n << std::endl;
+    //    Notice() << "Unhandled phase req: " << n << std::endl;
     //  }
     //}
 
@@ -643,7 +643,7 @@ bool ModelEngine::initializeQuantifier( Node f ){
       return false;
     }else{
       //usually shouldn't happen
-      //std::cout << "No model basis for " << f << std::endl;
+      //Notice() << "No model basis for " << f << std::endl;
       ++(d_statistics.d_num_quants_init_fail);
     }
   }
@@ -659,10 +659,10 @@ void ModelEngine::buildRepresentatives(){
     d_ss->getRepresentatives( tn, reps );
     Assert( !reps.empty() );
     //if( (int)reps.size()!=d_ss->getCardinality( tn ) ){
-    //  std::cout << "InstStrategyFinteModelFind::processResetInstantiationRound: Bad representatives for type." << std::endl;
-    //  std::cout << "   " << tn << " has cardinality " << d_ss->getCardinality( tn );
-    //  std::cout << " but only " << (int)reps.size() << " were given." << std::endl;
-    //  exit( 27 );
+    //  Notice() << "InstStrategyFinteModelFind::processResetInstantiationRound: Bad representatives for type." << std::endl;
+    //  Notice() << "   " << tn << " has cardinality " << d_ss->getCardinality( tn );
+    //  Notice() << " but only " << (int)reps.size() << " were given." << std::endl;
+    //  Unimplemented( 27 );
     //}
     Debug("fmf-model-debug") << "   " << tn << " -> " << reps.size() << std::endl;
     Debug("fmf-model-debug") << "      ";
@@ -1081,7 +1081,7 @@ void ModelEngine::increment( RepAlphabetIterator* rai ){
         int depIndex;
         if( evaluate( rai, d_quantEngine->getCounterexampleBody( rai->d_f ), depIndex )==1 ){
           Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
-          //std::cout << "Returned eVal = " << eVal << "/" << rai->d_index.size() << std::endl;
+          //Notice() << "Returned eVal = " << eVal << "/" << rai->d_index.size() << std::endl;
           if( depIndex<(int)rai->d_index.size() ){
 #ifdef DISABLE_EVAL_SKIP_MULTIPLE
             depIndex = (int)rai->d_index.size()-1;

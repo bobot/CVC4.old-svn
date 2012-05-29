@@ -89,8 +89,8 @@ void Theory::printFacts(std::ostream& os) const {
 }
 
 void Theory::debugPrintFacts() const{
-  cout << "Theory::debugPrintFacts()" << endl;
-  printFacts(cout);
+  DebugChannel.getStream() << "Theory::debugPrintFacts()" << endl;
+  printFacts(DebugChannel.getStream());
 }
 
 }/* CVC4::theory namespace */
