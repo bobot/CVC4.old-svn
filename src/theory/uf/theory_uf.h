@@ -70,17 +70,17 @@ public:
     }
 
     //AJR-hack
-    void notifyEqClass( TNode t ){
-      d_uf.notifyEqClass( t );
+    void eqNotifyNewClass( TNode t ){
+      d_uf.eqNotifyNewClass( t );
     }
-    void preNotifyMerge( TNode t1, TNode t2 ){
-      d_uf.preNotifyMerge( t1, t2 );
+    void eqNotifyPreMerge( TNode t1, TNode t2 ){
+      d_uf.eqNotifyPreMerge( t1, t2 );
     }
-    void postNotifyMerge( TNode t1, TNode t2 ){
-      d_uf.postNotifyMerge( t1, t2 );
+    void eqNotifyPostMerge( TNode t1, TNode t2 ){
+      d_uf.eqNotifyPostMerge( t1, t2 );
     }
-    void notifyDisequal( TNode t1, TNode t2, TNode reason ){
-      d_uf.notifyDisequal( t1, t2, reason );
+    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){
+      d_uf.eqNotifyDisequal( t1, t2, reason );
     }
     //AJR-hack-end
 
@@ -147,16 +147,16 @@ private:
 
 //AJR-hack
   /** called when a new equivalance class is created */
-  void notifyEqClass( TNode t );
+  void eqNotifyNewClass( TNode t );
 
   /** called when two equivalance classes will merge */
-  void preNotifyMerge( TNode t1, TNode t2 );
+  void eqNotifyPreMerge( TNode t1, TNode t2 );
 
   /** called when two equivalance classes have merged */
-  void postNotifyMerge( TNode t1, TNode t2 );
+  void eqNotifyPostMerge( TNode t1, TNode t2 );
 
   /** called when two equivalence classes are made disequal */
-  void notifyDisequal( TNode t1, TNode t2, TNode reason );
+  void eqNotifyDisequal( TNode t1, TNode t2, TNode reason );
 //AJR-hack-end
 public:
 
@@ -210,85 +210,6 @@ public:
   //FB-hack-end
 
 };/* class TheoryUF */
-
-class EqClassesIterator
-{
-private:
-  eq::EqualityEngine* d_ee;
-  size_t d_it;
-public:
-  EqClassesIterator(){}
-  EqClassesIterator( eq::EqualityEngine* ee ) : d_ee( ee ){
-    d_it = 0;
-    if( d_it<d_ee->d_nodesCount && d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] ){
-      (*this)++;
-    }
-  }
-  Node operator*() { return d_ee->d_nodes[d_it]; }
-  bool operator==(const EqClassesIterator& i) {
-    return d_ee == i.d_ee && d_it == i.d_it;
-  }
-  bool operator!=(const EqClassesIterator& i) {
-    return !(*this == i);
-  }
-  EqClassesIterator& operator++() {
-    Node orig = d_ee->d_nodes[d_it];
-    ++d_it;
-    while( d_it<d_ee->d_nodesCount && ( d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] ||
-           d_ee->d_nodes[d_it]==orig ) ){    //this line is necessary for ignoring duplicates
-      ++d_it;
-    }
-    return *this;
-  }
-  EqClassesIterator operator++(int) {
-    EqClassesIterator i = *this;
-    ++*this;
-    return i;
-  }
-  bool isFinished() { return d_it>=d_ee->d_nodesCount; }
-};
-
-class EqClassIterator
-{
-private:
-  Node d_rep;
-  eq::EqualityNode d_curr;
-  Node d_curr_node;
-  eq::EqualityEngine* d_ee;
-public:
-  EqClassIterator(){}
-  EqClassIterator( Node eqc, eq::EqualityEngine* ee ) : d_ee( ee ){
-    Assert( d_ee->getRepresentative( eqc )==eqc );
-    d_rep = eqc;
-    d_curr_node = eqc;
-    d_curr = d_ee->getEqualityNode( eqc );
-  }
-  Node operator*() { return d_curr_node; }
-  bool operator==(const EqClassIterator& i) {
-    return d_ee == i.d_ee && d_curr_node == i.d_curr_node;
-  }
-  bool operator!=(const EqClassIterator& i) {
-    return !(*this == i);
-  }
-  EqClassIterator& operator++() {
-    Node next = d_ee->d_nodes[ d_curr.getNext() ];
-    Assert( d_rep==d_ee->getRepresentative( next ) );
-    if( d_rep!=next ){    //we end when we have cycled back to the original representative
-      d_curr_node = next;
-      d_curr = d_ee->getEqualityNode( d_curr.getNext() );
-    }else{
-      d_curr_node = Node::null();
-    }
-    return *this;
-  }
-  EqClassIterator operator++(int) {
-    EqClassIterator i = *this;
-    ++*this;
-    return i;
-  }
-  bool isFinished() { return d_curr_node==Node::null(); }
-};
-
 
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */

@@ -97,7 +97,9 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
     d_equalityEngine.addFunctionKind(kind::ARR_TABLE_FUN);
   }
   //AJR-hack
-  d_inst = new InstantiatorTheoryArrays( c, qe, this );
+  if(qe != NULL) {
+    d_inst = new InstantiatorTheoryArrays( c, qe, this );
+  }
   //AJR-hack-end
 }
 

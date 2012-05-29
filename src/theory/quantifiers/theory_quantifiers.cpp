@@ -45,7 +45,9 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
-  d_inst = new InstantiatorTheoryQuantifiers( c, qe, this );
+  if(qe != NULL) {
+    d_inst = new InstantiatorTheoryQuantifiers( c, qe, this );
+  }
   if( Options::current()->finiteModelFind ){
     qe->addModule( new ModelEngine( this ) );
   }else{

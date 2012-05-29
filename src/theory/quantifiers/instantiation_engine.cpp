@@ -338,10 +338,10 @@ bool InstantiationEngine::doCbqi( Node f ){
 
 void InstantiationEngine::debugSat( int reason ){
   if( reason==SAT_CBQI ){
-    Debug("quantifiers-sat") << "Decisions:" << std::endl;
-    for( int i=1; i<=(int)d_th->getValuation().getDecisionLevel(); i++ ){
-      Debug("quantifiers-sat") << "   " << i << ": " << d_th->getValuation().getDecision( i ) << std::endl;
-    }
+    //Debug("quantifiers-sat") << "Decisions:" << std::endl;
+    //for( int i=1; i<=(int)d_th->getValuation().getDecisionLevel(); i++ ){
+    //  Debug("quantifiers-sat") << "   " << i << ": " << d_th->getValuation().getDecision( i ) << std::endl;
+    //}
     //for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
     //  if( (*i).second ) {
     for( int i=0; i<(int)getQuantifiersEngine()->getNumAssertedQuantifiers(); i++ ){

@@ -241,7 +241,7 @@ void TermDb::reset( Theory::Effort effort ){
   }
   for( int i=0; i<2; i++ ){
     Node n = NodeManager::currentNM()->mkConst( i==1 );
-    uf::EqClassIterator eqc = uf::EqClassIterator( d_quantEngine->getEqualityQuery()->getRepresentative( n ),
+    eq::EqClassIterator eqc( d_quantEngine->getEqualityQuery()->getRepresentative( n ),
                               ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
     while( !eqc.isFinished() ){
       Node en = (*eqc);

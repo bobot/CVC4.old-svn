@@ -37,7 +37,7 @@ private:
   //instantiator pointer
   InstantiatorTheoryUf* d_ith;
   //the equality class iterator
-  EqClassIterator d_eqc;
+  eq::EqClassIterator d_eqc;
   int d_term_iter;
   int d_term_iter_limit;
 private:
@@ -75,7 +75,7 @@ class CandidateGeneratorTheoryUfLitEq : public CandidateGenerator
 {
 private:
   //the equality classes iterator
-  EqClassesIterator d_eq;
+  eq::EqClassesIterator d_eq;
   //equality you are trying to match equalities for
   Node d_match_pattern;
   //einstantiator pointer
@@ -93,7 +93,7 @@ class CandidateGeneratorTheoryUfLitDeq : public CandidateGenerator
 {
 private:
   //the equality class iterator for false
-  EqClassIterator d_eqc_false;
+  eq::EqClassIterator d_eqc_false;
   //equality you are trying to match disequalities for
   Node d_match_pattern;
   //einstantiator pointer

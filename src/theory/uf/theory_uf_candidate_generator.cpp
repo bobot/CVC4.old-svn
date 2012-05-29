@@ -40,7 +40,7 @@ void CandidateGeneratorTheoryUf::reset( Node eqc ){
     //create an equivalence class iterator in eq class eqc
     if( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->hasTerm( eqc ) ){
       eqc = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative( eqc );
-      d_eqc = EqClassIterator( eqc, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
+      d_eqc = eq::EqClassIterator( eqc, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
       d_retNode = Node::null();
     }else{
       d_retNode = eqc;
@@ -127,7 +127,7 @@ void CandidateGeneratorTheoryUfLitEq::resetInstantiationRound(){
   
 }
 void CandidateGeneratorTheoryUfLitEq::reset( Node eqc ){
-  d_eq = EqClassesIterator( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
+  d_eq = eq::EqClassesIterator( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
 }
 Node CandidateGeneratorTheoryUfLitEq::getNextCandidate(){
   while( d_eq.isFinished() ){
@@ -152,7 +152,7 @@ void CandidateGeneratorTheoryUfLitDeq::resetInstantiationRound(){
 void CandidateGeneratorTheoryUfLitDeq::reset( Node eqc ){
   Node false_term = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative( 
                       NodeManager::currentNM()->mkConst<bool>(false) );
-  d_eqc_false = EqClassIterator( false_term, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
+  d_eqc_false = eq::EqClassIterator( false_term, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
 }
 Node CandidateGeneratorTheoryUfLitDeq::getNextCandidate(){
   //get next candidate term in equivalence class

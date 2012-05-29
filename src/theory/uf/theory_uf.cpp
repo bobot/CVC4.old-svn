@@ -45,7 +45,9 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   }else{
     d_thss = NULL;
   }
-  d_inst = new InstantiatorTheoryUf( c, qe, this );
+  if(qe != NULL) {
+    d_inst = new InstantiatorTheoryUf( c, qe, this );
+  }
   //AJR-hack-end
 }/* TheoryUF::TheoryUF() */
 
@@ -496,7 +498,7 @@ void TheoryUF::computeCareGraph() {
 
 //AJR-hack
 
-void TheoryUF::notifyEqClass( TNode t ){
+void TheoryUF::eqNotifyNewClass( TNode t ){
   if( d_thss ){
     d_thss->newEqClass( t );
   }
@@ -505,19 +507,19 @@ void TheoryUF::notifyEqClass( TNode t ){
   }
 }
 
-void TheoryUF::preNotifyMerge( TNode t1, TNode t2 ){
+void TheoryUF::eqNotifyPreMerge( TNode t1, TNode t2 ){
   if( getInstantiator() ){
     ((InstantiatorTheoryUf*)getInstantiator())->merge( t1, t2 );
   }
 }
 
-void TheoryUF::postNotifyMerge( TNode t1, TNode t2 ){
+void TheoryUF::eqNotifyPostMerge( TNode t1, TNode t2 ){
   if( d_thss ){
     d_thss->merge( t1, t2 );
   }
 }
 
-void TheoryUF::notifyDisequal( TNode t1, TNode t2, TNode reason ){
+void TheoryUF::eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){
   if( d_thss ){
     d_thss->assertDisequal( t1, t2, reason );
   }

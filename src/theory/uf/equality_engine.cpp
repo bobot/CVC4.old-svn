@@ -195,7 +195,7 @@ EqualityNodeId EqualityEngine::newNode(TNode node) {
   //AJR-hack
   //notify the theory strong solver
   if( d_performNotify ){
-    d_notify.notifyEqClass( node );
+    d_notify.eqNotifyNewClass( node );
   }
   //AJR-hack-end
 
@@ -306,7 +306,7 @@ void EqualityEngine::assertEquality(TNode eq, bool polarity, TNode reason) {
     //AJR-hack
     //notify the theory
     if( d_performNotify ){
-      d_notify.notifyDisequal( eq[0], eq[1], reason );
+      d_notify.eqNotifyDisequal( eq[0], eq[1], reason );
     }
     //AJR-hack-end
 
@@ -363,7 +363,7 @@ bool EqualityEngine::merge(EqualityNode& class1, EqualityNode& class2, std::vect
     doNotify = true;
   }
   if( doNotify ){
-    d_notify.preNotifyMerge( n1, n2 );
+    d_notify.eqNotifyPreMerge( n1, n2 );
   }
   //AJR-hack-end
 
@@ -471,7 +471,7 @@ bool EqualityEngine::merge(EqualityNode& class1, EqualityNode& class2, std::vect
   //AJR-hack
   //notify the theory
   if( doNotify ){
-    d_notify.postNotifyMerge( n1, n2 );
+    d_notify.eqNotifyPostMerge( n1, n2 );
   }
   //AJR-hack-end
 

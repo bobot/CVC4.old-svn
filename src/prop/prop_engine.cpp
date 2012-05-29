@@ -130,48 +130,14 @@ void PropEngine::requirePhase(TNode n, bool phase) {
   d_satSolver->requirePhasedDecision(phase ? lit : ~lit);
 }
 
-void PropEngine::dependentDecision(TNode depends, TNode decision) {
-  Debug("prop") << "dependentDecision(" << depends << ", " << decision << ")" << endl;
-
-  Assert(depends.getType().isBoolean());
-  Assert(decision.getType().isBoolean());
-  //SatVariable vdep = Minisat::var(d_cnfStream->getLiteral(depends));
-  //SatVariable vdec = Minisat::var(d_cnfStream->getLiteral(decision));
-  SatVariable vdep = d_cnfStream->getLiteral(depends).getSatVariable();
-  SatVariable vdec = d_cnfStream->getLiteral(decision).getSatVariable();
-  d_satSolver->dependentDecision(vdep, vdec);
-}
-
 bool PropEngine::flipDecision() {
   Debug("prop") << "flipDecision()" << endl;
   return d_satSolver->flipDecision();
 }
 
-void PropEngine::flipDecision(unsigned level) {
-  Debug("prop") << "flipDecision(" << level << ")" << endl;
-  Assert(level > 0 && level <= getDecisionLevel());
-  //d_satSolver->flipDecision(Minisat::var(d_satSolver->getDecision(level)));
-  d_satSolver->flipDecision(d_satSolver->getDecision(level).getSatVariable());
-}
-
-void PropEngine::flipDecision(Node lit) {
-  Debug("prop") << "flipDecision(" << lit << ")" << endl;
-  Assert(isDecision(lit));
-  d_satSolver->flipDecision(d_cnfStream->getLiteral(lit).getSatVariable());
-}
-
-unsigned PropEngine::getDecisionLevel() const {
-  return d_satSolver->getDecisionLevel();
-}
-
 bool PropEngine::isDecision(Node lit) const {
   Assert(isTranslatedSatLiteral(lit));
   return d_satSolver->isDecision(d_cnfStream->getLiteral(lit).getSatVariable());
-}
-
-Node PropEngine::getDecision(unsigned level) const {
-  Assert(level > 0 && level <= getDecisionLevel());
-  return d_cnfStream->getNode(d_satSolver->getDecision(level));
 }
 
 void PropEngine::printSatisfyingAssignment(){

@@ -72,7 +72,10 @@ TheoryDatatypes::TheoryDatatypes(Context* c, UserContext* u, OutputChannel& out,
   d_disequalities(c),
   d_em(c),
   d_cce(&d_cc){
-  d_inst = new InstantiatorTheoryDatatypes( c, qe, this );
+
+  if(qe != NULL) {
+    d_inst = new InstantiatorTheoryDatatypes( c, qe, this );
+  }
 }
 
 

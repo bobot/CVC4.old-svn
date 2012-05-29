@@ -83,10 +83,6 @@ public:
     return 0;
   }
 
-  unsigned getDecisionLevel() const {
-    return 0;
-  }
-
   bool isDecision(Node) const {
     return false;
   }

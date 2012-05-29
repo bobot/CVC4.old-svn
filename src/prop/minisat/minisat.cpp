@@ -228,9 +228,6 @@ void MinisatSatSolver::Statistics::init(Minisat::SimpSolver* d_minisat){
 }
 
 //AJR-hack
-unsigned MinisatSatSolver::getDecisionLevel() const{
-  return d_minisat->decisionLevel(); 
-}
 void MinisatSatSolver::requirePhasedDecision(SatLiteral lit) { 
   Assert(!d_minisat->rnd_pol);
   Debug("minisat") << "requirePhasedDecision(" << lit << ")" << " " <<  lit.getSatVariable() << " " << lit.isNegated() << std::endl;
@@ -239,22 +236,11 @@ void MinisatSatSolver::requirePhasedDecision(SatLiteral lit) {
   //SatVariable v = Minisat::var(lit);
   //d_minisat->freezePolarity(v, Minisat::sign(lit));
 }
-void MinisatSatSolver::dependentDecision(SatVariable dep, SatVariable dec) { 
-  Debug("minisat") << "dependentDecision(" << dep << ", " << dec << ")" << std::endl;
-  d_minisat->dependentDecision(dep, dec);
-}
 bool MinisatSatSolver::flipDecision() { 
   Debug("minisat") << "flipDecision()" << std::endl;
   return d_minisat->flipDecision();
 }
-void MinisatSatSolver::flipDecision(SatVariable decn) { 
-  d_minisat->flipDecision( decn ); 
-}
 bool MinisatSatSolver::isDecision(SatVariable decn) const { 
   return d_minisat->isDecision( decn ); 
-}
-SatLiteral MinisatSatSolver::getDecision(unsigned level) const{
-  Minisat::Lit l = d_minisat->getDecision( level );
-  return SatLiteral( Minisat::var( l ), Minisat::sign( l ) ); 
 }
 //AJR-hack-end

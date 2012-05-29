@@ -77,22 +77,7 @@ public:
     Unreachable();
   }
 
-  void dependentDecision(TNode, TNode, bool = false)
-    throw(Interrupted, AssertionException) {
-    Unreachable();
-  }
-
   bool flipDecision(bool = false)
-    throw(Interrupted, AssertionException) {
-    Unreachable();
-  }
-
-  void flipDecision(Node, bool = false)
-    throw(Interrupted, AssertionException) {
-    Unreachable();
-  }
-
-  void flipDecision(unsigned, bool = false)
     throw(Interrupted, AssertionException) {
     Unreachable();
   }

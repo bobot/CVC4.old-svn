@@ -163,7 +163,7 @@ class TheoryEngine {
 
   public:
 
-    IntStat conflicts, propagations, lemmas, propagationsAsDecisions, requirePhase, dependentDecision, flipDecision;
+    IntStat conflicts, propagations, lemmas, propagationsAsDecisions, requirePhase, flipDecision;
 
     Statistics(theory::TheoryId theory):
       conflicts(mkName("theory<", theory, ">::conflicts"), 0),
@@ -171,7 +171,6 @@ class TheoryEngine {
       lemmas(mkName("theory<", theory, ">::lemmas"), 0),
       propagationsAsDecisions(mkName("theory<", theory, ">::propagationsAsDecisions"), 0),
       requirePhase(mkName("theory<", theory, ">::requirePhase"), 0),
-      dependentDecision(mkName("theory<", theory, ">::dependentDecision"), 0),
       flipDecision(mkName("theory<", theory, ">::flipDecision"), 0)
     {
       StatisticsRegistry::registerStat(&conflicts);
@@ -179,7 +178,6 @@ class TheoryEngine {
       StatisticsRegistry::registerStat(&lemmas);
       StatisticsRegistry::registerStat(&propagationsAsDecisions);
       StatisticsRegistry::registerStat(&requirePhase);
-      StatisticsRegistry::registerStat(&dependentDecision);
       StatisticsRegistry::registerStat(&flipDecision);
     }
 
@@ -189,7 +187,6 @@ class TheoryEngine {
       StatisticsRegistry::unregisterStat(&lemmas);
       StatisticsRegistry::unregisterStat(&propagationsAsDecisions);
       StatisticsRegistry::unregisterStat(&requirePhase);
-      StatisticsRegistry::unregisterStat(&dependentDecision);
       StatisticsRegistry::unregisterStat(&flipDecision);
     }
   };/* class TheoryEngine::Statistics */
@@ -263,33 +260,11 @@ class TheoryEngine {
       d_engine->d_propEngine->requirePhase(n, phase);
     }
 
-    void dependentDecision(TNode depends, TNode decision, bool)
-      throw(theory::Interrupted, AssertionException) {
-      Debug("theory") << "EngineOutputChannel::dependentDecision("
-                      << depends << ", " << decision << ")" << std::endl;
-      ++ d_statistics.dependentDecision;
-      d_engine->d_propEngine->dependentDecision(depends, decision);
-    }
-
     bool flipDecision(bool)
       throw(theory::Interrupted, AssertionException) {
       Debug("theory") << "EngineOutputChannel::flipDecision()" << std::endl;
       ++ d_statistics.flipDecision;
       return d_engine->d_propEngine->flipDecision();
-    }
-
-    void flipDecision(Node lit, bool)
-      throw(theory::Interrupted, AssertionException) {
-      Debug("theory") << "EngineOutputChannel::flipDecision(" << lit << ")" << std::endl;
-      ++ d_statistics.flipDecision;
-      d_engine->d_propEngine->flipDecision(lit);
-    }
-
-    void flipDecision(unsigned level, bool)
-      throw(theory::Interrupted, AssertionException) {
-      Debug("theory") << "EngineOutputChannel::flipDecision(" << level << ")" << std::endl;
-      ++ d_statistics.flipDecision;
-      d_engine->d_propEngine->flipDecision(level);
     }
 
     void setIncomplete() throw(AssertionException) {

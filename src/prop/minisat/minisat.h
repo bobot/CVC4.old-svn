@@ -83,13 +83,9 @@ public:
   void renewVar(SatLiteral lit, int level = -1);
 
   //AJR-hack
-  unsigned getDecisionLevel() const;
   void requirePhasedDecision(SatLiteral lit);
-  void dependentDecision(SatVariable dep, SatVariable dec);
   bool flipDecision();
-  void flipDecision(SatVariable decn);
   bool isDecision(SatVariable decn) const;
-  SatLiteral getDecision(unsigned level) const;
   //AJR-hack-end
 
   class Statistics {

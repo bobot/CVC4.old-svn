@@ -161,8 +161,6 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
     seen     .push(0);
     polarity .push(sign);
     decision .push();
-    depends  .push(-1);
-    dependsOn.push(-1);
     flippable.push(true);
     trail    .capacity(v+1);
     theory   .push(theoryAtom);
@@ -418,8 +416,7 @@ Lit Solver::pickBranchLit()
             rnd_decisions++; }
 
     // Activity based decision:
-    while (next == var_Undef || value(next) != l_Undef || !decision[next] ||
-           (depends[next] >= 0 && value(depends[next]) == l_Undef))
+    while (next == var_Undef || value(next) != l_Undef || !decision[next])
         if (order_heap.empty()){
             next = var_Undef;
             break;
@@ -1135,15 +1132,6 @@ lbool Solver::search(int nof_conflicts)
                 decisions++;
                 next = pickBranchLit();
 
-                Debug("minisat::decdep")
-                  << "branch lit: " << next << " depends on "
-                  << (var(next) == var_Undef ?  var_Undef : depends[var(next)])
-                  << " with value "
-                  << (var(next) == var_Undef ||
-                      depends[var(next)] == var_Undef ?
-                        l_Undef : value(depends[var(next)]))
-                  << std::endl;
-
                 if (next == lit_Undef) {
                     // We need to do a full theory check to confirm
                   Debug("minisat::search") << "Doing a full theoy check..."
@@ -1484,25 +1472,9 @@ void Solver::renewVar(Lit lit, int level) {
   Debug("minisat") << "renewVar " << lit << " " << level << std::endl;
   Var v = var(lit);
   vardata[v].intro_level = (level == -1 ? getAssertionLevel() : level);
-  depends[v] = -1;
-  dependsOn[v] = -1;
   setDecisionVar(v, true);
   setFlipVar(v, true);
   // explicitly not resetting polarity phase-locking here
-}
-
-void Solver::flipDecision(Var decn) {
-  Debug("flipdec") << "FLIP: decision level is " << decisionLevel() << std::endl;
-  unsigned lvl = level(decn);
-  Lit l = trail[trail_lim[lvl]];
-  assert(decn == var(l));
-  assert(assigns[decn] != l_Undef);
-  Debug("flipdec") << "FLIP: canceling to level " << lvl << ", flipping decision " << decn << std::endl;
-  cancelUntil(lvl);
-  newDecisionLevel();
-  Debug("flipdec") << "FLIP: enqueuing " << ~decn << std::endl;
-  uncheckedEnqueue(~l);
-  flipped[lvl] = true;
 }
 
 bool Solver::flipDecision() {

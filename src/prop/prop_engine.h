@@ -205,17 +205,6 @@ public:
   void requirePhase(TNode n, bool phase);
 
   /**
-   * For "decision" to be decided upon, "depends" must already have an
-   * assignment.
-   *
-   * @param depends the dependent node; "decision" cannot be decided upon
-   * without this one having a value; must have an associated SAT literal
-   * @param decision the decision node; "depends" must have a value for
-   * this one to be decided upon; must have an associated SAT literal
-   */
-  void dependentDecision(TNode depends, TNode decision);
-
-  /**
    * Backtracks to and flips the most recent unflipped decision, and
    * returns TRUE.  If the decision stack is nonempty but all
    * decisions have been flipped already, the state is backtracked to
@@ -229,35 +218,11 @@ public:
   bool flipDecision();
 
   /**
-   * Flip the decision literal (similar to the 0-ary flipDecision()
-   * function) at the given level to the opposite phase.
-   */
-  void flipDecision(unsigned level);
-
-  /**
-   * Flip the given decision literal (similar to the 0-ary
-   * flipDecision() function) at the given level to the opposite
-   * phase.  The argument "lit" can be in either phase (as in
-   * the isDecision() function, below).
-   */
-  void flipDecision(Node lit);
-
-  /**
-   * Get the current decision level of the SAT solver.
-   */
-  unsigned getDecisionLevel() const;
-
-  /**
    * Return whether the given literal is a SAT decision.  Either phase
    * is permitted; that is, if "lit" is a SAT decision, this function
    * returns true for both lit and the negation of lit.
    */
   bool isDecision(Node lit) const;
-
-  /**
-   * Get the decision at a given level.
-   */
-  Node getDecision(unsigned level) const;
 
   /**
    * Checks the current context for satisfiability.

@@ -124,13 +124,9 @@ public:
   virtual bool properExplanation(SatLiteral lit, SatLiteral expl) const = 0;
 
   //AJR-hack
-  virtual unsigned getDecisionLevel() const = 0;
   virtual void requirePhasedDecision(SatLiteral lit) = 0;
-  virtual void dependentDecision(SatVariable dep, SatVariable dec) = 0;
   virtual bool flipDecision() = 0;
-  virtual void flipDecision(SatVariable decn) = 0;
   virtual bool isDecision(SatVariable decn) const = 0;
-  virtual SatLiteral getDecision(unsigned level) const = 0;
   //AJR-hack-end
 }; 
 

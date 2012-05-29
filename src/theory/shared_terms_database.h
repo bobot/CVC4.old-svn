@@ -112,10 +112,10 @@ private:
       return true;
     }
     //AJR-hack
-    void notifyEqClass( TNode t ){}
-    void preNotifyMerge( TNode t1, TNode t2 ){}
-    void postNotifyMerge( TNode t1, TNode t2 ){}
-    void notifyDisequal( TNode t1, TNode t2, TNode reason ){}
+    void eqNotifyNewClass( TNode t ){}
+    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
+    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
+    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
     //AJR-hack-end
 
     bool eqNotifyTriggerPredicate(TNode predicate, bool value) {

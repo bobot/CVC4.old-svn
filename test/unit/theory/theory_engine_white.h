@@ -63,16 +63,7 @@ class FakeOutputChannel : public OutputChannel {
   void requirePhase(TNode, bool, bool) throw(AssertionException) {
     Unimplemented();
   }
-  void dependentDecision(TNode, TNode, bool) throw(AssertionException) {
-    Unimplemented();
-  }
   bool flipDecision(bool) throw(AssertionException) {
-    Unimplemented();
-  }
-  void flipDecision(Node, bool) throw(AssertionException) {
-    Unimplemented();
-  }
-  void flipDecision(unsigned, bool) throw(AssertionException) {
     Unimplemented();
   }
   void explanation(TNode n) throw(AssertionException) {

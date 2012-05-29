@@ -80,8 +80,7 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
   // after they have been added
   if( modEq && d_eE->hasTerm( n ) ){
     //check modulo equality if any other instantiation match exists
-    uf::EqClassIterator eqc =
-      uf::EqClassIterator( d_eQ->getRepresentative( n ), d_eE );
+    eq::EqClassIterator eqc( d_eQ->getRepresentative( n ), d_eE );
     for( ;!eqc.isFinished();++eqc ){
       TNode en = (*eqc);
       if( en == n ) continue; // already tested

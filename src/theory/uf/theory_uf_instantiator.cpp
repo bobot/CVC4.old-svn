@@ -175,7 +175,7 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
         return rep;
       }else{
         //otherwise, must search eq class
-        EqClassIterator eqc_iter( rep, &((TheoryUF*)d_th)->d_equalityEngine );
+        eq::EqClassIterator eqc_iter( rep, &((TheoryUF*)d_th)->d_equalityEngine );
         rep = Node::null();
         while( !eqc_iter.isFinished() ){
           if( !(*eqc_iter).hasAttribute(InstConstantAttribute()) ){
@@ -393,7 +393,7 @@ bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, std:
     Assert( getRepresentative( n )==n );
     //collect modulo equality
     //DO_THIS: this should (if necessary) compute a current set of (f, arg) parents for n and cache it
-    EqClassIterator eqc_iter( getRepresentative( n ), &((TheoryUF*)d_th)->d_equalityEngine );
+    eq::EqClassIterator eqc_iter( getRepresentative( n ), &((TheoryUF*)d_th)->d_equalityEngine );
     while( !eqc_iter.isFinished() ){
       if( collectParentsTermsIps( (*eqc_iter), f, arg, terms, addRep, false ) ){
         //if only one argument, we know we can stop (since all others added will be congruent)
@@ -492,8 +492,8 @@ void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, N
 
 void InstantiatorTheoryUf::outputEqClass( const char* c, Node n ){
   if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( n ) ){
-    EqClassIterator eqc_iter( getRepresentative( n ),
-                              &((TheoryUF*)d_th)->d_equalityEngine );
+    eq::EqClassIterator eqc_iter( getRepresentative( n ),
+                                  &((TheoryUF*)d_th)->d_equalityEngine );
     bool firstTime = true;
     while( !eqc_iter.isFinished() ){
       if( !firstTime ){ Debug(c) << ", "; }

@@ -164,18 +164,6 @@ public:
     throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
 
   /**
-   * Tell the SAT solver that "decision" can never be decided until
-   * "depends" has been assigned.  Both must have a SAT literal.
-   *
-   * @param depends - the literal that must be assigned
-   * @param decision - the literal that cannot be decided until "depends"
-   * has an assignment
-   * @param safe - whether it is safe to be interrupted
-   */
-  virtual void dependentDecision(TNode depends, TNode decision, bool safe = false)
-    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
-
-  /**
    * Flips the most recent unflipped decision to the other phase and
    * returns true.  If all decisions have been flipped, the root
    * decision is re-flipped and flipDecision() returns false.  If no
@@ -217,29 +205,6 @@ public:
    * could be flipped, or if the root decision was re-flipped
    */
   virtual bool flipDecision(bool safe = false)
-    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
-
-  /**
-   * Flip the decision "lit", similar to the 0-ary flipDecision() function
-   * described above.  Only ever flips "lit" though, leaving it marked as
-   * "flipped"---this function never proceeds further down-stack.  If the
-   * decision was already flipped, it is flipped again.  Throws an exception
-   * if "lit" is not a decision literal in the SAT solver.  Note that "lit" may
-   * be specified in either phase, though.  That is, if "lit" is a SAT decision,
-   * flipDecision(lit) and flipDecision(negation-of-lit) are the same.
-   */
-  virtual void flipDecision(Node lit, bool safe = false)
-    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
-
-  /**
-   * Flip the decision at level "level", similar to the 0-ary flipDecision()
-   * function described above.  Only ever flips the decision at the given level
-   * though, leaving it marked as "flipped"---this function never proceeds further
-   * down-stack.  If the decision at the given level was already flipped, it is
-   * flipped again.  Throws an exception if level is 0 or greater than the current
-   * decision level.
-   */
-  virtual void flipDecision(unsigned level, bool safe = false)
     throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
 
   /**
