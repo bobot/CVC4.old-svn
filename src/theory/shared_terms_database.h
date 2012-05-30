@@ -111,12 +111,6 @@ private:
       Unreachable();
       return true;
     }
-    //AJR-hack
-    void eqNotifyNewClass( TNode t ){}
-    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
-    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
-    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
-    //AJR-hack-end
 
     bool eqNotifyTriggerPredicate(TNode predicate, bool value) {
       Unreachable();
@@ -133,6 +127,13 @@ private:
     bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
       return true;
     }
+
+    //AJR-hack
+    void eqNotifyNewClass( TNode t ){}
+    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
+    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
+    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
+    //AJR-hack-end
   };
 
   /** The notify class for d_equalityEngine */

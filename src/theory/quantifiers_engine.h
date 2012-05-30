@@ -16,8 +16,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__QUANTIFIERS_ENGINE_H
-#define __CVC4__QUANTIFIERS_ENGINE_H
+#ifndef __CVC4__THEORY__QUANTIFIERS_ENGINE_H
+#define __CVC4__THEORY__QUANTIFIERS_ENGINE_H
 
 #include "theory/theory.h"
 #include "util/hash.h"
@@ -48,14 +48,13 @@ namespace theory {
 
 class QuantifiersEngine;
 
-class InstStrategy
-{
+class InstStrategy {
 public:
   enum Status {
     STATUS_UNFINISHED,
     STATUS_UNKNOWN,
     STATUS_SAT,
-  };/* enum Effort */
+  };/* enum Status */
 protected:
   /** reference to the instantiation engine */
   QuantifiersEngine* d_quantEngine;
@@ -98,9 +97,9 @@ public:
   bool shouldInstantiate( Node n ) {
     return std::find( d_no_instantiate_temp.begin(), d_no_instantiate_temp.end(), n )==d_no_instantiate_temp.end();
   }
-};
+};/* class InstStrategy */
 
-class Instantiator{
+class Instantiator {
   friend class QuantifiersEngine;
 protected:
   /** reference to the quantifiers engine */
@@ -157,8 +156,7 @@ public:
   //int getStatus() { return d_status; }
 };/* class Instantiator */
 
-class QuantifiersModule
-{
+class QuantifiersModule {
 public:
   QuantifiersModule(){}
   ~QuantifiersModule(){}
@@ -169,10 +167,9 @@ public:
   virtual void assertNode( Node n ) = 0;
   virtual void propagate( Theory::Effort level ) = 0;
   virtual Node explain(TNode n) = 0;
-};
+};/* class QuantifiersModule */
 
-class TermArgTrie
-{
+class TermArgTrie {
 private:
   bool addTerm2( QuantifiersEngine* qe, Node n, int argIndex );
 public:
@@ -180,10 +177,9 @@ public:
   std::map< Node, TermArgTrie > d_data;
 public:
   bool addTerm( QuantifiersEngine* qe, Node n ) { return addTerm2( qe, n, 0 ); }
-};
+};/* class TermArgTrie */
 
-class TermDb
-{
+class TermDb {
 private:
   /** reference to the quantifiers engine */
   QuantifiersEngine* d_quantEngine;
@@ -218,15 +214,13 @@ public:
       for example, d_parents[n][f][1] = { f( t1, n ), f( t2, n ), ... }
   */
   std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
-};
+};/* class TermDb */
 
-
-namespace quantifiers{
+namespace quantifiers {
   class InstantiationEngine;
-}
+}/* CVC4::theory::quantifiers */
 
-class QuantifiersEngine
-{
+class QuantifiersEngine {
   friend class quantifiers::InstantiationEngine;
   friend class InstMatch;
 private:
@@ -295,7 +289,7 @@ private:
   void makeInstantiationConstantsFor( Node f );
 public:
   QuantifiersEngine(context::Context* c, TheoryEngine* te);
-  ~QuantifiersEngine();
+  ~QuantifiersEngine(){}
   /** get instantiator for id */
   Instantiator* getInstantiator( int id );
   /** get theory engine */
@@ -439,11 +433,11 @@ public:
     IntStat d_multi_trigger_instantiations;
     Statistics();
     ~Statistics();
-  };
+  };/* class QuantifiersEngine::Statistics */
   Statistics d_statistics;
 };/* class QuantifiersEngine */
 
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__INSTANTIATION_ENGINE_H */
+#endif /* __CVC4__THEORY__QUANTIFIERS_ENGINE_H */

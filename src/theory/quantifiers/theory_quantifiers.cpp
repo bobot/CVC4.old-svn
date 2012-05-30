@@ -45,9 +45,6 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
-  if(qe != NULL) {
-    d_inst = new InstantiatorTheoryQuantifiers( c, qe, this );
-  }
   if( Options::current()->finiteModelFind ){
     qe->addModule( new ModelEngine( this ) );
   }else{
@@ -74,7 +71,7 @@ void TheoryQuantifiers::notifyEq(TNode lhs, TNode rhs) {
 void TheoryQuantifiers::preRegisterTerm(TNode n) {  
   Debug("quantifiers-prereg") << "TheoryQuantifiers::preRegisterTerm() " << n << endl;
   if( n.getKind()==FORALL && !n.hasAttribute(InstConstantAttribute()) ){
-    d_quantEngine->registerQuantifier( n );
+    getQuantifiersEngine()->registerQuantifier( n );
   }
 }
 
@@ -126,23 +123,20 @@ void TheoryQuantifiers::check(Effort e) {
       Unhandled(assertion.getKind());
       break;
     }
-    if( getInstantiator() ){
-      getInstantiator()->assertNode( assertion );
-    }
   }
   //call the quantifiers engine to check
-  d_quantEngine->check( e );
+  getQuantifiersEngine()->check( e );
 }
 
 void TheoryQuantifiers::propagate(Effort level){
-  d_quantEngine->propagate( level );
+  getQuantifiersEngine()->propagate( level );
 }
 
 void TheoryQuantifiers::assertUniversal( Node n ){
   Assert( n.getKind()==FORALL );
   if( !n.hasAttribute(InstConstantAttribute()) ){
-    d_quantEngine->registerQuantifier( n );
-    d_quantEngine->assertNode( n );
+    getQuantifiersEngine()->registerQuantifier( n );
+    getQuantifiersEngine()->assertNode( n );
   }
 }
 
@@ -150,7 +144,7 @@ void TheoryQuantifiers::assertExistential( Node n ){
   Assert( n.getKind()== NOT && n[0].getKind()==FORALL );
   if( !n[0].hasAttribute(InstConstantAttribute()) ){
     if( d_skolemized.find( n )==d_skolemized.end() ){
-      Node body = d_quantEngine->getSkolemizedBody( n[0] );
+      Node body = getQuantifiersEngine()->getSkolemizedBody( n[0] );
       NodeBuilder<> nb(kind::OR);
       nb << n[0] << body.notNode();
       Node lem = nb;
@@ -198,5 +192,5 @@ bool TheoryQuantifiers::restart(){
 }
 
 void TheoryQuantifiers::performCheck(Effort e){
-  d_quantEngine->check( e );
+  getQuantifiersEngine()->check( e );
 }

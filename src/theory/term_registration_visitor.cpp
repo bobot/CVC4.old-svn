@@ -14,6 +14,7 @@
 
 #include "theory/term_registration_visitor.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers_engine.h"
 
 using namespace std;
 using namespace CVC4;
@@ -96,13 +97,21 @@ void PreRegisterVisitor::visit(TNode current, TNode parent) {
   if (!Theory::setContains(currentTheoryId, visitedTheories)) {
     visitedTheories = Theory::setInsert(currentTheoryId, visitedTheories);
     d_visited[current] = visitedTheories;
-    d_engine->theoryOf(currentTheoryId)->preRegisterTerm(current);
+    Theory* th = d_engine->theoryOf(currentTheoryId);
+    th->preRegisterTerm(current);
+    if(th->getInstantiator() != NULL) {
+      th->getInstantiator()->preRegisterTerm(current);
+    }
     Debug("register::internal") << "PreRegisterVisitor::visit(" << current << "," << parent << "): adding " << currentTheoryId << std::endl;
   }
   if (!Theory::setContains(parentTheoryId, visitedTheories)) {
     visitedTheories = Theory::setInsert(parentTheoryId, visitedTheories);
     d_visited[current] = visitedTheories;
-    d_engine->theoryOf(parentTheoryId)->preRegisterTerm(current);
+    Theory* th = d_engine->theoryOf(parentTheoryId);
+    th->preRegisterTerm(current);
+    if(th->getInstantiator() != NULL) {
+      th->getInstantiator()->preRegisterTerm(current);
+    }
     Debug("register::internal") << "PreRegisterVisitor::visit(" << current << "," << parent << "): adding " << parentTheoryId << std::endl;
   }
   if (useType) {
@@ -110,7 +119,11 @@ void PreRegisterVisitor::visit(TNode current, TNode parent) {
     if (!Theory::setContains(typeTheoryId, visitedTheories)) {
       visitedTheories = Theory::setInsert(typeTheoryId, visitedTheories);
       d_visited[current] = visitedTheories;
-      d_engine->theoryOf(typeTheoryId)->preRegisterTerm(current);
+      Theory* th = d_engine->theoryOf(typeTheoryId);
+      th->preRegisterTerm(current);
+      if(th->getInstantiator() != NULL) {
+        th->getInstantiator()->preRegisterTerm(current);
+      }
       Debug("register::internal") << "PreRegisterVisitor::visit(" << current << "," << parent << "): adding " << parentTheoryId << std::endl;
     }
   }

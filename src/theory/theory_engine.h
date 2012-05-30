@@ -67,6 +67,10 @@ struct NodeTheoryPairHashFunction {
   }
 };/* struct NodeTheoryPairHashFunction */
 
+namespace theory {
+  class Instantiator;
+}/* CVC4::theory namespace */
+
 /**
  * This is essentially an abstraction for a collection of theories.  A
  * TheoryEngine provides services to a PropEngine, making various
@@ -523,9 +527,14 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo, d_quantEngine);
+    TheoryClass* th = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo, getQuantifiersEngine());
+    d_theoryTable[theoryId] = th;
+    if(getQuantifiersEngine() != NULL) {
+      th->setInstantiator(makeInstantiator(d_context, getQuantifiersEngine(), th));
+    }
   }
 
+  template <class TheoryClass>
   /**
    * Sets the logic (SMT-LIB format).  All theory specific setup/hacks
    * should go in here.
@@ -557,6 +566,13 @@ public:
   }
 
 private:
+
+  /**
+   * Construct and return the instantiator for the given theory.
+   * If there is no instantiator class, NULL is returned.
+   */
+  template <class TheoryClass>
+  theory::Instantiator* makeInstantiator(context::Context* c, theory::QuantifiersEngine* qe, TheoryClass* th) const;
 
   /**
    * Helper for preprocess

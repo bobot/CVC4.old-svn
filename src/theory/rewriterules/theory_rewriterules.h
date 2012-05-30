@@ -215,7 +215,7 @@ private:
   /* TODO modify when notification will be available */
   void notification( Node n, bool b);
 
-  Trigger createTrigger( TNode n, std::vector<Node> & pattern )const;
+  Trigger createTrigger( TNode n, std::vector<Node> & pattern );
 
   /** return if the guard (already substituted) is known true or false
       or unknown. In the last case it add the Guarded(rid,gid) to the watch

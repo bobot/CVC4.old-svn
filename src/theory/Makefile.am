@@ -44,6 +44,7 @@ libtheory_la_SOURCES = \
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \
+	instantiator_tables.h \
 	theory_traits.h
 
 libtheory_la_LIBADD = \
@@ -59,17 +60,21 @@ libtheory_la_LIBADD = \
 
 EXTRA_DIST = \
 	rewriter_tables_template.h \
+	instantiator_tables_template.h \
 	theory_traits_template.h \
 	mktheorytraits \
 	mkrewriter \
+	mkinstantiator \
 	Makefile.subdirs
 
 BUILT_SOURCES = \
 	rewriter_tables.h \
+	instantiator_tables.h \
 	theory_traits.h
 
 CLEANFILES = \
 	rewriter_tables.h \
+	instantiator_tables.h \
 	theory_traits.h
 
 include @top_srcdir@/src/theory/Makefile.subdirs
@@ -78,6 +83,14 @@ rewriter_tables.h: rewriter_tables_template.h mkrewriter @top_builddir@/src/theo
 	$(AM_V_at)chmod +x @srcdir@/mkrewriter
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkrewriter \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+instantiator_tables.h: instantiator_tables_template.h mkinstantiator @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkinstantiator
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkinstantiator \
 		$< \
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
@@ -95,9 +108,9 @@ am__v_CHECK_ = $(am__v_CHECK_$(AM_DEFAULT_VERBOSITY))
 am__v_CHECK_0 = @echo "  CHECK " $@;
 
 .PHONY: theory-properties
-theory-properties:
+theory-properties: theory_traits_template.h
 	$(AM_V_CHECK)@srcdir@/mktheorytraits \
-		theory_traits_template.h \
+		$< \
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> /dev/null
-all-local check-local: theory-properties
+all-local check-local check-am: theory-properties

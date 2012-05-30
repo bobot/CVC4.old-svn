@@ -278,8 +278,7 @@ void TheoryRewriteRules::check(Effort level) {
 
 void TheoryRewriteRules::registerQuantifier( Node n ){};
 
-Trigger TheoryRewriteRules::createTrigger( TNode n, std::vector<Node> & pattern )
-  const{
+Trigger TheoryRewriteRules::createTrigger( TNode n, std::vector<Node> & pattern ) {
   //  Debug("rewriterules") << "createTrigger:";
   getQuantifiersEngine()->registerPattern(pattern);
   return *Trigger::mkTrigger(getQuantifiersEngine(),n,pattern,

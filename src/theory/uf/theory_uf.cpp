@@ -45,9 +45,6 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   }else{
     d_thss = NULL;
   }
-  if(qe != NULL) {
-    d_inst = new InstantiatorTheoryUf( c, qe, this );
-  }
   //AJR-hack-end
 }/* TheoryUF::TheoryUF() */
 
@@ -112,11 +109,6 @@ void TheoryUF::check(Effort level) {
     } else {
       d_equalityEngine.assertPredicate(atom, polarity, fact);
     }
-    //AJR-hack
-    if( getInstantiator() ){
-      getInstantiator()->assertNode( assertion );
-    }
-    //AJR-hack-end
   }
 
   // If in conflict, output the conflict
@@ -161,14 +153,11 @@ void TheoryUF::propagate(Effort level) {
 
 void TheoryUF::preRegisterTerm(TNode node) {
   Debug("uf") << "TheoryUF::preRegisterTerm(" << node << ")" << std::endl;
-  ////AJR-hack
+  //AJR-hack
   if( d_thss ){
     d_thss->preRegisterTerm( node );
   }
-  if( getInstantiator() ){
-    getInstantiator()->preRegisterTerm( node );
-  }
-  ////AJR-hack-end
+  //AJR-hack-end
   switch (node.getKind()) {
   case kind::EQUAL:
     // Add the trigger for equality
@@ -527,8 +516,8 @@ void TheoryUF::eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){
     ((InstantiatorTheoryUf*)getInstantiator())->assertDisequal( t1, t2, reason );
   }
 }
-//AJR-hack-end
 
+//AJR-hack-end
 
 //FB-hack
 
@@ -545,6 +534,4 @@ Node TheoryUF::ppRewrite(TNode node){
   }
 }
 
-
 //FB-hack-end
-

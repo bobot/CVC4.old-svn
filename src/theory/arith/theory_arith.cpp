@@ -80,11 +80,6 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_DELTA_ZERO(0),
   d_statistics()
 {
-  //AJR-hack
-  if(qe != NULL) {
-    d_inst = new InstantiatorTheoryArith( c, qe, this );
-  }
-  //AJR-hack-end
 }
 
 TheoryArith::~TheoryArith(){}
@@ -800,11 +795,6 @@ void TheoryArith::preRegisterTerm(TNode n) {
     Assert(!c->canBePropagated());
     c->setPreregistered();
   }
-  //AJR-hack
-  if( getInstantiator() ){
-    getInstantiator()->preRegisterTerm( n );
-  }
-  //AJR-hack-end
 
   Debug("arith::preregister") << "end arith::preRegisterTerm("<< n <<")" << endl;
 }
@@ -1188,12 +1178,6 @@ void TheoryArith::check(Effort effortLevel){
       d_out->conflict(c);
       return;
     }
-
-    //AJR-hack
-    if( getInstantiator() ){
-      getInstantiator()->assertNode( assertion );
-    }
-    //AJR-hack-end
   }
 
 

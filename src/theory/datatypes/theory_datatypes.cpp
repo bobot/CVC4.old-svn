@@ -72,10 +72,6 @@ TheoryDatatypes::TheoryDatatypes(Context* c, UserContext* u, OutputChannel& out,
   d_disequalities(c),
   d_em(c),
   d_cce(&d_cc){
-
-  if(qe != NULL) {
-    d_inst = new InstantiatorTheoryDatatypes( c, qe, this );
-  }
 }
 
 
@@ -188,11 +184,6 @@ void TheoryDatatypes::check(Effort e) {
           Unhandled(assertion.getKind());
           break;
         }
-        //AJR-hack
-        if( getInstantiator() ){
-          getInstantiator()->assertNode( assertion );
-        }
-        //AJR-hack-end
       }
     }
     //rules to check for collapse, instantiate

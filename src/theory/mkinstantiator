@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# mkrewriter
+# mkinstantiator
 # Morgan Deters <mdeters@cs.nyu.edu> for CVC4
 # Copyright (c) 2010-2012  The CVC4 Project
 #
@@ -9,7 +9,7 @@
 #
 # Invocation:
 #
-#   mkrewriter template-file theory-kind-files...
+#   mkinstantiator template-file theory-kind-files...
 #
 # Output is to standard out.
 #
@@ -18,7 +18,7 @@ copyright=2010-2012
 
 cat <<EOF
 /*********************                                                        */
-/** rewriter_tables.h
+/** instantiator_tables.h
  **
  ** Copyright $copyright  The AcSys Group, New York University, and as below.
  **
@@ -35,25 +35,20 @@ me=$(basename "$0")
 
 template=$1; shift
 
-rewriter_includes=
-rewrite_init=
-rewrite_shutdown=
+instantiator_includes=
+instantiator_class=
+theory_id=
+theory_class=
+theory_header=
 
-pre_rewrite_calls=
-pre_rewrite_get_cache=
-pre_rewrite_set_cache=
-
-post_rewrite_calls=
-post_rewrite_get_cache=
-post_rewrite_set_cache=
-
-rewrite_equality_calls=
+make_instantiators=
+instantiator=
 
 seen_theory=false
 seen_theory_builtin=false
 
 function theory {
-  # theory T header
+  # theory id T header
 
   lineno=${BASH_LINENO[0]}
 
@@ -62,8 +57,6 @@ function theory {
     exit 1;
   fi
 
-  # this script doesn't care about the theory class information, but
-  # makes does make sure it's there
   seen_theory=true
   if [ "$1" = THEORY_BUILTIN ]; then
     if $seen_theory_builtin; then
@@ -81,12 +74,35 @@ function theory {
   fi
 
   theory_id="$1"
+  theory_class="$2"
+  theory_header="$3"
+
+  instantiator_class=
+  instantiator=NULL
 }
 
 function instantiator {
   # instantiator class header
   lineno=${BASH_LINENO[0]}
   check_theory_seen
+
+  if [ -n "$instantiator_class" ]; then
+    echo "$kf:$lineno: error: cannot have two \"instantiator\" directives" >&2
+    exit 1
+  fi
+
+  instantiator_class="$1"
+  instantiator_header="$2"
+
+  if [ -z "$instantiator_class" -o -z "$instantiator_header" ]; then
+    echo "$kf:$lineno: error: \"instantiator\" directive missing class or header argument" >&2
+    exit 1
+  fi
+
+  instantiator_includes="${instantiator_includes}#include \"$theory_header\"
+#include \"$instantiator_header\"
+"
+  instantiator="new $instantiator_class(c, qe, th)";
 }
 
 function properties {
@@ -100,6 +116,14 @@ function endtheory {
   lineno=${BASH_LINENO[0]}
   check_theory_seen
   seen_endtheory=true
+
+  make_instantiators="${make_instantiators}
+template <>
+theory::Instantiator* TheoryEngine::makeInstantiator< $theory_class >(context::Context* c, theory::QuantifiersEngine* qe, $theory_class* th) const {
+  return $instantiator;
+}
+
+"
 }
 
 function typechecker {
@@ -116,33 +140,6 @@ function typerule {
 
 function rewriter {
   # rewriter class header
-  class="$1"
-  header="$2"
-
-  rewriter_includes="${rewriter_includes}#include \"$header\"
-"
-  rewrite_init="${rewrite_init}   ${class}::init();
-"
-  rewrite_shutdown="${rewrite_shutdown}    ${class}::shutdown();
-"
-
-  pre_rewrite_calls="${pre_rewrite_calls}    case ${theory_id}: return ${class}::preRewrite(node);
-"
-  pre_rewrite_get_cache="${pre_rewrite_get_cache}    case ${theory_id}: return RewriteAttibute<${theory_id}>::getPreRewriteCache(node);
-"
-  pre_rewrite_set_cache="${pre_rewrite_set_cache}    case ${theory_id}: return RewriteAttibute<${theory_id}>::setPreRewriteCache(node, cache);
-"
-
-  post_rewrite_calls="${post_rewrite_calls}    case ${theory_id}: return ${class}::postRewrite(node);
-"
-  post_rewrite_get_cache="${post_rewrite_get_cache}    case ${theory_id}: return RewriteAttibute<${theory_id}>::getPostRewriteCache(node);
-"
-  post_rewrite_set_cache="${post_rewrite_set_cache}    case ${theory_id}: return RewriteAttibute<${theory_id}>::setPostRewriteCache(node, cache);
-"
-
-  rewrite_equality_calls="${rewrite_equality_calls}    case ${theory_id}: return ${class}::rewriteEquality(node);
-"
-
   lineno=${BASH_LINENO[0]}
   check_theory_seen
 }
@@ -232,15 +229,8 @@ nl -ba -s' ' "$template"  | grep '^ *[0-9][0-9]* # *line' |
 
 text=$(cat "$template")
 for var in \
-    rewriter_includes \
-    pre_rewrite_calls \
-    post_rewrite_calls \
-    rewrite_equality_calls \
-    pre_rewrite_get_cache \
-    post_rewrite_get_cache \
-    pre_rewrite_set_cache \
-    post_rewrite_set_cache \
-    rewrite_init rewrite_shutdown \
+    instantiator_includes \
+    make_instantiators \
     template \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"

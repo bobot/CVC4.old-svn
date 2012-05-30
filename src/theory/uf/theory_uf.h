@@ -69,21 +69,6 @@ public:
       }
     }
 
-    //AJR-hack
-    void eqNotifyNewClass( TNode t ){
-      d_uf.eqNotifyNewClass( t );
-    }
-    void eqNotifyPreMerge( TNode t1, TNode t2 ){
-      d_uf.eqNotifyPreMerge( t1, t2 );
-    }
-    void eqNotifyPostMerge( TNode t1, TNode t2 ){
-      d_uf.eqNotifyPostMerge( t1, t2 );
-    }
-    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){
-      d_uf.eqNotifyDisequal( t1, t2, reason );
-    }
-    //AJR-hack-end
-
     bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) {
       Debug("uf") << "NotifyClass::eqNotifyTriggerTermMerge(" << tag << ", " << t1 << ", " << t2 << std::endl;
       if (value) {
@@ -101,6 +86,21 @@ public:
         return d_uf.propagate(t1.eqNode(t2));
       }
     }
+
+    //AJR-hack
+    void eqNotifyNewClass( TNode t ){
+      d_uf.eqNotifyNewClass( t );
+    }
+    void eqNotifyPreMerge( TNode t1, TNode t2 ){
+      d_uf.eqNotifyPreMerge( t1, t2 );
+    }
+    void eqNotifyPostMerge( TNode t1, TNode t2 ){
+      d_uf.eqNotifyPostMerge( t1, t2 );
+    }
+    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){
+      d_uf.eqNotifyDisequal( t1, t2, reason );
+    }
+    //AJR-hack-end
   };
 
 private:
@@ -145,7 +145,7 @@ private:
   /** Symmetry analyzer */
   SymmetryBreaker d_symb;
 
-//AJR-hack
+  //AJR-hack
   /** called when a new equivalance class is created */
   void eqNotifyNewClass( TNode t );
 
@@ -157,7 +157,8 @@ private:
 
   /** called when two equivalence classes are made disequal */
   void eqNotifyDisequal( TNode t1, TNode t2, TNode reason );
-//AJR-hack-end
+  //AJR-hack-end
+
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/

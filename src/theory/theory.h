@@ -75,7 +75,8 @@ struct Assertion {
   operator Node () const {
     return assertion;
   }
-};
+
+};/* struct Assertion */
 
 /**
  * A (oredered) pair of terms a theory cares about.
@@ -175,6 +176,28 @@ private:
    */
   CareGraph* d_careGraph;
 
+  /**
+   * Reference to the quantifiers engine (or NULL, if quantifiers are
+   * not supported or not enabled).
+   */
+  QuantifiersEngine* d_quantEngine;
+
+  /**
+   * The instantiator for this theory, or NULL if quantifiers are not
+   * supported or not enabled.
+   */
+  Instantiator* d_inst;
+
+  /**
+   * Used by TheoryEngine to set the Instantiator.  This happens right after
+   * the theory is constructed (the Instantiator and Theory point to each other,
+   * so they can't both get a reference to the other in their constructor).
+   */
+  void setInstantiator(Instantiator* inst) {
+    Assert(d_inst == NULL);
+    d_inst = inst;
+  }
+
   // === STATISTICS ===
   /** time spent in theory combination */
   TimerStat d_computeCareGraphTime;
@@ -220,12 +243,12 @@ protected:
   , d_factsHead(satContext, 0)
   , d_sharedTermsIndex(satContext, 0)
   , d_careGraph(0)
+  , d_quantEngine(qe)
+  , d_inst(NULL)
   , d_computeCareGraphTime(statName(id, "computeCareGraphTime"))
   , d_sharedTerms(satContext)
   , d_out(&out)
   , d_valuation(valuation)
-  , d_quantEngine(qe)
-  , d_inst(NULL)
   {
     StatisticsRegistry::registerStat(&d_computeCareGraphTime);
   }
@@ -253,33 +276,11 @@ protected:
   Valuation d_valuation;
 
   /**
-   * reference to the quantifiers engine
-   */
-  QuantifiersEngine* d_quantEngine;
-
-  /**
-   * reference to the instantiator object
-   */
-  Instantiator* d_inst;
-
-  /**
    * Returns the next assertion in the assertFact() queue.
    *
    * @return the next assertion in the assertFact() queue
    */
-  Assertion get() {
-    Assert( !done(), "Theory`() called with assertion queue empty!" );
-
-    // Get the assertion
-    Assertion fact = d_facts[d_factsHead];
-    d_factsHead = d_factsHead + 1;
-    Trace("theory") << "Theory::get() => " << fact << " (" << d_facts.size() - d_factsHead << " left)" << std::endl;
-    if(Dump.isOn("state")) {
-      Dump("state") << AssertCommand(fact.assertion.toExpr());
-    }
-
-    return fact;
-  }
+  Assertion get();
 
   const LogicInfo& getLogicInfo() const {
     return d_logicInfo;
@@ -452,14 +453,28 @@ public:
   /**
    * Get the quantifiers engine associated to this theory.
    */
-  QuantifiersEngine* getQuantifiersEngine()const{
-    return d_quantEngine;
+  QuantifiersEngine* getQuantifiersEngine() {
+    return d_quantEngine; 
   }
 
   /**
-   * Get the theory instantiator
+   * Get the quantifiers engine associated to this theory (const version).
+   */
+  const QuantifiersEngine* getQuantifiersEngine() const {
+    return d_quantEngine; 
+  }
+
+  /**
+   * Get the theory instantiator.
    */
   Instantiator* getInstantiator() {
+    return d_inst;
+  }
+
+  /**
+   * Get the theory instantiator (const version).
+   */
+  const Instantiator* getInstantiator() const {
     return d_inst;
   }
 

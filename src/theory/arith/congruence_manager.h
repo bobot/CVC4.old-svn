@@ -55,12 +55,6 @@ private:
     bool eqNotifyTriggerPredicate(TNode predicate, bool value) {
       Unreachable();
     }
-    //AJR-hack
-    void eqNotifyNewClass( TNode t ){}
-    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
-    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
-    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
-    //AJR-hack-end
 
     bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) {
       Debug("arith::congruences") << "ArithCongruenceNotify::eqNotifyTriggerTermEquality(" << t1 << ", " << t2 << ", " << (value ? "true" : "false") << ")" << std::endl;
@@ -79,7 +73,14 @@ private:
         return d_acm.propagate(t1.eqNode(t2));
       }
     }
-   };
+
+    //AJR-hack
+    void eqNotifyNewClass( TNode t ){}
+    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
+    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
+    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
+    //AJR-hack-end
+  };
   ArithCongruenceNotify d_notify;
 
   context::CDList<Node> d_keepAlive;

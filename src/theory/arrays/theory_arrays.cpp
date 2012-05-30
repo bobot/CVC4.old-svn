@@ -96,11 +96,6 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   if (d_useArrTable) {
     d_equalityEngine.addFunctionKind(kind::ARR_TABLE_FUN);
   }
-  //AJR-hack
-  if(qe != NULL) {
-    d_inst = new InstantiatorTheoryArrays( c, qe, this );
-  }
-  //AJR-hack-end
 }
 
 

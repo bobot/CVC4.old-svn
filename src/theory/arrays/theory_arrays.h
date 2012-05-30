@@ -288,12 +288,6 @@ class TheoryArrays : public Theory {
       // TODO: implement negation propagation
       return true;
     }
-    //AJR-hack
-    void eqNotifyNewClass( TNode t ){}
-    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
-    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
-    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
-    //AJR-hack-end
 
     bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
       Debug("arrays") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << ")" << std::endl;
@@ -303,6 +297,13 @@ class TheoryArrays : public Theory {
         return d_arrays.propagate(t1.eqNode(t2));
       }
     }
+
+    //AJR-hack
+    void eqNotifyNewClass( TNode t ){}
+    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
+    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
+    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
+    //AJR-hack-end
   };
 
   /** The notify class for d_equalityEngine */

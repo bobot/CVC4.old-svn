@@ -49,6 +49,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_logicInfo(logicInfo),
   d_notify(*this),
   d_sharedTerms(d_notify, context),
+  d_quantEngine(NULL),
   d_ppCache(),
   d_possiblePropagations(context),
   d_hasPropagated(context),
@@ -71,8 +72,10 @@ TheoryEngine::TheoryEngine(context::Context* context,
     d_theoryOut[theoryId] = NULL;
   }
   //AJR-hack
-  //initialize the quantifiers engine
-  d_quantEngine = new QuantifiersEngine( context, this );
+  if(logicInfo.isQuantified()) {
+    // initialize the quantifiers engine
+    d_quantEngine = new QuantifiersEngine( context, this );
+  }
   //AJR-hack-end
   Rewriter::init();
   StatisticsRegistry::registerStat(&d_combineTheoriesTime);
@@ -88,6 +91,10 @@ TheoryEngine::~TheoryEngine() {
       delete d_theoryTable[theoryId];
       delete d_theoryOut[theoryId];
     }
+  }
+
+  if(d_quantEngine != NULL) {
+    delete d_quantEngine;
   }
 
   StatisticsRegistry::unregisterStat(&d_combineTheoriesTime);
@@ -1045,3 +1052,5 @@ Node TheoryEngine::ppSimpITE(TNode assertion)
   result = Rewriter::rewrite(result);
   return result;
 }
+
+#include "theory/instantiator_tables.h"

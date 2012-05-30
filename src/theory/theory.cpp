@@ -79,6 +79,28 @@ void Theory::computeCareGraph() {
   }
 }
 
+Assertion Theory::get() {
+  Assert( !done(), "Theory::get() called with assertion queue empty!" );
+
+  // Get the assertion
+  Assertion fact = d_facts[d_factsHead];
+  d_factsHead = d_factsHead + 1;
+
+  Trace("theory") << "Theory::get() => " << fact << " (" << d_facts.size() - d_factsHead << " left)" << std::endl;
+
+  if(Dump.isOn("state")) {
+    Dump("state") << AssertCommand(fact.assertion.toExpr());
+  }
+
+  // if quantifiers are turned on, notify the instantiator
+  if(getInstantiator() != NULL) {
+    getInstantiator()->assertNode(fact);
+  }
+
+  return fact;
+}
+
+
 void Theory::printFacts(std::ostream& os) const {
   unsigned i, n = d_facts.size();
   for(i = 0; i < n; i++){
