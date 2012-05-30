@@ -38,20 +38,20 @@ namespace theory {
 /** Attribute true for nodes that should not be used for matching */
 struct NoMatchAttributeId {};
 /** use the special for boolean flag */
-typedef expr::Attribute<NoMatchAttributeId,
-                        bool,
-                        expr::attr::NullCleanupStrategy,
-                        true  // context dependent
-                        > NoMatchAttribute;
+typedef expr::Attribute< NoMatchAttributeId,
+                         bool,
+                         expr::attr::NullCleanupStrategy,
+                         true // context dependent
+                       > NoMatchAttribute;
 
 class QuantifiersEngine;
-namespace uf{
+
+namespace uf {
   class InstantiatorTheoryUf;
   class TheoryUF;
-}
+}/* CVC4::theory::uf namespace */
 
-class CandidateGenerator
-{
+class CandidateGenerator {
 public:
   CandidateGenerator(){}
   ~CandidateGenerator(){}
@@ -74,11 +74,10 @@ public:
 public:
   /** legal candidate */
   static bool isLegalCandidate( Node n );
-};
+};/* class CandidateGenerator */
 
 /** candidate generator queue (for manual candidate generation) */
-class CandidateGeneratorQueue : public CandidateGenerator
-{
+class CandidateGeneratorQueue : public CandidateGenerator {
 private:
   std::vector< Node > d_candidates;
   int d_candidate_index;
@@ -91,10 +90,9 @@ public:
   void resetInstantiationRound(){}
   void reset( Node eqc );
   Node getNextCandidate();
-};
+};/* class CandidateGeneratorQueue */
 
-class EqualityQuery
-{
+class EqualityQuery {
 public:
   EqualityQuery(){}
   ~EqualityQuery(){}
@@ -111,13 +109,10 @@ public:
       not contain instantiation constants, if such a term exists. 
    */
   virtual Node getInternalRepresentative( Node a ) = 0;
-};
+};/* class EqualityQuery */
 
 /** basic class defining an instantiation */
-class InstMatch
-{
-public:
-  static int d_im_count;
+class InstMatch {
 public:
   InstMatch();
   InstMatch( InstMatch* m );
@@ -161,7 +156,7 @@ public:
     }
     out << " )";
   }
-};
+};/* class InstMatch */
 
 inline std::ostream& operator<<(std::ostream& out, const InstMatch& m) {
   m.toStream(out);
@@ -169,13 +164,12 @@ inline std::ostream& operator<<(std::ostream& out, const InstMatch& m) {
 }
 
 /** trie for InstMatch objects */
-class InstMatchTrie
-{
+class InstMatchTrie {
 public:
-  class ImtIndexOrder{
+  class ImtIndexOrder {
   public:
     std::vector< int > d_order;
-  };
+  };/* class InstMatchTrie ImtIndexOrder */
 private:
   /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
   void addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index, ImtIndexOrder* imtio );
@@ -193,10 +187,9 @@ public:
       return true if successful 
   */
   bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false, ImtIndexOrder* imtio = NULL );
-};
+};/* class InstMatchTrie */
 
-class InstMatchTrieOrdered
-{
+class InstMatchTrieOrdered {
 private:
   InstMatchTrie::ImtIndexOrder* d_imtio;
   InstMatchTrie d_imt;
@@ -212,14 +205,13 @@ public:
   bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false ){
     return d_imt.addInstMatch( qe, f, m, modEq, d_imtio );
   }
-};
+};/* class InstMatchTrieOrdered */
 
 template<bool modEq = false>
-class InstMatchTrie2
-{
+class InstMatchTrie2 {
 private:
 
-  class Tree{
+  class Tree {
   public:
     typedef std::hash_map< Node, Tree *, NodeHashFunction > MLevel;
     MLevel e;
@@ -231,19 +223,19 @@ private:
       for(typename MLevel::iterator i = e.begin(); i!=e.end(); ++i)
         delete(i->second);
     };
-  };
+  };/* class InstMatchTrie2::Tree */
 
 
   typedef std::pair<Tree *, TNode> Mod;
 
-  class CleanUp{
+  class CleanUp {
   public:
     inline void operator()(Mod * m){
       typename Tree::MLevel::iterator i = m->first->e.find(m->second);
       Assert (i != m->first->e.end()); //should not have been already removed
       m->first->e.erase(i);
-    };
-  };
+    }
+  };/* class InstMatchTrie2::CleanUp */
 
   EqualityQuery* d_eQ;
   eq::EqualityEngine* d_eE;
@@ -257,28 +249,27 @@ private:
   typedef std::map<Node, Node>::const_iterator mapIter;
 
   /** add the substitution given by the iterator*/
-  void addSubTree( Tree * root, mapIter current, mapIter end, size_t currLevel);
+  void addSubTree( Tree* root, mapIter current, mapIter end, size_t currLevel);
   /** test if it exists match, modulo uf-equations if modEq is true if
    *  return false the deepest point of divergence is put in [e] and
    *  [diverge].
    */
-  bool existsInstMatch( Tree * root,
-                        mapIter & current, mapIter & end,
-                        Tree * & e, mapIter & diverge) const;
+  bool existsInstMatch( Tree* root,
+                        mapIter & current, mapIter& end,
+                        Tree*& e, mapIter& diverge) const;
 
 public:
   InstMatchTrie2(context::Context* c,  QuantifiersEngine* q);
-  InstMatchTrie2(const InstMatchTrie2 &) CVC4_UNDEFINED;
-  const InstMatchTrie2 & operator =(const InstMatchTrie2 & e) CVC4_UNDEFINED;
+  InstMatchTrie2(const InstMatchTrie2&) CVC4_UNDEFINED;
+  const InstMatchTrie2& operator=(const InstMatchTrie2 & e) CVC4_UNDEFINED;
   /** add match m in the trie,
       modEq specify to take into account equalities,
       return true if it was never seen */
   bool addInstMatch( InstMatch& m);
-};
+};/* class InstMatchTrie2 */
 
 /** base class for producing InstMatch objects */
-class IMGenerator
-{
+class IMGenerator {
 public:
   /** reset instantiation round (call this at beginning of instantiation round) */
   virtual void resetInstantiationRound( QuantifiersEngine* qe ) = 0;
@@ -291,11 +282,10 @@ public:
   virtual bool nonunifiable( TNode t, const std::vector<Node> & vars) = 0;
   /** add instantiations directly */
   virtual int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ) = 0;
-};
+};/* class IMGenerator */
 
 
-class InstMatchGenerator : public IMGenerator
-{
+class InstMatchGenerator : public IMGenerator {
 public:
   static std::map< Node, std::map< Node, std::vector< InstMatchGenerator* > > > d_match_fails;
   /** set match fail */
@@ -363,11 +353,10 @@ public:
   bool nonunifiable( TNode t, const std::vector<Node> & vars);
   /** add instantiations */
   int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
-};
+};/* class InstMatchGenerator */
 
 /** smart multi-trigger implementation */
-class InstMatchGeneratorMulti : public IMGenerator
-{
+class InstMatchGeneratorMulti : public IMGenerator {
 private:
   /** indexed trie */
   typedef std::pair< std::pair< int, int >, InstMatchTrie* > IndexedTrie;
@@ -410,13 +399,12 @@ public:
   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
   /** add instantiations */
   int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
-};
+};/* class InstMatchGeneratorMulti */
 
 class TermArgTrie;
 
 /** smart (single)-trigger implementation */
-class InstMatchGeneratorSimple : public IMGenerator
-{
+class InstMatchGeneratorSimple : public IMGenerator {
 private:
   /** quantifier for match term */
   Node d_f;
@@ -441,10 +429,9 @@ public:
   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
   /** add instantiations */
   int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
-};
+};/* class InstMatchGeneratorSimple */
 
 }/* CVC4::theory namespace */
-
 }/* CVC4 namespace */
 
 #endif /* __CVC4__INST_MATCH_H */

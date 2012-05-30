@@ -157,6 +157,7 @@ class TheoryArrays : public Theory {
 
   Node preprocessTerm(TNode term);
   Node recursivePreprocessTerm(TNode term);
+  bool ppDisequal(TNode a, TNode b);
 
   public:
 
@@ -259,7 +260,7 @@ class TheoryArrays : public Theory {
     NotifyClass(TheoryArrays& arrays): d_arrays(arrays) {}
 
     bool eqNotifyTriggerEquality(TNode equality, bool value) {
-      Debug("arrays") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyTriggerEquality(" << equality << ", " << (value ? "true" : "false") << ")" << std::endl;
+      Debug("arrays::propagate") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyTriggerEquality(" << equality << ", " << (value ? "true" : "false") << ")" << std::endl;
       // Just forward to arrays
       if (value) {
         return d_arrays.propagate(equality);
@@ -273,7 +274,7 @@ class TheoryArrays : public Theory {
     }
 
     bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) {
-      Debug("arrays") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyTriggerTermEquality(" << t1 << ", " << t2 << ")" << std::endl;
+      Debug("arrays::propagate") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyTriggerTermEquality(" << t1 << ", " << t2 << ")" << std::endl;
       if (value) {
         if (t1.getType().isArray()) {
           d_arrays.mergeArrays(t1, t2);
@@ -290,7 +291,7 @@ class TheoryArrays : public Theory {
     }
 
     bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
-      Debug("arrays") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << ")" << std::endl;
+      Debug("arrays::propagate") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << ")" << std::endl;
       if (Theory::theoryOf(t1) == THEORY_BOOL) {
         return d_arrays.propagate(t1.iffNode(t2));
       } else {

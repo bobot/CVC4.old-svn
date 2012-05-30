@@ -605,7 +605,7 @@ Node TheoryEngine::ppTheoryRewrite(TNode term)
     for (i = 0; i < nc; ++i) {
       newNode << ppTheoryRewrite(term[i]);
     }
-    newTerm = Rewriter::rewrite(newNode);
+    newTerm = Rewriter::rewrite(Node(newNode));
   }
   Node newTerm2 = theoryOf(newTerm)->ppRewrite(newTerm);
   if (newTerm != newTerm2) {

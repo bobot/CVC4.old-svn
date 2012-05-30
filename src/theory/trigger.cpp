@@ -57,13 +57,11 @@ void Trigger::TrTrie::addTrigger2( std::vector< Node >& nodes, Trigger* t ){
 
 /** trigger static members */
 std::map< Node, std::vector< Node > > Trigger::d_var_contains;
-int Trigger::trCount = 0;
 Trigger::TrTrie Trigger::d_tr_trie;
 
 /** trigger class constructor */
 Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool smartTriggers ) :
 d_quantEngine( qe ), d_f( f ){
-  trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
   if( smartTriggers ){
     if( d_nodes.size()==1 ){

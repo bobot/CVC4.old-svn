@@ -59,15 +59,11 @@ Node CandidateGeneratorQueue::getNextCandidate(){
   }
 }
 
-int InstMatch::d_im_count = 0;
-
-InstMatch::InstMatch(){
-  d_im_count++;
+InstMatch::InstMatch() {
 }
 
-InstMatch::InstMatch( InstMatch* m ){
+InstMatch::InstMatch( InstMatch* m ) {
   d_map = m->d_map;
-  d_im_count++;
 }
 
 bool InstMatch::setMatch( EqualityQuery* q, Node v, Node m ){

@@ -149,7 +149,7 @@ bool InstantiatorTheoryUf::areEqual( Node a, Node b ){
 
 bool InstantiatorTheoryUf::areDisequal( Node a, Node b ){
   if( hasTerm( a ) && hasTerm( b ) ){
-    return ((TheoryUF*)d_th)->d_equalityEngine.areDisequal( a, b );
+    return ((TheoryUF*)d_th)->d_equalityEngine.areDisequal( a, b, false );
   }else{
     return false;
   }

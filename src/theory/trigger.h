@@ -26,8 +26,6 @@ namespace theory {
 
 //a collect of nodes representing a trigger
 class Trigger {
-public:
-  static int trCount;
 private:
   /** computation of variable contains */
   static std::map< Node, std::vector< Node > > d_var_contains;

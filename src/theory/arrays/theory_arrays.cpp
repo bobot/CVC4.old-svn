@@ -87,12 +87,19 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
 
+  // The preprocessing congruence kinds
+  d_ppEqualityEngine.addFunctionKind(kind::SELECT);
+  d_ppEqualityEngine.addFunctionKind(kind::STORE);
+
+  // The mayequal congruence kinds
+  d_mayEqualEqualityEngine.addFunctionKind(kind::SELECT);
+  d_mayEqualEqualityEngine.addFunctionKind(kind::STORE);
+
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::SELECT);
   if (d_ccStore) {
     d_equalityEngine.addFunctionKind(kind::STORE);
   }
-  d_equalityEngine.addFunctionKind(kind::EQUAL);
   if (d_useArrTable) {
     d_equalityEngine.addFunctionKind(kind::ARR_TABLE_FUN);
   }
@@ -117,15 +124,21 @@ TheoryArrays::~TheoryArrays() {
 /////////////////////////////////////////////////////////////////////////////
 
 
+bool TheoryArrays::ppDisequal(TNode a, TNode b) {
+  bool termsExist = d_ppEqualityEngine.hasTerm(a) && d_ppEqualityEngine.hasTerm(b);
+  Assert(!termsExist || !a.isConst() || !b.isConst() || a == b || d_ppEqualityEngine.areDisequal(a, b, false));
+  return ((termsExist && d_ppEqualityEngine.areDisequal(a, b, false)) ||
+          Rewriter::rewrite(a.eqNode(b)) == d_false);
+}
+
 Node TheoryArrays::ppRewrite(TNode term) {
   if (!d_preprocess) return term;
+  d_ppEqualityEngine.addTerm(term);
   switch (term.getKind()) {
     case kind::SELECT: {
       // select(store(a,i,v),j) = select(a,j)
       //    IF i != j
-      if (term[0].getKind() == kind::STORE &&
-          (d_ppEqualityEngine.areDisequal(term[0][1], term[1]) ||
-           (term[0][1].isConst() && term[1].isConst() && term[0][1] != term[1]))) {
+      if (term[0].getKind() == kind::STORE && ppDisequal(term[0][1], term[1])) {
         return NodeBuilder<2>(kind::SELECT) << term[0][0] << term[1];
       }
       break;
@@ -133,10 +146,7 @@ Node TheoryArrays::ppRewrite(TNode term) {
     case kind::STORE: {
       // store(store(a,i,v),j,w) = store(store(a,j,w),i,v)
       //    IF i != j and j comes before i in the ordering
-      if (term[0].getKind() == kind::STORE &&
-          (term[1] < term[0][1]) &&
-          (d_ppEqualityEngine.areDisequal(term[1], term[0][1]) ||
-           (term[0][1].isConst() && term[1].isConst() && term[0][1] != term[1]))) {
+      if (term[0].getKind() == kind::STORE && (term[1] < term[0][1]) && ppDisequal(term[1],term[0][1])) {
         Node inner = NodeBuilder<3>(kind::STORE) << term[0][0] << term[1] << term[2];
         Node outer = NodeBuilder<3>(kind::STORE) << inner << term[0][1] << term[0][2];
         return outer;
@@ -199,13 +209,11 @@ Node TheoryArrays::ppRewrite(TNode term) {
                 NodeBuilder<> hyp(kind::AND);
                 for (j = leftWrites - 1; j > i; --j) {
                   index_j = write_j[1];
-                  if (d_ppEqualityEngine.areDisequal(index_i, index_j) ||
-                      (index_i.isConst() && index_j.isConst() && index_i != index_j)) {
-                    continue;
+                  if (!ppDisequal(index_i, index_j)) {
+                    Node hyp2(index_i.getType() == nm->booleanType()? 
+                              index_i.iffNode(index_j) : index_i.eqNode(index_j));
+                    hyp << hyp2.notNode();
                   }
-                  Node hyp2(index_i.getType() == nm->booleanType()?
-                            index_i.iffNode(index_j) : index_i.eqNode(index_j));
-                  hyp << hyp2.notNode();
                   write_j = write_j[0];
                 }
 
@@ -375,6 +383,7 @@ void TheoryArrays::preRegisterTerm(TNode node)
   switch (node.getKind()) {
   case kind::EQUAL:
     // Add the trigger for equality
+    // NOTE: note that if the equality is true or false already, it might not be added
     d_equalityEngine.addTriggerEquality(node);
     break;
   case kind::SELECT: {
@@ -385,6 +394,9 @@ void TheoryArrays::preRegisterTerm(TNode node)
     }
     // Reads
     TNode store = d_equalityEngine.getRepresentative(node[0]);
+
+    // The may equal needs the store
+    d_mayEqualEqualityEngine.addTerm(store);
 
     // Apply RIntro1 rule to any stores equal to store if not done already
     const CTNodeList* stores = d_infoMap.getStores(store);
@@ -461,7 +473,8 @@ void TheoryArrays::preRegisterTerm(TNode node)
     break;
   }
   // Invariant: preregistered terms are exactly the terms in the equality engine
-  Assert(d_equalityEngine.hasTerm(node));
+  // Disabled, see comment above for kind::EQUAL
+  // Assert(d_equalityEngine.hasTerm(node) || !d_equalityEngine.consistent());
 }
 
 
@@ -531,7 +544,7 @@ EqualityStatus TheoryArrays::getEqualityStatus(TNode a, TNode b) {
     // The terms are implied to be equal
     return EQUALITY_TRUE;
   }
-  if (d_equalityEngine.areDisequal(a, b)) {
+  if (d_equalityEngine.areDisequal(a, b, false)) {
     // The terms are implied to be dis-equal
     return EQUALITY_FALSE;
   }
@@ -582,10 +595,10 @@ void TheoryArrays::computeCareGraph()
 
         if (r1[0] != r2[0]) {
           // If arrays are known to be disequal, or cannot become equal, we can continue
-          Assert(d_equalityEngine.hasTerm(r1[0]) && d_equalityEngine.hasTerm(r2[0]));
+          Assert(d_mayEqualEqualityEngine.hasTerm(r1[0]) && d_mayEqualEqualityEngine.hasTerm(r2[0]));
           if (r1[0].getType() != r2[0].getType() ||
               (!d_mayEqualEqualityEngine.areEqual(r1[0], r2[0])) ||
-              d_equalityEngine.areDisequal(r1[0], r2[0])) {
+              d_equalityEngine.areDisequal(r1[0], r2[0], false)) {
             Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): arrays can't be equal, skipping" << std::endl;
             continue;
           }
@@ -710,12 +723,12 @@ void TheoryArrays::check(Effort e) {
       case kind::NOT:
         if (fact[0].getKind() == kind::SELECT) {
           d_equalityEngine.assertPredicate(fact[0], false, fact);
-        } else if (!d_equalityEngine.areDisequal(fact[0][0], fact[0][1])) {
+        } else if (!d_equalityEngine.areDisequal(fact[0][0], fact[0][1], false)) {
           // Assert the dis-equality
           d_equalityEngine.assertEquality(fact[0], false, fact);
 
           // Apply ArrDiseq Rule if diseq is between arrays
-          if(fact[0][0].getType().isArray()) {
+          if(fact[0][0].getType().isArray() && !d_conflict) {
             NodeManager* nm = NodeManager::currentNM();
             TypeNode indexType = fact[0][0].getType()[0];
             TNode k;
@@ -759,7 +772,7 @@ void TheoryArrays::check(Effort e) {
     // Otherwise we propagate
     propagate(e);
 
-    if(!d_eagerLemmas && fullEffort(e)) {
+    if(!d_eagerLemmas && fullEffort(e) && !d_conflict) {
       // generate the lemmas on the worklist
       Trace("arrays-lem")<<"Arrays::discharging lemmas: "<<d_RowQueue.size()<<"\n";
       dischargeLemmas();
@@ -909,6 +922,7 @@ void TheoryArrays::checkRIntro1(TNode a, TNode b)
         e1 = e1[0];
       }
       Assert(d_equalityEngine.hasTerm(e1));
+      Assert(d_equalityEngine.hasTerm(b));
       if (d_equalityEngine.areEqual(e1, b)) {
         apply = true;
       }
@@ -1147,7 +1161,7 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
 
   // If propagating, check propagations
   if (d_propagateLemmas) {
-    if (d_equalityEngine.areDisequal(i,j)) {
+    if (d_equalityEngine.areDisequal(i,j,true)) {
       Trace("arrays-lem") << spaces(getSatContext()->getLevel()) <<"Arrays::queueRowLemma: propagating aj = bj ("<<aj<<", "<<bj<<")\n";
       Node aj_eq_bj = aj.eqNode(bj);
       Node i_eq_j = i.eqNode(j);
@@ -1163,7 +1177,7 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
       ++d_numProp;
       return;
     }
-    if (bothExist && d_equalityEngine.areDisequal(aj,bj)) {
+    if (bothExist && d_equalityEngine.areDisequal(aj,bj,true)) {
       Trace("arrays-lem") << spaces(getSatContext()->getLevel()) <<"Arrays::queueRowLemma: propagating i = j ("<<i<<", "<<j<<")\n";
       Node aj_eq_bj = aj.eqNode(bj);
       Node i_eq_j = i.eqNode(j);
@@ -1184,7 +1198,7 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
   }
 
   // Prefer equality between indexes so as not to introduce new read terms
-  if (d_eagerIndexSplitting && !bothExist && !d_equalityEngine.areDisequal(i,j)) {
+  if (d_eagerIndexSplitting && !bothExist && !d_equalityEngine.areDisequal(i,j, false)) {
     Node split = d_valuation.ensureLiteral(i.eqNode(j));
     d_out->propagateAsDecision(split);
   }
@@ -1276,8 +1290,8 @@ void TheoryArrays::dischargeLemmas()
 
     // Check for redundant lemma
     // TODO: more checks possible (i.e. check d_RowAlreadyAdded in context)
-    if (d_equalityEngine.areEqual(i,j) ||
-        d_equalityEngine.areEqual(a,b) ||
+    if (!d_equalityEngine.hasTerm(i) || !d_equalityEngine.hasTerm(j) || d_equalityEngine.areEqual(i,j) ||
+        !d_equalityEngine.hasTerm(a) || !d_equalityEngine.hasTerm(b) || d_equalityEngine.areEqual(a,b) ||
         (ajExists && bjExists && d_equalityEngine.areEqual(aj,bj))) {
       d_RowQueue.push(l);
       continue;

@@ -609,7 +609,7 @@ void StrongSolverTheoryUf::ConflictFind::assertDisequal( Node a, Node b, Node re
   //if they are not already disequal
   a = d_th->d_equalityEngine.getRepresentative( a );
   b = d_th->d_equalityEngine.getRepresentative( b );
-  if( !d_th->d_equalityEngine.areDisequal( a, b ) ){
+  if( !d_th->d_equalityEngine.areDisequal( a, b, true ) ){
     Debug("uf-ss") << "Assert disequal " << a << " != " << b << "..." << std::endl;
     //if( reason.getKind()!=NOT || ( reason[0].getKind()!=EQUAL && reason[0].getKind()!=IFF ) ||
     //    a!=reason[0][0] || b!=reason[0][1] ){
@@ -734,7 +734,7 @@ bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out )
               }else{
                 //if an argument is disequal, then they are not ambiguous
                 for( int k=0; k<(int)it->second[i].getNumChildren(); k++ ){
-                  if( d_th->d_equalityEngine.areDisequal( it->second[i][k], it->second[j][k] ) ){
+                  if( d_th->d_equalityEngine.areDisequal( it->second[i][k], it->second[j][k], true ) ){
                     d_term_amb[ eq ] = false;
                     break;
                   }

@@ -51,7 +51,7 @@ namespace CVC4 {
 struct NodeTheoryPair {
   Node node;
   theory::TheoryId theory;
-  NodeTheoryPair(Node node, theory::TheoryId theory)
+  NodeTheoryPair(TNode node, theory::TheoryId theory)
   : node(node), theory(theory) {}
   NodeTheoryPair()
   : theory(theory::THEORY_LAST) {}
@@ -533,13 +533,6 @@ public:
       th->setInstantiator(makeInstantiator(d_context, getQuantifiersEngine(), th));
     }
   }
-
-  template <class TheoryClass>
-  /**
-   * Sets the logic (SMT-LIB format).  All theory specific setup/hacks
-   * should go in here.
-   */
-  void setLogic(std::string logic);
 
   inline void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
