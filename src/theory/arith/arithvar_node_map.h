@@ -23,10 +23,10 @@
 #define __CVC4__THEORY__ARITH__ARITHVAR_NODE_MAP_H
 
 
-#include "theory/arith/arith_utilities.h"
+#include "theory/arith/arithvar.h"
 #include "context/context.h"
 #include "context/cdlist.h"
-#include "context/cdmap.h"
+#include "context/cdhashmap.h"
 #include "context/cdo.h"
 
 namespace CVC4 {
