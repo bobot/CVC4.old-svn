@@ -5,17 +5,25 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -I@srcdir@/minisat -I@srcdir@/bvminisat
 AM_CXXFLAGS = -Wall -Wno-parentheses -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-SUBDIRS = minisat bvminisat
-
 noinst_LTLIBRARIES = libprop.la
 
 libprop_la_SOURCES = \
 	registrar.h \
 	prop_engine.cpp \
 	prop_engine.h \
-	sat.h \
-	sat.cpp \
+	theory_proxy.h \
+	theory_proxy.cpp \
 	cnf_stream.h \
 	cnf_stream.cpp \
-	sat_module.h \
-	sat_module.cpp
+	sat_solver.h \
+	sat_solver_types.h \	
+	sat_solver_factory.h \
+	sat_solver_factory.cpp \
+	sat_solver_registry.h \
+	sat_solver_registry.cpp
+
+EXTRA_DIST = \
+	options_handlers.h
+
+SUBDIRS = minisat bvminisat
+

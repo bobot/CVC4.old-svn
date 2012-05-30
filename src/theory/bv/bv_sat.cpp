@@ -21,7 +21,8 @@
 #include "theory_bv_utils.h"
 #include "theory/rewriter.h"
 #include "prop/cnf_stream.h"
-#include "prop/sat_module.h"
+#include "prop/sat_solver.h"
+#include "prop/sat_solver_factory.h"
 
 using namespace std;
 
@@ -184,7 +185,7 @@ void Bitblaster::assertToSat(TNode lit) {
  
 bool Bitblaster::solve() {
   Trace("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n"; 
-  return SatValTrue == d_satSolver->solve(d_assertedAtoms); 
+  return SAT_VALUE_TRUE == d_satSolver->solve(d_assertedAtoms); 
 }
 
 void Bitblaster::getConflict(std::vector<TNode>& conflict) {
