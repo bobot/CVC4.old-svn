@@ -286,10 +286,6 @@ public:
 
 
 class InstMatchGenerator : public IMGenerator {
-public:
-  static std::map< Node, std::map< Node, std::vector< InstMatchGenerator* > > > d_match_fails;
-  /** set match fail */
-  void setMatchFail( QuantifiersEngine* qe, Node n1, Node n2 );
 private:
   /** candidate generator */
   CandidateGenerator* d_cg;

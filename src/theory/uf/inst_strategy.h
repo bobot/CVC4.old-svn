@@ -52,7 +52,7 @@ public:
   ~InstStrategyCheckCESolved(){}
   /** identify */
   std::string identify() const { return std::string("CheckCESolved"); }
-};
+};/* class InstStrategyCheckCESolved */
 
 class InstStrategyUserPatterns : public InstStrategy{
 private:
@@ -78,7 +78,7 @@ public:
   Trigger* getUserGenerator( Node f, int i ) { return d_user_gen[f][ i ]; }
   /** identify */
   std::string identify() const { return std::string("UserPatterns"); }
-};
+};/* class InstStrategyUserPatterns */
 
 class InstStrategyAutoGenTriggers : public InstStrategy{
 public:
@@ -134,7 +134,9 @@ public:
   }
   /** set generate additional */
   void setGenerateAdditional( bool val ) { d_generate_additional = val; }
-};
+};/* class InstStrategyAutoGenTriggers */
+
+#if 0
 
 class InstStrategyAddFailSplits : public InstStrategy{
 private:
@@ -149,7 +151,9 @@ public:
   ~InstStrategyAddFailSplits(){}
   /** identify */
   std::string identify() const { return std::string("AddFailSplits"); }
-};
+};/* class InstStrategyAddFailSplits */
+
+#endif /* 0 */
 
 class InstStrategyFreeVariable : public InstStrategy{
 private:
@@ -166,10 +170,10 @@ public:
   ~InstStrategyFreeVariable(){}
   /** identify */
   std::string identify() const { return std::string("FreeVariable"); }
-};
+};/* class InstStrategyFreeVariable */
 
-}
-}
-}
+}/* CVC4::theory::uf namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
 
 #endif

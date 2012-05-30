@@ -226,9 +226,6 @@ bool InstMatchTrie::addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, b
   }
 }
 
-// Remove most of the dependance to qe
-std::map< Node, std::map< Node, std::vector< InstMatchGenerator* > > > InstMatchGenerator::d_match_fails;
-
 InstMatchGenerator::InstMatchGenerator( Node pat, QuantifiersEngine* qe, int matchPolicy ) : d_matchPolicy( matchPolicy ){
   initializePattern( pat, qe );
 }
@@ -238,15 +235,6 @@ InstMatchGenerator::InstMatchGenerator( std::vector< Node >& pats, QuantifiersEn
     initializePattern( pats[0], qe );
   }else{
     initializePatterns( pats, qe );
-  }
-}
-
-void InstMatchGenerator::setMatchFail( QuantifiersEngine* qe, Node n1, Node n2 ){
-  if( std::find( d_match_fails[n1][n2].begin(), d_match_fails[n1][n2].end(), this )==d_match_fails[n1][n2].end() ){
-    if( !qe->getEqualityQuery()->areDisequal( n1, n2 ) ){
-      d_match_fails[n1][n2].push_back( this );
-      d_match_fails[n2][n1].push_back( this );
-    }
   }
 }
 
@@ -381,14 +369,12 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
                                     << partial[0].d_map[d_match_pattern[i]]
                                     << std::endl;
             Debug("matching-fail") << "Match fail: " << partial[0].d_map[d_match_pattern[i]] << " and " << t[i] << std::endl;
-            //setMatchFail( qe, partial[0].d_map[d_match_pattern[i]], t[i] );
             return false;
           }
         }
       }else{
         if( !q->areEqual( d_match_pattern[i], t[i] ) ){
           Debug("matching-fail") << "Match fail arg: " << d_match_pattern[i] << " and " << t[i] << std::endl;
-          //setMatchFail( qe, d_match_pattern[i], t[i] );
           //ground arguments are not equal
           return false;
         }

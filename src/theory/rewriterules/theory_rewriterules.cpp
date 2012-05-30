@@ -177,7 +177,7 @@ void TheoryRewriteRules::check(Effort level) {
 
   while(!done()) {
     // Get all the assertions
-#warning Test that it have already been ppAsserted
+    // TODO: Test that it have already been ppAsserted
     get();
     // Assertion assertion = get();
     // TNode fact = assertion.assertion;
@@ -392,7 +392,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   if(propagate_as_lemma){
     Node lemma = equality;
     if(rule->guards.size() > 0){
-#warning problem with reduction rule => instead of <=>
+      // TODO: problem with reduction rule => instead of <=>
       lemma = substGuards(inst, cache).impNode(equality);
     };
     if(rule->directrr){

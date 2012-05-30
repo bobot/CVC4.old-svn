@@ -363,8 +363,9 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
   }
 }
 
+#if 0
+
 void InstStrategyAddFailSplits::processResetInstantiationRound( Theory::Effort effort ){
-  
 }
 
 int InstStrategyAddFailSplits::process( Node f, Theory::Effort effort, int e, int instLimit ){
@@ -388,8 +389,9 @@ int InstStrategyAddFailSplits::process( Node f, Theory::Effort effort, int e, in
   }
 }
 
+#endif /* 0 */
+
 void InstStrategyFreeVariable::processResetInstantiationRound( Theory::Effort effort ){
-  
 }
 
 int InstStrategyFreeVariable::process( Node f, Theory::Effort effort, int e, int instLimit ){

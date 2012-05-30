@@ -530,11 +530,6 @@ void TheoryArrays::addSharedTerm(TNode t) {
   else {
     d_sharedTerms = true;
   }
-  //AJR-hack
-  if( getInstantiator() ){
-    getInstantiator()->preRegisterTerm( t );
-  }
-  //AJR-hack-end
 }
 
 
