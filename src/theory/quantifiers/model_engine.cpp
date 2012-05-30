@@ -671,10 +671,10 @@ void ModelEngine::buildRepresentatives(){
     Debug("fmf-model-debug") << std::endl;
     //set them in the alphabet
     d_ra.set( tn, reps );
-  }
 #ifdef ME_PRINT_PROCESS_TIMES
-  //"Representatives (" << reps.size() << ") for type " << tn << " (c=" << d_ss->getCardinality( tn ) << "): ";
+    std::cout << tn << " has " << reps.size() << " representatives. " << std::endl;
 #endif
+  }
 }
 
 void ModelEngine::initializeModel(){

@@ -438,7 +438,8 @@ bool InstMatchGenerator::getNextMatch2( InstMatch& m, QuantifiersEngine* qe, boo
     //get the next candidate term t
     t = d_cg->getNextCandidate();
     //if t not null, try to fit it into match m
-    if( !t.isNull() ){
+    if( !t.isNull() && t.getType()==d_match_pattern.getType() ){
+      //Assert( t.getType()==d_match_pattern.getType() );
       success = getMatch( t, m, qe );
     }
   }while( !success && !t.isNull() );

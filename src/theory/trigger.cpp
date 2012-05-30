@@ -95,6 +95,7 @@ d_quantEngine( qe ), d_f( f ){
     //Notice() << "   " << (*this) << std::endl;
     ++(qe->d_statistics.d_multi_triggers);
   }
+  //std::cout << "Trigger : " << (*this) << "  for " << f << std::endl;
 }
 void Trigger::computeVarContains( Node n ) {
   if( d_var_contains.find( n )==d_var_contains.end() ){

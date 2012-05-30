@@ -161,8 +161,18 @@ void InstantiationEngine::check( Theory::Effort e ){
   if( e==Theory::EFFORT_FULL ){
     ierCounter++;
   }
-  if( ( e==Theory::EFFORT_FULL  && ierCounter%2==0 ) || e==Theory::EFFORT_LAST_CALL ){
-  //if( e==Theory::EFFORT_LAST_CALL ){
+  //determine if we should perform check, based on instWhenMode
+  bool performCheck = false;
+  if( Options::current()->instWhenMode==Options::INST_WHEN_FULL ){
+    performCheck = ( e >= Theory::EFFORT_FULL );
+  }else if( Options::current()->instWhenMode==Options::INST_WHEN_FULL_LAST_CALL ){
+    performCheck = ( ( e==Theory::EFFORT_FULL  && ierCounter%2==0 ) || e==Theory::EFFORT_LAST_CALL );
+  }else if( Options::current()->instWhenMode==Options::INST_WHEN_LAST_CALL ){
+    performCheck = ( e >= Theory::EFFORT_LAST_CALL );
+  }else{
+    performCheck = true;
+  }
+  if( performCheck ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);

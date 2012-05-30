@@ -124,6 +124,8 @@ Options::Options() :
   cnfQuant(false),
   preSkolemQuant(false),
   smartTriggers(true),
+  registerQuantBodyTerms(false),
+  instWhenMode(INST_WHEN_FULL_LAST_CALL),
   finiteModelFind(false),
   fmfRegionSat(false),
   fmfModelBasedInst(true),
@@ -241,6 +243,8 @@ Additional CVC4 options:\n\
    --cnf-quant            apply CNF conversion to quantified formulas\n\
    --pre-skolem-quant     apply skolemization eagerly to bodies of quantified formulas\n\
    --disable-smart-triggers   disable smart triggers\n\
+   --register-quant-body-terms  consider terms within bodies of quantified formulas for matching\n\
+   --inst-when=MODE       when to apply instantiation\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --use-fmf-region-sat   use region-based SAT heuristic for finite model finding\n\
    --disable-fmf-model-inst  disable model-based instantiation for finite model finding\n\
@@ -492,7 +496,9 @@ enum OptionValue {
   VAR_ELIM_QUANT,
   CNF_QUANT,
   PRE_SKOLEM_QUANT,
-  DISABLE_SMART_MULTI_TRIGGERS,
+  DISABLE_SMART_TRIGGERS,
+  REGISTER_QUANT_BODY_TERMS,
+  INST_WHEN,
   FINITE_MODEL_FIND,
   FMF_REGION_SAT,
   DISABLE_FMF_MODEL_BASED_INST,
@@ -608,7 +614,9 @@ static struct option cmdlineOptions[] = {
   { "var-elim-quant", no_argument, NULL, VAR_ELIM_QUANT },
   { "cnf-quant", no_argument, NULL, CNF_QUANT },
   { "pre-skolem-quant", no_argument, NULL, PRE_SKOLEM_QUANT },
-  { "disable-smart-triggers", no_argument, NULL, DISABLE_SMART_MULTI_TRIGGERS },
+  { "disable-smart-triggers", no_argument, NULL, DISABLE_SMART_TRIGGERS },
+  { "register-quant-body-terms", no_argument, NULL, REGISTER_QUANT_BODY_TERMS },
+  { "inst-when", required_argument, NULL, INST_WHEN },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
   { "disable-fmf-model-inst", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
@@ -1033,8 +1041,28 @@ throw(OptionException) {
     case PRE_SKOLEM_QUANT:
       preSkolemQuant = true;
       break;
-    case DISABLE_SMART_MULTI_TRIGGERS:
+    case DISABLE_SMART_TRIGGERS:
       smartTriggers = false;
+      break;
+    case REGISTER_QUANT_BODY_TERMS:
+      registerQuantBodyTerms = true;
+      break;
+    case INST_WHEN:
+      if(!strcmp(optarg, "eager")) {
+        instWhenMode = INST_WHEN_EAGER;
+      } else if(!strcmp(optarg, "full")) {
+        instWhenMode = INST_WHEN_FULL;
+      } else if(!strcmp(optarg, "full-last-call")) {
+        instWhenMode = INST_WHEN_FULL_LAST_CALL;
+      } else if(!strcmp(optarg, "last-call")) {
+        instWhenMode = INST_WHEN_LAST_CALL;
+      } else if(!strcmp(optarg, "help")) {
+        //puts(instWhenHelp.c_str());
+        exit(1);
+      } else {
+        throw OptionException(string("unknown option for --inst-when: `") +
+                              optarg + "'.  Try --inst-when help.");
+      }
       break;
     case FINITE_MODEL_FIND:
       finiteModelFind = true;

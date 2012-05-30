@@ -323,6 +323,25 @@ struct CVC4_PUBLIC Options {
   bool smartTriggers;
 
   /**
+   * Whether to consider terms in the bodies of quantifiers for matching
+   */
+  bool registerQuantBodyTerms;
+
+  /** Enumeration of inst_when modes (when to instantiate). */
+  typedef enum {
+    /** Apply instantiation round eagerly (at standard effort) */
+    INST_WHEN_EAGER,
+    /** Apply instantiation round at full effort or above  */
+    INST_WHEN_FULL,
+    /** Apply instantiation round at full effort half the time, and last call always */
+    INST_WHEN_FULL_LAST_CALL,
+    /** Apply instantiation round at last call only */
+    INST_WHEN_LAST_CALL,
+  } InstWhenMode;
+  /** When to perform instantiation round. */
+  InstWhenMode instWhenMode;
+
+  /**
    * Whether to use finite model find heuristic
    */
   bool finiteModelFind;
@@ -352,7 +371,7 @@ struct CVC4_PUBLIC Options {
     LITERAL_MATCH_EQUALITY,
   } LiteralMatchMode;
 
-  /** When/whether to perform nonclausal simplifications. */
+  /** Which literal matching mode to use. */
   LiteralMatchMode literalMatchMode;
 
   /**
