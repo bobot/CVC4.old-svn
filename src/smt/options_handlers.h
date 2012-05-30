@@ -21,6 +21,8 @@
 #ifndef __CVC4__SMT__OPTIONS_HANDLERS_H
 #define __CVC4__SMT__OPTIONS_HANDLERS_H
 
+#include "util/dump.h"
+
 namespace CVC4 {
 namespace smt {
 
@@ -174,7 +176,7 @@ inline void dumpToFile(std::string option, std::string optarg) {
   if(optarg == "") {
     throw OptionException(std::string("Bad file name for --dump-to"));
   } else if(optarg == "-") {
-    Dump.setStream(DumpC::dump_cout);
+    Dump.setStream(DumpOutC::dump_cout);
   } else {
     std::ostream* dumpTo = new std::ofstream(optarg.c_str(), std::ofstream::out | std::ofstream::trunc);
     if(!*dumpTo) {
@@ -201,6 +203,10 @@ inline SimplificationMode stringToSimplificationMode(std::string option, std::st
     throw OptionException(std::string("unknown option for --simplification: `") +
                           optarg + "'.  Try --simplification help.");
   }
+}
+
+inline void setSimplificationModeSetByUser(std::string option, bool b) {
+  options::simplificationModeSetByUser.set(true);
 }
 
 inline std::string checkReplayFilename(std::string option, std::string optarg) {

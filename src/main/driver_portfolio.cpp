@@ -28,6 +28,7 @@
 #include "prop/options.h"
 #include "theory/uf/options.h"
 #include "util/output.h"
+#include "util/dump.h"
 #include "util/result.h"
 #include "util/stats.h"
 

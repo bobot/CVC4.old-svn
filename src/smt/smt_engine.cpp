@@ -295,7 +295,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
 
 void SmtEngine::shutdown() {
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << QuitCommand() << endl;
+    Dump("benchmark") << QuitCommand();
   }
 
   // check to see if a postsolve() is pending
@@ -351,7 +351,7 @@ void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
   }
 
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << SetBenchmarkLogicCommand(s) << endl;
+    Dump("benchmark") << SetBenchmarkLogicCommand(s);
   }
 
   setLogicInternal(s);
@@ -362,7 +362,13 @@ void SmtEngine::setLogicInternal(const std::string& s) throw() {
 
   // by default, symmetry breaker is on only for QF_UF
   if(! options::ufSymmetryBreakerSetByUser()) {
+    Trace("smt") << "setting uf symmetry breaker to " << (s == "QF_UF") << std::endl;
     options::ufSymmetryBreaker.set(s == "QF_UF");
+  }
+  // by default, nonclausal simplification is off for QF_SAT
+  if(! options::simplificationModeSetByUser()) {
+    Trace("smt") << "setting simplification mode to <" << s << "> " << (s != "QF_SAT") << std::endl;
+    options::simplificationMode.set(s == "QF_SAT" ? SIMPLIFICATION_MODE_NONE : SIMPLIFICATION_MODE_BATCH);
   }
 
   // If in arrays, set the UF handler to arrays
@@ -377,7 +383,7 @@ void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
   throw(BadOptionException, ModalException) {
   Trace("smt") << "SMT setInfo(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << SetInfoCommand(key, value) << endl;
+    Dump("benchmark") << SetInfoCommand(key, value);
   }
 
   // Check for CVC4-specific info keys (prefixed with "cvc4-" or "cvc4_")
@@ -464,10 +470,9 @@ void SmtEngine::defineFunction(Expr func,
   Trace("smt") << "SMT defineFunction(" << func << ")" << endl;
   if(Dump.isOn("declarations")) {
     stringstream ss;
-    ss << Expr::setlanguage(Expr::setlanguage::getLanguage(Dump("declarations")))
+    ss << Expr::setlanguage(Expr::setlanguage::getLanguage(Dump.getStream()))
        << func;
-    Dump("declarations") << DefineFunctionCommand(ss.str(), func, formals, formula)
-                         << endl;
+    Dump("declarations") << DefineFunctionCommand(ss.str(), func, formals, formula);
   }
   NodeManagerScope nms(d_nodeManager);
 
@@ -586,6 +591,7 @@ void SmtEnginePrivate::removeITEs() {
   for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
     d_assertionsToCheck[i] = theory::Rewriter::rewrite(d_assertionsToCheck[i]);
   }
+  
 }
 
 void SmtEnginePrivate::staticLearning() {
@@ -916,7 +922,7 @@ void SmtEnginePrivate::processAssertions() {
     // Push the simplified assertions to the dump output stream
     for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
       Dump("assertions")
-        << AssertCommand(BoolExpr(d_assertionsToCheck[i].toExpr())) << endl;
+        << AssertCommand(BoolExpr(d_assertionsToCheck[i].toExpr()));
     }
   }
 
@@ -998,7 +1004,7 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
   // Dump the query if requested
   if(Dump.isOn("benchmark")) {
     // the expr already got dumped out if assertion-dumping is on
-    Dump("benchmark") << CheckSatCommand() << endl;
+    Dump("benchmark") << CheckSatCommand();
   }
 
   // Pop the context
@@ -1055,7 +1061,7 @@ Result SmtEngine::query(const BoolExpr& e) {
   // Dump the query if requested
   if(Dump.isOn("benchmark")) {
     // the expr already got dumped out if assertion-dumping is on
-    Dump("benchmark") << CheckSatCommand() << endl;
+    Dump("benchmark") << CheckSatCommand();
   }
 
   // Pop the context
@@ -1091,7 +1097,7 @@ Expr SmtEngine::simplify(const Expr& e) {
   }
   Trace("smt") << "SMT simplify(" << e << ")" << endl;
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << SimplifyCommand(e) << endl;
+    Dump("benchmark") << SimplifyCommand(e);
   }
   return d_private->applySubstitutions(e).toExpr();
 }
@@ -1106,7 +1112,7 @@ Expr SmtEngine::getValue(const Expr& e)
 
   Trace("smt") << "SMT getValue(" << e << ")" << endl;
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << GetValueCommand(e) << endl;
+    Dump("benchmark") << GetValueCommand(e);
   }
   if(!options::produceModels()) {
     const char* msg =
@@ -1172,7 +1178,7 @@ CVC4::SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException)
   Trace("smt") << "SMT getAssignment()" << endl;
   NodeManagerScope nms(d_nodeManager);
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << GetAssignmentCommand() << endl;
+    Dump("benchmark") << GetAssignmentCommand();
   }
   if(!options::produceAssignments()) {
     const char* msg =
@@ -1228,7 +1234,7 @@ Proof* SmtEngine::getProof() throw(ModalException, AssertionException) {
   Trace("smt") << "SMT getProof()" << endl;
   NodeManagerScope nms(d_nodeManager);
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << GetProofCommand() << endl;
+    Dump("benchmark") << GetProofCommand();
   }
 #ifdef CVC4_PROOF
   if(!options::proof()) {
@@ -1253,7 +1259,7 @@ Proof* SmtEngine::getProof() throw(ModalException, AssertionException) {
 vector<Expr> SmtEngine::getAssertions()
   throw(ModalException, AssertionException) {
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << GetAssertionsCommand() << endl;
+    Dump("benchmark") << GetAssertionsCommand();
   }
   NodeManagerScope nms(d_nodeManager);
   Trace("smt") << "SMT getAssertions()" << endl;
@@ -1277,7 +1283,7 @@ void SmtEngine::push() {
   Trace("smt") << "SMT push()" << endl;
   d_private->processAssertions();
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << PushCommand() << endl;
+    Dump("benchmark") << PushCommand();
   }
   if(!options::incrementalSolving()) {
     throw ModalException("Cannot push when not solving incrementally (use --incremental)");
@@ -1299,7 +1305,7 @@ void SmtEngine::pop() {
   NodeManagerScope nms(d_nodeManager);
   Trace("smt") << "SMT pop()" << endl;
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << PopCommand() << endl;
+    Dump("benchmark") << PopCommand();
   }
   if(!options::incrementalSolving()) {
     throw ModalException("Cannot pop when not solving incrementally (use --incremental)");

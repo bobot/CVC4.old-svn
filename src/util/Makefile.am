@@ -55,6 +55,8 @@ libutil_la_SOURCES = \
 	ntuple.h \
 	recursion_breaker.h \
 	subrange_bound.h \
+	dump.h \
+	dump.cpp \
 	predicate.h \
 	predicate.cpp \
 	cardinality.h \

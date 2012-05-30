@@ -20,6 +20,7 @@
 #include "smt/bad_option_exception.h"
 #include "smt/modal_exception.h"
 #include "util/sexpr.h"
+#include "util/dump.h"
 #include "expr/command.h"
 #include "expr/node_manager.h"
 
@@ -28,7 +29,7 @@
 
 ${include_all_option_headers}
 
-#line 32 "${template}"
+#line 33 "${template}"
 
 using namespace std;
 
@@ -41,7 +42,7 @@ void SmtEngine::setOption(const std::string& key, const CVC4::SExpr& value)
 
   Trace("smt") << "SMT setOption(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << SetOptionCommand(key, value) << endl;
+    Dump("benchmark") << SetOptionCommand(key, value);
   }
 
   stringstream ss;
@@ -50,7 +51,7 @@ void SmtEngine::setOption(const std::string& key, const CVC4::SExpr& value)
 
   ${smt_setoption_handlers}
 
-#line 54 "${template}"
+#line 55 "${template}"
 
   throw BadOptionException();
 }
@@ -62,12 +63,12 @@ CVC4::SExpr SmtEngine::getOption(const std::string& key) const
 
   Trace("smt") << "SMT getOption(" << key << ")" << endl;
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << GetOptionCommand(key) << endl;
+    Dump("benchmark") << GetOptionCommand(key);
   }
 
   ${smt_getoption_handlers}
 
-#line 71 "${template}"
+#line 72 "${template}"
 
   throw BadOptionException();
 }
