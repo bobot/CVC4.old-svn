@@ -47,6 +47,7 @@ class TheoryEngine;
 namespace theory {
 
 class Instantiator;
+class InstStrategy;
 class QuantifiersEngine;
 
 /**
@@ -103,7 +104,7 @@ public:
     return b < other.b;
   }
 
-};
+};/* struct CarePair */
 
 /**
  * A set of care pairs.
@@ -280,7 +281,7 @@ protected:
    *
    * @return the next assertion in the assertFact() queue
    */
-  Assertion get();
+  inline Assertion get();
 
   const LogicInfo& getLogicInfo() const {
     return d_logicInfo;
@@ -793,6 +794,84 @@ public:
 };/* class Theory */
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level);
+
+class Instantiator {
+  friend class QuantifiersEngine;
+protected:
+  /** reference to the quantifiers engine */
+  QuantifiersEngine* d_quantEngine;
+  /** reference to the theory that it looks at */
+  Theory* d_th;
+  /** instantiation strategies */
+  std::vector< InstStrategy* > d_instStrategies;
+  /** instantiation strategies active */
+  std::map< InstStrategy*, bool > d_instStrategyActive;
+  /** has constraints from quantifier */
+  std::map< Node, bool > d_hasConstraints;
+  /** is instantiation strategy active */
+  bool isActiveStrategy( InstStrategy* is ) {
+    return d_instStrategyActive.find( is )!=d_instStrategyActive.end() && d_instStrategyActive[is];
+  }
+  /** add inst strategy */
+  void addInstStrategy( InstStrategy* is ){
+    d_instStrategies.push_back( is );
+    d_instStrategyActive[is] = true;
+  }
+  /** reset instantiation round */
+  virtual void processResetInstantiationRound( Theory::Effort effort ) = 0;
+  /** process quantifier */
+  virtual int process( Node f, Theory::Effort effort, int e, int limitInst = 0 ) = 0;
+public:
+  /** set has constraints from quantifier f */
+  void setHasConstraintsFrom( Node f );
+  /** has constraints from */
+  bool hasConstraintsFrom( Node f );
+  /** is full owner of quantifier f? */
+  bool isOwnerOf( Node f );
+public:
+  Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th);
+  ~Instantiator();
+
+  /** get quantifiers engine */
+  QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }
+  /** get corresponding theory for this instantiator */
+  Theory* getTheory() { return d_th; }
+  /** Pre-register a term.  */
+  virtual void preRegisterTerm( Node t ) { }
+  /** assertNode function, assertion was asserted to theory */
+  virtual void assertNode( Node assertion ){}
+  /** reset instantiation round */
+  void resetInstantiationRound( Theory::Effort effort );
+  /** do instantiation method*/
+  int doInstantiation( Node f, Theory::Effort effort, int e, int limitInst = 0 );
+  /** identify */
+  virtual std::string identify() const { return std::string("Unknown"); }
+  /** print debug information */
+  virtual void debugPrint( const char* c ) {}
+  /** get status */
+  //int getStatus() { return d_status; }
+};/* class Instantiator */
+
+inline Assertion Theory::get() {
+  Assert( !done(), "Theory::get() called with assertion queue empty!" );
+
+  // Get the assertion
+  Assertion fact = d_facts[d_factsHead];
+  d_factsHead = d_factsHead + 1;
+
+  Trace("theory") << "Theory::get() => " << fact << " (" << d_facts.size() - d_factsHead << " left)" << std::endl;
+
+  if(Dump.isOn("state")) {
+    Dump("state") << AssertCommand(fact.assertion.toExpr());
+  }
+
+  // if quantifiers are turned on, notify the instantiator
+  if(getInstantiator() != NULL) {
+    getInstantiator()->assertNode(fact);
+  }
+
+  return fact;
+}
 
 }/* CVC4::theory namespace */
 
