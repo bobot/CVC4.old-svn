@@ -511,7 +511,13 @@ sortSymbol returns [CVC4::parser::smt::myType t]
   	{ $t = PARSER_STATE->getSort(name); }
   | BITVECTOR_TOK '[' NUMERAL_TOK ']' {
   	$t = EXPR_MANAGER->mkBitVectorType(AntlrInput::tokenToUnsigned($NUMERAL_TOK));
-  }
+    }
+  /* attaching 'Array' to '[' allows us to parse regular 'Array' correctly in
+   * e.g. QF_AX, and also 'Array[m:n]' in e.g. QF_AUFBV */
+  | 'Array[' n1=NUMERAL_TOK ':' n2=NUMERAL_TOK ']' {
+        $t = EXPR_MANAGER->mkArrayType(EXPR_MANAGER->mkBitVectorType(AntlrInput::tokenToUnsigned(n1)),
+                                       EXPR_MANAGER->mkBitVectorType(AntlrInput::tokenToUnsigned(n2)));
+    }
   ;
 
 /**
@@ -536,6 +542,7 @@ annotation[CVC4::Command*& smt_command]
       { std::string value = AntlrInput::tokenText($USER_VALUE);
         Assert(*value.begin() == '{');
         Assert(*value.rbegin() == '}');
+        // trim whitespace
         value.erase(value.begin(), value.begin() + 1);
         value.erase(value.begin(), std::find_if(value.begin(), value.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
         value.erase(value.end() - 1);
