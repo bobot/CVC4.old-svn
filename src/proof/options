@@ -5,7 +5,7 @@
 
 module PROOF "proof/options.h" Proof
 
-common-option proof produce-proofs --proof bool
+option proof produce-proofs --proof bool
  turn on proof generation
 
 endmodule

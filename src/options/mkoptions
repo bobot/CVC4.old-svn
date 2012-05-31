@@ -109,6 +109,10 @@ function module {
   all_modules_contributions="${all_modules_contributions}
   CVC4_OPTIONS__${module_id}__FOR_OPTION_HOLDER"
   module_optionholder_spec="#define CVC4_OPTIONS__${module_id}__FOR_OPTION_HOLDER"
+
+  remaining_documentation="${remaining_documentation}\\n\\n\"
+#line $lineno \"$kf\"
+\"$module_name options:"
 }
 
 function endmodule {
@@ -342,25 +346,32 @@ function handle_option {
   if [ "$internal" != - ]; then
     # set up a field in the options_holder
     module_optionholder_spec="${module_optionholder_spec} \\
-  ${internal}__option_t::type $internal;"
+  ${internal}__option_t::type $internal; \\
+  bool ${internal}__setByUser__;"
     all_modules_defaults="${all_modules_defaults:+${all_modules_defaults},}
 #line $lineno \"$kf\"
-  $internal($default_value)"
+  $internal($default_value),
+#line $lineno \"$kf\"
+  ${internal}__setByUser__(false)"
     if $readOnly; then
       module_decls="${module_decls}
 #line $lineno \"$kf\"
-extern struct CVC4_PUBLIC ${internal}__option_t { typedef $type type; type operator()() const; } $internal CVC4_PUBLIC;"
+extern struct CVC4_PUBLIC ${internal}__option_t { typedef $type type; type operator()() const; bool wasSetByUser() const; } $internal CVC4_PUBLIC;"
       module_inlines="${module_inlines}
 #line $lineno \"$kf\"
 inline ${internal}__option_t::type ${internal}__option_t::operator()() const { return Options::current()[*this]; }
+#line $lineno \"$kf\"
+inline bool ${internal}__option_t::wasSetByUser() const { return Options::current().wasSetByUser(*this); }
 "
     else
       module_decls="${module_decls}
 #line $lineno \"$kf\"
-extern struct CVC4_PUBLIC ${internal}__option_t { typedef $type type; type operator()() const; void set(const type& v); } $internal CVC4_PUBLIC;"
+extern struct CVC4_PUBLIC ${internal}__option_t { typedef $type type; type operator()() const; bool wasSetByUser() const; void set(const type& v); } $internal CVC4_PUBLIC;"
       module_inlines="${module_inlines}
 #line $lineno \"$kf\"
 inline ${internal}__option_t::type ${internal}__option_t::operator()() const { return Options::current()[*this]; }
+#line $lineno \"$kf\"
+inline bool ${internal}__option_t::wasSetByUser() const { return Options::current().wasSetByUser(*this); }
 #line $lineno \"$kf\"
 inline void ${internal}__option_t::set(const ${internal}__option_t::type& v) { Options::current().set(*this, v); }
 "
@@ -376,7 +387,9 @@ template <> void Options::set(options::${internal}__option_t, const options::${i
 struct ${internal}__option_t $internal;"
     module_specializations="${module_specializations}
 #line $lineno \"$kf\"
-template <> const options::${internal}__option_t::type& Options::operator[](options::${internal}__option_t) const;"
+template <> const options::${internal}__option_t::type& Options::operator[](options::${internal}__option_t) const;
+#line $lineno \"$kf\"
+template <> bool Options::wasSetByUser(options::${internal}__option_t) const;"
     if [ "$type" = bool ]; then
       module_specializations="${module_specializations}
 #line $lineno \"$kf\"
@@ -389,7 +402,9 @@ template <> void Options::assign(options::${internal}__option_t, std::string opt
 
     module_accessors="${module_accessors}
 #line $lineno \"$kf\"
-template <> const options::${internal}__option_t::type& Options::operator[](options::${internal}__option_t) const { return d_holder->$internal; }"
+template <> const options::${internal}__option_t::type& Options::operator[](options::${internal}__option_t) const { return d_holder->$internal; }
+#line $lineno \"$kf\"
+template <> bool Options::wasSetByUser(options::${internal}__option_t) const { return d_holder->${internal}__setByUser__; }"
   fi
 
   if $required_argument || [ "$type" != bool -a "$type" != void ]; then
@@ -631,6 +646,10 @@ template <> void Options::assignBool(options::${internal}__option_t, std::string
   runBoolHandlers(options::$internal, option, value);
 #line $lineno \"$kf\"
   d_holder->$internal = value;
+#line $lineno \"$kf\"
+  d_holder->${internal}__setByUser__ = true;
+#line $lineno \"$kf\"
+  Trace(\"options\") << \"user assigned option $internal\" << std::endl;
 }"
   elif [ -n "$expect_arg" -a "$internal" != - ] && [ -n "$cases" -o "$cases_alternate" -o "$smtname" ]; then
     all_custom_handlers="${all_custom_handlers}
@@ -638,6 +657,10 @@ template <> void Options::assignBool(options::${internal}__option_t, std::string
 template <> void Options::assign(options::${internal}__option_t, std::string option, std::string value) {
 #line $lineno \"$kf\"
   d_holder->$internal = runHandlers(options::$internal, option, value);
+#line $lineno \"$kf\"
+  d_holder->${internal}__setByUser__ = true;
+#line $lineno \"$kf\"
+  Trace(\"options\") << \"user assigned option $internal\" << std::endl;
 }"
   fi
 }
@@ -769,15 +792,28 @@ function doc {
       # nothing to document
       return
     fi
-    if expr "$the_opt" : '.\{23\}' &>/dev/null; then
-      # break into two lines
-      doc_line="$(printf '  %s\\n\\\n%-24s %s' "$the_opt" "" "$@")"
-    else
-      doc_line="$(printf '  %-22s %s' "$the_opt" "$@")"
-    fi
+
+    the_doc="$@"
     if [ "$category" = EXPERT ]; then
-      doc_line="$doc_line (EXPERTS only)"
+      the_doc="$the_doc (EXPERTS only)"
     fi
+
+    doc_line=
+    while [ -n "$the_doc" ]; do
+      remaining_doc="$(expr "$the_doc " : '.\{1,53\} \(.*\)')"
+      the_doc="$(expr "$the_doc " : '\(.\{1,53\}\) ')"
+      if [ -z "$doc_line" ]; then
+        if expr "$the_opt" : '.\{23\}' &>/dev/null; then
+          # break into two lines
+          doc_line="$(printf '  %s\\n\\\n%-24s %s' "$the_opt" "" "$the_doc")"
+        else
+          doc_line="$(printf '  %-22s %s' "$the_opt" "$the_doc")"
+        fi
+      else
+        doc_line="$doc_line\\n$(printf '%-24s %s' "" "$the_doc")"
+      fi
+      the_doc="$(expr "$remaining_doc" : '\(.*\) ')"
+    done
 
     if [ "$category" = COMMON ]; then
       common_documentation="${common_documentation}\\n\"
@@ -843,15 +879,28 @@ function doc-alternate {
       # nothing to document
       return
     fi
-    if expr "$the_opt" : '.\{23\}' &>/dev/null; then
-      # break into two lines
-      doc_line="$(printf '  %s\\n\\\n%-24s %s' "$the_opt" "" "$@")"
-    else
-      doc_line="$(printf '  %-22s %s' "$the_opt" "$@")"
-    fi
+
+    the_doc="$@"
     if [ "$category" = EXPERT ]; then
-      doc_line="$doc_line (EXPERTS only)"
+      the_doc="$the_doc (EXPERTS only)"
     fi
+
+    doc_line=
+    while [ -n "$the_doc" ]; do
+      remaining_doc="$(expr "$the_doc " : '.\{1,53\} \(.*\)')"
+      the_doc="$(expr "$the_doc " : '\(.\{1,53\}\) ')"
+      if [ -z "$doc_line" ]; then
+        if expr "$the_opt" : '.\{23\}' &>/dev/null; then
+          # break into two lines
+          doc_line="$(printf '  %s\\n\\\n%-24s %s' "$the_opt" "" "$the_doc")"
+        else
+          doc_line="$(printf '  %-22s %s' "$the_opt" "$the_doc")"
+        fi
+      else
+        doc_line="$doc_line\\n$(printf '%-24s %s' "" "$the_doc")"
+      fi
+      the_doc="$(expr "$remaining_doc" : '\(.*\) ')"
+    done
 
     if [ "$category" = COMMON ]; then
       common_documentation="${common_documentation}\\n\"

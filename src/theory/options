@@ -3,7 +3,7 @@
 # See src/options/base_options for a description of this file format
 #
 
-module THEORY_ENGINE "theory/options.h" TheoryEngine
+module THEORY "theory/options.h" Theory layer
 
 expert-option theoryRegistration /--no-theory-registration bool :default true
  disable theory reg (not safe for some theories)

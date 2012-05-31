@@ -3,7 +3,7 @@
 # See src/options/base_options for a description of this file format
 #
 
-module ARITH "theory/arith/options.h" Arithmetic
+module ARITH "theory/arith/options.h" Arithmetic theory
 
 option arithUnateLemmaMode --unate-lemmas=MODE ArithUnateLemmaMode :handler CVC4::theory::arith::stringToArithUnateLemmaMode :default ALL_PRESOLVE_LEMMAS :handler-include "theory/arith/options_handlers.h" :include "theory/arith/arith_unate_lemma_mode.h"
  determines which lemmas to add before solving (default is 'all', see --unate-lemmas=help)
@@ -29,6 +29,5 @@ option arithDioSolver /--disable-dio-solver bool :default true
 option arithRewriteEq --enable-arith-rewrite-equalities/--disable-arith-rewrite-equalities bool :default false :read-write
  turns on the preprocessing rewrite turning equalities into a conjunction of inequalities
 /turns off the preprocessing rewrite turning equalities into a conjunction of inequalities
-option arithRewriteEqSetByUser bool
 
 endmodule

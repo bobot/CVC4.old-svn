@@ -50,10 +50,6 @@ inline DecisionMode stringToDecisionMode(std::string option, std::string optarg)
   }
 }
 
-inline void setDecisionModeSetByUser(std::string option, bool b) {
-  options::decisionModeSetByUser.set(true);
-}
-
 }/* CVC4::decision namespace */
 }/* CVC4 namespace */
 

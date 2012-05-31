@@ -295,6 +295,8 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_theoryEngine->setDecisionEngine(d_decisionEngine);
   // d_decisionEngine->setPropEngine(d_propEngine);
 
+  d_context->push();
+
   d_definedFunctions = new(true) DefinedFunctionMap(d_userContext);
 
   // [MGD 10/20/2011] keep around in incremental mode, due to a
@@ -350,6 +352,8 @@ SmtEngine::~SmtEngine() throw() {
     }
 
     shutdown();
+
+    d_context->pop();
 
     if(d_assignments != NULL) {
       d_assignments->deleteSelf();
@@ -408,13 +412,13 @@ void SmtEngine::setLogicInternal(const LogicInfo& logic) throw() {
   d_logic = logic;
 
   // by default, symmetry breaker is on only for QF_UF
-  if(! options::ufSymmetryBreakerSetByUser()) {
+  if(! options::ufSymmetryBreaker.wasSetByUser()) {
     bool qf_uf = logic.isPure(theory::THEORY_UF) && !logic.isQuantified();
     Trace("smt") << "setting uf symmetry breaker to " << qf_uf << std::endl;
     options::ufSymmetryBreaker.set(qf_uf);
   }
   // by default, nonclausal simplification is off for QF_SAT
-  if(! options::simplificationModeSetByUser()) {
+  if(! options::simplificationMode.wasSetByUser()) {
     bool qf_sat = logic.isPure(theory::THEORY_BOOL) && !logic.isQuantified();
     Trace("smt") << "setting simplification mode to <" << logic.getLogicString() << "> " << (!qf_sat) << std::endl;
     options::simplificationMode.set(qf_sat ? SIMPLIFICATION_MODE_NONE : SIMPLIFICATION_MODE_BATCH);
@@ -427,7 +431,7 @@ void SmtEngine::setLogicInternal(const LogicInfo& logic) throw() {
     theory::Theory::setUninterpretedSortOwner(theory::THEORY_UF);
   }
   // Turn on ite simplification for QF_LIA and QF_AUFBV
-  if(! options::doITESimpSetByUser()) {
+  if(! options::doITESimp.wasSetByUser()) {
     bool iteSimp = !logic.isQuantified() &&
       ((logic.isPure(theory::THEORY_ARITH) && logic.isLinear() && !logic.isDifferenceLogic() &&  !logic.areRealsUsed()) ||
        (logic.isTheoryEnabled(theory::THEORY_ARRAY) && logic.isTheoryEnabled(theory::THEORY_UF) && logic.isTheoryEnabled(theory::THEORY_BV)));
@@ -435,14 +439,14 @@ void SmtEngine::setLogicInternal(const LogicInfo& logic) throw() {
     options::doITESimp.set(iteSimp);
   }
   // Turn on multiple-pass non-clausal simplification for QF_AUFBV
-  if(! options::repeatSimpSetByUser()) {
+  if(! options::repeatSimp.wasSetByUser()) {
     bool repeatSimp = !logic.isQuantified() &&
       (logic.isTheoryEnabled(theory::THEORY_ARRAY) && logic.isTheoryEnabled(theory::THEORY_UF) && logic.isTheoryEnabled(theory::THEORY_BV));
     Trace("smt") << "setting repeat simplification to " << repeatSimp << std::endl;
     options::repeatSimp.set(repeatSimp);
   }
   // Turn on arith rewrite equalities only for pure arithmetic
-  if(! options::arithRewriteEqSetByUser()) {
+  if(! options::arithRewriteEq.wasSetByUser()) {
     bool arithRewriteEq = logic.isPure(theory::THEORY_ARITH) && !logic.isQuantified();
     Trace("smt") << "setting arith rewrite equalities " << arithRewriteEq << std::endl;
     options::arithRewriteEq.set(arithRewriteEq);

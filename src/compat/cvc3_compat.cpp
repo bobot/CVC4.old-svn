@@ -717,9 +717,11 @@ void ValidityChecker::setUpOptions(CVC4::Options& options, const CLFlags& clflag
   d_smt->setOption("statistics", string(clflags["stats"].getBool() ? "true" : "false"));
   d_smt->setOption("random-seed", int2string(clflags["seed"].getInt()));
   d_smt->setOption("interactive-mode", string(clflags["interactive"].getBool() ? "true" : "false"));
+  /*
   if(options[CVC4::options::interactive]) {
     options.set(CVC4::options::interactiveSetByUser, true);
   }
+  */
   d_smt->setOption("parse-only", string(clflags["parse-only"].getBool() ? "true" : "false"));
   d_smt->setOption("input-language", clflags["lang"].getString());
   if(clflags["output-lang"].getString() == "") {
@@ -2157,7 +2159,7 @@ void ValidityChecker::loadFile(const std::string& fileName,
   langss << lang;
   d_smt->setOption("input-language", langss.str());
   d_smt->setOption("interactive-mode", string(interactive ? "true" : "false"));
-  opts.set(CVC4::options::interactiveSetByUser, true);
+  // opts.set(CVC4::options::interactiveSetByUser, true);
   CVC4::parser::ParserBuilder parserBuilder(d_em, fileName, opts);
   CVC4::parser::Parser* p = parserBuilder.build();
   p->useDeclarationsFrom(d_parserContext);
@@ -2173,7 +2175,7 @@ void ValidityChecker::loadFile(std::istream& is,
   langss << lang;
   d_smt->setOption("input-language", langss.str());
   d_smt->setOption("interactive-mode", string(interactive ? "true" : "false"));
-  opts.set(CVC4::options::interactiveSetByUser, true);
+  // opts.set(CVC4::options::interactiveSetByUser, true);
   CVC4::parser::ParserBuilder parserBuilder(d_em, "[stream]", opts);
   CVC4::parser::Parser* p = parserBuilder.withStreamInput(is).build();
   d_parserContext = p;

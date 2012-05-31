@@ -25,10 +25,6 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
-inline void setUfSymmetryBreakerSetByUser(std::string option, bool b) {
-  options::ufSymmetryBreakerSetByUser.set(true);
-}
-
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

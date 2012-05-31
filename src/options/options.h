@@ -83,6 +83,9 @@ public:
   template <class T>
   const typename T::type& operator[](T) const;
 
+  template <class T>
+  bool wasSetByUser(T) const;
+
   /**
    * Get a description of the command-line flags accepted by
    * parseOptions.  The returned string will be escaped so that it is

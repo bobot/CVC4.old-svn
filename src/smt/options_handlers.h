@@ -209,18 +209,6 @@ inline SimplificationMode stringToSimplificationMode(std::string option, std::st
   }
 }
 
-inline void setSimplificationModeSetByUser(std::string option, bool b) {
-  options::simplificationModeSetByUser.set(true);
-}
-
-inline void setITESimpSetByUser(std::string option, bool b) {
-  options::doITESimpSetByUser.set(true);
-}
-
-inline void setRepeatSimpSetByUser(std::string option, bool b) {
-  options::repeatSimpSetByUser.set(true);
-}
-
 inline std::string checkReplayFilename(std::string option, std::string optarg) {
 #ifdef CVC4_REPLAY
   if(optarg == "") {
@@ -249,10 +237,6 @@ inline std::ostream* checkReplayLogFilename(std::string option, std::string opta
 #else /* CVC4_REPLAY */
   throw OptionException("The replay feature was disabled in this build of CVC4.");
 #endif /* CVC4_REPLAY */
-}
-
-inline void setInteractiveByUser(std::string option, bool b) {
-  options::interactiveSetByUser.set(true);
 }
 
 }/* CVC4::smt namespace */

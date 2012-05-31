@@ -126,7 +126,7 @@ int runCvc4(int argc, char* argv[], Options& opts) {
     firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
 
   // if we're reading from stdin on a TTY, default to interactive mode
-  if(!opts[options::interactiveSetByUser]) {
+  if(!opts.wasSetByUser(options::interactive)) {
     opts.set(options::interactive, inputFromStdin && isatty(fileno(stdin)));
   }
 
