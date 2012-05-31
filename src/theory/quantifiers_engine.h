@@ -238,8 +238,10 @@ private:
   /** equality query class */
   EqualityQuery* d_eq_query;
 
-  /** list of all quantifiers */
+  /** list of all quantifiers (pre-rewrite) */
   std::vector< Node > d_quants;
+  /** list of all quantifiers (post-rewrite) */
+  std::vector< Node > d_r_quants;
   /** list of quantifiers asserted in the current context */
   context::CDList<Node> d_forall_asserts;
   /** map from universal quantifiers to the list of variables */

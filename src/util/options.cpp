@@ -121,6 +121,7 @@ Options::Options() :
   finiteModelFind(false),
   fmfRegionSat(false),
   fmfModelBasedInst(true),
+  cascFilename(""),
   efficientEMatching(false),
   literalMatchMode(LITERAL_MATCH_NONE),
   cbqi(false),
@@ -417,6 +418,7 @@ enum OptionValue {
   FINITE_MODEL_FIND,
   FMF_REGION_SAT,
   DISABLE_FMF_MODEL_BASED_INST,
+  CASC_FILENAME,
   EFFICIENT_E_MATCHING,
   LITERAL_MATCHING,
   ENABLE_CBQI,
@@ -524,6 +526,7 @@ static struct option cmdlineOptions[] = {
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
   { "disable-fmf-model-inst", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
+  { "casc-file", required_argument, NULL, CASC_FILENAME },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
@@ -936,6 +939,9 @@ throw(OptionException) {
       break;
     case DISABLE_FMF_MODEL_BASED_INST:
       fmfModelBasedInst = false;
+      break;
+    case CASC_FILENAME:
+      cascFilename = optarg;
       break;
     case EFFICIENT_E_MATCHING:
       efficientEMatching = true;

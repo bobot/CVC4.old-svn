@@ -28,7 +28,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 //#define COMPUTE_RELEVANCE
-//#define REWRITE_ASSERTED_QUANTIFIERS
+#define REWRITE_ASSERTED_QUANTIFIERS
 
   /** reset instantiation */
 void InstStrategy::resetInstantiationRound( Theory::Effort effort ){
@@ -171,7 +171,7 @@ void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
     if( Trigger::isAtomicTrigger( n ) ){
       if( !n.hasAttribute(InstConstantAttribute()) ){
         Debug("term-db") << "register trigger term " << n << std::endl;
-        //std::cout << "register trigger term " << n << std::endl;
+        //std::cout << "register ground term " << n << std::endl;
         Node op = n.getOperator();
         d_op_map[op].push_back( n );
         d_type_map[ n.getType() ].push_back( n );
@@ -326,6 +326,7 @@ void QuantifiersEngine::makeInstantiationConstantsFor( Node f ){
 
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
+    d_quants.push_back( f );
     std::vector< Node > quants;
 #ifdef REWRITE_ASSERTED_QUANTIFIERS
     //do assertion-time rewriting of quantifier
@@ -357,7 +358,7 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       ++(d_statistics.d_num_quant);
       Assert( quants[q].getKind()==FORALL );
       //register quantifier
-      d_quants.push_back( quants[q] );
+      d_r_quants.push_back( quants[q] );
       //make instantiation constants for quants[q]
       makeInstantiationConstantsFor( quants[q] );
       //compute symbols in quants[q]
@@ -462,7 +463,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
   nb << d_rewritten_quant[f].notNode() << body;
   Node lem = nb;
   if( addLemma( lem ) ){
-    //std::cout << "     Added lemma : " << body << std::endl;
+    ////std::cout << "     Added lemma : " << body << std::endl;
     //std::cout << "***& Instantiate " << f << " with " << std::endl;
     //for( int i=0; i<(int)terms.size(); i++ ){
     //  std::cout << "   " << terms[i] << std::endl;

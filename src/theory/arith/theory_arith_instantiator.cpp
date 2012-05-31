@@ -327,8 +327,8 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
   }
   Debug(c) << std::endl;
 
-  for( int q=0; q<d_quantEngine->getNumQuantifiers(); q++ ){
-    Node f = d_quantEngine->getQuantifier( q );
+  for( int q=0; q<d_quantEngine->getNumAssertedQuantifiers(); q++ ){
+    Node f = d_quantEngine->getAssertedQuantifier( q );
     Debug(c) << f << std::endl;
     Debug(c) << "   Inst constants: ";
     for( int i=0; i<(int)d_quantEngine->getNumInstantiationConstants( f ); i++ ){

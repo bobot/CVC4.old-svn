@@ -15,9 +15,8 @@
  **/
 
 #include "theory/quantifiers/model_engine.h"
-
 #include "theory/theory_engine.h"
-#include "theory/uf/equality_engine_impl.h"
+#include "theory/uf/equality_engine.h"
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
@@ -29,6 +28,7 @@
 #define RECONSIDER_FUNC_CONSTANT
 #define USE_INDEX_ORDERING
 //#define ONE_INST_PER_QUANT_PER_ROUND
+//#define USE_PARTIAL_DEFAULT_VALUES
 
 using namespace std;
 using namespace CVC4;
@@ -307,7 +307,7 @@ void UfModelTree::debugPrint( const char* c, QuantifiersEngine* qe, std::vector<
   }
 }
 
-UfModel::UfModel( Node op, ModelEngine* me ) : d_op( op ), d_me( me ), 
+UfModel::UfModel( Node op, ModelEngine* me ) : d_op( op ), d_me( me ),
   d_model_constructed( false ), d_reconsider_model( false ){
 
   d_tree = UfModelTreeOrdered( op );  TypeNode tn = d_op.getType();  tn = tn[(int)tn.getNumChildren()-1];  Assert( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) );  //look at ground assertions
@@ -353,8 +353,48 @@ UfModel::UfModel( Node op, ModelEngine* me ) : d_op( op ), d_me( me ),
   }
 }
 
+Node UfModel::getIntersection( Node n1, Node n2, bool& isGround ){
+  //std::cout << "Get intersection " << n1 << " " << n2 << std::endl;
+  isGround = true;
+  std::vector< Node > children;
+  children.push_back( n1.getOperator() );
+  for( int i=0; i<(int)n1.getNumChildren(); i++ ){
+    if( n1[i]==n2[i] ){
+      if( n1[i].getAttribute(ModelBasisAttribute()) ){
+        isGround = false;
+      }
+      children.push_back( n1[i] );
+    }else if( n1[i].getAttribute(ModelBasisAttribute()) ){
+      children.push_back( n2[i] );
+    }else if( n2[i].getAttribute(ModelBasisAttribute()) ){
+      children.push_back( n1[i] );
+    }else if( d_me->areEqual( n1[i], n2[i] ) ){
+      children.push_back( n1[i] );
+    }else{
+      return Node::null();
+    }
+  }
+  return NodeManager::currentNM()->mkNode( APPLY_UF, children );
+}
+
 void UfModel::setValue( Node n, Node v, bool ground ){
   d_set_values[ ground ? 1 : 0 ][n] = v;
+#ifdef USE_PARTIAL_DEFAULT_VALUES
+  if( !ground ){
+    int defSize = (int)d_defaults.size();
+    for( int i=0; i<defSize; i++ ){
+      bool isGround;
+      Node n3 = getIntersection( n, d_defaults[i], isGround );
+      if( !n3.isNull() ){
+        if( d_set_values[ isGround ? 1 : 0 ].find( n3 )==d_set_values[ isGround ? 1 : 0 ].end() ){
+          //std::cout << "----....Set default intersection " << n << std::endl;
+          setValue( n3, v, isGround );
+        }
+      }
+    }
+    d_defaults.push_back( n );
+  }
+#endif
 }
 
 void UfModel::setModel(){
@@ -391,7 +431,7 @@ void UfModel::buildModel(){
       //if we are allowed to reconsider default value, then see if the default value can be improved
       Node t = d_me->getModelBasisApplyUfTerm( d_op );
       Node v = d_set_values[0][t];
-      if( d_value_pro_con[1][v].size()>d_value_pro_con[0][v].size() ){
+      if( d_value_pro_con[0][v].empty() ){
         Debug("fmf-model-cons-debug") << "Consider changing the default value for " << d_op << std::endl;
         clearModel();
       }
@@ -400,7 +440,10 @@ void UfModel::buildModel(){
 #endif
   //now, construct models for each uninterpretted function/predicate
   if( !d_model_constructed ){
+    bool setDefaultVal = true;
+    Node defaultTerm = d_me->getModelBasisApplyUfTerm( d_op );
     Debug("fmf-model-cons") << "Construct model for " << d_op << "..." << std::endl;
+    //std::cout << "Construct model for " << d_op << "..." << std::endl;
     //now, set the values in the model
     for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
       Node n = d_ground_asserts[i];
@@ -412,61 +455,76 @@ void UfModel::buildModel(){
       Debug("fmf-model-cons") << std::endl;
       //set it as ground value
       setValue( n, v );
+#ifdef USE_PARTIAL_DEFAULT_VALUES
+      //now see if we also want to set it as a default value
+      if( d_term_pro_con[0].find( n )!=d_term_pro_con[0].end() ){
+        setValue( n, v, false );
+        if( n==defaultTerm ){
+          //incidentally already set, ignore
+          setDefaultVal = false;
+        }
+      }
+#endif
     }
     //set the default value
-    //chose defaultVal based on heuristic (the best proportion of "pro" responses)
-    Node defaultVal;
-    double maxScore = -1;
-    for( int i=0; i<(int)d_values.size(); i++ ){
-      Node v = d_values[i];
-      double score = ( 1.0 + (double)d_value_pro_con[0][v].size() )/( 1.0 + (double)d_value_pro_con[1][v].size() );
-      Debug("fmf-model-cons") << "  - score( ";
-      printRepresentative( "fmf-model-cons", d_me->getQuantifiersEngine(), v );
-      Debug("fmf-model-cons") << " ) = " << score << std::endl;
-      if( score>maxScore ){
-        defaultVal = v;
-        maxScore = score;
-      }
-    }
-#ifdef RECONSIDER_FUNC_DEFAULT_VALUE
-    if( maxScore<1.0 ){
-      //consider finding another value, if possible
-      Debug("fmf-model-cons-debug") << "Poor choice for default value, score = " << maxScore << std::endl;
-      TypeNode tn = d_op.getType();
-      Node newDefaultVal = d_me->getArbitraryElement( tn[(int)tn.getNumChildren()-1], d_values );
-      if( !newDefaultVal.isNull() ){
-        defaultVal = newDefaultVal;
-        Debug("fmf-model-cons-debug") << "-> Change default value to ";
-        printRepresentative( "fmf-model-cons-debug", d_me->getQuantifiersEngine(), defaultVal );
-        Debug("fmf-model-cons-debug") << std::endl;
-      }else{
-        Debug("fmf-model-cons-debug") << "-> Could not find arbitrary element of type " << tn[(int)tn.getNumChildren()-1] << std::endl;
-        Debug("fmf-model-cons-debug") << "      Excluding: ";
-        for( int i=0; i<(int)d_values.size(); i++ ){
-          Debug("fmf-model-cons-debug") << d_values[i] << " ";
+    if( setDefaultVal ){
+      //chose defaultVal based on heuristic (the best proportion of "pro" responses)
+      Node defaultVal;
+      double maxScore = -1;
+      for( int i=0; i<(int)d_values.size(); i++ ){
+        Node v = d_values[i];
+        double score = ( 1.0 + (double)d_value_pro_con[0][v].size() )/( 1.0 + (double)d_value_pro_con[1][v].size() );
+        Debug("fmf-model-cons") << "  - score( ";
+        printRepresentative( "fmf-model-cons", d_me->getQuantifiersEngine(), v );
+        Debug("fmf-model-cons") << " ) = " << score << std::endl;
+        if( score>maxScore ){
+          defaultVal = v;
+          maxScore = score;
         }
-        Debug("fmf-model-cons-debug") << std::endl;
       }
-    }
+#ifdef RECONSIDER_FUNC_DEFAULT_VALUE
+      if( maxScore<1.0 ){
+        //consider finding another value, if possible
+        Debug("fmf-model-cons-debug") << "Poor choice for default value, score = " << maxScore << std::endl;
+        TypeNode tn = d_op.getType();
+        Node newDefaultVal = d_me->getArbitraryElement( tn[(int)tn.getNumChildren()-1], d_values );
+        if( !newDefaultVal.isNull() ){
+          defaultVal = newDefaultVal;
+          Debug("fmf-model-cons-debug") << "-> Change default value to ";
+          printRepresentative( "fmf-model-cons-debug", d_me->getQuantifiersEngine(), defaultVal );
+          Debug("fmf-model-cons-debug") << std::endl;
+        }else{
+          Debug("fmf-model-cons-debug") << "-> Could not find arbitrary element of type " << tn[(int)tn.getNumChildren()-1] << std::endl;
+          Debug("fmf-model-cons-debug") << "      Excluding: ";
+          for( int i=0; i<(int)d_values.size(); i++ ){
+            Debug("fmf-model-cons-debug") << d_values[i] << " ";
+          }
+          Debug("fmf-model-cons-debug") << std::endl;
+        }
+      }
 #endif
-    Assert( !defaultVal.isNull() );
-    //get the default term (this term must be defined non-ground in model)
-    Node defaultTerm = d_me->getModelBasisApplyUfTerm( d_op );
-    Debug("fmf-model-cons") << "  Choose ";
-    printRepresentative("fmf-model-cons", d_me->getQuantifiersEngine(), defaultVal );
-    Debug("fmf-model-cons") << " as default value (" << defaultTerm << ")" << std::endl;
-    Debug("fmf-model-cons") << "     # quantifiers pro = " << d_value_pro_con[0][defaultVal].size() << std::endl;
-    Debug("fmf-model-cons") << "     # quantifiers con = " << d_value_pro_con[1][defaultVal].size() << std::endl;
-    setValue( defaultTerm, defaultVal, false );
-    Debug("fmf-model-cons") << "  Making model...";
-    setModel();
-    Debug("fmf-model-cons") << "  Finished constructing model for " << d_op << "." << std::endl;
+      Assert( !defaultVal.isNull() );
+      //get the default term (this term must be defined non-ground in model)
+      Debug("fmf-model-cons") << "  Choose ";
+      printRepresentative("fmf-model-cons", d_me->getQuantifiersEngine(), defaultVal );
+      Debug("fmf-model-cons") << " as default value (" << defaultTerm << ")" << std::endl;
+      Debug("fmf-model-cons") << "     # quantifiers pro = " << d_value_pro_con[0][defaultVal].size() << std::endl;
+      Debug("fmf-model-cons") << "     # quantifiers con = " << d_value_pro_con[1][defaultVal].size() << std::endl;
+      setValue( defaultTerm, defaultVal, false );
+      Debug("fmf-model-cons") << "  Making model...";
+      setModel();
+      Debug("fmf-model-cons") << "  Finished constructing model for " << d_op << "." << std::endl;
+      //std::cout << "  Finished constructing model for " << d_op << "." << std::endl;
+    }
   }
 }
 
 void UfModel::setValuePreference( Node f, Node n, bool isPro ){
   Node v = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n );
-  //std::cout << "Set value preference " << n << " = " << v << " " << isPro << std::endl;
+  //std::cout << "Set value preference " << std::endl;
+  //std::cout << "   " << f << std::endl;
+  //std::cout << "   " << n << std::endl;
+  //std::cout << "   " << v << " -> " << isPro << std::endl;
   if( std::find( d_values.begin(), d_values.end(), v )==d_values.end() ){
     d_values.push_back( v );
   }
@@ -474,15 +532,22 @@ void UfModel::setValuePreference( Node f, Node n, bool isPro ){
   if( std::find( d_value_pro_con[index][v].begin(), d_value_pro_con[index][v].end(), f )==d_value_pro_con[index][v].end() ){
     d_value_pro_con[index][v].push_back( f );
   }
+#ifdef USE_PARTIAL_DEFAULT_VALUES
+  d_term_pro_con[index][n].push_back( f );
+#endif
 }
 
 void UfModel::makeModel( QuantifiersEngine* qe, UfModelTreeOrdered& tree ){
+  //std::cout << "make model " << std::endl;
   for( int k=0; k<2; k++ ){
     for( std::map< Node, Node >::iterator it = d_set_values[k].begin(); it != d_set_values[k].end(); ++it ){
+      //std::cout << "set " << it->first << " = " << it->second << " " << (k==1) << std::endl;
       tree.setValue( qe, it->first, it->second, k==1 );
     }
   }
+  //std::cout << "simplify model " << std::endl;
   tree.simplify();
+  //std::cout << "done make model " << std::endl;
 }
 
 void UfModel::debugPrint( const char* c ){
@@ -578,8 +643,8 @@ void ModelEngine::check( Theory::Effort e ){
           it->second.buildModel();
         }
       }
-      //print debug
-      debugPrint("fmf-model-complete");
+      ////print debug
+      //debugPrint("fmf-model-complete");
       //try exhaustive instantiation
       Debug("fmf-model-debug") << "Do exhaustive instantiation..." << std::endl;
       int addedLemmas = 0;
@@ -597,7 +662,8 @@ void ModelEngine::check( Theory::Effort e ){
         //for( std::map< Node, UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
         //  it->second.simplify();
         //}
-        debugPrint("fmf-consistent");
+        //Debug("fmf-consistent") << std::endl;
+        //debugPrint("fmf-consistent");
       }
     }
     d_quantEngine->flushLemmas( &d_th->getOutputChannel() );
@@ -622,9 +688,9 @@ bool ModelEngine::initializeQuantifier( Node f ){
     Debug("inst-fmf-init") << "Initialize " << f << std::endl;
     //add the model basis instantiation
     // This will help produce the necessary information for model completion.
-    // We do this by extending distinguish ground assertions (those 
+    // We do this by extending distinguish ground assertions (those
     //   containing terms with "model basis" attribute) to hold for all cases.
-    
+
     ////first, check if any variables are required to be equal
     //for( std::map< Node, bool >::iterator it = d_quantEngine->d_phase_reqs[f].begin();
     //    it != d_quantEngine->d_phase_reqs[f].end(); ++it ){
@@ -672,18 +738,19 @@ void ModelEngine::buildRepresentatives(){
     Debug("fmf-model-debug") << std::endl;
     //set them in the alphabet
     d_ra.set( tn, reps );
-  }
 #ifdef ME_PRINT_PROCESS_TIMES
-  //"Representatives (" << reps.size() << ") for type " << tn << " (c=" << d_ss->getCardinality( tn ) << "): ";
+    std::cout << "Cardinality( " << tn << " )" << " = " << reps.size() << std::endl;
+    //std::cout << d_quantEngine->getEqualityQuery()->getRepresentative( NodeManager::currentNM()->mkConst( true ) ) << std::endl;
 #endif
+  }
 }
 
 void ModelEngine::initializeModel(){
   d_uf_model.clear();
   d_quant_sat.clear();
-  //for( int k=0; k<2; k++ ){
-  //  d_pro_con_quant[k].clear();
-  //}
+  for( int k=0; k<2; k++ ){
+    d_pro_con_quant[k].clear();
+  }
 
   ////now analyze quantifiers (temporary)
   //for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
@@ -725,6 +792,8 @@ void ModelEngine::analyzeQuantifiers(){
     Debug("fmf-model-prefs") << "Analyze quantifier " << f << std::endl;
     std::vector< Node > pro_con[2];
     std::vector< Node > pro_con_patterns[2];
+    std::vector< Node > constantSatOps;
+    bool constantSatReconsider;
     //check which model basis terms have good and bad definitions according to f
     for( std::map< Node, bool >::iterator it = d_quantEngine->d_phase_reqs[f].begin();
          it != d_quantEngine->d_phase_reqs[f].end(); ++it ){
@@ -787,18 +856,24 @@ void ModelEngine::analyzeQuantifiers(){
               for( int k=0; k<2; k++ ){
                 pro_con[k].clear();
                 pro_con_patterns[k].clear();
-              } 
+              }
               //instead, just note to the model for each uf term that f is pro its definition
+              constantSatReconsider = false;
+              constantSatOps.clear();
               for( int j=0; j<(int)uf_terms.size(); j++ ){
                 Node op = uf_terms[j].getOperator();
-                d_uf_model[op].d_reconsider_model = false;
+                constantSatOps.push_back( op );
+                if( d_uf_model[op].d_reconsider_model ){
+                  constantSatReconsider = true;
+                }
               }
             }
           }
         }
         if( d_quant_sat.find( f )!=d_quant_sat.end() ){
-          Debug("fmf-model-prefs") << "  * Constant SAT due to definition of " << n << std::endl;
-          break;
+          if( !constantSatReconsider ){
+            break;
+          }
         }else{
           int pcIndex = pref==1 ? 0 : 1;
           for( int j=0; j<(int)uf_terms.size(); j++ ){
@@ -809,6 +884,12 @@ void ModelEngine::analyzeQuantifiers(){
       }
     }
     if( d_quant_sat.find( f )!=d_quant_sat.end() ){
+      Debug("fmf-model-prefs") << "  * Constant SAT due to definition of ops: ";
+      for( int i=0; i<(int)constantSatOps.size(); i++ ){
+        Debug("fmf-model-prefs") << constantSatOps[i] << " ";
+        d_uf_model[constantSatOps[i]].d_reconsider_model = false;
+      }
+      Debug("fmf-model-prefs") << std::endl;
       quantSatInit++;
       d_statistics.d_pre_sat_quant += quantSatInit;
     }else{
@@ -976,8 +1057,8 @@ void ModelEngine::makeEvalTermModel( Node n ){
       Node op = n.getOperator();
       d_eval_term_model[n] = UfModelTreeOrdered( op, d_eval_term_index_order[n] );
       d_uf_model[op].makeModel( d_quantEngine, d_eval_term_model[n] );
-      Debug("fmf-model-index-order") << "Make model for " << n << " : " << std::endl;
-      d_eval_term_model[n].debugPrint( "fmf-model-index-order", d_quantEngine, 2 );
+      //Debug("fmf-model-index-order") << "Make model for " << n << " : " << std::endl;
+      //d_eval_term_model[n].debugPrint( "fmf-model-index-order", d_quantEngine, 2 );
     }
   }
 }
@@ -1071,11 +1152,12 @@ void ModelEngine::increment( RepAlphabetIterator* rai ){
       success = true;
       if( !rai->isFinished() ){
         //see if instantiation is already true in current model
-        Debug("fmf-model-eval") << "Evaulating ";
-        rai->debugPrintSmall("fmf-model-eval");
+        //Debug("fmf-model-eval") << "Evaluating ";
+        //rai->debugPrintSmall("fmf-model-eval");
         //calculate represenative terms we are currently considering
         rai->calculateTerms( d_quantEngine );
         rai->d_inst_tests++;
+        Debug("fmf-model-eval") << "Done calculating terms." << std::endl;
         //if eVal is not (int)rai->d_index.size(), then the instantiation is already true in the model,
         // and eVal is the highest index in rai which we can safely iterate
         int depIndex;
@@ -1232,6 +1314,8 @@ int ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, std::ve
     retVal = 1;
   }else if( areDisequal( val1, val2 ) ){
     retVal = -1;
+  }else{
+  //  std::cout << "Neither equal nor disequal " << val1 << " " << val2 << std::endl;
   }
   if( retVal!=0 ){
     Debug("fmf-model-eval-debug") << "   ---> Success, value = " << (retVal==1) << std::endl;
@@ -1251,7 +1335,7 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
     if( n.getKind()==INST_CONSTANT ){
       fv_deps.push_back( n );
       return gn;
-    //}else if( d_eval_term_fv_deps.find( n )!=d_eval_term_fv_deps.end() && 
+    //}else if( d_eval_term_fv_deps.find( n )!=d_eval_term_fv_deps.end() &&
     //          d_eval_term_fv_deps[n].find( gn )!=d_eval_term_fv_deps[n].end() ){
     //  fv_deps.insert( fv_deps.end(), d_eval_term_fv_deps[n][gn].begin(), d_eval_term_fv_deps[n][gn].end() );
     //  return d_eval_term_vals[gn];
@@ -1262,27 +1346,25 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
       if( n.getKind()==APPLY_UF ){
         Node op = gn.getOperator();
         //if it is a defined UF, then consult the interpretation
+        Node gnn = gn;
+        ++(d_statistics.d_eval_uf_terms);
+        int depIndex = 0;
+        //first we must evaluate the arguments
+        bool childrenChanged = false;
+        std::vector< Node > children;
+        children.push_back( op );
+        std::map< int, std::vector< Node > > children_var_deps;
+        //for each argument, calculate its value, and the variables its value depends upon
+        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+          Node nn = evaluateTerm( n[i], gn[i], children_var_deps[i] );
+          children.push_back( nn );
+          childrenChanged = childrenChanged || nn!=gn[i];
+        }
+        //remake gn if changed
+        if( childrenChanged ){
+          gnn = NodeManager::currentNM()->mkNode( APPLY_UF, children );
+        }
         if( d_uf_model.find( op )!=d_uf_model.end() ){
-          Node gnn = gn;
-          ++(d_statistics.d_eval_uf_terms);
-          int depIndex = 0;
-          //consult model for op to find real value
-          Assert( d_uf_model.find( op )!=d_uf_model.end() );
-          //first we must evaluate the arguments
-          bool childrenChanged = false;
-          std::vector< Node > children;
-          children.push_back( op );
-          std::map< int, std::vector< Node > > children_var_deps;
-          //for each argument, calculate its value, and the variables its value depends upon
-          for( int i=0; i<(int)n.getNumChildren(); i++ ){
-            Node nn = evaluateTerm( n[i], gn[i], children_var_deps[i] );
-            children.push_back( nn );
-            childrenChanged = childrenChanged || nn!=gn[i];
-          }
-          //remake gn if changed
-          if( childrenChanged ){
-            gnn = NodeManager::currentNM()->mkNode( APPLY_UF, children );
-          }
 #ifdef USE_INDEX_ORDERING
           //make the term model specifically for n
           makeEvalTermModel( n );
@@ -1299,29 +1381,34 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
           //now, consult the model
           val = d_uf_model[op].d_tree.getValue( d_quantEngine, gnn, depIndex );
 #endif
-          Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = " << gn << " = " << gnn << " = ";
-          printRepresentative( "fmf-model-eval-debug", d_quantEngine, val );
-          Debug("fmf-model-eval-debug") << ", depIndex = " << depIndex << std::endl;
-          if( !val.isNull() ){
-#ifdef USE_INDEX_ORDERING
-            for( int i=0; i<depIndex; i++ ){
-              Debug("fmf-model-eval-debug") << "Add variables from " << d_eval_term_index_order[n][i] << "..." << std::endl;
-              fv_deps.insert( fv_deps.end(), children_var_deps[d_eval_term_index_order[n][i]].begin(),
-                              children_var_deps[d_eval_term_index_order[n][i]].end() );
-            }
-#else
-            //calculate the free variables that the value depends on : take those in children_var_deps[0...depIndex-1]
-            for( std::map< int, std::vector< Node > >::iterator it = children_var_deps.begin(); it != children_var_deps.end(); ++it ){
-              if( it->first<depIndex ){
-                fv_deps.insert( fv_deps.end(), it->second.begin(), it->second.end() );
-              }
-            }
-#endif
-          }
-          ////cache the result
-          //d_eval_term_vals[gn] = val;
-          //d_eval_term_fv_deps[n][gn].insert( d_eval_term_fv_deps[n][gn].end(), fv_deps.begin(), fv_deps.end() );
+        }else{
+          d_eval_term_use_default_model[n] = true;
+          val = gnn;
+          depIndex = (int)n.getNumChildren();
         }
+        Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = " << gn << " = " << gnn << " = ";
+        printRepresentative( "fmf-model-eval-debug", d_quantEngine, val );
+        Debug("fmf-model-eval-debug") << ", depIndex = " << depIndex << std::endl;
+        if( !val.isNull() ){
+#ifdef USE_INDEX_ORDERING
+          for( int i=0; i<depIndex; i++ ){
+            int index = d_eval_term_use_default_model[n] ? i : d_eval_term_index_order[n][i];
+            Debug("fmf-model-eval-debug") << "Add variables from " << index << "..." << std::endl;
+            fv_deps.insert( fv_deps.end(), children_var_deps[index].begin(),
+                            children_var_deps[index].end() );
+          }
+#else
+          //calculate the free variables that the value depends on : take those in children_var_deps[0...depIndex-1]
+          for( std::map< int, std::vector< Node > >::iterator it = children_var_deps.begin(); it != children_var_deps.end(); ++it ){
+            if( it->first<depIndex ){
+              fv_deps.insert( fv_deps.end(), it->second.begin(), it->second.end() );
+            }
+          }
+#endif
+        }
+        ////cache the result
+        //d_eval_term_vals[gn] = val;
+        //d_eval_term_fv_deps[n][gn].insert( d_eval_term_fv_deps[n][gn].end(), fv_deps.begin(), fv_deps.end() );
       }
       return val;
     }

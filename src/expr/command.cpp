@@ -234,11 +234,14 @@ Result CheckSatCommand::getResult() const throw() {
 }
 
 void CheckSatCommand::printResult(std::ostream& out) const throw() {
+#if 0
+#else
   if(! ok()) {
     this->Command::printResult(out);
   } else {
     out << d_result << endl;
   }
+#endif
 }
 
 Command* CheckSatCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {

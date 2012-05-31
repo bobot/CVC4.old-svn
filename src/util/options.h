@@ -307,6 +307,9 @@ struct CVC4_PUBLIC Options {
    */
   bool fmfModelBasedInst;
 
+  /** casc file. */
+  std::string cascFilename;
+
   /** 
    * Whether to use efficient E-matching 
    */

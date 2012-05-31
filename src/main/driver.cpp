@@ -286,13 +286,24 @@ int runCvc4(int argc, char* argv[], Options& options) {
   string result = "unknown";
   if(status) {
     result = smt.getInfo(":status").getValue();
-
-    if(result == "sat") {
-      returnValue = 10;
-    } else if(result == "unsat") {
-      returnValue = 20;
-    } else {
-      returnValue = 0;
+    if( options.cascFilename.length()>0 ){
+      std::string cfn = options.cascFilename;
+      cfn.erase( cfn.end()-2, cfn.end() );
+      if(result == "sat") {
+        std::cout << "% SZS Satisfiable for " << cfn << std::endl;
+      } else if(result == "unsat") {
+        std::cout << "% SZS Unsatisfiable for " << cfn << std::endl;
+      } else {
+        std::cout << "% SZS GaveUp for " << cfn << std::endl;
+      }
+    }else{
+      if(result == "sat") {
+        returnValue = 10;
+      } else if(result == "unsat") {
+        returnValue = 20;
+      } else {
+        returnValue = 0;
+      }
     }
   } else {
     // there was some kind of error

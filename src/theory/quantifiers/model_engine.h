@@ -215,12 +215,17 @@ private:
   // preferences for default values
   std::vector< Node > d_values;
   std::map< Node, std::vector< Node > > d_value_pro_con[2];
+  std::map< Node, std::vector< Node > > d_term_pro_con[2];
   /** set value */
   void setValue( Node n, Node v, bool ground = true );
   /** set model */
   void setModel();
   /** clear model */
   void clearModel();
+private:
+  // defaults
+  std::vector< Node > d_defaults;
+  Node getIntersection( Node n1, Node n2, bool& isGround );
 public:
   UfModel(){}
   UfModel( Node op, ModelEngine* qe );

@@ -104,8 +104,8 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
     Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
     d_inst_round_status = InstStrategy::STATUS_SAT;
     //instantiate each quantifier
-    for( int q=0; q<getQuantifiersEngine()->getNumQuantifiers(); q++ ){
-      Node f = getQuantifiersEngine()->getQuantifier( q );
+    for( int q=0; q<getQuantifiersEngine()->getNumAssertedQuantifiers(); q++ ){
+      Node f = getQuantifiersEngine()->getAssertedQuantifier( q );
       Debug("inst-engine-debug") << "IE: Instantiate " << f << "..." << std::endl;
       //if this quantifier is active
       if( getQuantifiersEngine()->getActive( f ) ){
@@ -173,8 +173,8 @@ void InstantiationEngine::check( Theory::Effort e ){
     // such that the counterexample literal is not in positive in d_counterexample_asserts
    // for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
     //  if( (*i).second ) {
-    for( int i=0; i<(int)getQuantifiersEngine()->getNumAssertedQuantifiers(); i++ ){
-      Node n = getQuantifiersEngine()->getAssertedQuantifier( i );
+    for( int i=0; i<(int)getQuantifiersEngine()->getNumQuantifiers(); i++ ){
+      Node n = getQuantifiersEngine()->getQuantifier( i );
       if( Options::current()->cbqi && hasAddedCbqiLemma( n ) ){
         Node cel = d_ce_lit[ n ];
         bool active, value;
