@@ -61,7 +61,6 @@ int main(int argc, char* argv[]) {
 #endif
     cerr << "CVC4 Error:" << endl << e << endl;
     printUsage(opts);
-    exit(1);
   } catch(Exception& e) {
 #ifdef CVC4_COMPETITION_MODE
     *opts[options::out] << "unknown" << endl;
@@ -70,21 +69,6 @@ int main(int argc, char* argv[]) {
     if(opts[options::statistics] && pStatistics != NULL) {
       pStatistics->flushInformation(*opts[options::err]);
     }
-    exit(1);
-  } catch(bad_alloc&) {
-#ifdef CVC4_COMPETITION_MODE
-    *opts[options::out] << "unknown" << endl;
-#endif
-    *opts[options::err] << "CVC4 ran out of memory." << endl;
-    if(opts[options::statistics] && pStatistics != NULL) {
-      pStatistics->flushInformation(*opts[options::err]);
-    }
-    exit(1);
-  } catch(...) {
-#ifdef CVC4_COMPETITION_MODE
-    *opts[options::out] << "unknown" << endl;
-#endif
-    *opts[options::err] << "CVC4 threw an exception of unknown type." << endl;
-    exit(1);
   }
+  exit(1);
 }

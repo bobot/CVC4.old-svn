@@ -63,7 +63,7 @@ inline void showConfiguration(std::string option) {
 }
 
 inline void showDebugTags(std::string option) {
-  if(Configuration::isDebugBuild()) {
+  if(Configuration::isDebugBuild() && Configuration::isTracingBuild()) {
     printf("available tags:");
     unsigned ntags = Configuration::getNumDebugTags();
     char const* const* tags = Configuration::getDebugTags();
@@ -71,8 +71,10 @@ inline void showDebugTags(std::string option) {
       printf(" %s", tags[i]);
     }
     printf("\n");
+  } else if(! Configuration::isDebugBuild()) {
+    throw OptionException("debug tags not available in non-debug builds");
   } else {
-    throw OptionException("debug tags not available in non-debug build");
+    throw OptionException("debug tags not available in non-tracing builds");
   }
   exit(0);
 }

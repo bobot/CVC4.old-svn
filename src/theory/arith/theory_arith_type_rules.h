@@ -32,8 +32,12 @@ class ArithConstantTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
       throw (TypeCheckingExceptionPrivate, AssertionException) {
-    if (n.getKind() == kind::CONST_RATIONAL) return nodeManager->realType();
-    return nodeManager->integerType();
+    Assert(n.getKind() == kind::CONST_RATIONAL);
+    if(n.getConst<Rational>().isIntegral()){
+      return nodeManager->integerType();
+    }else{
+      return nodeManager->realType();
+    }
   }
 };/* class ArithConstantTypeRule */
 
@@ -55,12 +59,13 @@ public:
         }
       }
       if( check ) {
-        if(childType != integerType && childType != realType) {
+        if(!childType.isReal()) {
           throw TypeCheckingExceptionPrivate(n, "expecting an arithmetic subterm");
         }
       }
     }
-    return (isInteger ? integerType : realType);
+    bool isDivision = n.getKind() == kind::DIVISION;
+    return (isInteger && !isDivision ? integerType : realType);
   }
 };/* class ArithOperatorTypeRule */
 
@@ -69,14 +74,13 @@ public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
       throw (TypeCheckingExceptionPrivate, AssertionException) {
     if( check ) {
-      TypeNode integerType = nodeManager->integerType();
-      TypeNode realType = nodeManager->realType();
       TypeNode lhsType = n[0].getType(check);
-      if (lhsType != integerType && lhsType != realType) {
+      if (!lhsType.isReal()) {
+        std::cout << lhsType << " : " << n[0] << std::endl;
         throw TypeCheckingExceptionPrivate(n, "expecting an arithmetic term on the left-hand-side");
       }
       TypeNode rhsType = n[1].getType(check);
-      if (rhsType != integerType && rhsType != realType) {
+      if (!rhsType.isReal()) {
         throw TypeCheckingExceptionPrivate(n, "expecting an arithmetic term on the right-hand-side");
       }
     }
@@ -101,12 +105,12 @@ public:
 
     const SubrangeBounds& bounds = type.getConst<SubrangeBounds>();
     if(bounds.lower.hasBound()) {
-      return NodeManager::currentNM()->mkConst(bounds.lower.getBound());
+      return NodeManager::currentNM()->mkConst(Rational(bounds.lower.getBound()));
     }
     if(bounds.upper.hasBound()) {
-      return NodeManager::currentNM()->mkConst(bounds.upper.getBound());
+      return NodeManager::currentNM()->mkConst(Rational(bounds.upper.getBound()));
     }
-    return NodeManager::currentNM()->mkConst(Integer(0));
+    return NodeManager::currentNM()->mkConst(Rational(0));
   }
 };/* class SubrangeProperties */
 

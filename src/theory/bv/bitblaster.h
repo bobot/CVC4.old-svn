@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file bv_sat.h
+/*! \file bitblaster.h
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
@@ -18,8 +18,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__BV__SAT_H
-#define __CVC4__BV__SAT_H
+#ifndef __CVC4__BITBLASTER_H
+#define __CVC4__BITBLASTER_H
 
 
 #include "expr/node.h"
@@ -33,6 +33,7 @@
 #include "context/cdhashset.h"
 #include "context/cdlist.h"
 
+#include "theory/theory.h"
 #include "theory_bv_utils.h"
 #include "util/stats.h"
 #include "bitblast_strategies.h"
@@ -47,22 +48,37 @@ class CnfStream;
 class BVSatSolverInterface;
 }
 
-
 namespace theory {
+
+class OutputChannel;
+
 namespace bv {
 
+typedef std::vector<Node> Bits;
 
 std::string toString (Bits& bits); 
+
+class TheoryBV;
 
 /** 
  * The Bitblaster that manages the mapping between Nodes 
  * and their bitwise definition 
  * 
  */
-
-typedef std::vector<Node> Bits; 
-
 class Bitblaster {
+
+  /** This class gets callbacks from minisat on propagations */
+  class MinisatNotify : public prop::BVSatSolverInterface::Notify {
+    prop::CnfStream* d_cnf;
+    TheoryBV *d_bv;
+  public:
+    MinisatNotify(prop::CnfStream* cnf, TheoryBV *bv)
+    : d_cnf(cnf)
+    , d_bv(bv)
+    {}
+    bool notify(prop::SatLiteral lit);
+    void notify(prop::SatClause& clause);
+  };
   
   typedef __gnu_cxx::hash_map <Node, Bits, TNodeHashFunction >              TermDefMap;
   typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction>                      AtomSet; 
@@ -71,6 +87,7 @@ class Bitblaster {
   typedef Node   (*AtomBBStrategy) (TNode, Bitblaster*); 
 
   // sat solver used for bitblasting and associated CnfStream
+  theory::OutputChannel*             d_bvOutput;
   prop::BVSatSolverInterface*        d_satSolver; 
   prop::CnfStream*                   d_cnfStream;
 
@@ -83,13 +100,10 @@ class Bitblaster {
 
   /// helper methods
   public:
-  bool          hasBBAtom(TNode node);    
+  bool          hasBBAtom(TNode node) const;
   private:
-  bool          hasBBTerm(TNode node); 
-  void          getBBTerm(TNode node, Bits& bits);
-
-
-
+  bool          hasBBTerm(TNode node) const;
+  void          getBBTerm(TNode node, Bits& bits) const;
 
   /// function tables for the various bitblasting strategies indexed by node kind
   TermBBStrategy d_termBBStrategies[kind::LAST_KIND];
@@ -102,7 +116,6 @@ class Bitblaster {
   // returns a node that might be easier to bitblast
   Node bbOptimize(TNode node); 
   
-  void bbAtom(TNode node);
   void addAtom(TNode atom); 
   // division is bitblasted in terms of constraints
   // so it needs to use private bitblaster interface
@@ -111,17 +124,17 @@ class Bitblaster {
 public:
   void cacheTermDef(TNode node, Bits def); // public so we can cache remainder for division
   void bbTerm(TNode node, Bits&  bits);
+  void bbAtom(TNode node);
   
-public:
-  Bitblaster(context::Context* c); 
+  Bitblaster(context::Context* c, bv::TheoryBV* bv); 
   ~Bitblaster();
   bool assertToSat(TNode node, bool propagate = true);
   bool solve(bool quick_solve = false);
-  void bitblast(TNode node);
   void getConflict(std::vector<TNode>& conflict); 
+  void explain(TNode atom, std::vector<TNode>& explanation);
 
-  bool getPropagations(std::vector<TNode>& propagations);
-  void explainPropagation(TNode atom, std::vector<Node>& explanation);
+  EqualityStatus getEqualityStatus(TNode a, TNode b);
+
 private:
 
   
@@ -145,4 +158,4 @@ private:
 
 } /* CVC4 namespace */
 
-#endif /* __CVC4__BV__SAT_H */
+#endif /* __CVC4__BITBLASTER_H */

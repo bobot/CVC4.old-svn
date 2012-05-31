@@ -7,6 +7,8 @@ module DECISION "decision/options.h" "Decision Heuristics"
 
 # When/whether to use any decision strategies
 option decisionMode --decision-mode=MODE decision::DecisionMode :handler CVC4::decision::stringToDecisionMode :default decision::DECISION_STRATEGY_INTERNAL :read-write :predicate CVC4::decision::setDecisionModeSetByUser :include "decision/decision_mode.h" :handler-include "decision/options_handlers.h" :predicate-include "decision/options_handlers.h"
+ choose decision mode, see --decision=help
+
 option decisionModeSetByUser bool
 
 endmodule

@@ -45,6 +45,12 @@ public:
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
  
+  /** Create a new (or return an existing) boolean variable representing the constant true */
+  virtual SatVariable trueVar() = 0;
+
+  /** Create a new (or return an existing) boolean variable representing the constant false */
+  virtual SatVariable falseVar() = 0;
+
   /** Check the satisfiability of the added clauses */
   virtual SatValue solve() = 0;
 
@@ -72,15 +78,33 @@ public:
 class BVSatSolverInterface: public SatSolver {
 public:
 
+  /** Interface for notifications */
+  class Notify {
+  public:
+
+    virtual ~Notify() {};
+
+    /**
+     * If the notify returns false, the solver will break out of whatever it's currently doing
+     * with an "unknown" answer.
+     */
+    virtual bool notify(SatLiteral lit) = 0;
+
+    /**
+     * Notify about a learnt clause.
+     */
+    virtual void notify(SatClause& clause) = 0;
+};
+
+  virtual void setNotify(Notify* notify) = 0; 
+  
   virtual void markUnremovable(SatLiteral lit) = 0;
 
   virtual void getUnsatCore(SatClause& unsatCore) = 0; 
 
   virtual void addMarkerLiteral(SatLiteral lit) = 0; 
 
-  virtual bool getPropagations(std::vector<SatLiteral>& propagations) = 0;
-
-  virtual void explainPropagation(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0;
+  virtual void explain(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0;
 
   virtual SatValue assertAssumption(SatLiteral lit, bool propagate = false) = 0; 
 

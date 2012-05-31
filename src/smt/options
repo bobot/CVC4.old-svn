@@ -46,6 +46,16 @@ common-option interactive interactive-mode --interactive bool :predicate CVC4::s
  force interactive mode
 option interactiveSetByUser bool
 
+option doITESimp --ite-simp bool :predicate CVC4::smt::setITESimpSetByUser :read-write :predicate-include "smt/options_handlers.h"
+ turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)
+/turn off ite simplification (Kim (and Somenzi) et al., SAT 2009)
+option doITESimpSetByUser bool
+
+option repeatSimp --repeat-simp bool :predicate CVC4::smt::setRepeatSimpSetByUser :read-write :predicate-include "smt/options_handlers.h"
+ make multiple passes with nonclausal simplifier
+/do not make multiple passes with nonclausal simplifier
+option repeatSimpSetByUser bool
+
 common-option incrementalSolving incremental -i --incremental bool
  enable incremental solving
 

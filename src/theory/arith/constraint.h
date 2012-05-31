@@ -77,7 +77,7 @@
 #include "theory/arith/arithvar_node_map.h"
 #include "theory/arith/delta_rational.h"
 
-#include "theory/arith/difference_manager.h"
+#include "theory/arith/congruence_manager.h"
 
 #include "theory/arith/constraint_forward.h"
 
@@ -403,6 +403,15 @@ public:
   bool isUpperBound() const{
     return d_type == UpperBound;
   }
+  bool isStrictUpperBound() const{
+    Assert(isUpperBound());
+    return getValue().infinitesimalSgn() < 0;
+  }
+
+  bool isStrictLowerBound() const{
+    Assert(isLowerBound());
+    return getValue().infinitesimalSgn() > 0;
+  }
 
   bool isSplit() const {
     return d_split;
@@ -422,7 +431,7 @@ public:
 
   /**
    * Light wrapper for calling setCanBePropagated(),
-   * on this and this-d_negation.
+   * on this and this->d_negation.
    */
   void setPreregistered(){
     setCanBePropagated();
@@ -746,7 +755,7 @@ private:
     return d_av2nodeMap;
   }
 
-  DifferenceManager& d_differenceManager;
+  ArithCongruenceManager& d_congruenceManager;
 
   //Constraint allocateConstraintForLiteral(ArithVar v, Node literal);
 
@@ -760,7 +769,7 @@ public:
   ConstraintDatabase( context::Context* satContext,
                       context::Context* userContext,
                       const ArithVarNodeMap& av2nodeMap,
-                      DifferenceManager& dm);
+                      ArithCongruenceManager& dm);
 
   ~ConstraintDatabase();
 
@@ -819,14 +828,38 @@ public:
    */
   Constraint getConstraint(ArithVar v, ConstraintType t, const DeltaRational& r);
 
+  /**
+   * Outputs a minimal set of unate implications onto the vector for the variable.
+   * This outputs lemmas of the general forms
+   *     (= p c) implies (<= p d) for c < d, or
+   *     (= p c) implies (not (= p d)) for c != d.
+   */
+  void outputUnateEqualityLemmas(std::vector<Node>& lemmas) const;
+  void outputUnateEqualityLemmas(std::vector<Node>& lemmas, ArithVar v) const;
 
   /**
-   * Outputs a minimal set of unate implications on the output channel
-   * for all variables.
+   * Outputs a minimal set of unate implications onto the vector for the variable.
+   *
+   * If ineqs is true, this outputs lemmas of the general form
+   *     (<= p c) implies (<= p d) for c < d.
    */
-  void outputAllUnateLemmas(std::vector<Node>& lemmas) const;
+  void outputUnateInequalityLemmas(std::vector<Node>& lemmas) const;
+  void outputUnateInequalityLemmas(std::vector<Node>& lemmas, ArithVar v) const;
 
-  void outputAllUnateLemmas(std::vector<Node>& lemmas, ArithVar v) const;
+
+  void unatePropLowerBound(Constraint curr, Constraint prev);
+  void unatePropUpperBound(Constraint curr, Constraint prev);
+  void unatePropEquality(Constraint curr, Constraint prevLB, Constraint prevUB);
+
+private:
+  class Statistics {
+  public:
+    IntStat d_unatePropagateCalls;
+    IntStat d_unatePropagateImplications;
+
+    Statistics();
+    ~Statistics();
+  } d_statistics;
 
 }; /* ConstraintDatabase */
 

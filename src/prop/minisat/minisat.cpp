@@ -20,6 +20,7 @@
 #include "prop/minisat/simp/SimpSolver.h"
 #include "prop/options.h"
 #include "smt/options.h"
+#include "decision/options.h"
 
 using namespace CVC4;
 using namespace CVC4::prop;
@@ -96,7 +97,8 @@ void MinisatSatSolver::initialize(context::Context* context, TheoryProxy* theory
 
   // Create the solver
   d_minisat = new Minisat::SimpSolver(theoryProxy, d_context,
-                                      options::incrementalSolving());
+                                      options::incrementalSolving() ||
+                                      options::decisionMode() == decision::DECISION_STRATEGY_JUSTIFICATION );
   // Setup the verbosity
   d_minisat->verbosity = (options::verbosity() > 0) ? 1 : -1;
 
@@ -121,7 +123,6 @@ void MinisatSatSolver::addClause(SatClause& clause, bool removable) {
 SatVariable MinisatSatSolver::newVar(bool theoryAtom) {
   return d_minisat->newVar(true, true, theoryAtom);
 }
-
 
 SatValue MinisatSatSolver::solve(unsigned long& resource) {
   Trace("limit") << "SatSolver::solve(): have limit of " << resource << " conflicts" << std::endl;

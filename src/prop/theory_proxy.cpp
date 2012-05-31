@@ -35,6 +35,11 @@ void TheoryProxy::variableNotify(SatVariable var) {
 }
 
 void TheoryProxy::theoryCheck(theory::Theory::Effort effort) {
+  while (!d_queue.empty()) {
+    TNode assertion = d_queue.front();
+    d_queue.pop();
+    d_theoryEngine->assertFact(assertion);
+  }
   d_theoryEngine->check(effort);
 }
 
@@ -43,7 +48,7 @@ void TheoryProxy::theoryPropagate(std::vector<SatLiteral>& output) {
   std::vector<TNode> outputNodes;
   d_theoryEngine->getPropagatedLiterals(outputNodes);
   for (unsigned i = 0, i_end = outputNodes.size(); i < i_end; ++ i) {
-    Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i].toString() << std::endl;
+    Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i] << std::endl;
     output.push_back(d_cnfStream->getLiteral(outputNodes[i]));
   }
 }
@@ -70,10 +75,10 @@ void TheoryProxy::enqueueTheoryLiteral(const SatLiteral& l) {
   Node literalNode = d_cnfStream->getNode(l);
   Debug("prop") << "enqueueing theory literal " << l << " " << literalNode << std::endl;
   Assert(!literalNode.isNull());
-  d_theoryEngine->assertFact(literalNode);
+  d_queue.push(literalNode);
 }
 
-SatLiteral TheoryProxy::getNextDecisionRequest() {
+SatLiteral TheoryProxy::getNextDecisionRequest(bool &stopSearch) {
   TNode n = d_theoryEngine->getNextDecisionRequest();
   if(not n.isNull())
     return d_cnfStream->getLiteral(n);
@@ -82,7 +87,12 @@ SatLiteral TheoryProxy::getNextDecisionRequest() {
   // may return in undefSatLiteral in which case the sat solver figure
   // it out something
   Assert(d_decisionEngine != NULL);
-  return d_decisionEngine->getNext();
+  Assert(stopSearch != true);
+  SatLiteral ret = d_decisionEngine->getNext(stopSearch);
+  if(stopSearch) {
+    Trace("decision") << "  ***  Decision Engine stopped search *** " << std::endl;
+  }
+  return ret;
 }
 
 bool TheoryProxy::theoryNeedCheck() const {
@@ -176,6 +186,10 @@ void TheoryProxy::logDecision(SatLiteral lit) {
 
 void TheoryProxy::checkTime() {
   d_propEngine->checkTime();
+}
+
+bool TheoryProxy::isDecisionEngineDone() {
+  return d_decisionEngine->isDone();
 }
 
 }/* CVC4::prop namespace */

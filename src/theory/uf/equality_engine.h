@@ -24,7 +24,6 @@
 #include <queue>
 #include <vector>
 #include <ext/hash_map>
-#include <sstream>
 
 #include "expr/node.h"
 #include "expr/kind_map.h"
@@ -32,189 +31,82 @@
 #include "util/output.h"
 #include "util/stats.h"
 #include "theory/rewriter.h"
+#include "theory/theory.h"
+
+#include "theory/uf/equality_engine_types.h"
 
 namespace CVC4 {
 namespace theory {
-namespace uf {
-
-/** Id of the node */
-typedef size_t EqualityNodeId;
-
-/** Id of the use list */
-typedef size_t UseListNodeId;
-
-/** The trigger ids */
-typedef size_t TriggerId;
-
-/** The equality edge ids */
-typedef size_t EqualityEdgeId;
-
-/** The null node */
-static const EqualityNodeId null_id = (size_t)(-1);
-
-/** The null use list node */
-static const EqualityNodeId null_uselist_id = (size_t)(-1);
-
-/** The null trigger */
-static const TriggerId null_trigger = (size_t)(-1);
-
-/** The null edge id */
-static const EqualityEdgeId null_edge = (size_t)(-1);
+namespace eq {
 
 /**
- * A reason for a merge. Either an equality x = y, or a merge of two
- * function applications f(x1, x2), f(y1, y2)
+ * Interface for equality engine notifications. All the notifications
+ * are safe as TNodes, but not necessarily for negations.
  */
-enum MergeReasonType {
-  MERGED_THROUGH_CONGRUENCE,
-  MERGED_THROUGH_EQUALITY
-};
+class EqualityEngineNotify {
 
-inline std::ostream& operator << (std::ostream& out, MergeReasonType reason) {
-  switch (reason) {
-  case MERGED_THROUGH_CONGRUENCE:
-    out << "c";
-    break;
-  case MERGED_THROUGH_EQUALITY:
-    out << "e";
-    break;
-  default:
-    Unreachable();
-  }
-  return out;
-}
-
-/** A node in the uselist */
-class UseListNode {
-
-private:
-
-  /** The id of the application node where this representative is at */
-  EqualityNodeId d_applicationId;
-
-  /** The next one in the class */
-  UseListNodeId d_nextUseListNodeId;
+  friend class EqualityEngine;
 
 public:
 
-  /**
-   * Creates a new node, which is in a list of it's own.
-   */
-  UseListNode(EqualityNodeId nodeId = null_id, UseListNodeId nextId = null_uselist_id)
-  : d_applicationId(nodeId), d_nextUseListNodeId(nextId) {}
+  virtual ~EqualityEngineNotify() {};
 
   /**
-   * Returns the next node in the circular list.
+   * Notifies about a trigger equality that became true or false.
+   *
+   * @param eq the equality that became true or false
+   * @param value the value of the equality
    */
-  UseListNodeId getNext() const {
-    return d_nextUseListNodeId;
-  }
+  virtual bool eqNotifyTriggerEquality(TNode equality, bool value) = 0;
 
   /**
-   * Returns the id of the function application.
+   * Notifies about a trigger predicate that became true or false.
+   *
+   * @param predicate the trigger predicate that bacame true or false
+   * @param value the value of the predicate
    */
-  EqualityNodeId getApplicationId() const {
-    return d_applicationId;
-  }
+  virtual bool eqNotifyTriggerPredicate(TNode predicate, bool value) = 0;
+
+  /**
+   * Notifies about the merge of two trigger terms.
+   *
+   * @param tag the theory that both triggers were tagged with
+   * @param t1 a term marked as trigger
+   * @param t2 a term marked as trigger
+   * @param value true if equal, false if dis-equal
+   */
+  virtual bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) = 0;
+
+  /**
+   * Notifies about the merge of two constant terms.
+   *
+   * @param t1 a constant term
+   * @param t2 a constnat term
+   */
+  virtual bool eqNotifyConstantTermMerge(TNode t1, TNode t2) = 0;
 };
 
-
-class EqualityNode {
-
-private:
-
-  /** The size of this equivalence class (if it's a representative) */
-  size_t d_size;
-
-  /** The id (in the eq-manager) of the representative equality node */
-  EqualityNodeId d_findId;
-
-  /** The next equality node in this class */
-  EqualityNodeId d_nextId;
-
-  /** The use list of this node */
-  UseListNodeId d_useList;
-
+/**
+ * Implementation of the notification interface that ignores all the
+ * notifications.
+ */
+class EqualityEngineNotifyNone : public EqualityEngineNotify {
 public:
-
-  /**
-   * Creates a new node, which is in a list of it's own.
-   */
-  EqualityNode(EqualityNodeId nodeId = null_id)
-  : d_size(1), 
-    d_findId(nodeId), 
-    d_nextId(nodeId), 
-    d_useList(null_uselist_id)
-  {}
-
-  /**
-   * Retuerns the uselist.
-   */
-  UseListNodeId getUseList() const {
-    return d_useList;
-  }
-
-  /**
-   * Returns the next node in the class circular list.
-   */
-  EqualityNodeId getNext() const {
-    return d_nextId;
-  }
-
-  /**
-   * Returns the size of this equivalence class (only valid if this is the representative).
-   */
-  size_t getSize() const {
-    return d_size;
-  }
-
-  /**
-   * Merges the two lists. If add size is true the size of this node is increased by the size of
-   * the other node, otherwise the size is decreased by the size of the other node.
-   */
-  template<bool addSize>
-  void merge(EqualityNode& other) {
-    EqualityNodeId tmp = d_nextId; d_nextId = other.d_nextId; other.d_nextId = tmp;
-    if (addSize) {
-      d_size += other.d_size;
-    } else {
-      d_size -= other.d_size;
-    }
-  }
-
-  /**
-   * Returns the class representative.
-   */
-  EqualityNodeId getFind() const { return d_findId; }
-
-  /**
-   * Set the class representative.
-   */
-  void setFind(EqualityNodeId findId) { d_findId = findId; }
-
-  /**
-   * Note that this node is used in a function a application funId.
-   */
-  template<typename memory_class>
-  void usedIn(EqualityNodeId funId, memory_class& memory) {
-    UseListNodeId newUseId = memory.size();
-    memory.push_back(UseListNode(funId, d_useList));
-    d_useList = newUseId;
-  }
-
-  /**
-   * For backtracking: remove the first element from the uselist and pop the memory.
-   */
-  template<typename memory_class>
-  void removeTopFromUseList(memory_class& memory) {
-    Assert ((int)d_useList == (int)memory.size() - 1);
-    d_useList = memory.back().getNext();
-    memory.pop_back();
-  }
+  bool eqNotifyTriggerEquality(TNode equality, bool value) { return true; }
+  bool eqNotifyTriggerPredicate(TNode predicate, bool value) { return true; }
+  bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) { return true; }
+  bool eqNotifyConstantTermMerge(TNode t1, TNode t2) { return true; }
 };
 
-template <typename NotifyClass>
+
+/**
+ * Class for keeping an incremental congurence closure over a set of terms. It provides
+ * notifications via an EqualityEngineNotify object.
+ */
 class EqualityEngine : public context::ContextNotifyObj {
+
+  /** Default implementation of the notification object */
+  static EqualityEngineNotifyNone s_notifyNone;
 
 public:
 
@@ -226,45 +118,26 @@ public:
     IntStat termsCount;
     /** Number of function terms managed by the system */
     IntStat functionTermsCount;
+    /** Number of constant terms managed by the system */
+    IntStat constantTermsCount;
 
     Statistics(std::string name)
     : mergesCount(name + "::mergesCount", 0),
       termsCount(name + "::termsCount", 0),
-      functionTermsCount(name + "::functionTermsCount", 0)
+      functionTermsCount(name + "::functionTermsCount", 0),
+      constantTermsCount(name + "::constantTermsCount", 0)
     {
       StatisticsRegistry::registerStat(&mergesCount);
       StatisticsRegistry::registerStat(&termsCount);
       StatisticsRegistry::registerStat(&functionTermsCount);
+      StatisticsRegistry::registerStat(&constantTermsCount);
     }
 
     ~Statistics() {
       StatisticsRegistry::unregisterStat(&mergesCount);
       StatisticsRegistry::unregisterStat(&termsCount);
       StatisticsRegistry::unregisterStat(&functionTermsCount);
-    }
-  };
-
-  /**
-   * f(a,b)
-   */
-  struct FunctionApplication {
-    EqualityNodeId a, b;
-    FunctionApplication(EqualityNodeId a = null_id, EqualityNodeId b = null_id):
-      a(a), b(b) {}
-    bool operator == (const FunctionApplication& other) const {
-      return a == other.a && b == other.b;
-    }
-    bool isApplication() const {
-      return a != null_id && b != null_id;
-    }
-  };
-
-  struct FunctionApplicationHashFunction {
-    size_t operator () (const FunctionApplication& app) const {
-      size_t hash = 0;
-      hash = 0x9e3779b9 + app.a;
-      hash ^= 0x9e3779b9 + app.b + (hash << 6) + (hash >> 2);
-      return hash;
+      StatisticsRegistry::unregisterStat(&constantTermsCount);
     }
   };
 
@@ -278,11 +151,14 @@ private:
   /** The context we are using */
   context::Context* d_context;
 
+  /** If we are done, we don't except any new assertions */
+  context::CDO<bool> d_done;
+
   /** Whether to notify or not (temporarily disabled on equality checks) */
   bool d_performNotify;
 
   /** The class to notify when a representative changes for a term */
-  NotifyClass d_notify;
+  EqualityEngineNotify& d_notify;
 
   /** The map of kinds to be treated as function applications */
   KindMap d_congruenceKinds;
@@ -303,28 +179,14 @@ private:
   std::vector<FunctionApplication> d_applicationLookups;
 
   /** Number of application lookups, for backtracking.  */
-  context::CDO<size_t> d_applicationLookupsCount;
+  context::CDO<DefaultSizeType> d_applicationLookupsCount;
 
   /** Map from ids to the nodes (these need to be nodes as we pick-up the opreators) */
   std::vector<Node> d_nodes;
 
   /** A context-dependents count of nodes */
-  context::CDO<size_t> d_nodesCount;
+  context::CDO<DefaultSizeType> d_nodesCount;
 
-  /**
-   * At time of addition a function application can already normalize to something, so
-   * we keep both the original, and the normalized version.
-   */
-  struct FunctionApplicationPair {
-    FunctionApplication original;
-    FunctionApplication normalized;
-    FunctionApplicationPair() {}
-    FunctionApplicationPair(const FunctionApplication& original, const FunctionApplication& normalized)
-    : original(original), normalized(normalized) {}
-    bool isNull() const {
-      return !original.isApplication();
-    }
-  };
   /** Map from ids to the applications */
   std::vector<FunctionApplicationPair> d_applications;
 
@@ -332,7 +194,7 @@ private:
   std::vector<EqualityNode> d_equalityNodes;
 
   /** Number of asserted equalities we have so far */
-  context::CDO<size_t> d_assertedEqualitiesCount;
+  context::CDO<DefaultSizeType> d_assertedEqualitiesCount;
 
   /** Memory for the use-list nodes */
   std::vector<UseListNode> d_useListNodes;
@@ -428,8 +290,11 @@ private:
   /** Returns the id of the node */
   EqualityNodeId getNodeId(TNode node) const;
 
-  /** Merge the class2 into class1 */
-  void merge(EqualityNode& class1, EqualityNode& class2, std::vector<TriggerId>& triggers);
+  /**
+   * Merge the class2 into class1
+   * @return true if ok, false if to break out
+   */
+  bool merge(EqualityNode& class1, EqualityNode& class2, std::vector<TriggerId>& triggers);
 
   /** Undo the mereg of class2 into class1 */
   void undoMerge(EqualityNode& class1, EqualityNode& class2, EqualityNodeId class2Id);
@@ -438,28 +303,12 @@ private:
   void backtrack();
 
   /**
-   * Data used in the BFS search through the equality graph.
-   */
-  struct BfsData {
-    // The current node
-    EqualityNodeId nodeId;
-    // The index of the edge we traversed
-    EqualityEdgeId edgeId;
-    // Index in the queue of the previous node. Shouldn't be too much of them, at most the size
-    // of the biggest equivalence class
-    size_t previousIndex;
-
-    BfsData(EqualityNodeId nodeId = null_id, EqualityEdgeId edgeId = null_edge, size_t prev = 0)
-    : nodeId(nodeId), edgeId(edgeId), previousIndex(prev) {}
-  };
-
-  /**
    * Trigger that will be updated
    */
   struct Trigger {
     /** The current class id of the LHS of the trigger */
     EqualityNodeId classId;
-    /** Next trigger for class 1 */
+    /** Next trigger for class */
     TriggerId nextTrigger;
 
     Trigger(EqualityNodeId classId = null_id, TriggerId nextTrigger = null_trigger)
@@ -476,12 +325,12 @@ private:
   /**
    * Vector of original equalities of the triggers.
    */
-  std::vector<Node> d_equalityTriggersOriginal;
+  std::vector<TriggerInfo> d_equalityTriggersOriginal;
 
   /**
    * Context dependent count of triggers
    */
-  context::CDO<size_t> d_equalityTriggersCount;
+  context::CDO<DefaultSizeType> d_equalityTriggersCount;
 
   /**
    * Trigger lists per node. The begin id changes as we merge, but the end always points to
@@ -490,19 +339,15 @@ private:
   std::vector<TriggerId> d_nodeTriggers;
 
   /**
-   * List of terms that are marked as individual triggers.
+   * Map from ids to wheather they are constants (constants are always 
+   * representatives of their class.
    */
-  std::vector<EqualityNodeId> d_individualTriggers;
+  std::vector<bool> d_isConstant;
 
   /**
-   * Size of the individual triggers list.
+   * Map from ids to wheather they are Boolean.
    */
-  context::CDO<unsigned> d_individualTriggersSize;
-
-  /** 
-   * Map from ids to the individual trigger id representative. 
-   */
-  std::vector<EqualityNodeId> d_nodeIndividualTrigger;
+  std::vector<bool> d_isBoolean;
 
   /**
    * Adds the trigger with triggerId to the beginning of the trigger list of the node with id nodeId.
@@ -513,24 +358,10 @@ private:
   Statistics d_stats;
 
   /** Add a new function application node to the database, i.e APP t1 t2 */
-  EqualityNodeId newApplicationNode(TNode original, EqualityNodeId t1, EqualityNodeId t2);
+  EqualityNodeId newApplicationNode(TNode original, EqualityNodeId t1, EqualityNodeId t2, bool isEquality);
 
   /** Add a new node to the database */
-  EqualityNodeId newNode(TNode t, bool isApplication);
-
-  struct MergeCandidate {
-    EqualityNodeId t1Id, t2Id;
-    MergeReasonType type;
-    TNode reason;
-    MergeCandidate(EqualityNodeId x, EqualityNodeId y, MergeReasonType type, TNode reason):
-      t1Id(x), t2Id(y), type(type), reason(reason) {}
-
-    std::string toString(EqualityEngine& eqEngine) const {
-      std::stringstream ss;
-      ss << eqEngine.d_nodes[t1Id] << " = " << eqEngine.d_nodes[t2Id] << ", " << type;
-      return ss.str();
-    }
-  };
+  EqualityNodeId newNode(TNode t);
 
   /** Propagation queue */
   std::queue<MergeCandidate> d_propagationQueue;
@@ -555,50 +386,152 @@ private:
 
   /** The true node */
   Node d_true;
+  /** True node id */
+  EqualityNodeId d_trueId;
+  
   /** The false node */
   Node d_false;
+  /** False node id */
+  EqualityNodeId d_falseId;
 
   /**
    * Adds an equality of terms t1 and t2 to the database.
    */
-  void addEqualityInternal(TNode t1, TNode t2, TNode reason);
-
-public:
+  void assertEqualityInternal(TNode t1, TNode t2, TNode reason);
 
   /**
-   * Initialize the equality engine, given the owning class. This will initialize the notifier with
-   * the owner information.
+   * Adds a trigger equality to the database with the trigger node and polarity for notification.
    */
-  EqualityEngine(NotifyClass& notify, context::Context* context, std::string name)
-  : ContextNotifyObj(context),
-    d_context(context),
-    d_performNotify(true),
-    d_notify(notify),
-    d_applicationLookupsCount(context, 0),
-    d_nodesCount(context, 0),
-    d_assertedEqualitiesCount(context, 0),
-    d_equalityTriggersCount(context, 0),
-    d_individualTriggersSize(context, 0),
-    d_stats(name)
-  {
-    Debug("equality") << "EqualityEdge::EqualityEngine(): id_null = " << +null_id << std::endl;
-    Debug("equality") << "EqualityEdge::EqualityEngine(): edge_null = " << +null_edge << std::endl;
-    Debug("equality") << "EqualityEdge::EqualityEngine(): trigger_null = " << +null_trigger << std::endl;
-    d_true = NodeManager::currentNM()->mkConst<bool>(true);
-    d_false = NodeManager::currentNM()->mkConst<bool>(false);
-  }
-
-  /**
-   * Just a destructor.
-   */
-  virtual ~EqualityEngine() throw(AssertionException) {}
+  void addTriggerEqualityInternal(TNode t1, TNode t2, TNode trigger, bool polarity);
 
   /**
    * This method gets called on backtracks from the context manager.
    */
-  void notify() {
+  void contextNotifyPop() {
     backtrack();
   }
+
+  /**
+   * Constructor initialization stuff.
+   */
+  void init();
+
+  /** Set of trigger terms */
+  struct TriggerTermSet {
+    /** Set of theories in this set */
+    Theory::Set tags;
+    /** The trigger terms */
+    EqualityNodeId triggers[0];
+    /** Returns the theory tags */
+    Theory::Set hasTrigger(TheoryId tag) const { return Theory::setContains(tag, tags); }
+    /** Returns a trigger by tag */
+    EqualityNodeId getTrigger(TheoryId tag) const {
+      return triggers[Theory::setIndex(tag, tags)];
+    }
+  };
+
+  /** Internal tags for creating a new set */
+  Theory::Set d_newSetTags;
+  
+  /** Internal triggers for creating a new set */
+  EqualityNodeId d_newSetTriggers[THEORY_LAST];
+  
+  /** Size of the internal triggers array */
+  unsigned d_newSetTriggersSize; 
+
+  /** The information about trigger terms is stored in this easily maintained memory. */
+  char* d_triggerDatabase;
+
+  /** Allocated size of the trigger term database */
+  DefaultSizeType d_triggerDatabaseAllocatedSize ;
+
+  /** Reference for the trigger terms set */
+  typedef DefaultSizeType TriggerTermSetRef;
+
+  /** Null reference */
+  static const TriggerTermSetRef null_set_id = (TriggerTermSetRef)(-1);
+
+  /** Create new trigger term set based on the internally set information */
+  TriggerTermSetRef newTriggerTermSet();
+
+  /** Get the trigger set give a reference */
+  TriggerTermSet& getTriggerTermSet(TriggerTermSetRef ref) {
+    Assert(ref < d_triggerDatabaseSize);
+    return *(reinterpret_cast<TriggerTermSet*>(d_triggerDatabase + ref));
+  }
+
+  /** Get the trigger set give a reference */
+  const TriggerTermSet& getTriggerTermSet(TriggerTermSetRef ref) const {
+    Assert(ref < d_triggerDatabaseSize);
+    return *(reinterpret_cast<const TriggerTermSet*>(d_triggerDatabase + ref));
+  }
+
+  /** Used part of the trigger term database */
+  context::CDO<DefaultSizeType> d_triggerDatabaseSize;
+
+  struct TriggerSetUpdate {
+    EqualityNodeId classId;
+    TriggerTermSetRef oldValue;
+    TriggerSetUpdate(EqualityNodeId classId = null_id, TriggerTermSetRef oldValue = null_set_id) 
+    : classId(classId), oldValue(oldValue) {}
+  };
+
+  /**
+   * List of trigger updates for backtracking.
+   */
+  std::vector<TriggerSetUpdate> d_triggerTermSetUpdates;
+
+  /**
+   * Size of the individual triggers list.
+   */
+  context::CDO<unsigned> d_triggerTermSetUpdatesSize;
+
+  /**
+   * Map from ids to the individual trigger set representatives.
+   */
+  std::vector<TriggerTermSetRef> d_nodeIndividualTrigger;
+
+  typedef std::hash_map<EqualityPair, DisequalityReasonRef, EqualityPairHashFunction> DisequalityReasonsMap;
+
+  /**
+   * A map from pairs of disequal terms, to the reason why we deduced they are disequal.
+   */
+  DisequalityReasonsMap d_disequalityReasonsMap;
+
+  /**
+   * A list of all the disequalities we deduced.
+   */
+  std::vector<EqualityPair> d_deducedDisequalities;
+
+  /**
+   * Context dependent size of the deduced disequalities
+   */
+  context::CDO<size_t> d_deducedDisequalitiesSize;
+
+  /**
+   * For each disequality deduced, we add the pairs of equivalences needed to explain it.
+   */
+  std::vector<EqualityPair> d_deducedDisequalityReasons;
+
+
+  bool storePropagatedDisequality(TNode lhs, TNode rhs, unsigned reasonsCount) const;
+
+public:
+
+  /**
+   * Initialize the equality engine, given the notification class. 
+   */
+  EqualityEngine(EqualityEngineNotify& notify, context::Context* context, std::string name);
+
+  /**
+   * Initialize the equality engine with no notification class. 
+   */
+  EqualityEngine(context::Context* context, std::string name);
+
+  /**
+   * Just a destructor.
+   */
+  virtual ~EqualityEngine() throw(AssertionException);
 
   /**
    * Adds a term to the term database.
@@ -613,6 +546,13 @@ public:
   }
 
   /**
+   * Returns true if this kind is used for congruence closure.
+   */
+  bool isFunctionKind(Kind fun) {
+    return d_congruenceKinds.tst(fun);
+  }
+
+  /**
    * Adds a function application term to the database.
    */
 
@@ -622,93 +562,111 @@ public:
   bool hasTerm(TNode t) const;
 
   /**
-   * Adds aa predicate t with given polarity
+   * Adds a predicate p with given polarity. The predicate asserted
+   * should be in the coungruence closure kinds (otherwise it's 
+   * useless.
+   *
+   * @param p the (non-negated) predicate
+   * @param polarity true if asserting the predicate, false if 
+   *                 asserting the negated predicate
+   * @param the reason to keep for building explanations
    */
-  void addPredicate(TNode t, bool polarity, TNode reason);
+  void assertPredicate(TNode p, bool polarity, TNode reason);
 
   /**
-   * Adds an equality t1 = t2 to the database.
+   * Adds an equality eq with the given polarity to the database.
+   *
+   * @param eq the (non-negated) equality
+   * @param polarity true if asserting the equality, false if 
+   *                 asserting the negated equality
+   * @param the reason to keep for building explanations
    */
-  void addEquality(TNode t1, TNode t2, TNode reason);
+  void assertEquality(TNode eq, bool polarity, TNode reason);
 
   /**
-   * Adds an dis-equality t1 != t2 to the database.
-   */
-  void addDisequality(TNode t1, TNode t2, TNode reason);
-
-  /**
-   * Returns the representative of the term t.
+   * Returns the current representative of the term t.
    */
   TNode getRepresentative(TNode t) const;
 
   /**
-   * Add all the terms where the given term appears in (directly or implicitly).
+   * Add all the terms where the given term appears as a first child 
+   * (directly or implicitly).
    */
   void getUseListTerms(TNode t, std::set<TNode>& output);
 
   /**
-   * Returns true if the two nodes are in the same class.
+   * Get an explanation of the equality t1 = t2 begin true of false. 
+   * Returns the reasons (added when asserting) that imply it
+   * in the assertions vector.
+   */
+  void explainEquality(TNode t1, TNode t2, bool polarity, std::vector<TNode>& assertions) const;
+
+  /**
+   * Get an explanation of the predicate being true or false. 
+   * Returns the reasons (added when asserting) that imply imply it
+   * in the assertions vector.
+   */
+  void explainPredicate(TNode p, bool polarity, std::vector<TNode>& assertions) const;
+
+  /**
+   * Add term to the set of trigger terms with a corresponding tag. The notify class will get
+   * notified when two trigger terms with the same tag become equal or dis-equal. The notification
+   * will not happen on all the terms, but only on the ones that are represent the class. Note that
+   * a term can be added more than once with different tags, and each tag apperance will merit
+   * it's own notification.
+   *
+   * @param t the trigger term
+   * @param tag tag for this trigger (do NOT use THEORY_LAST)
+   */
+  void addTriggerTerm(TNode t, TheoryId theoryTag);
+
+  /**
+   * Returns true if t is a trigger term or in the same equivalence 
+   * class as some other trigger term.
+   */
+  bool isTriggerTerm(TNode t, TheoryId theoryTag) const;
+
+  /**
+   * Returns the representative trigger term of the given term.
+   *
+   * @param t the term to check where isTriggerTerm(t) should be true
+   */
+  TNode getTriggerTermRepresentative(TNode t, TheoryId theoryTag) const;
+
+  /**
+   * Adds a notify trigger for equality. When equality becomes true eqNotifyTriggerEquality
+   * will be called with value = true, and when equality becomes false eqNotifyTriggerEquality
+   * will be called with value = false.
+   */
+  void addTriggerEquality(TNode equality);
+
+  /**
+   * Adds a notify trigger for the predicate p. When the predicate becomes true
+   * eqNotifyTriggerPredicate will be called with value = true, and when equality becomes false
+   * eqNotifyTriggerPredicate will be called with value = false.
+   */
+  void addTriggerPredicate(TNode predicate);
+
+  /**
+   * Returns true if the two are currently in the database and equal.
    */
   bool areEqual(TNode t1, TNode t2) const;
 
   /**
-   * Get an explanation of the equality t1 = t2. Returns the asserted equalities that
-   * imply t1 = t2. Returns TNodes as the assertion equalities should be hashed somewhere
-   * else. 
-   */
-  void explainEquality(TNode t1, TNode t2, std::vector<TNode>& equalities);
-
-  /**
-   * Get an explanation of the equality t1 = t2. Returns the asserted equalities that
-   * imply t1 = t2. Returns TNodes as the assertion equalities should be hashed somewhere
-   * else. 
-   */
-  void explainDisequality(TNode t1, TNode t2, std::vector<TNode>& equalities);
-
-  /**
-   * Add term to the trigger terms. The notify class will get notified when two 
-   * trigger terms become equal. Thihs will only happen on trigger term 
-   * representatives.
-   */
-  void addTriggerTerm(TNode t);
-
-  /**
-   * Returns true if t is a trigger term or equal to some other trigger term.
-   */
-  bool isTriggerTerm(TNode t) const;
-
-  /**
-   * Returns the representative trigger term (isTriggerTerm(t)) should be true.
-   */
-  TNode getTriggerTermRepresentative(TNode t) const;
-
-  /**
-   * Adds a notify trigger for equality t1 = t2, i.e. when t1 = t2 the notify will be called with
-   * trigger.
-   */
-  void addTriggerEquality(TNode t1, TNode t2, TNode trigger);
-
-  /**
-   * Adds a notify trigger for dis-equality t1 != t2, i.e. when t1 != t2 the notify will be called with
-   * trigger.
-   */
-  void addTriggerDisequality(TNode t1, TNode t2, TNode trigger);
-
-  /**
-   * Check whether the two terms are equal.
-   */
-  bool areEqual(TNode t1, TNode t2);
-
-  /**
    * Check whether the two term are dis-equal.
    */
-  bool areDisequal(TNode t1, TNode t2);
+  bool areDisequal(TNode t1, TNode t2, bool ensureProof) const;
 
   /**
-   * Return the number of nodes in the equivalence class contianing t
+   * Return the number of nodes in the equivalence class containing t
    * Adds t if not already there.
    */
   size_t getSize(TNode t);
+
+  /**
+   * Returns true if the engine is in a consistents state.
+   */
+  bool consistent() const { return !d_done; }
 
 };
 

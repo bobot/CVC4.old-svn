@@ -449,6 +449,9 @@ int runCvc4(int argc, char *argv[], Options& opts) {
     delete parser;
   }
 
+  if(options.parseOnly)
+    return 0;
+
   exprMgr = NULL;               // don't want to use that variable
                                 // after this point
 
@@ -704,7 +707,6 @@ Result doSmt(SmtEngine &smt, Command *cmd, Options &opts) {
     *(*pOptions)[options::out] << "unknown" << endl;
     cerr << "CVC4 Error:" << endl << e << endl;
     printUsage(*pOptions);
-    return Result::SAT_UNKNOWN;
   } catch(Exception& e) {
 #ifdef CVC4_COMPETITION_MODE
     *(*pOptions)[options::out] << "unknown" << endl;
@@ -713,23 +715,8 @@ Result doSmt(SmtEngine &smt, Command *cmd, Options &opts) {
     if((*pOptions)[options::statistics]) {
       pStatistics->flushInformation(*(*pOptions)[options::err]);
     }
-    return Result::SAT_UNKNOWN;
-  } catch(bad_alloc) {
-#ifdef CVC4_COMPETITION_MODE
-    *(*pOptions)[options::out] << "unknown" << endl;
-#endif
-    *(*pOptions)[options::err] << "CVC4 ran out of memory." << endl;
-    if((*pOptions)[options::statistics]) {
-      pStatistics->flushInformation(*(*pOptions)[options::err]);
-    }
-    return Result::SAT_UNKNOWN;
-  } catch(...) {
-#ifdef CVC4_COMPETITION_MODE
-    *(*pOptions)[options::out] << "unknown" << endl;
-#endif
-    *(*pOptions)[options::err] << "CVC4 threw an exception of unknown type." << endl;
-    return Result::SAT_UNKNOWN;
   }
+  return Result::SAT_UNKNOWN;
 }
 
 template<typename T>

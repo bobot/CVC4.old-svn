@@ -27,6 +27,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "prop/theory_proxy.h"
 #include "prop/minisat/minisat.h"
+#include "prop/options.h"
 #include "util/output.h"
 #include "expr/command.h"
 #include "proof/proof_manager.h"
@@ -126,6 +127,14 @@ Solver::Solver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, 
   , asynch_interrupt   (false)
 {
   PROOF(ProofManager::initSatProof(this);)
+
+  // Create the constant variables
+  varTrue = newVar(true, false, false);
+  varFalse = newVar(false, false, false);
+
+  // Assert the constants
+  uncheckedEnqueue(mkLit(varTrue, false));
+  uncheckedEnqueue(mkLit(varFalse, true));
 }
 
 
@@ -190,16 +199,27 @@ CRef Solver::reason(Var x) {
 
     // Compute the assertion level for this clause
     int explLevel = 0;
-    for (int i = 0; i < explanation.size(); ++ i) {
+    int i, j;
+    Lit prev = lit_Undef;
+    for (i = 0, j = 0; i < explanation.size(); ++ i) {
       int varLevel = intro_level(var(explanation[i]));
       if (varLevel > explLevel) {
         explLevel = varLevel;
       }
       Assert(value(explanation[i]) != l_Undef);
       Assert(i == 0 || trail_index(var(explanation[0])) > trail_index(var(explanation[i])));
+      // ignore zero level literals
+      if (i == 0 || (level(var(explanation[i])) > 0 && explanation[i] != prev)) {
+        prev = explanation[j++] = explanation[i];
+      }
+    }
+    explanation.shrink(i - j);
+    if (j == 1) {
+      // Add not TRUE to the clause
+      explanation.push(mkLit(varTrue, true));
     }
 
-    // Construct the reason (level 0)
+    // Construct the reason
     CRef real_reason = ca.alloc(explLevel, explanation, true);
     vardata[x] = mkVarData(real_reason, level(x), intro_level(x), trail_index(x));
     clauses_removable.push(real_reason);
@@ -370,8 +390,9 @@ Lit Solver::pickBranchLit()
     }
 #endif /* CVC4_REPLAY */
 
-    // Theory requests
-    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+    // Theory/DE requests
+    bool stopSearch = false;
+    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
     while (nextLit != lit_Undef) {
       if(value(var(nextLit)) == l_Undef) {
         Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
@@ -379,7 +400,10 @@ Lit Solver::pickBranchLit()
       } else {
         Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit << " but it already has an assignment" << std::endl;
       }
-      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
+    }
+    if(stopSearch) {
+      return lit_Undef;
     }
 
     Var next = var_Undef;
@@ -632,16 +656,8 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     Debug("minisat") << "unchecked enqueue of " << p << " (" << trail_index(var(p)) << ") trail size is " << trail.size() << " cap is " << trail.capacity() << std::endl;
     assert(value(p) == l_Undef);
     assigns[var(p)] = lbool(!sign(p));
-    if(trail_index(var(p)) != -1) {
-      // This var is already represented in the trail, presumably from
-      // an earlier incarnation as a unit clause (it has been
-      // unregistered and renewed since then)
-      vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)), trail_index(var(p)));
-      trail[trail_index(var(p))] = p;
-    } else {
-      vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)), trail.size());
-      trail.push_(p);
-    }
+    vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)), trail.size());
+    trail.push_(p);
     if (theory[var(p)]) {
       // Enqueue to the theory
       proxy->enqueueTheoryLiteral(MinisatSatSolver::toSatLiteral(p));
@@ -653,11 +669,12 @@ CRef Solver::propagate(TheoryCheckType type)
 {
     CRef confl = CRef_Undef;
     recheck = false;
+    theoryConflict = false;
 
     ScopedBool scoped_bool(minisat_busy, true);
 
-    // If we are not in the quick mode add the lemmas that were left behind
-    if (type != CHECK_WITHOUTH_THEORY && lemmas.size() > 0) {
+    // Add lemmas that we're left behind
+    if (lemmas.size() > 0) {
       confl = updateLemmas();
       if (confl != CRef_Undef) {
         return confl;
@@ -683,22 +700,44 @@ CRef Solver::propagate(TheoryCheckType type)
 
     // Keep running until we have checked everything, we
     // have no conflict and no new literals have been asserted
-      do {
+    do {
         // Propagate on the clauses
         confl = propagateBool();
 
         // If no conflict, do the theory check
         if (confl == CRef_Undef && type != CHECK_WITHOUTH_THEORY) {
             // Do the theory check
-            theoryCheck(CVC4::theory::Theory::EFFORT_STANDARD);
+            if (type == CHECK_FINAL_FAKE) {
+              theoryCheck(CVC4::theory::Theory::EFFORT_FULL);
+            } else {
+              theoryCheck(CVC4::theory::Theory::EFFORT_STANDARD);
+            }
             // Pick up the theory propagated literals
             propagateTheory();
             // If there are lemmas (or conflicts) update them
             if (lemmas.size() > 0) {
                 confl = updateLemmas();
             }
+        } else {
+          // Even though in conflict, we still need to discharge the lemmas
+          if (lemmas.size() > 0) {
+            // Remember the trail size
+            int oldLevel = decisionLevel();
+            // Update the lemmas
+            CRef lemmaConflict = updateLemmas();
+            // If we get a conflict, we prefer it since it's earlier in the trail
+            if (lemmaConflict != CRef_Undef) {
+              // Lemma conflict takes precedence, since it's earlier in the trail
+              confl = lemmaConflict;
+            } else {
+              // Otherwise, the Boolean conflict is canceled in the case we popped the trail
+              if (oldLevel > decisionLevel()) {
+                confl = CRef_Undef;
+              }
+            }
+          }
         }
-      } while (confl == CRef_Undef && qhead < trail.size());
+    } while (confl == CRef_Undef && qhead < trail.size());
 
     return confl;
 }
@@ -721,10 +760,14 @@ void Solver::propagateTheory() {
     if (value(p) == l_Undef) {
       uncheckedEnqueue(p, CRef_Lazy);
     } else {
-      // but we check that this is the case and that they agree
-      Debug("minisat") << "trail_index(var(p)) == " << trail_index(var(p)) << std::endl;
-      Assert(trail_index(var(p)) >= oldTrailSize);
-      Assert(value(p) == l_True, "a literal was theory-propagated, and so was its negation");
+      if (value(p) == l_False) {
+        Debug("minisat") << "Conflict in theory propagation" << std::endl;
+        SatClause explanation_cl;
+        proxy->explainPropagation(MinisatSatSolver::toSatLiteral(p), explanation_cl);
+        vec<Lit> explanation;
+        MinisatSatSolver::toMinisatClause(explanation_cl, explanation);
+        addClause(explanation, true);
+      }
     }
   }
 }
@@ -971,12 +1014,12 @@ lbool Solver::search(int nof_conflicts)
 
         if (confl != CRef_Undef) {
 
-          conflicts++; conflictC++;
+            conflicts++; conflictC++;
 
-          if (decisionLevel() == 0) {
-            PROOF( ProofManager::getSatProof()->finalizeProof(confl); )
-            return l_False;
-          }
+            if (decisionLevel() == 0) {
+                PROOF( ProofManager::getSatProof()->finalizeProof(confl); )
+                return l_False;
+            }
 
             // Analyze the conflict
             learnt_clause.clear();
@@ -989,7 +1032,7 @@ lbool Solver::search(int nof_conflicts)
 
                 PROOF( ProofManager::getSatProof()->endResChain(learnt_clause[0]); )
 
-             } else {
+            } else {
                 CRef cr = ca.alloc(max_level, learnt_clause, true);
                 clauses_removable.push(cr);
                 attachClause(cr);
@@ -1014,23 +1057,37 @@ lbool Solver::search(int nof_conflicts)
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
             }
 
-             // We have a conflict so, we are going back to standard checks
-            check_type = CHECK_WITH_THEORY;
+            if (theoryConflict && options::sat_refine_conflicts()) {
+              check_type = CHECK_FINAL_FAKE;
+            } else {
+              check_type = CHECK_WITH_THEORY;
+            }
+
         } else {
 
 	    // If this was a final check, we are satisfiable
             if (check_type == CHECK_FINAL) {
+	      bool decisionEngineDone = proxy->isDecisionEngineDone();
               // Unless a lemma has added more stuff to the queues
-              if (!order_heap.empty() || qhead < trail.size()) {
+              if (!decisionEngineDone  &&
+		  (!order_heap.empty() || qhead < trail.size()) ) {
                 check_type = CHECK_WITH_THEORY;
                 continue;
-              } else if (recheck) {
+              } else if (!decisionEngineDone && recheck) {
                 // There some additional stuff added, so we go for another full-check
                 continue;
               } else {
                 // Yes, we're truly satisfiable
+		if(decisionEngineDone) {
+		  // but we might know that only because of decision engine
+		  Trace("decision") << decisionEngineDone << " decision engine stopping us" << std::endl;
+		  interrupt();
+		  return l_Undef;
+		}
                 return l_True;
               }
+            } else if (check_type == CHECK_FINAL_FAKE) {
+              check_type = CHECK_WITH_THEORY;
             }
 
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()) {
@@ -1076,6 +1133,8 @@ lbool Solver::search(int nof_conflicts)
 
                 if (next == lit_Undef) {
                     // We need to do a full theory check to confirm
+                  Debug("minisat::search") << "Doing a full theoy check..."
+                                           << std::endl;
                     check_type = CHECK_FINAL;
                     continue;
                 }
@@ -1491,14 +1550,6 @@ CRef Solver::updateLemmas() {
             conflict = CRef_Lazy;
           }
         } else {
-//          if (Debug.isOn("minisat::lemmas")) {
-//          	Debug("minisat::lemmas") << "Solver::updateLemmas(): " << lemma[0] << " from ";
-//          	Clause& c = ca[lemma_ref];
-//          	for (int i = 0; i < c.size(); ++ i) {
-//          	   Debug("minisat::lemmas") << c[i] << "(" << value(c[i]) << "," << level(var(c[i])) << "," << trail_index(var(c[i])) << ") "; 
-//          	} 
-//			Debug("minisat::lemmas") << std::endl; 
-//          }
           Debug("minisat::lemmas") << "lemma size is " << lemma.size() << std::endl;
           uncheckedEnqueue(lemma[0], lemma_ref);
           if(lemma.size() == 1 && assertionLevel > 0) {
@@ -1515,6 +1566,10 @@ CRef Solver::updateLemmas() {
   // Clear the lemmas
   lemmas.clear();
   lemmas_removable.clear();
+
+  if (conflict != CRef_Undef) {
+    theoryConflict = true;
+  }
 
   return conflict;
 }

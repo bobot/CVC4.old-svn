@@ -1165,7 +1165,7 @@ parameterization[CVC4::parser::DeclarationCheck check,
 
 bound returns [CVC4::parser::cvc::mySubrangeBound bound]
   : UNDERSCORE { $bound = SubrangeBound(); }
-  | k=integer { $bound = SubrangeBound(k); }
+  | k=integer { $bound = SubrangeBound(k.getNumerator()); }
 ;
 
 typeLetDecl[CVC4::parser::DeclarationCheck check]
@@ -1199,7 +1199,7 @@ formula[CVC4::Expr& f]
       { f = addNots(EXPR_MANAGER, n, f);
         expressions.push_back(f);
       }
-      i=morecomparisons[expressions,operators]?
+      morecomparisons[expressions,operators]?
       { f = createPrecedenceTree(PARSER_STATE, EXPR_MANAGER, expressions, operators); }
     )
   ;
@@ -1219,7 +1219,7 @@ morecomparisons[std::vector<CVC4::Expr>& expressions,
       { f = addNots(EXPR_MANAGER, n, f);
         expressions.push_back(f);
       }
-      inner=morecomparisons[expressions,operators]?
+      morecomparisons[expressions,operators]?
     )
   ;
 
@@ -1462,7 +1462,7 @@ recordStore[CVC4::Expr& f]
       if(record.getName() != "__cvc4_record") {
         PARSER_STATE->parseError("record-update applied to non-record");
       }
-      const DatatypeConstructorArg* updateArg;
+      const DatatypeConstructorArg* updateArg = 0;
       try {
         updateArg = &record[0][id];
       } catch(IllegalArgumentException& e) {
@@ -1991,7 +1991,7 @@ numeral returns [unsigned k = 0]
 /**
  * Similar to numeral but for arbitrary-precision, signed integer.
  */
-integer returns [CVC4::Integer k = 0]
+integer returns [CVC4::Rational k = 0]
   : INTEGER_LITERAL
     { $k = AntlrInput::tokenToInteger($INTEGER_LITERAL); }
   | MINUS_TOK INTEGER_LITERAL

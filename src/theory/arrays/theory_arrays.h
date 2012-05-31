@@ -122,7 +122,7 @@ class TheoryArrays : public Theory {
 
   public:
 
-  TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
   ~TheoryArrays();
 
   std::string identify() const { return std::string("TheoryArrays"); }
@@ -133,24 +133,15 @@ class TheoryArrays : public Theory {
 
   private:
 
-  // PPNotifyClass: dummy template class for d_ppEqualityEngine - notifications not used
-  class PPNotifyClass {
-  public:
-    bool notify(TNode propagation) { return true; }
-    void notify(TNode t1, TNode t2) { }
-  };
-
-  /** The notify class for d_ppEqualityEngine */
-  PPNotifyClass d_ppNotify;
-
   /** Equaltity engine */
-  uf::EqualityEngine<PPNotifyClass> d_ppEqualityEngine;
+  eq::EqualityEngine d_ppEqualityEngine;
 
   // List of facts learned by preprocessor - needed for permanent ref for benefit of d_ppEqualityEngine
   context::CDList<Node> d_ppFacts;
 
   Node preprocessTerm(TNode term);
   Node recursivePreprocessTerm(TNode term);
+  bool ppDisequal(TNode a, TNode b);
 
   public:
 
@@ -175,6 +166,9 @@ class TheoryArrays : public Theory {
   /** Explain why this literal is true by adding assumptions */
   void explain(TNode literal, std::vector<TNode>& assumptions);
 
+  /** For debugging only- checks invariants about when things are preregistered*/
+  context::CDHashSet<Node, NodeHashFunction > d_isPreRegistered;
+
   public:
 
   void preRegisterTerm(TNode n);
@@ -187,17 +181,8 @@ class TheoryArrays : public Theory {
 
   private:
 
-  class MayEqualNotifyClass {
-  public:
-    bool notify(TNode propagation) { return true; }
-    void notify(TNode t1, TNode t2) { }
-  };
-
-  /** The notify class for d_mayEqualEqualityEngine */
-  MayEqualNotifyClass d_mayEqualNotify;
-
   /** Equaltity engine for determining if two arrays might be equal */
-  uf::EqualityEngine<MayEqualNotifyClass> d_mayEqualEqualityEngine;
+  eq::EqualityEngine d_mayEqualEqualityEngine;
 
   public:
 
@@ -238,37 +223,57 @@ class TheoryArrays : public Theory {
   private:
 
   // NotifyClass: template helper class for d_equalityEngine - handles call-back from congruence closure module
-  class NotifyClass {
+  class NotifyClass : public eq::EqualityEngineNotify {
     TheoryArrays& d_arrays;
   public:
     NotifyClass(TheoryArrays& arrays): d_arrays(arrays) {}
 
-    bool notify(TNode propagation) {
-      Debug("arrays") << spaces(d_arrays.getContext()->getLevel()) << "NotifyClass::notify(" << propagation << ")" << std::endl;
+    bool eqNotifyTriggerEquality(TNode equality, bool value) {
+      Debug("arrays::propagate") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyTriggerEquality(" << equality << ", " << (value ? "true" : "false") << ")" << std::endl;
       // Just forward to arrays
-      return d_arrays.propagate(propagation);
+      if (value) {
+        return d_arrays.propagate(equality);
+      } else {
+        return d_arrays.propagate(equality.notNode());
+      }
     }
 
-    void notify(TNode t1, TNode t2) {
-      Debug("arrays") << spaces(d_arrays.getContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
-      if (t1.getType().isArray()) {
-        d_arrays.mergeArrays(t1, t2);
-        if (!d_arrays.isShared(t1) || !d_arrays.isShared(t2)) {
-          return;
+    bool eqNotifyTriggerPredicate(TNode predicate, bool value) {
+      Unreachable();
+    }
+
+    bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) {
+      Debug("arrays::propagate") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyTriggerTermEquality(" << t1 << ", " << t2 << ")" << std::endl;
+      if (value) {
+        if (t1.getType().isArray()) {
+          d_arrays.mergeArrays(t1, t2);
+          if (!d_arrays.isShared(t1) || !d_arrays.isShared(t2)) {
+            return true;
+          }
         }
+        // Propagate equality between shared terms
+        Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
+        d_arrays.propagate(equality);
       }
-      // Propagate equality between shared terms
-      Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
-      d_arrays.propagate(equality);
+      // TODO: implement negation propagation
+      return true;
+    }
+
+    bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
+      Debug("arrays::propagate") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << ")" << std::endl;
+      if (Theory::theoryOf(t1) == THEORY_BOOL) {
+        return d_arrays.propagate(t1.iffNode(t2));
+      } else {
+        return d_arrays.propagate(t1.eqNode(t2));
+      }
     }
   };
-
 
   /** The notify class for d_equalityEngine */
   NotifyClass d_notify;
 
   /** Equaltity engine */
-  uf::EqualityEngine<NotifyClass> d_equalityEngine;
+  eq::EqualityEngine d_equalityEngine;
 
   // Are we in conflict?
   context::CDO<bool> d_conflict;
@@ -304,6 +309,7 @@ class TheoryArrays : public Theory {
 
   Node mkAnd(std::vector<TNode>& conjunctions);
   void setNonLinear(TNode a);
+  void checkRIntro1(TNode a, TNode b);
   void mergeArrays(TNode a, TNode b);
   void checkStore(TNode a);
   void checkRowForIndex(TNode i, TNode a);

@@ -16,8 +16,8 @@ libarith_la_SOURCES = \
 	constraint_forward.h \
 	constraint.h \
 	constraint.cpp \
-	difference_manager.h \
-	difference_manager.cpp \
+	congruence_manager.h \
+	congruence_manager.cpp \
 	normal_form.h\
 	normal_form.cpp \
 	arith_utilities.h \
@@ -27,9 +27,8 @@ libarith_la_SOURCES = \
 	partial_model.cpp \
 	linear_equality.h \
 	linear_equality.cpp \
-	arithvar_set.h \
-	tableau.h \
-	tableau.cpp \
+	matrix.h \
+	matrix.cpp \
 	arith_priority_queue.h \
 	arith_priority_queue.cpp \
 	simplex.h \
@@ -39,7 +38,11 @@ libarith_la_SOURCES = \
 	dio_solver.h \
 	dio_solver.cpp \
 	arith_pivot_rule.h \
-	arith_pivot_rule.cpp
+	arith_pivot_rule.cpp \
+	arith_unate_lemma_mode.h \
+	arith_unate_lemma_mode.cpp \
+	arith_propagation_mode.h \
+	arith_propagation_mode.cpp
 
 EXTRA_DIST = \
 	kinds \

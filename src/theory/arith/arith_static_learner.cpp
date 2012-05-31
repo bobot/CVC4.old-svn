@@ -152,10 +152,9 @@ void ArithStaticLearner::process(TNode n, NodeBuilder<>& learned, const TNodeSet
     }
     break;
   case CONST_RATIONAL:
-  case CONST_INTEGER:
     // Mark constants as minmax
-    d_minMap[n] = coerceToRational(n);
-    d_maxMap[n] = coerceToRational(n);
+    d_minMap[n] = n.getConst<Rational>();
+    d_maxMap[n] = n.getConst<Rational>();
     break;
   case OR: {
     // Look for things like "x = 0 OR x = 1" (that are defTrue) and
@@ -193,66 +192,11 @@ void ArithStaticLearner::process(TNode n, NodeBuilder<>& learned, const TNodeSet
       break;
     }
 
-    Integer k1, k2;
-    if(c1.getType().getConst<TypeConstant>() == INTEGER_TYPE) {
-      k1 = c1.getConst<Integer>();
-    } else {
-      Rational r = c1.getConst<Rational>();
-      if(r.getDenominator() == 1) {
-        k1 = r.getNumerator();
-      } else {
-        break;
-      }
-    }
-    if(c2.getType().getConst<TypeConstant>() == INTEGER_TYPE) {
-      k2 = c2.getConst<Integer>();
-    } else {
-      Rational r = c2.getConst<Rational>();
-      if(r.getDenominator() == 1) {
-        k2 = r.getNumerator();
-      } else {
-        break;
-      }
-    }
-    if(k1 > k2) {
-      swap(k1, k2);
-    }
-    if(k1 + 1 == k2) {
-      Debug("arith::static") << "==> found " << n << endl
-                             << "    which indicates " << var << " \\in { "
-                             << k1 << " , " << k2 << " }" << endl;
-      c1 = NodeManager::currentNM()->mkConst(k1);
-      c2 = NodeManager::currentNM()->mkConst(k2);
-      Node lhs = NodeBuilder<2>(kind::GEQ) << var << c1;
-      Node rhs = NodeBuilder<2>(kind::LEQ) << var << c2;
-      Node l = lhs && rhs;
-      Debug("arith::static") << "    learned: " << l << endl;
-      learned << l;
-      if(k1 == 0) {
-        Assert(k2 == 1);
-        replaceWithPseudoboolean(var);
-      }
-    }
     break;
   }
   default: // Do nothing
     break;
   }
-}
-
-void ArithStaticLearner::replaceWithPseudoboolean(TNode var) {
-  AssertArgument(var.getMetaKind() == kind::metakind::VARIABLE, var);
-  // [MGD 10/21/2011] disable pseudobooleans for now (as discussed in today's meeting)
-  /*
-  TypeNode pbType = NodeManager::currentNM()->pseudobooleanType();
-  Node pbVar = NodeManager::currentNM()->mkVar(string("PB[") + var.toString() + ']', pbType);
-  d_pbSubstitutions.addSubstitution(var, pbVar);
-
-  if(Debug.isOn("pb")) {
-    Expr::printtypes::Scope pts(Debug("pb"), true);
-    Debug("pb") << "will replace " << var << " with " << pbVar << endl;
-  }
-  */
 }
 
 void ArithStaticLearner::iteMinMax(TNode n, NodeBuilder<>& learned){
@@ -440,33 +384,12 @@ void ArithStaticLearner::miplibTrick(TNode var, set<Rational>& values, NodeBuild
   }
 }
 
-void ArithStaticLearner::checkBoundsForPseudobooleanReplacement(TNode n) {
-  NodeToMinMaxMap::iterator minFind = d_minMap.find(n);
-  NodeToMinMaxMap::iterator maxFind = d_maxMap.find(n);
-
-  if( n.getType().isInteger() &&
-      minFind != d_minMap.end() &&
-      maxFind != d_maxMap.end() &&
-      ( ( (*minFind).second.getNoninfinitesimalPart() == 1 &&
-          (*minFind).second.getInfinitesimalPart() == 0 ) ||
-        ( (*minFind).second.getNoninfinitesimalPart() == 0 &&
-          (*minFind).second.getInfinitesimalPart() > 0 ) ) &&
-      ( ( (*maxFind).second.getNoninfinitesimalPart() == 1 &&
-          (*maxFind).second.getInfinitesimalPart() == 0 ) ||
-        ( (*maxFind).second.getNoninfinitesimalPart() == 2 &&
-          (*maxFind).second.getInfinitesimalPart() < 0 ) ) ) {
-    // eligible for pseudoboolean replacement
-    Debug("pb") << "eligible for pseudoboolean replacement: " << n << endl;
-    replaceWithPseudoboolean(n);
-  }
-}
-
 void ArithStaticLearner::addBound(TNode n) {
 
   NodeToMinMaxMap::iterator minFind = d_minMap.find(n[0]);
   NodeToMinMaxMap::iterator maxFind = d_maxMap.find(n[0]);
 
-  Rational constant = coerceToRational(n[1]);
+  Rational constant = n[1].getConst<Rational>();
   DeltaRational bound = constant;
 
   switch(Kind k = n.getKind()) {
@@ -477,7 +400,6 @@ void ArithStaticLearner::addBound(TNode n) {
     if (maxFind == d_maxMap.end() || maxFind->second > bound) {
       d_maxMap[n[0]] = bound;
       Debug("arith::static") << "adding bound " << n << endl;
-      checkBoundsForPseudobooleanReplacement(n[0]);
     }
     break;
   case kind::GT:
@@ -487,7 +409,6 @@ void ArithStaticLearner::addBound(TNode n) {
     if (minFind == d_minMap.end() || minFind->second < bound) {
       d_minMap[n[0]] = bound;
       Debug("arith::static") << "adding bound " << n << endl;
-      checkBoundsForPseudobooleanReplacement(n[0]);
     }
     break;
   default:

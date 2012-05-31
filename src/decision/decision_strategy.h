@@ -20,10 +20,15 @@
 #define __CVC4__DECISION__DECISION_STRATEGY_H
 
 #include "prop/sat_solver_types.h"
+#include "util/ite_removal.h"
 
 namespace CVC4 {
 
 class DecisionEngine;
+
+namespace context {
+class Context;
+}
 
 namespace decision {
 
@@ -31,17 +36,31 @@ class DecisionStrategy {
 protected:
    DecisionEngine* d_decisionEngine;
 public:
-  DecisionStrategy(DecisionEngine* de) :
+  DecisionStrategy(DecisionEngine* de, context::Context *c) :
     d_decisionEngine(de) {
   }
 
   virtual ~DecisionStrategy() { }
 
-  virtual prop::SatLiteral getNext() = 0;
+  virtual prop::SatLiteral getNext(bool&) = 0;
   
-  virtual bool needSimplifiedPreITEAssertions() { return false; }
+  virtual bool needIteSkolemMap() { return false; }
   
   virtual void notifyAssertionsAvailable() { return; }
+};
+
+class ITEDecisionStrategy : public DecisionStrategy {
+public:
+  ITEDecisionStrategy(DecisionEngine* de, context::Context *c) :
+    DecisionStrategy(de, c) {
+  }
+
+
+  bool needIteSkolemMap() { return true; }
+
+  virtual void addAssertions(const std::vector<Node> &assertions,
+                             unsigned assertionsEnd,
+                             IteSkolemMap iteSkolemMap) = 0;
 };
 
 }/* decision namespace */

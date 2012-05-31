@@ -512,13 +512,28 @@ RewriteResponse TheoryBVRewriter::RewriteRotateLeft(TNode node, bool preregister
 }
 
 RewriteResponse TheoryBVRewriter::RewriteEqual(TNode node, bool preregister) {
-  Node resultNode = LinearRewriteStrategy
-    < RewriteRule<FailEq>,
-      RewriteRule<SimplifyEq>,
-      RewriteRule<ReflexivityEq>
-      >::apply(node);
-  
-  return RewriteResponse(REWRITE_DONE, resultNode); 
+  if (preregister) {
+    Node resultNode = LinearRewriteStrategy
+      < RewriteRule<FailEq>,
+        RewriteRule<SimplifyEq>,
+        RewriteRule<ReflexivityEq>,
+        RewriteRule<BitwiseEq>
+        >::apply(node);
+    return RewriteResponse(REWRITE_DONE, resultNode); 
+  }
+  else if(RewriteRule<BitwiseEq>::applies(node)) {
+    Node resultNode = RewriteRule<BitwiseEq>::run<false>(node);
+    return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  }
+  else {
+    Node resultNode = LinearRewriteStrategy
+      < RewriteRule<FailEq>,
+        RewriteRule<SimplifyEq>,
+        RewriteRule<ReflexivityEq>,
+        RewriteRule<SolveEq>
+        >::apply(node);
+    return RewriteResponse(REWRITE_DONE, resultNode); 
+  }
 }
 
 

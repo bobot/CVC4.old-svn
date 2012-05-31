@@ -27,65 +27,45 @@
 #include "context/cdhashset.h"
 #include "theory/bv/theory_bv_utils.h"
 #include "util/stats.h"
-#include "theory/uf/equality_engine.h"
 #include "context/cdqueue.h"
-
-namespace BVMinisat {
-class SimpSolver; 
-}
-
+#include "theory/bv/bv_subtheory.h"
+#include "theory/bv/bv_subtheory_eq.h"
+#include "theory/bv/bv_subtheory_bitblast.h"
 
 namespace CVC4 {
 namespace theory {
 namespace bv {
 
-/// forward declarations 
-class Bitblaster;
-
-static inline std::string spaces(int level)
-{
-  std::string indentStr(level, ' ');
-  return indentStr;
-}
-
 class TheoryBV : public Theory {
-
-
-private:
 
   /** The context we are using */
   context::Context* d_context;
 
-  /** The asserted stuff */
-  context::CDList<TNode> d_assertions;
-  
-  /** Bitblaster */
-  Bitblaster* d_bitblaster; 
-  Node d_true;
-  Node d_false;
-    
   /** Context dependent set of atoms we already propagated */
   context::CDHashSet<TNode, TNodeHashFunction> d_alreadyPropagatedSet;
+  context::CDHashSet<TNode, TNodeHashFunction> d_sharedTermsSet;
 
+  BitblastSolver d_bitblastSolver;
+  EqualitySolver d_equalitySolver;
 public:
 
-  TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
   ~TheoryBV(); 
 
   void preRegisterTerm(TNode n);
 
-  //void registerTerm(TNode n) { }
-
   void check(Effort e);
 
+  void propagate(Effort e);
+  
   Node explain(TNode n);
 
   Node getValue(TNode n);
 
   std::string identify() const { return std::string("TheoryBV"); }
 
-  //Node preprocessTerm(TNode term);
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions); 
+
 private:
   
   class Statistics {
@@ -99,33 +79,6 @@ private:
   
   Statistics d_statistics;
   
-  // Added by Clark
-  // NotifyClass: template helper class for d_equalityEngine - handles call-back from congruence closure module
-  class NotifyClass {
-    TheoryBV& d_bv;
-  public:
-    NotifyClass(TheoryBV& uf): d_bv(uf) {}
-
-    bool notify(TNode propagation) {
-      Debug("bitvector") << spaces(d_bv.getContext()->getLevel()) << "NotifyClass::notify(" << propagation << ")" << std::endl;
-      // Just forward to bv
-      return d_bv.propagate(propagation);
-    }
-
-    void notify(TNode t1, TNode t2) {
-      Debug("arrays") << spaces(d_bv.getContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
-      // Propagate equality between shared terms
-      Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
-      d_bv.propagate(t1.eqNode(t2));
-    }
-  };
-
-  /** The notify class for d_equalityEngine */
-  NotifyClass d_notify;
-
-  /** Equaltity engine */
-  uf::EqualityEngine<NotifyClass> d_equalityEngine;
-
   // Are we in conflict?
   context::CDO<bool> d_conflict;
 
@@ -138,21 +91,52 @@ private:
   /** Index of the next literal to propagate */
   context::CDO<unsigned> d_literalsToPropagateIndex;
 
-  context::CDQueue<Node> d_toBitBlast;
+  enum SubTheory {
+    SUB_EQUALITY = 1,
+    SUB_BITBLAST = 2
+  };
+
+  /**
+   * Keeps a map from nodes to the subtheory that propagated it so that we can explain it
+   * properly.
+   */
+  typedef context::CDHashMap<Node, SubTheory, NodeHashFunction> PropagatedMap;
+  PropagatedMap d_propagatedBy;
+
+  bool propagatedBy(TNode literal, SubTheory subtheory) const {
+    PropagatedMap::const_iterator find = d_propagatedBy.find(literal);
+    if (find == d_propagatedBy.end()) return false;
+    else return (*find).second == subtheory;
+  }
 
   /** Should be called to propagate the literal.  */
-  bool propagate(TNode literal);
+  bool storePropagation(TNode literal, SubTheory subtheory);
 
-  /** Explain why this literal is true by adding assumptions */
+  /**
+   * Explains why this literal (propagated by subtheory) is true by adding assumptions.
+   */
   void explain(TNode literal, std::vector<TNode>& assumptions);
 
   void addSharedTerm(TNode t);
 
   EqualityStatus getEqualityStatus(TNode a, TNode b);
 
-public:
+  inline std::string indent()
+  {
+    std::string indentStr(getSatContext()->getLevel(), ' ');
+    return indentStr;
+  }
 
-  void propagate(Effort e);
+  void setConflict(Node conflict) {
+    d_conflict = true; 
+    d_conflictNode = conflict; 
+  }
+
+  bool inConflict() { return d_conflict == true; }
+  
+  friend class Bitblaster;
+  friend class BitblastSolver;
+  friend class EqualitySolver; 
   
 };/* class TheoryBV */
 

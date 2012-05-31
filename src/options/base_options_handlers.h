@@ -61,10 +61,28 @@ inline InputLanguage stringToInputLanguage(std::string option, std::string optar
 }
 
 inline void addTraceTag(std::string option, std::string optarg) {
+  if(Configuration::isTracingBuild()) {
+    if(!Configuration::isTraceTag(optarg.c_str()))
+      throw OptionException(std::string("trace tag ") + optarg +
+                            std::string(" not available"));
+  } else {
+    throw OptionException("trace tags not available in non-tracing builds");
+  }
   Trace.on(optarg);
 }
 
 inline void addDebugTag(std::string option, std::string optarg) {
+  if(Configuration::isDebugBuild() && Configuration::isTracingBuild()) {
+    if(!Configuration::isDebugTag(optarg.c_str()) &&
+       !Configuration::isTraceTag(optarg.c_str())) {
+      throw OptionException(std::string("debug tag ") + optarg +
+                            std::string(" not available"));
+    }
+  } else if(! Configuration::isDebugBuild()) {
+    throw OptionException("debug tags not available in non-debug builds");
+  } else {
+    throw OptionException("debug tags not available in non-tracing builds");
+  }
   Debug.on(optarg);
   Trace.on(optarg);
 }

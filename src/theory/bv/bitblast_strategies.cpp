@@ -17,7 +17,7 @@
  **/
 
 #include "bitblast_strategies.h"
-#include "bv_sat.h"
+#include "bitblaster.h"
 #include "prop/sat_solver.h"
 #include "theory/booleans/theory_bool_rewriter.h"
 
@@ -39,7 +39,7 @@ Bits* rewriteBits(const Bits& bits) {
   return newbits;
 }
 
-Node rewrite(Node node) {
+Node rewrite(TNode node) {
   return Rewriter::rewrite(node); 
 }
 

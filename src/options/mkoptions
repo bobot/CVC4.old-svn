@@ -79,6 +79,8 @@ long_option_alternate_set=
 type=
 predicates=
 
+long_option_value_begin=$n_long
+
 function module {
   # module id name
 
@@ -1058,6 +1060,8 @@ filename="$(basename "$output")"
 nl -ba -s' ' "$template"  | grep '^ *[0-9][0-9]* # *line' |
   awk '{OFS="";if($1+1!=$3) print "'"$template"':",$1,": warning: incorrect annotation \"#line ",$3,"\" (it should be \"#line ",($1+1),"\")"}' >&2
 
+long_option_value_end=$n_long
+
 text=$(cat "$template")
 for var in \
     all_modules_defaults \
@@ -1074,6 +1078,8 @@ for var in \
     remaining_manpage_documentation \
     smt_getoption_handlers \
     smt_setoption_handlers \
+    long_option_value_begin \
+    long_option_value_end \
     template \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"

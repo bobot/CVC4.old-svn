@@ -27,7 +27,13 @@ namespace CVC4 {
 namespace decision {
 
 static const std::string decisionModeHelp = "\
-Decision mode help\n\
+Decision modes currently supported by the --decision option:\n\
+\n\
+internal (default)\n\
++ Use the internal decision hueristics of the SAT solver\n\
+\n\
+justification\n\
++ An ATGP-inspired justification heuristic\n\
 ";
 
 inline DecisionMode stringToDecisionMode(std::string option, std::string optarg) throw(OptionException) {

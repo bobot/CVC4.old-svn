@@ -25,6 +25,7 @@
 #include <vector>
 #include <utility>
 
+#include "decision/decision_engine.h"
 #include "expr/node.h"
 #include "expr/command.h"
 #include "prop/prop_engine.h"
@@ -41,7 +42,7 @@
 #include "util/stats.h"
 #include "util/hash.h"
 #include "util/cache.h"
-#include "util/ite_removal.h"
+#include "theory/ite_simplifier.h"
 
 namespace CVC4 {
 
@@ -51,7 +52,7 @@ namespace CVC4 {
 struct NodeTheoryPair {
   Node node;
   theory::TheoryId theory;
-  NodeTheoryPair(Node node, theory::TheoryId theory)
+  NodeTheoryPair(TNode node, theory::TheoryId theory)
   : node(node), theory(theory) {}
   NodeTheoryPair()
   : theory(theory::THEORY_LAST) {}
@@ -78,6 +79,9 @@ class TheoryEngine {
   /** Associated PropEngine engine */
   prop::PropEngine* d_propEngine;
 
+  /** Access to decision engine */
+  DecisionEngine* d_decisionEngine;
+
   /** Our context */
   context::Context* d_context;
 
@@ -91,13 +95,13 @@ class TheoryEngine {
   theory::Theory* d_theoryTable[theory::THEORY_LAST];
 
   /**
-   * A bitmap of theories that are "active" for the current run.  We
-   * mark a theory active when we first see a term or type belonging to
-   * it.  This is important because we can optimize for single-theory
-   * runs (no sharing), can reduce the cost of walking the DAG on
-   * registration, etc.
+   * A collection of theories that are "active" for the current run.
+   * This set is provided by the user (as a logic string, say, in SMT-LIBv2
+   * format input), or else by default it's all-inclusive.  This is important
+   * because we can optimize for single-theory runs (no sharing), can reduce
+   * the cost of walking the DAG on registration, etc.
    */
-  context::CDO<theory::Theory::Set> d_activeTheories;
+  const LogicInfo& d_logicInfo;
 
   // NotifyClass: template helper class for Shared Terms Database
   class NotifyClass :public SharedTermsDatabase::SharedTermsNotifyClass {
@@ -120,6 +124,7 @@ class TheoryEngine {
   SharedTermsDatabase d_sharedTerms;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
+  typedef std::hash_map<TNode, Node, TNodeHashFunction> TNodeMap;
 
   /**
   * Cache for theory-preprocessing of assertions
@@ -130,7 +135,7 @@ class TheoryEngine {
    * Used for "missed-t-propagations" dumping mode only.  A set of all
    * theory-propagable literals.
    */
-  std::vector<TNode> d_possiblePropagations;
+  context::CDList<TNode> d_possiblePropagations;
 
   /**
    * Used for "missed-t-propagations" dumping mode only.  A
@@ -258,11 +263,6 @@ class TheoryEngine {
   context::CDO<bool> d_inConflict;
 
   /**
-   * Does the context contain terms shared among multiple theories.
-   */
-  context::CDO<bool> d_sharedTermsExist;
-
-  /**
    * Explain the equality literals and push all the explaining literals
    * into the builder. All the non-equality literals are pushed to the
    * builder.
@@ -278,6 +278,11 @@ class TheoryEngine {
    * Called by the theories to notify of a conflict.
    */
   void conflict(TNode conflict, theory::TheoryId theoryId);
+
+  /**
+   * Called by shared terms database to notify of a conflict.
+   */
+  void sharedConflict(TNode conflict);
 
   /**
    * Debugging flag to ensure that shutdown() is called before the
@@ -305,16 +310,11 @@ class TheoryEngine {
     d_propEngine->spendResource();
   }
 
-  /**
-   * Is the theory active.
-   */
-  bool isActive(theory::TheoryId theory) {
-    return theory::Theory::setContains(theory, d_activeTheories);
-  }
-
   struct SharedLiteral {
-    /** The node/theory pair for the assertion */
-    /** THEORY_LAST indicates this is a SAT literal and should be sent to the SAT solver */
+    /**
+     * The node/theory pair for the assertion. THEORY_LAST indicates this is a SAT
+     * literal and should be sent to the SAT solver
+     */
     NodeTheoryPair toAssert;
     /** This is the node that we will use to explain it */
     Node toExplain;
@@ -323,7 +323,7 @@ class TheoryEngine {
     : toAssert(assertion, receivingTheory),
       toExplain(original)
     { }
-  };/* struct SharedLiteral */
+  };
 
   /**
    * Map from nodes to theories.
@@ -354,7 +354,13 @@ class TheoryEngine {
 
   void propagateSharedLiteral(TNode literal, TNode original, theory::TheoryId theory)
   {
-    d_propagatedSharedLiterals.push_back(SharedLiteral(literal, original, theory));
+    if (literal.getKind() == kind::CONST_BOOLEAN) {
+      Assert(!literal.getConst<bool>());
+      sharedConflict(original);
+    }
+    else {
+      d_propagatedSharedLiterals.push_back(SharedLiteral(literal, original, theory));
+    }
   }
 
   /**
@@ -432,34 +438,54 @@ class TheoryEngine {
       options::lemmaOutputChannel()->notifyNewLemma(node.toExpr());
     }
 
-    // Remove the ITEs and assert to prop engine
+    // Remove the ITEs
     std::vector<Node> additionalLemmas;
+    IteSkolemMap iteSkolemMap;
     additionalLemmas.push_back(node);
-    RemoveITE::run(additionalLemmas);
+    RemoveITE::run(additionalLemmas, iteSkolemMap);
     additionalLemmas[0] = theory::Rewriter::rewrite(additionalLemmas[0]);
+
+    // assert to prop engine
     d_propEngine->assertLemma(additionalLemmas[0], negated, removable);
     for (unsigned i = 1; i < additionalLemmas.size(); ++ i) {
       additionalLemmas[i] = theory::Rewriter::rewrite(additionalLemmas[i]);
       d_propEngine->assertLemma(additionalLemmas[i], false, removable);
     }
 
+    // WARNING: Below this point don't assume additionalLemmas[0] to be not negated.
+    // WARNING: Below this point don't assume additionalLemmas[0] to be not negated.
+    if(negated) {
+      // Can't we just get rid of passing around this 'negated' stuff?
+      // Is it that hard for the propEngine to figure that out itself?
+      // (I like the use of triple negation <evil laugh>.) --K
+      additionalLemmas[0] = additionalLemmas[0].notNode();
+      negated = false;
+    }
+    // WARNING: Below this point don't assume additionalLemmas[0] to be not negated.
+    // WARNING: Below this point don't assume additionalLemmas[0] to be not negated.
+
+    // assert to decision engine
+    if(!removable)
+      d_decisionEngine->addAssertions(additionalLemmas, 1, iteSkolemMap);
+
     // Mark that we added some lemmas
     d_lemmasAdded = true;
 
     // Lemma analysis isn't online yet; this lemma may only live for this
     // user level.
-    Node finalForm =
-      negated ? additionalLemmas[0].notNode() : additionalLemmas[0];
-    return theory::LemmaStatus(finalForm, d_userContext->getLevel());
+    return theory::LemmaStatus(additionalLemmas[0], d_userContext->getLevel());
   }
 
   /** Time spent in theory combination */
   TimerStat d_combineTheoriesTime;
 
+  Node d_true;
+  Node d_false;
+
 public:
 
   /** Constructs a theory engine */
-  TheoryEngine(context::Context* context, context::UserContext* userContext);
+  TheoryEngine(context::Context* context, context::UserContext* userContext, const LogicInfo& logic);
 
   /** Destroys a theory engine */
   ~TheoryEngine();
@@ -472,25 +498,17 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this));
-  }
-
-  /**
-   * Sets the logic (SMT-LIB format).  All theory specific setup/hacks
-   * should go in here.
-   */
-  void setLogic(std::string logic);
-
-  /**
-   * Mark a theory active if it's not already.
-   */
-  void markActive(theory::Theory::Set theories) {
-    d_activeTheories = theory::Theory::setUnion(d_activeTheories, theories);
+    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo);
   }
 
   inline void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
     d_propEngine = propEngine;
+  }
+
+  inline void setDecisionEngine(DecisionEngine* decisionEngine) {
+    Assert(d_decisionEngine == NULL);
+    d_decisionEngine = decisionEngine;
   }
 
   /**
@@ -506,6 +524,16 @@ private:
    * Helper for preprocess
    */
   Node ppTheoryRewrite(TNode term);
+
+  /**
+   * Queue of nodes for pre-registration.
+   */
+  std::queue<TNode> d_preregisterQueue;
+
+  /**
+   * Boolean flag denoting we are in pre-registration.
+   */
+  bool d_inPreregister;
 
 public:
 
@@ -700,6 +728,15 @@ private:
 
   /** Visitor for collecting shared terms */
   SharedTermsVisitor d_sharedTermsVisitor;
+
+  /** Prints the assertions to the debug stream */
+  void printAssertions(const char* tag);
+
+  /** For preprocessing pass simplifying ITEs */
+  ITESimplifier d_iteSimplifier;
+
+public:
+  Node ppSimpITE(TNode assertion);
 
 };/* class TheoryEngine */
 

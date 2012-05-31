@@ -168,7 +168,7 @@ inline Node mkBitOf(TNode node, unsigned index) {
 }
 
 
-inline Node mkConcat(Node node, unsigned repeat) {
+inline Node mkConcat(TNode node, unsigned repeat) {
   Assert (repeat); 
   if(repeat == 1) {
     return node; 
@@ -326,7 +326,10 @@ inline Node mkConjunction(const std::vector<TNode>& nodes) {
     ++ it;
   }
 
-  Assert(expandedNodes.size() > 0);
+  if (expandedNodes.size() == 0) {
+    return mkTrue();
+  }
+
   if (expandedNodes.size() == 1) {
     return *expandedNodes.begin();
   }

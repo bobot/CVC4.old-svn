@@ -77,6 +77,9 @@ t-lemmas [non-stateful]\n\
 t-explanations [non-stateful]\n\
 + Output correctness queries for all theory explanations\n\
 \n\
+bv-rewrites [non-stateful]\n\
++ Output correctness queries for all bitvector rewrites\n\
+\n\
 Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
 one from the assertions category (either assertions, learned, or clauses), and\n\
 perhaps one or more stateful or non-stateful modes for checking correctness\n\
@@ -122,7 +125,8 @@ inline void dumpMode(std::string option, std::string optarg) {
     } else if(!strcmp(optargPtr, "clauses")) {
     } else if(!strcmp(optargPtr, "t-conflicts") ||
               !strcmp(optargPtr, "t-lemmas") ||
-              !strcmp(optargPtr, "t-explanations")) {
+              !strcmp(optargPtr, "t-explanations") ||
+              !strcmp(optargPtr, "bv-rewrites")) {
       // These are "non-state-dumping" modes.  If state (SAT decisions,
       // propagations, etc.) is dumped, it will interfere with the validity
       // of these generated queries.
@@ -209,6 +213,14 @@ inline void setSimplificationModeSetByUser(std::string option, bool b) {
   options::simplificationModeSetByUser.set(true);
 }
 
+inline void setITESimpSetByUser(std::string option, bool b) {
+  options::doITESimpSetByUser.set(true);
+}
+
+inline void setRepeatSimpSetByUser(std::string option, bool b) {
+  options::repeatSimpSetByUser.set(true);
+}
+
 inline std::string checkReplayFilename(std::string option, std::string optarg) {
 #ifdef CVC4_REPLAY
   if(optarg == "") {
@@ -222,7 +234,7 @@ inline std::string checkReplayFilename(std::string option, std::string optarg) {
 }
 
 inline std::ostream* checkReplayLogFilename(std::string option, std::string optarg) {
-#ifdef CVC4_REPLAY 
+#ifdef CVC4_REPLAY
   if(optarg == "") {
     throw OptionException(std::string("Bad file name for --replay-log"));
   } else if(optarg == "-") {

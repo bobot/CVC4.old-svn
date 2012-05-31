@@ -85,11 +85,15 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     case kind::CONST_BITVECTOR: {
       const BitVector& bv = n.getConst<BitVector>();
       const Integer& x = bv.getValue();
-      out << "#b";
       unsigned n = bv.getSize();
-      while(n-- > 0) {
-        out << (x.testBit(n) ? '1' : '0');
-      }
+      out << "(_ ";
+      out << "bv" << x <<" " << n; 
+      out << ")"; 
+      // //out << "#b";
+
+      // while(n-- > 0) {
+      //   out << (x.testBit(n) ? '1' : '0');
+      // }
       break;
     }
     case kind::CONST_BOOLEAN:
@@ -100,25 +104,16 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     case kind::BUILTIN:
       out << smtKindString(n.getConst<Kind>());
       break;
-    case kind::CONST_INTEGER: {
-      Integer i = n.getConst<Integer>();
-      if(i < 0) {
-        out << "(- " << -i << ')';
-      } else {
-        out << i;
-      }
-      break;
-    }
     case kind::CONST_RATIONAL: {
       Rational r = n.getConst<Rational>();
       if(r < 0) {
-        if(r.getDenominator() == 1) {
+        if(r.isIntegral()) {
           out << "(- " << -r << ')';
         } else {
           out << "(- (/ " << (-r).getNumerator() << ' ' << (-r).getDenominator() << "))";
         }
       } else {
-        if(r.getDenominator() == 1) {
+        if(r.isIntegral()) {
           out << r;
         } else {
           out << "(/ " << r.getNumerator() << ' ' << r.getDenominator() << ')';

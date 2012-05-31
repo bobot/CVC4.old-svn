@@ -366,9 +366,12 @@ ${all_modules_option_handlers}
     case ':':
       // This can be a long or short option, and the way to get at the
       // name of it is different.
-      if(optopt == 0) { // was a long option
+      if(optopt == 0 ||
+         ( optopt >= ${long_option_value_begin} && optopt <= ${long_option_value_end} )) {
+        // was a long option
         throw OptionException(std::string("option `") + argv[optind - 1] + "' missing its required argument");
-      } else { // was a short option
+      } else {
+        // was a short option
         throw OptionException(std::string("option `-") + char(optopt) + "' missing its required argument");
       }
 
