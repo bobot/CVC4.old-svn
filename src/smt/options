@@ -1,6 +1,6 @@
 #
 # Option specification file for CVC4
-# See src/options/options for a description of this file format
+# See src/options/base_options for a description of this file format
 #
 
 # FIXME: need to add support for SMT-LIBv2-required options:

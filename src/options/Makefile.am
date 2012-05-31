@@ -13,6 +13,7 @@ OPTIONS_FILES = \
 	proof/options \
 	printer/options \
 	smt/options \
+	decision/options \
 	main/options \
 	parser/options
 

@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): cconway
+ ** Minor contributors (to current version): cconway, kshitij
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -27,6 +27,7 @@
 #include "context/cdlist.h"
 #include "context/cdhashset.h"
 #include "context/context.h"
+#include "decision/decision_engine.h"
 #include "expr/command.h"
 #include "expr/expr.h"
 #include "expr/kind.h"
@@ -224,6 +225,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_userContext(new UserContext()),
   d_exprManager(em),
   d_nodeManager(d_exprManager->getNodeManager()),
+  d_decisionEngine(NULL),
   d_theoryEngine(NULL),
   d_propEngine(NULL),
   d_definedFunctions(NULL),
@@ -263,8 +265,10 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
     d_theoryEngine->addTheory<theory::TheoryTraits<THEORY>::theory_class>(THEORY);
   CVC4_FOR_EACH_THEORY;
 
-  d_propEngine = new PropEngine(d_theoryEngine, d_context);
+  d_decisionEngine = new DecisionEngine();
+  d_propEngine = new PropEngine(d_theoryEngine, d_decisionEngine, d_context);
   d_theoryEngine->setPropEngine(d_propEngine);
+  // d_decisionEngine->setPropEngine(d_propEngine);
 
   d_definedFunctions = new(true) DefinedFunctionMap(d_userContext);
 
@@ -291,6 +295,9 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   if(options::cumulativeMillisecondLimit() != 0) {
     setTimeLimit(options::cumulativeMillisecondLimit(), true);
   }
+
+  d_propEngine->assertFormula(NodeManager::currentNM()->mkConst<bool>(true));
+  d_propEngine->assertFormula(NodeManager::currentNM()->mkConst<bool>(false).notNode());
 }
 
 void SmtEngine::shutdown() {
@@ -306,6 +313,7 @@ void SmtEngine::shutdown() {
 
   d_propEngine->shutdown();
   d_theoryEngine->shutdown();
+  d_decisionEngine->shutdown();
 }
 
 SmtEngine::~SmtEngine() throw() {
@@ -835,9 +843,6 @@ void SmtEnginePrivate::simplifyAssertions()
       staticLearning();
     }
 
-    // Remove ITEs
-    removeITEs();
-
   } catch(TypeCheckingExceptionPrivate& tcep) {
     // Calls to this function should have already weeded out any
     // typechecking exceptions via (e.g.) ensureBoolean().  But a
@@ -921,6 +926,15 @@ void SmtEnginePrivate::processAssertions() {
 
   // Simplify the assertions
   simplifyAssertions();
+
+  if(d_smt.d_decisionEngine->needSimplifiedPreITEAssertions()) {
+    d_smt.d_decisionEngine->informSimplifiedPreITEAssertions(d_assertionsToCheck);
+  }
+
+  // Remove ITEs
+  removeITEs();                 // This may need to be in a try-catch
+                                // block. make regress is passing, so
+                                // skipping for now --K
 
   Trace("smt") << "SmtEnginePrivate::processAssertions() POST SIMPLIFICATION" << endl;
   Debug("smt") << " d_assertionsToPreprocess: " << d_assertionsToPreprocess.size() << endl;

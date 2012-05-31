@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: taking, cconway, dejan
- ** Minor contributors (to current version): barrett
+ ** Minor contributors (to current version): barrett, kshitij
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -32,6 +32,7 @@
 
 namespace CVC4 {
 
+class DecisionEngine;
 class TheoryEngine;
 
 namespace prop {
@@ -50,6 +51,9 @@ class TheoryProxy {
   /** The CNF engine we are using */
   CnfStream* d_cnfStream;
 
+  /** The decision engine we are using */
+  DecisionEngine* d_decisionEngine;
+
   /** The theory engine we are using */
   TheoryEngine* d_theoryEngine;
 
@@ -65,6 +69,7 @@ class TheoryProxy {
 public:
   TheoryProxy(PropEngine* propEngine,
               TheoryEngine* theoryEngine,
+              DecisionEngine* decisionEngine,
               context::Context* context,
               CnfStream* cnfStream);
 
@@ -112,10 +117,12 @@ public:
 
 inline TheoryProxy::TheoryProxy(PropEngine* propEngine,
                                 TheoryEngine* theoryEngine,
+                                DecisionEngine* decisionEngine,
                                 context::Context* context,
                                 CnfStream* cnfStream) :
   d_propEngine(propEngine),
   d_cnfStream(cnfStream),
+  d_decisionEngine(decisionEngine),
   d_theoryEngine(theoryEngine),
   d_context(context)
 {}
