@@ -89,6 +89,8 @@ bool Relevancy::findSplitterRec(TNode node,
     << "findSplitterRec([" << node.getId() << "]" << node << ", " 
     << desiredVal << ", .. )" << std::endl; 
 
+  ++d_expense;
+
   /* Handle NOT as a special case */
   while (node.getKind() == kind::NOT) {
     desiredVal = invertValue(desiredVal);

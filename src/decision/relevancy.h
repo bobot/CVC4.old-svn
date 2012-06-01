@@ -67,6 +67,8 @@ class Relevancy : public RelevancyStrategy {
   IntStat d_polqueries;
   IntStat d_polhelp;
   IntStat d_giveup;
+  IntStat d_expense;          /* Total number of nodes considered over
+                                 all calls to the findSplitter function */
   TimerStat d_timestat;
 
   /**
@@ -118,6 +120,7 @@ public:
     d_polqueries("decision::rel::polarityQueries", 0),
     d_polhelp("decision::rel::polarityHelp", 0),
     d_giveup("decision::rel::giveup", 0),
+    d_expense("decision::rel::expense", 0),
     d_timestat("decision::rel::time"),
     d_relevancy(c),
     d_multipleBacktrace(true),
@@ -129,6 +132,7 @@ public:
     StatisticsRegistry::registerStat(&d_polqueries);
     StatisticsRegistry::registerStat(&d_polhelp);
     StatisticsRegistry::registerStat(&d_giveup);
+    StatisticsRegistry::registerStat(&d_expense);
     StatisticsRegistry::registerStat(&d_timestat);
     Trace("decision") << "relevancy enabled with" << std::endl;
     Trace("decision") << "  * relevancyLeaves: " << (d_relevancyLeaves ? "on" : "off")
@@ -139,6 +143,7 @@ public:
     StatisticsRegistry::unregisterStat(&d_polqueries);
     StatisticsRegistry::unregisterStat(&d_polhelp);
     StatisticsRegistry::unregisterStat(&d_giveup);
+    StatisticsRegistry::unregisterStat(&d_expense);
     StatisticsRegistry::unregisterStat(&d_timestat);
   }
   prop::SatLiteral getNext(bool &stopSearch) {
