@@ -182,7 +182,7 @@ public:
       StatisticsRegistry::unregisterStat(&functionTermsCount);
       StatisticsRegistry::unregisterStat(&constantTermsCount);
     }
-  };
+  };/* struct EqualityEngine::statistics */
 
   /**
    * Store the application lookup, with enough information to backtrack
@@ -254,7 +254,7 @@ public:
     /** Equality constructor */
     Equality(EqualityNodeId lhs = null_id, EqualityNodeId rhs = null_id)
     : lhs(lhs), rhs(rhs) {}
-  };
+  };/* struct EqualityEngine::Equality */
 
   /** The ids of the classes we have merged */
   std::vector<Equality> d_assertedEqualities;
@@ -295,7 +295,7 @@ public:
 
     /** The reason of this edge */
     TNode getReason() const { return d_reason; }
-};
+  };/* class EqualityEngine::EqualityEdge */
 
   /**
    * All the equality edges (twice as many as the number of asserted equalities. If an equality
@@ -310,7 +310,7 @@ public:
   std::string edgesToString(EqualityEdgeId edgeId) const;
 
   /**
-   * Map from a node to it's first edge in the equality graph. Edges are added to the front of the
+   * Map from a node to its first edge in the equality graph. Edges are added to the front of the
    * list which makes the insertion/backtracking easy.
    */
   std::vector<EqualityEdgeId> d_equalityGraph;
@@ -339,7 +339,7 @@ public:
    */
   bool merge(EqualityNode& class1, EqualityNode& class2, std::vector<TriggerId>& triggers);
 
-  /** Undo the mereg of class2 into class1 */
+  /** Undo the merge of class2 into class1 */
   void undoMerge(EqualityNode& class1, EqualityNode& class2, EqualityNodeId class2Id);
 
   /** Backtrack the information if necessary */
@@ -356,7 +356,7 @@ public:
 
     Trigger(EqualityNodeId classId = null_id, TriggerId nextTrigger = null_trigger)
     : classId(classId), nextTrigger(nextTrigger) {}
-  };
+  };/* struct EqualityEngine::Trigger */
 
   /**
    * Vector of triggers. Triggers come in pairs for an
@@ -471,7 +471,7 @@ public:
     EqualityNodeId getTrigger(TheoryId tag) const {
       return triggers[Theory::setIndex(tag, tags)];
     }
-  };
+  };/* struct EqualityEngine::TriggerTermSet */
 
   /** Internal tags for creating a new set */
   Theory::Set d_newSetTags;
@@ -486,7 +486,7 @@ public:
   char* d_triggerDatabase;
 
   /** Allocated size of the trigger term database */
-  DefaultSizeType d_triggerDatabaseAllocatedSize ;
+  DefaultSizeType d_triggerDatabaseAllocatedSize;
 
   /** Reference for the trigger terms set */
   typedef DefaultSizeType TriggerTermSetRef;
@@ -517,7 +517,7 @@ public:
     TriggerTermSetRef oldValue;
     TriggerSetUpdate(EqualityNodeId classId = null_id, TriggerTermSetRef oldValue = null_set_id) 
     : classId(classId), oldValue(oldValue) {}
-  };
+  };/* struct EqualityEngine::TriggerSetUpdate */
 
   /**
    * List of trigger updates for backtracking.
@@ -655,7 +655,7 @@ public:
    * Add term to the set of trigger terms with a corresponding tag. The notify class will get
    * notified when two trigger terms with the same tag become equal or dis-equal. The notification
    * will not happen on all the terms, but only on the ones that are represent the class. Note that
-   * a term can be added more than once with different tags, and each tag apperance will merit
+   * a term can be added more than once with different tags, and each tag appearance will merit
    * it's own notification.
    *
    * @param t the trigger term
