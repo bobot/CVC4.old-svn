@@ -54,11 +54,22 @@ namespace CVC4 {
 
 CVC4_THREADLOCAL(Options*) Options::s_current = NULL;
 
+/**
+ * This is a default handler for options of built-in C++ type.  This
+ * template is really just a helper for the handleOption() template,
+ * below.  Variants of this template handle numeric and non-numeric,
+ * integral and non-integral, signed and unsigned C++ types.
+ * handleOption() makes sure to instantiate the right one.
+ *
+ * This implements default behavior when e.g. an option is
+ * unsigned but the user specifies a negative argument; etc.
+ */
 template <class T, bool is_numeric, bool is_integer>
 struct OptionHandler {
   static T handle(std::string option, std::string optarg);
 };/* struct OptionHandler<> */
 
+/** Variant for integral C++ types */
 template <class T>
 struct OptionHandler<T, true, true> {
   static T handle(std::string option, std::string optarg) {
@@ -66,12 +77,15 @@ struct OptionHandler<T, true, true> {
       Integer i(optarg, 0);
 
       if(! std::numeric_limits<T>::is_signed && i < 0) {
+        // unsigned type but user gave negative argument
         throw OptionException(option + " requires a nonnegative argument");
       } else if(i < std::numeric_limits<T>::min()) {
+        // negative overflow for type
         std::stringstream ss;
         ss << option << " requires an argument >= " << std::numeric_limits<T>::min();
         throw OptionException(ss.str());
       } else if(i > std::numeric_limits<T>::max()) {
+        // positive overflow for type
         std::stringstream ss;
         ss << option << " requires an argument <= " << std::numeric_limits<T>::max();
         throw OptionException(ss.str());
@@ -83,28 +97,34 @@ struct OptionHandler<T, true, true> {
         return T(i.getUnsignedLong());
       }
     } catch(std::invalid_argument&) {
+      // user gave something other than an integer
       throw OptionException(option + " requires an integer argument");
     }
   }
 };/* struct OptionHandler<T, true, true> */
 
+/** Variant for numeric but non-integral C++ types */
 template <class T>
 struct OptionHandler<T, true, false> {
   static T handle(std::string option, std::string optarg) {
     std::stringstream in(optarg);
     long double r;
     in >> r;
-    if(! in.eof()) { // we didn't consume the whole string (junk at end)
+    if(! in.eof()) {
+      // we didn't consume the whole string (junk at end)
       throw OptionException(option + " requires a numeric argument");
     }
 
     if(! std::numeric_limits<T>::is_signed && r < 0.0) {
+      // unsigned type but user gave negative value
       throw OptionException(option + " requires a nonnegative argument");
     } else if(r < -std::numeric_limits<T>::max()) {
+      // negative overflow for type
       std::stringstream ss;
       ss << option << " requires an argument >= " << -std::numeric_limits<T>::max();
       throw OptionException(ss.str());
     } else if(r > std::numeric_limits<T>::max()) {
+      // positive overflow for type
       std::stringstream ss;
       ss << option << " requires an argument <= " << std::numeric_limits<T>::max();
       throw OptionException(ss.str());
@@ -114,6 +134,7 @@ struct OptionHandler<T, true, false> {
   }
 };/* struct OptionHandler<T, true, false> */
 
+/** Variant for non-numeric C++ types */
 template <class T>
 struct OptionHandler<T, false, false> {
   static T handle(std::string option, std::string optarg) {
@@ -127,18 +148,24 @@ struct OptionHandler<T, false, false> {
   }
 };/* struct OptionHandler<T, false, false> */
 
+/** Handle an option of type T in the default way. */
 template <class T>
 T handleOption(std::string option, std::string optarg) {
   return OptionHandler<T, std::numeric_limits<T>::is_specialized, std::numeric_limits<T>::is_integer>::handle(option, optarg);
 }
 
+/** Handle an option of type std::string in the default way. */
 template <>
 std::string handleOption<std::string>(std::string option, std::string optarg) {
   return optarg;
 }
 
+/**
+ * Run handler, and any user-given predicates, for option T.
+ * If a user specifies a :handler or :predicates, it overrides this.
+ */
 template <class T>
-typename T::type runHandlers(T, std::string option, std::string optarg) {
+typename T::type runHandlerAndPredicates(T, std::string option, std::string optarg, SmtEngine* smt) {
   // By default, parse the option argument in a way appropriate for its type.
   // E.g., for "unsigned int" options, ensure that the provided argument is
   // a nonnegative integer that fits in the unsigned int type.
@@ -147,15 +174,15 @@ typename T::type runHandlers(T, std::string option, std::string optarg) {
 }
 
 template <class T>
-void runBoolHandlers(T, std::string option, bool b) {
-  // By default, nothing to handle with bool.
-  // Users override with :handler in options files to
-  // provide custom handlers that can throw exceptions.
+void runBoolPredicates(T, std::string option, bool b, SmtEngine* smt) {
+  // By default, nothing to do for bool.  Users add things with
+  // :predicate in options files to provide custom checking routines
+  // that can throw exceptions.
 }
 
 ${all_custom_handlers}
 
-#line 159 "${template}"
+#line 186 "${template}"
 
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
@@ -185,18 +212,18 @@ options::OptionsHolder::OptionsHolder() : ${all_modules_defaults}
 {
 }
 
-#line 189 "${template}"
+#line 216 "${template}"
 
 static const std::string mostCommonOptionsDescription = "\
 Most commonly-used CVC4 options:${common_documentation}";
 
-#line 194 "${template}"
+#line 221 "${template}"
 
 static const std::string optionsDescription = mostCommonOptionsDescription + "\n\
 \n\
 Additional CVC4 options:${remaining_documentation}";
 
-#line 200 "${template}"
+#line 227 "${template}"
 
 static const std::string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -258,7 +285,7 @@ static struct option cmdlineOptions[] = {${all_modules_long_options}
   { NULL, no_argument, NULL, '\0' }
 };/* cmdlineOptions */
 
-#line 262 "${template}"
+#line 289 "${template}"
 
 static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
@@ -292,6 +319,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
   s_current = this;
 
   const char *progName = argv[0];
+  SmtEngine* const smt = NULL;
 
   // Reset getopt(), in the case of multiple calls to parseOptions().
   // This can be = 1 in newer GNU getopt, but older (< 2007) require = 0.
@@ -361,7 +389,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 365 "${template}"
+#line 393 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the

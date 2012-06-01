@@ -24,7 +24,7 @@
 namespace CVC4 {
 namespace main {
 
-inline void showConfiguration(std::string option) {
+inline void showConfiguration(std::string option, SmtEngine* smt) {
   fputs(Configuration::about().c_str(), stdout);
   printf("\n");
   printf("version    : %s\n", Configuration::getVersionString().c_str());
@@ -62,7 +62,7 @@ inline void showConfiguration(std::string option) {
   exit(0);
 }
 
-inline void showDebugTags(std::string option) {
+inline void showDebugTags(std::string option, SmtEngine* smt) {
   if(Configuration::isDebugBuild() && Configuration::isTracingBuild()) {
     printf("available tags:");
     unsigned ntags = Configuration::getNumDebugTags();
@@ -79,7 +79,7 @@ inline void showDebugTags(std::string option) {
   exit(0);
 }
 
-inline void showTraceTags(std::string option) {
+inline void showTraceTags(std::string option, SmtEngine* smt) {
   if(Configuration::isTracingBuild()) {
     printf("available tags:");
     unsigned ntags = Configuration::getNumTraceTags();

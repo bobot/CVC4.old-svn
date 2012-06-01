@@ -111,7 +111,7 @@ none\n\
 + do not perform nonclausal simplification\n\
 ";
 
-inline void dumpMode(std::string option, std::string optarg) {
+inline void dumpMode(std::string option, std::string optarg, SmtEngine* smt) {
 #ifdef CVC4_DUMPING
   char* optargPtr = strdup(optarg.c_str());
   char* tokstr = optargPtr;
@@ -175,7 +175,7 @@ inline void dumpMode(std::string option, std::string optarg) {
 #endif /* CVC4_DUMPING */
 }
 
-inline void dumpToFile(std::string option, std::string optarg) {
+inline void dumpToFile(std::string option, std::string optarg, SmtEngine* smt) {
 #ifdef CVC4_DUMPING
   if(optarg == "") {
     throw OptionException(std::string("Bad file name for --dump-to"));
@@ -193,7 +193,7 @@ inline void dumpToFile(std::string option, std::string optarg) {
 #endif /* CVC4_DUMPING */
 }
 
-inline SimplificationMode stringToSimplificationMode(std::string option, std::string optarg) throw(OptionException) {
+inline SimplificationMode stringToSimplificationMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg == "batch") {
     return SIMPLIFICATION_MODE_BATCH;
   } else if(optarg == "incremental") {
@@ -209,7 +209,7 @@ inline SimplificationMode stringToSimplificationMode(std::string option, std::st
   }
 }
 
-inline std::string checkReplayFilename(std::string option, std::string optarg) {
+inline std::string checkReplayFilename(std::string option, std::string optarg, SmtEngine* smt) {
 #ifdef CVC4_REPLAY
   if(optarg == "") {
     throw OptionException(std::string("Bad file name for --replay"));
@@ -221,7 +221,7 @@ inline std::string checkReplayFilename(std::string option, std::string optarg) {
 #endif /* CVC4_REPLAY */
 }
 
-inline std::ostream* checkReplayLogFilename(std::string option, std::string optarg) {
+inline std::ostream* checkReplayLogFilename(std::string option, std::string optarg, SmtEngine* smt) {
 #ifdef CVC4_REPLAY
   if(optarg == "") {
     throw OptionException(std::string("Bad file name for --replay-log"));

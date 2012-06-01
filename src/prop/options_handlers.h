@@ -29,7 +29,7 @@
 namespace CVC4 {
 namespace prop {
 
-inline void showSatSolvers(std::string option) {
+inline void showSatSolvers(std::string option, SmtEngine* smt) {
   std::vector<std::string> solvers;
   SatSolverFactory::getSolverIds(solvers);
   printf("Available SAT solvers: ");

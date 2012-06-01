@@ -10,8 +10,6 @@
 #   diagnostic-output-channel
 #   produce-unsat-cores
 #
-# also need to implement print-success
-#
 
 module SMT "smt/options.h" SMT layer
 
@@ -26,12 +24,13 @@ expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
 option simplificationMode --simplification=MODE SimplificationMode :handler CVC4::smt::stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :read-write :include "smt/simplification_mode.h" :handler-include "smt/options_handlers.h"
  choose simplification mode, see --simplification=help
 alias --no-simplification = --simplification=none
+ turn off all simplification (same as --simplification=none)
 
 option doStaticLearning static-learning /--no-static-learning bool :default true
  use static learning (on by default)
 /turn off static learning (e.g. diamond-breaking)
 
-common-option produceModels produce-models -m --produce-models bool
+common-option produceModels produce-models -m --produce-models bool :predicate CVC4::SmtEngine::beforeSearch :predicate-include "smt/smt_engine.h"
  support the get-value command
 common-option produceAssignments produce-assignments --produce-assignments bool
  support the get-assignment command

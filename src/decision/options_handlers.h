@@ -36,7 +36,7 @@ justification\n\
 + An ATGP-inspired justification heuristic\n\
 ";
 
-inline DecisionMode stringToDecisionMode(std::string option, std::string optarg) throw(OptionException) {
+inline DecisionMode stringToDecisionMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg == "internal") {
     return DECISION_STRATEGY_INTERNAL;
   } else if(optarg == "justification") {

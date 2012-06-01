@@ -65,7 +65,7 @@ Pivot rules available:\n\
   The maximum violation the bound\n\
 ";
 
-inline ArithUnateLemmaMode stringToArithUnateLemmaMode(std::string option, std::string optarg) {
+inline ArithUnateLemmaMode stringToArithUnateLemmaMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg == "all") {
     return ALL_PRESOLVE_LEMMAS;
   } else if(optarg == "none") {
@@ -83,7 +83,7 @@ inline ArithUnateLemmaMode stringToArithUnateLemmaMode(std::string option, std::
   }
 }
 
-inline ArithPropagationMode stringToArithPropagationMode(std::string option, std::string optarg) {
+inline ArithPropagationMode stringToArithPropagationMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg == "none") {
     return NO_PROP;
   } else if(optarg == "unate") {
@@ -101,7 +101,7 @@ inline ArithPropagationMode stringToArithPropagationMode(std::string option, std
   }
 }
 
-inline ArithPivotRule stringToArithPivotRule(std::string option, std::string optarg) {
+inline ArithPivotRule stringToArithPivotRule(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg == "min") {
     return MINIMUM;
   } else if(optarg == "min-break-ties") {

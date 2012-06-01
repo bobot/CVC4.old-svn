@@ -493,6 +493,17 @@ public:
     return d_status;
   }
 
+  /**
+   * Used as a predicate for options preprocessor.
+   */
+  static void beforeSearch(std::string option, bool value, SmtEngine* smt) {
+    if(smt->d_queryMade || smt->d_problemExtended) {
+      std::stringstream ss;
+      ss << "cannot change option `" << option << "' after assertions have been made";
+      throw OptionException(ss.str());
+    }
+  }
+
 };/* class SmtEngine */
 
 }/* CVC4 namespace */

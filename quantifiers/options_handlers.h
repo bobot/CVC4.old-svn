@@ -24,7 +24,7 @@ Possible settings for --literal-matching:\n\
 + equality\n\
 ";
 
-inline InstWhenMode stringToInstWhenMode(std::string option, std::string optarg) {
+inline InstWhenMode stringToInstWhenMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg == "eager") {
     return INST_WHEN_EAGER;
   } else if(optarg == "full") {
@@ -42,7 +42,7 @@ inline InstWhenMode stringToInstWhenMode(std::string option, std::string optarg)
   }
 }
 
-inline LiteralMatchMode stringToLiteralMatchMode(std::string option, std::string optarg) {
+inline LiteralMatchMode stringToLiteralMatchMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg ==  "none") {
     return LITERAL_MATCH_NONE;
   } else if(optarg ==  "predicate") {

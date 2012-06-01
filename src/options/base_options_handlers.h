@@ -10,15 +10,15 @@
 namespace CVC4 {
 namespace options {
 
-inline void increaseVerbosity(std::string option) {
+inline void increaseVerbosity(std::string option, SmtEngine* smt) {
   options::verbosity.set(options::verbosity() + 1);
 }
 
-inline void decreaseVerbosity(std::string option) {
+inline void decreaseVerbosity(std::string option, SmtEngine* smt) {
   options::verbosity.set(options::verbosity() - 1);
 }
 
-inline OutputLanguage stringToOutputLanguage(std::string option, std::string optarg) throw(OptionException) {
+inline OutputLanguage stringToOutputLanguage(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg == "cvc4" || optarg == "pl") {
     return language::output::LANG_CVC4;
   } else if(optarg == "smtlib" || optarg == "smt") {
@@ -40,7 +40,7 @@ inline OutputLanguage stringToOutputLanguage(std::string option, std::string opt
   return language::output::LANG_AUTO;
 }
 
-inline InputLanguage stringToInputLanguage(std::string option, std::string optarg) throw(OptionException) {
+inline InputLanguage stringToInputLanguage(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg == "cvc4" || optarg == "pl" || optarg == "presentation") {
     return language::input::LANG_CVC4;
   } else if(optarg == "smtlib" || optarg == "smt") {
@@ -60,7 +60,7 @@ inline InputLanguage stringToInputLanguage(std::string option, std::string optar
   return language::input::LANG_AUTO;
 }
 
-inline void addTraceTag(std::string option, std::string optarg) {
+inline void addTraceTag(std::string option, std::string optarg, SmtEngine* smt) {
   if(Configuration::isTracingBuild()) {
     if(!Configuration::isTraceTag(optarg.c_str()))
       throw OptionException(std::string("trace tag ") + optarg +
@@ -71,7 +71,7 @@ inline void addTraceTag(std::string option, std::string optarg) {
   Trace.on(optarg);
 }
 
-inline void addDebugTag(std::string option, std::string optarg) {
+inline void addDebugTag(std::string option, std::string optarg, SmtEngine* smt) {
   if(Configuration::isDebugBuild() && Configuration::isTracingBuild()) {
     if(!Configuration::isDebugTag(optarg.c_str()) &&
        !Configuration::isTraceTag(optarg.c_str())) {
@@ -87,21 +87,13 @@ inline void addDebugTag(std::string option, std::string optarg) {
   Trace.on(optarg);
 }
 
-inline void setPrintSuccess(std::string option, bool value) {
+inline void setPrintSuccess(std::string option, bool value, SmtEngine* smt) {
   Debug.getStream() << Command::printsuccess(value);
   Trace.getStream() << Command::printsuccess(value);
   Notice.getStream() << Command::printsuccess(value);
   Chat.getStream() << Command::printsuccess(value);
   Message.getStream() << Command::printsuccess(value);
   Warning.getStream() << Command::printsuccess(value);
-}
-
-inline void setPrintSuccess(std::string option) {
-  setPrintSuccess(option, true);
-}
-
-inline void unsetPrintSuccess(std::string option) {
-  setPrintSuccess(option, false);
 }
 
 template <template <class U> class Cmp>
@@ -115,7 +107,7 @@ public:
   comparator(double d) throw() : d_lbound(0), d_dbound(d), d_hasLbound(false) {}
 
   template <class T>
-  void operator()(std::string option, const T& value) {
+  void operator()(std::string option, const T& value, SmtEngine* smt) {
     if((d_hasLbound && !(Cmp<T>()(value, T(d_lbound)))) ||
        (!d_hasLbound && !(Cmp<T>()(value, T(d_dbound))))) {
       std::stringstream ss;

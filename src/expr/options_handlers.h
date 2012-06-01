@@ -24,7 +24,7 @@
 namespace CVC4 {
 namespace expr {
 
-inline void setDefaultExprDepth(std::string option, std::string optarg) {
+inline void setDefaultExprDepth(std::string option, std::string optarg, SmtEngine* smt) {
   int depth = atoi(optarg.c_str());
 
   Debug.getStream() << Expr::setdepth(depth);
@@ -35,7 +35,7 @@ inline void setDefaultExprDepth(std::string option, std::string optarg) {
   Warning.getStream() << Expr::setdepth(depth);
 }
 
-inline void setPrintExprTypes(std::string option) {
+inline void setPrintExprTypes(std::string option, SmtEngine* smt) {
   Debug.getStream() << Expr::printtypes(true);
   Trace.getStream() << Expr::printtypes(true);
   Notice.getStream() << Expr::printtypes(true);

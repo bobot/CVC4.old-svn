@@ -30,7 +30,7 @@
 ${include_all_option_headers}
 ${option_handler_includes}
 
-#line 33 "${template}"
+#line 34 "${template}"
 
 using namespace std;
 
@@ -40,6 +40,7 @@ void SmtEngine::setOption(const std::string& key, const CVC4::SExpr& value)
   throw(BadOptionException, ModalException) {
 
   NodeManagerScope nms(d_nodeManager);
+  SmtEngine* const smt = this;
 
   Trace("smt") << "SMT setOption(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
@@ -52,7 +53,7 @@ void SmtEngine::setOption(const std::string& key, const CVC4::SExpr& value)
 
   ${smt_setoption_handlers}
 
-#line 55 "${template}"
+#line 57 "${template}"
 
   throw BadOptionException();
 }
@@ -69,7 +70,7 @@ CVC4::SExpr SmtEngine::getOption(const std::string& key) const
 
   ${smt_getoption_handlers}
 
-#line 72 "${template}"
+#line 74 "${template}"
 
   throw BadOptionException();
 }
