@@ -399,7 +399,6 @@ bool EqualityEngine::merge(EqualityNode& class1, EqualityNode& class2, std::vect
   EqualityNodeId class1Id = class1.getFind();
   EqualityNodeId class2Id = class2.getFind();
 
-  //AJR-hack
   Node n1 = d_nodes[class1Id];
   Node n2 = d_nodes[class2Id];
   EqualityNode cc1 = getEqualityNode(n1);
