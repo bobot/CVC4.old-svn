@@ -41,6 +41,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
                            context::UserContext* userContext,
                            const LogicInfo& logicInfo)
 : d_propEngine(NULL),
+  d_decisionEngine(NULL),
   d_context(context),
   d_userContext(userContext),
   d_logicInfo(logicInfo),
@@ -564,7 +565,7 @@ Node TheoryEngine::ppTheoryRewrite(TNode term)
   for (i = 0; i < nc; ++i) {
     newNode << ppTheoryRewrite(term[i]);
   }
-  Node newTerm = Rewriter::rewrite(newNode);
+  Node newTerm = Rewriter::rewrite(Node(newNode));
   Node newTerm2 = theoryOf(newTerm)->ppRewrite(newTerm);
   if (newTerm != newTerm2) {
     newTerm = ppTheoryRewrite(Rewriter::rewrite(newTerm2));

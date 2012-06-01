@@ -32,7 +32,6 @@ bool PreRegisterVisitor::alreadyVisited(TNode current, TNode parent) {
 
   Debug("register::internal") << "PreRegisterVisitor::alreadyVisited(" << current << "," << parent << ")" << std::endl;
 
-
   TheoryId currentTheoryId = Theory::theoryOf(current);
   TheoryId parentTheoryId = Theory::theoryOf(parent);
 
@@ -171,7 +170,9 @@ bool SharedTermsVisitor::alreadyVisited(TNode current, TNode parent) const {
 void SharedTermsVisitor::visit(TNode current, TNode parent) {
 
   Debug("register") << "SharedTermsVisitor::visit(" << current << "," << parent << ")" << std::endl;
-  Debug("register::internal") << toString() << std::endl;
+  if (Debug.isOn("register::internal")) {
+    Debug("register::internal") << toString() << std::endl;
+  }
 
   // Get the theories of the terms
   TheoryId currentTheoryId = Theory::theoryOf(current);
