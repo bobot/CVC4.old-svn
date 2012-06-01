@@ -101,13 +101,22 @@ class Relevancy : public RelevancyStrategy {
   context::CDHashMap<TNode,int,TNodeHashFunction> d_relevancy;
   PolarityCache d_polarityCache;
 
+  /**  **** * * *** * * OPTIONS *** *  * ** * * **** */
+
   /**
    * do we do "multiple-backtrace" to try to justify a node
    */
   bool d_multipleBacktrace;
   bool d_computeRelevancy;     // are we in a mode where we compute relevancy?
 
+  /** Only leaves can be relevant */
   bool d_relevancyLeaves;
+
+  static const double secondsPerDecision = 0.001;
+  static const double secondsPerExpense = 1e-7;
+  static const double EPS = 1e-9;
+  /** Maximum time this algorithm should spent as part of whole algorithm */
+  double d_maxTimeAsPercentageOfTotalTime;
 
   /** current decision for the recursive call */
   SatLiteral* d_curDecision;
@@ -126,6 +135,7 @@ public:
     d_multipleBacktrace(true),
     d_computeRelevancy(true),
     d_relevancyLeaves(relevancyLeaves),
+    d_maxTimeAsPercentageOfTotalTime(10.0),
     d_curDecision(NULL)
   {
     StatisticsRegistry::registerStat(&d_helfulness);
@@ -149,6 +159,13 @@ public:
   prop::SatLiteral getNext(bool &stopSearch) {
     Trace("decision") << "Relevancy::getNext()" << std::endl;
     TimerStat::CodeTimer codeTimer(d_timestat);
+
+    if( d_maxTimeAsPercentageOfTotalTime < 100.0 - EPS &&
+        double(d_polqueries.getData())*secondsPerDecision < 
+          d_maxTimeAsPercentageOfTotalTime*double(d_expense.getData())*secondsPerExpense
+      ) {
+      return undefSatLiteral;
+    }
 
     d_visited.clear();
     d_polarityCache.clear();
