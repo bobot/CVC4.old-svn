@@ -37,4 +37,10 @@ The above is now implemented, but there are things that still bug me:
 * document requirements on option types (default constructible?  copy-able?  must have operator<<(ostream)?  hashable?)
 * getopt() on old GNU needs optind = 0 to restart ?
 
+FIXME
+
+* in smt_options.cpp, boolean options don't run right handlers if set negative (e.g. set-option :print-success false)
+* undocumented-alias?
+* no warning if option is multiply-defined, will simply fail silently
+
 -- Morgan Deters <mdeters@cs.nyu.edu>  Wed, 14 Dec 2011 14:20:34 -0500

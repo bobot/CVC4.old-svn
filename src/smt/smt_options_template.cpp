@@ -28,6 +28,7 @@
 #include <sstream>
 
 ${include_all_option_headers}
+${option_handler_includes}
 
 #line 33 "${template}"
 

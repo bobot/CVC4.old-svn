@@ -161,11 +161,10 @@ function handle_option {
   long_option_alternate=
   long_option_alternate_set=
   type=
-  predicates=
   readOnly=true
   required_argument=false
   default_value=
-  handler=
+  handlers=
   predicates=
   links=
   links_alternate=
@@ -292,7 +291,7 @@ function handle_option {
        ;;
     :handler)
        let ++i
-       handler="${args[$i]}"
+       handlers="$handlers ${args[$i]}"
        ;;
     :predicate)
        while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
@@ -458,7 +457,7 @@ template <> bool Options::wasSetByUser(options::${internal}__option_t) const { r
   fi
   if [ "$type" = bool -a -n "$cases" -o -n "$cases_alternate" ]; then
     run_handlers=
-    if [ -n "$handler" ]; then
+    if [ -n "$handlers" ]; then
       echo "$kf:$lineno: error: bool-valued options cannot have handlers" >&2
       exit 1
     fi
@@ -486,10 +485,12 @@ template <> void runBoolHandlers(options::${internal}__option_t, std::string opt
 "
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
       run_handlers=
-      if [ -n "$handler" ]; then
-        run_handlers="
+      if [ -n "$handlers" ]; then
+        for handler in $handlers; do
+          run_handlers="$run_handlers
 #line $lineno \"$kf\"
   $handler(option, optarg);"
+        done
       else
         run_handlers="
 #line $lineno \"$kf\"
@@ -521,10 +522,12 @@ template <> options::${internal}__option_t::type runHandlers(options::${internal
         echo "$kf:$lineno: error: void-valued options cannot have predicates" >&2
         exit 1
       fi
-      if [ -n "$handler" ]; then
-        run_handlers="$run_handlers
+      if [ -n "$handlers" ]; then
+        for handler in $handlers; do
+          run_handlers="$run_handlers
 #line $lineno \"$kf\"
       $handler(argv[old_optind], optarg);"
+        done
       fi
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
@@ -537,10 +540,12 @@ template <> options::${internal}__option_t::type runHandlers(options::${internal
         echo "$kf:$lineno: error: void-valued options cannot have predicates" >&2
         exit 1
       fi
-      if [ -n "$handler" ]; then
-        run_handlers="$run_handlers
+      if [ -n "$handlers" ]; then
+        for handler in $handlers; do
+          run_handlers="$run_handlers
 #line $lineno \"$kf\"
       $handler(argv[old_optind]);"
+        done
       fi
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
@@ -578,19 +583,17 @@ template <> options::${internal}__option_t::type runHandlers(options::${internal
 #line $lineno \"$kf\"
   if(key == \"$smtname\") {
 #line $lineno \"$kf\"
-    Options::current().assignBool(options::$internal, \"$smtname\", true);$run_links
+    Options::current().assignBool(options::$internal, \"$smtname\", optarg == \"true\");$run_links
     return;
   }"
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
-      if [ -n "$handler" ]; then
-        run_handlers=
+      run_handlers=
+      if [ -n "$handlers" ]; then
         for handler in $handlers; do
           run_handlers="$run_handlers
-#line $lineno \"$kf\"
-  if(key == \"$smtname\") {
-#line $lineno \"$kf\"
     $handler(\"$smtname\", value);
-  }"
+#line $lineno \"$kf\"
+"
         done
       fi
       smt_setoption_handlers="${smt_setoption_handlers}
@@ -605,10 +608,8 @@ template <> options::${internal}__option_t::type runHandlers(options::${internal
       for handler in $handlers; do
         run_handlers="$run_handlers
 #line $lineno \"$kf\"
-  if(key == \"$smtname\") {
-#line $lineno \"$kf\"
     $handler(\"$smtname\", value);
-  }"
+"
       done
       smt_setoption_handlers="${smt_setoption_handlers}
 #line $lineno \"$kf\"
@@ -621,11 +622,9 @@ template <> options::${internal}__option_t::type runHandlers(options::${internal
       run_handlers=
       for handler in $handlers; do
         run_handlers="$run_handlers
-#line $lineno \"$kf\"
-  if(key == \"$smtname\") {
-#line $lineno \"$kf\"
     $handler(\"$smtname\");
-  }"
+#line $lineno \"$kf\"
+"
       done
       smt_setoption_handlers="${smt_setoption_handlers}
 #line $lineno \"$kf\"
@@ -679,11 +678,10 @@ function alias {
   long_option_alternate=
   long_option_alternate_set=
   type=void
-  predicates=
   readOnly=true
   required_argument=false
   default_value=
-  handler=
+  handlers=
   predicates=
   links=
   links_alternate=
@@ -930,7 +928,15 @@ $@"
 
 function check_doc {
   if $expect_doc; then
-    echo "$kf:$lineno: warning: $internal is lacking documentation" >&2
+    if [ "$internal" != - ]; then
+      echo "$kf:$lineno: warning: $internal is lacking documentation" >&2
+    elif [ -n "$long_option" ]; then
+      echo "$kf:$lineno: warning: option --$long_option is lacking documentation" >&2
+    elif [ -n "$short_option" ]; then
+      echo "$kf:$lineno: warning: option -$short_option is lacking documentation" >&2
+    elif [ -n "$smtname" ]; then
+      echo "$kf:$lineno: warning: SMT option $smtname is lacking documentation" >&2
+    fi
     expect_doc=false
   fi
 

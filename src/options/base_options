@@ -101,9 +101,9 @@ option - -t --trace=TAG argument :handler CVC4::options::addTraceTag
 option - -d --debug=TAG argument :handler CVC4::options::addDebugTag
  debug something (e.g. -d arith), can repeat
 
-option - print-success --print-success void :handler CVC4::options::setPrintSuccess
+option - print-success --print-success void :handler CVC4::options::setPrintSuccess :handler-include "options/base_options_handlers.h"
  print the "success" output required of SMT-LIBv2
-undocumented-option - --no-print-success void :handler CVC4::options::unsetPrintSuccess
+undocumented-option - --no-print-success void :handler CVC4::options::unsetPrintSuccess :handler-include "options/base_options_handlers.h"
 
 alias --smtlib2 = --lang=smt2 --output-lang=smt2 --strict-parsing --default-expr-depth=-1 --print-success
  SMT-LIBv2 compliance mode (implies other options)
