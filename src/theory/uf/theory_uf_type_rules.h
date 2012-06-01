@@ -62,17 +62,16 @@ public:
 class CardinalityConstraintTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw(TypeCheckingExceptionPrivate) {
     if( check ) {
       TypeNode valType = n[1].getType(check);
-      if( valType!=nodeManager->integerType() ){
+      if( valType != nodeManager->integerType() ) {
         throw TypeCheckingExceptionPrivate(n, "cardinality constraint must be integer");
       }
     }
     return nodeManager->booleanType();
   }
 };/* class UfTypeRule */
-
 
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */

@@ -39,13 +39,11 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
 
-  //AJR-hack
-  if(Options::current()->finiteModelFind ){
-    d_thss = new StrongSolverTheoryUf( c, u, out, this );
-  }else{
+  if (Options::current()->finiteModelFind) {
+    d_thss = new StrongSolverTheoryUf(c, u, out, this);
+  } else {
     d_thss = NULL;
   }
-  //AJR-hack-end
 }/* TheoryUF::TheoryUF() */
 
 static Node mkAnd(const std::vector<TNode>& conjunctions) {
@@ -79,13 +77,10 @@ void TheoryUF::check(Effort level) {
     TNode fact = assertion.assertion;
 
     Debug("uf") << "TheoryUF::check(): processing " << fact << std::endl;
-    //AJR-hack
-    Debug("uf-check") << "Check " << fact << std::endl;
-    if( d_thss ){
-      bool isDecision = d_valuation.isSatLiteral( fact ) && d_valuation.isDecision( fact );
-      d_thss->assertNode( fact, isDecision );
+    if (d_thss != NULL) {
+      bool isDecision = d_valuation.isSatLiteral(fact) && d_valuation.isDecision(fact);
+      d_thss->assertNode(fact, isDecision);
     }
-    //AJR-hack-end
 
     // If the assertion doesn't have a literal, it's a shared equality, so we set it up
     if (!assertion.isPreregistered) {
@@ -102,10 +97,8 @@ void TheoryUF::check(Effort level) {
     TNode atom = polarity ? fact : fact[0];
     if (atom.getKind() == kind::EQUAL) {
       d_equalityEngine.assertEquality(atom, polarity, fact);
-    } else if(atom.getKind() == kind::CARDINALITY_CONSTRAINT) {
-      //AJR-hack
+    } else if (atom.getKind() == kind::CARDINALITY_CONSTRAINT) {
       // do nothing
-      //AJR-hack-end
     } else {
       d_equalityEngine.assertPredicate(atom, polarity, fact);
     }
@@ -124,13 +117,11 @@ void TheoryUF::check(Effort level) {
   // until we go through the propagation list
   propagate(level);
 
-  //AJR-hack
-  if( d_thss ){
-    if( !d_conflict ){
-      d_thss->check( level );
+  if (d_thss != NULL) {
+    if (! d_conflict) {
+      d_thss->check(level);
     }
   }
-  //AJR-hack-end
 
 }/* TheoryUF::check() */
 
@@ -143,21 +134,22 @@ void TheoryUF::propagate(Effort level) {
       d_out->propagate(literal);
     }
   }
-  //AJR-hack
-  if( d_thss ){
-    d_thss->propagate( level );
+
+  if (d_thss != NULL) {
+    d_thss->propagate(level);
   }
+
   Debug("uf") << "done TheoryUF::propagate()" << std::endl;
-  //AJR-hack-end
+
 }/* TheoryUF::propagate(Effort) */
 
 void TheoryUF::preRegisterTerm(TNode node) {
   Debug("uf") << "TheoryUF::preRegisterTerm(" << node << ")" << std::endl;
-  //AJR-hack
-  if( d_thss ){
-    d_thss->preRegisterTerm( node );
+
+  if (d_thss != NULL) {
+    d_thss->preRegisterTerm(node);
   }
-  //AJR-hack-end
+
   switch (node.getKind()) {
   case kind::EQUAL:
     // Add the trigger for equality
@@ -478,53 +470,52 @@ void TheoryUF::computeCareGraph() {
   }
 }/* TheoryUF::computeCareGraph() */
 
-//AJR-hack
-
-void TheoryUF::eqNotifyNewClass( TNode t ){
-  if( d_thss ){
-    d_thss->newEqClass( t );
+void TheoryUF::eqNotifyNewClass(TNode t) {
+  if (d_thss != NULL) {
+    d_thss->newEqClass(t);
   }
-  if( getInstantiator() ){
-    ((InstantiatorTheoryUf*)getInstantiator())->newEqClass( t );
+  if (getInstantiator() != NULL) {
+    ((InstantiatorTheoryUf*)getInstantiator())->newEqClass(t);
   }
 }
 
-void TheoryUF::eqNotifyPreMerge( TNode t1, TNode t2 ){
-  if( getInstantiator() ){
-    ((InstantiatorTheoryUf*)getInstantiator())->merge( t1, t2 );
+void TheoryUF::eqNotifyPreMerge(TNode t1, TNode t2) {
+  if (getInstantiator() != NULL) {
+    ((InstantiatorTheoryUf*)getInstantiator())->merge(t1, t2);
   }
 }
 
-void TheoryUF::eqNotifyPostMerge( TNode t1, TNode t2 ){
-  if( d_thss ){
-    d_thss->merge( t1, t2 );
+void TheoryUF::eqNotifyPostMerge(TNode t1, TNode t2) {
+  if (d_thss != NULL) {
+    d_thss->merge(t1, t2);
   }
 }
 
-void TheoryUF::eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){
-  if( d_thss ){
-    d_thss->assertDisequal( t1, t2, reason );
+void TheoryUF::eqNotifyDisequal(TNode t1, TNode t2, TNode reason) {
+  if (d_thss != NULL) {
+    d_thss->assertDisequal(t1, t2, reason);
   }
-  if( getInstantiator() ){
-    ((InstantiatorTheoryUf*)getInstantiator())->assertDisequal( t1, t2, reason );
+  if (getInstantiator() != NULL) {
+    ((InstantiatorTheoryUf*) getInstantiator())->assertDisequal(t1, t2, reason);
   }
 }
 
-//AJR-hack-end
+Node TheoryUF::ppRewrite(TNode node) {
 
-//FB-hack
-
-Node TheoryUF::ppRewrite(TNode node){
-
-  if(node.getKind() != kind::APPLY_UF) return node;
+  if (node.getKind() != kind::APPLY_UF) {
+    return node;
+  }
 
   RegisterPpRewrite::iterator c = d_registeredPpRewrite.find(node.getOperator());
-  if(c == d_registeredPpRewrite.end()) return node;
-  else {
+  if (c == d_registeredPpRewrite.end()) {
+    return node;
+  } else {
     Node res = c->second->ppRewrite(node);
-    if (res != node) return ppRewrite(res);
-    else return res;
+    if (res != node) {
+      return ppRewrite(res);
+    } else {
+      return res;
+    }
   }
 }
 
-//FB-hack-end

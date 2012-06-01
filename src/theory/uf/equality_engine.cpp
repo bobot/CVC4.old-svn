@@ -194,12 +194,10 @@ EqualityNodeId EqualityEngine::newNode(TNode node) {
 
   Debug("equality") << "EqualityEngine::newNode(" << node << ") => " << newId << std::endl;
 
-  //AJR-hack
-  //notify the theory strong solver
-  if( d_performNotify ){
-    d_notify.eqNotifyNewClass( node );
+  // notify e.g. the UF theory strong solver
+  if (d_performNotify) {
+    d_notify.eqNotifyNewClass(node);
   }
-  //AJR-hack-end
 
   return newId;
 }
@@ -323,12 +321,10 @@ void EqualityEngine::assertEquality(TNode eq, bool polarity, TNode reason) {
       return;
     }
 
-    //AJR-hack
-    //notify the theory
-    if( d_performNotify ){
-      d_notify.eqNotifyDisequal( eq[0], eq[1], reason );
+    // notify the theory
+    if (d_performNotify) {
+      d_notify.eqNotifyDisequal(eq[0], eq[1], reason);
     }
-    //AJR-hack-end
 
     assertEqualityInternal(eq, d_false, reason);
     propagate();    
@@ -409,16 +405,15 @@ bool EqualityEngine::merge(EqualityNode& class1, EqualityNode& class2, std::vect
   EqualityNode cc1 = getEqualityNode(n1);
   EqualityNode cc2 = getEqualityNode(n2);
   bool doNotify = false;
-  //notify the theory
-  //the second part of this check is needed due to the internal implementation of this class.
+  // notify the theory
+  // the second part of this check is needed due to the internal implementation of this class.
   // It ensures that we are merging terms and not operators.
-  if( d_performNotify && class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
+  if (d_performNotify && class1Id==cc1.getFind() && class2Id==cc2.getFind()) {
     doNotify = true;
   }
-  if( doNotify ){
-    d_notify.eqNotifyPreMerge( n1, n2 );
+  if (doNotify) {
+    d_notify.eqNotifyPreMerge(n1, n2);
   }
-  //AJR-hack-end
 
   // Check for constant merges
   bool isConstant = d_isConstant[class1Id];
@@ -513,12 +508,10 @@ bool EqualityEngine::merge(EqualityNode& class1, EqualityNode& class2, std::vect
   // Now merge the lists
   class1.merge<true>(class2);
 
-  //AJR-hack
-  //notify the theory
-  if( doNotify ){
-    d_notify.eqNotifyPostMerge( n1, n2 );
+  // notify the theory
+  if (doNotify) {
+    d_notify.eqNotifyPostMerge(n1, n2);
   }
-  //AJR-hack-end
 
   // Go through the triggers and store the dis-equalities
   unsigned i = 0, j = 0;

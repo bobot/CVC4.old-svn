@@ -65,7 +65,7 @@ public:
   /**
    * Notifies about a trigger predicate that became true or false.
    *
-   * @param predicate the trigger predicate that bacame true or false
+   * @param predicate the trigger predicate that became true or false
    * @param value the value of the predicate
    */
   virtual bool eqNotifyTriggerPredicate(TNode predicate, bool value) = 0;
@@ -84,17 +84,43 @@ public:
    * Notifies about the merge of two constant terms.
    *
    * @param t1 a constant term
-   * @param t2 a constnat term
+   * @param t2 a constant term
    */
   virtual bool eqNotifyConstantTermMerge(TNode t1, TNode t2) = 0;
 
-  //AJR-hack
-  virtual void eqNotifyNewClass( TNode t ) = 0;
-  virtual void eqNotifyPreMerge( TNode t1, TNode t2 ) = 0;
-  virtual void eqNotifyPostMerge( TNode t1, TNode t2 ) = 0;
-  virtual void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ) = 0;
-  //AJR-hack-end
-};
+  /**
+   * Notifies about the creation of a new equality class.
+   *
+   * @param t the term forming the new class
+   */
+  virtual void eqNotifyNewClass(TNode t) = 0;
+
+  /**
+   * Notifies about the merge of two classes (just before the merge).
+   *
+   * @param t1 a term
+   * @param t2 a term
+   */
+  virtual void eqNotifyPreMerge(TNode t1, TNode t2) = 0;
+
+  /**
+   * Notifies about the merge of two classes (just after the merge).
+   *
+   * @param t1 a term
+   * @param t2 a term
+   */
+  virtual void eqNotifyPostMerge(TNode t1, TNode t2) = 0;
+
+  /**
+   * Notifies about the disequality of two terms.
+   *
+   * @param t1 a term
+   * @param t2 a term
+   * @param reason the reason
+   */
+  virtual void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) = 0;
+
+};/* class EqualityEngineNotify */
 
 /**
  * Implementation of the notification interface that ignores all the
@@ -106,11 +132,11 @@ public:
   bool eqNotifyTriggerPredicate(TNode predicate, bool value) { return true; }
   bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) { return true; }
   bool eqNotifyConstantTermMerge(TNode t1, TNode t2) { return true; }
-  void eqNotifyNewClass( TNode t ) { }
-  void eqNotifyPreMerge( TNode t1, TNode t2 ) { }
-  void eqNotifyPostMerge( TNode t1, TNode t2 ) { }
-  void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ) { }
-};
+  void eqNotifyNewClass(TNode t) { }
+  void eqNotifyPreMerge(TNode t1, TNode t2) { }
+  void eqNotifyPostMerge(TNode t1, TNode t2) { }
+  void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { }
+};/* class EqualityEngineNotifyNone */
 
 
 /**
@@ -118,8 +144,10 @@ public:
  * notifications via an EqualityEngineNotify object.
  */
 class EqualityEngine : public context::ContextNotifyObj {
+
   friend class EqClassesIterator;
   friend class EqClassIterator;
+
   /** Default implementation of the notification object */
   static EqualityEngineNotifyNone s_notifyNone;
 
@@ -160,6 +188,7 @@ public:
    * Store the application lookup, with enough information to backtrack
    */
   void storeApplicationLookup(FunctionApplication& funNormalized, EqualityNodeId funId);
+
 //private:
 
   /** The context we are using */

@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \fileinst_strategy.cpp
+/*! \file inst_strategy.cpp
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none

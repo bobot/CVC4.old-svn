@@ -41,8 +41,10 @@ class InstantiatorTheoryUf;
 class StrongSolverTheoryUf;
 
 class TheoryUF : public Theory {
+
   friend class InstantiatorTheoryUf;
   friend class StrongSolverTheoryUf;
+
 public:
 
   class NotifyClass : public eq::EqualityEngineNotify {
@@ -87,31 +89,35 @@ public:
       }
     }
 
-    //AJR-hack
-    void eqNotifyNewClass( TNode t ){
-      d_uf.eqNotifyNewClass( t );
+    void eqNotifyNewClass(TNode t) {
+      Debug("uf") << "NotifyClass::eqNotifyNewClass(" << t << std::endl;
+      d_uf.eqNotifyNewClass(t);
     }
-    void eqNotifyPreMerge( TNode t1, TNode t2 ){
-      d_uf.eqNotifyPreMerge( t1, t2 );
+
+    void eqNotifyPreMerge(TNode t1, TNode t2) {
+      Debug("uf") << "NotifyClass::eqNotifyPreMerge(" << t1 << ", " << t2 << std::endl;
+      d_uf.eqNotifyPreMerge(t1, t2);
     }
-    void eqNotifyPostMerge( TNode t1, TNode t2 ){
-      d_uf.eqNotifyPostMerge( t1, t2 );
+
+    void eqNotifyPostMerge(TNode t1, TNode t2) {
+      Debug("uf") << "NotifyClass::eqNotifyPostMerge(" << t1 << ", " << t2 << std::endl;
+      d_uf.eqNotifyPostMerge(t1, t2);
     }
-    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){
-      d_uf.eqNotifyDisequal( t1, t2, reason );
+
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) {
+      Debug("uf") << "NotifyClass::eqNotifyDisequal(" << t1 << ", " << t2 << ", " << reason << std::endl;
+      d_uf.eqNotifyDisequal(t1, t2, reason);
     }
-    //AJR-hack-end
-  };
+
+  };/* class TheoryUF::NotifyClass */
 
 private:
 
   /** The notify class */
   NotifyClass d_notify;
 
-  //AJR-hack
-  /** associated theory strong solver */
+  /** The associated theory strong solver (or NULL if none) */
   StrongSolverTheoryUf* d_thss;
-  //AJR-hack-end
 
   /** Equaltity engine */
   eq::EqualityEngine d_equalityEngine;
@@ -145,24 +151,29 @@ private:
   /** Symmetry analyzer */
   SymmetryBreaker d_symb;
 
-  //AJR-hack
   /** called when a new equivalance class is created */
-  void eqNotifyNewClass( TNode t );
+  void eqNotifyNewClass(TNode t);
 
   /** called when two equivalance classes will merge */
-  void eqNotifyPreMerge( TNode t1, TNode t2 );
+  void eqNotifyPreMerge(TNode t1, TNode t2);
 
   /** called when two equivalance classes have merged */
-  void eqNotifyPostMerge( TNode t1, TNode t2 );
+  void eqNotifyPostMerge(TNode t1, TNode t2);
 
   /** called when two equivalence classes are made disequal */
-  void eqNotifyDisequal( TNode t1, TNode t2, TNode reason );
-  //AJR-hack-end
+  void eqNotifyDisequal(TNode t1, TNode t2, TNode reason);
 
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
   TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
+  ~TheoryUF() {
+    for(RegisterPpRewrite::iterator i = d_registeredPpRewrite.begin();
+        i != d_registeredPpRewrite.end();
+        ++i) {
+      delete i->second;
+    }
+  }
 
   void check(Effort);
   void propagate(Effort);
@@ -181,11 +192,13 @@ public:
     return "THEORY_UF";
   }
 
-  //AJR-hack
-  eq::EqualityEngine* getEqualityEngine() { return &d_equalityEngine; }
-  StrongSolverTheoryUf* getStrongSolver() { return d_thss; }
-  //AJR-hack-end
+  eq::EqualityEngine* getEqualityEngine() {
+    return &d_equalityEngine;
+  }
 
+  StrongSolverTheoryUf* getStrongSolver() {
+    return d_thss;
+  }
 
   //FB-hack
   Node ppRewrite(TNode node);
@@ -193,20 +206,13 @@ public:
   class PpRewrite {
   public:
     virtual Node ppRewrite(TNode node) = 0;
-
   };
 
-  typedef std::hash_map< Node, PpRewrite*, NodeHashFunction > RegisterPpRewrite;
-   RegisterPpRewrite d_registeredPpRewrite;
+  typedef std::hash_map<Node, PpRewrite*, NodeHashFunction> RegisterPpRewrite;
+  RegisterPpRewrite d_registeredPpRewrite;
 
-  void registerPpRewrite(TNode op, PpRewrite * callback){
-    d_registeredPpRewrite.insert(std::make_pair(op,callback));
-  }
-
-  ~TheoryUF(){
-    for(RegisterPpRewrite::iterator i = d_registeredPpRewrite.begin();
-        i != d_registeredPpRewrite.end(); ++i)
-      delete(i->second);
+  void registerPpRewrite(TNode op, PpRewrite* callback) {
+    d_registeredPpRewrite.insert(std::make_pair(op, callback));
   }
   //FB-hack-end
 
