@@ -161,7 +161,6 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
     seen     .push(0);
     polarity .push(sign);
     decision .push();
-    flippable.push(true);
     trail    .capacity(v+1);
     theory   .push(theoryAtom);
 
@@ -1140,9 +1139,6 @@ lbool Solver::search(int nof_conflicts)
                     continue;
                 }
 
-                // It's flippable.
-                setFlipVar(var(next), true);
-
 #ifdef CVC4_REPLAY
                 proxy->logDecision(MinisatSatSolver::toSatLiteral(next));
 #endif /* CVC4_REPLAY */
@@ -1473,7 +1469,6 @@ void Solver::renewVar(Lit lit, int level) {
   Var v = var(lit);
   vardata[v].intro_level = (level == -1 ? getAssertionLevel() : level);
   setDecisionVar(v, true);
-  setFlipVar(v, true);
   // explicitly not resetting polarity phase-locking here
 }
 
@@ -1486,10 +1481,10 @@ bool Solver::flipDecision() {
 
   // find the level to cancel until
   int level = trail_lim.size() - 1;
-  Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << (flippable[var(trail[trail_lim[level]])] && (polarity[var(trail[trail_lim[level]])] & 0x2) == 0 ? 1 : 0) << " flipped?" << flipped[level] << std::endl;
-  while(level > 0 && (flipped[level] || !flippable[var(trail[trail_lim[level]])] || /* phase-locked */ (polarity[var(trail[trail_lim[level]])] & 0x2) != 0)) {
+  Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << ((polarity[var(trail[trail_lim[level]])] & 0x2) == 0 ? 1 : 0) << " flipped?" << flipped[level] << std::endl;
+  while(level > 0 && (flipped[level] || /* phase-locked */ (polarity[var(trail[trail_lim[level]])] & 0x2) != 0)) {
     --level;
-    Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << (flippable[var(trail[trail_lim[level]])] && (polarity[var(trail[trail_lim[level]])] & 0x2) == 0 ? 2 : 0) << " flipped?" << flipped[level] << std::endl;
+    Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << ((polarity[var(trail[trail_lim[level]])] & 0x2) == 0 ? 2 : 0) << " flipped?" << flipped[level] << std::endl;
   }
   if(level < 0) {
     Lit l = trail[trail_lim[0]];

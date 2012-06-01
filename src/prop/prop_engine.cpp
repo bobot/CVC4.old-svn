@@ -127,7 +127,7 @@ void PropEngine::requirePhase(TNode n, bool phase) {
 
   Assert(n.getType().isBoolean());
   SatLiteral lit = d_cnfStream->getLiteral(n);
-  d_satSolver->requirePhasedDecision(phase ? lit : ~lit);
+  d_satSolver->requirePhase(phase ? lit : ~lit);
 }
 
 bool PropEngine::flipDecision() {

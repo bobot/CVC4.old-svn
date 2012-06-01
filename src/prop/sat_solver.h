@@ -123,11 +123,12 @@ public:
 
   virtual bool properExplanation(SatLiteral lit, SatLiteral expl) const = 0;
 
-  //AJR-hack
-  virtual void requirePhasedDecision(SatLiteral lit) = 0;
+  virtual void requirePhase(SatLiteral lit) = 0;
+
   virtual bool flipDecision() = 0;
+
   virtual bool isDecision(SatVariable decn) const = 0;
-  //AJR-hack-end
+
 }; 
 
 }/* prop namespace */

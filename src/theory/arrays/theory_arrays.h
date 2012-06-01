@@ -138,12 +138,6 @@ class TheoryArrays : public Theory {
   public:
     bool notify(TNode propagation) { return true; }
     void notify(TNode t1, TNode t2) { }
-    //AJR-hack
-    void eqNotifyNewClass( TNode t ){}
-    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
-    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
-    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
-    //AJR-hack-end
   };
 
   /** The notify class for d_ppEqualityEngine */
@@ -201,12 +195,6 @@ class TheoryArrays : public Theory {
   public:
     bool notify(TNode propagation) { return true; }
     void notify(TNode t1, TNode t2) { }
-    //AJR-hack
-    void eqNotifyNewClass( TNode t ){}
-    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
-    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
-    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
-    //AJR-hack-end
   };
 
   /** The notify class for d_mayEqualEqualityEngine */
@@ -299,12 +287,10 @@ class TheoryArrays : public Theory {
       }
     }
 
-    //AJR-hack
-    void eqNotifyNewClass( TNode t ){}
-    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
-    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
-    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
-    //AJR-hack-end
+    void eqNotifyNewClass(TNode t) { }
+    void eqNotifyPreMerge(TNode t1, TNode t2) { }
+    void eqNotifyPostMerge(TNode t1, TNode t2) { }
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { }
   };
 
   /** The notify class for d_equalityEngine */

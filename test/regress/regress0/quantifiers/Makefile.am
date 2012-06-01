@@ -5,6 +5,8 @@ TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
 # put it below in "TESTS +="
 TESTS =	\
 	bug269.smt2 \
+	bug290.smt2 \
+	bug291.smt2 \
 	ex3.smt2 \
 	Arrays_Q1-noinfer.smt2 \
 	array-unsat-simp3.smt2 \

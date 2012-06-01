@@ -52,7 +52,7 @@ SimpSolver::SimpSolver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* c
   , simp_garbage_frac  (opt_simp_garbage_frac)
   , use_asymm          (opt_use_asymm)
   , use_rcheck         (opt_use_rcheck)
-  , use_elim           (false)
+  , use_elim           (!enableIncremental)
   , merges             (0)
   , asymm_lits         (0)
   , eliminated_vars    (0)

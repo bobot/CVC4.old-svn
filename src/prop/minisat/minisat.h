@@ -82,11 +82,11 @@ public:
 
   void renewVar(SatLiteral lit, int level = -1);
 
-  //AJR-hack
-  void requirePhasedDecision(SatLiteral lit);
+  void requirePhase(SatLiteral lit);
+
   bool flipDecision();
+
   bool isDecision(SatVariable decn) const;
-  //AJR-hack-end
 
   class Statistics {
   private:

@@ -72,6 +72,7 @@ public:
     push(LEMMA, n);
     return LemmaStatus(Node::null(), 0);
   }
+
   void requirePhase(TNode, bool, bool = false)
     throw(Interrupted, AssertionException) {
     Unreachable();

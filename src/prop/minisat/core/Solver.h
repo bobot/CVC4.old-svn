@@ -188,7 +188,6 @@ public:
     void    setPolarity    (Var v, bool b); // Declare which polarity the decision heuristic should use for a variable. Requires mode 'polarity_user'.
     void    freezePolarity (Var v, bool b); // Declare which polarity the decision heuristic MUST ALWAYS use for a variable. Requires mode 'polarity_user'.
     void    setDecisionVar (Var v, bool b); // Declare if a variable should be eligible for selection in the decision heuristic.
-    void    setFlipVar     (Var v, bool b); // Declare if a variable is eligible for flipping
     bool    flipDecision   ();              // Backtrack and flip most recent decision
 
     // Read state:
@@ -202,6 +201,7 @@ public:
     int     nLearnts   ()      const;       // The current number of learnt clauses.
     int     nVars      ()      const;       // The current number of variables.
     int     nFreeVars  ()      const;
+    bool    isDecision (Var x) const;       // is the given var a decision?
 
     // Debugging SMT explanations
     //
@@ -295,7 +295,6 @@ protected:
     vec<lbool>          assigns;            // The current assignments.
     vec<char>           polarity;           // The preferred polarity of each variable (bit 0) and whether it's locked (bit 1).
     vec<char>           decision;           // Declares if a variable is eligible for selection in the decision heuristic.
-    vec<char>           flippable;          // Declares if a variable is eligible for flipping with flipDecision().
     vec<int>            flipped;            // Which trail_lim decisions have been flipped in this context.
     vec<Lit>            trail;              // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;          // Separator indices for different decision levels in 'trail'.
@@ -389,6 +388,7 @@ protected:
 
     // Misc:
     //
+    int      decisionLevel    ()      const; // Gives the current decisionlevel.
     uint32_t abstractLevel    (Var x) const; // Used to represent an abstraction of sets of decision levels.
     CRef     reason           (Var x); // Get the reason of the variable (non const as it might create the explanation on the fly)
     bool     hasReasonClause  (Var x) const; // Does the variable have a reason
@@ -414,11 +414,6 @@ protected:
     // Returns a random integer 0 <= x < size. Seed must never be 0.
     static inline int irand(double& seed, int size) {
         return (int)(drand(seed) * size); }
-
-//AJR: made these functions public
-public:
-    int      decisionLevel    ()      const; // Gives the current decisionlevel.
-    bool     isDecision       (Var x) const; // is the given var a decision?
 };
 
 
@@ -500,10 +495,6 @@ inline void     Solver::setDecisionVar(Var v, bool b)
 
     decision[v] = b;
     insertVarOrder(v);
-}
-inline void     Solver::setFlipVar(Var v, bool b)
-{
-    flippable[v] = b;
 }
 
 inline void     Solver::setConfBudget(int64_t x){ conflict_budget    = conflicts    + x; }

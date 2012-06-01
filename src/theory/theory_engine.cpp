@@ -71,12 +71,10 @@ TheoryEngine::TheoryEngine(context::Context* context,
     d_theoryTable[theoryId] = NULL;
     d_theoryOut[theoryId] = NULL;
   }
-  //AJR-hack
   if(logicInfo.isQuantified()) {
     // initialize the quantifiers engine
-    d_quantEngine = new QuantifiersEngine( context, this );
+    d_quantEngine = new QuantifiersEngine(context, this);
   }
-  //AJR-hack-end
   Rewriter::init();
   StatisticsRegistry::registerStat(&d_combineTheoriesTime);
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
@@ -260,24 +258,21 @@ void TheoryEngine::check(Theory::Effort effort) {
       }
     }
 
-    //AJR-hack
-    if( effort==Theory::EFFORT_FULL ){
-      if( !d_inConflict && !d_lemmasAdded ){
-        //must consult quantifiers theory for last call (if it exists) to ensure sat, or otherwise add a lemma
-        if( d_theoryTable[THEORY_QUANTIFIERS] ){
-          ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::EFFORT_LAST_CALL );
-          //if we have given up, then possibly flip decision
-          if( Options::current()->flipDecision ){
-            if( d_incomplete && !d_inConflict && !d_lemmasAdded ){
-              if( ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ){
-                d_incomplete = false;
-              }
-            }
+    // Must consult quantifiers theory for last call to ensure sat, or otherwise add a lemma
+    if( effort == Theory::EFFORT_FULL &&
+        d_logicInfo.isQuantified() &&
+        ! d_inConflict &&
+        ! d_lemmasAdded ) {
+      ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->performCheck(Theory::EFFORT_LAST_CALL);
+      // if we have given up, then possibly flip decision
+      if(Options::current()->flipDecision) {
+        if(d_incomplete && !d_inConflict && !d_lemmasAdded) {
+          if( ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ) {
+            d_incomplete = false;
           }
         }
       }
     }
-    //AJR-hack-end
 
     // Clear any leftover propagated shared literals
     d_propagatedSharedLiterals.clear();

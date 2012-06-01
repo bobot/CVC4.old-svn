@@ -128,12 +128,10 @@ private:
       return true;
     }
 
-    //AJR-hack
-    void eqNotifyNewClass( TNode t ){}
-    void eqNotifyPreMerge( TNode t1, TNode t2 ){}
-    void eqNotifyPostMerge( TNode t1, TNode t2 ){}
-    void eqNotifyDisequal( TNode t1, TNode t2, TNode reason ){}
-    //AJR-hack-end
+    void eqNotifyNewClass(TNode t) { }
+    void eqNotifyPreMerge(TNode t1, TNode t2) { }
+    void eqNotifyPostMerge(TNode t1, TNode t2) { }
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { }
   };
 
   /** The notify class for d_equalityEngine */
