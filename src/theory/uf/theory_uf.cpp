@@ -506,8 +506,9 @@ Node TheoryUF::ppRewrite(TNode node) {
     return node;
   }
 
-  RegisterPpRewrite::iterator c = d_registeredPpRewrite.find(node.getOperator());
-  if (c == d_registeredPpRewrite.end()) {
+  // perform the callbacks requested by TheoryUF::registerPpRewrite()
+  RegisterPpRewrites::iterator c = d_registeredPpRewrites.find(node.getOperator());
+  if (c == d_registeredPpRewrites.end()) {
     return node;
   } else {
     Node res = c->second->ppRewrite(node);

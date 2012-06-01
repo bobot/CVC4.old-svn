@@ -714,18 +714,23 @@ public:
 };
 
 class EqClassesIterator {
-private:
+
   eq::EqualityEngine* d_ee;
   size_t d_it;
+
 public:
-  EqClassesIterator(){}
-  EqClassesIterator( eq::EqualityEngine* ee ) : d_ee( ee ){
+
+  EqClassesIterator() { }
+  EqClassesIterator(eq::EqualityEngine* ee) : d_ee(ee) {
     d_it = 0;
-    if( d_it<d_ee->d_nodesCount && d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] ){
-      (*this)++;
+    if ( d_it < d_ee->d_nodesCount &&
+         d_ee->getRepresentative(d_ee->d_nodes[d_it]) != d_ee->d_nodes[d_it] ) {
+      ++*this;
     }
   }
-  Node operator*() { return d_ee->d_nodes[d_it]; }
+  Node operator*() {
+    return d_ee->d_nodes[d_it];
+  }
   bool operator==(const EqClassesIterator& i) {
     return d_ee == i.d_ee && d_it == i.d_it;
   }
@@ -735,8 +740,9 @@ public:
   EqClassesIterator& operator++() {
     Node orig = d_ee->d_nodes[d_it];
     ++d_it;
-    while( d_it<d_ee->d_nodesCount && ( d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] ||
-           d_ee->d_nodes[d_it]==orig ) ){    //this line is necessary for ignoring duplicates
+    while ( d_it<d_ee->d_nodesCount &&
+            ( d_ee->getRepresentative(d_ee->d_nodes[d_it]) != d_ee->d_nodes[d_it]
+              || d_ee->d_nodes[d_it] == orig ) ) { // this line is necessary for ignoring duplicates
       ++d_it;
     }
     return *this;
@@ -746,24 +752,30 @@ public:
     ++*this;
     return i;
   }
-  bool isFinished() { return d_it>=d_ee->d_nodesCount; }
+  bool isFinished() {
+    return d_it>=d_ee->d_nodesCount;
+  }
 };/* class EqClassesIterator */
 
 class EqClassIterator {
-private:
+
   Node d_rep;
   eq::EqualityNode d_curr;
   Node d_curr_node;
   eq::EqualityEngine* d_ee;
+
 public:
-  EqClassIterator(){}
-  EqClassIterator( Node eqc, eq::EqualityEngine* ee ) : d_ee( ee ){
-    Assert( d_ee->getRepresentative( eqc )==eqc );
+
+  EqClassIterator() { }
+  EqClassIterator(Node eqc, eq::EqualityEngine* ee) : d_ee(ee) {
+    Assert( d_ee->getRepresentative(eqc) == eqc );
     d_rep = eqc;
     d_curr_node = eqc;
-    d_curr = d_ee->getEqualityNode( eqc );
+    d_curr = d_ee->getEqualityNode(eqc);
   }
-  Node operator*() { return d_curr_node; }
+  Node operator*() {
+    return d_curr_node;
+  }
   bool operator==(const EqClassIterator& i) {
     return d_ee == i.d_ee && d_curr_node == i.d_curr_node;
   }
@@ -772,11 +784,11 @@ public:
   }
   EqClassIterator& operator++() {
     Node next = d_ee->d_nodes[ d_curr.getNext() ];
-    Assert( d_rep==d_ee->getRepresentative( next ) );
-    if( d_rep!=next ){    //we end when we have cycled back to the original representative
+    Assert( d_rep==d_ee->getRepresentative(next) );
+    if (d_rep != next) { // we end when we have cycled back to the original representative
       d_curr_node = next;
-      d_curr = d_ee->getEqualityNode( d_curr.getNext() );
-    }else{
+      d_curr = d_ee->getEqualityNode(d_curr.getNext());
+    } else {
       d_curr_node = Node::null();
     }
     return *this;
@@ -786,7 +798,9 @@ public:
     ++*this;
     return i;
   }
-  bool isFinished() { return d_curr_node==Node::null(); }
+  bool isFinished() {
+    return d_curr_node == Node::null();
+  }
 };/* class EqClassIterator */
 
 } // Namespace eq
