@@ -25,6 +25,7 @@ InputLanguage toInputLanguage(OutputLanguage language) {
   switch(language) {
   case output::LANG_SMTLIB:
   case output::LANG_SMTLIB_V2:
+  case output::LANG_TPTP:
   case output::LANG_CVC4:
     // these entries directly correspond (by design)
     return InputLanguage(int(language));
@@ -46,6 +47,7 @@ OutputLanguage toOutputLanguage(InputLanguage language) {
     // these entries directly correspond (by design)
     return OutputLanguage(int(language));
 
+  case input::LANG_TPTP:
   default:
     // Revert to the default (AST) language.
     //

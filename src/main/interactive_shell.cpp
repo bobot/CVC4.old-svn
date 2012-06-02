@@ -106,10 +106,10 @@ InteractiveShell::InteractiveShell(ExprManager& exprManager,
       commandsBegin = smt_commands;
       commandsEnd = smt_commands + sizeof(smt_commands) / sizeof(*smt_commands);
       break;
-    case output::LANG_SMTLIB_V2:
-      d_historyFilename = string(getenv("HOME")) + "/.cvc4_history_smtlib2";
-      commandsBegin = smt2_commands;
-      commandsEnd = smt2_commands + sizeof(smt2_commands) / sizeof(*smt2_commands);
+    case output::LANG_TPTP:
+      d_historyFilename = string(getenv("HOME")) + "/.cvc4_history_tptp";
+      commandsBegin = tptp_commands;
+      commandsEnd = tptp_commands + sizeof(tptp_commands) / sizeof(*tptp_commands);
       break;
     default: Unhandled(lang);
     }

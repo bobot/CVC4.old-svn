@@ -21,6 +21,7 @@ namespace CVC4 {
 %rename(INPUT_LANG_AUTO) CVC4::language::input::LANG_AUTO;
 %rename(INPUT_LANG_SMTLIB) CVC4::language::input::LANG_SMTLIB;
 %rename(INPUT_LANG_SMTLIB_V2) CVC4::language::input::LANG_SMTLIB_V2;
+%rename(INPUT_LANG_TPTP) CVC4::language::input::LANG_TPTP;
 %rename(INPUT_LANG_CVC4) CVC4::language::input::LANG_CVC4;
 %rename(INPUT_LANG_MAX) CVC4::language::input::LANG_MAX;
 
