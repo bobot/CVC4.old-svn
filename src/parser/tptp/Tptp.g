@@ -362,7 +362,7 @@ fofLogicFormula[CVC4::Expr & expr]
     | //Or |
       ( { args.push_back(expr); }
         ( OR_TOK fofUnitaryFormula[expr] { args.push_back(expr); } )+
-        { expr = MK_EXPR(kind::AND,args); }
+        { expr = MK_EXPR(kind::OR,args); }
       )
    )?
   ;
