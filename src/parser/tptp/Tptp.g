@@ -306,7 +306,7 @@ variable[CVC4::Expr & expr]
   : UPPER_WORD
     {
       std::string name = AntlrInput::tokenText($UPPER_WORD);
-      if(PARSER_STATE->cnf && PARSER_STATE->isDeclared(name)){
+      if(!PARSER_STATE->cnf || PARSER_STATE->isDeclared(name)){
         expr = PARSER_STATE->getVariable(name);
       } else {
         expr = PARSER_STATE->mkVar(name, PARSER_STATE->d_unsorted);
@@ -372,12 +372,21 @@ fofUnitaryFormula[CVC4::Expr & expr]
   | LPAREN_TOK fofLogicFormula[expr] RPAREN_TOK
   | NOT_TOK fofUnitaryFormula[expr] { expr = MK_EXPR(kind::NOT,expr); }
   | // Quantified
-    folQuantifier[kind] LBRACK_TOK
-    ( variable[expr] { bv.push_back(expr); }
-      ( COMMA_TOK variable[expr] { bv.push_back(expr); } )* ) RBRACK_TOK
+    folQuantifier[kind] LBRACK_TOK {PARSER_STATE->pushScope();}
+    ( bindvariable[expr] { bv.push_back(expr); }
+      ( COMMA_TOK bindvariable[expr] { bv.push_back(expr); } )* ) RBRACK_TOK
   COLON_TOK fofUnitaryFormula[expr]
-  { expr = MK_EXPR(kind, MK_EXPR(kind::BOUND_VAR_LIST, bv), expr); }
-  ;
+  { PARSER_STATE->popScope();
+    expr = MK_EXPR(kind, MK_EXPR(kind::BOUND_VAR_LIST, bv), expr);
+  } ;
+
+bindvariable[CVC4::Expr & expr]
+  : UPPER_WORD
+    {
+      std::string name = AntlrInput::tokenText($UPPER_WORD);
+      expr = PARSER_STATE->mkVar(name, PARSER_STATE->d_unsorted);
+    }
+    ;
 
 fofBinaryNonAssoc[CVC4::parser::tptp::NonAssoc & na]
   : IFF_TOK      { na = tptp::NA_IFF; }
