@@ -1,0 +1,43 @@
+%--------------------------------------------------------------------------
+% File     : AGT001+1 : TPTP v5.3.0. Bugfixed v3.1.0.
+% Domain   : Agents
+% Problem  : Problem for the CPlanT system
+% Version  : [Bar03] axioms : Especial.
+% English  :
+
+% Refs     : [Bar03] Barta, J. (2003), Email to G. Sutcliffe
+%          : [BT+03] Barta et al. (2003), Meta-Reasoning in CPlanT Multi-Ag
+%          : [TBP03] Tozicka et al. (2003), Meta-reasoning for Agents' Priv
+% Source   : [Bar03]
+% Names    :
+
+% Status   : Theorem
+% Rating   : 0.04 v5.3.0, 0.11 v5.2.0, 0.05 v5.0.0, 0.04 v3.7.0, 0.05 v3.4.0, 0.11 v3.3.0, 0.00 v3.2.0, 0.18 v3.1.0
+% Syntax   : Number of formulae    :  556 ( 524 unit)
+%            Number of atoms       :  656 (   2 equality)
+%            Maximal formula depth :    8 (   1 average)
+%            Number of connectives :  143 (  43 ~  ;   1  |;  67  &)
+%                                         (  16 <=>;  16 =>;   0 <=)
+%                                         (   0 <~>;   0 ~|;   0 ~&)
+%            Number of predicates  :   17 (   0 propositional; 1-4 arity)
+%            Number of functors    :  290 ( 286 constant; 0-2 arity)
+%            Number of variables   :   70 (   0 singleton;  70 !;   0 ?)
+%            Maximal term depth    :    5 (   1 average)
+% SPC      : FOF_THM_RFO_SEQ
+
+% Comments :
+% Bugfixes : v3.0.0 - Bugfixes in NUM005+1.ax
+%          : v3.1.0 - Changes to NUM005 axioms
+%--------------------------------------------------------------------------
+%----Include axioms of CPlanT
+%--------------------------------------------------------------------------
+
+cnf(query_1,axiom, f(1) ).
+
+cnf(query_1,axiom, e(E,1.6) ).
+
+cnf(query_1,axiom, e(A,3.0E3) ).
+
+cnf(query_1,conjecture, e(E,1.6) ).
+
+%--------------------------------------------------------------------------
