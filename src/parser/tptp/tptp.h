@@ -184,7 +184,7 @@ inline Command* Tptp::makeCommand(FormulaRole fr, Expr & expr){
     break;
   case FR_CONJECTURE:
     // something to prove
-    return new QueryCommand(expr);
+    return new AssertCommand(getExprManager()->mkExpr(kind::NOT,expr));
     break;
   default:
     Unreachable("fr",fr);

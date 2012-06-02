@@ -165,7 +165,11 @@ parseCommand returns [CVC4::Command* cmd = NULL]
     {
       cmd = PARSER_STATE->makeCommand(fr,expr);
     }
-  | EOF { $cmd = 0; }
+  | EOF
+    {
+      PARSER_STATE->preemptCommand(new CheckSatCommand(MK_CONST(bool(true))));
+      cmd = NULL;
+    }
   ;
 
 /* Parse a formula Role */
@@ -181,7 +185,7 @@ formulaRole[CVC4::parser::Tptp::FormulaRole & role]
       else if (r == "theorem")            role = Tptp::FR_THEOREM;
       else if (r == "negated_conjecture") role = Tptp::FR_NEGATED_CONJECTURE;
       else if (r == "conjecture")         role = Tptp::FR_CONJECTURE;
-      else if (r == "unknown")              role = Tptp::FR_UNKNOWN;
+      else if (r == "unknown")            role = Tptp::FR_UNKNOWN;
       else PARSER_STATE->parseError("Invalid formula role: " + r);
     }
   ;
