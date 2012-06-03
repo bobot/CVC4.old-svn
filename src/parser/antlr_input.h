@@ -182,6 +182,9 @@ public:
   /** Retrieve the remaining text in this input. */
   std::string getUnparsedText();
 
+  /** Get the ANTLR3 lexer for this input. */
+  pANTLR3_LEXER getAntlr3Lexer(){ return d_lexer; };
+
 protected:
   /** Create an input. This input takes ownership of the given input stream,
    * and will delete it at destruction time.

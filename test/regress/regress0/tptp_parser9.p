@@ -32,7 +32,7 @@
 %----Include axioms of CPlanT
 %--------------------------------------------------------------------------
 
-cnf(query_1,axiom, f(1) ).
+cnf(query_1,axiom, include(1) ).
 
 cnf(query_1,axiom, e(r,1.6) ).
 

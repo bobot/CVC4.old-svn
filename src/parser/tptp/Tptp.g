@@ -166,6 +166,12 @@ parseCommand returns [CVC4::Command* cmd = NULL]
       PARSER_STATE->d_fof_conjecture = PARSER_STATE->d_fof_conjecture || fr==Tptp::FR_CONJECTURE;
       cmd = PARSER_STATE->makeCommand(fr,expr);
     }
+  | INCLUDE_TOK LPAREN_TOK unquotedFileName[name] RPAREN_TOK DOT_TOK
+    {
+      PARSER_STATE->includeFile(name);
+      // The command of the included file will be produce at the new parseCommand call
+      cmd = new EmptyCommand("include::" + name);
+    }
   | EOF
     {
       PARSER_STATE->endFile();
@@ -446,7 +452,7 @@ CNF_TOK     : 'cnf';
 FOF_TOK     : 'fof';
 THF_TOK     : 'thf';
 TFF_TOK     : 'tff';
-fragment INCLUDE_TOK : 'include';
+INCLUDE_TOK : 'include';
 
 /*********/
 /* Token */
@@ -481,8 +487,15 @@ fragment ALPHA_NUMERIC : LOWER_ALPHA | UPPER_ALPHA | NUMERIC | '_';
 UPPER_WORD : UPPER_ALPHA ALPHA_NUMERIC*;
 LOWER_WORD : LOWER_ALPHA ALPHA_NUMERIC*;
 
+/* filename */
+unquotedFileName[std::string & name] /* Beware fileName identifier is used by the backend ... */
+ : (s=LOWER_WORD_SINGLE_QUOTED | s=SINGLE_QUOTED)
+    { name = AntlrInput::tokenText($s);
+      name = name.substr(1, name.size() - 2 );
+    };
+
 /* axiom name */
-nameN[std::string name]
+nameN[std::string & name]
  : atomicWord[name]
  | NUMBER { name = AntlrInput::tokenText($NUMBER); }
  ;
@@ -493,7 +506,7 @@ atomicWord[std::string & name]
  | CNF_TOK     { name = "cnf"; }
  | THF_TOK     { name = "thf"; }
  | TFF_TOK     { name = "tff"; }
-// | INCLUDE_TOK { name = "include"; }
+ | INCLUDE_TOK { name = "include"; }
  | LOWER_WORD  { name = AntlrInput::tokenText($LOWER_WORD); }
  | LOWER_WORD_SINGLE_QUOTED //the lower word single quoted are considered without quote
     {
@@ -571,47 +584,5 @@ COMMENT
   | '/*'  ( options {greedy=false;} : . )*  '*/' { SKIP(); } //comment block
   ;
 
-/* The include are managed completely in the lexer */
-// From http://www.antlr.org/api/C/interop.html
 
-/* Filename */
-fragment FILE_NAME : SINGLE_QUOTED ;
 
-INCLUDE
-  : INCLUDE_TOK LPAREN_TOK file = FILE_NAME RPAREN_TOK DOT_TOK
-        {
-            pANTLR3_INPUT_STREAM    in;
-
-            // Create an initial string, then take a substring
-            // We can do this by messing with the start and end
-            // pointers of tokens and so on. This shows a reasonable way to
-            // manipulate strings.
-            //
-            // remove the "'"
-            Debug("parser") << "Including file: " << AntlrInput::tokenText($file) << std::endl;
-            std::string fName = AntlrInput::tokenTextSubstr($file,1,(size_t) ($file->stop - $file->start) - 1);
-            if( !PARSER_STATE->resolveInclude(fName) ){
-               PARSER_STATE->parseError("Command 'include' found but the TPTP directory is not specified (environnement variable TPTP)");
-            }
-            // Create a new input stream and take advantage of built in stream stacking
-            // in C target runtime.
-            //
-#ifdef CVC4_ANTLR3_OLD_INPUT_STREAM
-            in = antlr3AsciiFileStreamNew((pANTLR3_UINT8) fName.c_str());
-#else /* CVC4_ANTLR3_OLD_INPUT_STREAM */
-            in = antlr3FileStreamNew((pANTLR3_UINT8) fName.c_str(), ANTLR3_ENC_8BIT);
-#endif /* CVC4_ANTLR3_OLD_INPUT_STREAM */
-            if( in == NULL ) {
-              PARSER_STATE->parseError("Couldn't open file: " + fName); //fName->chars));
-            }
-            PUSHSTREAM(in);
-            // Note that the input stream is not closed when it EOFs, I don't bother
-            // to do it here, but it is up to you to track streams created like this
-            // and destroy them when the whole parse session is complete. Remember that you
-            // don't want to do this until all tokens have been manipulated all the way through 
-            // your tree parsers etc as the token does not store the text it just refers
-            // back to the input stream and trying to get the text for it will abort if you
-            // close the input stream too early.
-            //
-            SKIP();}
-  ;

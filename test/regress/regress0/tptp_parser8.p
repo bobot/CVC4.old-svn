@@ -33,13 +33,7 @@
 %--------------------------------------------------------------------------
 include('Axioms/ALG001-0.ax').
 
-cnf(query_1,axiom, p( A, d ) | b ).
-
-cnf(query_1,axiom, b | c ).
-
-fof(query_1,axiom, ![A]: (~p(A, axiom) | (~ 'c' & $true)) ).
-
-cnf(query_1,axiom, axiom != d ).
+cnf(query_1,axiom, include('A') | b ).
 
 cnf(query_1,conjecture, b ).
 

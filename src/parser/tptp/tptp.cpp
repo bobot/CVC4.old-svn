@@ -21,6 +21,7 @@
 #include "parser/smt/smt.h"
 #include "parser/tptp/tptp.h"
 #include "util/options.h"
+#include "parser/antlr_input.h"
 
 namespace CVC4 {
 namespace parser {
@@ -98,11 +99,46 @@ void Tptp::addTheory(Theory theory) {
   }
 }
 
-bool Tptp::resolveInclude(std::string & inputName){
+
+/* The include are managed in the lexer but called in the parser */
+// Inspired by From http://www.antlr.org/api/C/interop.html
+
+void Tptp::includeFile(std::string fileName){
   if( !d_tptpDir.empty() ){
-    inputName = d_tptpDir + inputName;
-    return true;
-  } else return false;
+    fileName = d_tptpDir + fileName;
+  } else {
+    parseError("Command 'include' found but the TPTP directory is not specified (environnement variable TPTP)");
+  };
+  Debug("parser") << "Including " << fileName << std::endl;
+  // Create a new input stream and take advantage of built in stream stacking
+  // in C target runtime.
+  //
+  pANTLR3_INPUT_STREAM    in;
+#ifdef CVC4_ANTLR3_OLD_INPUT_STREAM
+  in = antlr3AsciiFileStreamNew((pANTLR3_UINT8) fileName.c_str());
+#else /* CVC4_ANTLR3_OLD_INPUT_STREAM */
+  in = antlr3FileStreamNew((pANTLR3_UINT8) fileName.c_str(), ANTLR3_ENC_8BIT);
+#endif /* CVC4_ANTLR3_OLD_INPUT_STREAM */
+  if( in == NULL ) {
+    parseError("Couldn't open file: " + fileName);
+  }
+  // Get the lexer
+  AntlrInput * ai = static_cast<AntlrInput *>(getInput());
+  pANTLR3_LEXER lexer = ai->getAntlr3Lexer();
+  // Samething than the predefined PUSHSTREAM(in);
+  lexer->pushCharStream(lexer,in);
+  // restart it
+  //lexer->rec->state->tokenStartCharIndex	= -10;
+  //lexer->emit(lexer);
+
+  // Note that the input stream is not closed when it EOFs, I don't bother
+  // to do it here, but it is up to you to track streams created like this
+  // and destroy them when the whole parse session is complete. Remember that you
+  // don't want to do this until all tokens have been manipulated all the way through
+  // your tree parsers etc as the token does not store the text it just refers
+  // back to the input stream and trying to get the text for it will abort if you
+  // close the input stream too early.
+  //
 }
 
 void Tptp::endFile(){

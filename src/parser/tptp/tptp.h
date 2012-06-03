@@ -135,7 +135,9 @@ public:
       token */
   Expr d_tmp_expr;
 
-  bool resolveInclude(std::string & inputName);
+  /** Push a new stream in the lexer. When EOF is reached the previous stream
+      is reused */
+  void includeFile(std::string fileName);
 
   void endFile();
 
