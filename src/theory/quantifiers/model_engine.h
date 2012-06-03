@@ -87,7 +87,7 @@ public:
   std::vector< Node > d_terms;
 public:
   /** increment the iterator */
-  void increment2( QuantifiersEngine* qe, int counter ); 
+  void increment2( QuantifiersEngine* qe, int counter );
   void increment( QuantifiersEngine* qe );
   /** is the iterator finished? */
   bool isFinished();
@@ -184,8 +184,8 @@ public:
   Node getValue( QuantifiersEngine* qe, Node n, int& depIndex ){
     return d_tree.getValue( qe, n, d_index_order, depIndex, 0 );
   }
-  Node getConstantValue( QuantifiersEngine* qe, Node n ) { 
-    return d_tree.getConstantValue( qe, n, d_index_order, 0 ); 
+  Node getConstantValue( QuantifiersEngine* qe, Node n ) {
+    return d_tree.getConstantValue( qe, n, d_index_order, 0 );
   }
   void simplify() { d_tree.simplify( d_op, Node::null(), 0 ); }
   bool isTotal() { return d_tree.isTotal( d_op, 0 ); }
@@ -299,8 +299,6 @@ private:
   std::map< Node, std::vector< int > > d_eval_term_index_order;
   int getMaxVariableNum( int n );
   void makeEvalTermIndexOrder( Node n );
-public:
-  void increment( RepAlphabetIterator* rai );
 private:
   //queries about equality
   bool areEqual( Node a, Node b );
@@ -365,6 +363,8 @@ public:
     ~Statistics();
   };
   Statistics d_statistics;
+  //
+  std::map< Node, bool > d_quant_semi_sat;
 };
 
 }

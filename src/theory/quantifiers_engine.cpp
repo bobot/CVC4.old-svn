@@ -28,7 +28,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 //#define COMPUTE_RELEVANCE
-#define REWRITE_ASSERTED_QUANTIFIERS
+//#define REWRITE_ASSERTED_QUANTIFIERS
 
   /** reset instantiation */
 void InstStrategy::resetInstantiationRound( Theory::Effort effort ){

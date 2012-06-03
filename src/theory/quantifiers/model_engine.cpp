@@ -139,7 +139,7 @@ bool RepAlphabetIterator::isFinished(){
 
 void RepAlphabetIterator::getMatch( QuantifiersEngine* ie, InstMatch& m ){
   for( int i=0; i<(int)d_index.size(); i++ ){
-    m.d_map[ ie->getInstantiationConstant( d_f, i ) ] = getTerm( i );
+    m.d_map[ ie->getInstantiationConstant( d_f, d_index_order[i] ) ] = getTerm( i );
   }
 }
 
@@ -309,8 +309,11 @@ void UfModelTree::debugPrint( const char* c, QuantifiersEngine* qe, std::vector<
 
 UfModel::UfModel( Node op, ModelEngine* me ) : d_op( op ), d_me( me ),
   d_model_constructed( false ), d_reconsider_model( false ){
-
-  d_tree = UfModelTreeOrdered( op );  TypeNode tn = d_op.getType();  tn = tn[(int)tn.getNumChildren()-1];  Assert( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) );  //look at ground assertions
+  d_tree = UfModelTreeOrdered( op );
+  TypeNode tn = d_op.getType();
+  tn = tn[(int)tn.getNumChildren()-1];
+  Assert( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) );
+  //look at ground assertions
   for( int i=0; i<(int)d_me->getQuantifiersEngine()->getTermDatabase()->d_op_map[ d_op ].size(); i++ ){
     Node n = d_me->getQuantifiersEngine()->getTermDatabase()->d_op_map[ d_op ][i];
     bool add = true;
@@ -473,7 +476,19 @@ void UfModel::buildModel(){
       double maxScore = -1;
       for( int i=0; i<(int)d_values.size(); i++ ){
         Node v = d_values[i];
-        double score = ( 1.0 + (double)d_value_pro_con[0][v].size() )/( 1.0 + (double)d_value_pro_con[1][v].size() );
+        double pcScore[2];
+        for( int k=0; k<2; k++ ){
+          pcScore[k] = 0.0;
+          for( int l=0; l<(int)d_value_pro_con[k][v].size(); l++ ){
+            Node f = d_value_pro_con[k][v][l];
+            if( d_me->d_quant_semi_sat.find( f )!=d_me->d_quant_semi_sat.end() ){
+              pcScore[k] += 0.1;
+            }else{
+              pcScore[k] += 1.0;
+            }
+          }
+        }
+        double score = ( 1.0 + pcScore[0] )/( 1.0 + pcScore[1] );
         Debug("fmf-model-cons") << "  - score( ";
         printRepresentative( "fmf-model-cons", d_me->getQuantifiersEngine(), v );
         Debug("fmf-model-cons") << " ) = " << score << std::endl;
@@ -503,6 +518,10 @@ void UfModel::buildModel(){
         }
       }
 #endif
+      //set "pro" quantifiers as being semi-satisfied
+      for( int i=0; i<(int)d_value_pro_con[0][defaultVal].size(); i++ ){
+        d_me->d_quant_semi_sat[d_value_pro_con[0][defaultVal][i]] = true;
+      }
       Assert( !defaultVal.isNull() );
       //get the default term (this term must be defined non-ground in model)
       Debug("fmf-model-cons") << "  Choose ";
@@ -511,11 +530,11 @@ void UfModel::buildModel(){
       Debug("fmf-model-cons") << "     # quantifiers pro = " << d_value_pro_con[0][defaultVal].size() << std::endl;
       Debug("fmf-model-cons") << "     # quantifiers con = " << d_value_pro_con[1][defaultVal].size() << std::endl;
       setValue( defaultTerm, defaultVal, false );
-      Debug("fmf-model-cons") << "  Making model...";
-      setModel();
-      Debug("fmf-model-cons") << "  Finished constructing model for " << d_op << "." << std::endl;
-      //std::cout << "  Finished constructing model for " << d_op << "." << std::endl;
     }
+    Debug("fmf-model-cons") << "  Making model...";
+    setModel();
+    Debug("fmf-model-cons") << "  Finished constructing model for " << d_op << "." << std::endl;
+    //std::cout << "  Finished constructing model for " << d_op << "." << std::endl;
   }
 }
 
@@ -642,6 +661,7 @@ void ModelEngine::check( Theory::Effort e ){
         for( std::map< Node, UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
           it->second.buildModel();
         }
+        Debug("fmf-model-debug") << "Done building models." << std::endl;
       }
       ////print debug
       //debugPrint("fmf-model-complete");
@@ -751,6 +771,7 @@ void ModelEngine::initializeModel(){
   for( int k=0; k<2; k++ ){
     d_pro_con_quant[k].clear();
   }
+  d_quant_semi_sat.clear();
 
   ////now analyze quantifiers (temporary)
   //for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
@@ -931,21 +952,67 @@ int ModelEngine::instantiateQuantifier( Node f ){
   //d_eval_term_vals.clear();
   //d_eval_term_fv_deps.clear();
   RepAlphabetIterator riter( d_quantEngine, f, this );
-  increment( &riter );
 #ifdef ONE_INST_PER_QUANT_PER_ROUND
   while( !riter.isFinished() && addedLemmas==0 ){
 #else
   while( !riter.isFinished() ){
 #endif
-    InstMatch m;
-    riter.getMatch( d_quantEngine, m );
-    Debug("fmf-model-eval") << "* Add instantiation " << std::endl;
-    riter.d_inst_tried++;
-    if( d_quantEngine->addInstantiation( f, m ) ){
-      addedLemmas++;
+    if( useModel() ){
+      //see if instantiation is already true in current model
+      //Debug("fmf-model-eval") << "Evaluating ";
+      //rai->debugPrintSmall("fmf-model-eval");
+      //calculate represenative terms we are currently considering
+      riter.calculateTerms( d_quantEngine );
+      riter.d_inst_tests++;
+      Debug("fmf-model-eval") << "Done calculating terms." << std::endl;
+      //if eVal is not (int)rai->d_index.size(), then the instantiation is already true in the model,
+      // and eVal is the highest index in rai which we can safely iterate
+      int depIndex = (int)riter.d_index.size()-1;
+      if( evaluate( &riter, d_quantEngine->getCounterexampleBody( f ), depIndex )==1 ){
+        Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
+        //std::cout << "  Returned success with depIndex = " << depIndex << std::endl;
+#ifdef DISABLE_EVAL_SKIP_MULTIPLE
+        depIndex = (int)riter.d_index.size()-1;
+#endif
+        riter.increment2( d_quantEngine, depIndex );
+      }else{
+        Debug("fmf-model-eval") << "  Returned failure, depIndex = " << depIndex << std::endl;
+        //std::cout << "  Returned failure, depIndex = " << depIndex << std::endl;
+        InstMatch m;
+        riter.getMatch( d_quantEngine, m );
+        Debug("fmf-model-eval") << "* Add instantiation " << std::endl;
+        riter.d_inst_tried++;
+        bool addedInst = false;
+        for( int r=0; r<1; r++ ){
+          if( r==1 ){
+            //try to generalize
+            for( int i=(int)depIndex+1; i<(int)riter.d_index_order.size(); i++ ){
+              Node ic = d_quantEngine->getInstantiationConstant( f, riter.d_index_order[i] );
+              Node t = getModelBasisTerm( ic.getType() );
+              m.d_map[ic] = t;
+            }
+          }
+          if( d_quantEngine->addInstantiation( f, m ) ){
+            addedLemmas++;
+            addedInst = true;
+          }
+        }
+        if( addedInst && false ){
+          riter.increment2( d_quantEngine, depIndex );
+        }else{
+          riter.increment( d_quantEngine );
+        }
+      }
+    }else{
+      InstMatch m;
+      riter.getMatch( d_quantEngine, m );
+      Debug("fmf-model-eval") << "* Add instantiation " << std::endl;
+      riter.d_inst_tried++;
+      if( d_quantEngine->addInstantiation( f, m ) ){
+        addedLemmas++;
+      }
+      riter.increment( d_quantEngine );
     }
-    riter.increment( d_quantEngine );
-    increment( &riter );
   }
   if( Debug.isOn("inst-fmf-ei") ){
     int totalInst = 1;
@@ -1145,39 +1212,6 @@ void ModelEngine::makeEvalTermIndexOrder( Node n ){
 //  }
 //}
 
-void ModelEngine::increment( RepAlphabetIterator* rai ){
-  if( useModel() ){
-    bool success;
-    do{
-      success = true;
-      if( !rai->isFinished() ){
-        //see if instantiation is already true in current model
-        //Debug("fmf-model-eval") << "Evaluating ";
-        //rai->debugPrintSmall("fmf-model-eval");
-        //calculate represenative terms we are currently considering
-        rai->calculateTerms( d_quantEngine );
-        rai->d_inst_tests++;
-        Debug("fmf-model-eval") << "Done calculating terms." << std::endl;
-        //if eVal is not (int)rai->d_index.size(), then the instantiation is already true in the model,
-        // and eVal is the highest index in rai which we can safely iterate
-        int depIndex;
-        if( evaluate( rai, d_quantEngine->getCounterexampleBody( rai->d_f ), depIndex )==1 ){
-          Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
-          //std::cout << "Returned eVal = " << eVal << "/" << rai->d_index.size() << std::endl;
-          if( depIndex<(int)rai->d_index.size() ){
-#ifdef DISABLE_EVAL_SKIP_MULTIPLE
-            depIndex = (int)rai->d_index.size()-1;
-#endif
-            rai->increment2( d_quantEngine, depIndex );
-            success = false;
-          }
-        }else{
-          Debug("fmf-model-eval") << "  Returned failure." << std::endl;
-        }
-      }
-    }while( !success );
-  }
-}
 
 //if evaluate( rai, n, phaseReq ) = eVal,
 // if eVal = rai->d_index.size()
@@ -1187,6 +1221,7 @@ void ModelEngine::increment( RepAlphabetIterator* rai ){
 int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
   ++(d_statistics.d_eval_formulas);
   //Debug("fmf-model-eval-debug") << "Evaluate " << n << " " << phaseReq << std::endl;
+  //std::cout << "Eval " << n << std::endl;
   if( n.getKind()==NOT ){
     int val = evaluate( rai, n[0], depIndex );
     return val==1 ? -1 : ( val==-1 ? 1 : 0 );
@@ -1299,6 +1334,7 @@ int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
 
 int ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, std::vector< Node >& fv_deps ){
   ++(d_statistics.d_eval_eqs);
+  //std::cout << "Eval eq " << n1 << " " << n2 << std::endl;
   Debug("fmf-model-eval-debug") << "Evaluate equality: " << std::endl;
   Debug("fmf-model-eval-debug") << "   " << n1 << " = " << n2 << std::endl;
   Debug("fmf-model-eval-debug") << "   " << gn1 << " = " << gn2 << std::endl;
@@ -1331,6 +1367,7 @@ int ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, std::ve
 }
 
 Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
+  //std::cout << "Eval term " << n << std::endl;
   if( n.hasAttribute(InstConstantAttribute()) ){
     if( n.getKind()==INST_CONSTANT ){
       fv_deps.push_back( n );
@@ -1341,6 +1378,7 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
     //  return d_eval_term_vals[gn];
     }else{
       //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
+      //std::cout << "e " << n << std::endl;
       //first we must evaluate the arguments
       Node val = gn;
       if( n.getKind()==APPLY_UF ){
@@ -1366,14 +1404,17 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
         }
         if( d_uf_model.find( op )!=d_uf_model.end() ){
 #ifdef USE_INDEX_ORDERING
+          //std::cout << "make eval" << std::endl;
           //make the term model specifically for n
           makeEvalTermModel( n );
+          //std::cout << "done " << d_eval_term_use_default_model[n] << std::endl;
           //now, consult the model
           if( d_eval_term_use_default_model[n] ){
             val = d_uf_model[op].d_tree.getValue( d_quantEngine, gnn, depIndex );
           }else{
             val = d_eval_term_model[ n ].getValue( d_quantEngine, gnn, depIndex );
           }
+          //std::cout << "done get value " << val << std::endl;
           //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ", " << gnn << ")" << std::endl;
           //d_eval_term_model[ n ].debugPrint("fmf-model-eval-debug", d_quantEngine );
           Assert( !val.isNull() );
@@ -1389,6 +1430,7 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
         Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = " << gn << " = " << gnn << " = ";
         printRepresentative( "fmf-model-eval-debug", d_quantEngine, val );
         Debug("fmf-model-eval-debug") << ", depIndex = " << depIndex << std::endl;
+        //std::cout << n << " = " << gn << " = " << gnn << " = " << val << std::endl;
         if( !val.isNull() ){
 #ifdef USE_INDEX_ORDERING
           for( int i=0; i<depIndex; i++ ){
