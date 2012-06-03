@@ -163,11 +163,12 @@ parseCommand returns [CVC4::Command* cmd = NULL]
     { PARSER_STATE->cnf=false; }
     fofFormula[expr] RPAREN_TOK DOT_TOK
     {
+      PARSER_STATE->d_fof_conjecture = PARSER_STATE->d_fof_conjecture || fr==Tptp::FR_CONJECTURE;
       cmd = PARSER_STATE->makeCommand(fr,expr);
     }
   | EOF
     {
-      PARSER_STATE->preemptCommand(new CheckSatCommand(MK_CONST(bool(true))));
+      PARSER_STATE->endFile();
       cmd = NULL;
     }
   ;

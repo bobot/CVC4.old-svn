@@ -20,14 +20,14 @@
 #include "parser/parser.h"
 #include "parser/smt/smt.h"
 #include "parser/tptp/tptp.h"
+#include "util/options.h"
 
 namespace CVC4 {
 namespace parser {
 
 Tptp::Tptp(ExprManager* exprManager, Input* input, bool strictMode, bool parseOnly) :
-  Parser(exprManager,input,strictMode,parseOnly) {
+  Parser(exprManager,input,strictMode,parseOnly), d_fof_conjecture(false) {
   addTheory(Tptp::THEORY_CORE);
-
   /* Try to find TPTP dir */
   // From tptp4x FileUtilities
   //----Try the TPTP directory, and TPTP variations
@@ -103,6 +103,11 @@ bool Tptp::resolveInclude(std::string & inputName){
     inputName = d_tptpDir + inputName;
     return true;
   } else return false;
+}
+
+void Tptp::endFile(){
+  Options::tptp_fof_conjecture = d_fof_conjecture;
+  preemptCommand(new CheckSatCommand(getExprManager()->mkConst(bool(true))));
 }
 
 }/* CVC4::parser namespace */

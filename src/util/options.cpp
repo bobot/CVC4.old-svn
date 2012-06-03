@@ -1290,4 +1290,6 @@ std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {
 #undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT
 #undef DO_SEMANTIC_CHECKS_BY_DEFAULT
 
+bool Options::tptp_fof_conjecture = false;
+
 }/* CVC4 namespace */

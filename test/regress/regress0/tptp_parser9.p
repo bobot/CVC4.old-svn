@@ -34,10 +34,10 @@
 
 cnf(query_1,axiom, f(1) ).
 
-cnf(query_1,axiom, e(E,1.6) ).
+cnf(query_1,axiom, e(r,1.6) ).
 
-cnf(query_1,axiom, e(A,3.0E3) ).
+cnf(query_1,axiom, e(r,3.0E3) ).
 
-cnf(query_1,conjecture, e(E,1.6) ).
+fof(query_1,conjecture, e(p,2.6) ).
 
 %--------------------------------------------------------------------------

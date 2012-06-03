@@ -52,6 +52,7 @@ class Tptp : public Parser {
 
 public:
   bool cnf; //in a cnf formula
+  bool d_fof_conjecture;
 
   void addFreeVar(Expr var){Assert(cnf); d_freeVar.push_back(var); };
   std::vector< Expr > getFreeVar(){
@@ -135,6 +136,8 @@ public:
   Expr d_tmp_expr;
 
   bool resolveInclude(std::string & inputName);
+
+  void endFile();
 
 private:
 

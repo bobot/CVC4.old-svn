@@ -291,10 +291,15 @@ int runCvc4(int argc, char* argv[], Options& options) {
     if( options.cascFilename.length()>0 ){
       std::string cfn = options.cascFilename;
       cfn.erase( cfn.end()-2, cfn.end() );
-      if(result == "sat") {
-        std::cout << "% SZS Satisfiable for " << cfn << std::endl;
-      } else if(result == "unsat") {
-        std::cout << "% SZS Unsatisfiable for " << cfn << std::endl;
+      if(result == "sat" || result == "unsat") {
+        bool sat = result == "sat";
+        bool fof = Options::tptp_fof_conjecture;
+        std::string answer;
+        if      (!fof &&  sat)    answer = "Satisfiable";
+        else if (!fof && !sat)    answer = "Unsatisfiable";
+        else if ( fof &&  sat)    answer = "CounterSatisfiable";
+        else /* ( fof && !sat) */ answer = "Theorem";
+        std::cout << "% SZS " << answer << " for " << cfn << std::endl;
       } else {
         std::cout << "% SZS GaveUp for " << cfn << std::endl;
       }

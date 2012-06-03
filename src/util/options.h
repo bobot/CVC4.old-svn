@@ -309,6 +309,8 @@ struct CVC4_PUBLIC Options {
 
   /** casc file. */
   std::string cascFilename;
+  /* Big ugly hack */
+  static bool tptp_fof_conjecture;
 
   /** 
    * Whether to use efficient E-matching 
