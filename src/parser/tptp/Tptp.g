@@ -156,13 +156,13 @@ parseCommand returns [CVC4::Command* cmd = NULL]
       expr = MK_EXPR(kind::FORALL,MK_EXPR(kind::BOUND_VAR_LIST,bvl),expr);
     };
   }
-    anything_RPAREN_TOK DOT_TOK
+    (COMMA_TOK anything*)? RPAREN_TOK DOT_TOK
     {
       cmd = PARSER_STATE->makeCommand(fr,expr);
     }
   | FOF_TOK LPAREN_TOK nameN[name] COMMA_TOK formulaRole[fr] COMMA_TOK
     { PARSER_STATE->cnf=false; }
-    fofFormula[expr] anything_RPAREN_TOK DOT_TOK
+    fofFormula[expr] (COMMA_TOK anything*)? RPAREN_TOK DOT_TOK
     {
       PARSER_STATE->d_fof_conjecture = PARSER_STATE->d_fof_conjecture || fr==Tptp::FR_CONJECTURE;
       cmd = PARSER_STATE->makeCommand(fr,expr);
@@ -422,9 +422,7 @@ folQuantifier[CVC4::Kind & kind]
   ;
 
 /***********************************************/
-/* Anything well parenthesis than end with ")" */
-
-anything_RPAREN_TOK : anything* RPAREN_TOK ;
+/* Anything well parenthesis */
 
 anything
   : LPAREN_TOK anything* RPAREN_TOK
