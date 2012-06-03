@@ -63,21 +63,6 @@ void Tptp::addTheory(Theory theory) {
       d_unsorted = em->mkSort(d_unsorted_name);
       preemptCommand( new DeclareTypeCommand(d_unsorted_name, 0, d_unsorted) );
     }
-    {
-      Type t;
-      //Conversion from rational to unsorted
-      t = em->mkFunctionType(em->realType(), d_unsorted);
-      d_rtu_op = em->mkVar("$$rtu",t);
-      //Conversion from string to unsorted
-      t = em->mkFunctionType(em->stringType(), d_unsorted);
-      d_stu_op = em->mkVar("$$stu",t);
-      //Conversion from unsorted to rational
-      t = em->mkFunctionType(d_unsorted, em->realType());
-      d_utr_op = em->mkVar("$$utr",t);
-      //Conversion from unsorted to string
-      t = em->mkFunctionType(d_unsorted, em->stringType());
-      d_uts_op = em->mkVar("$$uts",t);
-    }
     // propositionnal
     defineType("Bool", em->booleanType());
     defineVar("$true", em->mkConst(true));

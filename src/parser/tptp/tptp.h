@@ -42,7 +42,7 @@ class Tptp : public Parser {
   Expr d_stu_op;
   Expr d_utr_op;
   Expr d_uts_op;
-  // The set of expression that have already been converted
+  // The set of expression that already have a bridge
   std::hash_set<Expr, ExprHashFunction> d_r_converted;
   std::hash_set<Expr, ExprHashFunction> d_s_converted;
 
@@ -64,6 +64,19 @@ public:
 
   inline Expr convertRatToUnsorted(Expr expr){
     ExprManager * em = getExprManager();
+
+    // Create the conversion function If they doesn't exists
+    if(d_rtu_op.isNull()){
+      Type t;
+      //Conversion from rational to unsorted
+      t = em->mkFunctionType(em->realType(), d_unsorted);
+      d_rtu_op = em->mkVar("$$rtu",t);
+      preemptCommand(new DeclareFunctionCommand("$$rtu", t));
+      //Conversion from unsorted to rational
+      t = em->mkFunctionType(d_unsorted, em->realType());
+      d_utr_op = em->mkVar("$$utr",t);
+      preemptCommand(new DeclareFunctionCommand("$$utur", t));
+    }
     // Add the inverse in order to show that over the elements that
     // appear in the problem there is a bijection between unsorted and
     // rational
@@ -79,6 +92,19 @@ public:
 
   inline Expr convertStrToUnsorted(Expr expr){
     ExprManager * em = getExprManager();
+
+    // Create the conversion function If they doesn't exists
+    if(d_stu_op.isNull()){
+      Type t;
+      //Conversion from string to unsorted
+      t = em->mkFunctionType(em->stringType(), d_unsorted);
+      d_stu_op = em->mkVar("$$stu",t);
+      preemptCommand(new DeclareFunctionCommand("$$stu", t));
+      //Conversion from unsorted to string
+      t = em->mkFunctionType(d_unsorted, em->stringType());
+      d_uts_op = em->mkVar("$$uts",t);
+      preemptCommand(new DeclareFunctionCommand("$$uts", t));
+    }
     // Add the inverse in order to show that over the elements that
     // appear in the problem there is a bijection between unsorted and
     // rational
@@ -111,7 +137,11 @@ public:
     FR_CONJECTURE,
     FR_NEGATED_CONJECTURE,
     FR_UNKNOWN,
-    //    plain | fi_domain | fi_functors | fi_predicates | type
+    FR_PLAIN,
+    FR_FI_DOMAIN,
+    FR_FI_FUNCTORS,
+    FR_FI_PREDICATES,
+    FR_TYPE,
   };
 
 
@@ -183,13 +213,20 @@ inline Command* Tptp::makeCommand(FormulaRole fr, Expr & expr){
   case FR_LEMMA:
   case FR_THEOREM:
   case FR_NEGATED_CONJECTURE:
-  case FR_UNKNOWN: // Should it be here "error situation"?
+  case FR_PLAIN:
     // it's a usual assert
     return new AssertCommand(expr);
     break;
   case FR_CONJECTURE:
     // something to prove
     return new AssertCommand(getExprManager()->mkExpr(kind::NOT,expr));
+    break;
+  case FR_UNKNOWN:
+  case FR_FI_DOMAIN:
+  case FR_FI_FUNCTORS:
+  case FR_FI_PREDICATES:
+  case FR_TYPE:
+    return new EmptyCommand("Untreated role");
     break;
   default:
     Unreachable("fr",fr);

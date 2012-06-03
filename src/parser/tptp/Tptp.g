@@ -144,6 +144,7 @@ parseCommand returns [CVC4::Command* cmd = NULL]
   Expr expr;
   Tptp::FormulaRole fr;
   std::string name;
+  std::string incl_args;
 }
 //  : LPAREN_TOK c = command RPAREN_TOK { $cmd = c; }
   : CNF_TOK LPAREN_TOK nameN[name] COMMA_TOK formulaRole[fr] COMMA_TOK
@@ -155,18 +156,20 @@ parseCommand returns [CVC4::Command* cmd = NULL]
       expr = MK_EXPR(kind::FORALL,MK_EXPR(kind::BOUND_VAR_LIST,bvl),expr);
     };
   }
-    RPAREN_TOK DOT_TOK
+    anything_RPAREN_TOK DOT_TOK
     {
       cmd = PARSER_STATE->makeCommand(fr,expr);
     }
   | FOF_TOK LPAREN_TOK nameN[name] COMMA_TOK formulaRole[fr] COMMA_TOK
     { PARSER_STATE->cnf=false; }
-    fofFormula[expr] RPAREN_TOK DOT_TOK
+    fofFormula[expr] anything_RPAREN_TOK DOT_TOK
     {
       PARSER_STATE->d_fof_conjecture = PARSER_STATE->d_fof_conjecture || fr==Tptp::FR_CONJECTURE;
       cmd = PARSER_STATE->makeCommand(fr,expr);
     }
-  | INCLUDE_TOK LPAREN_TOK unquotedFileName[name] RPAREN_TOK DOT_TOK
+  | INCLUDE_TOK LPAREN_TOK unquotedFileName[name]
+    ( COMMA_TOK LBRACK_TOK nameN[incl_args] ( COMMA_TOK nameN[incl_args] )* RBRACK_TOK )?
+    RPAREN_TOK DOT_TOK
     {
       PARSER_STATE->includeFile(name);
       // The command of the included file will be produce at the new parseCommand call
@@ -193,6 +196,11 @@ formulaRole[CVC4::parser::Tptp::FormulaRole & role]
       else if (r == "negated_conjecture") role = Tptp::FR_NEGATED_CONJECTURE;
       else if (r == "conjecture")         role = Tptp::FR_CONJECTURE;
       else if (r == "unknown")            role = Tptp::FR_UNKNOWN;
+      else if (r == "plain")              role = Tptp::FR_PLAIN;
+      else if (r == "fi_domain")          role = Tptp::FR_FI_DOMAIN;
+      else if (r == "fi_functor")         role = Tptp::FR_FI_FUNCTORS;
+      else if (r == "fi_predicate")       role = Tptp::FR_FI_PREDICATES;
+      else if (r == "type")               role = Tptp::FR_TYPE;
       else PARSER_STATE->parseError("Invalid formula role: " + r);
     }
   ;
@@ -413,8 +421,49 @@ folQuantifier[CVC4::Kind & kind]
   | MARK_TOK { kind = kind::EXISTS; }
   ;
 
-/***********************/
-/* tptp special symbol */
+/***********************************************/
+/* Anything well parenthesis than end with ")" */
+
+anything_RPAREN_TOK : anything* RPAREN_TOK ;
+
+anything
+  : LPAREN_TOK anything* RPAREN_TOK
+  | LBRACK_TOK anything* RBRACK_TOK
+  | COMMA_TOK
+  | DOT_TOK
+  | COLON_TOK
+  | OR_TOK
+  | NOT_TOK
+  | BANG_TOK
+  | MARK_TOK
+  | AND_TOK
+  | IFF_TOK
+  | IMPLIES_TOK
+  | REVIMPLIES_TOK
+  | REVIFF_TOK
+  | REVOR_TOK
+  | REVAND_TOK
+  | TIMES_TOK
+  | PLUS_TOK
+  | MINUS_TOK
+  | TRUE_TOK
+  | FALSE_TOK
+  | EQUAL_TOK
+  | DISEQUAL_TOK
+  | CNF_TOK
+  | FOF_TOK
+  | THF_TOK
+  | TFF_TOK
+  | INCLUDE_TOK
+  | DISTINCT_OBJECT
+  | UPPER_WORD
+  | LOWER_WORD
+  | LOWER_WORD_SINGLE_QUOTED
+  | SINGLE_QUOTED
+  | NUMBER
+  | DEFINED_SYMBOL
+  ;
+/*********/
 
 //punctuation
 COMMA_TOK  : ',';
@@ -453,6 +502,9 @@ FOF_TOK     : 'fof';
 THF_TOK     : 'thf';
 TFF_TOK     : 'tff';
 INCLUDE_TOK : 'include';
+
+//Other defined symbols, must be defined after all the other
+DEFINED_SYMBOL : '$' LOWER_WORD;
 
 /*********/
 /* Token */
@@ -539,7 +591,7 @@ NUMBER
     {
       Integer i (AntlrInput::tokenText($num));
       Rational r = ( pos ? i : -i );
-      PARSER_STATE->d_tmp_expr = MK_CONST(i);
+      PARSER_STATE->d_tmp_expr = MK_CONST(r);
     }
   | SIGN[pos]? num=DECIMAL DOT den=DECIMAL (EXPONENT SIGN[posE]? e=DECIMAL)?
     {
@@ -557,8 +609,8 @@ NUMBER
          * number of decimal place in den (dec) */
         Rational r;
         if( !posE ) r = Rational(inum, Integer(10).pow(exp + dec));
-        else if( exp == dec ) r = inum;
-        else if( exp > dec ) r = inum * Integer(10).pow(exp - dec);
+        else if( exp == dec ) r = Rational(inum);
+        else if( exp > dec ) r = Rational(inum * Integer(10).pow(exp - dec));
         else r = Rational(inum, Integer(10).pow(dec - exp));
         PARSER_STATE->d_tmp_expr = MK_CONST( r );
       }

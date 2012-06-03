@@ -36,8 +36,8 @@ cnf(query_1,axiom, include(1) ).
 
 cnf(query_1,axiom, e(r,1.6) ).
 
-cnf(query_1,axiom, e(A,3.0E3) ).
+cnf(query_1,axiom, ~e(A,3.0E3) ).
 
-cnf(query_1,conjecture, e(E,2.6) ).
+fof(query_1,conjecture, ![E]: e(E,2.6) ).
 
 %--------------------------------------------------------------------------
