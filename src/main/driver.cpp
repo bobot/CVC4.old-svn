@@ -291,6 +291,10 @@ int runCvc4(int argc, char* argv[], Options& options) {
     if( options.cascFilename.length()>0 ){
       std::string cfn = options.cascFilename;
       cfn.erase( cfn.end()-2, cfn.end() );
+      size_t cfn_find = cfn.rfind("/");
+      if( cfn_find!=std::string::npos ){
+        cfn.erase( cfn.begin(), cfn.begin() + cfn_find + 1 );
+      }
       if(result == "sat" || result == "unsat") {
         bool sat = result == "sat";
         bool fof = Options::tptp_fof_conjecture;

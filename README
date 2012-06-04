@@ -1,3 +1,11 @@
+For CASC:
+
+- Below are the instructions for installing CVC4.  Follow these directions to install CVC4 for the CASC J6 competition.  During the configure step, use the "competition" build profile, i.e. use the command ./configure competition.
+- Please use the ./casc_run_cvc4 script in the same directory as this file.  Use:
+./casc_run_cvc4 %s %d 
+where %s is the name of the input file and %d is the timeout in milliseconds.  To use this script, make sure that cvc4 has been installed, or otherwise modify the script so that it calls the location where cvc4 has been built.
+- Currently, only the answers are printed (according to the SZS ontology).  No solutions are specified at this time.
+
 This is a prerelease version of CVC4.
 
 *** Quick-start instructions

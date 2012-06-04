@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cvc4 --finite-model-find --decision=justification --casc-file=$1 --tlimit=$2 $1
+
