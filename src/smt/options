@@ -44,6 +44,10 @@ option doITESimp --ite-simp bool :read-write
  turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)
 /turn off ite simplification (Kim (and Somenzi) et al., SAT 2009)
 
+option unconstrainedSimp --unconstrained-simp bool :default false :read-write
+ turn on unconstrained simplification (see Bruttomesso/Brummayer PhD thesis)
+/turn off unconstrained simplification (see Bruttomesso/Brummayer PhD thesis)
+
 option repeatSimp --repeat-simp bool :read-write
  make multiple passes with nonclausal simplifier
 /do not make multiple passes with nonclausal simplifier

@@ -36,5 +36,12 @@ The above is now implemented, but there are things that still bug me:
 * is the Options class public still?  Does this make sense?
 * document requirements on option types (default constructible?  copy-able?  must have operator<<(ostream)?  hashable?)
 * getopt() on old GNU needs optind = 0 to restart ?
+* maybe .set() should be defined on all options, so that the Options::set()
+  template is instantiated and you get the you_are_trying... error for
+  R/O options?
+* need a programmatic way to assign R/O options without going through
+  SmtEngine/parseOptions, for library users to properly set up an Options
+  before creating the ExprManager.  Essentially like the assign() and
+  assignBool() interfaces.
 
 -- Morgan Deters <mdeters@cs.nyu.edu>  Fri, 01 Jun 2012 13:53:10 -0400

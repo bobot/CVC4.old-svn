@@ -43,6 +43,7 @@
 #include "util/hash.h"
 #include "util/cache.h"
 #include "theory/ite_simplifier.h"
+#include "theory/unconstrained_simplifier.h"
 
 namespace CVC4 {
 
@@ -735,8 +736,12 @@ private:
   /** For preprocessing pass simplifying ITEs */
   ITESimplifier d_iteSimplifier;
 
+  /** For preprocessing pass simplifying unconstrained expressions */
+  UnconstrainedSimplifier d_unconstrainedSimp;
+
 public:
   Node ppSimpITE(TNode assertion);
+  void ppUnconstrainedSimp(std::vector<Node>& assertions);
 
 };/* class TheoryEngine */
 

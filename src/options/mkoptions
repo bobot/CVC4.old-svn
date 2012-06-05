@@ -1136,7 +1136,10 @@ while [ $# -gt 0 ]; do
       doc-alternate "$(echo "$line" | sed 's,^/,,')"
     else
       line="$(echo "$line" | sed 's,\([<>&()!?*]\),\\\1,g')"
-      eval "$line"
+      if ! eval "$line"; then
+        echo "$kf:$lineno: error was due to evaluation of this line" >&2
+        exit 1
+      fi
     fi
   done < "$kf"
   if ! $seen_module; then
