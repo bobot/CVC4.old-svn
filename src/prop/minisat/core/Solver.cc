@@ -395,6 +395,7 @@ Lit Solver::pickBranchLit()
     while (nextLit != lit_Undef) {
       if(value(var(nextLit)) == l_Undef) {
         Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
+        decisions++;
         return nextLit;
       } else {
         Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit << " but it already has an assignment" << std::endl;
