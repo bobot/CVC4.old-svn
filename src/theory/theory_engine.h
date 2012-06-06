@@ -249,7 +249,7 @@ class TheoryEngine {
       return d_engine->lemma(lemma, false, removable);
     }
 
-    void requirePhase(TNode n, bool phase, bool)
+    void requirePhase(TNode n, bool phase)
       throw(theory::Interrupted, AssertionException) {
       Debug("theory") << "EngineOutputChannel::requirePhase("
                       << n << ", " << phase << ")" << std::endl;
@@ -257,7 +257,7 @@ class TheoryEngine {
       d_engine->d_propEngine->requirePhase(n, phase);
     }
 
-    bool flipDecision(bool)
+    bool flipDecision()
       throw(theory::Interrupted, AssertionException) {
       Debug("theory") << "EngineOutputChannel::flipDecision()" << std::endl;
       ++ d_statistics.flipDecision;
@@ -659,8 +659,8 @@ public:
   }
 
   /** Get the theory for id */
-  theory::Theory* getTheory( int id ){
-      return d_theoryTable[id];
+  theory::Theory* getTheory(int id) {
+    return d_theoryTable[id];
   }
 
   /**

@@ -517,6 +517,15 @@ protected:
   /////
 
   /**
+   * Get the Context with which this ContextObj was created.  This is
+   * part of the protected interface, intended for derived classes to
+   * use if necessary.
+   */
+  Context* getContext() const throw() {
+    return d_pScope->getContext();
+  }
+
+  /**
    * Get the ContextMemoryManager with which this ContextObj was
    * created.  This is part of the protected interface, intended for
    * derived classes to use if necessary.  If a ContextObj-derived
@@ -551,15 +560,6 @@ protected:
   }
 
 public:
-
-  /**
-   * Get the Context with which this ContextObj was created.  This is
-   * part of the protected interface, intended for derived classes to
-   * use if necessary.
-   */
-  Context* getContext() const throw() {
-    return d_pScope->getContext();
-  }
 
   /**
    * Disable delete: objects allocated with new(ContextMemorymanager) should

@@ -483,6 +483,7 @@ private:
 
   Statistics d_statistics;
 
+
 };/* class TheoryArith */
 
 }/* CVC4::theory::arith namespace */

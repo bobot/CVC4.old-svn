@@ -210,7 +210,7 @@ void Smt2::setLogic(const std::string& name) {
       addOperator(kind::APPLY_UF);
       if(d_logic != Smt::UFLRA) {
         addTheory(THEORY_INTS);
-        if(d_logic != Smt::UFNIA && d_logic!=Smt::UFNIRA ) {
+        if(d_logic != Smt::UFNIA && d_logic != Smt::UFNIRA) {
           addTheory(THEORY_ARRAYS);
         }
       }
@@ -218,7 +218,7 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_QUANTIFIERS);
     break;
   }
-}
+}/* Smt2::setLogic() */
 
 void Smt2::setInfo(const std::string& flag, const SExpr& sexpr) {
   // TODO: ???

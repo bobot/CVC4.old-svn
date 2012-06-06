@@ -262,16 +262,16 @@ void Smt::setLogic(const std::string& name) {
     break;
 
   case QF_AUFLIA:
+    addTheory(THEORY_INT_ARRAYS_EX);
     addUf();
     addTheory(THEORY_INTS);
-    addTheory(THEORY_INT_ARRAYS_EX);
     break;
 
   case QF_AUFLIRA:
+    addTheory(THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX);
     addUf();
     addTheory(THEORY_INTS);
     addTheory(THEORY_REALS);
-    addTheory(THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX);
     break;
 
   case AUFLIA:
@@ -309,7 +309,7 @@ void Smt::setLogic(const std::string& name) {
     addTheory(THEORY_QUANTIFIERS);
     break;
   }
-}
+}/* Smt::setLogic() */
 
 }/* CVC4::parser namespace */
 }/* CVC4 namespace */

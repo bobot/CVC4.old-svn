@@ -32,6 +32,7 @@
 #include "util/node_visitor.h"
 #include "util/ite_removal.h"
 
+#include "theory/quantifiers_engine.h"
 #include "theory/quantifiers/theory_quantifiers.h"
 
 using namespace std;
@@ -601,9 +602,9 @@ Node TheoryEngine::ppTheoryRewrite(TNode term)
   Trace("theory-pp") << "ppTheoryRewrite { " << term << endl;
 
   Node newTerm;
-  if(theoryOf(term)->ppDontRewriteSubterm(term)){
+  if (theoryOf(term)->ppDontRewriteSubterm(term)) {
     newTerm = term;
-  }else{
+  } else {
     NodeBuilder<> newNode(term.getKind());
     if (term.getMetaKind() == kind::metakind::PARAMETERIZED) {
       newNode << term.getOperator();

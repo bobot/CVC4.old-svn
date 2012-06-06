@@ -20,29 +20,29 @@
 #ifndef __CVC4__INSTANTIATOR_DEFAULT_H
 #define __CVC4__INSTANTIATOR_DEFAULT_H
 
+#include <string>
 #include "theory/quantifiers_engine.h"
 
 namespace CVC4 {
 namespace theory {
 
-class InstantiatorDefault : public Instantiator{
+class InstantiatorDefault : public Instantiator {
   friend class QuantifiersEngine;
 protected:
   /** reset instantiation round */
-  void processResetInstantiationRound( Theory::Effort effort );
+  void processResetInstantiationRound(Theory::Effort effort);
   /** process quantifier */
-  int process( Node f, Theory::Effort effort, int e, int limitInst = 0 );
+  int process(Node f, Theory::Effort effort, int e, int limitInst = 0);
 public:
   InstantiatorDefault(context::Context* c, QuantifiersEngine* ie, Theory* th);
-  ~InstantiatorDefault() {}
+  ~InstantiatorDefault() { }
   /** check function, assertion is asserted to theory */
   void assertNode( Node assertion );
   /** identify */
   std::string identify() const { return std::string("InstantiatorDefault"); }
 };/* class Instantiatior */
 
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
 
-}
-}
-
-#endif
+#endif /* __CVC4__INSTANTIATOR_DEFAULT_H */

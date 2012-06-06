@@ -75,7 +75,6 @@ libutil_la_SOURCES = \
 	node_visitor.h \
 	index.h
 
-
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
 libutilcudd_la_SOURCES = \

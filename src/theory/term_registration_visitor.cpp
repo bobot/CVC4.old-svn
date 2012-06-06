@@ -2,10 +2,10 @@
 /*! \file term_registration_visitor.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: 
- ** Minor contributors (to current version):
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -14,7 +14,6 @@
 
 #include "theory/term_registration_visitor.h"
 #include "theory/theory_engine.h"
-#include "theory/quantifiers_engine.h"
 
 using namespace std;
 using namespace CVC4;
@@ -33,9 +32,10 @@ bool PreRegisterVisitor::alreadyVisited(TNode current, TNode parent) {
 
   Debug("register::internal") << "PreRegisterVisitor::alreadyVisited(" << current << "," << parent << ")" << std::endl;
 
-  if( ( parent.getKind()==kind::FORALL ||
-        parent.getKind()==kind::EXISTS ||
-        parent.getKind()==kind::REWRITE_RULE ) && current!=parent ){
+  if( ( parent.getKind() == kind::FORALL ||
+        parent.getKind() == kind::EXISTS ||
+        parent.getKind() == kind::REWRITE_RULE ) &&
+      current != parent ) {
     Debug("register::internal") << "quantifier:true" << std::endl;
     return true;
   }
@@ -155,9 +155,10 @@ bool SharedTermsVisitor::alreadyVisited(TNode current, TNode parent) const {
 
   Debug("register::internal") << "SharedTermsVisitor::alreadyVisited(" << current << "," << parent << ")" << std::endl;
 
-  if( ( parent.getKind()==kind::FORALL ||
-        parent.getKind()==kind::EXISTS ||
-        parent.getKind()==kind::REWRITE_RULE) && current!=parent ){
+  if( ( parent.getKind() == kind::FORALL ||
+        parent.getKind() == kind::EXISTS ||
+        parent.getKind() == kind::REWRITE_RULE) &&
+      current != parent ) {
     Debug("register::internal") << "quantifier:true" << std::endl;
     return true;
   }

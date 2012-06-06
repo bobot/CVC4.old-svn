@@ -241,12 +241,31 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::APPLY_CONSTRUCTOR:
   case kind::APPLY_SELECTOR:
     break;
-  //quantifiers
-  case kind::FORALL: out << "forall ";break;
-  case kind::EXISTS: out << "exists ";break;
+
+    // quantifiers
+  case kind::FORALL: out << "forall "; break;
+  case kind::EXISTS: out << "exists "; break;
   case kind::BOUND_VAR_LIST:
+    out << '(';
+    for(TNode::iterator i = n.begin(),
+          iend = n.end();
+        i != iend; ) {
+      out << '(';
+      (*i).toStream(out, toDepth < 0 ? toDepth : toDepth - 1,
+                    types, language::output::LANG_SMTLIB_V2);
+      out << ' ';
+      (*i).getType().toStream(out, toDepth < 0 ? toDepth : toDepth - 1,
+                              false, language::output::LANG_SMTLIB_V2);
+      out << ')';
+      if(++i != iend) {
+        out << ' ';
+      }
+    }
+    out << ')';
+    return;
   case kind::INST_PATTERN:
   case kind::INST_PATTERN_LIST:
+    // TODO user patterns
     break;
 
   default:
@@ -280,7 +299,9 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
       out << ' ';
     }
   }
-  if(n.getNumChildren() != 0) out << ')';
+  if(n.getNumChildren() != 0) {
+    out << ')';
+  }
 }/* Smt2Printer::toStream(TNode) */
 
 static string smtKindString(Kind k) throw() {

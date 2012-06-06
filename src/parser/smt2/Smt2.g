@@ -422,11 +422,11 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
   std::string name;
   std::vector<Expr> args;
   SExpr sexpr;
-  std::vector<std::pair<std::string, Type> > sortedVarNames;
+  std::vector< std::pair<std::string, Type> > sortedVarNames;
   Expr f, f2;
   std::string attr;
   Expr attexpr;
-  std::vector< Expr > attexprs;
+  std::vector<Expr> attexprs;
 }
   : /* a built-in operator application */
     LPAREN_TOK builtinOp[kind] termList[args,expr] RPAREN_TOK
@@ -455,8 +455,8 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
         expr = MK_EXPR(kind, args);
       }
     }
-   | LPAREN_TOK quantOp[kind]
-      LPAREN_TOK sortedVarList[sortedVarNames] RPAREN_TOK
+  | LPAREN_TOK quantOp[kind]
+    LPAREN_TOK sortedVarList[sortedVarNames] RPAREN_TOK
     {
       PARSER_STATE->pushScope();
       for(std::vector<std::pair<std::string, CVC4::Type> >::const_iterator i =
@@ -467,31 +467,33 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
       }
       Expr bvl = MK_EXPR(kind::BOUND_VAR_LIST, args);
       args.clear();
-      args.push_back( bvl );
+      args.push_back(bvl);
     }
-      term[f, f2] RPAREN_TOK
+    term[f, f2] RPAREN_TOK
     {
       PARSER_STATE->popScope();
-      switch(f.getKind()){
+      switch(f.getKind()) {
       case CVC4::kind::RR_REWRITE:
       case CVC4::kind::RR_REDUCTION:
       case CVC4::kind::RR_DEDUCTION:
-        if(kind == CVC4::kind::EXISTS) PARSER_STATE->parseError("Use Exists instead of Forall for a rewrite rule.");
-        args.push_back( f2 ); //guards
-        args.push_back( f ); //rule
+        if(kind == CVC4::kind::EXISTS) {
+          PARSER_STATE->parseError("Use Exists instead of Forall for a rewrite rule.");
+        }
+        args.push_back(f2); // guards
+        args.push_back(f); // rule
         expr = MK_EXPR(CVC4::kind::REWRITE_RULE, args);
         break;
       default:
-        args.push_back( f );
-        if( !f2.isNull() ){
-          args.push_back( f2 );
+        args.push_back(f);
+        if(! f2.isNull()){
+          args.push_back(f2);
         }
         expr = MK_EXPR(kind, args);
       }
     }
   | /* A non-built-in function application */
     LPAREN_TOK
-    functionName[name,CHECK_DECLARED]
+    functionName[name, CHECK_DECLARED]
     { PARSER_STATE->checkFunctionLike(name);
       const bool isDefinedFunction =
         PARSER_STATE->isDefinedFunction(name);
@@ -501,13 +503,13 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
       } else {
         expr = PARSER_STATE->getVariable(name);
         Type t = expr.getType();
-        if( t.isConstructor() ){
+        if(t.isConstructor()) {
           kind = CVC4::kind::APPLY_CONSTRUCTOR;
-        }else if( t.isSelector() ){
+        } else if(t.isSelector()) {
           kind = CVC4::kind::APPLY_SELECTOR;
-        }else if( t.isTester() ){
+        } else if(t.isTester()) {
           kind = CVC4::kind::APPLY_TESTER;
-        }else{
+        } else {
           kind = CVC4::kind::APPLY_UF;
         }
       }
@@ -551,22 +553,32 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
     }
 
     /* attributed expressions */
-  | LPAREN_TOK ATTRIBUTE_TOK term[expr, f2](attribute[expr, attexpr,attr] { if( !attexpr.isNull() ) attexprs.push_back( attexpr ); } )+ RPAREN_TOK
-    { 
-      if( attr==":rewrite-rule" ){
+  | LPAREN_TOK ATTRIBUTE_TOK term[expr, f2]
+    ( attribute[expr, attexpr,attr]
+      { if(! attexpr.isNull()) {
+          attexprs.push_back(attexpr);
+        }
+      }
+    )+ RPAREN_TOK
+    {
+      if(attr == ":rewrite-rule") {
         Expr guard;
         Expr body;
-        if( expr[1].getKind()==kind::IMPLIES || expr[1].getKind()==kind::IFF || expr[1].getKind()==kind::EQUAL ){
+        if(expr[1].getKind() == kind::IMPLIES ||
+           expr[1].getKind() == kind::IFF ||
+           expr[1].getKind() == kind::EQUAL) {
           guard = expr[0];
           body = expr[1];
-        }else{
+        } else {
           guard = MK_CONST(bool(true));
           body = expr;
         }
-        expr2=guard;
+        expr2 = guard;
         args.push_back(body[0]);
         args.push_back(body[1]);
-        if(!f2.isNull()) args.push_back(f2);
+        if(!f2.isNull()) {
+          args.push_back(f2);
+        }
 
         if     ( body.getKind()==kind::IMPLIES )    kind = kind::RR_DEDUCTION;
         else if( body.getKind()==kind::IFF )        kind = kind::RR_REDUCTION;
@@ -574,9 +586,8 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
         else PARSER_STATE->parseError("Error parsing rewrite rule.");
 
         expr = MK_EXPR( kind, args );
-      }
-      else if( !attexprs.empty() ){
-        if( attexprs[0].getKind()==kind::INST_PATTERN ){
+      } else if(! attexprs.empty()) {
+        if(attexprs[0].getKind() == kind::INST_PATTERN) {
           expr2 = MK_EXPR(kind::INST_PATTERN_LIST, attexprs);
         }
       }
@@ -611,17 +622,17 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
     // NOTE: Theory constants go here
   ;
 
-/** 
- * Read attribute 
+/**
+ * Read attribute
  */
 attribute[CVC4::Expr& expr,CVC4::Expr& retExpr, std::string& attr]
 @init {
   SExpr sexpr;
   Expr patexpr;
-  std::vector< Expr > patexprs;
+  std::vector<Expr> patexprs;
   Expr e2;
-} 
-: KEYWORD 
+}
+: KEYWORD
   { attr = AntlrInput::tokenText($KEYWORD); }
   symbolicExpr[sexpr]
   { if(attr == ":named") {
@@ -641,8 +652,8 @@ attribute[CVC4::Expr& expr,CVC4::Expr& retExpr, std::string& attr]
       PARSER_STATE->parseError(ss.str());
     }
   }
-  | ATTRIBUTE_PATTERN_TOK LPAREN_TOK ( term[patexpr, e2] { patexprs.push_back( patexpr ); }  )+ RPAREN_TOK 
-    { 
+  | ATTRIBUTE_PATTERN_TOK LPAREN_TOK ( term[patexpr, e2] { patexprs.push_back( patexpr ); }  )+ RPAREN_TOK
+    {
       attr = std::string(":pattern");
       retExpr = MK_EXPR(kind::INST_PATTERN, patexprs);
     }
@@ -650,7 +661,7 @@ attribute[CVC4::Expr& expr,CVC4::Expr& retExpr, std::string& attr]
     attr = std::string(":rewrite-rule");
   }
   ;
-  
+
 /**
  * Matches a bit-vector operator (the ones parametrized by numbers)
  */
@@ -777,7 +788,7 @@ builtinOp[CVC4::Kind& kind]
 
   // NOTE: Theory operators go here
   ;
-  
+
 quantOp[CVC4::Kind& kind]
 @init {
   Debug("parser") << "quant: " << AntlrInput::tokenText(LT(1)) << std::endl;
@@ -785,7 +796,7 @@ quantOp[CVC4::Kind& kind]
   : EXISTS_TOK      { $kind = CVC4::kind::EXISTS; }
   | FORALL_TOK    { $kind = CVC4::kind::FORALL; }
   ;
-  
+
 /**
  * Matches a (possibly undeclared) function symbol (returning the string)
  * @param check what kind of check to do with the symbol
@@ -853,12 +864,12 @@ sortSymbol[CVC4::Type& t, CVC4::parser::DeclarationCheck check]
   std::vector<uint64_t> numerals;
 }
   : sortName[name,CHECK_NONE]
-  	{ 
-  	  if( check == CHECK_DECLARED || PARSER_STATE->isDeclared(name, SYM_SORT) ){ 
-  	    t = PARSER_STATE->getSort(name);                                          
-  	  }else{                                                                    
-  	    t = PARSER_STATE->mkUnresolvedType(name);                                 
-  	  }                                          
+  	{
+  	  if( check == CHECK_DECLARED || PARSER_STATE->isDeclared(name, SYM_SORT) ){
+  	    t = PARSER_STATE->getSort(name);
+  	  }else{
+  	    t = PARSER_STATE->mkUnresolvedType(name);
+  	  }
   	}
   | LPAREN_TOK INDEX_TOK symbol[name,CHECK_NONE,SYM_SORT] nonemptyNumeralList[numerals] RPAREN_TOK
     {

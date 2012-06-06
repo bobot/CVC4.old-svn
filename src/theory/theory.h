@@ -455,14 +455,14 @@ public:
    * Get the quantifiers engine associated to this theory.
    */
   QuantifiersEngine* getQuantifiersEngine() {
-    return d_quantEngine; 
+    return d_quantEngine;
   }
 
   /**
    * Get the quantifiers engine associated to this theory (const version).
    */
   const QuantifiersEngine* getQuantifiersEngine() const {
-    return d_quantEngine; 
+    return d_quantEngine;
   }
 
   /**
@@ -630,7 +630,7 @@ public:
   /**
    * Don't preprocess subterm of this term
    */
-  virtual bool ppDontRewriteSubterm(TNode atom){ return false; }
+  virtual bool ppDontRewriteSubterm(TNode atom) { return false; }
 
   /**
    * A Theory is called with presolve exactly one time per user

@@ -31,7 +31,7 @@ namespace theory {
 
 template<bool modEq>
 InstMatchTrie2<modEq>::InstMatchTrie2(context::Context* c,  QuantifiersEngine* qe):
-  d_data(c->getLevel()), d_mods(c){
+  d_data(c->getLevel()), d_context(c), d_mods(c) {
   d_eQ = qe->getEqualityQuery();
   d_eE = ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine();
 };
@@ -107,7 +107,7 @@ bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
  mapIter diverge = begin;
  if( !existsInstMatch(e, begin, end, e, diverge ) ){
    Assert(!diverge->second.isNull());
-   size_t currLevel = d_mods.getContext()->getLevel();
+   size_t currLevel = d_context->getLevel();
    addSubTree( e, diverge, end, currLevel );
    if(e->level != currLevel)
      //If same level that e, will be removed at the same time than e

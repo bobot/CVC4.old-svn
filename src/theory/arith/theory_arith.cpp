@@ -40,7 +40,6 @@
 #include "theory/arith/constraint.h"
 #include "theory/arith/theory_arith.h"
 #include "theory/arith/normal_form.h"
-#include "theory/arith/theory_arith_instantiator.h"
 
 #include <stdint.h>
 
@@ -79,8 +78,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
   d_statistics()
-{
-}
+{}
 
 TheoryArith::~TheoryArith(){}
 
@@ -801,7 +799,6 @@ void TheoryArith::preRegisterTerm(TNode n) {
 
 
 ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
-  Debug("quant-arith-error") << "x = " << x << std::endl;
   Assert(isLeaf(x) || x.getKind() == PLUS);
   Assert(!d_arithvarNodeMap.hasArithVar(x));
   Assert(x.getType().isReal());// real or integer
@@ -1168,7 +1165,6 @@ void TheoryArith::check(Effort effortLevel){
 
       Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
       d_out->conflict(possibleConflict);
-      Debug("arith::conflict") << "done conflict " << std::endl;
       return;
     }
     if(d_congruenceManager.inConflict()){

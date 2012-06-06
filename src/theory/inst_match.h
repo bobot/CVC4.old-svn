@@ -243,8 +243,8 @@ private:
   /* before for the order of destruction */
   Tree d_data;
 
+  context::Context* d_context;
   context::CDList<Mod, CleanUp, std::allocator<Mod> > d_mods;
-
 
   typedef std::map<Node, Node>::const_iterator mapIter;
 

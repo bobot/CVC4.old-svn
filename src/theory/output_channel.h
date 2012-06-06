@@ -159,9 +159,8 @@ public:
    * @param n - a theory atom with a SAT literal assigned; must have
    * been pre-registered
    * @param phase - the phase to decide on n
-   * @param safe - whether it is safe to be interrupted
    */
-  virtual void requirePhase(TNode n, bool phase, bool safe = false)
+  virtual void requirePhase(TNode n, bool phase)
     throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
 
   /**
@@ -201,11 +200,10 @@ public:
    * flipDecision() returns FALSE<br/>
    * l1
    *
-   * @param safe - whether it is safe to be interrupted
    * @return true if a decision was flipped; false if no decision
    * could be flipped, or if the root decision was re-flipped
    */
-  virtual bool flipDecision(bool safe = false)
+  virtual bool flipDecision()
     throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
 
   /**

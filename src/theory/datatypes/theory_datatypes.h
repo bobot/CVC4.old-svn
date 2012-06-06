@@ -153,6 +153,7 @@ public:
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }
+
 private:
   /* Helper methods */
   bool checkTester( Node assertion, Node& conflict, unsigned& r );

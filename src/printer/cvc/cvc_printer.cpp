@@ -524,25 +524,34 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
 
     // Quantifiers
     case kind::FORALL:
-      out << "FORALL(";
-      toStream(out, n[0], -1, true, false);
-      out << ") : ";
+      out << "(FORALL";
+      toStream(out, n[0], depth, types, false);
+      out << " : ";
       toStream(out, n[1], depth, types, false);
-      // TODO: user patterns ?
-      break;
+      out << ')';
+      // TODO: user patterns?
+      return;
     case kind::EXISTS:
-      out << "EXISTS(";
-      toStream(out, n[0], -1, true, false);
-      out << ") : ";
+      out << "(EXISTS";
+      toStream(out, n[0], depth, types, false);
+      out << " : ";
       toStream(out, n[1], depth, types, false);
-      // TODO: user patterns ?
+      out << ')';
+      // TODO: user patterns?
       break;
     case kind::INST_CONSTANT:
       out << "INST_CONSTANT";
       break;
     case kind::BOUND_VAR_LIST:
-      out << "BOUND_VAR_LIST";
-      break;
+      out << '(';
+      for(size_t i = 0; i < n.getNumChildren(); ++i) {
+        if(i > 0) {
+          out << ", ";
+        }
+        toStream(out, n[i], -1, true, false); // ascribe types
+      }
+      out << ')';
+      return;
     case kind::INST_PATTERN:
       out << "INST_PATTERN";
       break;

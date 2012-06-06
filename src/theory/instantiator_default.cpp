@@ -24,16 +24,13 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 InstantiatorDefault::InstantiatorDefault(context::Context* c, QuantifiersEngine* ie, Theory* th) :
-Instantiator( c, ie, th ){
-
+  Instantiator( c, ie, th ) {
 }
 
 void InstantiatorDefault::assertNode( Node assertion ){
-
 }
 
 void InstantiatorDefault::processResetInstantiationRound( Theory::Effort effort ){
-  
 }
 
 int InstantiatorDefault::process( Node f, Theory::Effort effort, int e, int limitInst ){
