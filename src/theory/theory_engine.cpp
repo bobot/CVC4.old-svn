@@ -986,8 +986,8 @@ theory::LemmaStatus TheoryEngine::lemma(TNode node, bool negated, bool removable
   }
 
   // Share with other portfolio threads
-  if(Options::current()->lemmaOutputChannel != NULL) {
-    Options::current()->lemmaOutputChannel->notifyNewLemma(node.toExpr());
+  if(options::lemmaOutputChannel() != NULL) {
+    options::lemmaOutputChannel()->notifyNewLemma(node.toExpr());
   }
 
   // Remove the ITEs
