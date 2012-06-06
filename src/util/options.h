@@ -150,7 +150,7 @@ struct CVC4_PUBLIC Options {
    * - With DECISION_STRATEGY_RELEVANCY
    *   > Least significant bit: true if one should only decide on leaves
    */
-  DecisionOptions* decisionOptions;
+  DecisionOptions decisionOptions;
 
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
