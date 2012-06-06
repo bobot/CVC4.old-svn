@@ -1048,7 +1048,7 @@ void SmtEnginePrivate::simplifyAssertions()
       unconstrainedSimp();
     }
 
-    if(Options::current()->repeatSimp) {
+    if(Options::current()->repeatSimp && Options::current()->simplificationMode != Options::SIMPLIFICATION_MODE_NONE) {
       Trace("simplify") << "SmtEnginePrivate::simplify(): "
                         << " doing repeated simplification" << std::endl;
       d_assertionsToCheck.swap(d_assertionsToPreprocess);
@@ -1191,7 +1191,6 @@ void SmtEnginePrivate::processAssertions() {
 
   if(Dump.isOn("assertions")) {
     // Push the simplified assertions to the dump output stream
-    cout << "###Finished second removeITEs";
     for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
       Dump("assertions")
         << AssertCommand(BoolExpr(d_assertionsToCheck[i].toExpr()));

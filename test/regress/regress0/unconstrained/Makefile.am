@@ -5,6 +5,9 @@ else
 TESTS_ENVIRONMENT = @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
 endif
 
+override CVC4_REGRESSION_ARGS += --unconstrained-simp
+export CVC4_REGRESSION_ARGS
+
 # These are run for all build profiles.
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
@@ -17,8 +20,8 @@ TESTS =	\
 	arith7.smt2 \
 	arith.smt2 \
 	array1.smt2 \
-	bvbool2.smt2 \
 	bvbool3.smt2 \
+	bvbool2.smt2 \
 	bvbool.smt2 \
 	bvcmp.smt2 \
 	bvconcat2.smt2 \
