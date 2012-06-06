@@ -82,7 +82,6 @@ private:
    */
   ArithVarNodeMap d_arithvarNodeMap;
 
-
   NodeSet d_setupNodes;
   bool isSetup(Node n){
     return d_setupNodes.find(n) != d_setupNodes.end();
@@ -166,6 +165,13 @@ private:
   context::CDQueue<Constraint> d_diseqQueue;
 
   /**
+   * A queue of constraints to assert.
+   * This lasts the duration of a check call.
+   * This is always empty at the entry and exit of a check call.
+   */
+  std::deque<Constraint> d_toAssertQueue;
+
+  /**
    * Constraints that have yet to be processed by proagation work list.
    * All of the elements have type of LowerBound, UpperBound, or
    * Equality.
@@ -179,7 +185,16 @@ private:
    * then d_cPL[1] is the previous lowerBound in d_partialModel,
    * and d_cPL[2] is the previous upperBound in d_partialModel.
    */
-  std::deque<Constraint> d_currentPropagationList;
+  std::deque<Constraint> d_unatePropagationList;
+
+  /** Enqueues a unate propagtion for a lower bound or upperbound.
+   */
+  void enqueueUnatePropagation(Constraint curr, Constraint prev);
+
+  /** Enqueues a unate propagtion for an equality. */
+  void enqueueUnatePropagation(Constraint curr, Constraint plb, Constraint pub);
+  void unatePropagation();
+
 
   /**
    * Manages information about the assignment and upper and lower bounds on
@@ -230,7 +245,9 @@ private:
   static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
 
 
-  /** This is only used by simplex at the moment. */
+  /**
+   * This is the queue of conflicts.
+   */
   context::CDList<Node> d_conflicts;
   class PushCallBack : public NodeCallBack {
   private:
@@ -242,9 +259,17 @@ private:
     void operator()(Node n){
       d_list.push_back(n);
     }
-  };
-  PushCallBack d_conflictCallBack;
+  } d_raiseConflict;
 
+  /** Returns true iff a conflict has been raised. */
+  inline bool inConflict() const {
+    return !d_conflicts.empty();
+  }
+  /**
+   * Outputs the contents of d_conflicts onto d_out.
+   * Must be inConflict().
+   */
+  void outputConflicts();
 
   /**
    * A copy of the tableau immediately after removing variables
@@ -252,7 +277,10 @@ private:
    */
   Tableau d_smallTableauCopy;
 
-  /** This keeps track of difference equalities. Mostly for sharing. */
+  /**
+   * This keeps track of congruences for arithmetic.
+   * Mostly for sharing.
+   */
   ArithCongruenceManager d_congruenceManager;
 
   /** This implements the Simplex decision procedure. */
@@ -327,6 +355,7 @@ private:
   ArithVar determineArithVar(const Polynomial& p) const;
   ArithVar determineArithVar(TNode assertion) const;
 
+
   /**
    * Splits the disequalities in d_diseq that are violated using lemmas on demand.
    * returns true if any lemmas were issued.
@@ -336,6 +365,30 @@ private:
 
   /** A Difference variable is known to be 0.*/
   void zeroDifferenceDetected(ArithVar x);
+
+
+  /** Converts the assertions coming in on the fact queue to
+   * constraints and enqueues these on the to assert queue.
+   */
+  void enqueueFactQueueIntoConstraintQueue();
+
+  /**
+   * This heuristically infers constraints that can be asserted
+   * internally.
+   * Inferred constraints can be both propagated and
+   * added to the toAssertQueue.
+   */
+  void inferConstraints();
+
+  /**
+   * This loop is responsible for:
+   * 1) processing the queue of constraints to assert
+   * 2) finding a QF_LRA model if one exists.
+   * 3) inferring new constraints using the previously asserted constraints and the satisfying model + tableau
+   * Returns true if it has discovered a conflict.
+   */
+  bool constraintAssertInferLoop();
+
 
 
   /**
@@ -369,24 +422,33 @@ private:
 
 
   /**
-   * Assert*(n, orig) takes an bound n that is implied by orig.
-   * and asserts that as a new bound if it is tighter than the current bound
-   * and updates the value of a basic variable if needed.
+   * Assert*(Constraint c) takes a constraint c.
+   * If c is tighter than the current bounds,
+   * then the assertion continues.
+   * The partial model is updated if needed to get the basic
+   * variables satisfied.
    *
-   * orig must be a literal in the SAT solver so that it can be used for
-   * conflict analysis.
+   * c must have a proof.
    *
    * x is the variable getting the new bound,
    * c is the value of the new bound.
    *
+   * If x is an integer variable, c must be an integer.
+   *
    * If this new bound is in conflict with the other bound,
-   * a node describing this conflict is returned.
-   * If this new bound is not in conflict, Node::null() is returned.
+   * a conflict is raised and true is returned.
+   * If this new bound is not in conflict, false is returned.
    */
-  Node AssertLower(Constraint constraint);
-  Node AssertUpper(Constraint constraint);
-  Node AssertEquality(Constraint constraint);
-  Node AssertDisequality(Constraint constraint);
+  bool AssertLower(Constraint constraint);
+  bool AssertUpper(Constraint constraint);
+  bool AssertEquality(Constraint constraint);
+  bool AssertDisequality(Constraint constraint);
+
+  /**
+   * This is a preproccessor for Assert*,
+   * This ensures that the preconditions for Assert* are met.
+   */
+  bool assertionCases(Constraint c);
 
   /** Tracks the bounds that were updated in the current round. */
   DenseSet d_updatedBounds;
@@ -416,11 +478,14 @@ private:
   bool canSafelyAvoidEqualitySetup(TNode equality);
 
   /**
-   * Handles the case splitting for check() for a new assertion.
-   * Returns a conflict if one was found.
-   * Returns Node::null if no conflict was found.
+   * Dequeues an assertion from the fact queue, and converts the
+   * assertion from the fact queue to a constraint.
+   * This has a few possibile outcomes:
+   * - A conflict. return NullConstraint and raised a conflict
+   * - An asserted literal. returns Nullconstraint
+   * - Otherwise. Returns the constraint.
    */
-  Node assertionCases(TNode assertion);
+  Constraint assertionToConstraint();
 
   /**
    * Returns the basic variable with the shorted row containg a non-basic variable.
@@ -449,6 +514,12 @@ private:
   /** Debugging only routine. Prints the model. */
   void debugPrintModel();
 
+  inline bool canPerformUnateProp() const {
+    return
+      (Options::current()->arithPropagationMode == Options::UNATE_PROP ||
+       Options::current()->arithPropagationMode == Options::BOTH_PROP);
+  }
+
   /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {
   public:
@@ -462,7 +533,7 @@ private:
 
     TimerStat d_presolveTime;
 
-    TimerStat d_newPropTime;
+    TimerStat d_unatePropTime;
 
     IntStat d_externalBranchAndBounds;
 
@@ -479,7 +550,6 @@ private:
   };
 
   Statistics d_statistics;
-
 
 };/* class TheoryArith */
 
