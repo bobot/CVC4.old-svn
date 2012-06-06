@@ -45,6 +45,8 @@ public:
     }
 };/* class OptionException */
 
+struct DecisionOptions;
+
 struct CVC4_PUBLIC Options {
 
   /** The current Options in effect */
@@ -148,8 +150,7 @@ struct CVC4_PUBLIC Options {
    * - With DECISION_STRATEGY_RELEVANCY
    *   > Least significant bit: true if one should only decide on leaves
    */
-  int decisionExtra;
-  
+  DecisionOptions* decisionOptions;
 
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
@@ -339,6 +340,9 @@ struct CVC4_PUBLIC Options {
   bool sat_refine_conflicts;
 
   Options();
+  ~Options();
+  Options(const Options& options);
+  Options& operator= (const Options& options);
 
   /**
    * Get a description of the command-line flags accepted by
