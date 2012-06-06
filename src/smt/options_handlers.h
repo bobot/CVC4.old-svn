@@ -80,6 +80,9 @@ t-explanations [non-stateful]\n\
 bv-rewrites [non-stateful]\n\
 + Output correctness queries for all bitvector rewrites\n\
 \n\
+theory::fullcheck [non-stateful]\n\
++ Output completeness queries for all full-check effort-level theory checks\n\
+\n\
 Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
 one from the assertions category (either assertions, learned, or clauses), and\n\
 perhaps one or more stateful or non-stateful modes for checking correctness\n\
@@ -126,7 +129,8 @@ inline void dumpMode(std::string option, std::string optarg, SmtEngine* smt) {
     } else if(!strcmp(optargPtr, "t-conflicts") ||
               !strcmp(optargPtr, "t-lemmas") ||
               !strcmp(optargPtr, "t-explanations") ||
-              !strcmp(optargPtr, "bv-rewrites")) {
+              !strcmp(optargPtr, "bv-rewrites") ||
+              !strcmp(optargPtr, "theory::fullcheck")) {
       // These are "non-state-dumping" modes.  If state (SAT decisions,
       // propagations, etc.) is dumped, it will interfere with the validity
       // of these generated queries.

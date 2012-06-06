@@ -5,11 +5,16 @@ else
 TESTS_ENVIRONMENT = @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
 endif
 
+MAKEFLAGS = -k
+
 # These are run for all build profiles.
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
-	bug00.smt
+	bug00.smt \
+	bug338.smt2 \
+	try5_small_difret_functions_wp_su.set_char_quoting.il.wp.delta01.smt \
+	wchains010ue.delta01.smt 
 
 EXTRA_DIST = $(TESTS)
 
