@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -522,12 +522,20 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       return;
       break;
 
-    //Quantifiers  TODO
+    // Quantifiers
     case kind::FORALL:
-      out << "FORALL";
+      out << "FORALL(";
+      toStream(out, n[0], -1, true, false);
+      out << ") : ";
+      toStream(out, n[1], depth, types, false);
+      // TODO: user patterns ?
       break;
     case kind::EXISTS:
-      out << "EXISTS";
+      out << "EXISTS(";
+      toStream(out, n[0], -1, true, false);
+      out << ") : ";
+      toStream(out, n[1], depth, types, false);
+      // TODO: user patterns ?
       break;
     case kind::INST_CONSTANT:
       out << "INST_CONSTANT";
@@ -654,12 +662,12 @@ static void toStream(std::ostream& out, const SExpr& sexpr) throw() {
   } else if(sexpr.isString()) {
     string s = sexpr.getValue();
     // escape backslash and quote
-    for(string::iterator i = s.begin(); i != s.end(); ++i) {
-      if(*i == '"') {
-        s.replace(i, i + 1, "\\\"");
+    for(size_t i = 0; i < s.size(); ++i) {
+      if(s[i] == '"') {
+        s.replace(i, 1, "\\\"");
         ++i;
-      } else if(*i == '\\') {
-        s.replace(i, i + 1, "\\\\");
+      } else if(s[i] == '\\') {
+        s.replace(i, 1, "\\\\");
         ++i;
       }
     }

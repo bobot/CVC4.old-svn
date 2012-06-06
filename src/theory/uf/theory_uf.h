@@ -199,7 +199,7 @@ public:
   void addSharedTerm(TNode n);
   void computeCareGraph();
 
-  void propagate(Effort effort) {}
+  void propagate(Effort effort);
 
   EqualityStatus getEqualityStatus(TNode a, TNode b);
 

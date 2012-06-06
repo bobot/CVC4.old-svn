@@ -145,11 +145,15 @@ bool TheoryUF::propagate(TNode literal) {
   bool ok = d_out->propagate(literal);
   if (!ok) {
     d_conflict = true;
-  } else if (d_thss != NULL) {
-    return d_thss->propagate(level);
   }
   return ok;
 }/* TheoryUF::propagate(TNode) */
+
+void TheoryUF::propagate(Effort effort) {
+  if (d_thss != NULL) {
+    return d_thss->propagate(effort);
+  }
+}
 
 void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
   // Do the work

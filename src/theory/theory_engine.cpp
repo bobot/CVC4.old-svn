@@ -309,9 +309,6 @@ void TheoryEngine::check(Theory::Effort effort) {
       }
     }
 
-    // Clear any leftover propagated shared literals
-    d_propagatedSharedLiterals.clear();
-
     Debug("theory") << "TheoryEngine::check(" << effort << "): done, we are " << (d_inConflict ? "unsat" : "sat") << (d_lemmasAdded ? " with new lemmas" : " with no new lemmas") << std::endl;
 
   } catch(const theory::Interrupted&) {
