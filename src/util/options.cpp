@@ -80,9 +80,9 @@ Options::Options() :
   printWinner(false),
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
   simplificationModeSetByUser(false),
-  decisionMode(DECISION_STRATEGY_RELEVANCY),
+  decisionMode(DECISION_STRATEGY_INTERNAL),
   decisionModeSetByUser(false),
-  decisionExtra(1),
+  decisionExtra(0),
   doStaticLearning(true),
   doITESimp(false),
   doITESimpSetByUser(false),
@@ -850,7 +850,7 @@ throw(OptionException) {
         decisionModeSetByUser = true;
       } else if(!strcmp(optarg, "relevancy")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
-        decisionExtra &= ~(1 << 0);        // look at only leaves/atomic formulas
+        decisionExtra &= ~(1 << 0);        // look at everything, not just leaves
         decisionModeSetByUser = true;
       } else if(!strcmp(optarg, "relevancy-leaves")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
