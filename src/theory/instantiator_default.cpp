@@ -34,9 +34,9 @@ void InstantiatorDefault::processResetInstantiationRound( Theory::Effort effort 
 }
 
 int InstantiatorDefault::process( Node f, Theory::Effort effort, int e, int limitInst ){
-  if( effort<4 ){
+  if( e < 4 ){
     return InstStrategy::STATUS_UNFINISHED;
-  }else if( effort==4 ){
+  }else if( e == 4 ){
     Debug("quant-default") << "Process " << f << " : " << std::endl;
     InstMatch m;
     for( int j=0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
