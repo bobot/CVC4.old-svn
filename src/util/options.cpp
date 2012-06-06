@@ -86,6 +86,8 @@ Options::Options() :
   doStaticLearning(true),
   doITESimp(false),
   doITESimpSetByUser(false),
+  unconstrainedSimp(false),
+  unconstrainedSimpSetByUser(false),
   repeatSimp(false),
   repeatSimpSetByUser(false),
   interactive(false),
@@ -190,6 +192,8 @@ Additional CVC4 options:\n\
    --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
    --ite-simp             turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
    --no-ite-simp          turn off ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
+   --unconstrained-simp   turn on unconstrained simplification (see Bruttomesso/Brummayer PhD thesis)\n\
+   --no-unconstrained-simp turn off unconstrained simplification (see Bruttomesso/Brummayer PhD thesis)\n\
    --repeat-simp          make multiple passes with nonclausal simplifier\n\
    --no-repeat-simp       do not make multiple passes with nonclausal simplifier\n\
    --replay=file          replay decisions from file\n\
@@ -437,6 +441,8 @@ enum OptionValue {
   NO_STATIC_LEARNING,
   ITE_SIMP,
   NO_ITE_SIMP,
+  UNCONSTRAINED_SIMP,
+  NO_UNCONSTRAINED_SIMP,
   REPEAT_SIMP,
   NO_REPEAT_SIMP,
   INTERACTIVE,
@@ -537,6 +543,8 @@ static struct option cmdlineOptions[] = {
   { "no-static-learning", no_argument, NULL, NO_STATIC_LEARNING },
   { "ite-simp", no_argument, NULL, ITE_SIMP },
   { "no-ite-simp", no_argument, NULL, NO_ITE_SIMP },
+  { "unconstrained-simp", no_argument, NULL, UNCONSTRAINED_SIMP },
+  { "no-unconstrained-simp", no_argument, NULL, NO_UNCONSTRAINED_SIMP },
   { "repeat-simp", no_argument, NULL, REPEAT_SIMP },
   { "no-repeat-simp", no_argument, NULL, NO_REPEAT_SIMP },
   { "interactive", no_argument      , NULL, INTERACTIVE },
@@ -698,7 +706,8 @@ throw(OptionException) {
         } else if(!strcmp(optarg, "t-conflicts") ||
                   !strcmp(optarg, "t-lemmas") ||
                   !strcmp(optarg, "t-explanations") ||
-                  !strcmp(optarg, "bv-rewrites")) {
+                  !strcmp(optarg, "bv-rewrites") ||
+                  !strcmp(optarg, "theory::fullcheck")) {
           // These are "non-state-dumping" modes.  If state (SAT decisions,
           // propagations, etc.) is dumped, it will interfere with the validity
           // of these generated queries.
@@ -868,6 +877,16 @@ throw(OptionException) {
     case NO_ITE_SIMP:
       doITESimp = false;
       doITESimpSetByUser = true;
+      break;
+
+    case UNCONSTRAINED_SIMP:
+      unconstrainedSimp = true;
+      unconstrainedSimpSetByUser = true;
+      break;
+
+    case NO_UNCONSTRAINED_SIMP:
+      unconstrainedSimp = false;
+      unconstrainedSimpSetByUser = true;
       break;
 
     case REPEAT_SIMP:
