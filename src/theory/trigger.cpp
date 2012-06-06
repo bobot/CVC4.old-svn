@@ -56,7 +56,7 @@ void Trigger::TrTrie::addTrigger2( std::vector< Node >& nodes, Trigger* t ){
 }
 
 /** trigger static members */
-std::map< Node, std::vector< Node > > Trigger::d_var_contains;
+std::map< TNode, std::vector< TNode > > Trigger::d_var_contains;
 Trigger::TrTrie Trigger::d_tr_trie;
 
 /** trigger class constructor */
@@ -93,7 +93,7 @@ d_quantEngine( qe ), d_f( f ){
     //Notice() << "   " << (*this) << std::endl;
     ++(qe->d_statistics.d_multi_triggers);
   }
-  //std::cout << "Trigger : " << (*this) << "  for " << f << std::endl;
+  //Notice() << "Trigger : " << (*this) << "  for " << f << std::endl;
 }
 void Trigger::computeVarContains( Node n ) {
   if( d_var_contains.find( n )==d_var_contains.end() ){

@@ -63,7 +63,7 @@ public:
     }
 
     bool eqNotifyTriggerPredicate(TNode predicate, bool value) {
-      Debug("uf") << "NotifyClass::eqNotifyTriggerPredicate(" << predicate << ", " << (value ? "true" : "false" )<< ")" << std::endl;
+      Debug("uf") << "NotifyClass::eqNotifyTriggerPredicate(" << predicate << ", " << (value ? "true" : "false") << ")" << std::endl;
       if (value) {
         return d_uf.propagate(predicate);
       } else {
@@ -72,7 +72,7 @@ public:
     }
 
     bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) {
-      Debug("uf") << "NotifyClass::eqNotifyTriggerTermMerge(" << tag << ", " << t1 << ", " << t2 << std::endl;
+      Debug("uf") << "NotifyClass::eqNotifyTriggerTermMerge(" << tag << ", " << t1 << ", " << t2 << ")" << std::endl;
       if (value) {
         return d_uf.propagate(t1.eqNode(t2));
       } else {
@@ -81,12 +81,9 @@ public:
     }
 
     bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
-      Debug("uf") << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << std::endl;
-      if (Theory::theoryOf(t1) == THEORY_BOOL) {
-        return d_uf.propagate(t1.iffNode(t2));
-      } else {
-        return d_uf.propagate(t1.eqNode(t2));
-      }
+      Debug("uf") << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << ")" << std::endl;
+      d_uf.conflict(t1, t2);
+      return false;
     }
 
     void eqNotifyNewClass(TNode t) {
@@ -157,6 +154,9 @@ private:
   /** Symmetry analyzer */
   SymmetryBreaker d_symb;
 
+  /** Conflict when merging two constants */
+  void conflict(TNode a, TNode b);
+
   /** called when a new equivalance class is created */
   void eqNotifyNewClass(TNode t);
 
@@ -190,7 +190,6 @@ public:
   }
 
   void check(Effort);
-  void propagate(Effort);
   void preRegisterTerm(TNode term);
   Node explain(TNode n);
 
@@ -199,6 +198,8 @@ public:
 
   void addSharedTerm(TNode n);
   void computeCareGraph();
+
+  void propagate(Effort effort) {}
 
   EqualityStatus getEqualityStatus(TNode a, TNode b);
 

@@ -28,7 +28,7 @@ namespace theory {
 class Trigger {
 private:
   /** computation of variable contains */
-  static std::map< Node, std::vector< Node > > d_var_contains;
+  static std::map< TNode, std::vector< TNode > > d_var_contains;
   static void computeVarContains( Node n );
   static void computeVarContains2( Node n, Node parent );
 private:
@@ -40,15 +40,14 @@ private:
   IMGenerator* d_mg;
 private:
   /** a trie of triggers */
-  class TrTrie
-  {
+  class TrTrie {
   private:
     Trigger* getTrigger2( std::vector< Node >& nodes );
     void addTrigger2( std::vector< Node >& nodes, Trigger* t );
   public:
     TrTrie() : d_tr( NULL ){}
     Trigger* d_tr;
-    std::map< Node, TrTrie* > d_children;
+    std::map< TNode, TrTrie* > d_children;
     Trigger* getTrigger( std::vector< Node >& nodes ){
       std::vector< Node > temp;
       temp.insert( temp.begin(), nodes.begin(), nodes.end() );
@@ -61,7 +60,7 @@ private:
       std::sort( temp.begin(), temp.end() );
       return addTrigger2( temp, t );
     }
-  };
+  };/* class Trigger::TrTrie */
   /** all triggers will be stored in this trie */
   static TrTrie d_tr_trie;
 private:

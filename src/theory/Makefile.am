@@ -32,6 +32,8 @@ libtheory_la_SOURCES = \
 	term_registration_visitor.cpp \
 	ite_simplifier.h \
 	ite_simplifier.cpp \
+	unconstrained_simplifier.h \
+	unconstrained_simplifier.cpp \
 	quantifiers_engine.h \
 	quantifiers_engine.cpp \
 	instantiator_default.h \

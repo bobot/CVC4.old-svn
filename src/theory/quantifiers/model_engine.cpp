@@ -672,7 +672,7 @@ void ModelEngine::buildRepresentatives(){
     //set them in the alphabet
     d_ra.set( tn, reps );
 #ifdef ME_PRINT_PROCESS_TIMES
-    std::cout << tn << " has " << reps.size() << " representatives. " << std::endl;
+    Notice() << tn << " has " << reps.size() << " representatives. " << std::endl;
 #endif
   }
 }
