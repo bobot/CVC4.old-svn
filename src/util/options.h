@@ -150,6 +150,12 @@ struct CVC4_PUBLIC Options {
    * - With DECISION_STRATEGY_RELEVANCY
    *   > Least significant bit: true if one should only decide on leaves
    */
+
+  /** DecisionOption along */
+  struct DecisionOptions {
+    bool relevancyLeaves;
+    unsigned short maxRelTimeAsPermille;  /* permille = part per thousand */
+  };
   DecisionOptions decisionOptions;
 
   /** Whether to perform the static learning pass. */
@@ -340,9 +346,6 @@ struct CVC4_PUBLIC Options {
   bool sat_refine_conflicts;
 
   Options();
-  ~Options();
-  Options(const Options& options);
-  Options& operator= (const Options& options);
 
   /**
    * Get a description of the command-line flags accepted by

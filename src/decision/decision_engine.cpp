@@ -17,7 +17,6 @@
  **/
 
 #include "decision/decision_engine.h"
-#include "decision/decision_options.h"
 #include "decision/justification_heuristic.h"
 #include "decision/relevancy.h"
 
@@ -53,7 +52,7 @@ namespace CVC4 {
     d_needIteSkolemMap.push_back(ds);
   }
   if(options->decisionMode == Options::DECISION_STRATEGY_RELEVANCY) {
-    bool relLeaves = options->decisionOptions->relevancyLeaves;
+    bool relLeaves = options->decisionOptions.relevancyLeaves;
     RelevancyStrategy* ds = 
       new decision::Relevancy(this, d_satContext, relLeaves);
     enableStrategy(ds);

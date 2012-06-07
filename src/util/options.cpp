@@ -27,7 +27,6 @@
 
 #include <getopt.h>
 
-#include "decision/decision_options.h"
 #include "expr/expr.h"
 #include "expr/command.h"
 #include "util/configuration.h"
@@ -59,6 +58,11 @@ CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
 #  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
 #endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
 
+/** default decision options */
+const Options::DecisionOptions defaultDecOpt = {
+  false,                        // relevancyLeaves
+  1000                          // maxRelTimeAsPermille
+};
 
 Options::Options() :
   binary_name(),
@@ -84,7 +88,7 @@ Options::Options() :
   simplificationModeSetByUser(false),
   decisionMode(DECISION_STRATEGY_INTERNAL),
   decisionModeSetByUser(false),
-  decisionOptions(NULL),
+  decisionOptions(DecisionOptions(defaultDecOpt)),
   doStaticLearning(true),
   doITESimp(false),
   doITESimpSetByUser(false),
@@ -136,24 +140,8 @@ Options::Options() :
   bitvectorShareLemmas(false),
   sat_refine_conflicts(false)
 {
-  decisionOptions = new DecisionOptions(defaultDecOpt);
 }
 
-Options::~Options() {
-  delete decisionOptions;
-  decisionOptions = NULL;
-}
-
-Options::Options(const Options& options) {
-  decisionOptions = new DecisionOptions;
-  *decisionOptions = *options.decisionOptions;
-}
-
-Options& Options::operator= (const Options& options) {
-  decisionOptions = new DecisionOptions;
-  *decisionOptions = *options.decisionOptions;
-  return *this;
-}
 
 static const string mostCommonOptionsDescription = "\
 Most commonly-used CVC4 options:\n\
@@ -870,11 +858,11 @@ throw(OptionException) {
       } else if(!strcmp(optarg, "relevancy")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;
-        decisionOptions->relevancyLeaves = false;
+        decisionOptions.relevancyLeaves = false;
       } else if(!strcmp(optarg, "relevancy-leaves")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;
-        decisionOptions->relevancyLeaves = false;
+        decisionOptions.relevancyLeaves = false;
       } else if(!strcmp(optarg, "help")) {
         puts(decisionHelp.c_str());
         exit(1);
