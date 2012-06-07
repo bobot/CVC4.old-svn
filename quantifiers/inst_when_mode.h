@@ -10,8 +10,8 @@ namespace theory {
 namespace quantifiers {
 
 typedef enum {
-  /** Apply instantiation round eagerly (at standard effort) */
-  INST_WHEN_EAGER,
+  /** Apply instantiation round before full effort (possibly at standard effort) */
+  INST_WHEN_PRE_FULL,
   /** Apply instantiation round at full effort or above  */
   INST_WHEN_FULL,
   /** Apply instantiation round at full effort half the time, and last call always */

@@ -48,6 +48,9 @@ option registerQuantBodyTerms --register-quant-body-terms bool :default false
 option instWhenMode --inst-when=MODE CVC4::theory::quantifiers::InstWhenMode :default CVC4::theory::quantifiers::INST_WHEN_FULL_LAST_CALL :include "theory/quantifiers/inst_when_mode.h" :handler CVC4::theory::quantifiers::stringToInstWhenMode :handler-include "theory/quantifiers/options_handlers.h"
  when to apply instantiation
 
+option eagerInstQuant --eager-inst-quant bool :default false
+ apply quantifier instantiation eagerly
+
 option finiteModelFind --finite-model-find bool :default false
  use finite model finding heuristic for quantifier instantiation
 

@@ -11,7 +11,7 @@ namespace quantifiers {
 
 static const std::string instWhenHelp = "\
 Possible settings for --inst-when:\n\
-+ eager\n\
++ pre-full\n\
 + full\n\
 + full-last-call\n\
 + last-call\n\
@@ -25,8 +25,8 @@ Possible settings for --literal-matching:\n\
 ";
 
 inline InstWhenMode stringToInstWhenMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
-  if(optarg == "eager") {
-    return INST_WHEN_EAGER;
+  if(optarg == "pre-full") {
+    return INST_WHEN_PRE_FULL;
   } else if(optarg == "full") {
     return INST_WHEN_FULL;
   } else if(optarg == "full-last-call") {

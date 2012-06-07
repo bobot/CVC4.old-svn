@@ -5,8 +5,8 @@ namespace CVC4 {
 
 std::ostream& operator<<(std::ostream& out, theory::quantifiers::InstWhenMode mode) {
   switch(mode) {
-  case INST_WHEN_EAGER:
-    out << "INST_WHEN_EAGER";
+  case INST_WHEN_PRE_FULL:
+    out << "INST_WHEN_PRE_FULL";
     break;
   case INST_WHEN_FULL:
     out << "INST_WHEN_FULL";
