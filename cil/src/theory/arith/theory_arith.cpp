@@ -100,7 +100,10 @@ TheoryArith::Statistics::Statistics():
   d_restartTimer("theory::arith::restartTimer"),
   d_boundComputationTime("theory::arith::bound::time"),
   d_boundComputations("theory::arith::bound::boundComputations",0),
-  d_boundPropagations("theory::arith::bound::boundPropagations",0)
+  d_boundPropagations("theory::arith::bound::boundPropagations",0),
+  d_boundDrops("theory::arith::bound::boundDrops",0),
+  d_maxPasses("theory::arith::passes::max", 0),
+  d_avgPasses("theory::arith::passes::avg")
 {
   StatisticsRegistry::registerStat(&d_statAssertUpperConflicts);
   StatisticsRegistry::registerStat(&d_statAssertLowerConflicts);
@@ -125,6 +128,10 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_boundComputationTime);
   StatisticsRegistry::registerStat(&d_boundComputations);
   StatisticsRegistry::registerStat(&d_boundPropagations);
+  StatisticsRegistry::registerStat(&d_boundDrops);
+
+  StatisticsRegistry::registerStat(&d_maxPasses);
+  StatisticsRegistry::registerStat(&d_avgPasses);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -151,6 +158,10 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_boundComputationTime);
   StatisticsRegistry::unregisterStat(&d_boundComputations);
   StatisticsRegistry::unregisterStat(&d_boundPropagations);
+  StatisticsRegistry::unregisterStat(&d_boundDrops);
+
+  StatisticsRegistry::unregisterStat(&d_maxPasses);
+  StatisticsRegistry::unregisterStat(&d_avgPasses);
 }
 
 void TheoryArith::revertOutOfConflict(){
@@ -1256,9 +1267,10 @@ bool TheoryArith::constraintAssertInferLoop(){
     inferConstraints();
   }
 
-  if(passes > 1){
-    cerr << "around and around: " << passes << endl;
-  }
+  Debug("arith::passes") << "num passes: " << passes << endl;
+  d_statistics.d_maxPasses.maxAssign(passes);
+  d_statistics.d_avgPasses.addEntry(passes);
+
   return inConflict();
 }
 
@@ -1878,7 +1890,9 @@ bool TheoryArith::rowImplication(RowIndex ridx, const Rational& c, ArithVar v, c
     Constraint bestImplied = d_constraintDatabase.getBestImpliedBound(v, t, bound);
 
     Debug("arith::prop") << bestImplied << endl;
-
+    if(bestImplied == NullConstraint){
+      ++d_statistics.d_boundDrops;
+    }
     if(bestImplied != NullConstraint){
 
       if(bestImplied->negationHasProof()){

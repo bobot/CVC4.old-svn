@@ -548,6 +548,10 @@ private:
 
     TimerStat d_boundComputationTime;
     IntStat d_boundComputations, d_boundPropagations;
+    IntStat d_boundDrops;
+
+    IntStat d_maxPasses;
+    AverageStat d_avgPasses;
 
     Statistics();
     ~Statistics();
