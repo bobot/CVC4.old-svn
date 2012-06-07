@@ -1812,18 +1812,16 @@ bool TheoryArith::rowImplication(RowIndex ridx, const Rational& c, ArithVar v, c
   bool cIsPos = c.sgn() >= 0;
   bool upperBound = rowUpperBound ^ cIsPos;
 
-  cout << c << "*" << v << " " << r << " " << rowUpperBound << " " << cIsPos
-       << " " << upperBound << endl;
+  Debug("arith::prop") << c << "*" << v << " " << r << " " << rowUpperBound << " " << cIsPos
+                       << " " << upperBound << endl;
 
   DeltaRational bound = (r/ (-c));
   int infSgn = bound.infinitesimalSgn();
 
-  cout << c << " * " << v << " " << r << " " << rowUpperBound << " " << upperBound << endl;
-
   Assert(!upperBound || infSgn <= 0);
   Assert(upperBound || infSgn >= 0);
 
-  cout << "bound pre rounding " << bound << endl;
+  Debug("arith::prop") << "bound pre rounding " << bound << endl;
 
   // phase 2 : round the incoming bound as strongly as possible
   // Round the bound to a stronger value if it is an integer
@@ -1862,7 +1860,7 @@ bool TheoryArith::rowImplication(RowIndex ridx, const Rational& c, ArithVar v, c
   // Q.E.D.
   // The delta must be invalidated!
 
-  cout << "bound post rounding " << bound << endl;
+  Debug("arith::prop") << "bound post rounding " << bound << endl;
 
   // phase 2 : use the discovered bound if possible/adventageous
   // If the bound is stronger than what is currently known, proceed.
@@ -1879,7 +1877,7 @@ bool TheoryArith::rowImplication(RowIndex ridx, const Rational& c, ArithVar v, c
     ConstraintType t = upperBound ? UpperBound : LowerBound;
     Constraint bestImplied = d_constraintDatabase.getBestImpliedBound(v, t, bound);
 
-    cerr << bestImplied << endl;
+    Debug("arith::prop") << bestImplied << endl;
 
     if(bestImplied != NullConstraint){
 
@@ -1980,7 +1978,9 @@ bool TheoryArith::rowImplication(RowIndex ridx, const Rational& c, ArithVar v, c
 // }
 
 bool TheoryArith::propagateCandidateRow(RowIndex ridx){
-  d_linEq.debugPrintRow(ridx);
+  if(Debug.isOn("arith::prop::printrow")){ d_linEq.debugPrintRow(ridx); }
+
+  ++d_statistics.d_boundComputations;
 
   //This attempts to compute:
   //  \sum_{x \in V} c * x <= ub
@@ -1992,6 +1992,9 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
   // If upperBoundHoles > 1, then ub is garbage
   // If lowerBoundHoles > 1, then lb is garbage
   // If upperBoundHoles > 1 and lowerBoundHoles > 1, then !successIsPossible.
+
+
+  // successIsPossible <=> (upperBoundHoles <= 1 || lowerBoundHoles <= 1)
   bool successIsPossible = true;
 
   unsigned upperBoundHoles = 0;
@@ -2005,8 +2008,9 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
 
   for(Tableau::RowIterator riter = d_tableau.rowIterator(ridx); successIsPossible && !riter.atEnd(); ++riter){
     const Tableau::Entry& e = *riter;
+    const Rational& a = e.getCoefficient();
     ArithVar x = e.getColVar();
-    if(e.getCoefficient().sgn() >= 0){
+    if(a.sgn() >= 0){
       //e is positive
       if(upperBoundHoles <= 1 && d_partialModel.hasUpperBound(x)){
         ub += d_partialModel.getUpperBound(x) * e.getCoefficient();
@@ -2016,7 +2020,7 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
         if(upperBoundHoles == 1){
           ubHole = &e;
         }else{
-          successIsPossible = upperBoundHoles > 1 && lowerBoundHoles > 1;
+          successIsPossible = upperBoundHoles <= 1 || lowerBoundHoles <= 1;
         }
       }
       if(lowerBoundHoles <= 1 && d_partialModel.hasLowerBound(x)){
@@ -2027,7 +2031,7 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
         if(lowerBoundHoles == 1){
           lbHole = &e;
         }else{
-          successIsPossible = upperBoundHoles > 1 && lowerBoundHoles > 1;
+          successIsPossible = upperBoundHoles <= 1 || lowerBoundHoles <= 1;
         }
       }
     }else{ //e.coefficient is negative
@@ -2039,7 +2043,7 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
         if(upperBoundHoles == 1){
           ubHole = &e;
         }else{
-          successIsPossible = upperBoundHoles > 1 && lowerBoundHoles > 1;
+          successIsPossible = upperBoundHoles <= 1 || lowerBoundHoles <= 1;
         }
       }
       if(lowerBoundHoles <= 1 && d_partialModel.hasUpperBound(x)){
@@ -2050,11 +2054,16 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
         if(lowerBoundHoles == 1){
           lbHole = &e;
         }else{
-          successIsPossible = upperBoundHoles > 1 && lowerBoundHoles > 1;
+          successIsPossible = upperBoundHoles <= 1 || lowerBoundHoles <= 1;
         }
       }
     }
   }
+  // successIsPossible <=> (upperBoundHoles <= 1 || lowerBoundHoles <= 1)
+  Assert(!successIsPossible || upperBoundHoles <= 1 || lowerBoundHoles <= 1);
+  Assert(successIsPossible || upperBoundHoles > 1);
+  Assert(successIsPossible || lowerBoundHoles > 1);
+
   if(upperBoundHoles == 1){
     // -coeff * colVar = \sum_{x \in V} a * x <= ub
     ArithVar colvar = ubHole->getColVar();
@@ -2087,7 +2096,6 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
     // -coeff * colVar = \sum_{x \in V} a * x >= lb
     ArithVar colvar = lbHole->getColVar();
     const Rational& coeff = lbHole->getCoefficient();
-    cout << "-(" << coeff << ") * v" << colvar <<  " >= " << lb << endl;
     if(rowImplication(ridx, coeff, colvar, lb, false)){
       return true;
     }
