@@ -196,6 +196,8 @@ Additional CVC4 options:\n\
    --lazy-definition-expansion expand define-funs/LAMBDAs lazily\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
    --decision=MODE        choose decision mode, see --decision=help\n\
+   --decision-budget=N    impose a budget for relevancy hueristic which increases linearly with\n\
+                          each decision. N between 0 and 1000. (default: 1000, no budget)\n\
    --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
    --ite-simp             turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
    --no-ite-simp          turn off ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
@@ -445,6 +447,7 @@ enum OptionValue {
   LAZY_DEFINITION_EXPANSION,
   SIMPLIFICATION_MODE,
   DECISION_MODE,
+  DECISION_BUDGET,
   NO_STATIC_LEARNING,
   ITE_SIMP,
   NO_ITE_SIMP,
@@ -547,6 +550,7 @@ static struct option cmdlineOptions[] = {
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
   { "simplification", required_argument, NULL, SIMPLIFICATION_MODE },
   { "decision", required_argument, NULL, DECISION_MODE },
+  { "decision-budget", required_argument, NULL, DECISION_BUDGET },
   { "no-static-learning", no_argument, NULL, NO_STATIC_LEARNING },
   { "ite-simp", no_argument, NULL, ITE_SIMP },
   { "no-ite-simp", no_argument, NULL, NO_ITE_SIMP },
@@ -870,6 +874,21 @@ throw(OptionException) {
         throw OptionException(string("unknown option for --decision: `") +
                               optarg + "'.  Try --decision help.");
       }
+      break;
+
+    case DECISION_BUDGET: {
+      int i = atoi(optarg);
+      if(i < 0 || i > 1000) {
+        throw OptionException(string("invalid value for --decision-budget: `") +
+                              optarg + "'. Must be between 0 and 1000.");
+      }
+      if(i == 0) {
+        Warning() << "Decision budget is 0. Consider using internal decision hueristic and "
+                  << std::endl << " removing this option." << std::endl;
+                  
+      }
+      decisionOptions.maxRelTimeAsPermille = (unsigned short)i;
+    }
       break;
 
     case NO_STATIC_LEARNING:

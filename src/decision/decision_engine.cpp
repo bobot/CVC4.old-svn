@@ -52,9 +52,8 @@ namespace CVC4 {
     d_needIteSkolemMap.push_back(ds);
   }
   if(options->decisionMode == Options::DECISION_STRATEGY_RELEVANCY) {
-    bool relLeaves = options->decisionOptions.relevancyLeaves;
     RelevancyStrategy* ds = 
-      new decision::Relevancy(this, d_satContext, relLeaves);
+      new decision::Relevancy(this, d_satContext, options->decisionOptions);
     enableStrategy(ds);
     d_needIteSkolemMap.push_back(ds);
     d_relevancyStrategy = ds;

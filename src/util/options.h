@@ -45,8 +45,6 @@ public:
     }
 };/* class OptionException */
 
-struct DecisionOptions;
-
 struct CVC4_PUBLIC Options {
 
   /** The current Options in effect */

@@ -40,6 +40,7 @@
 #include "context/cdhashmap.h"
 #include "expr/node.h"
 #include "prop/sat_solver_types.h"
+#include "util/options.h"
 
 namespace CVC4 {
 
@@ -121,7 +122,7 @@ class Relevancy : public RelevancyStrategy {
   /** current decision for the recursive call */
   SatLiteral* d_curDecision;
 public:
-  Relevancy(CVC4::DecisionEngine* de, context::Context *c, bool relevancyLeaves):
+  Relevancy(CVC4::DecisionEngine* de, context::Context *c, const Options::DecisionOptions &decOpt):
     RelevancyStrategy(de, c),
     d_justified(c),
     d_prvsIndex(c, 0),
@@ -134,8 +135,8 @@ public:
     d_relevancy(c),
     d_multipleBacktrace(true),
     d_computeRelevancy(true),
-    d_relevancyLeaves(relevancyLeaves),
-    d_maxTimeAsPercentageOfTotalTime(10.0),
+    d_relevancyLeaves(decOpt.relevancyLeaves),
+    d_maxTimeAsPercentageOfTotalTime(decOpt.maxRelTimeAsPermille*1.0/10.0),
     d_curDecision(NULL)
   {
     StatisticsRegistry::registerStat(&d_helfulness);
