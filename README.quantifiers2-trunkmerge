@@ -1,1 +1,9 @@
 This branch is for reconciling the quantifiers2 branch with trunk with the aim of merging quantifiers back into trunk.
+
+FIXMEs
+
+Instantiators are active in theory constructors (but they are NULL) due to the eq engine adding TRUE and FALSE.  How to fix?
+
+performance regression
+
+logicInfo is used before set

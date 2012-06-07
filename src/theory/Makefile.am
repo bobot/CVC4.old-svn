@@ -46,7 +46,7 @@ libtheory_la_SOURCES = \
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \
-	instantiator_tables.h \
+	instantiator_tables.cpp \
 	theory_traits.h
 
 libtheory_la_LIBADD = \
@@ -62,7 +62,7 @@ libtheory_la_LIBADD = \
 
 EXTRA_DIST = \
 	rewriter_tables_template.h \
-	instantiator_tables_template.h \
+	instantiator_tables_template.cpp \
 	theory_traits_template.h \
 	mktheorytraits \
 	mkrewriter \
@@ -71,12 +71,12 @@ EXTRA_DIST = \
 
 BUILT_SOURCES = \
 	rewriter_tables.h \
-	instantiator_tables.h \
+	instantiator_tables.cpp \
 	theory_traits.h
 
 CLEANFILES = \
 	rewriter_tables.h \
-	instantiator_tables.h \
+	instantiator_tables.cpp \
 	theory_traits.h
 
 include @top_srcdir@/src/theory/Makefile.subdirs
@@ -89,7 +89,7 @@ rewriter_tables.h: rewriter_tables_template.h mkrewriter @top_builddir@/src/theo
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
 
-instantiator_tables.h: instantiator_tables_template.h mkinstantiator @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+instantiator_tables.cpp: instantiator_tables_template.cpp mkinstantiator @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mkinstantiator
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkinstantiator \

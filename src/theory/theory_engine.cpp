@@ -73,10 +73,10 @@ TheoryEngine::TheoryEngine(context::Context* context,
     d_theoryTable[theoryId] = NULL;
     d_theoryOut[theoryId] = NULL;
   }
-  if(logicInfo.isQuantified()) {
-    // initialize the quantifiers engine
-    d_quantEngine = new QuantifiersEngine(context, this);
-  }
+
+  // initialize the quantifiers engine
+  d_quantEngine = new QuantifiersEngine(context, this);
+
   Rewriter::init();
   StatisticsRegistry::registerStat(&d_combineTheoriesTime);
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
@@ -93,9 +93,7 @@ TheoryEngine::~TheoryEngine() {
     }
   }
 
-  if(d_quantEngine != NULL) {
-    delete d_quantEngine;
-  }
+  delete d_quantEngine;
 
   StatisticsRegistry::unregisterStat(&d_combineTheoriesTime);
 }
@@ -572,7 +570,7 @@ void TheoryEngine::shutdown() {
   // Shutdown all the theories
   for(TheoryId theoryId = theory::THEORY_FIRST; theoryId < theory::THEORY_LAST; ++theoryId) {
     if(d_theoryTable[theoryId]) {
-      theoryOf(static_cast<TheoryId>(theoryId))->shutdown();
+      theoryOf(theoryId)->shutdown();
     }
   }
 
@@ -1097,8 +1095,6 @@ Node TheoryEngine::ppSimpITE(TNode assertion)
   result = Rewriter::rewrite(result);
   return result;
 }
-
-#include "theory/instantiator_tables.h"
 
 void TheoryEngine::getExplanation(std::vector<NodeTheoryPair>& explanationVector)
 {

@@ -431,14 +431,14 @@ void TheoryUF::eqNotifyNewClass(TNode t) {
   if (d_thss != NULL) {
     d_thss->newEqClass(t);
   }
-  if (getInstantiator() != NULL) {
-    ((InstantiatorTheoryUf*)getInstantiator())->newEqClass(t);
+  if (getLogicInfo().isQuantified()) {
+    ((InstantiatorTheoryUf*) getInstantiator())->newEqClass(t);
   }
 }
 
 void TheoryUF::eqNotifyPreMerge(TNode t1, TNode t2) {
-  if (getInstantiator() != NULL) {
-    ((InstantiatorTheoryUf*)getInstantiator())->merge(t1, t2);
+  if (getLogicInfo().isQuantified()) {
+    ((InstantiatorTheoryUf*) getInstantiator())->merge(t1, t2);
   }
 }
 
@@ -452,7 +452,7 @@ void TheoryUF::eqNotifyDisequal(TNode t1, TNode t2, TNode reason) {
   if (d_thss != NULL) {
     d_thss->assertDisequal(t1, t2, reason);
   }
-  if (getInstantiator() != NULL) {
+  if (getLogicInfo().isQuantified()) {
     ((InstantiatorTheoryUf*) getInstantiator())->assertDisequal(t1, t2, reason);
   }
 }

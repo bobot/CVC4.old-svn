@@ -189,16 +189,6 @@ private:
    */
   Instantiator* d_inst;
 
-  /**
-   * Used by TheoryEngine to set the Instantiator.  This happens right after
-   * the theory is constructed (the Instantiator and Theory point to each other,
-   * so they can't both get a reference to the other in their constructor).
-   */
-  void setInstantiator(Instantiator* inst) {
-    Assert(d_inst == NULL);
-    d_inst = inst;
-  }
-
   // === STATISTICS ===
   /** time spent in theory combination */
   TimerStat d_computeCareGraphTime;
@@ -208,6 +198,12 @@ private:
     ss << "theory<" << id << ">::" << statName;
     return ss.str();
   }
+
+  /**
+   * Construct and return the instantiator for the given theory.
+   * If there is no instantiator class, NULL is returned.
+   */
+  theory::Instantiator* makeInstantiator(context::Context* c, theory::QuantifiersEngine* qe);
 
 protected:
 
@@ -245,7 +241,7 @@ protected:
   , d_sharedTermsIndex(satContext, 0)
   , d_careGraph(0)
   , d_quantEngine(qe)
-  , d_inst(NULL)
+  , d_inst(makeInstantiator(satContext, qe))
   , d_computeCareGraphTime(statName(id, "computeCareGraphTime"))
   , d_sharedTerms(satContext)
   , d_out(&out)
@@ -865,8 +861,8 @@ inline Assertion Theory::get() {
     Dump("state") << AssertCommand(fact.assertion.toExpr());
   }
 
-  // if quantifiers are turned on, notify the instantiator
-  if(getInstantiator() != NULL) {
+  // if quantifiers are turned on and we have an instantiator, notify it
+  if(getLogicInfo().isQuantified() && getInstantiator() != NULL) {
     getInstantiator()->assertNode(fact);
   }
 

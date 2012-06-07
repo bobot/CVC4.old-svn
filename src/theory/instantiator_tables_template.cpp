@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file instantiator_tables_template.h
+/*! \file instantiator_tables_template.cpp
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
@@ -17,19 +17,24 @@
  ** generated from the Theory kinds files.
  **/
 
-#include "cvc4_private.h"
-
-#pragma once
-
 #include "context/context.h"
 #include "theory/quantifiers_engine.h"
 
 ${instantiator_includes}
 
-#line 30 "${template}"
+#line 26 "${template}"
 
 namespace CVC4 {
+namespace theory {
 
-${make_instantiators}
+Instantiator* Theory::makeInstantiator(context::Context* c, theory::QuantifiersEngine* qe) {
+  switch(d_id) {
+${make_instantiator_cases}
+#line 40 "${template}"
+  default:
+    Unhandled(d_id);
+  }
+}
 
+}/* CVC4::theory namespace */
 }/* CVC4 namespace */

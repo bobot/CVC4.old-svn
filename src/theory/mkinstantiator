@@ -41,7 +41,7 @@ theory_id=
 theory_class=
 theory_header=
 
-make_instantiators=
+make_instantiator_cases=
 instantiator=
 
 seen_theory=false
@@ -100,9 +100,10 @@ function instantiator {
   fi
 
   instantiator_includes="${instantiator_includes}#include \"$theory_header\"
+#line $lineno \"$kf\"
 #include \"$instantiator_header\"
 "
-  instantiator="new $instantiator_class(c, qe, th)";
+  instantiator="new $instantiator_class(c, qe, static_cast< $theory_class* >(this))";
 }
 
 function properties {
@@ -117,12 +118,10 @@ function endtheory {
   check_theory_seen
   seen_endtheory=true
 
-  make_instantiators="${make_instantiators}
-template <>
-theory::Instantiator* TheoryEngine::makeInstantiator< $theory_class >(context::Context* c, theory::QuantifiersEngine* qe, $theory_class* th) const {
-  return $instantiator;
-}
-
+  make_instantiator_cases="${make_instantiator_cases}
+#line $lineno \"$kf\"
+  case $theory_id:
+    return $instantiator;
 "
 }
 
@@ -230,7 +229,7 @@ nl -ba -s' ' "$template"  | grep '^ *[0-9][0-9]* # *line' |
 text=$(cat "$template")
 for var in \
     instantiator_includes \
-    make_instantiators \
+    make_instantiator_cases \
     template \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
