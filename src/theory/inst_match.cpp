@@ -611,6 +611,23 @@ int InstMatchGenerator::addInstantiations( Node f, InstMatch& baseMatch, Quantif
   return addedLemmas;
 }
 
+int InstMatchGenerator::addTerm( Node f, Node t, QuantifiersEngine* qe ){
+  Assert( Options::current()->eagerInstQuant );
+  if( !d_match_pattern.isNull() ){
+    InstMatch m;
+    if( getMatch( t, m, qe ) ){
+      if( qe->addInstantiation( f, m ) ){
+        return 1;
+      }
+    }
+  }else{
+    for( int i=0; i<(int)d_children.size(); i++ ){
+      d_children[i]->addTerm( f, t, qe );
+    }
+  }
+  return 0;
+}
+
 /** constructors */
 InstMatchGeneratorMulti::InstMatchGeneratorMulti( Node f, std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption ) :
 d_f( f ){
@@ -791,17 +808,36 @@ int InstMatchGeneratorMulti::addInstantiations( Node f, InstMatch& baseMatch, Qu
       m.clear();
     }
     for( int j=0; j<(int)newMatches.size(); j++ ){
-      //see if these produce new matches
-      d_children_trie[i].addInstMatch( qe, d_f, newMatches[j], true );
-      //possibly only do the following if we know that new matches will be produced?
-      //the issue is that instantiations are filtered in quantifiers engine, and so there is no guarentee that
-      // we can safely skip the following lines, even when we have already produced this match.
-      Debug("smart-multi-trigger") << "Child " << i << " produced match " << newMatches[j] << std::endl;
-      //collect new instantiations
-      int childIndex = (i+1)%(int)d_children.size();
-      std::vector< IndexedTrie > unique_var_tries;
-      collectInstantiations( qe, newMatches[j], addedLemmas,
-                             d_children_trie[childIndex].getTrie(), unique_var_tries, 0, childIndex, i, true );
+      processNewMatch( qe, newMatches[j], i, addedLemmas );
+    }
+  }
+  return addedLemmas;
+}
+
+void InstMatchGeneratorMulti::processNewMatch( QuantifiersEngine* qe, InstMatch& m, int fromChildIndex, int& addedLemmas ){
+  //see if these produce new matches
+  d_children_trie[fromChildIndex].addInstMatch( qe, d_f, m, true );
+  //possibly only do the following if we know that new matches will be produced?
+  //the issue is that instantiations are filtered in quantifiers engine, and so there is no guarentee that
+  // we can safely skip the following lines, even when we have already produced this match.
+  Debug("smart-multi-trigger") << "Child " << fromChildIndex << " produced match " << m << std::endl;
+  //collect new instantiations
+  int childIndex = (fromChildIndex+1)%(int)d_children.size();
+  std::vector< IndexedTrie > unique_var_tries;
+  collectInstantiations( qe, m, addedLemmas,
+                         d_children_trie[childIndex].getTrie(), unique_var_tries, 0, childIndex, fromChildIndex, true );
+}
+
+int InstMatchGeneratorMulti::addTerm( Node f, Node t, QuantifiersEngine* qe ){
+  Assert( Options::current()->eagerInstQuant );
+  int addedLemmas = 0;
+  for( int i=0; i<(int)d_children.size(); i++ ){
+    if( ((InstMatchGenerator*)d_children[i])->d_match_pattern.getOperator()==t.getOperator() ){
+      InstMatch m;
+      //if it produces a match, then process it with the rest
+      if( ((InstMatchGenerator*)d_children[i])->getMatch( t, m, qe ) ){
+        processNewMatch( qe, m, i, addedLemmas );
+      }
     }
   }
   return addedLemmas;
@@ -851,4 +887,17 @@ void InstMatchGeneratorSimple::addInstantiations( InstMatch& m, QuantifiersEngin
       }
     }
   }
+}
+
+int InstMatchGeneratorSimple::addTerm( Node f, Node t, QuantifiersEngine* qe ){
+  Assert( Options::current()->eagerInstQuant );
+  InstMatch m;
+  for( int i=0; i<(int)t.getNumChildren(); i++ ){
+    if( d_match_pattern[i].getKind()==INST_CONSTANT ){
+      m.d_map[d_match_pattern[i]] = t[i];
+    }else if( !qe->getEqualityQuery()->areEqual( d_match_pattern[i], t[i] ) ){
+      return 0;
+    }
+  }
+  return qe->addInstantiation( f, m ) ? 1 : 0;
 }

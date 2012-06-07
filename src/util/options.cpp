@@ -130,6 +130,7 @@ Options::Options() :
   smartTriggers(true),
   registerQuantBodyTerms(false),
   instWhenMode(INST_WHEN_FULL_LAST_CALL),
+  eagerInstQuant(false),
   finiteModelFind(false),
   fmfRegionSat(false),
   fmfModelBasedInst(true),
@@ -253,6 +254,7 @@ Additional CVC4 options:\n\
    --disable-smart-triggers   disable smart triggers\n\
    --register-quant-body-terms  consider terms within bodies of quantified formulas for matching\n\
    --inst-when=MODE       when to apply instantiation\n\
+   --eager-inst-quant     apply quantifier instantiation eagerly\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --use-fmf-region-sat   use region-based SAT heuristic for finite model finding\n\
    --disable-fmf-model-inst  disable model-based instantiation for finite model finding\n\
@@ -447,7 +449,7 @@ void Options::printLanguageHelp(std::ostream& out) {
  */
 enum OptionValue {
   OPTION_VALUE_BEGIN = 256, /* avoid clashing with char options */
-  SMTCOMP, 
+  SMTCOMP,
   STATS,
   SEGV_NOSPIN,
   OUTPUT_LANGUAGE,
@@ -511,6 +513,7 @@ enum OptionValue {
   DISABLE_SMART_TRIGGERS,
   REGISTER_QUANT_BODY_TERMS,
   INST_WHEN,
+  EAGER_INST_QUANT,
   FINITE_MODEL_FIND,
   FMF_REGION_SAT,
   DISABLE_FMF_MODEL_BASED_INST,
@@ -633,6 +636,7 @@ static struct option cmdlineOptions[] = {
   { "disable-smart-triggers", no_argument, NULL, DISABLE_SMART_TRIGGERS },
   { "register-quant-body-terms", no_argument, NULL, REGISTER_QUANT_BODY_TERMS },
   { "inst-when", required_argument, NULL, INST_WHEN },
+  { "eager-inst-quant", no_argument, NULL, EAGER_INST_QUANT },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
   { "disable-fmf-model-inst", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
@@ -1085,8 +1089,8 @@ throw(OptionException) {
       registerQuantBodyTerms = true;
       break;
     case INST_WHEN:
-      if(!strcmp(optarg, "eager")) {
-        instWhenMode = INST_WHEN_EAGER;
+      if(!strcmp(optarg, "pre-full")) {
+        instWhenMode = INST_WHEN_PRE_FULL;
       } else if(!strcmp(optarg, "full")) {
         instWhenMode = INST_WHEN_FULL;
       } else if(!strcmp(optarg, "full-last-call")) {
@@ -1100,6 +1104,9 @@ throw(OptionException) {
         throw OptionException(string("unknown option for --inst-when: `") +
                               optarg + "'.  Try --inst-when help.");
       }
+      break;
+    case EAGER_INST_QUANT:
+      eagerInstQuant = true;
       break;
     case FINITE_MODEL_FIND:
       finiteModelFind = true;

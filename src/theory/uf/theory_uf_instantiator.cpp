@@ -490,6 +490,12 @@ void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, N
   Debug("efficient-e-match") << "Done." << std::endl;
 }
 
+void InstantiatorTheoryUf::registerTrigger( Trigger* tr, Node op ){
+  if( std::find( d_op_triggers[op].begin(), d_op_triggers[op].end(), tr )==d_op_triggers[op].end() ){
+    d_op_triggers[op].push_back( tr );
+  }
+}
+
 void InstantiatorTheoryUf::outputEqClass( const char* c, Node n ){
   if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( n ) ){
     eq::EqClassIterator eqc_iter( getRepresentative( n ),

@@ -199,6 +199,16 @@ void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
               d_ith->d_cand_gens[op][i]->addCandidate( n );
             }
           }
+          if( Options::current()->eagerInstQuant ){
+            if( !n.hasAttribute(InstLevelAttribute()) && n.getAttribute(InstLevelAttribute())==0 ){
+              int addedLemmas = 0;
+              for( int i=0; i<(int)d_ith->d_op_triggers[op].size(); i++ ){
+                addedLemmas += d_ith->d_op_triggers[op][i]->addTerm( n );
+              }
+              //std::cout << "Terms, added lemmas: " << addedLemmas << std::endl;
+              d_quantEngine->flushLemmas( &d_quantEngine->getTheoryEngine()->getTheory( THEORY_QUANTIFIERS )->getOutputChannel() );
+            }
+          }
         }
       }
       for( int i=0; i<(int)n.getNumChildren(); i++ ){

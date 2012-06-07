@@ -94,6 +94,13 @@ d_quantEngine( qe ), d_f( f ){
     ++(qe->d_statistics.d_multi_triggers);
   }
   //Notice() << "Trigger : " << (*this) << "  for " << f << std::endl;
+  if( Options::current()->eagerInstQuant ){
+    Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF );
+    uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
+    for( int i=0; i<(int)d_nodes.size(); i++ ){
+      ith->registerTrigger( this, d_nodes[i].getOperator() );
+    }
+  }
 }
 void Trigger::computeVarContains( Node n ) {
   if( d_var_contains.find( n )==d_var_contains.end() ){
@@ -133,6 +140,9 @@ bool Trigger::getMatch( Node t, InstMatch& m ){
   return ((InstMatchGenerator*)d_mg)->getMatch( t, m, d_quantEngine );
 }
 
+int Trigger::addTerm( Node t ){
+  return d_mg->addTerm( d_f, t, d_quantEngine );
+}
 
 int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSplits ){
   int addedLemmas = d_mg->addInstantiations( d_f, baseMatch, d_quantEngine, instLimit, addSplits );

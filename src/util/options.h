@@ -295,21 +295,21 @@ struct CVC4_PUBLIC Options {
    */
   bool ufSymmetryBreakerSetByUser;
 
-  /** 
+  /**
    * Whether to mini-scope quantifiers.
-   * For example, forall x. ( P( x ) ^ Q( x ) ) will be rewritten to 
+   * For example, forall x. ( P( x ) ^ Q( x ) ) will be rewritten to
    * ( forall x. P( x ) ) ^ ( forall x. Q( x ) )
    */
   bool miniscopeQuant;
 
-  /** 
+  /**
    * Whether to mini-scope quantifiers based on formulas with no free variables.
-   * For example, forall x. ( P( x ) V Q ) will be rewritten to 
+   * For example, forall x. ( P( x ) V Q ) will be rewritten to
    * ( forall x. P( x ) ) V Q
    */
   bool miniscopeQuantFreeVar;
 
-  /** 
+  /**
    * Whether to prenex (nested universal) quantifiers
    */
   bool prenexQuant;
@@ -321,7 +321,7 @@ struct CVC4_PUBLIC Options {
    */
   bool varElimQuant;
 
-  /** 
+  /**
    * Whether to CNF quantifier bodies
    */
   bool cnfQuant;
@@ -329,11 +329,11 @@ struct CVC4_PUBLIC Options {
   /**
    * Whether to pre-skolemize quantifier bodies.
    * For example, forall x. ( P( x ) => (exists y. f( y ) = x) ) will be rewritten to
-   *   forall x. P( x ) => f( S( x ) ) = x 
+   *   forall x. P( x ) => f( S( x ) ) = x
    */
   bool preSkolemQuant;
 
-  /** 
+  /**
    * Whether to use smart triggers
    */
   bool smartTriggers;
@@ -345,8 +345,8 @@ struct CVC4_PUBLIC Options {
 
   /** Enumeration of inst_when modes (when to instantiate). */
   typedef enum {
-    /** Apply instantiation round eagerly (at standard effort) */
-    INST_WHEN_EAGER,
+    /** Apply instantiation round before full effort (possibly at standard effort) */
+    INST_WHEN_PRE_FULL,
     /** Apply instantiation round at full effort or above  */
     INST_WHEN_FULL,
     /** Apply instantiation round at full effort half the time, and last call always */
@@ -358,12 +358,17 @@ struct CVC4_PUBLIC Options {
   InstWhenMode instWhenMode;
 
   /**
+   * Whether to eagerly instantiate quantifiers
+   */
+  bool eagerInstQuant;
+
+  /**
    * Whether to use finite model find heuristic
    */
   bool finiteModelFind;
 
-  /** 
-   * Whether to use region-based SAT for finite model finding 
+  /**
+   * Whether to use region-based SAT for finite model finding
    */
   bool fmfRegionSat;
 
@@ -372,8 +377,8 @@ struct CVC4_PUBLIC Options {
    */
   bool fmfModelBasedInst;
 
-  /** 
-   * Whether to use efficient E-matching 
+  /**
+   * Whether to use efficient E-matching
    */
   bool efficientEMatching;
 
@@ -401,12 +406,12 @@ struct CVC4_PUBLIC Options {
    */
   bool cbqiSetByUser;
 
-  /** 
+  /**
    * Whether to use user patterns for pattern-based instantiation
    */
   bool userPatternsQuant;
 
-  /** 
+  /**
    * Whether to use flip decision (useful when cbqi=true)
    */
   bool flipDecision;

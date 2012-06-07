@@ -37,7 +37,7 @@ QuantifiersEngine* InstantiationEngine::getQuantifiersEngine(){
   return d_th->getQuantifiersEngine();
 }
 
-bool InstantiationEngine::hasAddedCbqiLemma( Node f ) { 
+bool InstantiationEngine::hasAddedCbqiLemma( Node f ) {
   return d_ce_lit.find( f ) != d_ce_lit.end();
 }
 

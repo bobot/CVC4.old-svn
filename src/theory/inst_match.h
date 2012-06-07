@@ -62,7 +62,7 @@ public:
         Node cand = cg->getNextCandidate();
         //.......
       }while( !cand.isNull() );
-      
+
       eqc is the equivalence class you are searching in
   */
   virtual void reset( Node eqc ) = 0;
@@ -105,8 +105,8 @@ public:
   /** returns true is a and b are disequal in the current context */
   virtual bool areDisequal( Node a, Node b ) = 0;
   /** getInternalRepresentative gets the current best representative in the equivalence class of a, based on some criteria.
-      If cbqi is active, this will return a term in the equivalence class of "a" that does 
-      not contain instantiation constants, if such a term exists. 
+      If cbqi is active, this will return a term in the equivalence class of "a" that does
+      not contain instantiation constants, if such a term exists.
    */
   virtual Node getInternalRepresentative( Node a ) = 0;
 };/* class EqualityQuery */
@@ -121,7 +121,7 @@ public:
   bool setMatch( EqualityQuery* q, Node v, Node m );
   /** fill all unfilled values with m */
   bool add( InstMatch& m );
-  /** if compatible, fill all unfilled values with m and return true 
+  /** if compatible, fill all unfilled values with m and return true
       return false otherwise */
   bool merge( EqualityQuery* q, InstMatch& m );
   /** debug print method */
@@ -182,9 +182,9 @@ public:
   InstMatchTrie(){}
   ~InstMatchTrie(){}
 public:
-  /** add match m for quantifier f, take into account equalities if modEq = true, 
+  /** add match m for quantifier f, take into account equalities if modEq = true,
       if imtio is non-null, this is the order to add to trie
-      return true if successful 
+      return true if successful
   */
   bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false, ImtIndexOrder* imtio = NULL );
 };/* class InstMatchTrie */
@@ -282,6 +282,8 @@ public:
   virtual bool nonunifiable( TNode t, const std::vector<Node> & vars) = 0;
   /** add instantiations directly */
   virtual int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ) = 0;
+  /** add ground term t, called when t is added to term db */
+  virtual int addTerm( Node f, Node t, QuantifiersEngine* qe ) = 0;
 };/* class IMGenerator */
 
 
@@ -306,14 +308,14 @@ private:
 public:
   enum {
     //options for producing matches
-    MATCH_GEN_DEFAULT = 0,     
+    MATCH_GEN_DEFAULT = 0,
     MATCH_GEN_EFFICIENT_E_MATCH,   //generate matches via Efficient E-matching for SMT solvers
     //others (internally used)
     MATCH_GEN_INTERNAL_ARITHMETIC,
     MATCH_GEN_INTERNAL_ERROR,
   };
 private:
-  /** get the next match.  must call d_cg->reset( ... ) before using. 
+  /** get the next match.  must call d_cg->reset( ... ) before using.
       only valid for use where !d_match_pattern.isNull().
   */
   bool getNextMatch2( InstMatch& m, QuantifiersEngine* qe, bool saveMatched = false );
@@ -349,15 +351,19 @@ public:
   bool nonunifiable( TNode t, const std::vector<Node> & vars);
   /** add instantiations */
   int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  /** add ground term t */
+  int addTerm( Node f, Node t, QuantifiersEngine* qe );
 };/* class InstMatchGenerator */
 
 /** smart multi-trigger implementation */
 class InstMatchGeneratorMulti : public IMGenerator {
 private:
+  void processNewMatch( QuantifiersEngine* qe, InstMatch& m, int fromChildIndex, int& addedLemmas );
+private:
   /** indexed trie */
   typedef std::pair< std::pair< int, int >, InstMatchTrie* > IndexedTrie;
   /** collect instantiations */
-  void collectInstantiations( QuantifiersEngine* qe, InstMatch& m, int& addedLemmas, InstMatchTrie* tr, 
+  void collectInstantiations( QuantifiersEngine* qe, InstMatch& m, int& addedLemmas, InstMatchTrie* tr,
                               std::vector< IndexedTrie >& unique_var_tries,
                               int trieIndex, int childIndex, int endChildIndex, bool modEq );
   /** collect instantiations 2 */
@@ -389,12 +395,14 @@ public:
   /** reset, eqc is the equivalence class to search in (any if eqc=null) */
   void reset( Node eqc, QuantifiersEngine* qe );
   /** get the next match.  must call reset( eqc ) before this function. (not implemented) */
-  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; } 
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; }
   /** return true if whatever Node is subsituted for the variables the
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
   /** add instantiations */
   int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  /** add ground term t */
+  int addTerm( Node f, Node t, QuantifiersEngine* qe );
 };/* class InstMatchGeneratorMulti */
 
 class TermArgTrie;
@@ -407,7 +415,7 @@ private:
   /** match term */
   Node d_match_pattern;
   /** add instantiations */
-  void addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, 
+  void addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas,
                           int argIndex, TermArgTrie* tat, int instLimit, bool addSplits );
 public:
   /** constructors */
@@ -419,12 +427,14 @@ public:
   /** reset, eqc is the equivalence class to search in (any if eqc=null) */
   void reset( Node eqc, QuantifiersEngine* qe ) {}
   /** get the next match.  must call reset( eqc ) before this function. (not implemented) */
-  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; } 
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; }
   /** return true if whatever Node is subsituted for the variables the
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
   /** add instantiations */
   int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  /** add ground term t, possibly add instantiations */
+  int addTerm( Node f, Node t, QuantifiersEngine* qe );
 };/* class InstMatchGeneratorSimple */
 
 }/* CVC4::theory namespace */

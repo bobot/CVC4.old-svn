@@ -85,6 +85,8 @@ public:
       Currently the trigger should not be a multi-trigger.
   */
   bool getMatch( Node t, InstMatch& m);
+  /** add ground term t, called when t is added to the TermDb */
+  int addTerm( Node t );
   /** return true if whatever Node is subsituted for the variables the
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars){

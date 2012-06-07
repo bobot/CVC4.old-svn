@@ -159,11 +159,17 @@ private:
   void collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms, int index = 0 );
   bool collectParentsTermsIps( Node n, Node f, int arg, std::vector< Node >& terms, bool addRep, bool modEq = true );
 public:
-  /** Register candidate generator cg for pattern pat.
+  /** Register candidate generator cg for pattern pat. (for use with efficient e-matching)
       This request will ensure that calls will be made to cg->addCandidate( n ) for all
       ground terms n that are relevant for matching with pat.
   */
   void registerCandidateGenerator( CandidateGenerator* cg, Node pat );
+private:
+  /** triggers */
+  std::map< Node, std::vector< Trigger* > > d_op_triggers;
+public:
+  /** register trigger (for eager quantifier instantiation) */
+  void registerTrigger( Trigger* tr, Node op );
 public:
   /** output eq class */
   void outputEqClass( const char* c, Node n );
