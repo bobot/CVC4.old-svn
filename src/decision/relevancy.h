@@ -158,6 +158,7 @@ public:
     StatisticsRegistry::unregisterStat(&d_timestat);
   }
   prop::SatLiteral getNext(bool &stopSearch) {
+    Debug("decision") << std::endl;
     Trace("decision") << "Relevancy::getNext()" << std::endl;
     TimerStat::CodeTimer codeTimer(d_timestat);
 
@@ -165,6 +166,7 @@ public:
         double(d_polqueries.getData())*secondsPerDecision < 
           d_maxTimeAsPercentageOfTotalTime*double(d_expense.getData())*secondsPerExpense
       ) {
+      ++d_giveup;
       return undefSatLiteral;
     }
 
@@ -267,7 +269,7 @@ public:
   }
 
   SatValue getPolarity(TNode n) {
-    Trace("decision") << "getPolarity(" << n << "): ";
+    Trace("decision") << "getPolarity([" << n.getId() << "]" << n << "): ";
     Assert(n.getKind() != kind::NOT);
     ++d_polqueries;
     PolarityCache::iterator it = d_polarityCache.find(n);
