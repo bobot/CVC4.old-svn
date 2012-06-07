@@ -866,7 +866,7 @@ throw(OptionException) {
       } else if(!strcmp(optarg, "relevancy-leaves")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;
-        decisionOptions.relevancyLeaves = false;
+        decisionOptions.relevancyLeaves = true;
       } else if(!strcmp(optarg, "help")) {
         puts(decisionHelp.c_str());
         exit(1);
