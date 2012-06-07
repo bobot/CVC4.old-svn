@@ -877,9 +877,9 @@ public:
     return getRow(basicToRowIndex(basic)).begin();
   }
 
-  // RowIterator rowIterator(RowIndex r) const {
-  //   return getRow(r).begin();
-  // }
+  RowIterator rowIterator(RowIndex r) const {
+    return getRow(r).begin();
+  }
 
   /**
    * Adds a row to the tableau.

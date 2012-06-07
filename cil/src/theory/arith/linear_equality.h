@@ -100,18 +100,38 @@ private:
   /**
    * Exports either the explanation of an upperbound or a lower bound
    * of the basic variable basic, using the non-basic variables in the row.
+   *
+   * If 
    */
-  template <bool upperBound>
-  void propagateNonbasics(ArithVar basic, Constraint c);
+  template <bool positiveForUpperBounds>
+  void propagateNonbasics(RowIndex ridx, Constraint c);
 
 public:
-  void propagateNonbasicsLowerBound(ArithVar basic, Constraint c){
-    Assert(c->isLowerBound());
-    propagateNonbasics<false>(basic, c);
-  }
-  void propagateNonbasicsUpperBound(ArithVar basic, Constraint c){
+  // void propagateNonbasicsLowerBound(ArithVar basic, Constraint c){
+  //   Assert(c->isLowerBound());
+  //   propagateNonbasics<false>(basic, c);
+  // }
+  // void propagateNonbasicsUpperBound(ArithVar basic, Constraint c){
+  //   Assert(c->isUpperBound());
+  //   propagateNonbasics<true>(basic, c);
+  // }
+
+  void propagateNonbasicsUpperBound(RowIndex ridx, Constraint c, bool coeffIsPositive){
     Assert(c->isUpperBound());
-    propagateNonbasics<true>(basic, c);
+    if(coeffIsPositive){
+      propagateNonbasics<false>(ridx, c);
+    }else{
+      propagateNonbasics<true>(ridx, c);
+    }
+  }
+
+  void propagateNonbasicsLowerBound(RowIndex ridx, Constraint c, bool coeffIsPositive){
+    Assert(c->isLowerBound());
+    if(coeffIsPositive){
+      propagateNonbasics<true>(ridx, c);
+    }else{
+      propagateNonbasics<false>(ridx, c);
+    }
   }
 
   /**

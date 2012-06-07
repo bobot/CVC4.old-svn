@@ -1205,6 +1205,11 @@ void TheoryArith::unatePropagation(){
 }
 
 void TheoryArith::inferConstraints(){
+  if(canPerformBoundsInference() && hasAnyUpdates()){
+    propagateCandidates();
+  }else{
+    clearUpdates();
+  }
 }
 
 
@@ -1349,134 +1354,6 @@ void TheoryArith::check(Effort effortLevel){
   if(Debug.isOn("paranoid:check_tableau")){ d_linEq.debugCheckTableau(); }
   if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
   Debug("arith") << "TheoryArith::check end" << std::endl;
-
-  // while(!done()){
-
-  //   Node assertion = get();
-  //   Node possibleConflict = assertionCases(assertion);
-
-  //   if(!possibleConflict.isNull()){
-  //     revertOutOfConflict();
-
-  //     Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
-  //     d_out->conflict(possibleConflict);
-  //     return;
-  //   }
-  //   if(d_congruenceManager.inConflict()){
-  //     Node c = d_congruenceManager.conflict();
-  //     revertOutOfConflict();
-  //     Debug("arith::conflict") << "difference manager conflict   " << c << endl;
-  //     d_out->conflict(c);
-  //     return;
-  //   }
-  // }
-
-
-
-  // bool emmittedConflictOrSplit = false;
-  // Assert(d_conflicts.empty());
-  // bool foundConflict = d_simplex.findModel();
-  // if(foundConflict){
-  //   revertOutOfConflict();
-
-  //   Assert(!d_conflicts.empty());
-  //   for(size_t i = 0, i_end = d_conflicts.size(); i < i_end; ++i){
-  //     Node conflict = d_conflicts[i];
-  //     Debug("arith::conflict") << "d_conflicts[" << i << "] " << conflict << endl;
-  //     d_out->conflict(conflict);
-  //   }
-  //   emmittedConflictOrSplit = true;
-  // }else{
-  //   d_partialModel.commitAssignmentChanges();
-  // }
-
-  // if(!emmittedConflictOrSplit &&
-  //    (Options::current()->arithPropagationMode == Options::UNATE_PROP ||
-  //     Options::current()->arithPropagationMode == Options::BOTH_PROP)){
-  //   TimerStat::CodeTimer codeTimer(d_statistics.d_newPropTime);
-
-  //   while(!d_currentPropagationList.empty()){
-  //     Constraint curr = d_currentPropagationList.front();
-  //     d_currentPropagationList.pop_front();
-
-  //     ConstraintType t = curr->getType();
-  //     Assert(t != Disequality, "Disequalities are not allowed in d_currentPropagation");
-
-
-  //     switch(t){
-  //     case LowerBound:
-  //       {
-  //         Constraint prev = d_currentPropagationList.front();
-  //         d_currentPropagationList.pop_front();
-  //         d_constraintDatabase.unatePropLowerBound(curr, prev);
-  //         break;
-  //       }
-  //     case UpperBound:
-  //       {
-  //         Constraint prev = d_currentPropagationList.front();
-  //         d_currentPropagationList.pop_front();
-  //         d_constraintDatabase.unatePropUpperBound(curr, prev);
-  //         break;
-  //       }
-  //     case Equality:
-  //       {
-  //         Constraint prevLB = d_currentPropagationList.front();
-  //         d_currentPropagationList.pop_front();
-  //         Constraint prevUB = d_currentPropagationList.front();
-  //         d_currentPropagationList.pop_front();
-  //         d_constraintDatabase.unatePropEquality(curr, prevLB, prevUB);
-  //         break;
-  //       }
-  //     default:
-  //       Unhandled(curr->getType());
-  //     }
-  //   }
-  // }else{
-  //   TimerStat::CodeTimer codeTimer(d_statistics.d_newPropTime);
-  //   d_currentPropagationList.clear();
-  // }
-  // Assert( d_currentPropagationList.empty());
-
-
-  // if(!emmittedConflictOrSplit && fullEffort(effortLevel)){
-  //   emmittedConflictOrSplit = splitDisequalities();
-  // }
-
-  // if(!emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()){
-  //   Node possibleConflict = Node::null();
-  //   if(!emmittedConflictOrSplit && Options::current()->arithDioSolver){
-  //     possibleConflict = callDioSolver();
-  //     if(possibleConflict != Node::null()){
-  //       revertOutOfConflict();
-  //       Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
-  //       d_out->conflict(possibleConflict);
-  //       emmittedConflictOrSplit = true;
-  //     }
-  //   }
-
-  //   if(!emmittedConflictOrSplit && d_hasDoneWorkSinceCut && Options::current()->arithDioSolver){
-  //     Node possibleLemma = dioCutting();
-  //     if(!possibleLemma.isNull()){
-  //       Debug("arith") << "dio cut   " << possibleLemma << endl;
-  //       emmittedConflictOrSplit = true;
-  //       d_hasDoneWorkSinceCut = false;
-  //       d_out->lemma(possibleLemma);
-  //     }
-  //   }
-
-  //   if(!emmittedConflictOrSplit) {
-  //     Node possibleLemma = roundRobinBranch();
-  //     if(!possibleLemma.isNull()){
-  //       ++(d_statistics.d_externalBranchAndBounds);
-  //       emmittedConflictOrSplit = true;
-  //       d_out->lemma(possibleLemma);
-  //     }
-  //   }
-  // }//if !emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()
-
-  // if(Debug.isOn("paranoid:check_tableau")){ d_linEq.debugCheckTableau(); }
-  // if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
-  // Debug("arith") << "TheoryArith::check end" << std::endl;
 }
 
 /** Returns true if the roundRobinBranching() issues a lemma. */
@@ -1619,9 +1496,7 @@ Node TheoryArith::explain(TNode n) {
 
 
 void TheoryArith::propagate(Effort e) {
-  if((Options::current()->arithPropagationMode == Options::BOUND_INFERENCE_PROP ||
-      Options::current()->arithPropagationMode == Options::BOTH_PROP)
-     && hasAnyUpdates()){
+  if(canPerformBoundsInference() && hasAnyUpdates()){
     propagateCandidates();
   }else{
     clearUpdates();
@@ -1904,17 +1779,6 @@ void TheoryArith::presolve(){
     d_out->lemma(lem);
   }
 
-  // if(Options::current()->arithUnateLemmaMode == Options::ALL_UNATE){
-  //   vector<Node> lemmas;
-  //   d_constraintDatabase.outputAllUnateLemmas(lemmas);
-  //   vector<Node>::const_iterator i = lemmas.begin(), i_end = lemmas.end();
-  //   for(; i != i_end; ++i){
-  //     Node lem = *i;
-  //     Debug("arith::oldprop") << " lemma lemma duck " <<lem << endl;
-  //     d_out->lemma(lem);
-  //   }
-  // }
-
   d_learner.clear();
 }
 
@@ -1927,20 +1791,34 @@ EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
 
 }
 
-bool TheoryArith::rowImplication(ArithVar v, bool upperBound, const DeltaRational& r){
-  Unimplemented();
-  return false;
-}
+bool TheoryArith::rowImplication(RowIndex ridx, ArithVar v, const DeltaRational& r, bool upperBound, bool vsCoeffIsPos){
 
-bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
-  ++d_statistics.d_boundComputations;
+  // phase 1 : round the incoming bound so it is nice to work with
+  DeltaRational bound;
+  if(upperBound){
+    Assert(r.infinitesimalSgn() <= 0);
+    if(isInteger(v)){
+      bound = DeltaRational(r.floor());
+    }else{
+      // force delta value to 0 or -1
+      bound = DeltaRational(r.getNoninfinitesimalPart(), r.infinitesimalSgn());
+    }
+  }else{
+    Assert(r.infinitesimalSgn() >= 0);
+    if(isInteger(v)){
+      bound = DeltaRational(r.ceiling());
+    }else{
+      // force delta value to 0 or 1
+      bound = DeltaRational(r.getNoninfinitesimalPart(), r.infinitesimalSgn());
+    }
+  }
 
-  DeltaRational bound = upperBound ?
-    d_linEq.computeUpperBound(basic):
-    d_linEq.computeLowerBound(basic);
+  cout << v << " " << r << upperBound << vsCoeffIsPos << endl;
 
-  if((upperBound && d_partialModel.strictlyLessThanUpperBound(basic, bound)) ||
-     (!upperBound && d_partialModel.strictlyGreaterThanLowerBound(basic, bound))){
+  // phase 2 : round the incoming bound as strongly as possible
+
+  if((upperBound && d_partialModel.strictlyLessThanUpperBound(v, bound)) ||
+     (!upperBound && d_partialModel.strictlyGreaterThanLowerBound(v, bound))){
 
     // TODO: "Policy point"
     //We are only going to recreate the functionality for now.
@@ -1950,30 +1828,25 @@ bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
     //implies an unknown fact.
 
     ConstraintType t = upperBound ? UpperBound : LowerBound;
-    Constraint bestImplied = d_constraintDatabase.getBestImpliedBound(basic, t, bound);
-
-    // Node bestImplied = upperBound ?
-    //   d_apm.getBestImpliedUpperBound(basic, bound):
-    //   d_apm.getBestImpliedLowerBound(basic, bound);
+    Constraint bestImplied = d_constraintDatabase.getBestImpliedBound(v, t, bound);
 
     if(bestImplied != NullConstraint){
+      if(bestImplied->negationHasProof()){
+        Unimplemented();
+      }
+
       //This should be stronger
       Assert(!upperBound || bound <= bestImplied->getValue());
-      Assert(!upperBound || d_partialModel.lessThanUpperBound(basic, bestImplied->getValue()));
+      Assert(!upperBound || d_partialModel.lessThanUpperBound(v, bestImplied->getValue()));
 
       Assert( upperBound || bound >= bestImplied->getValue());
-      Assert( upperBound || d_partialModel.greaterThanLowerBound(basic, bestImplied->getValue()));
-      //slightly changed
-
-      // Constraint c = d_constraintDatabase.lookup(bestImplied);
-      // Assert(c != NullConstraint);
+      Assert( upperBound || d_partialModel.greaterThanLowerBound(v, bestImplied->getValue()));
 
       bool assertedToTheTheory = bestImplied->assertedToTheTheory();
       bool canBePropagated = bestImplied->canBePropagated();
       bool hasProof = bestImplied->hasProof();
 
-      Debug("arith::prop") << "arith::prop" << basic
-        //<< " " << assertedValuation
+      Debug("arith::prop") << "arith::prop" << v
                            << " " << assertedToTheTheory
                            << " " << canBePropagated
                            << " " << hasProof
@@ -1981,53 +1854,222 @@ bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
 
       if(!assertedToTheTheory && canBePropagated && !hasProof ){
         if(upperBound){
-          Assert(bestImplied != d_partialModel.getUpperBoundConstraint(basic));
-          d_linEq.propagateNonbasicsUpperBound(basic, bestImplied);
+          Assert(bestImplied != d_partialModel.getUpperBoundConstraint(v));
+          d_linEq.propagateNonbasicsUpperBound(ridx, bestImplied, vsCoeffIsPos);
         }else{
-          Assert(bestImplied != d_partialModel.getLowerBoundConstraint(basic));
-          d_linEq.propagateNonbasicsLowerBound(basic, bestImplied);
+          Assert(bestImplied != d_partialModel.getLowerBoundConstraint(v));
+          d_linEq.propagateNonbasicsLowerBound(ridx, bestImplied, vsCoeffIsPos);
         }
-        return true;
+        d_toAssertQueue.push_back(bestImplied);
+        ++d_statistics.d_boundPropagations;
       }
-
-      // bool asserted = valuationIsAsserted(bestImplied);
-      // bool propagated = d_theRealPropManager.isPropagated(bestImplied);
-      // if( !asserted && !propagated){
-
-      //   NodeBuilder<> nb(kind::AND);
-      //   if(upperBound){
-      //     d_linEq.explainNonbasicsUpperBound(basic, nb);
-      //   }else{
-      //     d_linEq.explainNonbasicsLowerBound(basic, nb);
-      //   }
-      //   Node explanation = nb;
-      //   d_theRealPropManager.propagate(bestImplied, explanation, false);
-      //   return true;
-      // }else{
-      //   Debug("arith::prop") << basic << " " << asserted << " " << propagated << endl;
-      // }
     }
   }
   return false;
 }
 
-void TheoryArith::propagateCandidate(ArithVar basic){
-  bool success = false;
-  if(d_partialModel.strictlyAboveLowerBound(basic) && d_linEq.hasLowerBounds(basic)){
-    success |= propagateCandidateLowerBound(basic);
+// bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
+//   ++d_statistics.d_boundComputations;
+
+//   DeltaRational bound = upperBound ?
+//     d_linEq.computeUpperBound(basic):
+//     d_linEq.computeLowerBound(basic);
+
+//   if((upperBound && d_partialModel.strictlyLessThanUpperBound(basic, bound)) ||
+//      (!upperBound && d_partialModel.strictlyGreaterThanLowerBound(basic, bound))){
+
+//     // TODO: "Policy point"
+//     //We are only going to recreate the functionality for now.
+//     //In the future this can be improved to generate a temporary constraint
+//     //if none exists.
+//     //Experiment with doing this everytime or only when the new constraint
+//     //implies an unknown fact.
+
+//     ConstraintType t = upperBound ? UpperBound : LowerBound;
+//     Constraint bestImplied = d_constraintDatabase.getBestImpliedBound(basic, t, bound);
+
+//     if(bestImplied != NullConstraint){
+//       //This should be stronger
+//       Assert(!upperBound || bound <= bestImplied->getValue());
+//       Assert(!upperBound || d_partialModel.lessThanUpperBound(basic, bestImplied->getValue()));
+
+//       Assert( upperBound || bound >= bestImplied->getValue());
+//       Assert( upperBound || d_partialModel.greaterThanLowerBound(basic, bestImplied->getValue()));
+//       //slightly changed
+
+//       // Constraint c = d_constraintDatabase.lookup(bestImplied);
+//       // Assert(c != NullConstraint);
+
+//       bool assertedToTheTheory = bestImplied->assertedToTheTheory();
+//       bool canBePropagated = bestImplied->canBePropagated();
+//       bool hasProof = bestImplied->hasProof();
+
+//       Debug("arith::prop") << "arith::prop" << basic
+//                            << " " << assertedToTheTheory
+//                            << " " << canBePropagated
+//                            << " " << hasProof
+//                            << endl;
+
+//       if(!assertedToTheTheory && canBePropagated && !hasProof ){
+//         if(upperBound){
+//           Assert(bestImplied != d_partialModel.getUpperBoundConstraint(basic));
+//           d_linEq.propagateNonbasicsUpperBound(basic, bestImplied);
+//         }else{
+//           Assert(bestImplied != d_partialModel.getLowerBoundConstraint(basic));
+//           d_linEq.propagateNonbasicsLowerBound(basic, bestImplied);
+//         }
+//         ++d_statistics.d_boundPropagations;
+//         return true;
+//       }
+//     }
+//   }
+//   return false;
+// }
+
+bool TheoryArith::propagateCandidateRow(RowIndex ridx){
+  //This attempts to compute:
+  //  \sum_{x \in V} c * x <= ub
+  //  \sum_{x \in V} c * x >= lb
+  // If upperBoundHoles == 0, then V includes the entire row.
+  // If lowerBoundHoles == 0, then V includes the entire row.
+  // If upperBoundHoles == 1, then V includes the entire row except ubHole
+  // If lowerBoundHoles == 1, then V includes the entire row except lbHole
+  // If upperBoundHoles > 1, then ub is garbage
+  // If lowerBoundHoles > 1, then lb is garbage
+  // If upperBoundHoles > 1 and lowerBoundHoles > 1, then !successIsPossible.
+  bool successIsPossible = true;
+
+  unsigned upperBoundHoles = 0;
+  unsigned lowerBoundHoles = 0;
+
+  const Tableau::Entry* lbHole;
+  const Tableau::Entry* ubHole;
+
+  DeltaRational lb(0);
+  DeltaRational ub(0);
+
+  for(Tableau::RowIterator riter = d_tableau.rowIterator(ridx); successIsPossible && !riter.atEnd(); ++riter){
+    const Tableau::Entry& e = *riter;
+    ArithVar x = e.getColVar();
+    if(e.getCoefficient().sgn() >= 0){
+      //e is positive
+      if(upperBoundHoles <= 1 && d_partialModel.hasUpperBound(x)){
+        ub += d_partialModel.getUpperBound(x) * e.getCoefficient();
+      }else{
+        ++upperBoundHoles;
+        Assert(upperBoundHoles > 0);
+        if(upperBoundHoles == 1){
+          ubHole = &e;
+        }else{
+          successIsPossible = upperBoundHoles > 1 && lowerBoundHoles > 1;
+        }
+      }
+      if(lowerBoundHoles <= 1 && d_partialModel.hasLowerBound(x)){
+        lb += d_partialModel.getLowerBound(x) * e.getCoefficient();
+      }else{
+        ++lowerBoundHoles;
+        Assert(lowerBoundHoles > 0);
+        if(lowerBoundHoles == 1){
+          ubHole = &e;
+        }else{
+          successIsPossible = upperBoundHoles > 1 && lowerBoundHoles > 1;
+        }
+      }
+    }else{ //e.coefficient is negative
+      if(upperBoundHoles <= 1 && d_partialModel.hasLowerBound(x)){
+        ub += d_partialModel.getLowerBound(x) * e.getCoefficient();
+      }else{
+        ++upperBoundHoles;
+        Assert(upperBoundHoles > 0);
+        if(upperBoundHoles == 1){
+          ubHole = &e;
+        }else{
+          successIsPossible = upperBoundHoles > 1 && lowerBoundHoles > 1;
+        }
+      }
+      if(lowerBoundHoles <= 1 && d_partialModel.hasUpperBound(x)){
+        lb += d_partialModel.getUpperBound(x) * e.getCoefficient();
+      }else{
+        ++lowerBoundHoles;
+        Assert(lowerBoundHoles > 0);
+        if(lowerBoundHoles == 1){
+          lbHole = &e;
+        }else{
+          successIsPossible = upperBoundHoles > 1 && lowerBoundHoles > 1;
+        }
+      }
+    }
   }
-  if(d_partialModel.strictlyBelowUpperBound(basic) && d_linEq.hasUpperBounds(basic)){
-    success |= propagateCandidateUpperBound(basic);
+  if(upperBoundHoles == 1){
+    // coeff * colVar = \sum_{x \in V} a * x <= ub
+    ArithVar colvar = ubHole->getColVar();
+    const Rational& coeff = ubHole->getCoefficient();
+    DeltaRational newBound = ub / coeff; // colvar <=  ub / coeff
+    if(rowImplication(ridx, colvar, newBound, true, coeff.sgn() >= 0)){
+      return true;
+    }
+  }else if(upperBoundHoles == 0){
+    Assert( ub >= DeltaRational(0)); // By definition, (\sum_{x \in V} a * x = 0) thus ub >= 0
+    for(Tableau::RowIterator riter = d_tableau.rowIterator(ridx); !riter.atEnd(); ++riter){
+      const Tableau::Entry& e = *riter;
+      ArithVar x = e.getColVar();
+      bool pos =  e.getCoefficient().sgn() >= 0;
+
+      // Assuming a is positive:
+      // \sum_{x \in V} a * x <= ub
+      // a * x <= (\sum_{x \in V} a * x) - a * x
+      // x <= ub / a - upperbound(x)
+      DeltaRational newBound = pos ?
+        (ub / e.getCoefficient()) - d_partialModel.getUpperBound(x) :
+        (ub / e.getCoefficient()) - d_partialModel.getLowerBound(x);
+
+      if(rowImplication(ridx, x, newBound, true, pos)){
+        return true;
+      }
+    }
   }
-  if(success){
-    ++d_statistics.d_boundPropagations;
+
+  if(lowerBoundHoles == 1){
+    // coeff * colVar = \sum_{x \in V} a * x >= lb
+    ArithVar colvar = lbHole->getColVar();
+    const Rational& coeff = lbHole->getCoefficient();
+    DeltaRational newBound = lb/ coeff; // colvar >=  ub / coeff
+    if(rowImplication(ridx, colvar, newBound, false, coeff.sgn() >= 0)){
+      return true;
+    }
+  }else if(lowerBoundHoles == 0){
+    Assert(DeltaRational(0) >= lb);
+    for(Tableau::RowIterator riter = d_tableau.rowIterator(ridx); !riter.atEnd(); ++riter){
+      const Tableau::Entry& e = *riter;
+      ArithVar x = e.getColVar();
+      bool pos =  e.getCoefficient().sgn() >= 0;
+      DeltaRational newBound = pos ?
+        (ub / e.getCoefficient()) - d_partialModel.getUpperBound(x) :
+        (ub / e.getCoefficient()) - d_partialModel.getLowerBound(x);
+
+      if(rowImplication(ridx, x, newBound, false, pos)){
+        return true;
+      }
+    }
   }
+  return false;
+
+  // bool success = false;
+  // if(d_partialModel.strictlyAboveLowerBound(basic) && d_linEq.hasLowerBounds(basic)){
+  //   success |= propagateCandidateLowerBound(basic);
+  // }
+  // if(d_partialModel.strictlyBelowUpperBound(basic) && d_linEq.hasUpperBounds(basic)){
+  //   success |= propagateCandidateUpperBound(basic);
+  // }
+  // if(success){
+  //   ++d_statistics.d_boundPropagations;
+  // }
 }
 
 void TheoryArith::propagateCandidates(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_boundComputationTime);
 
-  Assert(d_candidateBasics.empty());
+  Assert(d_candidateRows.empty());
 
   if(d_updatedBounds.empty()){ return; }
 
@@ -2035,30 +2077,28 @@ void TheoryArith::propagateCandidates(){
   DenseSet::const_iterator end = d_updatedBounds.end();
   for(; i != end; ++i){
     ArithVar var = *i;
-    if(d_tableau.isBasic(var) &&
-       d_tableau.getRowLength(d_tableau.basicToRowIndex(var)) <= Options::current()->arithPropagateMaxLength){
-      d_candidateBasics.softAdd(var);
-    }else{
-      Tableau::ColIterator basicIter = d_tableau.colIterator(var);
-      for(; !basicIter.atEnd(); ++basicIter){
-        const Tableau::Entry& entry = *basicIter;
-        RowIndex ridx = entry.getRowIndex();
-        ArithVar rowVar = d_tableau.rowIndexToBasic(ridx);
-        Assert(entry.getColVar() == var);
-        Assert(d_tableau.isBasic(rowVar));
-        if(d_tableau.getRowLength(ridx) <= Options::current()->arithPropagateMaxLength){
-          d_candidateBasics.softAdd(rowVar);
-        }
+    Tableau::ColIterator basicIter = d_tableau.colIterator(var);
+    for(; !basicIter.atEnd(); ++basicIter){
+      const Tableau::Entry& entry = *basicIter;
+      RowIndex ridx = entry.getRowIndex();
+      ArithVar rowVar = d_tableau.rowIndexToBasic(ridx);
+      Assert(entry.getColVar() == var);
+      Assert(d_tableau.isBasic(rowVar));
+      if(d_tableau.getRowLength(ridx) <= Options::current()->arithPropagateMaxLength){
+        d_candidateRows.softAdd(ridx);
       }
     }
   }
   d_updatedBounds.purge();
 
-  while(!d_candidateBasics.empty()){
-    ArithVar candidate = d_candidateBasics.back();
-    d_candidateBasics.pop_back();
-    Assert(d_tableau.isBasic(candidate));
-    propagateCandidate(candidate);
+  while(!d_candidateRows.empty()){
+    Assert(!inConflict());
+    RowIndex candidate = d_candidateRows.back();
+    d_candidateRows.pop_back();
+    if(propagateCandidateRow(candidate)){
+      d_candidateRows.purge();
+      return;
+    }
   }
 }
 

@@ -60,7 +60,7 @@ namespace arith {
  */
 class TheoryArith : public Theory {
 private:
-  bool rowImplication(ArithVar v, bool upperBound, const DeltaRational& r);
+  bool rowImplication(RowIndex ridx, ArithVar v, const DeltaRational& r,  bool upperBound, bool coeffIsPositive);
 
   /**
    * This counter is false if nothing has been done since the last cut.
@@ -450,11 +450,11 @@ private:
    */
   bool assertionCases(Constraint c);
 
-  /** Tracks the bounds that were updated in the current round. */
+  /** Tracks the variables with bounds that were updated in the current round. */
   DenseSet d_updatedBounds;
 
-  /** Tracks the basic variables where propagatation might be possible. */
-  DenseSet d_candidateBasics;
+  /** Tracks the rows variables where bound inference might be possible. */
+  DenseSet d_candidateRows;
 
   bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
   void clearUpdates();
@@ -462,7 +462,7 @@ private:
   void revertOutOfConflict();
 
   void propagateCandidates();
-  void propagateCandidate(ArithVar basic);
+  bool propagateCandidateRow(RowIndex ridx);
   bool propagateCandidateBound(ArithVar basic, bool upperBound);
 
   inline bool propagateCandidateLowerBound(ArithVar basic){
@@ -515,9 +515,13 @@ private:
   void debugPrintModel();
 
   inline bool canPerformUnateProp() const {
-    return
-      (Options::current()->arithPropagationMode == Options::UNATE_PROP ||
-       Options::current()->arithPropagationMode == Options::BOTH_PROP);
+    return (Options::current()->arithPropagationMode == Options::UNATE_PROP ||
+            Options::current()->arithPropagationMode == Options::BOTH_PROP);
+  }
+
+  inline bool canPerformBoundsInference() const {
+    return (Options::current()->arithPropagationMode == Options::BOUND_INFERENCE_PROP ||
+            Options::current()->arithPropagationMode == Options::BOTH_PROP);
   }
 
   /** These fields are designed to be accessable to TheoryArith methods. */

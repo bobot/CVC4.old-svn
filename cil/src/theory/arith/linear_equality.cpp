@@ -252,43 +252,44 @@ bool LinearEqualityModule::hasBounds(ArithVar basic, bool upperBound){
   return true;
 }
 
-template <bool upperBound>
-void LinearEqualityModule::propagateNonbasics(ArithVar basic, Constraint c){
-  Assert(d_tableau.isBasic(basic));
-  Assert(c->getVariable() == basic);
+template <bool positiveForUpperBounds>
+void LinearEqualityModule::propagateNonbasics(RowIndex ridx, Constraint c){
+
   Assert(!c->assertedToTheTheory());
   //Assert(c->canBePropagated());
   Assert(!c->hasProof());
 
+  ArithVar v = c->getVariable();
+
   Debug("arith::explainNonbasics") << "LinearEqualityModule::explainNonbasics("
-                                   << basic <<") start" << endl;
+                                   << ridx << " implies " << c <<") start" << endl;
 
   vector<Constraint> bounds;
 
-  Tableau::RowIterator iter = d_tableau.basicRowIterator(basic);
+  Tableau::RowIterator iter = d_tableau.rowIterator(ridx);
   for(; !iter.atEnd(); ++iter){
     const Tableau::Entry& entry = *iter;
-    ArithVar nonbasic = entry.getColVar();
-    if(nonbasic == basic) continue;
+    ArithVar other = entry.getColVar();
+    if(other == v) continue;
 
     const Rational& a_ij = entry.getCoefficient();
 
     int sgn = a_ij.sgn();
     Assert(sgn != 0);
     Constraint bound = NullConstraint;
-    if(upperBound){
+    if(positiveForUpperBounds){
       if(sgn < 0){
-        bound = d_partialModel.getLowerBoundConstraint(nonbasic);
+        bound = d_partialModel.getUpperBoundConstraint(other);
       }else{
         Assert(sgn > 0);
-        bound = d_partialModel.getUpperBoundConstraint(nonbasic);
+        bound = d_partialModel.getLowerBoundConstraint(other);
       }
     }else{
       if(sgn < 0){
-        bound = d_partialModel.getUpperBoundConstraint(nonbasic);
+        bound = d_partialModel.getLowerBoundConstraint(other);
       }else{
         Assert(sgn > 0);
-        bound = d_partialModel.getLowerBoundConstraint(nonbasic);
+        bound = d_partialModel.getUpperBoundConstraint(other);
       }
     }
     Assert(bound != NullConstraint);
@@ -297,7 +298,7 @@ void LinearEqualityModule::propagateNonbasics(ArithVar basic, Constraint c){
   }
   c->impliedBy(bounds);
   Debug("arith::explainNonbasics") << "LinearEqualityModule::explainNonbasics("
-                                   << basic << ") done" << endl;
+                                   << c << ") done" << endl;
 }
 
 }/* CVC4::theory::arith namespace */

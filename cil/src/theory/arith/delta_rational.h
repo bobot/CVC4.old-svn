@@ -136,7 +136,7 @@ public:
     return *(this);
   }
 
-  DeltaRational& operator+=(DeltaRational& other){
+  DeltaRational& operator+=(const DeltaRational& other){
     c += other.c;
     k += other.k;
 
