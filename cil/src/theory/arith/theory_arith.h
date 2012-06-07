@@ -60,7 +60,7 @@ namespace arith {
  */
 class TheoryArith : public Theory {
 private:
-  bool rowImplication(RowIndex ridx, ArithVar v, const DeltaRational& r,  bool upperBound, bool coeffIsPositive);
+  bool rowImplication(RowIndex ridx, const Rational& c,  ArithVar v, const DeltaRational& r,  bool upperBound);
 
   /**
    * This counter is false if nothing has been done since the last cut.

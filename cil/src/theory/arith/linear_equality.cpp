@@ -26,8 +26,8 @@ namespace theory {
 namespace arith {
 
 /* Explicitly instatiate this function. */
-template void LinearEqualityModule::propagateNonbasics<true>(ArithVar basic, Constraint c);
-template void LinearEqualityModule::propagateNonbasics<false>(ArithVar basic, Constraint c);
+template void LinearEqualityModule::propagateRowBound <true>(ArithVar basic, Constraint c);
+template void LinearEqualityModule::propagateRowBound<false>(ArithVar basic, Constraint c);
 
 LinearEqualityModule::Statistics::Statistics():
   d_statPivots("theory::arith::pivots",0),
@@ -252,8 +252,8 @@ bool LinearEqualityModule::hasBounds(ArithVar basic, bool upperBound){
   return true;
 }
 
-template <bool positiveForUpperBounds>
-void LinearEqualityModule::propagateNonbasics(RowIndex ridx, Constraint c){
+template <bool rowUpperBound>
+void LinearEqualityModule::propagateRowBound(RowIndex ridx, Constraint c){
 
   Assert(!c->assertedToTheTheory());
   //Assert(c->canBePropagated());
@@ -277,19 +277,19 @@ void LinearEqualityModule::propagateNonbasics(RowIndex ridx, Constraint c){
     int sgn = a_ij.sgn();
     Assert(sgn != 0);
     Constraint bound = NullConstraint;
-    if(positiveForUpperBounds){
+    if(rowUpperBound){
       if(sgn < 0){
-        bound = d_partialModel.getUpperBoundConstraint(other);
+        bound = d_partialModel.getLowerBoundConstraint(other);
       }else{
         Assert(sgn > 0);
-        bound = d_partialModel.getLowerBoundConstraint(other);
+        bound = d_partialModel.getUpperBoundConstraint(other);
       }
     }else{
       if(sgn < 0){
-        bound = d_partialModel.getLowerBoundConstraint(other);
+        bound = d_partialModel.getUpperBoundConstraint(other);
       }else{
         Assert(sgn > 0);
-        bound = d_partialModel.getUpperBoundConstraint(other);
+        bound = d_partialModel.getLowerBoundConstraint(other);
       }
     }
     Assert(bound != NullConstraint);
@@ -299,6 +299,30 @@ void LinearEqualityModule::propagateNonbasics(RowIndex ridx, Constraint c){
   c->impliedBy(bounds);
   Debug("arith::explainNonbasics") << "LinearEqualityModule::explainNonbasics("
                                    << c << ") done" << endl;
+}
+
+void LinearEqualityModule::debugPrintRow(RowIndex r){
+  cerr << "debugPrintRow(" << r << ") begin" << endl;
+  for(Tableau::RowIterator riter = d_tableau.rowIterator(r); !riter.atEnd(); ++riter){
+    const Tableau::Entry& e = *riter;
+
+    ArithVar x = e.getColVar();
+    cerr << x << " coeff " << e.getCoefficient() << " ";
+    cerr << "assignment " << d_partialModel.getAssignment(x) << " ";
+    if(d_partialModel.hasUpperBound(x)){
+      cerr << "ub is " << d_partialModel.getUpperBound(x) << " ";
+    }
+    if(d_partialModel.hasLowerBound(x)){
+      cerr << "lb is " << d_partialModel.getLowerBound(x) << " ";
+    }
+    if(d_tableau.isBasic(x)){
+      cerr << "basic ";
+    }
+    cerr << endl;
+  }
+
+  cerr << "debugPrintRow(" << r << ") end" << endl;
+
 }
 
 }/* CVC4::theory::arith namespace */

@@ -99,39 +99,40 @@ public:
 private:
   /**
    * Exports either the explanation of an upperbound or a lower bound
-   * of the basic variable basic, using the non-basic variables in the row.
-   *
-   * If 
+   * on the variable, using the other variables in the row.
    */
-  template <bool positiveForUpperBounds>
-  void propagateNonbasics(RowIndex ridx, Constraint c);
+  template <bool rowUpperBound>
+  void propagateRowBound(RowIndex ridx, Constraint c);
 
 public:
-  // void propagateNonbasicsLowerBound(ArithVar basic, Constraint c){
-  //   Assert(c->isLowerBound());
-  //   propagateNonbasics<false>(basic, c);
-  // }
-  // void propagateNonbasicsUpperBound(ArithVar basic, Constraint c){
-  //   Assert(c->isUpperBound());
-  //   propagateNonbasics<true>(basic, c);
-  // }
 
-  void propagateNonbasicsUpperBound(RowIndex ridx, Constraint c, bool coeffIsPositive){
-    Assert(c->isUpperBound());
-    if(coeffIsPositive){
-      propagateNonbasics<false>(ridx, c);
-    }else{
-      propagateNonbasics<true>(ridx, c);
-    }
+  /**
+   * This compute the proof of a upper bound for a row in the
+   * tableau that entails a constraint c. This computation
+   * excludes from the row the variable x associated with the
+   * cosntraint c.
+   *
+   * It doe not mean c is an upperbound!
+   * c is only an upperbound if the sign of its coefficient is
+   * negative.
+   */
+  void propagateRowUpperBound(RowIndex ridx, Constraint c){
+    propagateRowBound<true>(ridx, c);
   }
 
-  void propagateNonbasicsLowerBound(RowIndex ridx, Constraint c, bool coeffIsPositive){
-    Assert(c->isLowerBound());
-    if(coeffIsPositive){
-      propagateNonbasics<true>(ridx, c);
-    }else{
-      propagateNonbasics<false>(ridx, c);
-    }
+  /**
+   * This compute the proof of a lower bound for a row in the
+   * tableau that entails a constraint c. This computation
+   * excludes from the row the variable x associated with the
+   * cosntraint c.
+   * The proof for c is set to the proof for this lower bound.
+   *
+   * The "LowerBound" in propagateRowUpperBound refers
+   * to how to extract the proof object from other variables.
+   * It doe not mean c is an lower!
+   */
+  void propagateRowLowerBound(RowIndex ridx, Constraint c){
+    propagateRowBound<false>(ridx, c);
   }
 
   /**
@@ -164,7 +165,10 @@ public:
   void debugPivot(ArithVar x_i, ArithVar x_j);
 
 
+  //Prints a row with assignments, upper bounds and lowerbounds to cerr
+  void debugPrintRow(RowIndex r);
 private:
+
   /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {
   public:

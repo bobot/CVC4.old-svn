@@ -1791,36 +1791,85 @@ EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
 
 }
 
-bool TheoryArith::rowImplication(RowIndex ridx, ArithVar v, const DeltaRational& r, bool upperBound, bool vsCoeffIsPos){
+bool TheoryArith::rowImplication(RowIndex ridx, const Rational& c, ArithVar v, const DeltaRational& r, bool rowUpperBound){
+  // c * v + \sum_{x \in V} a * x = 0
+  //
+  // if rowUpperBound,
+  //  \sum_{x \in V} a * x <= r
+  // else
+  //  \sum_{x \in V} a * x >= r
+  //
+  // if rowUpperBound,
+  //  -c * v = \sum_{x \in V} a * x
+  //  -c * v <= r
+  //  if c >= 0 then v >= -r/c else v <= -r/c
+  // else
+  //  -c * v = \sum_{x \in V} a * x
+  //  -c * v >= r
+  //  if c >= 0 then v <= -r/c else v >= -r/c
 
-  // phase 1 : round the incoming bound so it is nice to work with
-  DeltaRational bound;
-  if(upperBound){
-    Assert(r.infinitesimalSgn() <= 0);
-    if(isInteger(v)){
-      bound = DeltaRational(r.floor());
-    }else{
-      // force delta value to 0 or -1
-      bound = DeltaRational(r.getNoninfinitesimalPart(), r.infinitesimalSgn());
-    }
-  }else{
-    Assert(r.infinitesimalSgn() >= 0);
-    if(isInteger(v)){
-      bound = DeltaRational(r.ceiling());
-    }else{
-      // force delta value to 0 or 1
-      bound = DeltaRational(r.getNoninfinitesimalPart(), r.infinitesimalSgn());
-    }
-  }
+  // phase 1 : find the bound on v
+  bool cIsPos = c.sgn() >= 0;
+  bool upperBound = rowUpperBound ^ cIsPos;
 
-  cout << v << " " << r << upperBound << vsCoeffIsPos << endl;
+  cout << c << "*" << v << " " << r << " " << rowUpperBound << " " << cIsPos
+       << " " << upperBound << endl;
+
+  DeltaRational bound = (r/ (-c));
+  int infSgn = bound.infinitesimalSgn();
+
+  cout << c << " * " << v << " " << r << " " << rowUpperBound << " " << upperBound << endl;
+
+  Assert(!upperBound || infSgn <= 0);
+  Assert(upperBound || infSgn >= 0);
+
+  cout << "bound pre rounding " << bound << endl;
 
   // phase 2 : round the incoming bound as strongly as possible
+  // Round the bound to a stronger value if it is an integer
+  if(isInteger(v)){
+    if(upperBound){
+      bound = DeltaRational(bound.floor());
+    }else{
+      bound = DeltaRational(bound.ceiling());
+    }
+  }else if(infSgn < 0){ // force delta value to -1
+    bound = DeltaRational(bound.getNoninfinitesimalPart(), -1);
+  }else if(infSgn > 0){ // force delta value to 1
+    bound = DeltaRational(bound.getNoninfinitesimalPart(), 1);
+  }
+  // Rounding the deltas preserves equisatisfiability in the delta extended models,
+  // but not nessecarily models.
+  //
+  // Focusing on an arbitrary upperbound for now:
+  // Given:
+  //  A system of inequations S = {y <= a, y <= a + delta, y >= a, y - delta},
+  //  each y is a linear combination,
+  //  S entails x <= c - d * delta, and 0 <= d
+  // Show:
+  //  S is satisfied for some delta iff A' S \union { x <= c - delta }
+  //  is satisfied for some value delta'
+  //
+  // 0 <= d
+  // d = 0, then x <= c, S is equisatisfiable with S'
+  // if 0 < d <= 1, then x <= c - d * delta <=  c - delta,  S is equisatisfiable with S'
+  // if d > 1,
+  //    then let delta' = delta / d
+  //    0 < delta' < delta
+  //    if  y >= a + delta, then y >= a + delta'
+  //    if  y <= a - delta, then y <= a - delta'
+  //    S is equisatisfiable with S'
+  // Q.E.D.
+  // The delta must be invalidated!
 
+  cout << "bound post rounding " << bound << endl;
+
+  // phase 2 : use the discovered bound if possible/adventageous
+  // If the bound is stronger than what is currently known, proceed.
   if((upperBound && d_partialModel.strictlyLessThanUpperBound(v, bound)) ||
      (!upperBound && d_partialModel.strictlyGreaterThanLowerBound(v, bound))){
 
-    // TODO: "Policy point"
+#warning "Policy point"
     //We are only going to recreate the functionality for now.
     //In the future this can be improved to generate a temporary constraint
     //if none exists.
@@ -1830,12 +1879,16 @@ bool TheoryArith::rowImplication(RowIndex ridx, ArithVar v, const DeltaRational&
     ConstraintType t = upperBound ? UpperBound : LowerBound;
     Constraint bestImplied = d_constraintDatabase.getBestImpliedBound(v, t, bound);
 
+    cerr << bestImplied << endl;
+
     if(bestImplied != NullConstraint){
+
       if(bestImplied->negationHasProof()){
+        // the problem needs to be mixed?
         Unimplemented();
       }
 
-      //This should be stronger
+      //This can be stronger
       Assert(!upperBound || bound <= bestImplied->getValue());
       Assert(!upperBound || d_partialModel.lessThanUpperBound(v, bestImplied->getValue()));
 
@@ -1853,12 +1906,12 @@ bool TheoryArith::rowImplication(RowIndex ridx, ArithVar v, const DeltaRational&
                            << endl;
 
       if(!assertedToTheTheory && canBePropagated && !hasProof ){
-        if(upperBound){
-          Assert(bestImplied != d_partialModel.getUpperBoundConstraint(v));
-          d_linEq.propagateNonbasicsUpperBound(ridx, bestImplied, vsCoeffIsPos);
+        Assert(!upperBound || bestImplied != d_partialModel.getUpperBoundConstraint(v));
+        Assert(upperBound || bestImplied != d_partialModel.getLowerBoundConstraint(v));
+        if(rowUpperBound){
+          d_linEq.propagateRowUpperBound(ridx, bestImplied);
         }else{
-          Assert(bestImplied != d_partialModel.getLowerBoundConstraint(v));
-          d_linEq.propagateNonbasicsLowerBound(ridx, bestImplied, vsCoeffIsPos);
+          d_linEq.propagateRowLowerBound(ridx, bestImplied);
         }
         d_toAssertQueue.push_back(bestImplied);
         ++d_statistics.d_boundPropagations;
@@ -1927,6 +1980,8 @@ bool TheoryArith::rowImplication(RowIndex ridx, ArithVar v, const DeltaRational&
 // }
 
 bool TheoryArith::propagateCandidateRow(RowIndex ridx){
+  d_linEq.debugPrintRow(ridx);
+
   //This attempts to compute:
   //  \sum_{x \in V} c * x <= ub
   //  \sum_{x \in V} c * x >= lb
@@ -1970,7 +2025,7 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
         ++lowerBoundHoles;
         Assert(lowerBoundHoles > 0);
         if(lowerBoundHoles == 1){
-          ubHole = &e;
+          lbHole = &e;
         }else{
           successIsPossible = upperBoundHoles > 1 && lowerBoundHoles > 1;
         }
@@ -2001,11 +2056,10 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
     }
   }
   if(upperBoundHoles == 1){
-    // coeff * colVar = \sum_{x \in V} a * x <= ub
+    // -coeff * colVar = \sum_{x \in V} a * x <= ub
     ArithVar colvar = ubHole->getColVar();
     const Rational& coeff = ubHole->getCoefficient();
-    DeltaRational newBound = ub / coeff; // colvar <=  ub / coeff
-    if(rowImplication(ridx, colvar, newBound, true, coeff.sgn() >= 0)){
+    if(rowImplication(ridx, coeff, colvar, ub, true)){
       return true;
     }
   }else if(upperBoundHoles == 0){
@@ -2013,28 +2067,28 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
     for(Tableau::RowIterator riter = d_tableau.rowIterator(ridx); !riter.atEnd(); ++riter){
       const Tableau::Entry& e = *riter;
       ArithVar x = e.getColVar();
-      bool pos =  e.getCoefficient().sgn() >= 0;
+      const Rational& a = e.getCoefficient();
 
       // Assuming a is positive:
       // \sum_{x \in V} a * x <= ub
-      // a * x <= (\sum_{x \in V} a * x) - a * x
-      // x <= ub / a - upperbound(x)
-      DeltaRational newBound = pos ?
-        (ub / e.getCoefficient()) - d_partialModel.getUpperBound(x) :
-        (ub / e.getCoefficient()) - d_partialModel.getLowerBound(x);
+      // -a * x <= (\sum_{x \in V} a * x) - a * x
+      // -a * x <= ub - a * upperbound(x)
+      DeltaRational newBound = a.sgn() >= 0 ?
+        ub - (d_partialModel.getUpperBound(x) * a):
+        ub - (d_partialModel.getLowerBound(x) * a);
 
-      if(rowImplication(ridx, x, newBound, true, pos)){
+      if(rowImplication(ridx, a, x, newBound, true)){
         return true;
       }
     }
   }
 
   if(lowerBoundHoles == 1){
-    // coeff * colVar = \sum_{x \in V} a * x >= lb
+    // -coeff * colVar = \sum_{x \in V} a * x >= lb
     ArithVar colvar = lbHole->getColVar();
     const Rational& coeff = lbHole->getCoefficient();
-    DeltaRational newBound = lb/ coeff; // colvar >=  ub / coeff
-    if(rowImplication(ridx, colvar, newBound, false, coeff.sgn() >= 0)){
+    cout << "-(" << coeff << ") * v" << colvar <<  " >= " << lb << endl;
+    if(rowImplication(ridx, coeff, colvar, lb, false)){
       return true;
     }
   }else if(lowerBoundHoles == 0){
@@ -2042,28 +2096,17 @@ bool TheoryArith::propagateCandidateRow(RowIndex ridx){
     for(Tableau::RowIterator riter = d_tableau.rowIterator(ridx); !riter.atEnd(); ++riter){
       const Tableau::Entry& e = *riter;
       ArithVar x = e.getColVar();
-      bool pos =  e.getCoefficient().sgn() >= 0;
-      DeltaRational newBound = pos ?
-        (ub / e.getCoefficient()) - d_partialModel.getUpperBound(x) :
-        (ub / e.getCoefficient()) - d_partialModel.getLowerBound(x);
+      const Rational& a = e.getCoefficient();
+      DeltaRational newBound = a.sgn() <= 0 ?
+        lb - (d_partialModel.getUpperBound(x) * a) :
+        lb - (d_partialModel.getLowerBound(x) * a);
 
-      if(rowImplication(ridx, x, newBound, false, pos)){
+      if(rowImplication(ridx, a, x, newBound, false)){
         return true;
       }
     }
   }
   return false;
-
-  // bool success = false;
-  // if(d_partialModel.strictlyAboveLowerBound(basic) && d_linEq.hasLowerBounds(basic)){
-  //   success |= propagateCandidateLowerBound(basic);
-  // }
-  // if(d_partialModel.strictlyBelowUpperBound(basic) && d_linEq.hasUpperBounds(basic)){
-  //   success |= propagateCandidateUpperBound(basic);
-  // }
-  // if(success){
-  //   ++d_statistics.d_boundPropagations;
-  // }
 }
 
 void TheoryArith::propagateCandidates(){
