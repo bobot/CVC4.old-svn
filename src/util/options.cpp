@@ -119,7 +119,7 @@ Options::Options() :
   threadArgv(),
   thread_id(-1),
   separateOutput(false),
-  preprocessFirst(true),
+  preprocessFirst(false),
   sharingFilterByLength(-1)
 {
 }
