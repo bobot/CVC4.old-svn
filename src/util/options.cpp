@@ -110,6 +110,7 @@ Options::Options() :
   ufSymmetryBreaker(false),
   ufSymmetryBreakerSetByUser(false),
   dioSolver(true),
+  arithRewriteEq(true),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
   threads(2),// default should be 1 probably, but say 2 for now
@@ -184,9 +185,10 @@ Additional CVC4 options:\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
+   --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n \
 \n\
 Portfolio specific options:\n\
-   --threads=N            sets the number of solver threads (default: 2)\n\
+   --threads=N            sets the number of solver threads (default, for pcvc4: 2)\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
    --preprocess-first     toggle preprocessing before splitting (default: true)\n\
@@ -360,6 +362,7 @@ enum OptionValue {
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   ARITHMETIC_DIO_SOLVER,
+  ARITHMETIC_REWRITE_EQUALITIES,
   ENABLE_SYMMETRY_BREAKER,
   DISABLE_SYMMETRY_BREAKER,
   PARALLEL_THREADS,
@@ -450,6 +453,7 @@ static struct option cmdlineOptions[] = {
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
+  { "disable-arith-rewrite-equalities", no_argument, NULL, ARITHMETIC_REWRITE_EQUALITIES },
   { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
@@ -800,6 +804,10 @@ throw(OptionException) {
 
     case ARITHMETIC_DIO_SOLVER:
       dioSolver = false;
+      break;
+
+    case ARITHMETIC_REWRITE_EQUALITIES:
+      arithRewriteEq = false;
       break;
 
     case ENABLE_SYMMETRY_BREAKER:
