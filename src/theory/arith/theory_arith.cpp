@@ -28,13 +28,13 @@
 #include "util/rational.h"
 #include "util/integer.h"
 #include "util/boolean_simplification.h"
+#include "util/dense_map.h"
 
 
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/partial_model.h"
-#include "theory/arith/tableau.h"
-#include "theory/arith/arithvar_set.h"
+#include "theory/arith/matrix.h"
 
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/constraint.h"
@@ -53,8 +53,8 @@ namespace arith {
 const uint32_t RESET_START = 2;
 
 
-TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_ARITH, c, u, out, valuation),
+TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) :
+  Theory(THEORY_ARITH, c, u, out, valuation, logicInfo),
   d_hasDoneWorkSinceCut(false),
   d_learner(*d_pbSubstitutions),
   d_setupLiteralCallback(this),
@@ -526,6 +526,20 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
   TimerStat::CodeTimer codeTimer(d_statistics.d_simplifyTimer);
   Debug("simplify") << "TheoryArith::solve(" << in << ")" << endl;
 
+//TODO: Handle this better
+// FAIL: preprocess_10.cvc (exit: 1)
+// =================================
+
+// running /home/taking/ws/cvc4/branches/arithmetic/infer-bounds/builds/x86_64-unknown-linux-gnu/debug-staticbinary/src/main/cvc4 --lang=cvc4 --segv-nospin preprocess_10.cvc [from working dir /home/taking/ws/cvc4/branches/arithmetic/infer-bounds/builds/x86_64-unknown-linux-gnu/debug-staticbinary/../../../test/regress/regress0/preprocess]
+// run_regression: error: differences between expected and actual output on stdout
+// --- /tmp/cvc4_expect_stdout.20298.5Ga5123F4L    2012-04-30 12:27:16.136684359 -0400
+// +++ /tmp/cvc4_stdout.20298.oZwTuIYuF3   2012-04-30 12:27:16.176685543 -0400
+// @@ -1 +1,3 @@
+// +TheoryArith::solve(): substitution x |-> IF b THEN 10 ELSE -10 ENDIF
+// +minVar is integral 0right 0
+//  sat
+
+
   // Solve equalities
   Rational minConstant = 0;
   Node minMonomial;
@@ -540,62 +554,33 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
     if (m.getVarList().singleton()){
       VarList vl = m.getVarList();
       Node var = vl.getNode();
-      if (var.getKind() == kind::VARIABLE && !vl.isIntegral()) {
-        minVar = var;
+      if (var.getKind() == kind::VARIABLE){
+        // if vl.isIntegral then m.getConstant().isOne()
+        if(!vl.isIntegral() || m.getConstant().isOne()){
+          minVar = var;
+        }
       }
     }
-
-    //Assert(in[1].getKind() == kind::CONST_RATIONAL);
-    // Find the variable with the smallest coefficient
-    //Polynomial p = Polynomial::parsePolynomial(in[0]);
-
-    // Polynomial::iterator it = p.begin(), it_end = p.end();
-    // for (; it != it_end; ++ it) {
-    //   Monomial m = *it;
-    //   // Skip the constant
-    //   if (m.isConstant()) continue;
-    //   // This is a ''variable''
-    //   nVars ++;
-    //   // Skip the non-linear stuff
-    //   if (!m.getVarList().singleton()) continue;
-    //   // Get the minimal one
-    //   Rational constant = m.getConstant().getValue();
-    //   Rational absSconstant = constant > 0 ? constant : -constant;
-    //   if (minVar.isNull() || absSconstant < minConstant) {
-    //     Node var = m.getVarList().getNode();
-    //     if (var.getKind() == kind::VARIABLE) {
-    //       minVar = var;
-    //       minMonomial = m.getNode();
-    //       minConstant = constant;
-    //     }
-    //   }
-    //}
 
     // Solve for variable
     if (!minVar.isNull()) {
       Polynomial right = cmp.getRight();
-      Node eliminateVar = right.getNode();
+      Node elim = right.getNode();
       // ax + p = c -> (ax + p) -ax - c = -ax
-      // Node eliminateVar = NodeManager::currentNM()->mkNode(kind::MINUS, in[0], minMonomial);
-      // if (in[1].getConst<Rational>() != 0) {
-      //   eliminateVar = NodeManager::currentNM()->mkNode(kind::MINUS, eliminateVar, in[1]);
-      // }
-      // // x = (p - ax - c) * -1/a
-      // eliminateVar = NodeManager::currentNM()->mkNode(kind::MULT, eliminateVar, mkRationalNode(- minConstant.inverse()));
-      // // Add the substitution if not recursive
-      Node rewritten = eliminateVar;
-      Assert(rewritten == Rewriter::rewrite(eliminateVar));
-      if (!rewritten.hasSubterm(minVar)) {
-        Node elim = Rewriter::rewrite(eliminateVar);
-        if (!minVar.getType().isInteger() || elim.getType().isInteger()) {
-          // cannot eliminate integers here unless we know the resulting
-          // substitution is integral
-          Debug("simplify") << "TheoryArith::solve(): substitution " << minVar << " |-> " << elim << endl;
-          outSubstitutions.addSubstitution(minVar, elim);
-          return PP_ASSERT_STATUS_SOLVED;
-        } else {
-          Debug("simplify") << "TheoryArith::solve(): can't substitute b/c it's integer: " << minVar << ":" << minVar.getType() << " |-> " << elim << ":" << elim.getType() << endl;
-        }
+      // x = (p - ax - c) * -1/a
+      // Add the substitution if not recursive
+      Assert(elim == Rewriter::rewrite(elim));
+      Assert(!elim.hasSubterm(minVar));
+
+      if (!minVar.getType().isInteger() || right.isIntegral()) {
+        // cannot eliminate integers here unless we know the resulting
+        // substitution is integral
+        Debug("simplify") << "TheoryArith::solve(): substitution " << minVar << " |-> " << elim << endl;
+
+        outSubstitutions.addSubstitution(minVar, elim);
+        return PP_ASSERT_STATUS_SOLVED;
+      } else {
+        Debug("simplify") << "TheoryArith::solve(): can't substitute b/c it's integer: " << minVar << ":" << minVar.getType() << " |-> " << elim << ":" << elim.getType() << endl;
       }
     }
   }
@@ -632,10 +617,11 @@ ArithVar TheoryArith::findShortestBasicRow(ArithVar variable){
 
   Tableau::ColIterator basicIter = d_tableau.colIterator(variable);
   for(; !basicIter.atEnd(); ++basicIter){
-    const TableauEntry& entry = *basicIter;
+    const Tableau::Entry& entry = *basicIter;
     Assert(entry.getColVar() == variable);
-    ArithVar basic = entry.getRowVar();
-    uint32_t rowLength = d_tableau.getRowLength(basic);
+    RowIndex ridx = entry.getRowIndex();
+    ArithVar basic = d_tableau.rowIndexToBasic(ridx);
+    uint32_t rowLength = d_tableau.getRowLength(ridx);
     if((rowLength < bestRowLength) ||
        (rowLength == bestRowLength && basic < bestBasic)){
       bestBasic = basic;
@@ -903,7 +889,7 @@ Comparison TheoryArith::mkIntegerEqualityFromAssignment(ArithVar v){
 }
 
 Node TheoryArith::dioCutting(){
-  context::Context::ScopedPush speculativePush(getContext());
+  context::Context::ScopedPush speculativePush(getSatContext());
   //DO NOT TOUCH THE OUTPUTSTREAM
 
   //TODO: Improve this
@@ -1042,7 +1028,7 @@ Node TheoryArith::assertionCases(TNode assertion){
   //Assert(constraint->getValue() == determineRightConstant(assertion, simpleKind));
   Assert(!constraint->hasLiteral() || constraint->getLiteral() == assertion);
 
-  Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
+  Debug("arith::assertions")  << "arith assertion @" << getSatContext()->getLevel()
                               <<"(" << assertion
                               << " \\-> "
     //<< determineLeftVariable(assertion, simpleKind)
@@ -1351,7 +1337,7 @@ void TheoryArith::debugPrintModel(){
 
 Node TheoryArith::explain(TNode n) {
 
-  Debug("arith::explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
+  Debug("arith::explain") << "explain @" << getSatContext()->getLevel() << ": " << n << endl;
 
   Constraint c = d_constraintDatabase.lookup(n);
   if(c != NullConstraint){
@@ -1386,7 +1372,7 @@ void TheoryArith::propagate(Effort e) {
     }else if(!c->assertedToTheTheory()){
 
       Node literal = c->getLiteral();
-      Debug("arith::prop") << "propagating @" << getContext()->getLevel() << " " << literal << endl;
+      Debug("arith::prop") << "propagating @" << getSatContext()->getLevel() << " " << literal << endl;
 
       d_out->propagate(literal);
     }else{
@@ -1577,9 +1563,6 @@ Node TheoryArith::getValue(TNode n) {
   }
 }
 
-void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
-}
-
 void TheoryArith::notifyRestart(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_restartTimer);
 
@@ -1663,6 +1646,11 @@ EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
 
 }
 
+bool TheoryArith::rowImplication(ArithVar v, bool upperBound, const DeltaRational& r){
+  Unimplemented();
+  return false;
+}
+
 bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
   ++d_statistics.d_boundComputations;
 
@@ -1673,7 +1661,7 @@ bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
   if((upperBound && d_partialModel.strictlyLessThanUpperBound(basic, bound)) ||
      (!upperBound && d_partialModel.strictlyGreaterThanLowerBound(basic, bound))){
 
-#warning "Policy point"
+    // TODO: "Policy point"
     //We are only going to recreate the functionality for now.
     //In the future this can be improved to generate a temporary constraint
     //if none exists.
@@ -1762,21 +1750,22 @@ void TheoryArith::propagateCandidates(){
 
   if(d_updatedBounds.empty()){ return; }
 
-  PermissiveBackArithVarSet::const_iterator i = d_updatedBounds.begin();
-  PermissiveBackArithVarSet::const_iterator end = d_updatedBounds.end();
+  DenseSet::const_iterator i = d_updatedBounds.begin();
+  DenseSet::const_iterator end = d_updatedBounds.end();
   for(; i != end; ++i){
     ArithVar var = *i;
     if(d_tableau.isBasic(var) &&
-       d_tableau.getRowLength(var) <= Options::current()->arithPropagateMaxLength){
+       d_tableau.getRowLength(d_tableau.basicToRowIndex(var)) <= Options::current()->arithPropagateMaxLength){
       d_candidateBasics.softAdd(var);
     }else{
       Tableau::ColIterator basicIter = d_tableau.colIterator(var);
       for(; !basicIter.atEnd(); ++basicIter){
-        const TableauEntry& entry = *basicIter;
-        ArithVar rowVar = entry.getRowVar();
+        const Tableau::Entry& entry = *basicIter;
+        RowIndex ridx = entry.getRowIndex();
+        ArithVar rowVar = d_tableau.rowIndexToBasic(ridx);
         Assert(entry.getColVar() == var);
         Assert(d_tableau.isBasic(rowVar));
-        if(d_tableau.getRowLength(rowVar) <= Options::current()->arithPropagateMaxLength){
+        if(d_tableau.getRowLength(ridx) <= Options::current()->arithPropagateMaxLength){
           d_candidateBasics.softAdd(rowVar);
         }
       }
@@ -1785,7 +1774,8 @@ void TheoryArith::propagateCandidates(){
   d_updatedBounds.purge();
 
   while(!d_candidateBasics.empty()){
-    ArithVar candidate = d_candidateBasics.pop_back();
+    ArithVar candidate = d_candidateBasics.back();
+    d_candidateBasics.pop_back();
     Assert(d_tableau.isBasic(candidate));
     propagateCandidate(candidate);
   }

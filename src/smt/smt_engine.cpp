@@ -57,6 +57,7 @@
 #include "theory/bv/theory_bv.h"
 #include "theory/datatypes/theory_datatypes.h"
 #include "theory/theory_traits.h"
+#include "theory/logic_info.h"
 #include "util/ite_removal.h"
 
 using namespace std;
@@ -120,6 +121,10 @@ class SmtEnginePrivate {
 
   /** Assertions to push to sat */
   vector<Node> d_assertionsToCheck;
+
+  /** Map from skolem variables to index in d_assertionsToCheck containing
+   * corresponding introduced Boolean ite */
+  IteSkolemMap d_iteSkolemMap;
 
   /** The top level substitutions */
   theory::SubstitutionMap d_topLevelSubstitutions;
@@ -230,7 +235,8 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_definedFunctions(NULL),
   d_assertionList(NULL),
   d_assignments(NULL),
-  d_logic(""),
+  d_logic(),
+  d_logicIsSet(false),
   d_problemExtended(false),
   d_queryMade(false),
   d_needPostsolve(false),
@@ -256,7 +262,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
 
   // We have mutual dependency here, so we add the prop engine to the theory
   // engine later (it is non-essential there)
-  d_theoryEngine = new TheoryEngine(d_context, d_userContext);
+  d_theoryEngine = new TheoryEngine(d_context, d_userContext, const_cast<const LogicInfo&>(d_logic));
 
   // Add the theories
 #ifdef CVC4_FOR_EACH_THEORY_STATEMENT
@@ -356,36 +362,44 @@ SmtEngine::~SmtEngine() throw() {
   }
 }
 
-void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
+void SmtEngine::setLogic(const LogicInfo& logic) throw(ModalException) {
   NodeManagerScope nms(d_nodeManager);
 
-  if(d_logic != "") {
+  if(d_logicIsSet) {
     throw ModalException("logic already set");
   }
 
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << SetBenchmarkLogicCommand(s);
+    Dump("benchmark") << SetBenchmarkLogicCommand(logic.getLogicString());
   }
 
-  setLogicInternal(s);
+  setLogicInternal(logic);
 }
 
-void SmtEngine::setLogicInternal(const std::string& s) throw() {
-  d_logic = s;
+void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
+  NodeManagerScope nms(d_nodeManager);
+
+  setLogic(LogicInfo(s));
+}
+
+void SmtEngine::setLogicInternal(const LogicInfo& logic) throw() {
+  d_logic = logic;
 
   // by default, symmetry breaker is on only for QF_UF
   if(! Options::current()->ufSymmetryBreakerSetByUser) {
-    Trace("smt") << "setting uf symmetry breaker to " << (s == "QF_UF") << std::endl;
-    NodeManager::currentNM()->getOptions()->ufSymmetryBreaker = (s == "QF_UF");
+    bool qf_uf = logic.isPure(theory::THEORY_UF) && !logic.isQuantified();
+    Trace("smt") << "setting uf symmetry breaker to " << qf_uf << std::endl;
+    NodeManager::currentNM()->getOptions()->ufSymmetryBreaker = qf_uf;
   }
   // by default, nonclausal simplification is off for QF_SAT
   if(! Options::current()->simplificationModeSetByUser) {
-    Trace("smt") << "setting simplification mode to <" << s << "> " << (s != "QF_SAT") << std::endl;
-    NodeManager::currentNM()->getOptions()->simplificationMode = (s == "QF_SAT" ? Options::SIMPLIFICATION_MODE_NONE : Options::SIMPLIFICATION_MODE_BATCH);
+    bool qf_sat = logic.isPure(theory::THEORY_BOOL) && !logic.isQuantified();
+    Trace("smt") << "setting simplification mode to <" << logic.getLogicString() << "> " << (!qf_sat) << std::endl;
+    NodeManager::currentNM()->getOptions()->simplificationMode = (qf_sat ? Options::SIMPLIFICATION_MODE_NONE : Options::SIMPLIFICATION_MODE_BATCH);
   }
 
   // If in arrays, set the UF handler to arrays
-  if(s == "QF_AX") {
+  if(logic.isPure(theory::THEORY_ARRAY) && !logic.isQuantified()) {
     theory::Theory::setUninterpretedSortOwner(theory::THEORY_ARRAY);
   } else {
     theory::Theory::setUninterpretedSortOwner(theory::THEORY_UF);
@@ -513,7 +527,7 @@ void SmtEngine::setOption(const std::string& key, const SExpr& value)
   } else {
     // The following options can only be set at the beginning; we throw
     // a ModalException if someone tries.
-    if(d_logic != "") {
+    if(d_logicIsSet) {
       throw ModalException("logic already set; cannot set options");
     }
 
@@ -686,8 +700,8 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<TNode, Node, TNodeHas
 void SmtEnginePrivate::removeITEs() {
   Trace("simplify") << "SmtEnginePrivate::removeITEs()" << endl;
 
-  // Remove all of the ITE occurances and normalize
-  RemoveITE::run(d_assertionsToCheck);
+  // Remove all of the ITE occurrences and normalize
+  RemoveITE::run(d_assertionsToCheck, d_iteSkolemMap);
   for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
     d_assertionsToCheck[i] = theory::Rewriter::rewrite(d_assertionsToCheck[i]);
   }
@@ -1041,13 +1055,20 @@ void SmtEnginePrivate::processAssertions() {
     }
   }
 
-  d_smt.d_propEngine->processAssertionsStart();
+  // Call the theory preprocessors
+  d_smt.d_theoryEngine->preprocessStart();
+  for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
+    d_assertionsToCheck[i] = d_smt.d_theoryEngine->preprocess(d_assertionsToCheck[i]);
+  }
+
+  // TODO: send formulas and iteSkolemMap to decision engine
 
   // Push the formula to SAT
   for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
     d_smt.d_propEngine->assertFormula(d_assertionsToCheck[i]);
   }
   d_assertionsToCheck.clear();
+  d_iteSkolemMap.clear();
 }
 
 void SmtEnginePrivate::addFormula(TNode n)
