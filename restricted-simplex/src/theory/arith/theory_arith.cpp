@@ -55,6 +55,7 @@ const uint32_t RESET_START = 2;
 
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) :
   Theory(THEORY_ARITH, c, u, out, valuation, logicInfo),
+  d_simplexStatus(Result::SAT_UNKNOWN),
   d_hasDoneWorkSinceCut(false),
   d_learner(d_pbSubstitutions),
   d_setupLiteralCallback(this),
@@ -1154,6 +1155,8 @@ void TheoryArith::check(Effort effortLevel){
   Assert(d_currentPropagationList.empty());
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
+  if(!done()){ d_simplexStatus = Result::SAT_UNKNOWN; }
+
   d_hasDoneWorkSinceCut = d_hasDoneWorkSinceCut || !done();
   while(!done()){
 
@@ -1182,9 +1185,18 @@ void TheoryArith::check(Effort effortLevel){
   }
 
   bool emmittedConflictOrSplit = false;
+
   Assert(d_conflicts.empty());
-  bool foundConflict = d_simplex.findModel();
-  if(foundConflict){
+  d_simplexStatus = d_simplex.findModel(fullEffort(effortLevel));
+  switch(d_simplexStatus){
+  case Result::SAT:
+    d_partialModel.commitAssignmentChanges();
+    break;
+  case Result::SAT_UNKNOWN:
+    Assert(!fullEffort(effortLevel));
+    d_partialModel.commitAssignmentChanges();
+    break;
+  case Result::UNSAT:
     revertOutOfConflict();
 
     Assert(!d_conflicts.empty());
@@ -1194,10 +1206,12 @@ void TheoryArith::check(Effort effortLevel){
       d_out->conflict(conflict);
     }
     emmittedConflictOrSplit = true;
-  }else{
-    d_partialModel.commitAssignmentChanges();
+    break;
+  default:
+    Unimplemented();
   }
 
+  // This should be fine if unknown
   if(!emmittedConflictOrSplit &&
      (Options::current()->arithPropagationMode == Options::UNATE_PROP ||
       Options::current()->arithPropagationMode == Options::BOTH_PROP)){
@@ -1427,7 +1441,9 @@ Node TheoryArith::explain(TNode n) {
 
 
 void TheoryArith::propagate(Effort e) {
-  if((Options::current()->arithPropagationMode == Options::BOUND_INFERENCE_PROP ||
+  // This uses model values for safety. Disable for now.
+  if(d_simplexStatus == Result::SAT &&
+     (Options::current()->arithPropagationMode == Options::BOUND_INFERENCE_PROP ||
       Options::current()->arithPropagationMode == Options::BOTH_PROP)
      && hasAnyUpdates()){
     propagateCandidates();

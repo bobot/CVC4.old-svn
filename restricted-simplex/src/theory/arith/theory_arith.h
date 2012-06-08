@@ -44,6 +44,7 @@
 #include "theory/arith/constraint.h"
 
 #include "util/stats.h"
+#include "util/result.h"
 
 #include <vector>
 #include <map>
@@ -60,6 +61,14 @@ namespace arith {
  */
 class TheoryArith : public Theory {
 private:
+  enum Result::Sat d_simplexStatus;
+  // check()
+  //   !done() -> d_simplexStatus = Unknown
+  //   fullEffort(e) -> simplex returns either sat or unsat
+  //   !fullEffort(e) -> simplex returns either sat, unsat or unknown
+  //                     if unknown, save the assignment as "safe"
+  //                     if unknown, the simplex priority queue cannot be emptied.
+
   bool rowImplication(ArithVar v, bool upperBound, const DeltaRational& r);
 
   /**
@@ -109,6 +118,8 @@ private:
       }
     }
   } d_setupLiteralCallback;
+
+
 
   /**
    * (For the moment) the type hierarchy goes as:
