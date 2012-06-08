@@ -578,9 +578,6 @@ public:
   /** Get the (singleton) type for reals. */
   inline TypeNode realType();
 
-  /** Get the (singleton) type for pseudobooleans. */
-  inline TypeNode pseudobooleanType();
-
   /** Get the (singleton) type for strings. */
   inline TypeNode stringType();
 
@@ -895,11 +892,6 @@ inline TypeNode NodeManager::realType() {
   return TypeNode(mkTypeConst<TypeConstant>(REAL_TYPE));
 }
 
-/** Get the (singleton) type for pseudobooleans. */
-inline TypeNode NodeManager::pseudobooleanType() {
-  return TypeNode(mkTypeConst<TypeConstant>(PSEUDOBOOLEAN_TYPE));
-}
-
 /** Get the (singleton) type for strings. */
 inline TypeNode NodeManager::stringType() {
   return TypeNode(mkTypeConst<TypeConstant>(STRING_TYPE));
@@ -937,6 +929,9 @@ NodeManager::mkFunctionType(const std::vector<TypeNode>& sorts) {
   for (unsigned i = 0; i < sorts.size(); ++ i) {
     CheckArgument(!sorts[i].isFunctionLike(), sorts,
                   "cannot create higher-order function types");
+    if(i + 1 < sorts.size() && sorts[i].isBoolean()) {
+      WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a function type with a Boolean argument)" << std::endl;
+    }
     sortNodes.push_back(sorts[i]);
   }
   return mkTypeNode(kind::FUNCTION_TYPE, sortNodes);
@@ -949,6 +944,9 @@ NodeManager::mkPredicateType(const std::vector<TypeNode>& sorts) {
   for (unsigned i = 0; i < sorts.size(); ++ i) {
     CheckArgument(!sorts[i].isFunctionLike(), sorts,
                   "cannot create higher-order function types");
+    if(i + 1 < sorts.size() && sorts[i].isBoolean()) {
+      WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a predicate type with a Boolean argument)" << std::endl;
+    }
     sortNodes.push_back(sorts[i]);
   }
   sortNodes.push_back(booleanType());
@@ -963,6 +961,9 @@ inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
 #if 0
     CheckArgument(!types[i].isFunctionLike(), types,
                   "cannot put function-like types in tuples");
+    if(types[i].isBoolean()) {
+      WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a tuple type with a Boolean argument)" << std::endl;
+    }
 #endif /* 0 */
     typeNodes.push_back(types[i]);
   }
@@ -983,7 +984,10 @@ inline TypeNode NodeManager::mkArrayType(TypeNode indexType,
                 "cannot index arrays by a function-like type");
   CheckArgument(!constituentType.isFunctionLike(), constituentType,
                 "cannot store function-like types in arrays");
-Debug("arrays") << "making array type " << indexType << " " << constituentType << std::endl;
+  if(indexType.isBoolean() || constituentType.isBoolean()) {
+    WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created an array type with a Boolean index or constituent type)" << std::endl;
+  }
+  Debug("arrays") << "making array type " << indexType << " " << constituentType << std::endl;
   return mkTypeNode(kind::ARRAY_TYPE, indexType, constituentType);
 }
 

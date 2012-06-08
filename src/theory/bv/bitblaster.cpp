@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file bv_sat.cpp
+/*! \file bitblaster.cpp
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
@@ -17,13 +17,14 @@
  ** 
  **/
 
-#include "bv_sat.h"
+#include "bitblaster.h"
 #include "theory_bv_utils.h"
 #include "theory/rewriter.h"
 #include "prop/cnf_stream.h"
 #include "prop/sat_solver.h"
 #include "prop/sat_solver_factory.h"
-#include "theory_bv_rewrite_rules_simplification.h"
+#include "theory/bv/theory_bv_rewrite_rules_simplification.h"
+#include "theory/bv/theory_bv.h"
 
 using namespace std;
 
@@ -34,7 +35,6 @@ using namespace CVC4::prop;
 namespace CVC4 {
 namespace theory {
 namespace bv{
-
 
 std::string toString(Bits&  bits) {
   ostringstream os; 
@@ -52,7 +52,8 @@ std::string toString(Bits&  bits) {
 }
 /////// Bitblaster 
 
-Bitblaster::Bitblaster(context::Context* c) :
+Bitblaster::Bitblaster(context::Context* c, bv::TheoryBV* bv) :
+    d_bvOutput(bv->d_out),
     d_termCache(),
     d_bitblastedAtoms(),
     d_assertedAtoms(c),
@@ -61,6 +62,8 @@ Bitblaster::Bitblaster(context::Context* c) :
     d_satSolver = prop::SatSolverFactory::createMinisat(c);
     d_cnfStream = new TseitinCnfStream(d_satSolver, new NullRegistrar());
 
+    MinisatNotify* notify = new MinisatNotify(d_cnfStream, bv);
+    d_satSolver->setNotify(notify); 
     // initializing the bit-blasting strategies
     initAtomBBStrategies(); 
     initTermBBStrategies(); 
@@ -79,6 +82,8 @@ Bitblaster::~Bitblaster() {
  * 
  */
 void Bitblaster::bbAtom(TNode node) {
+  node = node.getKind() == kind::NOT?  node[0] : node;
+  
   if (hasBBAtom(node)) {
     return; 
   }
@@ -94,37 +99,30 @@ void Bitblaster::bbAtom(TNode node) {
   Node atom_definition = mkNode(kind::IFF, node, atom_bb);
   // do boolean simplifications if possible
   Node rewritten = Rewriter::rewrite(atom_definition);
-  d_cnfStream->convertAndAssert(rewritten, true, false);
-  d_bitblastedAtoms.insert(node); 
+
+  if (!Options::current()->bitvectorEagerBitblast) {
+    d_cnfStream->convertAndAssert(rewritten, true, false);
+    d_bitblastedAtoms.insert(node);
+  } else {
+    d_bvOutput->lemma(rewritten, false);
+  }
 }
 
 
 void Bitblaster::bbTerm(TNode node, Bits& bits) {
+
   if (hasBBTerm(node)) {
     getBBTerm(node, bits);
     return;
   }
+
   BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
   ++d_statistics.d_numTerms;
 
-  Node optimized = bbOptimize(node); 
-
-  // if we already bitblasted the optimized version 
-  if(hasBBTerm(optimized)) {
-    getBBTerm(optimized, bits);
-    // cache it as the same for this node
-    cacheTermDef(node, bits);
-    return; 
-  }
+  d_termBBStrategies[node.getKind()] (node, bits,this);
   
-  d_termBBStrategies[optimized.getKind()] (optimized, bits,this);
-  
-  Assert (bits.size() == utils::getSize(node) &&
-          bits.size() == utils::getSize(optimized));
+  Assert (bits.size() == utils::getSize(node));
 
-  if(optimized != node) {
-    cacheTermDef(optimized, bits);
-  }
   cacheTermDef(node, bits); 
 }
 
@@ -154,65 +152,21 @@ Node Bitblaster::bbOptimize(TNode node) {
 /// Public methods
 
 void Bitblaster::addAtom(TNode atom) {
-  d_cnfStream->ensureLiteral(atom);
-  SatLiteral lit = d_cnfStream->getLiteral(atom);
-  d_satSolver->addMarkerLiteral(lit); 
-}
-bool Bitblaster::getPropagations(std::vector<TNode>& propagations) {
-  std::vector<SatLiteral> propagated_literals;
-  if (d_satSolver->getPropagations(propagated_literals)) {
-    for (unsigned i = 0; i < propagated_literals.size(); ++i) {
-      propagations.push_back(d_cnfStream->getNode(propagated_literals[i])); 
-    }
-    return true;
+  if (!Options::current()->bitvectorEagerBitblast) {
+    d_cnfStream->ensureLiteral(atom);
+    SatLiteral lit = d_cnfStream->getLiteral(atom);
+    d_satSolver->addMarkerLiteral(lit);
   }
-  return false;
 }
 
-void Bitblaster::explainPropagation(TNode atom, std::vector<Node>& explanation) {
+void Bitblaster::explain(TNode atom, std::vector<TNode>& explanation) {
   std::vector<SatLiteral> literal_explanation;
-  d_satSolver->explainPropagation(d_cnfStream->getLiteral(atom), literal_explanation);
+  d_satSolver->explain(d_cnfStream->getLiteral(atom), literal_explanation);
   for (unsigned i = 0; i < literal_explanation.size(); ++i) {
     explanation.push_back(d_cnfStream->getNode(literal_explanation[i])); 
   }
 }
 
-/** 
- * Called from preregistration bitblasts the node
- * 
- * @param node 
- * 
- * @return 
- */
-void Bitblaster::bitblast(TNode node) {
-  TimerStat::CodeTimer codeTimer(d_statistics.d_bitblastTimer);
-  
-  /// strip the not
-  if (node.getKind() == kind::NOT) {
-    node = node[0];
-  }
-  
-  if (node.getKind() == kind::EQUAL ||
-      node.getKind() == kind::BITVECTOR_ULT ||
-      node.getKind() == kind::BITVECTOR_ULE ||
-      node.getKind() == kind::BITVECTOR_SLT ||
-      node.getKind() == kind::BITVECTOR_SLE) 
-    {
-      bbAtom(node); 
-    }
-  else if (node.getKind() == kind::BITVECTOR_UGT ||
-           node.getKind() == kind::BITVECTOR_UGE ||
-           node.getKind() == kind::BITVECTOR_SGT ||
-           node.getKind() == kind::BITVECTOR_SGE )
-    {
-      Unhandled(node.getKind()); 
-    }
-  else
-    {
-      Bits bits;
-      bbTerm(node, bits); 
-    }
-}
 
 /** 
  * Asserts the clauses corresponding to the atom to the Sat Solver
@@ -340,7 +294,7 @@ void Bitblaster::initTermBBStrategies() {
 
 }
  
-bool Bitblaster::hasBBAtom(TNode atom) {
+bool Bitblaster::hasBBAtom(TNode atom) const {
   return d_bitblastedAtoms.find(atom) != d_bitblastedAtoms.end();
 }
 
@@ -349,15 +303,14 @@ void Bitblaster::cacheTermDef(TNode term, Bits def) {
   d_termCache[term] = def; 
 }
 
-bool Bitblaster::hasBBTerm(TNode node) {
+bool Bitblaster::hasBBTerm(TNode node) const {
   return d_termCache.find(node) != d_termCache.end(); 
 }
 
-void Bitblaster::getBBTerm(TNode node, Bits& bits) {
-  
+void Bitblaster::getBBTerm(TNode node, Bits& bits) const {
   Assert (hasBBTerm(node)); 
   // copy?
-  bits = d_termCache[node]; 
+  bits = d_termCache.find(node)->second;
 }
 
 Bitblaster::Statistics::Statistics() :
@@ -383,8 +336,60 @@ Bitblaster::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_bitblastTimer);
 }
 
+bool Bitblaster::MinisatNotify::notify(prop::SatLiteral lit) {
+  return d_bv->storePropagation(d_cnf->getNode(lit), TheoryBV::SUB_BITBLAST);
+};
 
+void Bitblaster::MinisatNotify::notify(prop::SatClause& clause) {
+  if (clause.size() > 1) {
+    NodeBuilder<> lemmab(kind::OR);
+    for (unsigned i = 0; i < clause.size(); ++ i) {
+      lemmab << d_cnf->getNode(clause[i]);
+    }
+    Node lemma = lemmab;
+    d_bv->d_out->lemma(lemma);
+  } else {
+    d_bv->d_out->lemma(d_cnf->getNode(clause[0]));
+  }
+};
 
+EqualityStatus Bitblaster::getEqualityStatus(TNode a, TNode b) {
+
+  // We don't want to bit-blast every possibly expensive term for the sake of equality checking
+  if (hasBBTerm(a) && hasBBTerm(b)) {
+
+  Bits a_bits, b_bits;
+  getBBTerm(a, a_bits);
+  getBBTerm(b, b_bits);
+  EqualityStatus status = EQUALITY_TRUE_IN_MODEL;
+  for (unsigned i = 0; i < a_bits.size(); ++ i) {
+    if (d_cnfStream->hasLiteral(a_bits[i]) && d_cnfStream->hasLiteral(b_bits[i])) {
+      SatLiteral a_lit = d_cnfStream->getLiteral(a_bits[i]);
+      SatValue a_lit_value = d_satSolver->value(a_lit);
+      if (a_lit_value != SAT_VALUE_UNKNOWN) {
+        SatLiteral b_lit = d_cnfStream->getLiteral(b_bits[i]);
+        SatValue b_lit_value = d_satSolver->value(b_lit);
+        if (b_lit_value != SAT_VALUE_UNKNOWN) {
+          if (a_lit_value != b_lit_value) {
+            return EQUALITY_FALSE_IN_MODEL;
+          }
+        } else {
+          status = EQUALITY_UNKNOWN;
+        }
+      } {
+        status = EQUALITY_UNKNOWN;
+      }
+    } else {
+      status = EQUALITY_UNKNOWN;
+    }
+  }
+
+  return status;
+
+  } else {
+    return EQUALITY_UNKNOWN;
+  }
+}
 
 } /*bv namespace */
 } /* theory namespace */

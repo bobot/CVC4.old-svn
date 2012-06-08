@@ -67,7 +67,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_diosolver(c),
   d_pbSubstitutions(new SubstitutionMap(u)),
   d_restartsCounter(0),
-  d_rowHasBeenAdded(false),
+  d_tableauSizeHasBeenModified(false),
   d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
   d_conflicts(c),
@@ -476,6 +476,7 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
 }
 
 void TheoryArith::addSharedTerm(TNode n){
+  Debug("arith::addSharedTerm") << "addSharedTerm: " << n << endl;
   d_congruenceManager.addSharedTerm(n);
   if(!n.isConst() && !isSetup(n)){
     Polynomial poly = Polynomial::parsePolynomial(n);
@@ -570,9 +571,11 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
       // x = (p - ax - c) * -1/a
       // Add the substitution if not recursive
       Assert(elim == Rewriter::rewrite(elim));
-      Assert(!elim.hasSubterm(minVar));
 
-      if (!minVar.getType().isInteger() || right.isIntegral()) {
+      if(elim.hasSubterm(minVar)){
+        Debug("simplify") << "TheoryArith::solve(): can't substitute due to recursive pattern with sharing: " << minVar << ":" << elim << endl;
+      }else if (!minVar.getType().isInteger() || right.isIntegral()) {
+        Assert(!elim.hasSubterm(minVar));
         // cannot eliminate integers here unless we know the resulting
         // substitution is integral
         Debug("simplify") << "TheoryArith::solve(): substitution " << minVar << " |-> " << elim << endl;
@@ -692,7 +695,7 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
   }
 
   if(polyNode.getKind() == PLUS){
-    d_rowHasBeenAdded = true;
+    d_tableauSizeHasBeenModified = true;
 
     vector<ArithVar> variables;
     vector<Rational> coefficients;
@@ -797,6 +800,7 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
   d_arithvarNodeMap.setArithVar(x,varX);
 
   d_tableau.increaseSize();
+  d_tableauSizeHasBeenModified = true;
 
   d_constraintDatabase.addVariable(varX);
 
@@ -999,8 +1003,8 @@ Node TheoryArith::assertionCases(TNode assertion){
       if(Debug.isOn("whytheoryenginewhy")){
         debugPrintFacts();
       }
-      Warning() << "arith: Theory engine is sending me both a literal and its negation?"
-                << "BOOOOOOOOOOOOOOOOOOOOOO!!!!"<< endl;
+//      Warning() << "arith: Theory engine is sending me both a literal and its negation?"
+//                << "BOOOOOOOOOOOOOOOOOOOOOO!!!!"<< endl;
     }
     Debug("arith::eq") << constraint << endl;
     Debug("arith::eq") << negation << endl;
@@ -1236,8 +1240,8 @@ Node TheoryArith::roundRobinBranch(){
     Integer floor_d = d.floor();
     Integer ceil_d = d.ceiling();
 
-    Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, mkIntegerNode(floor_d)));
-    Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, mkIntegerNode(ceil_d)));
+    Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, mkRationalNode(floor_d)));
+    Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, mkRationalNode(ceil_d)));
 
 
     Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
@@ -1433,9 +1437,6 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
 
   switch(n.getKind()) {
 
-  case kind::CONST_INTEGER:
-    return Rational(n.getConst<Integer>());
-
   case kind::CONST_RATIONAL:
     return n.getConst<Rational>();
 
@@ -1453,9 +1454,6 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
   case kind::MULT: { // 2+ args
     Assert(n.getNumChildren() == 2 && n[0].isConst());
     DeltaRational value(1);
-    if (n[0].getKind() == kind::CONST_INTEGER) {
-      return getDeltaValue(n[1]) * n[0].getConst<Integer>();
-    }
     if (n[0].getKind() == kind::CONST_RATIONAL) {
       return getDeltaValue(n[1]) * n[0].getConst<Rational>();
     }
@@ -1475,17 +1473,18 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
     if (n[1].getKind() == kind::CONST_RATIONAL) {
       return getDeltaValue(n[0]) / n[0].getConst<Rational>();
     }
-    if (n[1].getKind() == kind::CONST_INTEGER) {
-      return getDeltaValue(n[0]) / n[0].getConst<Integer>();
-    }
     Unreachable();
 
 
   default:
-  {
-    ArithVar var = d_arithvarNodeMap.asArithVar(n);
-    return d_partialModel.getAssignment(var);
-  }
+    {
+      if(isSetup(n)){
+        ArithVar var = d_arithvarNodeMap.asArithVar(n);
+        return d_partialModel.getAssignment(var);
+      }else{
+        Unreachable();
+      }
+    }
   }
 }
 
@@ -1570,23 +1569,17 @@ void TheoryArith::notifyRestart(){
 
   ++d_restartsCounter;
 
-  static const bool debugResetPolicy = false;
-
   uint32_t currSize = d_tableau.size();
   uint32_t copySize = d_smallTableauCopy.size();
 
-  if(debugResetPolicy){
-    cout << "curr " << currSize << " copy " << copySize << endl;
-  }
-  if(d_rowHasBeenAdded){
-    if(debugResetPolicy){
-      cout << "row has been added must copy " << d_restartsCounter << endl;
-    }
-    d_smallTableauCopy = d_tableau;
-    d_rowHasBeenAdded = false;
-  }
+  Debug("arith::reset") << "curr " << currSize << " copy " << copySize << endl;
+  Debug("arith::reset") << "tableauSizeHasBeenModified " << d_tableauSizeHasBeenModified << endl;
 
-  if(!d_rowHasBeenAdded && d_restartsCounter >= RESET_START){
+  if(d_tableauSizeHasBeenModified){
+    Debug("arith::reset") << "row has been added must copy " << d_restartsCounter << endl;
+    d_smallTableauCopy = d_tableau;
+    d_tableauSizeHasBeenModified = false;
+  }else if( d_restartsCounter >= RESET_START){
     if(copySize >= currSize * 1.1 ){
       ++d_statistics.d_smallerSetToCurr;
       d_smallTableauCopy = d_tableau;

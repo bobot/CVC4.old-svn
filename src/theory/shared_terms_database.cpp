@@ -16,8 +16,8 @@
  **/
 
 #include "theory/shared_terms_database.h"
-#include "theory/uf/equality_engine_impl.h"
 
+using namespace std;
 using namespace CVC4;
 using namespace theory;
 
@@ -36,14 +36,7 @@ SharedTermsDatabase::SharedTermsDatabase(SharedTermsNotifyClass& notify, context
     d_equalityEngine(d_EENotify, context, "SharedTermsDatabase")
 {
   StatisticsRegistry::registerStat(&d_statSharedTerms);
-  NodeManager* nm = NodeManager::currentNM();
-  d_true = nm->mkConst<bool>(true);
-  d_false = nm->mkConst<bool>(false);
-  d_equalityEngine.addTerm(d_true);
-  d_equalityEngine.addTerm(d_false);
-  d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
 }
-
 
 SharedTermsDatabase::~SharedTermsDatabase() throw(AssertionException)
 {
@@ -53,9 +46,9 @@ SharedTermsDatabase::~SharedTermsDatabase() throw(AssertionException)
   }
 }
 
-
 void SharedTermsDatabase::addSharedTerm(TNode atom, TNode term, Theory::Set theories) {
   Debug("register") << "SharedTermsDatabase::addSharedTerm(" << atom << ", " << term << ", " << Theory::setToString(theories) << ")" << std::endl; 
+
   std::pair<TNode, TNode> search_pair(atom, term);
   SharedTermsTheoriesMap::iterator find = d_termsToTheories.find(search_pair);
   if (find == d_termsToTheories.end()) {
@@ -148,6 +141,7 @@ SharedTermsDatabase::NotifyList* SharedTermsDatabase::getNewNotifyList()
 void SharedTermsDatabase::mergeSharedTerms(TNode a, TNode b)
 {
   // Note: a is the new representative
+  Debug("shared-terms-database") << "SharedTermsDatabase::mergeSharedTerms(" << a << "," << b << ")" << endl;
 
   NotifyList* pnlLeft = NULL;
   NotifyList* pnlRight = NULL;
@@ -177,7 +171,7 @@ void SharedTermsDatabase::mergeSharedTerms(TNode a, TNode b)
       right = b;
     }
     else if (pnlRight != NULL &&
-             ((nit = pnlRight->end()) != pnlRight->end())) {
+             ((nit = pnlRight->find(currentTheory)) != pnlRight->end())) {
       right = (*nit).second;
     }
     else {
@@ -201,36 +195,99 @@ void SharedTermsDatabase::mergeSharedTerms(TNode a, TNode b)
 
     // TODO: add propagation of disequalities?
 
-    // Normalize the equality
-    Node equality = left.eqNode(right);
-    Node normalized = Rewriter::rewriteEquality(currentTheory, equality);
-    if (normalized.getKind() != kind::CONST_BOOLEAN || !normalized.getConst<bool>()) {
-      // Notify client
-      d_sharedNotify.notify(normalized, equality, currentTheory);
-    }
+    assertEq(left.eqNode(right), currentTheory);
   }
 
 }
   
 
+void SharedTermsDatabase::assertEq(TNode equality, TheoryId theory)
+{
+  Debug("shared-terms-database") << "SharedTermsDatabase::assertEq(" << equality << ") to theory " << theory << endl;
+  Node normalized = Rewriter::rewriteEquality(theory, equality);
+  if (normalized.getKind() != kind::CONST_BOOLEAN || !normalized.getConst<bool>()) {
+    // Notify client
+    d_sharedNotify.notify(normalized, equality, theory);
+  }
+}
+
+
+// term was just part of an assertion that makes it shared for theories
+// Let's mark that the set theories has now been notified
+// In addition, we make sure the equivalence class containing term knows a
+// representative for each theory in theories.
+// Finally, if the EC already knows a rep for a theory that was just notified, we
+// have to tell the theory that these two terms are equal.
 void SharedTermsDatabase::markNotified(TNode term, Theory::Set theories) {
-  Theory::Set alreadyNotified = d_alreadyNotifiedMap[term];
+
+  // Find out if there are any new theories that were notified about this term
+  Theory::Set alreadyNotified = 0;
+  AlreadyNotifiedMap::iterator theoriesFind = d_alreadyNotifiedMap.find(term);
+  if (theoriesFind != d_alreadyNotifiedMap.end()) {
+    alreadyNotified = (*theoriesFind).second;
+  }
   Theory::Set newlyNotified = Theory::setDifference(theories, alreadyNotified);
-  if (newlyNotified != 0) {
-    TNode rep = d_equalityEngine.getRepresentative(term);
-    if (rep != term) {
-      TermToNotifyList::iterator it = d_termToNotifyList.find(rep);
-      Assert(it != d_termToNotifyList.end());
-      NotifyList* pnl = (*it).second;
-      for (TheoryId theory = THEORY_FIRST; theory != THEORY_LAST; ++ theory) {
-        if (Theory::setContains(theory, newlyNotified) &&
-            pnl->find(theory) == pnl->end()) {
-          (*pnl)[theory] = term;
+
+  // If no new theories were notified, we are done
+  if (newlyNotified == 0) {
+    return;
+  }
+
+  Debug("shared-terms-database") << "SharedTermsDatabase::markNotified(" << term << ")" << endl;
+
+  // First update the set of notified theories for this term
+  d_alreadyNotifiedMap[term] = Theory::setUnion(newlyNotified, alreadyNotified);
+
+  // Now get the representative of the equivalence class and find out which theories it represents
+  TNode rep = d_equalityEngine.getRepresentative(term);
+  if (rep != term) {
+    alreadyNotified = 0;
+    theoriesFind = d_alreadyNotifiedMap.find(rep);
+    if (theoriesFind != d_alreadyNotifiedMap.end()) {
+      alreadyNotified = (*theoriesFind).second;
+    }
+  }
+
+  // For each theory that is newly notified
+  for (TheoryId theory = THEORY_FIRST; theory != THEORY_LAST; ++ theory) {
+    if (Theory::setContains(theory, newlyNotified)) {
+
+      Debug("shared-terms-database") << "SharedTermsDatabase::markNotified: processing theory " << theory << endl;
+
+      if (Theory::setContains(theory, alreadyNotified)) {
+        // rep represents this theory already, need to assert that term = rep
+        Assert(rep != term);
+        assertEq(rep.eqNode(term), theory);
+      }
+      else {
+        // Get the list of terms representing theories for this EC
+        TermToNotifyList::iterator it = d_termToNotifyList.find(rep);
+        if (it == d_termToNotifyList.end()) {
+          // No need to do anything - no list associated with this EC
+          Assert(term == rep);
+        }
+        else {
+          NotifyList* pnl = (*it).second;
+          Assert(pnl != NULL);
+
+          // Check if this theory is already represented
+          NotifyList::iterator nit = pnl->find(theory);
+          if (nit != pnl->end()) {
+            // Already have a representative for this theory, assert term equal to it
+            assertEq((*nit).second.eqNode(term), theory);
+          }
+          else {
+            // if term == rep, no need to do anything, as term will represent the theory via alreadyNotifiedMap
+            if (term != rep) {
+              // No term in this EC represents this theory, so add term as a new representative
+              Debug("shared-terms-database") << "SharedTermsDatabase::markNotified: adding " << term << " to representative " << rep << " for theory " << theory << endl;
+              (*pnl)[theory] = term;
+            }
+          }
         }
       }
     }
   }
-  d_alreadyNotifiedMap[term] = Theory::setUnion(newlyNotified, alreadyNotified);
 }
 
 
@@ -243,22 +300,20 @@ bool SharedTermsDatabase::areDisequal(TNode a, TNode b) {
   return d_equalityEngine.areDisequal(a,b);
 }
 
-
 void SharedTermsDatabase::processSharedLiteral(TNode literal, TNode reason)
 {
   bool negated = literal.getKind() == kind::NOT;
   TNode atom = negated ? literal[0] : literal;
   if (negated) {
     Assert(!d_equalityEngine.areDisequal(atom[0], atom[1]));
-    d_equalityEngine.addDisequality(atom[0], atom[1], reason);
+    d_equalityEngine.assertEquality(atom, false, reason);
     //    !!! need to send this out
   }
   else {
     Assert(!d_equalityEngine.areEqual(atom[0], atom[1]));
-    d_equalityEngine.addEquality(atom[0], atom[1], reason);
+    d_equalityEngine.assertEquality(atom, true, reason);
   }
 }
-
 
 static Node mkAnd(const std::vector<TNode>& conjunctions) {
   Assert(conjunctions.size() > 0);
@@ -286,31 +341,12 @@ static Node mkAnd(const std::vector<TNode>& conjunctions) {
 Node SharedTermsDatabase::explain(TNode literal)
 {
   std::vector<TNode> assumptions;
-  explain(literal, assumptions);
-  return mkAnd(assumptions);
-}
-
-
-void SharedTermsDatabase::explain(TNode literal, std::vector<TNode>& assumptions) {
-  TNode lhs, rhs;
-  switch (literal.getKind()) {
-    case kind::EQUAL:
-      lhs = literal[0];
-      rhs = literal[1];
-      break;
-    case kind::NOT:
-      if (literal[0].getKind() == kind::EQUAL) {
-        // Disequalities
-        d_equalityEngine.explainDisequality(literal[0][0], literal[0][1], assumptions);
-        return;
-      }
-    case kind::CONST_BOOLEAN:
-      // we get to explain true = false, since we set false to be the trigger of this
-      lhs = d_true;
-      rhs = d_false;
-      break;
-    default:
-      Unreachable();
+  if (literal.getKind() == kind::NOT) {
+    Assert(literal[0].getKind() == kind::EQUAL);
+    d_equalityEngine.explainEquality(literal[0][0], literal[0][1], false, assumptions);
+  } else {
+    Assert(literal.getKind() == kind::EQUAL);
+    d_equalityEngine.explainEquality(literal[0], literal[1], true, assumptions);
   }
-  d_equalityEngine.explainEquality(lhs, rhs, assumptions);
+  return mkAnd(assumptions);
 }

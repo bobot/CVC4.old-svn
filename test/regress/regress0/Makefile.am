@@ -1,4 +1,4 @@
-SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv datatypes lemmas push-pop preprocess
+SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes lemmas push-pop preprocess
 
 BINARY = cvc4
 if PROOF_REGRESSIONS
@@ -97,7 +97,8 @@ BUG_TESTS = \
 	bug239.smt \
 	buggy-ite.smt2 \
 	bug303.smt2 \
-	bug310.cvc
+	bug310.cvc \
+	bug339.smt2
 
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 

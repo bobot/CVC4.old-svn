@@ -25,6 +25,7 @@
 #include <vector>
 #include <utility>
 
+#include "decision/decision_engine.h"
 #include "expr/node.h"
 #include "expr/command.h"
 #include "prop/prop_engine.h"
@@ -40,7 +41,7 @@
 #include "util/stats.h"
 #include "util/hash.h"
 #include "util/cache.h"
-#include "util/ite_removal.h"
+#include "theory/ite_simplifier.h"
 
 namespace CVC4 {
 
@@ -76,6 +77,9 @@ class TheoryEngine {
 
   /** Associated PropEngine engine */
   prop::PropEngine* d_propEngine;
+
+  /** Access to decision engine */
+  DecisionEngine* d_decisionEngine;
 
   /** Our context */
   context::Context* d_context;
@@ -119,6 +123,7 @@ class TheoryEngine {
   SharedTermsDatabase d_sharedTerms;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
+  typedef std::hash_map<TNode, Node, TNodeHashFunction> TNodeMap;
 
   /**
   * Cache for theory-preprocessing of assertions
@@ -305,8 +310,10 @@ class TheoryEngine {
   }
 
   struct SharedLiteral {
-    /** The node/theory pair for the assertion */
-    /** THEORY_LAST indicates this is a SAT literal and should be sent to the SAT solver */
+    /**
+     * The node/theory pair for the assertion. THEORY_LAST indicates this is a SAT
+     * literal and should be sent to the SAT solver
+     */
     NodeTheoryPair toAssert;
     /** This is the node that we will use to explain it */
     Node toExplain;
@@ -315,7 +322,7 @@ class TheoryEngine {
     : toAssert(assertion, receivingTheory),
       toExplain(original)
     { }
-  };/* struct SharedLiteral */
+  };
 
   /**
    * Map from nodes to theories.
@@ -430,30 +437,49 @@ class TheoryEngine {
       Options::current()->lemmaOutputChannel->notifyNewLemma(node.toExpr());
     }
 
-    // Remove the ITEs and assert to prop engine
+    // Remove the ITEs
     std::vector<Node> additionalLemmas;
     IteSkolemMap iteSkolemMap;
     additionalLemmas.push_back(node);
     RemoveITE::run(additionalLemmas, iteSkolemMap);
     additionalLemmas[0] = theory::Rewriter::rewrite(additionalLemmas[0]);
+
+    // assert to prop engine
     d_propEngine->assertLemma(additionalLemmas[0], negated, removable);
     for (unsigned i = 1; i < additionalLemmas.size(); ++ i) {
       additionalLemmas[i] = theory::Rewriter::rewrite(additionalLemmas[i]);
       d_propEngine->assertLemma(additionalLemmas[i], false, removable);
     }
 
+    // WARNING: Below this point don't assume additionalLemmas[0] to be not negated.
+    // WARNING: Below this point don't assume additionalLemmas[0] to be not negated.
+    if(negated) {
+      // Can't we just get rid of passing around this 'negated' stuff?
+      // Is it that hard for the propEngine to figure that out itself?
+      // (I like the use of triple negation <evil laugh>.) --K
+      additionalLemmas[0] = additionalLemmas[0].notNode();
+      negated = false;
+    }
+    // WARNING: Below this point don't assume additionalLemmas[0] to be not negated.
+    // WARNING: Below this point don't assume additionalLemmas[0] to be not negated.
+
+    // assert to decision engine
+    if(!removable)
+      d_decisionEngine->addAssertions(additionalLemmas, 1, iteSkolemMap);
+
     // Mark that we added some lemmas
     d_lemmasAdded = true;
 
     // Lemma analysis isn't online yet; this lemma may only live for this
     // user level.
-    Node finalForm =
-      negated ? additionalLemmas[0].notNode() : additionalLemmas[0];
-    return theory::LemmaStatus(finalForm, d_userContext->getLevel());
+    return theory::LemmaStatus(additionalLemmas[0], d_userContext->getLevel());
   }
 
   /** Time spent in theory combination */
   TimerStat d_combineTheoriesTime;
+
+  Node d_true;
+  Node d_false;
 
 public:
 
@@ -485,6 +511,11 @@ public:
     d_propEngine = propEngine;
   }
 
+  inline void setDecisionEngine(DecisionEngine* decisionEngine) {
+    Assert(d_decisionEngine == NULL);
+    d_decisionEngine = decisionEngine;
+  }
+
   /**
    * Get a pointer to the underlying propositional engine.
    */
@@ -498,6 +529,16 @@ private:
    * Helper for preprocess
    */
   Node ppTheoryRewrite(TNode term);
+
+  /**
+   * Queue of nodes for pre-registration.
+   */
+  std::queue<TNode> d_preregisterQueue;
+
+  /**
+   * Boolean flag denoting we are in pre-registration.
+   */
+  bool d_inPreregister;
 
 public:
 
@@ -692,6 +733,15 @@ private:
 
   /** Visitor for collecting shared terms */
   SharedTermsVisitor d_sharedTermsVisitor;
+
+  /** Prints the assertions to the debug stream */
+  void printAssertions(const char* tag);
+
+  /** For preprocessing pass simplifying ITEs */
+  ITESimplifier d_iteSimplifier;
+
+public:
+  Node ppSimpITE(TNode assertion);
 
 };/* class TheoryEngine */
 

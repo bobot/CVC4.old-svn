@@ -83,6 +83,8 @@ Options::Options() :
   decisionMode(DECISION_STRATEGY_INTERNAL),
   decisionModeSetByUser(false),
   doStaticLearning(true),
+  doITESimp(false),
+  doITESimpSetByUser(false),
   interactive(false),
   interactiveSetByUser(false),
   perCallResourceLimit(0),
@@ -112,7 +114,8 @@ Options::Options() :
   ufSymmetryBreaker(false),
   ufSymmetryBreakerSetByUser(false),
   dioSolver(true),
-  arithRewriteEq(true),
+  arithRewriteEq(false),
+  arithRewriteEqSetByUser(false),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
   threads(2),// default should be 1 probably, but say 2 for now
@@ -120,7 +123,11 @@ Options::Options() :
   thread_id(-1),
   separateOutput(false),
   preprocessFirst(false),
-  sharingFilterByLength(-1)
+  sharingFilterByLength(-1),
+  bitvectorEagerBitblast(false),
+  bitvectorEagerFullcheck(false),
+  bitvectorShareLemmas(false),
+  sat_refine_conflicts(false)
 {
 }
 
@@ -175,6 +182,8 @@ Additional CVC4 options:\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
    --decision=MODE        choose decision mode, see --decision=help\n\
    --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
+   --ite-simp             turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
+   --no-ite-simp          turn off ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
    --replay=file          replay decisions from file\n\
    --replay-log=file      log decisions and propagations to file\n\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
@@ -188,7 +197,11 @@ Additional CVC4 options:\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
-   --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n \
+   --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n\
+   --bitblast-eager       eagerly bitblast the bitvectors to the main SAT solver\n\
+   --bitblast-share-lemmas share lemmas from the bitblsting solver with the main solver\n\
+   --bitblast-eager-fullcheck check the bitblasting eagerly\n\
+   --refine-conflicts     refine theory conflict clauses\n\
 \n\
 Portfolio specific options:\n\
    --threads=N            sets the number of solver threads (default, for pcvc4: 2)\n\
@@ -355,6 +368,8 @@ enum OptionValue {
   SIMPLIFICATION_MODE,
   DECISION_MODE,
   NO_STATIC_LEARNING,
+  ITE_SIMP,
+  NO_ITE_SIMP,
   INTERACTIVE,
   NO_INTERACTIVE,
   PRODUCE_ASSIGNMENTS,
@@ -376,7 +391,8 @@ enum OptionValue {
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   ARITHMETIC_DIO_SOLVER,
-  ARITHMETIC_REWRITE_EQUALITIES,
+  ENABLE_ARITHMETIC_REWRITE_EQUALITIES,
+  DISABLE_ARITHMETIC_REWRITE_EQUALITIES,
   ENABLE_SYMMETRY_BREAKER,
   DISABLE_SYMMETRY_BREAKER,
   PARALLEL_THREADS,
@@ -386,7 +402,11 @@ enum OptionValue {
   TIME_LIMIT,
   TIME_LIMIT_PER,
   RESOURCE_LIMIT,
-  RESOURCE_LIMIT_PER
+  RESOURCE_LIMIT_PER,
+  BITVECTOR_EAGER_BITBLAST,
+  BITVECTOR_SHARE_LEMMAS,
+  BITVECTOR_EAGER_FULLCHECK,
+  SAT_REFINE_CONFLICTS
 };/* enum OptionValue */
 
 /**
@@ -445,6 +465,8 @@ static struct option cmdlineOptions[] = {
   { "simplification", required_argument, NULL, SIMPLIFICATION_MODE },
   { "decision", required_argument, NULL, DECISION_MODE },
   { "no-static-learning", no_argument, NULL, NO_STATIC_LEARNING },
+  { "ite-simp", no_argument, NULL, ITE_SIMP },
+  { "no-ite-simp", no_argument, NULL, NO_ITE_SIMP },
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
   { "produce-models", no_argument   , NULL, 'm' },
@@ -468,7 +490,8 @@ static struct option cmdlineOptions[] = {
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
-  { "disable-arith-rewrite-equalities", no_argument, NULL, ARITHMETIC_REWRITE_EQUALITIES },
+  { "enable-arith-rewrite-equalities", no_argument, NULL, ENABLE_ARITHMETIC_REWRITE_EQUALITIES },
+  { "disable-arith-rewrite-equalities", no_argument, NULL, DISABLE_ARITHMETIC_REWRITE_EQUALITIES },
   { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
@@ -479,6 +502,10 @@ static struct option cmdlineOptions[] = {
   { "tlimit-per" , required_argument, NULL, TIME_LIMIT_PER },
   { "rlimit"     , required_argument, NULL, RESOURCE_LIMIT       },
   { "rlimit-per" , required_argument, NULL, RESOURCE_LIMIT_PER   },
+  { "bitblast-eager", no_argument, NULL, BITVECTOR_EAGER_BITBLAST },
+  { "bitblast-share-lemmas", no_argument, NULL, BITVECTOR_SHARE_LEMMAS },
+  { "bitblast-eager-fullcheck", no_argument, NULL, BITVECTOR_EAGER_FULLCHECK },
+  { "refine-conflicts", no_argument, NULL, SAT_REFINE_CONFLICTS },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -544,10 +571,27 @@ throw(OptionException) {
       break;
 
     case 't':
+      if(Configuration::isTracingBuild()) {
+        if(!Configuration::isTraceTag(optarg))
+          throw OptionException(string("trace tag ") + optarg +
+                                string(" not available"));
+      } else {
+        throw OptionException("trace tags not available in non-tracing builds");
+      }
       Trace.on(optarg);
       break;
 
     case 'd':
+      if(Configuration::isDebugBuild() && Configuration::isTracingBuild()) {
+        if(!Configuration::isDebugTag(optarg) && !Configuration::isTraceTag(optarg)) {
+          throw OptionException(string("debug tag ") + optarg +
+                                string(" not available"));
+        }
+      } else if(! Configuration::isDebugBuild()) {
+        throw OptionException("debug tags not available in non-debug builds");
+      } else {
+        throw OptionException("debug tags not available in non-tracing builds");
+      }
       Debug.on(optarg);
       Trace.on(optarg);
       break;
@@ -581,7 +625,8 @@ throw(OptionException) {
         } else if(!strcmp(optarg, "clauses")) {
         } else if(!strcmp(optarg, "t-conflicts") ||
                   !strcmp(optarg, "t-lemmas") ||
-                  !strcmp(optarg, "t-explanations")) {
+                  !strcmp(optarg, "t-explanations") ||
+                  !strcmp(optarg, "bv-rewrites")) {
           // These are "non-state-dumping" modes.  If state (SAT decisions,
           // propagations, etc.) is dumped, it will interfere with the validity
           // of these generated queries.
@@ -735,6 +780,16 @@ throw(OptionException) {
       doStaticLearning = false;
       break;
 
+    case ITE_SIMP:
+      doITESimp = true;
+      doITESimpSetByUser = true;
+      break;
+
+    case NO_ITE_SIMP:
+      doITESimp = false;
+      doITESimpSetByUser = true;
+      break;
+
     case INTERACTIVE:
       interactive = true;
       interactiveSetByUser = true;
@@ -837,8 +892,14 @@ throw(OptionException) {
       dioSolver = false;
       break;
 
-    case ARITHMETIC_REWRITE_EQUALITIES:
+    case ENABLE_ARITHMETIC_REWRITE_EQUALITIES:
+      arithRewriteEq = true;
+      arithRewriteEqSetByUser = true;
+      break;
+
+    case DISABLE_ARITHMETIC_REWRITE_EQUALITIES:
       arithRewriteEq = false;
+      arithRewriteEqSetByUser = true;
       break;
 
     case ENABLE_SYMMETRY_BREAKER:
@@ -886,7 +947,26 @@ throw(OptionException) {
         perCallResourceLimit = (unsigned long) i;
         break;
       }
-
+    case BITVECTOR_EAGER_BITBLAST:
+      {
+        bitvectorEagerBitblast = true;
+        break;
+      }
+    case BITVECTOR_EAGER_FULLCHECK:
+      {
+        bitvectorEagerFullcheck = true;
+        break;
+      }
+    case BITVECTOR_SHARE_LEMMAS:
+      {
+        bitvectorShareLemmas = true;
+        break;
+      }
+    case SAT_REFINE_CONFLICTS:
+      {
+        sat_refine_conflicts = true;
+        break;
+      }
     case RANDOM_SEED:
       satRandomSeed = atof(optarg);
       break;
@@ -950,7 +1030,7 @@ throw(OptionException) {
       break;
 
     case SHOW_DEBUG_TAGS:
-      if(Configuration::isDebugBuild()) {
+      if(Configuration::isDebugBuild() && Configuration::isTracingBuild()) {
         printf("available tags:");
         unsigned ntags = Configuration::getNumDebugTags();
         char const* const* tags = Configuration::getDebugTags();
@@ -958,8 +1038,10 @@ throw(OptionException) {
           printf(" %s", tags[i]);
         }
         printf("\n");
+      } else if(! Configuration::isDebugBuild()) {
+        throw OptionException("debug tags not available in non-debug builds");
       } else {
-        throw OptionException("debug tags not available in non-debug build");
+        throw OptionException("debug tags not available in non-tracing builds");
       }
       exit(0);
       break;
@@ -974,7 +1056,7 @@ throw(OptionException) {
         }
         printf("\n");
       } else {
-        throw OptionException("trace tags not available in non-tracing build");
+        throw OptionException("trace tags not available in non-tracing builds");
       }
       exit(0);
       break;

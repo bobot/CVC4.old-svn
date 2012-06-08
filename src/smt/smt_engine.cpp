@@ -156,6 +156,9 @@ class SmtEnginePrivate {
    */
   void removeITEs();
 
+  // Simplify ITE structure
+  void simpITE();
+
   /**
    * Any variable in a assertion that is declared as a subtype type
    * (predicate subtype or integer subrange type) must be constrained
@@ -251,6 +254,12 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_definitionExpansionTime("smt::SmtEngine::definitionExpansionTime"),
   d_nonclausalSimplificationTime("smt::SmtEngine::nonclausalSimplificationTime"),
   d_staticLearningTime("smt::SmtEngine::staticLearningTime"),
+  d_simpITETime("smt::SmtEngine::simpITETime"),
+  d_iteRemovalTime("smt::SmtEngine::iteRemovalTime"),
+  d_theoryPreprocessTime("smt::SmtEngine::theoryPreprocessTime"),
+  d_cnfConversionTime("smt::SmtEngine::cnfConversionTime"),
+  d_numAssertionsPre("smt::SmtEngine::numAssertionsPreITERemoval", 0),
+  d_numAssertionsPost("smt::SmtEngine::numAssertionsPostITERemoval", 0),
   d_statResultSource("smt::resultSource", "unknown") {
 
   NodeManagerScope nms(d_nodeManager);
@@ -258,6 +267,12 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   StatisticsRegistry::registerStat(&d_definitionExpansionTime);
   StatisticsRegistry::registerStat(&d_nonclausalSimplificationTime);
   StatisticsRegistry::registerStat(&d_staticLearningTime);
+  StatisticsRegistry::registerStat(&d_simpITETime);
+  StatisticsRegistry::registerStat(&d_iteRemovalTime);
+  StatisticsRegistry::registerStat(&d_theoryPreprocessTime);
+  StatisticsRegistry::registerStat(&d_cnfConversionTime);
+  StatisticsRegistry::registerStat(&d_numAssertionsPre);
+  StatisticsRegistry::registerStat(&d_numAssertionsPost);
   StatisticsRegistry::registerStat(&d_statResultSource);
 
   // We have mutual dependency here, so we add the prop engine to the theory
@@ -272,9 +287,10 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
     d_theoryEngine->addTheory<theory::TheoryTraits<THEORY>::theory_class>(THEORY);
   CVC4_FOR_EACH_THEORY;
 
-  d_decisionEngine = new DecisionEngine(d_context);
+  d_decisionEngine = new DecisionEngine(d_context, d_userContext);
   d_propEngine = new PropEngine(d_theoryEngine, d_decisionEngine, d_context);
   d_theoryEngine->setPropEngine(d_propEngine);
+  d_theoryEngine->setDecisionEngine(d_decisionEngine);
   // d_decisionEngine->setPropEngine(d_propEngine);
 
   d_definedFunctions = new(true) DefinedFunctionMap(d_userContext);
@@ -302,7 +318,6 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   if(Options::current()->cumulativeMillisecondLimit != 0) {
     setTimeLimit(Options::current()->cumulativeMillisecondLimit, true);
   }
-
 
   d_propEngine->assertFormula(NodeManager::currentNM()->mkConst<bool>(true));
   d_propEngine->assertFormula(NodeManager::currentNM()->mkConst<bool>(false).notNode());
@@ -347,8 +362,13 @@ SmtEngine::~SmtEngine() throw() {
     StatisticsRegistry::unregisterStat(&d_definitionExpansionTime);
     StatisticsRegistry::unregisterStat(&d_nonclausalSimplificationTime);
     StatisticsRegistry::unregisterStat(&d_staticLearningTime);
+    StatisticsRegistry::unregisterStat(&d_simpITETime);
+    StatisticsRegistry::unregisterStat(&d_iteRemovalTime);
+    StatisticsRegistry::unregisterStat(&d_theoryPreprocessTime);
+    StatisticsRegistry::unregisterStat(&d_cnfConversionTime);
+    StatisticsRegistry::unregisterStat(&d_numAssertionsPre);
+    StatisticsRegistry::unregisterStat(&d_numAssertionsPost);
     StatisticsRegistry::unregisterStat(&d_statResultSource);
-
 
     delete d_private;
     delete d_userContext;
@@ -404,6 +424,19 @@ void SmtEngine::setLogicInternal(const LogicInfo& logic) throw() {
   } else {
     theory::Theory::setUninterpretedSortOwner(theory::THEORY_UF);
   }
+  // Turn on ite simplification only for QF_LIA
+  if(! Options::current()->doITESimpSetByUser) {
+    bool iteSimp = logic.isPure(theory::THEORY_ARITH) && logic.isLinear() && !logic.isDifferenceLogic() && !logic.isQuantified() && !logic.areRealsUsed();
+    Trace("smt") << "setting ite simplification to " << iteSimp << std::endl;
+    NodeManager::currentNM()->getOptions()->doITESimp = iteSimp;
+  }
+  // Turn on ite simplification only for pure arithmetic
+  if(! Options::current()->arithRewriteEqSetByUser) {
+    bool arithRewriteEq = logic.isPure(theory::THEORY_ARITH) && !logic.isQuantified();
+    Trace("smt") << "setting arith rewrite equalities " << arithRewriteEq << std::endl;
+    NodeManager::currentNM()->getOptions()->arithRewriteEq = arithRewriteEq;
+  }
+
 }
 
 void SmtEngine::setInfo(const std::string& key, const SExpr& value)
@@ -851,6 +884,18 @@ void SmtEnginePrivate::nonClausalSimplify() {
   d_assertionsToPreprocess.clear();
 }
 
+void SmtEnginePrivate::simpITE()
+{
+  TimerStat::CodeTimer simpITETimer(d_smt.d_simpITETime);
+
+  Trace("simplify") << "SmtEnginePrivate::simpITE()" << endl;
+
+  for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
+
+    d_assertionsToCheck[i] = d_smt.d_theoryEngine->ppSimpITE(d_assertionsToCheck[i]);
+  }
+}
+
 void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertions)
   throw(AssertionException) {
 
@@ -886,13 +931,13 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
       SubrangeBounds bounds = t.getSubrangeBounds();
       Trace("constrainSubtypes") << "constrainSubtypes(): got bounds " << bounds << endl;
       if(bounds.lower.hasBound()) {
-        Node c = NodeManager::currentNM()->mkConst(bounds.lower.getBound());
+        Node c = NodeManager::currentNM()->mkConst(Rational(bounds.lower.getBound()));
         Node lb = NodeManager::currentNM()->mkNode(kind::LEQ, c, n);
         Trace("constrainSubtypes") << "constrainSubtypes(): assert " << lb << endl;
         assertions.push_back(lb);
       }
       if(bounds.upper.hasBound()) {
-        Node c = NodeManager::currentNM()->mkConst(bounds.upper.getBound());
+        Node c = NodeManager::currentNM()->mkConst(Rational(bounds.upper.getBound()));
         Node ub = NodeManager::currentNM()->mkNode(kind::LEQ, n, c);
         Trace("constrainSubtypes") << "constrainSubtypes(): assert " << ub << endl;
         assertions.push_back(ub);
@@ -932,6 +977,11 @@ void SmtEnginePrivate::simplifyAssertions()
     } else {
       Assert(d_assertionsToCheck.empty());
       d_assertionsToCheck.swap(d_assertionsToPreprocess);
+    }
+
+    if(Options::current()->doITESimp) {
+      // ite simplification
+      simpITE();
     }
 
     if(Options::current()->doStaticLearning) {
@@ -1034,14 +1084,27 @@ void SmtEnginePrivate::processAssertions() {
   // Simplify the assertions
   simplifyAssertions();
 
-  if(d_smt.d_decisionEngine->needSimplifiedPreITEAssertions()) {
-    d_smt.d_decisionEngine->informSimplifiedPreITEAssertions(d_assertionsToCheck);
+  // any assertions beyond realAssertionsEnd _must_ be introduced by
+  // removeITEs().
+  int realAssertionsEnd = d_assertionsToCheck.size();
+
+  {
+    TimerStat::CodeTimer codeTimer(d_smt.d_iteRemovalTime);
+    // Remove ITEs
+    d_smt.d_numAssertionsPre += d_assertionsToCheck.size();
+    // Remove ITEs, updating d_iteSkolemMap
+    removeITEs();
+    d_smt.d_numAssertionsPost += d_assertionsToCheck.size();
+    // This may need to be in a try-catch
+    // block. make regress is passing, so
+    // skipping for now --K
   }
 
-  // Remove ITEs
-  removeITEs();                 // This may need to be in a try-catch
-                                // block. make regress is passing, so
-                                // skipping for now --K
+  // begin: INVARIANT to maintain: no reordering of assertions or
+  // introducing new ones
+#ifdef CVC4_ASSERTIONS
+  unsigned iteRewriteAssertionsEnd = d_assertionsToCheck.size();
+#endif
 
   Trace("smt") << "SmtEnginePrivate::processAssertions() POST SIMPLIFICATION" << endl;
   Debug("smt") << " d_assertionsToPreprocess: " << d_assertionsToPreprocess.size() << endl;
@@ -1055,18 +1118,31 @@ void SmtEnginePrivate::processAssertions() {
     }
   }
 
-  // Call the theory preprocessors
-  d_smt.d_theoryEngine->preprocessStart();
-  for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
-    d_assertionsToCheck[i] = d_smt.d_theoryEngine->preprocess(d_assertionsToCheck[i]);
+  {
+    TimerStat::CodeTimer codeTimer(d_smt.d_theoryPreprocessTime);
+    // Call the theory preprocessors
+    d_smt.d_theoryEngine->preprocessStart();
+    for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
+      d_assertionsToCheck[i] = d_smt.d_theoryEngine->preprocess(d_assertionsToCheck[i]);
+    }
   }
 
-  // TODO: send formulas and iteSkolemMap to decision engine
+  // Push the formula to decision engine
+  Assert(iteRewriteAssertionsEnd == d_assertionsToCheck.size());
+  d_smt.d_decisionEngine->addAssertions
+    (d_assertionsToCheck, realAssertionsEnd, d_iteSkolemMap);
+
+  // end: INVARIANT to maintain: no reordering of assertions or
+  // introducing new ones
 
   // Push the formula to SAT
-  for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
-    d_smt.d_propEngine->assertFormula(d_assertionsToCheck[i]);
+  {
+    TimerStat::CodeTimer codeTimer(d_smt.d_cnfConversionTime);
+    for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
+      d_smt.d_propEngine->assertFormula(d_assertionsToCheck[i]);
+    }
   }
+
   d_assertionsToCheck.clear();
   d_iteSkolemMap.clear();
 }
