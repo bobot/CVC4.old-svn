@@ -153,6 +153,8 @@ struct CVC4_PUBLIC Options {
   struct DecisionOptions {
     bool relevancyLeaves;
     unsigned short maxRelTimeAsPermille;  /* permille = part per thousand */
+    bool computeRelevancy;    /* if false, do justification stuff using relevancy.h */
+    bool mustRelevancy;       /* use the must be relevant */
   };
   DecisionOptions decisionOptions;
 

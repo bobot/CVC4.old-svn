@@ -108,10 +108,10 @@ class Relevancy : public RelevancyStrategy {
    * do we do "multiple-backtrace" to try to justify a node
    */
   bool d_multipleBacktrace;
-  bool d_computeRelevancy;     // are we in a mode where we compute relevancy?
+  //bool d_computeRelevancy;     // are we in a mode where we compute relevancy?
 
   /** Only leaves can be relevant */
-  bool d_relevancyLeaves;
+  Options::DecisionOptions d_opt;        // may be we shouldn't be caching them?
 
   static const double secondsPerDecision = 0.001;
   static const double secondsPerExpense = 1e-7;
@@ -133,9 +133,9 @@ public:
     d_expense("decision::rel::expense", 0),
     d_timestat("decision::rel::time"),
     d_relevancy(c),
-    d_multipleBacktrace(true),
-    d_computeRelevancy(true),
-    d_relevancyLeaves(decOpt.relevancyLeaves),
+    d_multipleBacktrace(decOpt.computeRelevancy),
+    //    d_computeRelevancy(decOpt.computeRelevancy),
+    d_opt(decOpt),
     d_maxTimeAsPercentageOfTotalTime(decOpt.maxRelTimeAsPermille*1.0/10.0),
     d_curDecision(NULL)
   {
@@ -146,7 +146,11 @@ public:
     StatisticsRegistry::registerStat(&d_expense);
     StatisticsRegistry::registerStat(&d_timestat);
     Trace("decision") << "relevancy enabled with" << std::endl;
-    Trace("decision") << "  * relevancyLeaves: " << (d_relevancyLeaves ? "on" : "off")
+    Trace("decision") << "  * computeRelevancy: " << (d_opt.computeRelevancy ? "on" : "off")
+                      << std::endl;
+    Trace("decision") << "  * relevancyLeaves: " << (d_opt.relevancyLeaves ? "on" : "off")
+                      << std::endl;
+    Trace("decision") << "  * mustRelevancy [unimplemented]: " << (d_opt.mustRelevancy ? "on" : "off")
                       << std::endl;
   }
   ~Relevancy() {
@@ -182,12 +186,13 @@ public:
       SatValue desiredVal = SAT_VALUE_TRUE;
       SatLiteral litDecision = findSplitter(d_assertions[i], desiredVal);
 
-      if(!d_computeRelevancy && litDecision != undefSatLiteral) {
+      if(!d_opt.computeRelevancy && litDecision != undefSatLiteral) {
         d_prvsIndex = i;
         return litDecision;
       }
     }
-    if(d_computeRelevancy) return undefSatLiteral;
+
+    if(d_opt.computeRelevancy) return undefSatLiteral;
 
     Trace("decision") << "jh: Nothing to split on " << std::endl;
 
@@ -236,14 +241,15 @@ public:
     for(unsigned i = 0; i < assertionsEnd; ++i) {
       d_assertions.push_back(assertions[i]);
       d_visited.clear();
-      if(d_computeRelevancy) increaseMaxRelevancy(assertions[i]);
+      if(d_opt.computeRelevancy) increaseMaxRelevancy(assertions[i]);
       d_visited.clear();
     }
 
   }
 
   bool isRelevant(TNode n) {
-    Trace("decision") << "isRelevant(" << n << ")" << std::endl;
+    Trace("decision") << "isRelevant(" << n << "): ";
+
     if(Debug.isOn("decision")) {
       if(d_maxRelevancy.find(n) == d_maxRelevancy.end()) {
         // we are becuase of not getting information about literals
@@ -254,12 +260,25 @@ public:
         cout << "isRelevant: WARNING: didn't find node when we should had" << std::endl;
       }      
     }
-    if(d_maxRelevancy.find(n) == d_maxRelevancy.end()) return true;
-    if(d_relevancyLeaves && !isAtomicFormula(n)) return false;
+
+    if(d_maxRelevancy.find(n) == d_maxRelevancy.end()) {
+      Trace("decision") << "yes [not found in db]" << std::endl;
+      return true;
+    }
+    
+    if(d_opt.relevancyLeaves && !isAtomicFormula(n)) {
+      Trace("decision") << "no [not a leaf]" << std::endl;
+      return false;
+    }
+
+    Trace("decision") << (d_maxRelevancy[n] == d_relevancy[n] ? "no":"yes")
+                      << std::endl;
+
     Debug("decision") << " maxRel: " << (d_maxRelevancy[n] )
                       << " rel: " << d_relevancy[n].get() << std::endl;
     // Assert(d_maxRelevancy.find(n) != d_maxRelevancy.end());
     Assert(0 <= d_relevancy[n] && d_relevancy[n] <= d_maxRelevancy[n]);
+
     if(d_maxRelevancy[n] == d_relevancy[n]) {
       ++d_helfulness; // preventedDecisions
       return false;

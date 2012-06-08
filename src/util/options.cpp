@@ -61,7 +61,9 @@ CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
 /** default decision options */
 const Options::DecisionOptions defaultDecOpt = {
   false,                        // relevancyLeaves
-  1000                          // maxRelTimeAsPermille
+  1000,                         // maxRelTimeAsPermille
+  true,                         // computeRelevancy
+  false,                        // mustRelevancy
 };
 
 Options::Options() :
@@ -292,6 +294,16 @@ relevancy\n\
 \n\
 relevancy-leaves\n\
 + May-relevancy, but decide only on leaves\n\
+\n\
+Developer modes:\n\
+\n\
+justification-rel\n\
++ Use the relevancy code to do the justification stuff\n\
++ (This should do exact same thing as justification)\n\
+\n\
+justification-must\n\
++ Start deciding on literals close to root instead of those\n\
++ near leaves (don't expect it to work well) [Unimplemented]\n\
 ";
 
 static const string dumpHelp = "\
@@ -867,6 +879,20 @@ throw(OptionException) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;
         decisionOptions.relevancyLeaves = true;
+      } else if(!strcmp(optarg, "justification-rel")) {
+        decisionMode = DECISION_STRATEGY_RELEVANCY;
+        decisionModeSetByUser = true;
+        // relevancyLeaves : irrelevant
+        // maxRelTimeAsPermille : irrelevant
+        decisionOptions.computeRelevancy = false;
+        decisionOptions.mustRelevancy = false;
+      } else if(!strcmp(optarg, "justification-must")) {
+        decisionMode = DECISION_STRATEGY_RELEVANCY;
+        decisionModeSetByUser = true;
+        // relevancyLeaves : irrelevant
+        // maxRelTimeAsPermille : irrelevant
+        decisionOptions.computeRelevancy = false;
+        decisionOptions.mustRelevancy = true;
       } else if(!strcmp(optarg, "help")) {
         puts(decisionHelp.c_str());
         exit(1);
