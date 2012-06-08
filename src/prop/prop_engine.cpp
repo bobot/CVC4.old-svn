@@ -251,6 +251,10 @@ void PropEngine::pop() {
   Debug("prop") << "pop()" << endl;
 }
 
+unsigned PropEngine::getAssertionLevel() const {
+  return d_satSolver->getAssertionLevel();
+}
+
 bool PropEngine::isRunning() const {
   return d_inCheckSat;
 }
