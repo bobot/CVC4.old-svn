@@ -245,7 +245,7 @@ class TheoryArrays : public Theory {
     }
 
     bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) {
-      Debug("arrays::propagate") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyTriggerTermEquality(" << t1 << ", " << t2 << ")" << std::endl;
+      Debug("arrays::propagate") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyTriggerTermEquality(" << t1 << ", " << t2 << ", " << (value ? "true" : "false") << ")" << std::endl;
       if (value) {
         if (t1.getType().isArray()) {
           d_arrays.mergeArrays(t1, t2);
@@ -255,19 +255,23 @@ class TheoryArrays : public Theory {
         }
         // Propagate equality between shared terms
         Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
-        d_arrays.propagate(equality);
+        return d_arrays.propagate(equality);
+      } else {
+        if (t1.getType().isArray()) {
+          if (!d_arrays.isShared(t1) || !d_arrays.isShared(t2)) {
+            return true;
+          }
+        }
+        Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
+        return d_arrays.propagate(equality.notNode());
       }
-      // TODO: implement negation propagation
       return true;
     }
 
     bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
       Debug("arrays::propagate") << spaces(d_arrays.getSatContext()->getLevel()) << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << ")" << std::endl;
-      if (Theory::theoryOf(t1) == THEORY_BOOL) {
-        return d_arrays.propagate(t1.iffNode(t2));
-      } else {
-        return d_arrays.propagate(t1.eqNode(t2));
-      }
+      d_arrays.conflict(t1, t2);
+      return false;
     }
   };
 
@@ -277,8 +281,11 @@ class TheoryArrays : public Theory {
   /** Equaltity engine */
   eq::EqualityEngine d_equalityEngine;
 
-  // Are we in conflict?
+  /** Are we in conflict? */
   context::CDO<bool> d_conflict;
+
+  /** Conflict when merging constants */
+  void conflict(TNode a, TNode b);
 
   /** The conflict node */
   Node d_conflictNode;

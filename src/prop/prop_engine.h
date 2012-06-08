@@ -252,6 +252,11 @@ public:
   void pop();
 
   /**
+   * Get the assertion level of the SAT solver.
+   */
+  unsigned getAssertionLevel() const;
+
+  /**
    * Return true if we are currently searching (either in this or
    * another thread).
    */

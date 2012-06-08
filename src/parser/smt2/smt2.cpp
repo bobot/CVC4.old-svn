@@ -17,6 +17,7 @@
  **/
 
 #include "expr/type.h"
+#include "expr/command.h"
 #include "parser/parser.h"
 #include "parser/smt/smt.h"
 #include "parser/smt2/smt2.h"
@@ -166,6 +167,20 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_BITVECTORS);
     break;
 
+  case Smt::QF_AUFBVLIA:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_BITVECTORS);
+    addTheory(THEORY_INTS);
+    break;
+
+  case Smt::QF_AUFBVLRA:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_BITVECTORS);
+    addTheory(THEORY_REALS);
+    break;
+
   case Smt::QF_AUFLIA:
     addTheory(THEORY_ARRAYS);
     addOperator(kind::APPLY_UF);
@@ -177,6 +192,16 @@ void Smt2::setLogic(const std::string& name) {
     addOperator(kind::APPLY_UF);
     addTheory(THEORY_INTS);
     addTheory(THEORY_REALS);
+    break;
+
+  case Smt::ALL_SUPPORTED:
+    /* fall through */
+  case Smt::QF_ALL_SUPPORTED:
+    addTheory(THEORY_ARRAYS);
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_REALS);
+    addTheory(THEORY_BITVECTORS);
     break;
 
   case Smt::AUFLIA:
@@ -195,6 +220,23 @@ void Smt2::setInfo(const std::string& flag, const SExpr& sexpr) {
 
 void Smt2::setOption(const std::string& flag, const SExpr& sexpr) {
   // TODO: ???
+}
+
+void Smt2::checkThatLogicIsSet() {
+  if( ! logicIsSet() ) {
+    if( strictModeEnabled() ) {
+      parseError("set-logic must appear before this point.");
+    } else {
+      warning("No set-logic command was given before this point.");
+      warning("CVC4 will assume the non-standard ALL_SUPPORTED logic.");
+      warning("Consider setting a stricter logic for (likely) better performance.");
+      warning("To suppress this warning in the future use (set-logic ALL_SUPPORTED).");
+
+      setLogic("ALL_SUPPORTED");
+
+      preemptCommand(new SetBenchmarkLogicCommand("ALL_SUPPORTED"));
+    }
+  }
 }
 
 }/* CVC4::parser namespace */

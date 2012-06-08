@@ -42,6 +42,8 @@ public:
     LRA,
     QF_ABV,
     QF_AUFBV,
+    QF_AUFBVLIA,
+    QF_AUFBVLRA,
     QF_AUFLIA,
     QF_AUFLIRA,
     QF_AX,
@@ -63,7 +65,9 @@ public:
     QF_UFNIRA, // nonstandard
     QF_UFNRA,
     UFLRA,
-    UFNIA
+    UFNIA,
+    QF_ALL_SUPPORTED, // nonstandard
+    ALL_SUPPORTED // nonstandard
   };
 
   enum Theory {
