@@ -812,6 +812,7 @@ Result doSmt(SmtEngine &smt, Command *cmd, Options &options) {
     *pOptions->err << "CVC4 threw an exception of unknown type." << endl;
     return Result(Result::SAT_UNKNOWN, Result::UNKNOWN_REASON);
   }
+  return Result::SAT_UNKNOWN;
 }
 
 template<typename T>

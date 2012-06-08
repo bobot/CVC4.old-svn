@@ -36,8 +36,6 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
-  d_equalityEngine.addFunctionKind(kind::EQUAL);
-
 }/* TheoryUF::TheoryUF() */
 
 static Node mkAnd(const std::vector<TNode>& conjunctions) {
@@ -334,7 +332,7 @@ EqualityStatus TheoryUF::getEqualityStatus(TNode a, TNode b) {
   }
 
   // Check for disequality
-  if (d_equalityEngine.areDisequal(a, b)) {
+  if (d_equalityEngine.areDisequal(a, b, false)) {
     // The terms are implied to be dis-equal
     return EQUALITY_FALSE;
   }
@@ -345,7 +343,7 @@ EqualityStatus TheoryUF::getEqualityStatus(TNode a, TNode b) {
 
 void TheoryUF::addSharedTerm(TNode t) {
   Debug("uf::sharing") << "TheoryUF::addSharedTerm(" << t << ")" << std::endl;
-  d_equalityEngine.addTriggerTerm(t);
+  d_equalityEngine.addTriggerTerm(t, THEORY_UF);
 }
 
 void TheoryUF::computeCareGraph() {
@@ -390,29 +388,27 @@ void TheoryUF::computeCareGraph() {
 
           Debug("uf::sharing") << "TheoryUf::computeCareGraph(): checking arguments " << x << " and " << y << std::endl;
 
-          EqualityStatus eqStatusUf = getEqualityStatus(x, y);
-
-          if (eqStatusUf == EQUALITY_FALSE) {
+          if (d_equalityEngine.areDisequal(x, y, false)) {
             // Mark that there is a dis-equal pair and break
             somePairIsDisequal = true;
             Debug("uf::sharing") << "TheoryUf::computeCareGraph(): disequal, disregarding all" << std::endl;
             break;
           }
 
-          if (eqStatusUf == EQUALITY_TRUE) {
+          if (d_equalityEngine.areEqual(x, y)) {
             // We don't need this one
             Debug("uf::sharing") << "TheoryUf::computeCareGraph(): equal" << std::endl;
             continue;
           }
 
-          if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
+          if (!d_equalityEngine.isTriggerTerm(x, THEORY_UF) || !d_equalityEngine.isTriggerTerm(y, THEORY_UF)) {
             // Not connected to shared terms, we don't care
             continue;
           }
 
           // Get representative trigger terms
-          TNode x_shared = d_equalityEngine.getTriggerTermRepresentative(x);
-          TNode y_shared = d_equalityEngine.getTriggerTermRepresentative(y);
+          TNode x_shared = d_equalityEngine.getTriggerTermRepresentative(x, THEORY_UF);
+          TNode y_shared = d_equalityEngine.getTriggerTermRepresentative(y, THEORY_UF);
 
           EqualityStatus eqStatusDomain = d_valuation.getEqualityStatus(x_shared, y_shared);
           switch (eqStatusDomain) {

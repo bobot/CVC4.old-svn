@@ -51,7 +51,7 @@ namespace CVC4 {
 struct NodeTheoryPair {
   Node node;
   theory::TheoryId theory;
-  NodeTheoryPair(Node node, theory::TheoryId theory)
+  NodeTheoryPair(TNode node, theory::TheoryId theory)
   : node(node), theory(theory) {}
   NodeTheoryPair()
   : theory(theory::THEORY_LAST) {}
@@ -499,12 +499,6 @@ public:
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
     d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo);
   }
-
-  /**
-   * Sets the logic (SMT-LIB format).  All theory specific setup/hacks
-   * should go in here.
-   */
-  void setLogic(std::string logic);
 
   inline void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
