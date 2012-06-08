@@ -140,10 +140,6 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
       out << "(subtype " << n.getConst<Predicate>() << ')';
       break;
 
-    case kind::DATATYPE_TYPE:
-      out << n.getConst<Datatype>().getName();
-      break;
-
     default:
       // fall back on whatever operator<< does on underlying type; we
       // might luck out and be SMT-LIB v2 compliant
@@ -163,7 +159,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
 
   bool stillNeedToPrintParams = true;
   // operator
-  if(n.getNumChildren() != 0) out << '(';
+  out << '(';
   switch(Kind k = n.getKind()) {
     // builtin theory
   case kind::APPLY: break;
@@ -278,7 +274,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
       out << ' ';
     }
   }
-  if(n.getNumChildren() != 0) out << ')';
+  out << ')';
 }/* Smt2Printer::toStream(TNode) */
 
 static string smtKindString(Kind k) throw() {
@@ -428,8 +424,7 @@ void Smt2Printer::toStream(std::ostream& out, const Command* c,
      tryToStream<GetOptionCommand>(out, c) ||
      tryToStream<DatatypeDeclarationCommand>(out, c) ||
      tryToStream<CommentCommand>(out, c) ||
-     tryToStream<EmptyCommand>(out, c) ||
-     tryToStream<MappingCommand>(out, c)) {
+     tryToStream<EmptyCommand>(out, c)) {
     return;
   }
 
@@ -437,29 +432,6 @@ void Smt2Printer::toStream(std::ostream& out, const Command* c,
       << typeid(*c).name() << endl;
 
 }/* Smt2Printer::toStream(Command*) */
-
-static void toStream(std::ostream& out, const SExpr& sexpr) throw() {
-  if(sexpr.isInteger()) {
-    out << sexpr.getIntegerValue();
-  } else if(sexpr.isRational()) {
-    out << sexpr.getRationalValue();
-  } else if(sexpr.isString()) {
-    string s = sexpr.getValue();
-    // escape backslash and quote
-    for(size_t i = 0; i < s.length(); ++i) {
-      if(s[i] == '"') {
-        s.replace(i, 1, "\\\"");
-        ++i;
-      } else if(s[i] == '\\') {
-        s.replace(i, 1, "\\\\");
-        ++i;
-      }
-    }
-    out << "\"" << s << "\"";
-  } else {
-    out << sexpr;
-  }
-}
 
 template <class T>
 static bool tryToStream(std::ostream& out, const CommandStatus* s) throw();
@@ -545,23 +517,19 @@ static void toStream(std::ostream& out, const DeclareFunctionCommand* c) throw()
 static void toStream(std::ostream& out, const DefineFunctionCommand* c) throw() {
   Expr func = c->getFunction();
   const vector<Expr>& formals = c->getFormals();
-  out << "(define-fun " << func << " (";
-  Type type = func.getType();
-  if(type.isFunction()) {
-    vector<Expr>::const_iterator i = formals.begin();
-    for(;;) {
-      out << "(" << (*i) << " " << (*i).getType() << ")";
-      ++i;
-      if(i != formals.end()) {
-        out << " ";
-      } else {
-        break;
-      }
-    }
-    type = FunctionType(type).getRangeType();
-  }
   Expr formula = c->getFormula();
-  out << ") " << type << " " << formula << ")";
+  out << "(define-fun " << func << " (";
+  vector<Expr>::const_iterator i = formals.begin();
+  for(;;) {
+    out << "(" << (*i) << " " << (*i).getType() << ")";
+    ++i;
+    if(i != formals.end()) {
+      out << " ";
+    } else {
+      break;
+    }
+  }
+  out << ") " << FunctionType(func.getType()).getRangeType() << " " << formula << ")";
 }
 
 static void toStream(std::ostream& out, const DeclareTypeCommand* c) throw() {
@@ -614,9 +582,7 @@ static void toStream(std::ostream& out, const SetBenchmarkLogicCommand* c) throw
 }
 
 static void toStream(std::ostream& out, const SetInfoCommand* c) throw() {
-  out << "(set-info " << c->getFlag() << " ";
-  toStream(out, c->getSExpr());
-  out << ")";
+  out << "(set-info " << c->getFlag() << " " << c->getSExpr() << ")";
 }
 
 static void toStream(std::ostream& out, const GetInfoCommand* c) throw() {
@@ -624,9 +590,7 @@ static void toStream(std::ostream& out, const GetInfoCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const SetOptionCommand* c) throw() {
-  out << "(set-option " << c->getFlag() << " ";
-  toStream(out, c->getSExpr());
-  out << ")";
+  out << "(set-option " << c->getFlag() << " " << c->getSExpr() << ")";
 }
 
 static void toStream(std::ostream& out, const GetOptionCommand* c) throw() {
@@ -635,29 +599,16 @@ static void toStream(std::ostream& out, const GetOptionCommand* c) throw() {
 
 static void toStream(std::ostream& out, const DatatypeDeclarationCommand* c) throw() {
   const vector<DatatypeType>& datatypes = c->getDatatypes();
-  out << "(declare-datatypes (";
+  out << "DatatypeDeclarationCommand([";
   for(vector<DatatypeType>::const_iterator i = datatypes.begin(),
         i_end = datatypes.end();
       i != i_end;
       ++i) {
-
-    const Datatype & d = i->getDatatype();
-
-    out << "(" << d.getName() << "  ";
-    for(Datatype::const_iterator ctor = d.begin(), ctor_end = d.end();
-        ctor != ctor_end; ++ctor){
-      out << "(" << ctor->getName() << " ";
-
-      for(DatatypeConstructor::const_iterator arg = ctor->begin(), arg_end = ctor->end();
-          arg != arg_end; ++arg){
-        out << "(" << arg->getSelector() << " "
-            << static_cast<SelectorType>(arg->getType()).getRangeType() << ")";
-      }
-      out << ") ";
-    }
-    out << ")" << endl;
+    out << *i << ";" << endl;
   }
-  out << "))";
+  out << "])";
+
+  out << "ERROR: don't know how to output datatype declaration command" << endl;
 }
 
 static void toStream(std::ostream& out, const CommentCommand* c) throw() {
@@ -665,10 +616,6 @@ static void toStream(std::ostream& out, const CommentCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const EmptyCommand* c) throw() {
-}
-
-static void toStream(std::ostream& out, const MappingCommand* c) throw() {
-  out << "(assert (= " << c->getBoolvar() << " " << c->getExpr() << ") )";
 }
 
 template <class T>

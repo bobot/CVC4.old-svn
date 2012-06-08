@@ -140,10 +140,6 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       }
       break;
 
-    case kind::DATATYPE_TYPE:
-      out << n.getConst<Datatype>().getName();
-      break;
-
     default:
       Warning() << "Constant printing not implemented for the case of " << n.getKind() << endl;
       out << n.getKind();
@@ -177,7 +173,6 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       toStream(out, n[1], depth, types, true);
       out << " ELSE ";
       toStream(out, n[2], depth, types, true);
-      out << " ENDIF";
       return;
       break;
     case kind::TUPLE_TYPE:
@@ -242,18 +237,18 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
         if (n.getNumChildren() > 2) {
           out << '(';
         }
-        for (unsigned i = 1; i < n.getNumChildren(); ++i) {
-          if (i > 1) {
+        for (unsigned i = 0; i < n.getNumChildren(); ++ i) {
+          if (i > 0) {
             out << ", ";
           }
-          toStream(out, n[i - 1], depth, types, false);
+          toStream(out, n[i], depth, types, false);
         }
         if (n.getNumChildren() > 2) {
           out << ')';
         }
       }
       out << " -> ";
-      toStream(out, n[n.getNumChildren() - 1], depth, types, false);
+      toStream(out, n[n.getNumChildren()-1], depth, types, false);
       return;
       break;
 
@@ -610,8 +605,7 @@ void CvcPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<GetOptionCommand>(out, c) ||
      tryToStream<DatatypeDeclarationCommand>(out, c) ||
      tryToStream<CommentCommand>(out, c) ||
-     tryToStream<EmptyCommand>(out, c) ||
-     tryToStream<MappingCommand>(out, c)) {
+     tryToStream<EmptyCommand>(out, c)) {
     return;
   }
 
@@ -635,29 +629,6 @@ void CvcPrinter::toStream(std::ostream& out, const CommandStatus* s) const throw
       << typeid(*s).name() << endl;
 
 }/* CvcPrinter::toStream(CommandStatus*) */
-
-static void toStream(std::ostream& out, const SExpr& sexpr) throw() {
-  if(sexpr.isInteger()) {
-    out << sexpr.getIntegerValue();
-  } else if(sexpr.isRational()) {
-    out << sexpr.getRationalValue();
-  } else if(sexpr.isString()) {
-    string s = sexpr.getValue();
-    // escape backslash and quote
-    for(string::iterator i = s.begin(); i != s.end(); ++i) {
-      if(*i == '"') {
-        s.replace(i, i + 1, "\\\"");
-        ++i;
-      } else if(*i == '\\') {
-        s.replace(i, i + 1, "\\\\");
-        ++i;
-      }
-    }
-    out << "\"" << s << "\"";
-  } else {
-    out << sexpr;
-  }
-}
 
 static void toStream(std::ostream& out, const AssertCommand* c) throw() {
   out << "ASSERT " << c->getExpr() << ";";
@@ -785,9 +756,7 @@ static void toStream(std::ostream& out, const SetBenchmarkLogicCommand* c) throw
 }
 
 static void toStream(std::ostream& out, const SetInfoCommand* c) throw() {
-  out << "% (set-info " << c->getFlag() << " ";
-  toStream(out, c->getSExpr());
-  out << ")";
+  out << "% (set-info " << c->getFlag() << " " << c->getSExpr() << ")";
 }
 
 static void toStream(std::ostream& out, const GetInfoCommand* c) throw() {
@@ -795,9 +764,7 @@ static void toStream(std::ostream& out, const GetInfoCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const SetOptionCommand* c) throw() {
-  out << "% (set-option " << c->getFlag() << " ";
-  toStream(out, c->getSExpr());
-  out << ")";
+  out << "% (set-option " << c->getFlag() << " " << c->getSExpr() << ")";
 }
 
 static void toStream(std::ostream& out, const GetOptionCommand* c) throw() {
@@ -819,14 +786,6 @@ static void toStream(std::ostream& out, const CommentCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const EmptyCommand* c) throw() {
-}
-
-static void toStream(std::ostream& out, const MappingCommand* c) throw() {
-  NodeBuilder<> b(kind::IFF);
-  b << c->getBoolvar() << c->getExpr();
-  Node n(b);
-  AssertCommand c2 = AssertCommand(n.toExpr());
-  tryToStream<AssertCommand>( out, &c2 );
 }
 
 template <class T>

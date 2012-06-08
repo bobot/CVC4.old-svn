@@ -25,6 +25,7 @@
 #include "theory/arrays/array_info.h"
 #include "util/stats.h"
 #include "theory/uf/equality_engine.h"
+#include "context/cdchunk_list.h"
 #include "context/cdhashmap.h"
 #include "context/cdhashset.h"
 #include "context/cdqueue.h"
@@ -149,8 +150,9 @@ class TheoryArrays : public Theory {
   // List of facts learned by preprocessor - needed for permanent ref for benefit of d_ppEqualityEngine
   context::CDList<Node> d_ppFacts;
 
-  Node preprocessTerm(TNode term);
-  Node recursivePreprocessTerm(TNode term);
+  typedef context::CDChunkList<TNode> CTNodeListAlloc;
+  typedef context::CDHashMap<Node, CTNodeListAlloc*, NodeHashFunction> CNodeTNodesMap;
+  typedef context::CDHashMap<TNode, List<TNode>*, TNodeHashFunction > EqLists;
 
   public:
 

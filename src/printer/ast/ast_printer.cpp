@@ -130,8 +130,7 @@ void AstPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<SetOptionCommand>(out, c) ||
      tryToStream<GetOptionCommand>(out, c) ||
      tryToStream<DatatypeDeclarationCommand>(out, c) ||
-     tryToStream<CommentCommand>(out, c) ||
-     tryToStream<MappingCommand>(out, c)) {
+     tryToStream<CommentCommand>(out, c)) {
     return;
   }
 
@@ -297,10 +296,6 @@ static void toStream(std::ostream& out, const DatatypeDeclarationCommand* c) thr
 
 static void toStream(std::ostream& out, const CommentCommand* c) throw() {
   out << "CommentCommand([" << c->getComment() << "])";
-}
-
-static void toStream(std::ostream& out, const MappingCommand* c) throw() {
-  out << "MappingCommand(" << c->getBoolvar() << "," << c->getExpr() << ")";
 }
 
 template <class T>
