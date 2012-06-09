@@ -21,6 +21,9 @@
 #ifndef __CVC4__EXPR__OPTIONS_HANDLERS_H
 #define __CVC4__EXPR__OPTIONS_HANDLERS_H
 
+#include "util/output.h"
+#include "util/dump.h"
+
 namespace CVC4 {
 namespace expr {
 
@@ -33,6 +36,22 @@ inline void setDefaultExprDepth(std::string option, std::string optarg, SmtEngin
   Chat.getStream() << Expr::setdepth(depth);
   Message.getStream() << Expr::setdepth(depth);
   Warning.getStream() << Expr::setdepth(depth);
+  // intentionally exclude Dump stream from this list
+}
+
+inline void setDefaultDagThresh(std::string option, std::string optarg, SmtEngine* smt) {
+  int dag = atoi(optarg.c_str());
+  if(dag < 0) {
+    throw OptionException("--default-dag-thresh requires a nonnegative argument.");
+  }
+
+  Debug.getStream() << Expr::dag(dag);
+  Trace.getStream() << Expr::dag(dag);
+  Notice.getStream() << Expr::dag(dag);
+  Chat.getStream() << Expr::dag(dag);
+  Message.getStream() << Expr::dag(dag);
+  Warning.getStream() << Expr::dag(dag);
+  Dump.getStream() << Expr::dag(dag);
 }
 
 inline void setPrintExprTypes(std::string option, SmtEngine* smt) {
@@ -42,6 +61,7 @@ inline void setPrintExprTypes(std::string option, SmtEngine* smt) {
   Chat.getStream() << Expr::printtypes(true);
   Message.getStream() << Expr::printtypes(true);
   Warning.getStream() << Expr::printtypes(true);
+  // intentionally exclude Dump stream from this list
 }
 
 }/* CVC4::expr namespace */
