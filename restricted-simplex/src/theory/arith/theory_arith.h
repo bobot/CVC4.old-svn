@@ -485,6 +485,8 @@ private:
     TimerStat d_boundComputationTime;
     IntStat d_boundComputations, d_boundPropagations;
 
+    IntStat d_unknownChecks;
+
     Statistics();
     ~Statistics();
   };

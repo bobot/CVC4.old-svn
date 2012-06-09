@@ -101,7 +101,8 @@ TheoryArith::Statistics::Statistics():
   d_restartTimer("theory::arith::restartTimer"),
   d_boundComputationTime("theory::arith::bound::time"),
   d_boundComputations("theory::arith::bound::boundComputations",0),
-  d_boundPropagations("theory::arith::bound::boundPropagations",0)
+  d_boundPropagations("theory::arith::bound::boundPropagations",0),
+  d_unknownChecks("theory::arith::unknownCheckResults", 0)
 {
   StatisticsRegistry::registerStat(&d_statAssertUpperConflicts);
   StatisticsRegistry::registerStat(&d_statAssertLowerConflicts);
@@ -126,6 +127,8 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_boundComputationTime);
   StatisticsRegistry::registerStat(&d_boundComputations);
   StatisticsRegistry::registerStat(&d_boundPropagations);
+
+  StatisticsRegistry::registerStat(&d_unknownChecks);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -152,6 +155,8 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_boundComputationTime);
   StatisticsRegistry::unregisterStat(&d_boundComputations);
   StatisticsRegistry::unregisterStat(&d_boundPropagations);
+
+  StatisticsRegistry::unregisterStat(&d_unknownChecks);
 }
 
 void TheoryArith::revertOutOfConflict(){
@@ -1193,6 +1198,7 @@ void TheoryArith::check(Effort effortLevel){
     d_partialModel.commitAssignmentChanges();
     break;
   case Result::SAT_UNKNOWN:
+    ++(d_statistics.d_unknownChecks);
     Assert(!fullEffort(effortLevel));
     d_partialModel.commitAssignmentChanges();
     break;
@@ -1500,6 +1506,7 @@ void TheoryArith::propagate(Effort e) {
 }
 
 bool TheoryArith::getDeltaAtomValue(TNode n) {
+  Assert(d_simplexStatus != Result::SAT_UNKNOWN);
 
   switch (n.getKind()) {
     case kind::EQUAL: // 2 args
@@ -1519,7 +1526,7 @@ bool TheoryArith::getDeltaAtomValue(TNode n) {
 
 
 DeltaRational TheoryArith::getDeltaValue(TNode n) {
-
+  Assert(d_simplexStatus != Result::SAT_UNKNOWN);
   Debug("arith::value") << n << std::endl;
 
   switch(n.getKind()) {
@@ -1743,7 +1750,9 @@ void TheoryArith::presolve(){
 }
 
 EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
-  if (getDeltaValue(a) == getDeltaValue(b)) {
+  if(d_simplexStatus == Result::SAT_UNKNOWN){
+    return EQUALITY_UNKNOWN;
+  }else if (getDeltaValue(a) == getDeltaValue(b)) {
     return EQUALITY_TRUE_IN_MODEL;
   } else {
     return EQUALITY_FALSE_IN_MODEL;
