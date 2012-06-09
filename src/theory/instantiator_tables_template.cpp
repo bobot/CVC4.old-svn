@@ -30,7 +30,7 @@ namespace theory {
 Instantiator* Theory::makeInstantiator(context::Context* c, theory::QuantifiersEngine* qe) {
   switch(d_id) {
 ${make_instantiator_cases}
-#line 40 "${template}"
+#line 34 "${template}"
   default:
     Unhandled(d_id);
   }
