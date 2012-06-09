@@ -361,13 +361,9 @@ public:
   }
 
   /**
-   * Destructs a Theory.  This implementation does nothing, but we
-   * need a virtual destructor for safety in case subclasses have a
-   * destructor.
+   * Destructs a Theory.
    */
-  virtual ~Theory() {
-    StatisticsRegistry::unregisterStat(&d_computeCareGraphTime);
-  }
+  virtual ~Theory();
 
   /**
    * Subclasses of Theory may add additional efforts.  DO NOT CHECK
@@ -826,7 +822,7 @@ public:
   bool isOwnerOf( Node f );
 public:
   Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th);
-  ~Instantiator();
+  virtual ~Instantiator();
 
   /** get quantifiers engine */
   QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }

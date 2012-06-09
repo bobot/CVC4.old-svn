@@ -173,6 +173,8 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
 }
 
 void TheoryRewriteRules::check(Effort level) {
+  CodeTimer codeTimer(d_theoryTime);
+
   Assert(d_ruleinsts_to_add.empty());
 
   while(!done()) {

@@ -52,97 +52,6 @@ int InstStrategy::doInstantiation( Node f, Theory::Effort effort, int e, int lim
   }
 }
 
-Instantiator::Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th) :
-d_quantEngine( qe ),
-d_th( th ){
-
-}
-
-Instantiator::~Instantiator(){
-}
-
-void Instantiator::resetInstantiationRound( Theory::Effort effort ){
-  for( int i=0; i<(int)d_instStrategies.size(); i++ ){
-    if( isActiveStrategy( d_instStrategies[i] ) ){
-      d_instStrategies[i]->resetInstantiationRound( effort );
-    }
-  }
-  processResetInstantiationRound( effort );
-}
-
-int Instantiator::doInstantiation( Node f, Theory::Effort effort, int e, int limitInst ){
-  if( hasConstraintsFrom( f ) ){
-    int origLemmas = d_quantEngine->getNumLemmasWaiting();
-    int status = process( f, effort, e, limitInst );
-    if( limitInst<=0 || (d_quantEngine->getNumLemmasWaiting()-origLemmas)<limitInst ){
-      if( d_instStrategies.empty() ){
-        Debug("inst-engine-inst") << "There are no instantiation strategies allocated." << std::endl;
-      }else{
-        for( int i=0; i<(int)d_instStrategies.size(); i++ ){
-          if( isActiveStrategy( d_instStrategies[i] ) ){
-            Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
-            //call the instantiation strategy's process method
-            int s_limitInst = limitInst>0 ? limitInst-(d_quantEngine->getNumLemmasWaiting()-origLemmas) : 0;
-            int s_status = d_instStrategies[i]->doInstantiation( f, effort, e, s_limitInst );
-            Debug("inst-engine-inst") << "  -> status is " << s_status << std::endl;
-            if( limitInst>0 && (d_quantEngine->getNumLemmasWaiting()-origLemmas)>=limitInst ){
-              Assert( (d_quantEngine->getNumLemmasWaiting()-origLemmas)==limitInst );
-              i = (int)d_instStrategies.size();
-              status = InstStrategy::STATUS_UNKNOWN;
-            }else{
-              InstStrategy::updateStatus( status, s_status );
-            }
-          }else{
-            Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " is not active." << std::endl;
-          }
-        }
-      }
-    }
-    return status;
-  }else{
-    Debug("inst-engine-inst") << "We have no constraints from this quantifier." << std::endl;
-    return InstStrategy::STATUS_SAT;
-  }
-}
-
-//void Instantiator::doInstantiation( int effort ){
-//  d_status = InstStrategy::STATUS_SAT;
-//  for( int q=0; q<d_quantEngine->getNumQuantifiers(); q++ ){
-//    Node f = d_quantEngine->getQuantifier( q );
-//    if( d_quantEngine->getActive( f ) && hasConstraintsFrom( f ) ){
-//      int d_quantStatus = process( f, effort );
-//      InstStrategy::updateStatus( d_status, d_quantStatus );
-//      for( int i=0; i<(int)d_instStrategies.size(); i++ ){
-//        if( isActiveStrategy( d_instStrategies[i] ) ){
-//          Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
-//          //call the instantiation strategy's process method
-//          d_quantStatus = d_instStrategies[i]->process( f, effort );
-//          Debug("inst-engine-inst") << "  -> status is " << d_quantStatus << std::endl;
-//          InstStrategy::updateStatus( d_status, d_quantStatus );
-//        }
-//      }
-//    }
-//  }
-//}
-
-void Instantiator::setHasConstraintsFrom( Node f ){
-  d_hasConstraints[f] = true;
-  if( !d_quantEngine->hasOwner( f ) ){
-    d_quantEngine->setOwner( f, getTheory() );
-  }else if( d_quantEngine->getOwner( f )!=getTheory() ){
-    d_quantEngine->setOwner( f, NULL );
-  }
-}
-
-bool Instantiator::hasConstraintsFrom( Node f ) {
-  return d_hasConstraints.find( f )!=d_hasConstraints.end() && d_hasConstraints[f];
-}
-
-bool Instantiator::isOwnerOf( Node f ){
-  return d_quantEngine->hasOwner( f ) && d_quantEngine->getOwner( f )==getTheory();
-}
-
-
 bool TermArgTrie::addTerm2( QuantifiersEngine* qe, Node n, int argIndex ){
   if( argIndex<(int)n.getNumChildren() ){
     Node r = qe->getEqualityQuery()->getRepresentative( n[ argIndex ] );
@@ -291,6 +200,8 @@ Instantiator* QuantifiersEngine::getInstantiator( int id ){
 }
 
 void QuantifiersEngine::check( Theory::Effort e ){
+  CodeTimer codeTimer(d_time);
+
   if( e==Theory::EFFORT_LAST_CALL ){
     ++(d_statistics.d_instantiation_rounds_lc);
   }else if( e==Theory::EFFORT_FULL ){
@@ -419,6 +330,8 @@ void QuantifiersEngine::assertNode( Node f ){
 }
 
 void QuantifiersEngine::propagate( Theory::Effort level ){
+  CodeTimer codeTimer(d_time);
+
   for( int i=0; i<(int)d_modules.size(); i++ ){
     d_modules[i]->propagate( level );
   }

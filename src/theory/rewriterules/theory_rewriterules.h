@@ -147,6 +147,8 @@ public:
 class TheoryRewriteRules : public Theory {
 private:
 
+  KEEP_STATISTIC(TimerStat, d_theoryTime, "theory::rewriterules::theoryTime");
+
   /** list of all rewrite rules */
   /* std::vector< Node > d_rules; */
   // typedef std::vector< std::pair<Node, Trigger > > Rules;

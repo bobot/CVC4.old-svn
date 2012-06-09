@@ -23,6 +23,7 @@
 
 #include "theory/theory.h"
 #include "util/hash.h"
+#include "util/stats.h"
 
 #include <ext/hash_set>
 #include <iostream>
@@ -44,6 +45,9 @@ private:
   int d_baseDecLevel;
   /** number of restarts */
   int d_numRestarts;
+
+  KEEP_STATISTIC(TimerStat, d_theoryTime, "theory::quantifiers::theoryTime");
+
 public:
   TheoryQuantifiers(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   ~TheoryQuantifiers();

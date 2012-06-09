@@ -74,12 +74,12 @@ public:
     return LemmaStatus(Node::null(), 0);
   }
 
-  void requirePhase(TNode, bool, bool = false)
+  void requirePhase(TNode, bool)
     throw(Interrupted, AssertionException) {
     Unreachable();
   }
 
-  bool flipDecision(bool = false)
+  bool flipDecision()
     throw(Interrupted, AssertionException) {
     Unreachable();
   }

@@ -229,6 +229,9 @@ private:
   void setInstantiationConstantAttr( Node n, Node f );
   /** make instantiation constants for */
   void makeInstantiationConstantsFor( Node f );
+
+  KEEP_STATISTIC(TimerStat, d_time, "theory::QuantifiersEngine::time");
+
 public:
   QuantifiersEngine(context::Context* c, TheoryEngine* te);
   ~QuantifiersEngine(){}

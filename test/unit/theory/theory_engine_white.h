@@ -60,10 +60,10 @@ class FakeOutputChannel : public OutputChannel {
   LemmaStatus lemma(TNode n, bool removable) throw(AssertionException) {
     Unimplemented();
   }
-  void requirePhase(TNode, bool, bool) throw(AssertionException) {
+  void requirePhase(TNode, bool) throw(AssertionException) {
     Unimplemented();
   }
-  bool flipDecision(bool) throw(AssertionException) {
+  bool flipDecision() throw(AssertionException) {
     Unimplemented();
   }
   void explanation(TNode n) throw(AssertionException) {

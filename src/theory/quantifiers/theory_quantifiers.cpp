@@ -98,6 +98,7 @@ Node TheoryQuantifiers::getValue(TNode n) {
 }
 
 void TheoryQuantifiers::check(Effort e) {
+  CodeTimer codeTimer(d_theoryTime);
 
   Debug("quantifiers-check") << "quantifiers::check(" << e << ")" << std::endl;
   while(!done()) {
@@ -124,11 +125,13 @@ void TheoryQuantifiers::check(Effort e) {
       break;
     }
   }
-  //call the quantifiers engine to check
+  // call the quantifiers engine to check
   getQuantifiersEngine()->check( e );
 }
 
 void TheoryQuantifiers::propagate(Effort level){
+  CodeTimer codeTimer(d_theoryTime);
+
   getQuantifiersEngine()->propagate( level );
 }
 
