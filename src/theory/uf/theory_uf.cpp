@@ -431,7 +431,8 @@ void TheoryUF::eqNotifyNewClass(TNode t) {
   if (d_thss != NULL) {
     d_thss->newEqClass(t);
   }
-  if (getLogicInfo().isQuantified()) {
+  // this can be called very early, during initialization
+  if (!getLogicInfo().isLocked() || getLogicInfo().isQuantified()) {
     ((InstantiatorTheoryUf*) getInstantiator())->newEqClass(t);
   }
 }

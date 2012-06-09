@@ -43,6 +43,7 @@ std::ostream& operator<<(std::ostream& out, const Command& c) throw() {
   c.toStream(out,
              Node::setdepth::getDepth(out),
              Node::printtypes::getPrintTypes(out),
+             Node::dag::getDag(out),
              Node::setlanguage::getLanguage(out));
   return out;
 }
@@ -101,9 +102,9 @@ std::string Command::toString() const throw() {
   return ss.str();
 }
 
-void Command::toStream(std::ostream& out, int toDepth, bool types,
+void Command::toStream(std::ostream& out, int toDepth, bool types, size_t dag,
                        OutputLanguage language) const throw() {
-  Printer::getPrinter(language)->toStream(out, this, toDepth, types);
+  Printer::getPrinter(language)->toStream(out, this, toDepth, types, dag);
 }
 
 void CommandStatus::toStream(std::ostream& out, OutputLanguage language) const throw() {
@@ -137,6 +138,35 @@ Command* EmptyCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollecti
 
 Command* EmptyCommand::clone() const {
   return new EmptyCommand(d_name);
+}
+
+/* class EchoCommand */
+
+EchoCommand::EchoCommand(std::string output) throw() :
+  d_output(output) {
+}
+
+std::string EchoCommand::getOutput() const throw() {
+  return d_output;
+}
+
+void EchoCommand::invoke(SmtEngine* smtEngine) throw() {
+  /* we don't have an output stream here, nothing to do */
+  d_commandStatus = CommandSuccess::instance();
+}
+
+void EchoCommand::invoke(SmtEngine* smtEngine, std::ostream& out) throw() {
+  out << d_output << std::endl;
+  d_commandStatus = CommandSuccess::instance();
+  printResult(out);
+}
+
+Command* EchoCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  return new EchoCommand(d_output);
+}
+
+Command* EchoCommand::clone() const {
+  return new EchoCommand(d_output);
 }
 
 /* class AssertCommand */
@@ -1071,7 +1101,7 @@ std::ostream& operator<<(std::ostream& out,
     return out << "unknown";
 
   default:
-    return out << "SetBenchmarkStatusCommand::[UNKNOWNSTATUS!]";
+    return out << "BenchmarkStatus::[UNKNOWNSTATUS!]";
   }
 }
 

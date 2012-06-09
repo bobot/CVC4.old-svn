@@ -205,7 +205,7 @@ public:
   virtual void invoke(SmtEngine* smtEngine) throw() = 0;
   virtual void invoke(SmtEngine* smtEngine, std::ostream& out) throw();
 
-  virtual void toStream(std::ostream& out, int toDepth = -1, bool types = false,
+  virtual void toStream(std::ostream& out, int toDepth = -1, bool types = false, size_t dag = 1,
                         OutputLanguage language = language::output::LANG_AST) const throw();
 
   std::string toString() const throw();
@@ -263,6 +263,19 @@ public:
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
 };/* class EmptyCommand */
+
+class CVC4_PUBLIC EchoCommand : public Command {
+protected:
+  std::string d_output;
+public:
+  EchoCommand(std::string output = "") throw();
+  ~EchoCommand() throw() {}
+  std::string getOutput() const throw();
+  void invoke(SmtEngine* smtEngine) throw();
+  void invoke(SmtEngine* smtEngine, std::ostream& out) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class EchoCommand */
 
 class CVC4_PUBLIC AssertCommand : public Command {
 protected:

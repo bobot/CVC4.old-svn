@@ -170,7 +170,7 @@ command returns [CVC4::Command* cmd = NULL]
     SET_LOGIC_TOK SYMBOL
     { name = AntlrInput::tokenText($SYMBOL);
       Debug("parser") << "set logic: '" << name << "'" << std::endl;
-      if( PARSER_STATE->strictModeEnabled() && PARSER_STATE->logicIsSet() ) {
+      if( PARSER_STATE->logicIsSet() ) {
         PARSER_STATE->parseError("Only one set-logic is allowed.");
       }
       PARSER_STATE->setLogic(name);
@@ -191,7 +191,8 @@ command returns [CVC4::Command* cmd = NULL]
     GET_OPTION_TOK KEYWORD
     { cmd = new GetOptionCommand(AntlrInput::tokenText($KEYWORD)); }
   | /* sort declaration */
-    DECLARE_SORT_TOK symbol[name,CHECK_UNDECLARED,SYM_SORT] n=INTEGER_LITERAL
+    DECLARE_SORT_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    symbol[name,CHECK_UNDECLARED,SYM_SORT] n=INTEGER_LITERAL
     { Debug("parser") << "declare sort: '" << name
                       << "' arity=" << n << std::endl;
       unsigned arity = AntlrInput::tokenToUnsigned(n);
@@ -204,7 +205,8 @@ command returns [CVC4::Command* cmd = NULL]
       }
     }
   | /* sort definition */
-    DEFINE_SORT_TOK symbol[name,CHECK_UNDECLARED,SYM_SORT]
+    DEFINE_SORT_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    symbol[name,CHECK_UNDECLARED,SYM_SORT]
     LPAREN_TOK symbolList[names,CHECK_NONE,SYM_SORT] RPAREN_TOK
     {
       PARSER_STATE->pushScope();
@@ -223,7 +225,8 @@ command returns [CVC4::Command* cmd = NULL]
       $cmd = new DefineTypeCommand(name, sorts, t);
     }
   | /* function declaration */
-    DECLARE_FUN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
+    DECLARE_FUN_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
     LPAREN_TOK sortList[sorts] RPAREN_TOK
     sortSymbol[t,CHECK_DECLARED]
     { Debug("parser") << "declare fun: '" << name << "'" << std::endl;
@@ -233,7 +236,8 @@ command returns [CVC4::Command* cmd = NULL]
       PARSER_STATE->mkVar(name, t);
       $cmd = new DeclareFunctionCommand(name, t); }
   | /* function definition */
-    DEFINE_FUN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
+    DEFINE_FUN_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
     LPAREN_TOK sortedVarList[sortedVarNames] RPAREN_TOK
     sortSymbol[t,CHECK_DECLARED]
     { /* add variables to parser state before parsing term */
@@ -266,11 +270,7 @@ command returns [CVC4::Command* cmd = NULL]
       $cmd = new DefineFunctionCommand(name, func, terms, expr);
     }
   | /* value query */
-    ( GET_VALUE_TOK
-      { if(PARSER_STATE->strictModeEnabled()) {
-          PARSER_STATE->parseError("Strict compliance mode doesn't recognize \"eval\".  Maybe you want (get-value...)?");
-        }
-      } )
+    GET_VALUE_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     LPAREN_TOK termList[terms,expr] RPAREN_TOK
     { if(terms.size() == 1) {
         $cmd = new GetValueCommand(terms[0]);
@@ -286,25 +286,26 @@ command returns [CVC4::Command* cmd = NULL]
       }
     }
   | /* get-assignment */
-    GET_ASSIGNMENT_TOK
+    GET_ASSIGNMENT_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { cmd = new GetAssignmentCommand; }
   | /* assertion */
-    ASSERT_TOK term[expr, expr2]
+    ASSERT_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    term[expr, expr2]
     { cmd = new AssertCommand(expr); }
   | /* checksat */
-    CHECKSAT_TOK
+    CHECKSAT_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { cmd = new CheckSatCommand(MK_CONST(bool(true))); }
   | /* get-assertions */
-    GET_ASSERTIONS_TOK
+    GET_ASSERTIONS_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { cmd = new GetAssertionsCommand; }
   | /* get-proof */
-    GET_PROOF_TOK
+    GET_PROOF_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { cmd = new GetProofCommand; }
   | /* get-unsat-core */
-    GET_UNSAT_CORE_TOK
+    GET_UNSAT_CORE_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { UNSUPPORTED("unsat cores not yet supported"); }
   | /* push */
-    PUSH_TOK
+    PUSH_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     ( k=INTEGER_LITERAL
       { unsigned n = AntlrInput::tokenToUnsigned(k);
         if(n == 0) {
@@ -325,7 +326,7 @@ command returns [CVC4::Command* cmd = NULL]
           cmd = new PushCommand;
         }
       } )
-  | POP_TOK
+  | POP_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     ( k=INTEGER_LITERAL
       { unsigned n = AntlrInput::tokenToUnsigned(k);
         if(n == 0) {
@@ -369,12 +370,20 @@ extendedCommand[CVC4::Command*& cmd]
 }
     /* Extended SMT-LIBv2 set of commands syntax, not permitted in
      * --smtlib2 compliance mode. */
-  : DECLARE_DATATYPES_TOK
+  : DECLARE_DATATYPES_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { /* open a scope to keep the UnresolvedTypes contained */
       PARSER_STATE->pushScope(); }
     LPAREN_TOK ( LPAREN_TOK datatypeDef[dts] RPAREN_TOK )+ RPAREN_TOK
     { PARSER_STATE->popScope();
       cmd = new DatatypeDeclarationCommand(PARSER_STATE->mkMutualDatatypeTypes(dts)); }
+  | ECHO_TOK
+    ( simpleSymbolicExpr[sexpr]
+      { std::stringstream ss;
+        ss << sexpr;
+        cmd = new EchoCommand(ss.str());
+      }
+    | { cmd = new EchoCommand(); }
+    )
   ;
 
 simpleSymbolicExpr[CVC4::SExpr& sexpr]
@@ -1031,6 +1040,7 @@ POP_TOK : 'pop';
 
 // extended commands
 DECLARE_DATATYPES_TOK : 'declare-datatypes';
+ECHO_TOK : 'echo';
 
 // attributes
 ATTRIBUTE_PATTERN_TOK : ':pattern';

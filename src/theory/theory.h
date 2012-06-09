@@ -495,6 +495,7 @@ public:
    * the actual computation, and use addCarePair to add pairs to the care graph.
    */
   void getCareGraph(CareGraph& careGraph) {
+    Trace("sharing") << "Theory<" << getId() << ">::getCareGraph()" << std::endl;
     TimerStat::CodeTimer computeCareGraphTime(d_computeCareGraphTime);
     d_careGraph = &careGraph;
     computeCareGraph();

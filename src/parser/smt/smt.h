@@ -66,7 +66,9 @@ public:
     QF_UFNRA,
     UFLRA,
     UFNIRA, // nonstandard
-    UFNIA
+    UFNIA,
+    QF_ALL_SUPPORTED, // nonstandard
+    ALL_SUPPORTED // nonstandard
   };
 
   enum Theory {

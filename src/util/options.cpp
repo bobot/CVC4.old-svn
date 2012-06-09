@@ -58,6 +58,14 @@ CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
 #  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
 #endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
 
+/** default decision options */
+const Options::DecisionOptions defaultDecOpt = {
+  false,                        // relevancyLeaves
+  1000,                         // maxRelTimeAsPermille
+  true,                         // computeRelevancy
+  false,                        // mustRelevancy
+};
+
 Options::Options() :
   binary_name(),
   statistics(false),
@@ -82,6 +90,7 @@ Options::Options() :
   simplificationModeSetByUser(false),
   decisionMode(DECISION_STRATEGY_INTERNAL),
   decisionModeSetByUser(false),
+  decisionOptions(DecisionOptions(defaultDecOpt)),
   doStaticLearning(true),
   doITESimp(false),
   doITESimpSetByUser(false),
@@ -154,6 +163,7 @@ Options::Options() :
 {
 }
 
+
 static const string mostCommonOptionsDescription = "\
 Most commonly-used CVC4 options:\n\
    --version | -V         identify this CVC4 binary\n\
@@ -203,10 +213,14 @@ Additional CVC4 options:\n\
    --show-trace-tags      show all avalable tags for tracing\n\
    --show-sat-solvers     show all available SAT solvers\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
+   --default-dag-thresh=N dagify common subexprs appearing > N times\n\
+                          (1 == default, 0 == don't dagify)\n\
    --print-expr-types     print types with variables when printing exprs\n\
    --lazy-definition-expansion expand define-funs/LAMBDAs lazily\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
    --decision=MODE        choose decision mode, see --decision=help\n\
+   --decision-budget=N    impose a budget for relevancy hueristic which increases linearly with\n\
+                          each decision. N between 0 and 1000. (default: 1000, no budget)\n\
    --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
    --ite-simp             turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
    --no-ite-simp          turn off ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
@@ -225,8 +239,8 @@ Additional CVC4 options:\n\
    --restart-int-inc=F    restart interval increase factor for the sat solver\n\
                           (F=3.0 by default)\n\
   ARITHMETIC:\n\
-   --arith-presolve-lemmas=MODE  determines which lemmas to add before solving\n\
-                          (default is 'all', see --arith-presolve-lemmas=help)\n\
+   ---unate-lemmas=MODE   determines which lemmas to add before solving\n\
+                          (default is 'all', see --unate-lemmas=help)\n\
    --arith-prop=MODE      turns on arithmetic propagation\n\
                           (default is 'old', see --arith-prop=help)\n\
    --pivot-rule=RULE      change the pivot rule for the basic variable\n\
@@ -316,6 +330,22 @@ internal (default)\n\
 \n\
 justification\n\
 + An ATGP-inspired justification heuristic\n\
+\n\
+relevancy\n\
++ Under development may-relevancy\n\
+\n\
+relevancy-leaves\n\
++ May-relevancy, but decide only on leaves\n\
+\n\
+Developer modes:\n\
+\n\
+justification-rel\n\
++ Use the relevancy code to do the justification stuff\n\
++ (This should do exact same thing as justification)\n\
+\n\
+justification-must\n\
++ Start deciding on literals close to root instead of those\n\
++ near leaves (don't expect it to work well) [Unimplemented]\n\
 ";
 
 static const string dumpHelp = "\
@@ -384,10 +414,10 @@ pipe to perform on-line checking.  The --dump-to option can be used to dump\n\
 to a file.\n\
 ";
 
-static const string arithPresolveLemmasHelp = "\
+static const string arithUnateLemmasHelp = "\
 Presolve lemmas are generated before SAT search begins using the relationship\n\
 of constant terms and polynomials.\n\
-Modes currently supported by the --arith-presolve-lemmas option:\n\
+Modes currently supported by the --unate-lemmas option:\n\
 + none \n\
 + ineqs \n\
   Outputs lemmas of the general form (<= p c) implies (<= p d) for c < d.\n\
@@ -466,11 +496,13 @@ enum OptionValue {
   SHOW_CONFIG,
   STRICT_PARSING,
   DEFAULT_EXPR_DEPTH,
+  DEFAULT_DAG_THRESH,
   PRINT_EXPR_TYPES,
   UF_THEORY,
   LAZY_DEFINITION_EXPANSION,
   SIMPLIFICATION_MODE,
   DECISION_MODE,
+  DECISION_BUDGET,
   NO_STATIC_LEARNING,
   ITE_SIMP,
   NO_ITE_SIMP,
@@ -587,11 +619,13 @@ static struct option cmdlineOptions[] = {
   { "mmap"       , no_argument      , NULL, USE_MMAP    },
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
   { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
+  { "default-dag-thresh", required_argument, NULL, DEFAULT_DAG_THRESH },
   { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
   { "uf"         , required_argument, NULL, UF_THEORY   },
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
   { "simplification", required_argument, NULL, SIMPLIFICATION_MODE },
   { "decision", required_argument, NULL, DECISION_MODE },
+  { "decision-budget", required_argument, NULL, DECISION_BUDGET },
   { "no-static-learning", no_argument, NULL, NO_STATIC_LEARNING },
   { "ite-simp", no_argument, NULL, ITE_SIMP },
   { "no-ite-simp", no_argument, NULL, NO_ITE_SIMP },
@@ -880,6 +914,22 @@ throw(OptionException) {
       }
       break;
 
+    case DEFAULT_DAG_THRESH:
+      {
+        int dag = atoi(optarg);
+        if(dag < 0) {
+          throw OptionException("--default-dag-thresh requires a nonnegative argument.");
+        }
+        Debug.getStream() << Expr::dag(dag);
+        Trace.getStream() << Expr::dag(dag);
+        Notice.getStream() << Expr::dag(dag);
+        Chat.getStream() << Expr::dag(dag);
+        Message.getStream() << Expr::dag(dag);
+        Warning.getStream() << Expr::dag(dag);
+        Dump.getStream() << Expr::dag(dag);
+      }
+      break;
+
     case PRINT_EXPR_TYPES:
       Debug.getStream() << Expr::printtypes(true);
       Trace.getStream() << Expr::printtypes(true);
@@ -919,6 +969,28 @@ throw(OptionException) {
       } else if(!strcmp(optarg, "justification")) {
         decisionMode = DECISION_STRATEGY_JUSTIFICATION;
         decisionModeSetByUser = true;
+      } else if(!strcmp(optarg, "relevancy")) {
+        decisionMode = DECISION_STRATEGY_RELEVANCY;
+        decisionModeSetByUser = true;
+        decisionOptions.relevancyLeaves = false;
+      } else if(!strcmp(optarg, "relevancy-leaves")) {
+        decisionMode = DECISION_STRATEGY_RELEVANCY;
+        decisionModeSetByUser = true;
+        decisionOptions.relevancyLeaves = true;
+      } else if(!strcmp(optarg, "justification-rel")) {
+        decisionMode = DECISION_STRATEGY_RELEVANCY;
+        decisionModeSetByUser = true;
+        // relevancyLeaves : irrelevant
+        // maxRelTimeAsPermille : irrelevant
+        decisionOptions.computeRelevancy = false;
+        decisionOptions.mustRelevancy = false;
+      } else if(!strcmp(optarg, "justification-must")) {
+        decisionMode = DECISION_STRATEGY_RELEVANCY;
+        decisionModeSetByUser = true;
+        // relevancyLeaves : irrelevant
+        // maxRelTimeAsPermille : irrelevant
+        decisionOptions.computeRelevancy = false;
+        decisionOptions.mustRelevancy = true;
       } else if(!strcmp(optarg, "help")) {
         puts(decisionHelp.c_str());
         exit(1);
@@ -926,6 +998,21 @@ throw(OptionException) {
         throw OptionException(string("unknown option for --decision: `") +
                               optarg + "'.  Try --decision help.");
       }
+      break;
+
+    case DECISION_BUDGET: {
+      int i = atoi(optarg);
+      if(i < 0 || i > 1000) {
+        throw OptionException(string("invalid value for --decision-budget: `") +
+                              optarg + "'. Must be between 0 and 1000.");
+      }
+      if(i == 0) {
+        Warning() << "Decision budget is 0. Consider using internal decision hueristic and "
+                  << std::endl << " removing this option." << std::endl;
+                  
+      }
+      decisionOptions.maxRelTimeAsPermille = (unsigned short)i;
+    }
       break;
 
     case NO_STATIC_LEARNING:
@@ -1251,11 +1338,11 @@ throw(OptionException) {
         arithUnateLemmaMode = EQUALITY_PRESOLVE_LEMMAS;
         break;
       } else if(!strcmp(optarg, "help")) {
-        puts(arithPresolveLemmasHelp.c_str());
+        puts(arithUnateLemmasHelp.c_str());
         exit(1);
       } else {
-        throw OptionException(string("unknown option for --arith-presolve-lemmas: `") +
-                              optarg + "'.  Try --arith-presolve-lemmas=help.");
+        throw OptionException(string("unknown option for --unate-lemmas: `") +
+                              optarg + "'.  Try --unate-lemmas=help.");
       }
       break;
 
