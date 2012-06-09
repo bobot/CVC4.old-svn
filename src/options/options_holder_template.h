@@ -30,10 +30,9 @@ namespace options {
 
 struct OptionsHolder {
   OptionsHolder();
+${all_modules_contributions}
 
-  ${all_modules_contributions}
-
-#line 37 "${template}"
+#line 36 "${template}"
 
 };/* struct OptionsHolder */
 

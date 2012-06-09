@@ -12,7 +12,9 @@ libdecision_la_SOURCES = \
 	decision_engine.cpp \
 	decision_strategy.h \
 	justification_heuristic.h \
-	justification_heuristic.cpp
+	justification_heuristic.cpp \
+	relevancy.h \
+	relevancy.cpp
 
 EXTRA_DIST = \
 	options_handlers.h

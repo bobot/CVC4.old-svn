@@ -39,7 +39,12 @@ enum DecisionMode {
   /**
    * Use the justification heuristic
    */
-  DECISION_STRATEGY_JUSTIFICATION
+  DECISION_STRATEGY_JUSTIFICATION,
+
+  /**
+   * Use may-relevancy.
+   */
+  DECISION_STRATEGY_RELEVANCY
 
 };/* enum DecisionMode */
 

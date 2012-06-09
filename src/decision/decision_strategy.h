@@ -27,8 +27,8 @@ namespace CVC4 {
 class DecisionEngine;
 
 namespace context {
-class Context;
-}
+  class Context;
+}/* CVC4::context namespace */
 
 namespace decision {
 
@@ -47,7 +47,7 @@ public:
   virtual bool needIteSkolemMap() { return false; }
   
   virtual void notifyAssertionsAvailable() { return; }
-};
+};/* class DecisionStrategy */
 
 class ITEDecisionStrategy : public DecisionStrategy {
 public:
@@ -61,9 +61,19 @@ public:
   virtual void addAssertions(const std::vector<Node> &assertions,
                              unsigned assertionsEnd,
                              IteSkolemMap iteSkolemMap) = 0;
-};
+};/* class ITEDecisionStrategy */
 
-}/* decision namespace */
+class RelevancyStrategy : public ITEDecisionStrategy {
+public:
+  RelevancyStrategy(DecisionEngine* de, context::Context *c) :
+    ITEDecisionStrategy(de, c) {
+  }
+
+  virtual bool isRelevant(TNode n) = 0;
+  virtual prop::SatValue getPolarity(TNode n) = 0;
+};/* class RelevancyStrategy */
+
+}/* CVC4::decision namespace */
 }/* CVC4 namespace */
 
 #endif /* __CVC4__DECISION__DECISION_STRATEGY_H */

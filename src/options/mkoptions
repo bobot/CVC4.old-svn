@@ -119,6 +119,9 @@ function module {
   remaining_documentation="${remaining_documentation}\\n\\n\"
 #line $lineno \"$kf\"
 \"$module_name options:"
+  remaining_manpage_documentation="${remaining_manpage_documentation}
+.SH `echo "$module_name" | tr a-z A-Z` OPTIONS
+"
 }
 
 function endmodule {
@@ -534,7 +537,7 @@ template <> void runBoolPredicates(options::${internal}__option_t, std::string o
     if [ "$type" = bool ]; then
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
-      assignBool(options::$internal, argv[old_optind], true, NULL);$run_links
+      assignBool(options::$internal, argv[old_optind == 0 ? 1 : old_optind], true, NULL);$run_links
       break;
 "
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
@@ -567,7 +570,7 @@ template <> options::${internal}__option_t::type runHandlerAndPredicates(options
 }"
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
-      assign(options::$internal, argv[old_optind], optarg, NULL);$run_links
+      assign(options::$internal, argv[old_optind == 0 ? 1 : old_optind], optarg, NULL);$run_links
       break;
 "
     elif [ -n "$expect_arg" ]; then
@@ -580,7 +583,7 @@ template <> options::${internal}__option_t::type runHandlerAndPredicates(options
         for handler in $handlers; do
           run_handlers="$run_handlers
 #line $lineno \"$kf\"
-      $handler(argv[old_optind], optarg, smt);"
+      $handler(argv[old_optind == 0 ? 1 : old_optind], optarg, smt);"
         done
       fi
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
@@ -598,7 +601,7 @@ template <> options::${internal}__option_t::type runHandlerAndPredicates(options
         for handler in $handlers; do
           run_handlers="$run_handlers
 #line $lineno \"$kf\"
-      $handler(argv[old_optind], smt);"
+      $handler(argv[old_optind == 0 ? 1 : old_optind], smt);"
         done
       fi
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
@@ -612,7 +615,7 @@ template <> options::${internal}__option_t::type runHandlerAndPredicates(options
     if [ "$type" = bool ]; then
       all_modules_option_handlers="${all_modules_option_handlers}${cases_alternate}
 #line $lineno \"$kf\"
-      assignBool(options::$internal, argv[old_optind], false, NULL);$run_links_alternate
+      assignBool(options::$internal, argv[old_optind == 0 ? 1 : old_optind], false, NULL);$run_links_alternate
       break;
 "
     else

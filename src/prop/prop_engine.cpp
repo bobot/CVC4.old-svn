@@ -23,6 +23,7 @@
 #include "prop/sat_solver_factory.h"
 
 #include "decision/decision_engine.h"
+#include "decision/options.h"
 #include "theory/theory_engine.h"
 #include "theory/theory_registrar.h"
 #include "util/Assert.h"
@@ -78,7 +79,11 @@ PropEngine::PropEngine(TheoryEngine* te, DecisionEngine *de, Context* context) :
   d_satSolver = SatSolverFactory::createDPLLMinisat(); 
 
   theory::TheoryRegistrar* registrar = new theory::TheoryRegistrar(d_theoryEngine);
-  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, registrar, options::threads() > 1);
+  d_cnfStream = new CVC4::prop::TseitinCnfStream
+    (d_satSolver, registrar, 
+     // fullLitToNode Map = 
+     options::threads() > 1 || 
+     options::decisionMode() == decision::DECISION_STRATEGY_RELEVANCY);
 
   d_satSolver->initialize(d_context, new TheoryProxy(this, d_theoryEngine, d_decisionEngine, d_context, d_cnfStream));
 
@@ -246,6 +251,10 @@ void PropEngine::pop() {
   Assert(!d_inCheckSat, "Sat solver in solve()!");
   d_satSolver->pop();
   Debug("prop") << "pop()" << endl;
+}
+
+unsigned PropEngine::getAssertionLevel() const {
+  return d_satSolver->getAssertionLevel();
 }
 
 bool PropEngine::isRunning() const {

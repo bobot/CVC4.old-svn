@@ -38,7 +38,6 @@ is connected to a terminal, interactive mode is assumed.
 .SH COMMON OPTIONS
 ${common_manpage_documentation}
 
-.SH OTHER OPTIONS
 ${remaining_manpage_documentation}
 
 .\".SH FILES

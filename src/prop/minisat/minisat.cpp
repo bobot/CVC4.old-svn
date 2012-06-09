@@ -72,6 +72,20 @@ SatValue MinisatSatSolver::toSatLiteralValue(Minisat::lbool res) {
   return SAT_VALUE_FALSE;
 }
 
+Minisat::lbool MinisatSatSolver::toMinisatlbool(SatValue val)
+{
+  if(val == SAT_VALUE_TRUE) return Minisat::lbool((uint8_t)0);
+  if(val == SAT_VALUE_UNKNOWN) return Minisat::lbool((uint8_t)2);
+  Assert(val == SAT_VALUE_FALSE);
+  return Minisat::lbool((uint8_t)1);
+}
+
+/*bool MinisatSatSolver::tobool(SatValue val)
+{
+  if(val == SAT_VALUE_TRUE) return true;
+  Assert(val == SAT_VALUE_FALSE);
+  return false;
+  }*/
 
 void MinisatSatSolver::toMinisatClause(SatClause& clause,
                                            Minisat::vec<Minisat::Lit>& minisat_clause) {
@@ -95,10 +109,15 @@ void MinisatSatSolver::initialize(context::Context* context, TheoryProxy* theory
 
   d_context = context;
 
+  if( options::decisionMode() != decision::DECISION_STRATEGY_INTERNAL ) {
+    Notice() << "minisat: Incremental solving is disabled"
+             << " unless using internal decision strategy." << std::endl;
+  }
+
   // Create the solver
   d_minisat = new Minisat::SimpSolver(theoryProxy, d_context,
                                       options::incrementalSolving() ||
-                                      options::decisionMode() == decision::DECISION_STRATEGY_JUSTIFICATION );
+                                      options::decisionMode() != decision::DECISION_STRATEGY_INTERNAL );
   // Setup the verbosity
   d_minisat->verbosity = (options::verbosity() > 0) ? 1 : -1;
 

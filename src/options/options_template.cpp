@@ -314,9 +314,28 @@ static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   argv[i][maxoptlen - 1] = '\0'; // ensure NUL-termination even on overflow
 }
 
+namespace options {
+
+/** Set a given Options* as "current" just for a particular scope. */
+class OptionsGuard {
+  Options** d_field;
+  Options* d_old;
+public:
+  OptionsGuard(Options** field, Options* opts) :
+    d_field(field),
+    d_old(*field) {
+    *field = opts;
+  }
+  ~OptionsGuard() {
+    *d_field = d_old;
+  }
+};/* class OptionsGuard */
+
+}/* CVC4::options namespace */
+
 /** Parse argc/argv and put the result into a CVC4::Options. */
 int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
-  s_current = this;
+  options::OptionsGuard guard(&s_current, this);
 
   const char *progName = argv[0];
   SmtEngine* const smt = NULL;
@@ -389,7 +408,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 393 "${template}"
+#line 412 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the
