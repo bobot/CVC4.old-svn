@@ -474,12 +474,12 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
     Trace("smt") << "setting repeat simplification to " << repeatSimp << std::endl;
     options::repeatSimp.set(repeatSimp);
   }
-  // Turn on unconstrained simplification for all but QF_SAT as long
-  // as we are not in incremental solving mode
-  if(! options::unconstrainedSimp.wasSetByUser() ||
-     options::incrementalSolving()) {
-    bool qf_sat = d_logic.isPure(theory::THEORY_BOOL) && !d_logic.isQuantified();
-    bool uncSimp = false && !qf_sat && !options::incrementalSolving();
+  // Turn on unconstrained simplification for QF_AUFBV
+  if(! options::unconstrainedSimp.wasSetByUser() || options::incrementalSolving()) {
+    //    bool qf_sat = d_logic.isPure(theory::THEORY_BOOL) && !d_logic.isQuantified();
+    //    bool uncSimp = false && !qf_sat && !options::incrementalSolving();
+    bool uncSimp = !options::incrementalSolving() && !d_logic.isQuantified() &&
+      (d_logic.isTheoryEnabled(theory::THEORY_ARRAY) && d_logic.isTheoryEnabled(theory::THEORY_BV));
     Trace("smt") << "setting unconstrained simplification to " << uncSimp << std::endl;
     options::unconstrainedSimp.set(uncSimp);
   }
