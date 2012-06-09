@@ -177,6 +177,7 @@ public:
     d_nm = new NodeManager(d_ctxt, NULL);
     d_scope = new NodeManagerScope(d_nm);
     d_logicInfo = new LogicInfo();
+    d_logicInfo->lock();
     d_dummy = new DummyTheory(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL), *d_logicInfo, NULL);
     d_outputChannel.clear();
     atom0 = d_nm->mkConst(true);
