@@ -77,6 +77,7 @@ private:
    */
   std::vector<Node> d_variables;
 
+
   /**
    * The map between arith variables to nodes.
    */
@@ -133,11 +134,19 @@ private:
   }
 
   /** This is the set of variables initially introduced as slack variables. */
-  std::vector<bool> d_slackVars;
+  DenseSet d_slackVariables;
+
+  /**
+   * This is the set of slack variables that do not currently have associated rows in the tableau.
+   * No variable in this set has an upper or lower bound.
+   * The value in d_partialModel for these variables is incorrect.
+   */
+  DenseSet d_requiresInitialization;
+  void setupSlackInTableau(ArithVar slack);
 
   /** Returns true if the variable was initially introduced as a slack variable. */
   inline bool isSlackVariable(ArithVar x) const{
-    return d_slackVars[x];
+    return d_slackVariables.isMember(x);
   }
 
   /**
@@ -215,21 +224,6 @@ private:
    */
   SubstitutionMap d_pbSubstitutions;
 
-  /** Counts the number of notifyRestart() calls to the theory. */
-  uint32_t d_restartsCounter;
-
-  /**
-   * Every number of restarts equal to s_TABLEAU_RESET_PERIOD,
-   * the density of the tableau, d, is computed.
-   * If d >= s_TABLEAU_RESET_DENSITY * d_initialDensity, the tableau
-   * is set to d_initialTableau.
-   */
-  bool d_tableauSizeHasBeenModified;
-  double d_tableauResetDensity;
-  uint32_t d_tableauResetPeriod;
-  static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
-
-
   /** This is only used by simplex at the moment. */
   context::CDList<Node> d_conflicts;
   class PushCallBack : public NodeCallBack {
@@ -244,13 +238,6 @@ private:
     }
   };
   PushCallBack d_conflictCallBack;
-
-
-  /**
-   * A copy of the tableau immediately after removing variables
-   * without bounds in presolve().
-   */
-  Tableau d_smallTableauCopy;
 
   /** This keeps track of difference equalities. Mostly for sharing. */
   ArithCongruenceManager d_congruenceManager;
@@ -362,7 +349,7 @@ private:
   ArithVar requestArithVar(TNode x, bool slack);
 
   /** Initial (not context dependent) sets up for a variable.*/
-  void setupInitialValue(ArithVar x);
+  //void setupInitialValue(ArithVar x);
 
   /** Initial (not context dependent) sets up for a new slack variable.*/
   void setupSlack(TNode left);
@@ -466,9 +453,6 @@ private:
 
     IntStat d_externalBranchAndBounds;
 
-    IntStat d_initialTableauSize;
-    IntStat d_currSetToSmaller;
-    IntStat d_smallerSetToCurr;
     TimerStat d_restartTimer;
 
     TimerStat d_boundComputationTime;

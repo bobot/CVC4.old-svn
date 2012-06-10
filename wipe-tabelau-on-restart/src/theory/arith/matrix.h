@@ -155,7 +155,7 @@ private:
   typedef std::vector<EntryType> EntryArray;
 
   EntryArray d_entries;
-  std::queue<EntryID> d_freedEntries;
+  std::deque<EntryID> d_freedEntries;
 
   uint32_t d_size;
 
@@ -178,7 +178,7 @@ public:
     Assert(get(id).blank());
     Assert(d_size > 0);
 
-    d_freedEntries.push(id);
+    d_freedEntries.push_back(id);
     --d_size;
   }
 
@@ -189,7 +189,7 @@ public:
       d_entries.push_back(MatrixEntry<T>());
     }else{
       newId = d_freedEntries.front();
-      d_freedEntries.pop();
+      d_freedEntries.pop_front();
     }
     ++d_size;
     return newId;
@@ -199,6 +199,11 @@ public:
   uint32_t capacity() const{ return d_entries.capacity(); }
 
 
+  void clear() {
+    d_entries.clear();
+    d_freedEntries.clear();
+    d_size = 0;
+  }
 private:
   bool inBounds(EntryID id) const{
     return id <  d_entries.size();
@@ -906,6 +911,8 @@ public:
 
   void removeBasicRow(ArithVar basic);
 
+  /** wipe keeps the size the same but removes all semantic data. */
+  void wipe();
 
 private:
   /* Changes the basic variable on the row for basicOld to basicNew. */

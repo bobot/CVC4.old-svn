@@ -237,6 +237,12 @@ public:
 
   Element back() { return d_map.back(); }
   void pop_back() { d_map.pop_back(); }
+
+  void addAll(const DenseSet& other){
+    for(const_iterator curr = other.begin(), last = other.end(); curr != last; ++curr){
+      add(*curr);
+    }
+  }
 }; /* class DenseSet */
 
 /**

@@ -66,10 +66,6 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_linEq(d_partialModel, d_tableau, d_basicVarModelUpdateCallBack),
   d_diosolver(c),
   d_pbSubstitutions(u),
-  d_restartsCounter(0),
-  d_tableauSizeHasBeenModified(false),
-  d_tableauResetDensity(1.6),
-  d_tableauResetPeriod(10),
   d_conflicts(c),
   d_conflictCallBack(d_conflicts),
   d_congruenceManager(c, d_constraintDatabase, d_setupLiteralCallback, d_arithvarNodeMap),
@@ -94,9 +90,6 @@ TheoryArith::Statistics::Statistics():
   d_presolveTime("theory::arith::presolveTime"),
   d_newPropTime("::newPropTimer"),
   d_externalBranchAndBounds("theory::arith::externalBranchAndBounds",0),
-  d_initialTableauSize("theory::arith::initialTableauSize", 0),
-  d_currSetToSmaller("theory::arith::currSetToSmaller", 0),
-  d_smallerSetToCurr("theory::arith::smallerSetToCurr", 0),
   d_restartTimer("theory::arith::restartTimer"),
   d_boundComputationTime("theory::arith::bound::time"),
   d_boundComputations("theory::arith::bound::boundComputations",0),
@@ -117,9 +110,6 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_externalBranchAndBounds);
 
-  StatisticsRegistry::registerStat(&d_initialTableauSize);
-  StatisticsRegistry::registerStat(&d_currSetToSmaller);
-  StatisticsRegistry::registerStat(&d_smallerSetToCurr);
   StatisticsRegistry::registerStat(&d_restartTimer);
 
   StatisticsRegistry::registerStat(&d_boundComputationTime);
@@ -143,9 +133,6 @@ TheoryArith::Statistics::~Statistics(){
 
   StatisticsRegistry::unregisterStat(&d_externalBranchAndBounds);
 
-  StatisticsRegistry::unregisterStat(&d_initialTableauSize);
-  StatisticsRegistry::unregisterStat(&d_currSetToSmaller);
-  StatisticsRegistry::unregisterStat(&d_smallerSetToCurr);
   StatisticsRegistry::unregisterStat(&d_restartTimer);
 
   StatisticsRegistry::unregisterStat(&d_boundComputationTime);
@@ -664,8 +651,8 @@ void TheoryArith::setupVariable(const Variable& x){
   Assert(!isSetup(n));
 
   ++(d_statistics.d_statUserVariables);
-  ArithVar varN = requestArithVar(n,false);
-  setupInitialValue(varN);
+  requestArithVar(n, false);
+  //Ignore the return value
 
   markSetup(n);
 }
@@ -691,8 +678,8 @@ void TheoryArith::setupVariableList(const VarList& vl){
     d_out->setIncomplete();
 
     ++(d_statistics.d_statUserVariables);
-    ArithVar av = requestArithVar(vlNode, false);
-    setupInitialValue(av);
+    requestArithVar(vlNode, false);
+    //ignore return value
 
     markSetup(vlNode);
   }
@@ -701,6 +688,25 @@ void TheoryArith::setupVariableList(const VarList& vl){
    * Only call markSetup if the VarList is not a singleton.
    * See the comment in setupPolynomail for more.
    */
+}
+
+void TheoryArith::setupSlackInTableau(ArithVar slack) {
+  Assert(d_slackVariables.isMember(slack));
+  Assert(d_requiresInitialization.isMember(slack));
+
+  Node slackNode = d_arithvarNodeMap.asNode(slack);
+
+  Polynomial poly = Polynomial::parsePolynomial(slackNode);
+  vector<ArithVar> variables;
+  vector<Rational> coefficients;
+  asVectors(poly, coefficients, variables);
+  d_tableau.addRow(slack, coefficients, variables);
+
+  DeltaRational safeAssignment = d_linEq.computeRowValue(slack, true);
+  DeltaRational assignment = d_linEq.computeRowValue(slack, false);
+
+  d_partialModel.setAssignment(slack, safeAssignment, assignment);
+  d_requiresInitialization.remove(slack);
 }
 
 void TheoryArith::setupPolynomial(const Polynomial& poly) {
@@ -718,15 +724,8 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
   }
 
   if(polyNode.getKind() == PLUS){
-    d_tableauSizeHasBeenModified = true;
-
-    vector<ArithVar> variables;
-    vector<Rational> coefficients;
-    asVectors(poly, coefficients, variables);
-
     ArithVar varSlack = requestArithVar(polyNode, true);
-    d_tableau.addRow(varSlack, coefficients, variables);
-    setupInitialValue(varSlack);
+
 
     //Add differences to the difference manager
     Polynomial::iterator i = poly.begin(), end = poly.end();
@@ -812,20 +811,21 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
     //We'll use the isIntegral check from the polynomial package instead.
     Polynomial p = Polynomial::parsePolynomial(x);
     d_variableTypes.push_back(p.isIntegral() ? ATInteger : ATReal);
+    d_slackVariables.add(varX);
+    d_requiresInitialization.add(varX);
   }else{
     d_variableTypes.push_back(nodeToArithType(x));
   }
-
-  d_slackVars.push_back(slack);
 
   d_simplex.increaseMax();
 
   d_arithvarNodeMap.setArithVar(x,varX);
 
   d_tableau.increaseSize();
-  d_tableauSizeHasBeenModified = true;
 
   d_constraintDatabase.addVariable(varX);
+
+  d_partialModel.initialize(varX, d_DELTA_ZERO);
 
   Debug("arith::arithvar") << x << " |-> " << varX << endl;
 
@@ -851,7 +851,6 @@ void TheoryArith::asVectors(const Polynomial& p, std::vector<Rational>& coeffs, 
       // The only way not to get it through pre-register is if it's a foreign term
       ++(d_statistics.d_statUserVariables);
       av = requestArithVar(n,false);
-      setupInitialValue(av);
     } else {
       // Otherwise, we already have it's variable
       av = d_arithvarNodeMap.asArithVar(n);
@@ -862,26 +861,26 @@ void TheoryArith::asVectors(const Polynomial& p, std::vector<Rational>& coeffs, 
   }
 }
 
-/* Requirements:
- * For basic variables the row must have been added to the tableau.
- */
-void TheoryArith::setupInitialValue(ArithVar x){
+// /* Requirements:
+//  * For basic variables the row must have been added to the tableau.
+//  */
+// void TheoryArith::setupInitialValue(ArithVar x){
 
-  if(!d_tableau.isBasic(x)){
-    d_partialModel.initialize(x, d_DELTA_ZERO);
-  }else{
-    //If the variable is basic, assertions may have already happened and updates
-    //may have occured before setting this variable up.
+//   if(!d_tableau.isBasic(x)){
+//     d_partialModel.initialize(x, d_DELTA_ZERO);
+//   }else{
+//     //If the variable is basic, assertions may have already happened and updates
+//     //may have occured before setting this variable up.
 
-    //This can go away if the tableau creation is done at preregister
-    //time instead of register
-    DeltaRational safeAssignment = d_linEq.computeRowValue(x, true);
-    DeltaRational assignment = d_linEq.computeRowValue(x, false);
-    d_partialModel.initialize(x,safeAssignment);
-    d_partialModel.setAssignment(x,assignment);
-  }
-  Debug("arith") << "setupVariable("<<x<<")"<<std::endl;
-}
+//     //This can go away if the tableau creation is done at preregister
+//     //time instead of register
+//     DeltaRational safeAssignment = d_linEq.computeRowValue(x, true);
+//     DeltaRational assignment = d_linEq.computeRowValue(x, false);
+//     d_partialModel.initialize(x,safeAssignment);
+//     d_partialModel.setAssignment(x,assignment);
+//   }
+//   Debug("arith") << "setupVariable("<<x<<")"<<std::endl;
+// }
 
 ArithVar TheoryArith::determineArithVar(const Polynomial& p) const{
   Assert(!p.containsConstant());
@@ -1020,14 +1019,17 @@ Node TheoryArith::assertionCases(TNode assertion){
   }
   Assert(constraint != NullConstraint);
 
+  if(d_requiresInitialization.isMember(constraint->getVariable())){
+    setupSlackInTableau(constraint->getVariable());
+  }
+  Assert(!d_requiresInitialization.isMember(constraint->getVariable()));
+
   if(constraint->negationHasProof()){
     Constraint negation = constraint->getNegation();
     if(negation->isSelfExplaining()){
       if(Debug.isOn("whytheoryenginewhy")){
         debugPrintFacts();
       }
-//      Warning() << "arith: Theory engine is sending me both a literal and its negation?"
-//                << "BOOOOOOOOOOOOOOOOOOOOOO!!!!"<< endl;
     }
     Debug("arith::eq") << constraint << endl;
     Debug("arith::eq") << negation << endl;
@@ -1512,6 +1514,13 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
     return n.getConst<Rational>();
 
   case kind::PLUS: { // 2+ args
+    if(isSetup(n)){
+      ArithVar var = d_arithvarNodeMap.asArithVar(n);
+      if(!d_requiresInitialization.isMember(var)){
+        return d_partialModel.getAssignment(var);
+      }
+    }
+
     DeltaRational value(0);
     for(TNode::iterator i = n.begin(),
           iend = n.end();
@@ -1638,25 +1647,20 @@ void TheoryArith::notifyRestart(){
 
   if(Debug.isOn("paranoid:check_tableau")){ d_linEq.debugCheckTableau(); }
 
-  ++d_restartsCounter;
+  d_tableau.wipe();
+  d_requiresInitialization.clear();
+  d_requiresInitialization.addAll(d_slackVariables);
 
-  uint32_t currSize = d_tableau.size();
-  uint32_t copySize = d_smallTableauCopy.size();
-
-  Debug("arith::reset") << "curr " << currSize << " copy " << copySize << endl;
-  Debug("arith::reset") << "tableauSizeHasBeenModified " << d_tableauSizeHasBeenModified << endl;
-
-  if(d_tableauSizeHasBeenModified){
-    Debug("arith::reset") << "row has been added must copy " << d_restartsCounter << endl;
-    d_smallTableauCopy = d_tableau;
-    d_tableauSizeHasBeenModified = false;
-  }else if( d_restartsCounter >= RESET_START){
-    if(copySize >= currSize * 1.1 ){
-      ++d_statistics.d_smallerSetToCurr;
-      d_smallTableauCopy = d_tableau;
-    }else if(d_tableauResetDensity * copySize <=  currSize){
-      ++d_statistics.d_currSetToSmaller;
-      d_tableau = d_smallTableauCopy;
+  Debug("arith::notifyRestart") << "notifyRestart()" << getHeadPosition() << endl;
+  for(unsigned pos = 0, head = getHeadPosition(); pos < head; ++pos){
+    Node assertion = getAtPosition(pos);
+    // copied from assertionCases
+    Constraint constraint = d_constraintDatabase.lookup(assertion);
+    if(constraint != NullConstraint){ // if it is null wait for ::check()
+      if(d_requiresInitialization.isMember(constraint->getVariable())){
+        setupSlackInTableau(constraint->getVariable());
+      }
+      Assert(!d_requiresInitialization.isMember(constraint->getVariable()));
     }
   }
 }
@@ -1676,8 +1680,6 @@ bool TheoryArith::entireStateIsConsistent(){
 
 void TheoryArith::presolve(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_presolveTime);
-
-  d_statistics.d_initialTableauSize.setData(d_tableau.size());
 
   if(Debug.isOn("paranoid:check_tableau")){ d_linEq.debugCheckTableau(); }
 

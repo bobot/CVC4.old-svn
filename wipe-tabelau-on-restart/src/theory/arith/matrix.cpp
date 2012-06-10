@@ -561,6 +561,22 @@ void ReducedRowVector::enqueueNonBasicVariablesAndCoefficients(std::vector< Arit
 // }
 
 
+void Tableau::wipe() {
+  Assert(d_rowInMergeBuffer == ROW_INDEX_SENTINEL);
+  Assert(d_mergeBuffer.empty());
+
+  d_basic2RowIndex.clear();
+  d_rowIndex2basic.clear();
+  d_rows.clear();
+
+  ArithVar size = d_columns.size();
+  d_columns.clear();
+  d_columns.resize(size, ColumnVectorT(&d_entries));
+  d_entriesInUse = 0;
+
+  d_entries.clear();
+}
+
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

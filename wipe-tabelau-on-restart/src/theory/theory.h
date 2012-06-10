@@ -266,6 +266,16 @@ protected:
     return fact;
   }
 
+  inline unsigned getHeadPosition() const {
+    return d_factsHead;
+  }
+
+  inline Assertion getAtPosition(unsigned pos) const {
+    Assert(pos < d_factsHead);
+    Assert(pos < d_facts.size());
+    return d_facts[pos];
+  }
+
   const LogicInfo& getLogicInfo() const {
     return d_logicInfo;
   }
