@@ -1173,9 +1173,11 @@ void TheoryArith::check(Effort effortLevel){
 
       Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
       d_out->conflict(possibleConflict);
+      d_simplexStatus = Result::UNSAT;
       return;
     }
     if(d_congruenceManager.inConflict()){
+      d_simplexStatus = Result::UNSAT;
       Node c = d_congruenceManager.conflict();
       revertOutOfConflict();
       Debug("arith::conflict") << "difference manager conflict   " << c << endl;
@@ -1192,6 +1194,7 @@ void TheoryArith::check(Effort effortLevel){
   bool emmittedConflictOrSplit = false;
 
   Assert(d_conflicts.empty());
+
   d_simplexStatus = d_simplex.findModel(fullEffort(effortLevel));
   switch(d_simplexStatus){
   case Result::SAT:
@@ -1217,11 +1220,12 @@ void TheoryArith::check(Effort effortLevel){
     Unimplemented();
   }
 
-  // This should be fine if unknown
+  // This should be fine if sat or unknown
   if(!emmittedConflictOrSplit &&
      (Options::current()->arithPropagationMode == Options::UNATE_PROP ||
       Options::current()->arithPropagationMode == Options::BOTH_PROP)){
     TimerStat::CodeTimer codeTimer(d_statistics.d_newPropTime);
+    Assert(d_simplexStatus != Result::UNSAT);
 
     while(!d_currentPropagationList.empty()){
       Constraint curr = d_currentPropagationList.front();

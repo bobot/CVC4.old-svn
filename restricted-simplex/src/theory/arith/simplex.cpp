@@ -289,7 +289,7 @@ Result::Sat SimplexDecisionProcedure::findModel(bool exactResult){
     }
   }
 
-  if(!d_queue.empty() && result != Result::UNSAT && !exactResult){
+  if(!d_queue.empty() && result != Result::UNSAT && exactResult){
     d_queue.transitionToVariableOrderMode();
 
     while(!d_queue.empty() && result != Result::UNSAT){
