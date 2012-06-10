@@ -106,15 +106,9 @@ void MinisatSatSolver::initialize(context::Context* context, TheoryProxy* theory
 
   d_context = context;
 
-  if( Options::current()->decisionMode != Options::DECISION_STRATEGY_INTERNAL ) {
-    Notice() << "minisat: Incremental solving is disabled"
-             << " unless using internal decision strategy." << std::endl;
-  }
-
   // Create the solver
   d_minisat = new Minisat::SimpSolver(theoryProxy, d_context,
-                                      Options::current()->incrementalSolving || 
-                                      Options::current()->decisionMode != Options::DECISION_STRATEGY_INTERNAL );
+                                      Options::current()->incrementalSolving);
   // Setup the verbosity
   d_minisat->verbosity = (Options::current()->verbosity > 0) ? 1 : -1;
 
@@ -126,6 +120,17 @@ void MinisatSatSolver::initialize(context::Context* context, TheoryProxy* theory
   d_minisat->clause_decay = Options::current()->satClauseDecay;
   d_minisat->restart_first = Options::current()->satRestartFirst;
   d_minisat->restart_inc = Options::current()->satRestartInc;
+
+  if( Options::current()->decisionMode != Options::DECISION_STRATEGY_INTERNAL ) {
+    // Tell minisat to use decision engine
+    d_minisat->use_decision_engine = true;
+
+    Notice() << "minisat: Variable elimination is disabled"
+             << " when not using internal decision strategy." << std::endl;
+    d_minisat->use_elim = false;
+
+    d_minisat->opt_lookahead = Options::current()->decisionLookahead;
+  }
 
   d_statistics.init(d_minisat);
 }

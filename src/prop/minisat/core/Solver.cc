@@ -339,6 +339,14 @@ void Solver::cancelUntil(int level) {
     Debug("minisat") << "minisat::cancelUntil(" << level << ")" << std::endl;
 
     if (decisionLevel() > level){
+        // set the lookahead flag to false
+        if(Debug.isOn("decision::lookahead")) {
+          if(lookahead == true) {
+            Debug("decision::lookahead") << "lookahead: setting lookahead to false"  << std::endl;
+          }
+        }
+        lookahead = false;
+
         // Pop the SMT context
         for (int l = trail_lim.size() - level; l > 0; --l) {
           context->pop();
@@ -389,23 +397,55 @@ Lit Solver::pickBranchLit()
     }
 #endif /* CVC4_REPLAY */
 
-    // Theory/DE requests
-    bool stopSearch = false;
-    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
+    nextLit = pickBranchLitTheory();     // check with theories for decision requests
+
+    if(nextLit != lit_Undef) {
+      return nextLit;
+    }
+    
+    if(use_decision_engine) {
+        if(opt_lookahead) {
+            if(lookahead) {
+                cancelUntil(decisionLevel() - 1); // should set lookahead to false
+                Assert(lookahead == false);
+                Debug("decision::lookahead") << "lookahead: Trying decision engine" << std::endl;
+                return pickBranchLitDE();
+            } else{
+                Debug("decision::lookahead") << "lookahead: Trying internal decision" << std::endl;
+                lookahead = true;
+                return pickBranchLitInternal();
+            }
+        } else {
+            return pickBranchLitDE();
+        }
+    }
+
+    // Use internal decision heuristic
+    return pickBranchLitInternal();
+}
+
+Lit Solver::pickBranchLitTheory()
+{
+    Lit nextLit;
+
+    // Theory requests
+    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
     while (nextLit != lit_Undef) {
       if(value(var(nextLit)) == l_Undef) {
         Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
         decisions++;
         return nextLit;
       } else {
-        Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit << " but it already has an assignment" << std::endl;
+        Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit
+                                     << " but it already has an assignment" << std::endl;
       }
-      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
+      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
     }
-    if(stopSearch) {
-      return lit_Undef;
-    }
+    return lit_Undef;
+}
 
+Lit Solver::pickBranchLitInternal()
+{
     Var next = var_Undef;
 
     // Random decision:
@@ -443,6 +483,34 @@ Lit Solver::pickBranchLit()
       }
       // If it can't use internal heuristic to do that
       return mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
+    }
+}
+
+Lit Solver::pickBranchLitDE()
+{
+    Assert(use_decision_engine);
+    Lit nextLit;
+    bool stopSearch = false;
+    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionEngineRequest(stopSearch));
+
+    while (nextLit != lit_Undef) {
+      if(value(var(nextLit)) == l_Undef) {
+        Debug("minisat") << "minisat use_decision_engine: now deciding on " << nextLit << std::endl;
+        decisions++;
+        return nextLit;
+      } else {
+        Debug("minisat") << "minisat use_decision_engine: would decide on " << nextLit
+                         << " but it already has an assignment" << std::endl;
+      }
+      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionEngineRequest(stopSearch));
+    }
+
+    if(stopSearch) {
+      return lit_Undef;
+    } else {
+      // There must have been some error with the decision engine, or
+      // we are in the compute relevancy mode. Use internal heuristics.
+      return pickBranchLitInternal();
     }
 }
 
@@ -1148,13 +1216,14 @@ lbool Solver::search(int nof_conflicts)
             }
 
             if (next == lit_Undef) {
-                // New variable decision:
-                next = pickBranchLit();
+
+                // New variable decision
+                next = pickBranchLit();        // handles the lookahead stuff too when we have multiple heuristics
 
                 if (next == lit_Undef) {
                     // We need to do a full theory check to confirm
-                  Debug("minisat::search") << "Doing a full theoy check..."
-                                           << std::endl;
+                    Debug("minisat::search") << "Doing a full theoy check..."
+                                             << std::endl;
                     check_type = CHECK_FINAL;
                     continue;
                 }

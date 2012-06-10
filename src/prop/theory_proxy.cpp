@@ -78,21 +78,12 @@ void TheoryProxy::enqueueTheoryLiteral(const SatLiteral& l) {
   d_queue.push(literalNode);
 }
 
-SatLiteral TheoryProxy::getNextDecisionRequest(bool &stopSearch) {
+SatLiteral TheoryProxy::getNextDecisionRequest() {
   TNode n = d_theoryEngine->getNextDecisionRequest();
   if(not n.isNull())
     return d_cnfStream->getLiteral(n);
-  
-  // If theory doesn't give us a deicsion ask the decision engine. It
-  // may return in undefSatLiteral in which case the sat solver figure
-  // it out something
-  Assert(d_decisionEngine != NULL);
-  Assert(stopSearch != true);
-  SatLiteral ret = d_decisionEngine->getNext(stopSearch);
-  if(stopSearch) {
-    Trace("decision") << "  ***  Decision Engine stopped search *** " << std::endl;
-  }
-  return ret;
+  else
+    return undefSatLiteral;
 }
 
 bool TheoryProxy::theoryNeedCheck() const {
@@ -186,6 +177,16 @@ void TheoryProxy::logDecision(SatLiteral lit) {
 
 void TheoryProxy::checkTime() {
   d_propEngine->checkTime();
+}
+
+SatLiteral TheoryProxy::getNextDecisionEngineRequest(bool &stopSearch) {
+  Assert(d_decisionEngine != NULL);
+  Assert(stopSearch != true);
+  SatLiteral ret = d_decisionEngine->getNext(stopSearch);
+  if(stopSearch) {
+    Trace("decision") << "  ***  Decision Engine stopped search *** " << std::endl;
+  }
+  return ret;
 }
 
 bool TheoryProxy::isDecisionRelevant(SatVariable var) {

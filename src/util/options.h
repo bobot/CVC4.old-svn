@@ -149,6 +149,8 @@ struct CVC4_PUBLIC Options {
    *   > Least significant bit: true if one should only decide on leaves
    */
 
+  bool decisionLookahead;
+
   /** DecisionOption along */
   struct DecisionOptions {
     bool relevancyLeaves;

@@ -90,6 +90,7 @@ Options::Options() :
   simplificationModeSetByUser(false),
   decisionMode(DECISION_STRATEGY_INTERNAL),
   decisionModeSetByUser(false),
+  decisionLookahead(false),
   decisionOptions(DecisionOptions(defaultDecOpt)),
   doStaticLearning(true),
   doITESimp(false),
@@ -289,8 +290,12 @@ internal (default)\n\
 justification\n\
 + An ATGP-inspired justification heuristic\n\
 \n\
+justification-lookahead\n\
++ justification, while doing 'lookahead' using internal heuristic\n\
++ (lookahead: do all propagation, backtrack if no conflict)\n\
+\n\
 relevancy\n\
-+ Under development may-relevancy\n\
++ may-relevancy\n\
 \n\
 relevancy-leaves\n\
 + May-relevancy, but decide only on leaves\n\
@@ -871,6 +876,11 @@ throw(OptionException) {
       } else if(!strcmp(optarg, "justification")) {
         decisionMode = DECISION_STRATEGY_JUSTIFICATION;
         decisionModeSetByUser = true;
+        decisionLookahead = false;
+      } else if(!strcmp(optarg, "justification-lookahead")) {
+        decisionMode = DECISION_STRATEGY_JUSTIFICATION;
+        decisionModeSetByUser = true;
+        decisionLookahead = true;
       } else if(!strcmp(optarg, "relevancy")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;

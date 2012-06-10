@@ -105,6 +105,12 @@ protected:
   /** Variables to re-register with theory solvers on backtracks */
   vec<VarIntroInfo> variables_to_register;
 
+  /**
+   * True if we are currently doing a lookahead search. That is make a
+   * decision and do propagation. If it doesn't lead to a conflict,
+   * backtrack and try other decision.
+   */
+  bool lookahead;
 public:
 
     // Constructor/Destructor:
@@ -243,6 +249,10 @@ public:
     double    learntsize_factor;  // The intitial limit for learnt clauses is a factor of the original clauses.                (default 1 / 3)
     double    learntsize_inc;     // The limit for learnt clauses is multiplied with this factor each restart.                 (default 1.1)
 
+    bool      use_decision_engine;// Should external decision engine be used for helping with decision
+    bool      opt_lookahead;      // Do a lookahead to see internal heuristic leads to confict when
+                                  // using external decision engine
+
     int       learntsize_adjust_start_confl;
     double    learntsize_adjust_inc;
 
@@ -344,6 +354,9 @@ protected:
     //
     void     insertVarOrder   (Var x);                                                 // Insert a variable in the decision order priority queue.
     Lit      pickBranchLit    ();                                                      // Return the next decision variable.
+    Lit      pickBranchLitInternal();                                                  // pickBranchLit helper functions
+    Lit      pickBranchLitTheory();                                                    // ...
+    Lit      pickBranchLitDE();                                                        // ...
     void     newDecisionLevel ();                                                      // Begins a new decision level.
     void     uncheckedEnqueue (Lit p, CRef from = CRef_Undef);                         // Enqueue a literal. Assumes value of literal is undefined.
     bool     enqueue          (Lit p, CRef from = CRef_Undef);                         // Test if fact 'p' contradicts current state, enqueue otherwise.
