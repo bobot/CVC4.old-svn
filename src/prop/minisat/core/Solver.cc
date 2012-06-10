@@ -78,6 +78,7 @@ Solver::Solver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, 
   , assertionLevel(0)
   , enable_incremental(enable_incremental)
   , minisat_busy(false)
+  , lookahead(false)
     // Parameters (user settable):
     //
   , verbosity        (0)
@@ -97,6 +98,8 @@ Solver::Solver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, 
     // Parameters (the rest):
     //
   , learntsize_factor(1), learntsize_inc(1.5)
+  , use_decision_engine(false)
+  , opt_lookahead(false)
 
     // Parameters (experimental):
     //
@@ -339,13 +342,13 @@ void Solver::cancelUntil(int level) {
     Debug("minisat") << "minisat::cancelUntil(" << level << ")" << std::endl;
 
     if (decisionLevel() > level){
-        // set the lookahead flag to false
-        if(Debug.isOn("decision::lookahead")) {
-          if(lookahead == true) {
-            Debug("decision::lookahead") << "lookahead: setting lookahead to false"  << std::endl;
-          }
+      // set the lookahead flag to false
+      if(Debug.isOn("decision::lookahead")) {
+        if(lookahead == true) {
+          Debug("decision::lookahead") << "lookahead: setting lookahead to false"  << std::endl;
         }
-        lookahead = false;
+      }
+      lookahead = false;
 
         // Pop the SMT context
         for (int l = trail_lim.size() - level; l > 0; --l) {
@@ -412,8 +415,9 @@ Lit Solver::pickBranchLit()
                 return pickBranchLitDE();
             } else{
                 Debug("decision::lookahead") << "lookahead: Trying internal decision" << std::endl;
-                lookahead = true;
-                return pickBranchLitInternal();
+                nextLit = pickBranchLitInternal();
+                if(nextLit != lit_Undef) lookahead = true;
+                return nextLit;
             }
         } else {
             return pickBranchLitDE();
@@ -1102,6 +1106,8 @@ lbool Solver::search(int nof_conflicts)
         Assert(lemmas.size() == 0);
 
         if (confl != CRef_Undef) {
+
+            Debug("minisat") << "minisat: conflict found" << std::endl;
 
             conflicts++; conflictC++;
 
