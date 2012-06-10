@@ -308,9 +308,7 @@ Result::Sat SimplexDecisionProcedure::findModel(bool exactResult){
     }
   }
 
-  if(result == Result::UNSAT){
-    d_queue.clear();
-  }else if(result == Result::SAT_UNKNOWN && d_queue.empty()){
+  if(result == Result::SAT_UNKNOWN && d_queue.empty()){
     result = Result::SAT;
   }
 
@@ -321,7 +319,6 @@ Result::Sat SimplexDecisionProcedure::findModel(bool exactResult){
 
   d_queue.transitionToCollectionMode();
   Assert(d_queue.inCollectionMode());
-  Assert(result == Result::SAT_UNKNOWN || d_queue.empty());
   Debug("arith::findModel") << "end findModel() " << instance << " " << result <<  endl;
   return result;
 

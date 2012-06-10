@@ -1158,7 +1158,8 @@ bool TheoryArith::hasIntegerModel(){
 
 void TheoryArith::check(Effort effortLevel){
   Assert(d_currentPropagationList.empty());
-  Debug("arith") << "TheoryArith::check begun" << std::endl;
+  Debug("effortlevel") << "TheoryArith::check " << effortLevel << std::endl;
+  Debug("arith") << "TheoryArith::check begun " << effortLevel << std::endl;
 
   if(!done()){ d_simplexStatus = Result::SAT_UNKNOWN; }
 
@@ -1196,14 +1197,13 @@ void TheoryArith::check(Effort effortLevel){
   Assert(d_conflicts.empty());
 
   d_simplexStatus = d_simplex.findModel(fullEffort(effortLevel));
+  d_partialModel.commitAssignmentChanges();
   switch(d_simplexStatus){
   case Result::SAT:
-    d_partialModel.commitAssignmentChanges();
     break;
   case Result::SAT_UNKNOWN:
     ++(d_statistics.d_unknownChecks);
     Assert(!fullEffort(effortLevel));
-    d_partialModel.commitAssignmentChanges();
     break;
   case Result::UNSAT:
     revertOutOfConflict();
@@ -1431,6 +1431,8 @@ void TheoryArith::debugPrintModel(){
     Debug("arith::print_model") << endl;
   }
 }
+
+
 
 Node TheoryArith::explain(TNode n) {
 
