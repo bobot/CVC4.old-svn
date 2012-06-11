@@ -19,7 +19,6 @@ TESTS =	\
 	arith-int-011.cvc \
 	arith-int-012.cvc \
 	arith-int-022.cvc \
-	arith-int-024.cvc \
 	arith-int-042.cvc \
 	arith-int-042.min.cvc \
 	arith-int-047.cvc \
@@ -46,6 +45,7 @@ EXTRA_DIST = $(TESTS) \
 	arith-int-020.cvc \
 	arith-int-021.cvc \
 	arith-int-023.cvc \
+	arith-int-024.cvc \
 	arith-int-025.cvc \
 	arith-int-026.cvc \
 	arith-int-027.cvc \

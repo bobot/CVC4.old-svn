@@ -157,6 +157,7 @@ struct CVC4_PUBLIC Options {
     unsigned short maxRelTimeAsPermille;  /* permille = part per thousand */
     bool computeRelevancy;    /* if false, do justification stuff using relevancy.h */
     bool mustRelevancy;       /* use the must be relevant */
+    bool randomChild;         /* pick a random child when recursing and/or nodes*/
   };
   DecisionOptions decisionOptions;
 

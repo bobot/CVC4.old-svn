@@ -152,6 +152,8 @@ public:
                       << std::endl;
     Trace("decision") << "  * mustRelevancy [unimplemented]: " << (d_opt.mustRelevancy ? "on" : "off")
                       << std::endl;
+    Trace("decision") << "  * randomChild: " << (d_opt.randomChild ? "on" : "off")
+                      << std::endl;
   }
   ~Relevancy() {
     StatisticsRegistry::unregisterStat(&d_helfulness);

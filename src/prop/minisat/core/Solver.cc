@@ -342,13 +342,13 @@ void Solver::cancelUntil(int level) {
     Debug("minisat") << "minisat::cancelUntil(" << level << ")" << std::endl;
 
     if (decisionLevel() > level){
-      // set the lookahead flag to false
-      if(Debug.isOn("decision::lookahead")) {
-        if(lookahead == true) {
-          Debug("decision::lookahead") << "lookahead: setting lookahead to false"  << std::endl;
+        // set the lookahead flag to false
+        if(Debug.isOn("decision::lookahead")) {
+          if(lookahead == true) {
+            Debug("decision::lookahead") << "lookahead: setting lookahead to false"  << std::endl;
+          }
         }
-      }
-      lookahead = false;
+        lookahead = false;
 
         // Pop the SMT context
         for (int l = trail_lim.size() - level; l > 0; --l) {
@@ -421,8 +421,8 @@ Lit Solver::pickBranchLit()
             }
         } else {
             return pickBranchLitDE();
-        }
-    }
+        }/* opt_lookahead */
+    }/* if use_decision_engine */
 
     // Use internal decision heuristic
     return pickBranchLitInternal();

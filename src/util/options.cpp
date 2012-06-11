@@ -64,6 +64,7 @@ const Options::DecisionOptions defaultDecOpt = {
   1000,                         // maxRelTimeAsPermille
   true,                         // computeRelevancy
   false,                        // mustRelevancy
+  false,                        // pick a random child
 };
 
 Options::Options() :
@@ -296,6 +297,9 @@ justification-lookahead\n\
 + justification, while doing 'lookahead' using internal heuristic\n\
 + (lookahead: do all propagation, backtrack if no conflict)\n\
 \n\
+justification-rand\n\
++ justification, pick a random child when recursively exporing formula\n\
+\n\
 relevancy\n\
 + may-relevancy\n\
 \n\
@@ -307,6 +311,12 @@ Developer modes:\n\
 justification-rel\n\
 + Use the relevancy code to do the justification stuff\n\
 + (This should do exact same thing as justification)\n\
++ (buggy as of r3703)\n\
+\n\
+justification-rel-rand\n\
++ Use the relevancy code to do the justification stuff while\n\
++ picking a random child when recursively exploring formula\n\
++ (buggy as of 2012-06-09)\n\
 \n\
 justification-must\n\
 + Start deciding on literals close to root instead of those\n\
@@ -901,6 +911,11 @@ throw(OptionException) {
         decisionMode = DECISION_STRATEGY_JUSTIFICATION;
         decisionModeSetByUser = true;
         decisionLookahead = true;
+      } else if(!strcmp(optarg, "justification-rand")) {
+        decisionMode = DECISION_STRATEGY_JUSTIFICATION;
+        decisionModeSetByUser = true;
+        decisionLookahead = false;
+        decisionOptions.randomChild = true;
       } else if(!strcmp(optarg, "relevancy")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;
@@ -916,6 +931,14 @@ throw(OptionException) {
         // maxRelTimeAsPermille : irrelevant
         decisionOptions.computeRelevancy = false;
         decisionOptions.mustRelevancy = false;
+      } else if(!strcmp(optarg, "justification-rel-rand")) {
+        decisionMode = DECISION_STRATEGY_RELEVANCY;
+        decisionModeSetByUser = true;
+        // relevancyLeaves : irrelevant
+        // maxRelTimeAsPermille : irrelevant
+        decisionOptions.computeRelevancy = false;
+        decisionOptions.mustRelevancy = false;
+        decisionOptions.randomChild = true;
       } else if(!strcmp(optarg, "justification-must")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;

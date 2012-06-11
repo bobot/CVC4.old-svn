@@ -11,5 +11,7 @@ libdecision_la_SOURCES = \
 	decision_strategy.h \
 	justification_heuristic.h \
 	justification_heuristic.cpp \
+        justification_heuristic_exp.h \
+        justification_heuristic_exp.cpp \
 	relevancy.h \
 	relevancy.cpp

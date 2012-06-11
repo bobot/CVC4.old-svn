@@ -287,8 +287,9 @@ bool Relevancy::handleOrFalse(TNode node, SatValue desiredVal) {
 
   int n = node.getNumChildren();
   bool ret = false;
-  for(int i = 0; i < n; ++i) {
-    if (findSplitterRec(node[i], desiredVal)) {
+  int j = d_opt.randomChild ? d_expense.getData() % n : 0;   // use d_expense as random number
+  for(int i = 0; i < n; ++i, (++j) %= n) {
+    if (findSplitterRec(node[j], desiredVal)) {
       if(!d_opt.computeRelevancy) 
         return true;
       else
@@ -307,10 +308,12 @@ bool Relevancy::handleOrTrue(TNode node, SatValue desiredVal) {
 
   int n = node.getNumChildren();
   SatValue desiredValInverted = invertValue(desiredVal);
-  for(int i = 0; i < n; ++i) {
-    if ( tryGetSatValue(node[i]) != desiredValInverted ) {
+  int j = d_opt.randomChild ? d_expense.getData() % n : 0;   // use d_expense as random number
+  Assert( j >= 0 && j < n );
+  for(int i = 0; i < n; ++i, (++j) %= n ) {
+    if ( tryGetSatValue(node[j]) != desiredValInverted ) {
       // PRE RELEVANCY return findSplitterRec(node[i], desiredVal);
-      bool ret = findSplitterRec(node[i], desiredVal);
+      bool ret = findSplitterRec(node[j], desiredVal);
       if(ret) {
         // Splitter could be found... so can't justify this node
         if(!d_multipleBacktrace)

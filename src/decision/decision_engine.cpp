@@ -18,6 +18,7 @@
 
 #include "decision/decision_engine.h"
 #include "decision/justification_heuristic.h"
+#include "decision/justification_heuristic_exp.h"
 #include "decision/relevancy.h"
 
 #include "expr/node.h"
@@ -46,8 +47,9 @@ namespace CVC4 {
 
   if(options->decisionMode == Options::DECISION_STRATEGY_INTERNAL) { }
   if(options->decisionMode == Options::DECISION_STRATEGY_JUSTIFICATION) {
-    ITEDecisionStrategy* ds = 
-      new decision::JustificationHeuristic(this, d_satContext);
+    ITEDecisionStrategy* ds = options->decisionOptions.randomChild == false ?
+      (ITEDecisionStrategy*)new decision::JustificationHeuristic(this, d_satContext) :
+      (ITEDecisionStrategy*)new decision::JustificationHeuristicExp(this, d_satContext);
     enableStrategy(ds);
     d_needIteSkolemMap.push_back(ds);
   }
