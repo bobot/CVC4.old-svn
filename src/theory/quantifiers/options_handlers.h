@@ -1,3 +1,22 @@
+/*********************                                                        */
+/*! \file options_handlers.h
+ ** \verbatim
+ ** Original author: mdeters
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief [[ Add one-line brief description here ]]
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
+ **/
+
 #include "cvc4_private.h"
 
 #ifndef __CVC4__THEORY__QUANTIFIERS__OPTIONS_HANDLERS_H
@@ -37,7 +56,7 @@ inline InstWhenMode stringToInstWhenMode(std::string option, std::string optarg,
     puts(instWhenHelp.c_str());
     exit(1);
   } else {
-    throw OptionException(string("unknown option for --inst-when: `") +
+    throw OptionException(std::string("unknown option for --inst-when: `") +
                           optarg + "'.  Try --inst-when help.");
   }
 }
@@ -53,7 +72,7 @@ inline LiteralMatchMode stringToLiteralMatchMode(std::string option, std::string
     puts(literalMatchHelp.c_str());
     exit(1);
   } else {
-    throw OptionException(string("unknown option for --literal-matching: `") +
+    throw OptionException(std::string("unknown option for --literal-matching: `") +
                           optarg + "'.  Try --literal-matching help.");
   }
 }

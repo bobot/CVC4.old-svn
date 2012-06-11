@@ -19,6 +19,7 @@
 
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/options.h"
+#include "theory/quantifiers/options.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 
@@ -40,7 +41,7 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
 
-  if (Options::current()->finiteModelFind) {
+  if (options::finiteModelFind()) {
     d_thss = new StrongSolverTheoryUf(c, u, out, this);
   } else {
     d_thss = NULL;

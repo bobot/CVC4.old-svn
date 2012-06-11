@@ -34,6 +34,7 @@
 
 #include "theory/quantifiers_engine.h"
 #include "theory/quantifiers/theory_quantifiers.h"
+#include "theory/quantifiers/options.h"
 
 using namespace std;
 
@@ -337,7 +338,7 @@ void TheoryEngine::check(Theory::Effort effort) {
         ! d_lemmasAdded ) {
       ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->performCheck(Theory::EFFORT_LAST_CALL);
       // if we have given up, then possibly flip decision
-      if(Options::current()->flipDecision) {
+      if(options::flipDecision()) {
         if(d_incomplete && !d_inConflict && !d_lemmasAdded) {
           if( ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ) {
             d_incomplete = false;

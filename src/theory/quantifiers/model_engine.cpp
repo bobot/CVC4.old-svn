@@ -20,6 +20,7 @@
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/quantifiers/options.h"
 
 //#define ME_PRINT_PROCESS_TIMES
 
@@ -612,7 +613,7 @@ void ModelEngine::assertNode( Node f ){
 }
 
 bool ModelEngine::useModel() {
-  return Options::current()->fmfModelBasedInst;
+  return options::fmfModelBasedInst();
 }
 
 bool ModelEngine::initializeQuantifier( Node f ){

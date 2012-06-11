@@ -19,6 +19,7 @@
 #include "theory/uf/equality_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers/options.h"
 
 //#define USE_REGION_SAT
 
@@ -813,7 +814,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
         }
         if( !addedLemma ){
           Debug("uf-ss") << "No splits added." << std::endl;
-          if( Options::current()->fmfRegionSat ){
+          if( options::fmfRegionSat() ){
             //otherwise, try to disambiguate individual terms
             if( !disambiguateTerms( out ) ){
               //no disequalities can be propagated
@@ -913,7 +914,7 @@ void StrongSolverTheoryUf::ConflictFind::setCardinality( int c, OutputChannel* o
 }
 
 void StrongSolverTheoryUf::ConflictFind::getRepresentatives( std::vector< Node >& reps ){
-  if( !Options::current()->fmfRegionSat ){
+  if( !options::fmfRegionSat() ){
     bool foundRegion = false;
     for( int i=0; i<(int)d_regions_index; i++ ){
       //should not have multiple regions at this point

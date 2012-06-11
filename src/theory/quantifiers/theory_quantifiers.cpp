@@ -27,6 +27,7 @@
 #include <map>
 #include <time.h>
 #include "theory/quantifiers/theory_quantifiers_instantiator.h"
+#include "theory/quantifiers/options.h"
 
 #define USE_FLIP_DECISION
 
@@ -45,7 +46,7 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
-  if( Options::current()->finiteModelFind ){
+  if( options::finiteModelFind() ){
     qe->addModule( new ModelEngine( this ) );
   }else{
     qe->addModule( new InstantiationEngine( this ) );

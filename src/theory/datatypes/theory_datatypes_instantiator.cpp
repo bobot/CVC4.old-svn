@@ -17,6 +17,7 @@
 #include "theory/datatypes/theory_datatypes_instantiator.h"
 #include "theory/datatypes/theory_datatypes.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -33,7 +34,7 @@ Instantiator( c, ie, th ){
 void InstantiatorTheoryDatatypes::assertNode( Node assertion ){
   Debug("quant-datatypes-assert") << "InstantiatorTheoryDatatypes::check: " << assertion << std::endl;
   d_quantEngine->addTermToDatabase( assertion );
-  if( Options::current()->cbqi ){
+  if( options::cbqi() ){
     if( assertion.hasAttribute(InstConstantAttribute()) ){
       setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
     }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
@@ -49,7 +50,7 @@ void InstantiatorTheoryDatatypes::processResetInstantiationRound( Theory::Effort
 
 int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e, int limitInst ){
   Debug("quant-datatypes") << "Datatypes: Try to solve (" << e << ") for " << f << "... " << std::endl;
-  if( Options::current()->cbqi ){
+  if( options::cbqi() ){
     if( e<2 ){
       return InstStrategy::STATUS_UNFINISHED;
     }else if( e==2 ){

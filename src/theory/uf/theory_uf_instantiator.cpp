@@ -18,7 +18,7 @@
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/equality_engine.h"
-//#include "theory/uf/inst_strategy_model_find.h"
+#include "theory/quantifiers/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -67,17 +67,17 @@ Instantiator( c, qe, th )
 {
   qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( this ) );
 
-  if( Options::current()->finiteModelFind ){
-    //if( Options::current()->cbqi ){
+  if( options::finiteModelFind() ){
+    //if( options::cbqi() ){
     //  addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     //}
     //addInstStrategy( new InstStrategyFiniteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), qe ) );
     qe->getTermDatabase()->setMatchingActive( false );
   }else{
-    if( Options::current()->cbqi ){
+    if( options::cbqi() ){
       addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     }
-    if( Options::current()->userPatternsQuant ){
+    if( options::userPatternsQuant() ){
       d_isup = new InstStrategyUserPatterns( this, qe );
       addInstStrategy( d_isup );
     }else{
@@ -104,7 +104,7 @@ void InstantiatorTheoryUf::assertNode( Node assertion )
   Debug("quant-uf-assert") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
   //preRegisterTerm( assertion );
   d_quantEngine->addTermToDatabase( assertion );
-  if( Options::current()->cbqi ){
+  if( options::cbqi() ){
     if( assertion.hasAttribute(InstConstantAttribute()) ){
       setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
     }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
@@ -229,7 +229,7 @@ void InstantiatorTheoryUf::newEqClass( TNode n ){
 
 /** merge */
 void InstantiatorTheoryUf::merge( TNode a, TNode b ){
-  if( Options::current()->efficientEMatching ){
+  if( options::efficientEMatching() ){
     if( a.getKind()!=IFF && a.getKind()!=EQUAL && b.getKind()!=IFF && b.getKind()!=EQUAL ){
       Debug("efficient-e-match") << "Merging " << a << " with " << b << std::endl;
 

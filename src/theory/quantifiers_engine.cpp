@@ -20,6 +20,7 @@
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/quantifiers/quantifiers_rewriter.h"
+#include "theory/quantifiers/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -71,7 +72,7 @@ bool TermArgTrie::addTerm2( QuantifiersEngine* qe, Node n, int argIndex ){
 
 void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
   //don't add terms in quantifier bodies
-  if( !withinQuant || Options::current()->registerQuantBodyTerms ){
+  if( !withinQuant || options::registerQuantBodyTerms() ){
     if( d_processed.find( n )==d_processed.end() ){
       d_processed[n] = true;
       //if this is an atomic trigger, consider adding it
@@ -87,7 +88,7 @@ void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
           uf::InstantiatorTheoryUf* d_ith = (uf::InstantiatorTheoryUf*)d_quantEngine->getInstantiator( THEORY_UF );
           for( int i=0; i<(int)n.getNumChildren(); i++ ){
             addTerm( n[i], added, withinQuant );
-            if( Options::current()->efficientEMatching ){
+            if( options::efficientEMatching() ){
               if( d_parents[n[i]][op].empty() ){
                 //must add parent to equivalence class info
                 Node nir = d_ith->getRepresentative( n[i] );
@@ -102,13 +103,13 @@ void TermDb::addTerm( Node n, std::vector< Node >& added, bool withinQuant ){
               }
             }
           }
-          if( Options::current()->efficientEMatching ){
+          if( options::efficientEMatching() ){
             //new term, add n to candidate generators
             for( int i=0; i<(int)d_ith->d_cand_gens[op].size(); i++ ){
               d_ith->d_cand_gens[op][i]->addCandidate( n );
             }
           }
-          if( Options::current()->eagerInstQuant ){
+          if( options::eagerInstQuant() ){
             if( !n.hasAttribute(InstLevelAttribute()) && n.getAttribute(InstLevelAttribute())==0 ){
               int addedLemmas = 0;
               for( int i=0; i<(int)d_ith->d_op_triggers[op].size(); i++ ){
@@ -305,7 +306,7 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       Node ceBody = getCounterexampleBody( quants[q] );
       generatePhaseReqs( quants[q], ceBody );
       //also register it with the strong solver
-      if( Options::current()->finiteModelFind ){
+      if( options::finiteModelFind() ){
         ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( quants[q] );
       }
     }
@@ -531,7 +532,7 @@ Node QuantifiersEngine::getSkolemizedBody( Node f ){
 }
 
 void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
-  if( Options::current()->literalMatchMode!=Options::LITERAL_MATCH_NONE ){
+  if( options::literalMatchMode()!=quantifiers::LITERAL_MATCH_NONE ){
     bool printed = false;
     // doing literal-based matching (consider polarity of literals)
     for( int i=0; i<(int)nodes.size(); i++ ){

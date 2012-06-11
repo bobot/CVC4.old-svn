@@ -18,6 +18,7 @@
 
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/quantifiers/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -69,7 +70,7 @@ void InstantiationEngine::addCbqiLemma( Node f ){
 
 bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   //if counterexample-based quantifier instantiation is active
-  if( Options::current()->cbqi ){
+  if( options::cbqi() ){
     //check if any cbqi lemma has not been added yet
     bool addedLemma = false;
     for( int i=0; i<(int)getQuantifiersEngine()->getNumAssertedQuantifiers(); i++ ){
@@ -163,11 +164,11 @@ void InstantiationEngine::check( Theory::Effort e ){
   }
   //determine if we should perform check, based on instWhenMode
   bool performCheck = false;
-  if( Options::current()->instWhenMode==Options::INST_WHEN_FULL ){
+  if( options::instWhenMode()==INST_WHEN_FULL ){
     performCheck = ( e >= Theory::EFFORT_FULL );
-  }else if( Options::current()->instWhenMode==Options::INST_WHEN_FULL_LAST_CALL ){
+  }else if( options::instWhenMode()==INST_WHEN_FULL_LAST_CALL ){
     performCheck = ( ( e==Theory::EFFORT_FULL  && ierCounter%2==0 ) || e==Theory::EFFORT_LAST_CALL );
-  }else if( Options::current()->instWhenMode==Options::INST_WHEN_LAST_CALL ){
+  }else if( options::instWhenMode()==INST_WHEN_LAST_CALL ){
     performCheck = ( e >= Theory::EFFORT_LAST_CALL );
   }else{
     performCheck = true;
@@ -185,7 +186,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     //  if( (*i).second ) {
     for( int i=0; i<(int)getQuantifiersEngine()->getNumAssertedQuantifiers(); i++ ){
       Node n = getQuantifiersEngine()->getAssertedQuantifier( i );
-      if( Options::current()->cbqi && hasAddedCbqiLemma( n ) ){
+      if( options::cbqi() && hasAddedCbqiLemma( n ) ){
         Node cel = d_ce_lit[ n ];
         bool active, value;
         bool ceValue = false;
@@ -243,7 +244,7 @@ void InstantiationEngine::check( Theory::Effort e ){
       }
     }else{
       if( e==Theory::EFFORT_LAST_CALL ){
-        if( Options::current()->cbqi ){
+        if( options::cbqi() ){
           debugSat( SAT_CBQI );
         }
       }
@@ -306,9 +307,9 @@ bool InstantiationEngine::hasNonArithmeticVariable( Node f ){
 }
 
 bool InstantiationEngine::doCbqi( Node f ){
-  if( Options::current()->cbqiSetByUser ){
-    return Options::current()->cbqi;
-  }else if( Options::current()->cbqi ){
+  if( options::cbqi.wasSetByUser() ){
+    return options::cbqi();
+  }else if( options::cbqi() ){
     //if quantifier has a non-arithmetic variable, then do not use cbqi
     //if quantifier has an APPLY_UF term, then do not use cbqi
     return !hasNonArithmeticVariable( f ) && !hasApplyUf( f[1] );

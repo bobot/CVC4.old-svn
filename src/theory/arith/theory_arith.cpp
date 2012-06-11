@@ -1714,7 +1714,7 @@ void TheoryArith::presolve(){
     d_out->lemma(lem);
   }
 
-  // if(Options::current()->arithUnateLemmaMode == Options::ALL_UNATE){
+  // if(options::arithUnateLemmaMode() == Options::ALL_UNATE){
   //   vector<Node> lemmas;
   //   d_constraintDatabase.outputAllUnateLemmas(lemmas);
   //   vector<Node>::const_iterator i = lemmas.begin(), i_end = lemmas.end();
