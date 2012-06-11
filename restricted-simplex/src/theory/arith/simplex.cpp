@@ -262,48 +262,72 @@ Result::Sat SimplexDecisionProcedure::findModel(bool exactResult){
     }
   }
 
-  if(result != Result::UNSAT){
-    static uint32_t inexactPivots = 5; //why not?
+  static const bool verbose = false;
+  const uint32_t firstRoundPivots = Options::current()->arithFirstRoundPivots;
+  const uint32_t secondRoundPivots = Options::current()->arithSecondRoundPivots;
+  if(secondRoundPivots == 0){
+    exactResult = true;
+  }
 
-    uint32_t numHeuristicPivots = exactResult ? d_numVariables + 1 : inexactPivots;
+  if(result != Result::UNSAT &&  firstRoundPivots > 0){
 
-    uint32_t pivotsRemaining = exactResult ? numHeuristicPivots : inexactPivots;
-    uint32_t pivotsPerCheck = exactResult ? (numHeuristicPivots/NUM_CHECKS) + (NUM_CHECKS-1) : inexactPivots;
+    if(searchForFeasibleSolution(firstRoundPivots)){
+      result = Result::UNSAT;
+    }
+    //Once every CHECK_PERIOD examine the entire queue for conflicts
+    if(result != Result::UNSAT){
+      if(findConflictOnTheQueue(DuringDiffSearch)) { result = Result::UNSAT; }
+    }else{
+      findConflictOnTheQueue(AfterDiffSearch); // already unsat
+    }
 
-
-    while(!d_queue.empty() &&
-          result != Result::UNSAT &&
-          pivotsRemaining > 0){
-      uint32_t pivotsToDo = min(pivotsPerCheck, pivotsRemaining);
-
-      if(searchForFeasibleSolution(pivotsToDo)){
-        result = Result::UNSAT;
-      }
-      pivotsRemaining -= pivotsToDo;
-      //Once every CHECK_PERIOD examine the entire queue for conflicts
-      if(result != Result::UNSAT){
-        if(findConflictOnTheQueue(DuringDiffSearch)) { result = Result::UNSAT; }
+    if(verbose){
+      if(result ==  Result::UNSAT){
+        cout << "diff order found unsat" << endl;
+      }else if(d_queue.empty()){
+        cout << "diff order found model" << endl;
       }else{
-        findConflictOnTheQueue(AfterDiffSearch); // already unsat
+        cout << "diff order missed" << endl;
       }
     }
   }
 
-  if(!d_queue.empty() && result != Result::UNSAT && exactResult){
-    d_queue.transitionToVariableOrderMode();
+  if(!d_queue.empty() && result != Result::UNSAT){
+    if(exactResult){
+      d_queue.transitionToVariableOrderMode();
 
-    while(!d_queue.empty() && result != Result::UNSAT){
-      if(searchForFeasibleSolution(VARORDER_CHECK_PERIOD)){
-        result = Result::UNSAT;
-      }
-
-      //Once every CHECK_PERIOD examine the entire queue for conflicts
-      if(result != Result::UNSAT){
-        if(findConflictOnTheQueue(DuringVarOrderSearch)){
+      while(!d_queue.empty() && result != Result::UNSAT){
+        if(searchForFeasibleSolution(VARORDER_CHECK_PERIOD)){
           result = Result::UNSAT;
         }
-      } else{
-        findConflictOnTheQueue(AfterVarOrderSearch);
+
+        //Once every CHECK_PERIOD examine the entire queue for conflicts
+        if(result != Result::UNSAT){
+          if(findConflictOnTheQueue(DuringVarOrderSearch)){
+            result = Result::UNSAT;
+          }
+        } else{
+          findConflictOnTheQueue(AfterVarOrderSearch);
+        }
+      }
+    }else if(secondRoundPivots > 0){
+      d_queue.transitionToVariableOrderMode();
+
+      if(searchForFeasibleSolution(secondRoundPivots)){
+        result = Result::UNSAT;
+        findConflictOnTheQueue(AfterVarOrderSearch); // already unsat
+      }else{
+        if(findConflictOnTheQueue(AfterVarOrderSearch)) { result = Result::UNSAT; }
+      }
+
+      if(verbose){
+        if(result ==  Result::UNSAT){
+          cout << "var order found unsat" << endl;
+        }else if(d_queue.empty()){
+          cout << "var order found model" << endl;
+        }else{
+          cout << "var order missed" << endl;
+        }
       }
     }
   }
@@ -379,7 +403,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     --remainingIterations;
 
-    bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  Options::current()->arithPivotThreshold;
+    bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  Options::current()->arithNonbasicPivotThreshold;
     if(!useVarOrderPivot){
       d_pivotsInRound.add(x_i);
     }
@@ -387,7 +411,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     Debug("playground") << "pivots in rounds: " <<  d_pivotsInRound.count(x_i)
                         << " use " << useVarOrderPivot
-                        << " threshold " << Options::current()->arithPivotThreshold
+                        << " threshold " << Options::current()->arithNonbasicPivotThreshold
                         << endl;
 
     PreferenceFunction pf = useVarOrderPivot ? minVarOrder : minBoundAndRowCount;

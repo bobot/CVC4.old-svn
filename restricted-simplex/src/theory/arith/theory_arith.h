@@ -61,13 +61,14 @@ namespace arith {
  */
 class TheoryArith : public Theory {
 private:
-  enum Result::Sat d_simplexStatus;
+  enum Result::Sat d_qflraStatus;
   // check()
-  //   !done() -> d_simplexStatus = Unknown
+  //   !done() -> d_qflraStatus = Unknown
   //   fullEffort(e) -> simplex returns either sat or unsat
   //   !fullEffort(e) -> simplex returns either sat, unsat or unknown
-  //                     if unknown, save the assignment as "safe"
-  //                     if unknown, the simplex priority queue cannot be emptied.
+  //                     if unknown, save the assignment
+  //                     if unknown, the simplex priority queue cannot be emptied
+  int d_unknownsInARow;
 
   bool rowImplication(ArithVar v, bool upperBound, const DeltaRational& r);
 
@@ -486,6 +487,12 @@ private:
     IntStat d_boundComputations, d_boundPropagations;
 
     IntStat d_unknownChecks;
+    IntStat d_maxUnknownsInARow;
+    AverageStat d_avgUnknownsInARow;
+
+    IntStat d_revertsOnConflicts;
+    IntStat d_commitsOnConflicts;
+    IntStat d_nontrivialSatChecks;
 
     Statistics();
     ~Statistics();

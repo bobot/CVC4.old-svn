@@ -274,7 +274,9 @@ struct CVC4_PUBLIC Options {
    * The number of pivots before Bland's pivot rule is used on a basic
    * variable in arithmetic.
    */
-  uint16_t arithPivotThreshold;
+  uint16_t arithFirstRoundPivots;
+  uint16_t arithSecondRoundPivots;
+  uint16_t arithNonbasicPivotThreshold;
 
   /**
    * The maximum row length that arithmetic will use for propagation.

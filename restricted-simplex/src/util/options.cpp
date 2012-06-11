@@ -123,7 +123,9 @@ Options::Options() :
   arithUnateLemmaMode(ALL_PRESOLVE_LEMMAS),
   arithPropagationMode(BOTH_PROP),
   arithPivotRule(MINIMUM),
-  arithPivotThreshold(16),
+  arithFirstRoundPivots(16),
+  arithSecondRoundPivots(16),
+  arithNonbasicPivotThreshold(16),
   arithPropagateMaxLength(16),
   arithDioSolver(true),
   arithRewriteEq(false),
@@ -486,7 +488,9 @@ enum OptionValue {
   ARITHMETIC_UNATE_LEMMA_MODE,
   ARITHMETIC_PROPAGATION_MODE,
   ARITHMETIC_PIVOT_RULE,
-  ARITHMETIC_PIVOT_THRESHOLD,
+  ARITHMETIC_FIRST_PIVOT_THRESHOLD,
+  ARITHMETIC_SECOND_PIVOT_THRESHOLD,
+  ARITHMETIC_NONBASIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   ARITHMETIC_DIO_SOLVER,
   ENABLE_ARITHMETIC_REWRITE_EQUALITIES,
@@ -591,7 +595,10 @@ static struct option cmdlineOptions[] = {
   { "unate-lemmas", required_argument, NULL, ARITHMETIC_UNATE_LEMMA_MODE },
   { "arith-prop", required_argument, NULL, ARITHMETIC_PROPAGATION_MODE },
   { "pivot-rule" , required_argument, NULL, ARITHMETIC_PIVOT_RULE  },
-  { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
+  { "first-pivot-threshold" , required_argument, NULL, ARITHMETIC_FIRST_PIVOT_THRESHOLD  },
+  { "second-pivot-threshold" , required_argument, NULL, ARITHMETIC_SECOND_PIVOT_THRESHOLD  },
+  { "nonbasic-pivot-threshold" , required_argument, NULL, ARITHMETIC_NONBASIC_PIVOT_THRESHOLD  },
+
   { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
   { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
   { "enable-arith-rewrite-equalities", no_argument, NULL, ENABLE_ARITHMETIC_REWRITE_EQUALITIES },
@@ -1205,8 +1212,16 @@ throw(OptionException) {
       }
       break;
 
-    case ARITHMETIC_PIVOT_THRESHOLD:
-      arithPivotThreshold = atoi(optarg);
+    case ARITHMETIC_FIRST_PIVOT_THRESHOLD:
+      arithFirstRoundPivots = atoi(optarg);
+      break;
+
+    case ARITHMETIC_SECOND_PIVOT_THRESHOLD:
+      arithSecondRoundPivots = atoi(optarg);
+      break;
+
+    case ARITHMETIC_NONBASIC_PIVOT_THRESHOLD:
+      arithNonbasicPivotThreshold = atoi(optarg);
       break;
 
     case ARITHMETIC_PROP_MAX_LENGTH:
