@@ -9,7 +9,7 @@ option bitvectorEagerBitblast --bitblast-eager bool
  eagerly bitblast the bitvectors to the main SAT solver
 
 option bitvectorShareLemmas --bitblast-share-lemmas bool
- share lemmas from the bitvlasting solver with the main solver
+ share lemmas from the bitblasting solver with the main solver
 
 option bitvectorEagerFullcheck --bitblast-eager-fullcheck bool
  check the bitblasting eagerly

@@ -12,7 +12,7 @@ option decisionMode --decision=MODE decision::DecisionMode :handler CVC4::decisi
 option decisionRelevancyLeaves bool
 # permille = part per thousand
 option decisionMaxRelTimeAsPermille --decision-budget=N "unsigned short" :predicate less_equal(1000L) :predicate CVC4::decision::checkDecisionBudget :predicate-include "decision/options_handlers.h"
- impose a budget for relevancy hueristic which increases linearly with each decision. N between 0 and 1000. (default: 1000, no budget)
+ impose a budget for relevancy heuristic which increases linearly with each decision. N between 0 and 1000. (default: 1000, no budget)
 # if false, do justification stuff using relevancy.h
 option decisionComputeRelevancy bool
 # use the must be relevant
