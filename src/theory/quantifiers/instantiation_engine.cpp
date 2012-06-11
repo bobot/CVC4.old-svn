@@ -37,7 +37,7 @@ QuantifiersEngine* InstantiationEngine::getQuantifiersEngine(){
   return d_th->getQuantifiersEngine();
 }
 
-bool InstantiationEngine::hasAddedCbqiLemma( Node f ) { 
+bool InstantiationEngine::hasAddedCbqiLemma( Node f ) {
   return d_ce_lit.find( f ) != d_ce_lit.end();
 }
 
@@ -87,14 +87,9 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   //if not, proceed to instantiation round
   Debug("inst-engine") << "IE: Instantiation Round." << std::endl;
   Debug("inst-engine-ctrl") << "IE: Instantiation Round." << std::endl;
-  //reset instantiators
+  //reset the quantifiers engine
   Debug("inst-engine-ctrl") << "Reset IE" << std::endl;
-  for( int i=0; i<theory::THEORY_LAST; i++ ){
-    if( getQuantifiersEngine()->getInstantiator( i ) ){
-      getQuantifiersEngine()->getInstantiator( i )->resetInstantiationRound( effort );
-    }
-  }
-  getQuantifiersEngine()->getTermDatabase()->reset( effort );
+  getQuantifiersEngine()->resetInstantiationRound( effort );
   //iterate over an internal effort level e
   int e = 0;
   int eLimit = effort==Theory::EFFORT_LAST_CALL ? 10 : 2;

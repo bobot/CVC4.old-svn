@@ -29,7 +29,8 @@ using namespace CVC4::theory;
 
 
 bool CandidateGenerator::isLegalCandidate( Node n ){
-  return !n.getAttribute(NoMatchAttribute()) && ( !Options::current()->cbqi || !n.hasAttribute(InstConstantAttribute()) );
+  return (!n.getAttribute(NoMatchAttribute()) && ( !Options::current()->cbqi || !n.hasAttribute(InstConstantAttribute()) )) ||
+         ( Options::current()->finiteModelFind && n.hasAttribute(ModelBasisArgAttribute()) && n.getAttribute(ModelBasisArgAttribute())==1 );
 }
 
 void CandidateGeneratorQueue::addCandidate( Node n ) {

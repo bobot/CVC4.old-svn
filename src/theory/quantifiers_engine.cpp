@@ -416,6 +416,15 @@ void QuantifiersEngine::propagate( Theory::Effort level ){
   }
 }
 
+void QuantifiersEngine::resetInstantiationRound( Theory::Effort level ){
+  for( int i=0; i<theory::THEORY_LAST; i++ ){
+    if( getInstantiator( i ) ){
+      getInstantiator( i )->resetInstantiationRound( level );
+    }
+  }
+  d_term_db->reset( level );
+}
+
 void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
   if( d_term_db ){
     std::vector< Node > added;
@@ -507,6 +516,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 }
 
 bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits ){
+  Debug("quant-duplicate") << "Add instantiation: " << m << std::endl;
   m.makeComplete( f, this );
   m.makeRepresentative( this );
   Debug("quant-duplicate") << "After make rep: " << m << std::endl;

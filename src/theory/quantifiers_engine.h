@@ -223,11 +223,13 @@ public:
 
 namespace quantifiers{
   class InstantiationEngine;
+  class ModelEngine;
 }
 
 class QuantifiersEngine
 {
   friend class quantifiers::InstantiationEngine;
+  friend class quantifiers::ModelEngine;
   friend class InstMatch;
 private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
@@ -319,6 +321,8 @@ public:
   void assertNode( Node f );
   /** propagate */
   void propagate( Theory::Effort level );
+  /** reset instantiation round */
+  void resetInstantiationRound( Theory::Effort level );
 public:
   /** add lemma lem */
   bool addLemma( Node lem );

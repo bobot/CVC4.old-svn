@@ -121,6 +121,8 @@ Options::Options() :
   finiteModelFind(false),
   fmfRegionSat(false),
   fmfModelBasedInst(true),
+  fmfFindExceptions(true),
+  fmfOneInstPerRound(false),
   cascFilename(""),
   efficientEMatching(false),
   literalMatchMode(LITERAL_MATCH_NONE),
@@ -213,6 +215,8 @@ Additional CVC4 options:\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --use-fmf-region-sat   use region-based SAT heuristic for finite model finding\n\
    --disable-fmf-model-inst  disable model-based instantiation for finite model finding\n\
+   --disable-fmf-find-exceptions   disable exception finding for finite model finding\n\
+   --fmf-one-inst-per-round  only add one instantiation per quantifier per round for fmf\n\
    --efficient-e-matching use efficient E-matching\n\
    --literal-matching=MODE  choose literal matching mode\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [off by default]\n\
@@ -420,6 +424,8 @@ enum OptionValue {
   FINITE_MODEL_FIND,
   FMF_REGION_SAT,
   DISABLE_FMF_MODEL_BASED_INST,
+  DISABLE_FMF_FIND_EXCEPTIONS,
+  FMF_ONE_INST_PER_ROUND,
   CASC_FILENAME,
   EFFICIENT_E_MATCHING,
   LITERAL_MATCHING,
@@ -528,6 +534,8 @@ static struct option cmdlineOptions[] = {
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
   { "disable-fmf-model-inst", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
+  { "disable-fmf-find-exceptions", no_argument, NULL, DISABLE_FMF_FIND_EXCEPTIONS },
+  { "fmf-one-inst-per-round", no_argument, NULL, FMF_ONE_INST_PER_ROUND },
   { "casc-file", required_argument, NULL, CASC_FILENAME },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
@@ -941,6 +949,12 @@ throw(OptionException) {
       break;
     case DISABLE_FMF_MODEL_BASED_INST:
       fmfModelBasedInst = false;
+      break;
+    case DISABLE_FMF_FIND_EXCEPTIONS:
+      fmfFindExceptions = false;
+      break;
+    case FMF_ONE_INST_PER_ROUND:
+      fmfOneInstPerRound = true;
       break;
     case CASC_FILENAME:
       cascFilename = optarg;

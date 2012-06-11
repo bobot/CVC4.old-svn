@@ -169,7 +169,7 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
       return a;
     }else{
       Node rep = getRepresentative( a );
-      if( !rep.hasAttribute(InstConstantAttribute()) ){
+      if( !rep.hasAttribute(InstConstantAttribute()) ){//&& !rep.getAttribute(ModelBasisAttribute()) ){
         //return the representative of a
         d_ground_reps[a] = rep;
         return rep;
@@ -178,7 +178,7 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
         EqClassIterator eqc_iter( rep, &((TheoryUF*)d_th)->d_equalityEngine );
         rep = Node::null();
         while( !eqc_iter.isFinished() ){
-          if( !(*eqc_iter).hasAttribute(InstConstantAttribute()) ){
+          if( !(*eqc_iter).hasAttribute(InstConstantAttribute()) ){//&& !(*eqc_iter).getAttribute(ModelBasisAttribute()) ){
             d_ground_reps[ a ] = *eqc_iter;
             return *eqc_iter;
           }

@@ -234,7 +234,7 @@ Result CheckSatCommand::getResult() const throw() {
 }
 
 void CheckSatCommand::printResult(std::ostream& out) const throw() {
-#if 0     //AJR: temporary ignore for CASC
+#if 1    //AJR: temporary ignore for CASC
   if(! ok()) {
     this->Command::printResult(out);
   } else {

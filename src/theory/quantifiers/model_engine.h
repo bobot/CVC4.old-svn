@@ -102,9 +102,6 @@ public:
   /** debug print */
   void debugPrint( const char* c );
   void debugPrintSmall( const char* c );
-  //for debugging
-  int d_inst_tried;
-  int d_inst_tests;
 };
 
 
@@ -118,7 +115,7 @@ public:
   Node d_value;
 public:
   //is this model tree empty?
-  bool isEmpty() { return d_data.empty(); }
+  bool isEmpty() { return d_data.empty() && d_value.isNull(); }
   //clear
   void clear(){
     d_data.clear();
@@ -211,13 +208,13 @@ private:
   std::vector< Node > d_ground_asserts_reps;
   bool d_model_constructed;
   //store for set values
-  std::map< Node, Node > d_set_values[2];
+  std::map< Node, Node > d_set_values[2][2];
   // preferences for default values
   std::vector< Node > d_values;
   std::map< Node, std::vector< Node > > d_value_pro_con[2];
   std::map< Node, std::vector< Node > > d_term_pro_con[2];
   /** set value */
-  void setValue( Node n, Node v, bool ground = true );
+  void setValue( Node n, Node v, bool ground = true, bool isReq = true );
   /** set model */
   void setModel();
   /** clear model */
@@ -226,6 +223,8 @@ private:
   // defaults
   std::vector< Node > d_defaults;
   Node getIntersection( Node n1, Node n2, bool& isGround );
+  // compute model basis arg
+  static void computeModelBasisArgAttribute( Node n );
 public:
   UfModel(){}
   UfModel( Node op, ModelEngine* qe );
@@ -270,13 +269,14 @@ private:
   std::map< Node, Node > d_model_basis_term;
   //map from instantiation terms to their model basis equivalent
   std::map< Node, Node > d_model_basis;
+  //map from quantifiers to model basis match
+  std::map< Node, InstMatch > d_quant_basis_match;
+private:
   //the model we are working with
   RepAlphabet d_ra;
   std::map< Node, UfModel > d_uf_model;
-  ////map from model basis terms to quantifiers that are pro/con their definition
-  //std::map< Node, std::vector< Node > > d_quant_pro_con[2];
-  //map from quantifiers to model basis terms that are pro the definition of
-  std::map< Node, std::vector< Node > > d_pro_con_quant[2];
+  //map from quantifiers to the instantiation literals that their model is dependent upon
+  std::map< Node, std::vector< Node > > d_quant_model_lits;
   //map from quantifiers to if are constant SAT
   std::map< Node, bool > d_quant_sat;
 private:
@@ -304,18 +304,23 @@ private:
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
 private:
-  bool useModel();
+  //options
+  bool optUseModel();
+  bool optOneInstPerQuantRound();
+  bool optFindExceptions();
 private:
-  //initialize quantifiers, return false if lemma needed to be added
-  bool initializeQuantifier( Node f );
+  //initialize quantifiers, return number of lemmas produced
+  int initializeQuantifier( Node f );
   //build representatives
   void buildRepresentatives();
   //initialize model
   void initializeModel();
   //analyze quantifiers
   void analyzeQuantifiers();
+  //find exceptions, return number of lemmas produced
+  int findExceptions( Node f );
   //instantiate quantifier, return number of lemmas produced
-  int instantiateQuantifier( Node f );
+  int exhaustiveInstantiate( Node f );
 private:
   //register instantiation terms with their corresponding model basis terms
   void registerModelBasis( Node n, Node gn );
@@ -323,8 +328,6 @@ private:
   void initializeUf( Node n );
   void collectUfTerms( Node n, std::vector< Node >& terms );
   void initializeUfModel( Node op );
-  //void processPredicate( Node f, Node p, bool phase );
-  //void processEquality( Node f, Node eq, bool phase );
 public:
   ModelEngine( TheoryQuantifiers* th );
   ~ModelEngine(){}
