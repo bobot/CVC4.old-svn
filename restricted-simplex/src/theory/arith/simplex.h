@@ -219,6 +219,11 @@ private:
 public:
   void increaseMax() {d_numVariables++;}
 
+
+  void clearQueue() {
+    d_queue.clear();
+  }
+
 private:
 
   /** Reports a conflict to on the output channel. */

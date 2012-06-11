@@ -1161,6 +1161,7 @@ void TheoryArith::check(Effort effortLevel){
   Debug("effortlevel") << "TheoryArith::check " << effortLevel << std::endl;
   Debug("arith") << "TheoryArith::check begun " << effortLevel << std::endl;
 
+  Result::Sat previous = d_simplexStatus;
   if(!done()){ d_simplexStatus = Result::SAT_UNKNOWN; }
 
   d_hasDoneWorkSinceCut = d_hasDoneWorkSinceCut || !done();
@@ -1197,16 +1198,23 @@ void TheoryArith::check(Effort effortLevel){
   Assert(d_conflicts.empty());
 
   d_simplexStatus = d_simplex.findModel(fullEffort(effortLevel));
-  d_partialModel.commitAssignmentChanges();
   switch(d_simplexStatus){
   case Result::SAT:
+    d_partialModel.commitAssignmentChanges();
     break;
   case Result::SAT_UNKNOWN:
     ++(d_statistics.d_unknownChecks);
     Assert(!fullEffort(effortLevel));
+    d_partialModel.commitAssignmentChanges();
     break;
   case Result::UNSAT:
-    revertOutOfConflict();
+    if(previous == Result::SAT){
+      revertOutOfConflict();
+      d_simplex.clearQueue();
+    }else{
+      d_partialModel.commitAssignmentChanges();
+      revertOutOfConflict();
+    }
 
     Assert(!d_conflicts.empty());
     for(size_t i = 0, i_end = d_conflicts.size(); i < i_end; ++i){
