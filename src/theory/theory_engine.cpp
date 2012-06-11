@@ -470,6 +470,11 @@ bool TheoryEngine::properConflict(TNode conflict) const {
                                 << conflict[i] << endl;
         return false;
       }
+      if (conflict[i] != Rewriter::rewrite(conflict[i])) {
+        Debug("properConflict") << "Bad conflict is due to atom not in normal form: "
+                                << conflict[i] << " vs " << Rewriter::rewrite(conflict[i]) << endl;
+        return false;
+      }
     }
   } else {
     if (! getPropEngine()->hasValue(conflict, value)) {
@@ -480,6 +485,11 @@ bool TheoryEngine::properConflict(TNode conflict) const {
     if(! value) {
       Debug("properConflict") << "Bad conflict is due to false atom: "
                               << conflict << endl;
+      return false;
+    }
+    if (conflict != Rewriter::rewrite(conflict)) {
+      Debug("properConflict") << "Bad conflict is due to atom not in normal form: "
+                              << conflict << " vs " << Rewriter::rewrite(conflict) << endl;
       return false;
     }
   }
@@ -795,13 +805,17 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
       d_factsAsserted = true;      
     } else {
       Assert(toTheoryId == THEORY_SAT_SOLVER);
-      // Enqueue for propagation to the SAT solver
-      d_propagatedLiterals.push_back(assertion);
       // Check for propositional conflict
       bool value;
-      if (d_propEngine->hasValue(assertion, value) && !value) {
-        d_inConflict = true;
-      }
+      if (d_propEngine->hasValue(assertion, value)) {
+        if (!value) {
+          Trace("theory::propagate") << "TheoryEngine::assertToTheory(" << assertion << ", " << toTheoryId << ", " << fromTheoryId << "): conflict" << std::endl;
+          d_inConflict = true;
+        } else {
+          return;
+        }
+      } 
+      d_propagatedLiterals.push_back(assertion);
     }
     return;
   }
@@ -1026,7 +1040,7 @@ static Node mkExplanation(const std::vector<NodeTheoryPair>& explanation) {
 
 
 Node TheoryEngine::getExplanation(TNode node) {
-  Debug("theory") << "TheoryEngine::getExplanation(" << node << ")" << std::endl;
+  Debug("theory::explain") << "TheoryEngine::getExplanation(" << node << "): current proagation index = " << d_propagationMapTimestamp << std::endl;
 
   bool polarity = node.getKind() != kind::NOT;
   TNode atom = polarity ? node : node[0];
@@ -1122,6 +1136,7 @@ void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
     getExplanation(explanationVector);
     Node fullConflict = mkExplanation(explanationVector);
     Debug("theory::conflict") << "TheoryEngine::conflict(" << conflict << ", " << theoryId << "): full = " << fullConflict << std::endl;
+    Assert(properConflict(fullConflict));
     lemma(fullConflict, true, false);
   } else {
     // When only one theory, the conflict should need no processing
@@ -1197,8 +1212,8 @@ void TheoryEngine::getExplanation(std::vector<NodeTheoryPair>& explanationVector
     } else {
       explanation = theoryOf(toExplain.theory)->explain(toExplain.node);
     }
-    Assert(explanation != toExplain.node, "wansn't sent to you, so why are you explaining it trivially");
     Debug("theory::explain") << "TheoryEngine::explain(): got explanation " << explanation << " got from " << toExplain.theory << std::endl;
+    Assert(explanation != toExplain.node, "wansn't sent to you, so why are you explaining it trivially");
     // Mark the explanation
     NodeTheoryPair newExplain(explanation, toExplain.theory, toExplain.timestamp);
     explanationVector.push_back(newExplain);

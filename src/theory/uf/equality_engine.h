@@ -81,12 +81,13 @@ public:
   virtual bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) = 0;
 
   /**
-   * Notifies about the merge of two constant terms.
+   * Notifies about the merge of two constant terms. After this, all work is suspended and all you 
+   * can do is ask for explanations.
    *
    * @param t1 a constant term
    * @param t2 a constant term
    */
-  virtual bool eqNotifyConstantTermMerge(TNode t1, TNode t2) = 0;
+  virtual void eqNotifyConstantTermMerge(TNode t1, TNode t2) = 0;
 
   /**
    * Notifies about the creation of a new equality class.
@@ -131,7 +132,7 @@ public:
   bool eqNotifyTriggerEquality(TNode equality, bool value) { return true; }
   bool eqNotifyTriggerPredicate(TNode predicate, bool value) { return true; }
   bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) { return true; }
-  bool eqNotifyConstantTermMerge(TNode t1, TNode t2) { return true; }
+  void eqNotifyConstantTermMerge(TNode t1, TNode t2) { }
   void eqNotifyNewClass(TNode t) { }
   void eqNotifyPreMerge(TNode t1, TNode t2) { }
   void eqNotifyPostMerge(TNode t1, TNode t2) { }
@@ -564,9 +565,31 @@ public:
   std::vector<EqualityPair> d_deducedDisequalityReasons;
 
   /**
-   * Stores a propagated disequality for explanation purpooses and remembers the reasons.
+   * Size of the memory for disequality reasons.
    */
-  bool storePropagatedDisequality(TNode lhs, TNode rhs, unsigned reasonsCount) const;
+  context::CDO<size_t> d_deducedDisequalityReasonsSize;
+
+  /**
+   * Map from equalities to the tags that have received the notification.
+   */
+  typedef context::CDHashMap<EqualityPair, Theory::Set, EqualityPairHashFunction> PropagatedDisequalitiesMap;
+  PropagatedDisequalitiesMap d_propagatedDisequalities;
+
+  /**
+   * Has this equality been propagated to anyone.
+   */
+  bool hasPropagatedDisequality(EqualityNodeId lhsId, EqualityNodeId rhsId) const;
+
+  /**
+   * Has this equality been propagated to the tag owner.
+   */
+  bool hasPropagatedDisequality(TheoryId tag, EqualityNodeId lhsId, EqualityNodeId rhsId) const;
+
+  /**
+   * Stores a propagated disequality for explanation purpooses and remembers the reasons. The
+   * reasons should be pushed on the reasons vector.
+   */
+  void storePropagatedDisequality(TheoryId tag, EqualityNodeId lhsId, EqualityNodeId rhsId);
   
   /**
    * An equality tagged with a set of tags.

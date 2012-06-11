@@ -80,10 +80,9 @@ public:
       }
     }
 
-    bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
+    void eqNotifyConstantTermMerge(TNode t1, TNode t2) {
       Debug("uf") << "NotifyClass::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << ")" << std::endl;
       d_uf.conflict(t1, t2);
-      return false;
     }
 
     void eqNotifyNewClass(TNode t) {
