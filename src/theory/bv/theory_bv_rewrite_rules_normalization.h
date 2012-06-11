@@ -430,7 +430,10 @@ Node RewriteRule<SolveEq>::apply(TNode node) {
   // If both constants are nonzero, combine on right, otherwise leave them where they are
   if (rightConst != zero) {
     rightConst = rightConst - leftConst;
-    childrenRight.push_back(utils::mkConst(rightConst));
+    leftConst = zero;
+    if (rightConst != zero) {
+      childrenRight.push_back(utils::mkConst(rightConst));
+    }
   }
   else if (leftConst != zero) {
     childrenLeft.push_back(utils::mkConst(leftConst));
@@ -539,6 +542,9 @@ Node RewriteRule<SolveEq>::apply(TNode node) {
   else {
     newRight = utils::mkSortedNode(kind::BITVECTOR_PLUS, childrenRight);
   }
+
+  Assert(newLeft == Rewriter::rewrite(newLeft));
+  Assert(newRight == Rewriter::rewrite(newRight));
 
   if (newLeft == newRight) {
     Assert (newLeft == utils::mkConst(size, (unsigned)0));

@@ -73,6 +73,10 @@ struct NodeTheoryPairHashFunction {
   }
 };/* struct NodeTheoryPairHashFunction */
 
+namespace theory {
+  class Instantiator;
+}/* CVC4::theory namespace */
+
 /**
  * This is essentially an abstraction for a collection of theories.  A
  * TheoryEngine provides services to a PropEngine, making various
@@ -116,6 +120,11 @@ class TheoryEngine {
    */
   SharedTermsDatabase d_sharedTerms;
 
+  /**
+   * The quantifiers engine
+   */
+  theory::QuantifiersEngine* d_quantEngine;
+
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
   typedef std::hash_map<TNode, Node, TNodeHashFunction> TNodeMap;
 
@@ -152,18 +161,22 @@ class TheoryEngine {
 
   public:
 
-    IntStat conflicts, propagations, lemmas, propagationsAsDecisions;
+    IntStat conflicts, propagations, lemmas, propagationsAsDecisions, requirePhase, flipDecision;
 
     Statistics(theory::TheoryId theory):
       conflicts(mkName("theory<", theory, ">::conflicts"), 0),
       propagations(mkName("theory<", theory, ">::propagations"), 0),
       lemmas(mkName("theory<", theory, ">::lemmas"), 0),
-      propagationsAsDecisions(mkName("theory<", theory, ">::propagationsAsDecisions"), 0)
+      propagationsAsDecisions(mkName("theory<", theory, ">::propagationsAsDecisions"), 0),
+      requirePhase(mkName("theory<", theory, ">::requirePhase"), 0),
+      flipDecision(mkName("theory<", theory, ">::flipDecision"), 0)
     {
       StatisticsRegistry::registerStat(&conflicts);
       StatisticsRegistry::registerStat(&propagations);
       StatisticsRegistry::registerStat(&lemmas);
       StatisticsRegistry::registerStat(&propagationsAsDecisions);
+      StatisticsRegistry::registerStat(&requirePhase);
+      StatisticsRegistry::registerStat(&flipDecision);
     }
 
     ~Statistics() {
@@ -171,6 +184,8 @@ class TheoryEngine {
       StatisticsRegistry::unregisterStat(&propagations);
       StatisticsRegistry::unregisterStat(&lemmas);
       StatisticsRegistry::unregisterStat(&propagationsAsDecisions);
+      StatisticsRegistry::unregisterStat(&requirePhase);
+      StatisticsRegistry::unregisterStat(&flipDecision);
     }
   };/* class TheoryEngine::Statistics */
 
@@ -233,6 +248,21 @@ class TheoryEngine {
       ++ d_statistics.lemmas;
       d_engine->d_outputChannelUsed = true;
       return d_engine->lemma(lemma, false, removable);
+    }
+
+    void requirePhase(TNode n, bool phase)
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::requirePhase("
+                      << n << ", " << phase << ")" << std::endl;
+      ++ d_statistics.requirePhase;
+      d_engine->d_propEngine->requirePhase(n, phase);
+    }
+
+    bool flipDecision()
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::flipDecision()" << std::endl;
+      ++ d_statistics.flipDecision;
+      return d_engine->d_propEngine->flipDecision();
     }
 
     void setIncomplete() throw(AssertionException) {
@@ -381,7 +411,7 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo);
+    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo, getQuantifiersEngine());
   }
 
   inline void setPropEngine(prop::PropEngine* propEngine) {
@@ -399,6 +429,13 @@ public:
    */
   inline prop::PropEngine* getPropEngine() const {
     return d_propEngine;
+  }
+
+  /**
+   * Get a pointer to the underlying quantifiers engine.
+   */
+  theory::QuantifiersEngine* getQuantifiersEngine() const {
+    return d_quantEngine;
   }
 
 private:
@@ -609,6 +646,11 @@ public:
    */
   inline theory::Theory* theoryOf(theory::TheoryId theoryId) {
     return d_theoryTable[theoryId];
+  }
+
+  /** Get the theory for id */
+  theory::Theory* getTheory(int id) {
+    return d_theoryTable[id];
   }
 
   /**

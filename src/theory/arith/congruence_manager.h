@@ -65,15 +65,20 @@ private:
       }
     }
 
-    bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
+    void eqNotifyConstantTermMerge(TNode t1, TNode t2) {
       Debug("arith::congruences") << "ArithCongruenceNotify::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << std::endl;
       if (t1.getKind() == kind::CONST_BOOLEAN) {
-        return d_acm.propagate(t1.iffNode(t2));
+        d_acm.propagate(t1.iffNode(t2));
       } else {
-        return d_acm.propagate(t1.eqNode(t2));
+        d_acm.propagate(t1.eqNode(t2));
       }
     }
-   };
+
+    void eqNotifyNewClass(TNode t) { }
+    void eqNotifyPreMerge(TNode t1, TNode t2) { }
+    void eqNotifyPostMerge(TNode t1, TNode t2) { }
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { }
+  };
   ArithCongruenceNotify d_notify;
 
   context::CDList<Node> d_keepAlive;

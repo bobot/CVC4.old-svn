@@ -9,6 +9,8 @@ OPTIONS_FILES = \
 	theory/arith/options \
 	theory/uf/options \
 	theory/arrays/options \
+	theory/quantifiers/options \
+	theory/rewriterules/options \
 	prop/options \
 	proof/options \
 	printer/options \

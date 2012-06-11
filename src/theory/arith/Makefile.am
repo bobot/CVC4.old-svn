@@ -42,7 +42,9 @@ libarith_la_SOURCES = \
 	arith_unate_lemma_mode.h \
 	arith_unate_lemma_mode.cpp \
 	arith_propagation_mode.h \
-	arith_propagation_mode.cpp
+	arith_propagation_mode.cpp \
+	theory_arith_instantiator.h \
+	theory_arith_instantiator.cpp
 
 EXTRA_DIST = \
 	kinds \
