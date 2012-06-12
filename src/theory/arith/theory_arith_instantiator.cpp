@@ -392,7 +392,7 @@ bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, I
   //use as instantiation value for var
   m.d_map[ var ] = instVal;
   Debug("quant-arith") << "Add instantiation " << m << std::endl;
-  return d_quantEngine->addInstantiation( f, m, true );
+  return d_quantEngine->addInstantiation( f, m );
 }
 
 Node InstantiatorTheoryArith::getTableauxValue( Node n, bool minus_delta ){

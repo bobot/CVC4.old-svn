@@ -329,7 +329,7 @@ public:
   /** instantiate f with arguments terms */
   bool addInstantiation( Node f, std::vector< Node >& terms );
   /** do instantiation specified by m */
-  bool addInstantiation( Node f, InstMatch& m, bool addSplits = false );
+  bool addInstantiation( Node f, InstMatch& m );
   /** split on node n */
   bool addSplit( Node n, bool reqPhase = false, bool reqPhasePol = true );
   /** add split equality */
@@ -447,6 +447,11 @@ public:
     ~Statistics();
   };
   Statistics d_statistics;
+public:
+  /** options */
+  bool d_optInstCheckDuplicate;
+  bool d_optInstMakeRepresentative;
+  bool d_optInstAddSplits;
 };/* class QuantifiersEngine */
 
 }/* CVC4::theory namespace */

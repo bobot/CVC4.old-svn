@@ -30,8 +30,6 @@
 #include "theory/uf/theory_uf.h"
 #include "context/cdlist.h"
 
-//#define USE_EFFICIENT_E_MATCHING
-
 namespace CVC4 {
 namespace theory {
 
@@ -290,7 +288,7 @@ public:
       given Node can't match the pattern */
   virtual bool nonunifiable( TNode t, const std::vector<Node> & vars) = 0;
   /** add instantiations directly */
-  virtual int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ) = 0;
+  virtual int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0 ) = 0;
 };
 
 
@@ -362,7 +360,7 @@ public:
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars);
   /** add instantiations */
-  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0 );
 };
 
 /** smart multi-trigger implementation */
@@ -409,7 +407,7 @@ public:
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
   /** add instantiations */
-  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0 );
 };
 
 class TermArgTrie;
@@ -424,7 +422,7 @@ private:
   Node d_match_pattern;
   /** add instantiations */
   void addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, 
-                          int argIndex, TermArgTrie* tat, int instLimit, bool addSplits );
+                          int argIndex, TermArgTrie* tat, int instLimit );
 public:
   /** constructors */
   InstMatchGeneratorSimple( Node f, Node pat ) : d_f( f ), d_match_pattern( pat ){}
@@ -440,7 +438,7 @@ public:
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
   /** add instantiations */
-  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0 );
 };
 
 }/* CVC4::theory namespace */

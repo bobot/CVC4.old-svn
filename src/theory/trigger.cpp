@@ -135,8 +135,9 @@ bool Trigger::getMatch( Node t, InstMatch& m ){
 }
 
 
-int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSplits ){
-  int addedLemmas = d_mg->addInstantiations( d_f, baseMatch, d_quantEngine, instLimit, addSplits );
+int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit ){
+  //add instantiations
+  int addedLemmas = d_mg->addInstantiations( d_f, baseMatch, d_quantEngine, instLimit );
   if( addedLemmas>0 ){
     Debug("inst-trigger") << "Added " << addedLemmas << " lemmas, trigger was ";
     for( int i=0; i<(int)d_nodes.size(); i++ ){

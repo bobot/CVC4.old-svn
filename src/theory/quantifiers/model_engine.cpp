@@ -719,6 +719,11 @@ void ModelEngine::check( Theory::Effort e ){
           if( d_quant_sat.find( f )==d_quant_sat.end() ){
             addedLemmas += exhaustiveInstantiate( f );
           }
+#ifdef ME_PRINT_WARNINGS
+          if( addedLemmas>10000 ){
+            break;
+          }
+#endif
         }
         Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << std::endl;
 #ifdef ME_PRINT_PROCESS_TIMES
@@ -989,6 +994,7 @@ int ModelEngine::findExceptions( Node f ){
       //std::cout << "Trigger = " << (*tr) << std::endl;
       tr->resetInstantiationRound();
       tr->reset( Node::null() );
+      //d_quantEngine->d_optInstMakeRepresentative = false;
       addedLemmas += tr->addInstantiations( d_quant_basis_match[f] );
     }
   }
@@ -1047,10 +1053,16 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
         triedLemmas++;
         if( d_quantEngine->addInstantiation( f, m ) ){
           addedLemmas++;
+#ifdef DISABLE_EVAL_SKIP_MULTIPLE
+          riter.increment( d_quantEngine );
+#else 
+          riter.increment2( d_quantEngine, depIndex ); 
+#endif 
         }else{
           Debug("ajr-temp") << "* Failed Add instantiation " << m << std::endl;
+          riter.increment( d_quantEngine );
         }
-        riter.increment( d_quantEngine );
+        //riter.increment( d_quantEngine );
       }
     }else{
       InstMatch m;
@@ -1082,7 +1094,6 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
     for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
       totalInst = totalInst * (int)getReps()->d_type_reps[ f[0][i].getType() ].size();
     }
-    std::cout << "Finished: " << std::endl;
     std::cout << "   Inst Skipped: " << (totalInst-triedLemmas) << std::endl;
     std::cout << "   Inst Tried: " << triedLemmas << std::endl;
     std::cout << "   Inst Added: " << addedLemmas << std::endl;
@@ -1093,6 +1104,7 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
       for( int i=0; i<(int)d_quant_model_lits[f].size(); i++ ){
         std::cout << "    " << d_quant_model_lits[f][i] << std::endl;
       }
+      std::cout << std::endl;
     }
   }
 #endif

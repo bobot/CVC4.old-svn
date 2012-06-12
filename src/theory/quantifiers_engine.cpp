@@ -275,6 +275,10 @@ d_forall_asserts( c ),
 d_active( c ){
   d_eq_query = NULL;
   d_term_db = new TermDb( this );
+  //options
+  d_optInstCheckDuplicate = true;
+  d_optInstMakeRepresentative = true;
+  d_optInstAddSplits = false;
 }
 
 Instantiator* QuantifiersEngine::getInstantiator( int id ){
@@ -515,17 +519,21 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
   }
 }
 
-bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits ){
-  Debug("quant-duplicate") << "Add instantiation: " << m << std::endl;
-  m.makeComplete( f, this );
-  m.makeRepresentative( this );
-  Debug("quant-duplicate") << "After make rep: " << m << std::endl;
-  if( !d_inst_match_trie[f].addInstMatch( this, f, m, true ) ){
-    Debug("quant-duplicate") << " -> Already exists." << std::endl;
-    ++(d_statistics.d_inst_duplicate);
-    return false;
+bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m ){
+  if( d_optInstCheckDuplicate ){
+    Debug("quant-duplicate") << "Add instantiation: " << m << std::endl;
+    m.makeComplete( f, this );
+    if( d_optInstMakeRepresentative ){
+      m.makeRepresentative( this );
+    }
+    Debug("quant-duplicate") << "After make rep: " << m << std::endl;
+    if( !d_inst_match_trie[f].addInstMatch( this, f, m, true ) ){
+      Debug("quant-duplicate") << " -> Already exists." << std::endl;
+      ++(d_statistics.d_inst_duplicate);
+      return false;
+    }
+    Debug("quant-duplicate") << " -> Does not exist." << std::endl;
   }
-  Debug("quant-duplicate") << " -> Does not exist." << std::endl;
   std::vector< Node > match;
   m.computeTermVec( d_inst_constants[f], match );
 

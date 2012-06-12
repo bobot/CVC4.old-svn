@@ -377,6 +377,11 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
   Debug("matching") << "Matching " << t << " against pattern " << d_match_pattern << " ("
                     << m.d_map.size() << ")" << ", " << d_children.size() << std::endl;
   Assert( !d_match_pattern.isNull() );
+  //AJR-temp
+  if( t.getAttribute(ModelBasisAttribute()) ){
+    return true;
+  }
+  //AJR-temp
   if( d_matchPolicy==MATCH_GEN_INTERNAL_ARITHMETIC ){
     return getMatchArithmetic( t, m, qe );
   }else if( d_matchPolicy==MATCH_GEN_INTERNAL_ERROR ){
@@ -629,14 +634,14 @@ bool InstMatchGenerator::nonunifiable( TNode t0, const std::vector<Node> & vars)
   return false;
 }
 
-int InstMatchGenerator::addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+int InstMatchGenerator::addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit ){
   //now, try to add instantiation for each match produced
   int addedLemmas = 0;
   InstMatch m;
   while( getNextMatch( m, qe ) ){
     //m.makeInternal( d_quantEngine->getEqualityQuery() );
     m.add( baseMatch );
-    if( qe->addInstantiation( f, m, addSplits ) ){
+    if( qe->addInstantiation( f, m ) ){
       addedLemmas++;
       if( instLimit>0 && addedLemmas==instLimit ){
         return addedLemmas;
@@ -808,14 +813,14 @@ void InstMatchGeneratorMulti::collectInstantiations2( QuantifiersEngine* qe, Ins
     }
   }else{
     //m is an instantiation
-    if( qe->addInstantiation( d_f, m, true ) ){
+    if( qe->addInstantiation( d_f, m ) ){
       addedLemmas++;
       Debug("smart-multi-trigger") << "-> Produced instantiation " << m << std::endl;
     }
   }
 }
 
-int InstMatchGeneratorMulti::addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+int InstMatchGeneratorMulti::addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit ){
   int addedLemmas = 0;
   Debug("smart-multi-trigger") << "Process smart multi trigger" << std::endl;
   for( int i=0; i<(int)d_children.size(); i++ ){
@@ -846,27 +851,27 @@ int InstMatchGeneratorMulti::addInstantiations( Node f, InstMatch& baseMatch, Qu
   return addedLemmas;
 }
 
-int InstMatchGeneratorSimple::addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+int InstMatchGeneratorSimple::addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit ){
   InstMatch m;
   m.add( baseMatch );
   int addedLemmas = 0;
   if( d_match_pattern.getType()==NodeManager::currentNM()->booleanType() ){
     for( int i=0; i<2; i++ ){
       addInstantiations( m, qe, addedLemmas, 0, &(qe->getTermDatabase()->d_pred_map_trie[i][ d_match_pattern.getOperator() ]),
-                         instLimit, addSplits );
+                         instLimit );
     }
   }else{
     addInstantiations( m, qe, addedLemmas, 0, &(qe->getTermDatabase()->d_func_map_trie[ d_match_pattern.getOperator() ]),
-                       instLimit, addSplits );
+                       instLimit );
   }
   return addedLemmas;
 }
 
 void InstMatchGeneratorSimple::addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, int argIndex,
-                                                  TermArgTrie* tat, int instLimit, bool addSplits ){
+                                                  TermArgTrie* tat, int instLimit ){
   if( argIndex==(int)d_match_pattern.getNumChildren() ){
     //m is an instantiation
-    if( qe->addInstantiation( d_f, m, addSplits ) ){
+    if( qe->addInstantiation( d_f, m ) ){
       addedLemmas++;
       Debug("simple-multi-trigger") << "-> Produced instantiation " << m << std::endl;
     }
@@ -878,7 +883,7 @@ void InstMatchGeneratorSimple::addInstantiations( InstMatch& m, QuantifiersEngin
         if( m.d_map[ ic ].isNull() || m.d_map[ ic ]==t ){
           Node prev = m.d_map[ ic ];
           m.d_map[ ic ] = t;
-          addInstantiations( m, qe, addedLemmas, argIndex+1, &(it->second), instLimit, addSplits );
+          addInstantiations( m, qe, addedLemmas, argIndex+1, &(it->second), instLimit );
           m.d_map[ ic ] = prev;
         }
       }
@@ -886,7 +891,7 @@ void InstMatchGeneratorSimple::addInstantiations( InstMatch& m, QuantifiersEngin
       Node r = qe->getEqualityQuery()->getRepresentative( d_match_pattern[argIndex] );
       std::map< Node, TermArgTrie >::iterator it = tat->d_data.find( r );
       if( it!=tat->d_data.end() ){
-        addInstantiations( m, qe, addedLemmas, argIndex+1, &(it->second), instLimit, addSplits );
+        addInstantiations( m, qe, addedLemmas, argIndex+1, &(it->second), instLimit );
       }
     }
   }
