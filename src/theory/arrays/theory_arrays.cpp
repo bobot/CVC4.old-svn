@@ -23,6 +23,7 @@
 #include <map>
 #include "theory/rewriter.h"
 #include "expr/command.h"
+#include "theory/arrays/theory_arrays_instantiator.h"
 
 using namespace std;
 
@@ -45,8 +46,8 @@ const bool d_solveWrite2 = false;
 const bool d_useNonLinearOpt = true;
 const bool d_eagerIndexSplitting = true;
 
-TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) :
-  Theory(THEORY_ARRAY, c, u, out, valuation, logicInfo),
+TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
+  Theory(THEORY_ARRAY, c, u, out, valuation, logicInfo, qe),
   d_numRow("theory::arrays::number of Row lemmas", 0),
   d_numExt("theory::arrays::number of Ext lemmas", 0),
   d_numProp("theory::arrays::number of propagations", 0),
@@ -71,6 +72,7 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_RowQueue(c),
   d_RowAlreadyAdded(u),
   d_sharedArrays(c),
+  d_sharedOther(c),
   d_sharedTerms(c, false),
   d_reads(c),
   d_permRef(c)
@@ -217,7 +219,7 @@ Node TheoryArrays::ppRewrite(TNode term) {
                 }
 
                 Node r1 = nm->mkNode(kind::SELECT, e1, index_i);
-                conc = (r1.getType() == nm->booleanType())? 
+                conc = (r1.getType() == nm->booleanType())?
                   r1.iffNode(write_i[2]) : r1.eqNode(write_i[2]);
                 if (hyp.getNumChildren() != 0) {
                   if (hyp.getNumChildren() == 1) {
@@ -481,9 +483,12 @@ void TheoryArrays::addSharedTerm(TNode t) {
   Debug("arrays::sharing") << spaces(getSatContext()->getLevel()) << "TheoryArrays::addSharedTerm(" << t << ")" << std::endl;
   d_equalityEngine.addTriggerTerm(t, THEORY_ARRAY);
   if (t.getType().isArray()) {
-    d_sharedArrays.insert(t,true);
+    d_sharedArrays.insert(t);
   }
   else {
+#ifdef CVC4_ASSERTIONS
+    d_sharedOther.insert(t);
+#endif
     d_sharedTerms = true;
   }
 }
@@ -507,18 +512,18 @@ EqualityStatus TheoryArrays::getEqualityStatus(TNode a, TNode b) {
 void TheoryArrays::computeCareGraph()
 {
   if (d_sharedArrays.size() > 0) {
-    context::CDHashMap<TNode, bool, TNodeHashFunction>::iterator it1 = d_sharedArrays.begin(), it2, iend = d_sharedArrays.end();
+    context::CDHashSet<TNode, TNodeHashFunction>::iterator it1 = d_sharedArrays.begin(), it2, iend = d_sharedArrays.end();
     for (; it1 != iend; ++it1) {
       for (it2 = it1, ++it2; it2 != iend; ++it2) {
-        if ((*it1).first.getType() != (*it2).first.getType()) {
+        if ((*it1).getType() != (*it2).getType()) {
           continue;
         }
-        EqualityStatus eqStatusArr = getEqualityStatus((*it1).first, (*it2).first);
+        EqualityStatus eqStatusArr = getEqualityStatus((*it1), (*it2));
         if (eqStatusArr != EQUALITY_UNKNOWN) {
           continue;
         }
-        Assert(d_valuation.getEqualityStatus((*it1).first, (*it2).first) == EQUALITY_UNKNOWN);
-        addCarePair((*it1).first, (*it2).first);
+        Assert(d_valuation.getEqualityStatus((*it1), (*it2)) == EQUALITY_UNKNOWN);
+        addCarePair((*it1), (*it2));
         ++d_numSharedArrayVarSplits;
         return;
       }
@@ -532,6 +537,11 @@ void TheoryArrays::computeCareGraph()
     unsigned size = d_reads.size();
     for (unsigned i = 0; i < size; ++ i) {
       TNode r1 = d_reads[i];
+
+      // Make sure shared terms were identified correctly
+      Assert(theoryOf(r1[0]) == THEORY_ARRAY || isShared(r1[0]));
+      Assert(theoryOf(r1[1]) == THEORY_ARRAY ||
+             d_sharedOther.find(r1[1]) != d_sharedOther.end());
 
       for (unsigned j = i + 1; j < size; ++ j) {
         TNode r2 = d_reads[j];
@@ -573,7 +583,6 @@ void TheoryArrays::computeCareGraph()
         // Get representative trigger terms
         TNode x_shared = d_equalityEngine.getTriggerTermRepresentative(x, THEORY_ARRAY);
         TNode y_shared = d_equalityEngine.getTriggerTermRepresentative(y, THEORY_ARRAY);
-
         EqualityStatus eqStatusDomain = d_valuation.getEqualityStatus(x_shared, y_shared);
         switch (eqStatusDomain) {
           case EQUALITY_TRUE_AND_PROPAGATED:
@@ -595,6 +604,7 @@ void TheoryArrays::computeCareGraph()
           default:
             break;
         }
+
 
         // Otherwise, add this pair
         Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): adding to care-graph" << std::endl;
@@ -707,13 +717,10 @@ void TheoryArrays::check(Effort e) {
 
             Node ak = nm->mkNode(kind::SELECT, fact[0][0], k);
             Node bk = nm->mkNode(kind::SELECT, fact[0][1], k);
-            if (!d_equalityEngine.hasTerm(ak)) {
-              preRegisterTerm(ak);
-            }
-            if (!d_equalityEngine.hasTerm(bk)) {
-              preRegisterTerm(bk);
-            }
-            d_equalityEngine.assertEquality(ak.eqNode(bk), false, fact);
+            Node eq = d_valuation.ensureLiteral(ak.eqNode(bk));
+            Assert(eq.getKind() == kind::EQUAL);
+            d_equalityEngine.assertEquality(eq, false, fact);
+            propagate(eq.notNode());
             Trace("arrays-lem")<<"Arrays::addExtLemma "<< ak << " /= " << bk <<"\n";
             ++d_numExt;
           }
