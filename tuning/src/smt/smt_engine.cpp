@@ -492,6 +492,28 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
     Trace("smt") << "setting arith rewrite equalities " << arithRewriteEq << std::endl;
     NodeManager::currentNM()->getOptions()->arithRewriteEq = arithRewriteEq;
   }
+  if(!  Options::current()->arithHeuristicPivotsSetByUser){
+    int16_t heuristicPivots = 5;
+    if(d_logic.isPure(theory::THEORY_ARITH) && !d_logic.isQuantified()){
+      if(d_logic.isDifferenceLogic()){
+        heuristicPivots = -1;
+      }else if(!d_logic.areIntegersUsed()){
+        heuristicPivots = 0;
+      }
+    }
+    Trace("smt") << "setting arithHeuristicPivots  " << heuristicPivots << std::endl;
+    NodeManager::currentNM()->getOptions()->arithHeuristicPivots = heuristicPivots;
+  }
+  if(! Options::current()->arithPivotThresholdSetByUser){
+    uint16_t pivotThreshold = 2;
+    if(d_logic.isPure(theory::THEORY_ARITH) && !d_logic.isQuantified()){
+      if(d_logic.isDifferenceLogic()){
+        pivotThreshold = 16;
+      }
+    }
+    Trace("smt") << "setting arith arithPivotThreshold  " << pivotThreshold << std::endl;
+    NodeManager::currentNM()->getOptions()->arithPivotThreshold = pivotThreshold;
+  }
 }
 
 void SmtEngine::setInfo(const std::string& key, const SExpr& value)

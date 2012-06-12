@@ -28,10 +28,7 @@ using namespace CVC4::kind;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-
-static const uint32_t NUM_CHECKS = 10;
 static const bool CHECK_AFTER_PIVOT = true;
-static const uint32_t VARORDER_CHECK_PERIOD = 200;
 
 SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq, NodeCallBack& conflictChannel) :
   d_conflictVariable(ARITHVAR_SENTINEL),
@@ -44,7 +41,7 @@ SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq, 
   d_pivotsInRound(),
   d_DELTA_ZERO(0,0)
 {
-  switch(Options::ArithPivotRule rule = Options::current()->arithPivotRule) {
+  switch(Options::ArithHeuristicPivotRule rule = Options::current()->arithHeuristicPivotRule) {
   case Options::MINIMUM:
     d_queue.setPivotRule(ArithPriorityQueue::MINIMUM);
     break;
@@ -259,14 +256,16 @@ bool SimplexDecisionProcedure::findModel(){
   if(d_queue.size() > 1){
     foundConflict = findConflictOnTheQueue(BeforeDiffSearch);
   }
+  uint32_t checkPeriod = Options::current()->arithSimplexCheckPeriod;
   if(!foundConflict){
-    uint32_t numHeuristicPivots = d_numVariables + 1;
-    uint32_t pivotsRemaining = numHeuristicPivots;
-    uint32_t pivotsPerCheck = (numHeuristicPivots/NUM_CHECKS) + (NUM_CHECKS-1);
+    uint32_t numDifferencePivots = Options::current()->arithHeuristicPivots < 0 ?
+      d_numVariables + 1 : Options::current()->arithHeuristicPivots;
+    // The signed to unsigned conversion is safe.
+    uint32_t pivotsRemaining = numDifferencePivots;
     while(!d_queue.empty() &&
           !foundConflict &&
           pivotsRemaining > 0){
-      uint32_t pivotsToDo = min(pivotsPerCheck, pivotsRemaining);
+      uint32_t pivotsToDo = min(checkPeriod, pivotsRemaining);
       foundConflict = searchForFeasibleSolution(pivotsToDo);
       pivotsRemaining -= pivotsToDo;
       //Once every CHECK_PERIOD examine the entire queue for conflicts
@@ -282,7 +281,7 @@ bool SimplexDecisionProcedure::findModel(){
     d_queue.transitionToVariableOrderMode();
 
     while(!d_queue.empty() && !foundConflict){
-      foundConflict = searchForFeasibleSolution(VARORDER_CHECK_PERIOD);
+      foundConflict = searchForFeasibleSolution(checkPeriod);
 
       //Once every CHECK_PERIOD examine the entire queue for conflicts
       if(!foundConflict){
