@@ -30,7 +30,7 @@
 #define USE_INDEX_ORDERING
 #define USE_PARTIAL_DEFAULT_VALUES
 #define EVAL_FAIL_SKIP_MULTIPLE
-//#define USE_RELEVANT_DOMAIN
+#define USE_RELEVANT_DOMAIN
 
 
 using namespace std;
@@ -105,11 +105,6 @@ RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEn
   }
 }
 
-RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model, std::vector< int >& indexOrder ){
-  d_index_order.insert( d_index_order.begin(), indexOrder.begin(), indexOrder.end() );
-  initialize( qe, f, model );
-}
-
 void RepAlphabetIterator::setIndexOrder( std::vector< int >& indexOrder ){
   d_index_order.clear();
   d_index_order.insert( d_index_order.begin(), indexOrder.begin(), indexOrder.end() );
@@ -134,7 +129,7 @@ void RepAlphabetIterator::increment2( QuantifiersEngine* qe, int counter ){
   Assert( !isFinished() );
 #ifdef DISABLE_EVAL_SKIP_MULTIPLE
   counter = (int)d_index.size()-1;
-#else
+#endif
   //increment d_index
   while( counter>=0 && d_index[counter]==(int)(d_domain[counter].size()-1) ){
     counter--;
@@ -355,9 +350,9 @@ UfModel::UfModel( Node op, ModelEngine* me ) : d_op( op ), d_me( me ),
 #ifdef USE_RELEVANT_DOMAIN
       //add arguments to domain
       for( int j=0; j<(int)n.getNumChildren(); j++ ){
-        if( d_me->getReps().hasType( n[j].getType() ) ){
+        if( d_me->getReps()->hasType( n[j].getType() ) ){
           Node ra = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n[j] );
-          int raIndex = d_me->getReps().getIndexFor( ra );
+          int raIndex = d_me->getReps()->getIndexFor( ra );
           Assert( raIndex!=-1 );
           if( std::find( d_active_domain[j].begin(), d_active_domain[j].end(), raIndex )==d_active_domain[j].end() ){
             d_active_domain[j].push_back( raIndex );
@@ -1243,24 +1238,29 @@ void ModelEngine::initializeUfModel( Node op ){
 
 void ModelEngine::computeRelevantDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd ){
   if( n.getKind()==INST_CONSTANT ){
+    bool domainSet = false;
     int vi = n.getAttribute(InstVarNumAttribute());
     Assert( !parent.isNull() );
     if( parent.getKind()==APPLY_UF ){
       //if the child of APPLY_UF term f( ... ), only consider the active domain of f at given argument
-      Node op = parent.getOperator();
-      for( int i=0; i<(int)d_uf_model[op].d_active_domain[arg].size(); i++ ){
-        int d = d_uf_model[op].d_active_domain[arg][i];
-        if( std::find( rd[vi].begin(), rd[vi].end(), d )==rd[vi].end() ){
-          rd[vi].push_back( d );
+      Node op = parent.getOperator(); 
+      if( d_uf_model.find( op )!=d_uf_model.end() ){
+        for( int i=0; i<(int)d_uf_model[op].d_active_domain[arg].size(); i++ ){
+          int d = d_uf_model[op].d_active_domain[arg][i];
+          if( std::find( rd[vi].begin(), rd[vi].end(), d )==rd[vi].end() ){
+            rd[vi].push_back( d );
+          }
         }
+        domainSet = true;
       }
-    }else{
+    }
+    if( !domainSet ){
       //otherwise, we must consider the entire domain
       TypeNode tn = n.getType();
-      Assert( d_reps.hasType( tn ) );
-      if( rd[vi].size()!=d_reps.d_type_reps[tn].size() ){
+      Assert( d_ra.hasType( tn ) );
+      if( rd[vi].size()!=d_ra.d_type_reps[tn].size() ){
         rd[vi].clear();
-        for( int i=0; i<(int)d_reps.d_type_reps[tn].size(); i++ ){
+        for( int i=0; i<(int)d_ra.d_type_reps[tn].size(); i++ ){
           rd[vi].push_back( i );
         }
       }
