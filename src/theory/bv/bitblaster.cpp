@@ -338,7 +338,7 @@ Bitblaster::Statistics::~Statistics() {
 }
 
 bool Bitblaster::MinisatNotify::notify(prop::SatLiteral lit) {
-  return d_bv->storePropagation(d_cnf->getNode(lit), TheoryBV::SUB_BITBLAST);
+  return d_bv->storePropagation(d_cnf->getNode(lit), SUB_BITBLAST);
 };
 
 void Bitblaster::MinisatNotify::notify(prop::SatClause& clause) {

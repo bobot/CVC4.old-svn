@@ -239,6 +239,8 @@ class CVC4_PUBLIC SmtEngine {
   TimerStat d_definitionExpansionTime;
   /** time spent in non-clausal simplification */
   TimerStat d_nonclausalSimplificationTime;
+  /** Num of constant propagations found during nonclausal simp */
+  IntStat d_numConstantProps;
   /** time spent in static learning */
   TimerStat d_staticLearningTime;
   /** time spent in simplifying ITEs */
@@ -255,9 +257,6 @@ class CVC4_PUBLIC SmtEngine {
   IntStat d_numAssertionsPre;
   /** Num of assertions after ite removal */
   IntStat d_numAssertionsPost;
-
-  /** how the SMT engine got the answer -- SAT solver or DE */
-  BackedStat<std::string> d_statResultSource;
 
 public:
 

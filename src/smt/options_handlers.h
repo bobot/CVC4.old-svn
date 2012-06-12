@@ -181,6 +181,7 @@ inline void dumpMode(std::string option, std::string optarg, SmtEngine* smt) {
 
 inline void dumpToFile(std::string option, std::string optarg, SmtEngine* smt) {
 #ifdef CVC4_DUMPING
+  size_t dagSetting = expr::ExprDag::getDag(Dump.getStream());
   if(optarg == "") {
     throw OptionException(std::string("Bad file name for --dump-to"));
   } else if(optarg == "-") {
@@ -192,6 +193,7 @@ inline void dumpToFile(std::string option, std::string optarg, SmtEngine* smt) {
     }
     Dump.setStream(*dumpTo);
   }
+  expr::ExprDag::setDag(Dump.getStream(), dagSetting);
 #else /* CVC4_DUMPING */
   throw OptionException("The dumping feature was disabled in this build of CVC4.");
 #endif /* CVC4_DUMPING */
