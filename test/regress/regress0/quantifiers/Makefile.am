@@ -7,6 +7,8 @@ endif
 
 MAKEFLAGS = -k
 
+
+
 # These are run for all build profiles.
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
@@ -16,27 +18,28 @@ TESTS =	\
 	bug291.smt2 \
 	ex3.smt2 \
 	Arrays_Q1-noinfer.smt2 \
-	array-unsat-simp3.smt2 \
 	bignum_quant.smt2 \
 	bug269.smt2 \
 	burns13.smt2 \
 	burns4.smt2 \
-	ex1.smt2 \
 	ex3.smt2 \
 	ex6.smt2 \
-	ex7.smt2 \
 	opisavailable-12.smt2 \
-	ricart-agrawala6.smt2 \
 	set8.smt2 \
 	smtlib384a03.smt2 \
 	smtlib46f14a.smt2 \
 	smtlibf957ea.smt2 \
-	gauss_init_0030.fof.smt2 \
-	piVC_5581bd.smt2 \
 	symmetric_unsat_7.smt2 \
 	set3.smt2
 
+#	array-unsat-simp3.smt2 \
+#	ex1.smt2 \
+#	ex7.smt2 \
+#	ricart-agrawala6.smt2 \
+#	gauss_init_0030.fof.smt2 \
+#	piVC_5581bd.smt2 \
 # removed because they take more than 20s
+
 #		ex1.smt2 \
 #		ex6.smt2 \
 #	        ex7.smt2 \
