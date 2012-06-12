@@ -1,0 +1,101 @@
+SUBDIRS = . core
+
+BINARY = cvc4
+if PROOF_REGRESSIONS
+TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) --proof @top_builddir@/src/main/$(BINARY)
+else
+TESTS_ENVIRONMENT = @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+endif
+
+MAKEFLAGS = -k
+
+# These are run for all build profiles.
+# If a test shouldn't be run in e.g. competition mode,
+# put it below in "TESTS +="
+
+# Regression tests for SMT inputs
+SMT_TESTS = \
+	fuzz01.smt \
+	fuzz02.smt \
+	fuzz03.smt \
+	fuzz04.smt \
+	fuzz05.smt \
+	fuzz06.smt \
+	fuzz07.smt \
+	fuzz08.smt \
+	fuzz09.smt \
+	fuzz10.smt \
+	fuzz11.smt \
+	fuzz12.smt \
+	fuzz13.smt \
+	fuzz14.smt \
+	fuzz15.delta01.smt \
+	fuzz16.delta01.smt \
+	fuzz17.delta01.smt \
+	fuzz18.delta01.smt \
+	fuzz18.delta02.smt \
+	fuzz18.smt \
+	fuzz19.delta01.smt \
+	fuzz19.smt \
+	fuzz20.delta01.smt \
+	fuzz20.smt \
+	fuzz21.delta01.smt \
+	fuzz21.smt \
+	fuzz22.delta01.smt \
+	fuzz22.smt \
+	fuzz23.delta01.smt \
+	fuzz23.smt \
+	fuzz24.delta01.smt \
+	fuzz24.smt \
+	fuzz25.delta01.smt \
+	fuzz25.smt \
+	fuzz26.delta01.smt \
+	fuzz26.smt \
+	fuzz27.delta01.smt \
+	fuzz27.smt \
+	fuzz28.delta01.smt \
+	fuzz28.smt \
+	fuzz29.delta01.smt \
+	fuzz29.smt \
+	fuzz30.delta01.smt \
+	fuzz30.smt \
+	fuzz31.delta01.smt \
+	fuzz31.smt \
+	fuzz32.delta01.smt \
+	fuzz32.smt \
+	fuzz33.delta01.smt \
+	fuzz33.smt \
+	fuzz34.delta01.smt \
+	fuzz34.smt \
+	fuzz35.delta01.smt \
+	fuzz35.smt \
+	fuzz36.delta01.smt \
+	fuzz36.smt \
+	fuzz37.delta01.smt \
+	fuzz37.smt \
+	calc2_sec2_shifter_mult_bmc15.atlas.delta01.smt
+
+# Regression tests for SMT2 inputs
+SMT2_TESTS =
+
+# Regression tests for PL inputs
+CVC_TESTS = bvsimple.cvc
+
+# Regression tests derived from bug reports
+BUG_TESTS = \
+	bug260a.smt \
+	bug260b.smt
+
+TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
+
+EXTRA_DIST = $(TESTS) \
+	test00.smt \
+	bvcomp.cvc
+
+# synonyms for "check" in this directory
+.PHONY: regress regress0 test
+regress regress0 test: check
+
+# do nothing in this subdir
+.PHONY: regress1 regress2 regress3
+regress1 regress2 regress3:
