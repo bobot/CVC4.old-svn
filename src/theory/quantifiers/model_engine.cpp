@@ -29,6 +29,9 @@
 #define RECONSIDER_FUNC_CONSTANT
 #define USE_INDEX_ORDERING
 #define USE_PARTIAL_DEFAULT_VALUES
+#define EVAL_FAIL_SKIP_MULTIPLE
+//#define USE_RELEVANT_DOMAIN
+
 
 using namespace std;
 using namespace CVC4;
@@ -84,11 +87,22 @@ void RepAlphabet::debugPrint( const char* c, QuantifiersEngine* qe ){
   }
 }
 
-RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model ){
+RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model ) : d_f( f ), d_model( model ){
+  //store instantiation constants
   for( int i=0; i<f[0].getNumChildren(); i++ ){
-    d_index_order.push_back( i );
+    d_ic.push_back( qe->getInstantiationConstant( d_f, i ) );
+    d_index.push_back( 0 );
   }
-  initialize( qe, f, model );
+  for( int i=0; i<f[0].getNumChildren(); i++ ){
+    //store default index order
+    d_index_order.push_back( i );
+    d_var_order[i] = i;
+    //store default domain
+    d_domain.push_back( RepDomain() );
+    for( int j=0; j<(int)d_model->getReps()->d_type_reps[d_f[0][i].getType()].size(); j++ ){
+      d_domain[i].push_back( j );
+    }
+  }
 }
 
 RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model, std::vector< int >& indexOrder ){
@@ -96,24 +110,33 @@ RepAlphabetIterator::RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEn
   initialize( qe, f, model );
 }
 
-void RepAlphabetIterator::initialize( QuantifiersEngine* qe, Node f, ModelEngine* model ){
-  d_f = f;
-  d_model = model;
-  //store instantiation constants
-  for( int i=0; i<f[0].getNumChildren(); i++ ){
-    d_ic.push_back( qe->getInstantiationConstant( d_f, i ) );
-    d_index.push_back( 0 );
-  }
+void RepAlphabetIterator::setIndexOrder( std::vector< int >& indexOrder ){
+  d_index_order.clear();
+  d_index_order.insert( d_index_order.begin(), indexOrder.begin(), indexOrder.end() );
   //make the d_var_order mapping
   for( int i=0; i<(int)d_index_order.size(); i++ ){
     d_var_order[d_index_order[i]] = i;
   }
 }
 
+void RepAlphabetIterator::setDomain( std::vector< RepDomain >& domain ){
+  d_domain.clear();
+  d_domain.insert( d_domain.begin(), domain.begin(), domain.end() );
+  //we are done if a domain is empty
+  for( int i=0; i<(int)d_domain.size(); i++ ){
+    if( d_domain[i].empty() ){
+      d_index.clear();
+    }
+  }
+}
+
 void RepAlphabetIterator::increment2( QuantifiersEngine* qe, int counter ){
   Assert( !isFinished() );
+#ifdef DISABLE_EVAL_SKIP_MULTIPLE
+  counter = (int)d_index.size()-1;
+#else
   //increment d_index
-  while( counter>=0 && d_index[counter]==(int)(d_model->getReps()->d_type_reps[d_f[0][d_index_order[counter]].getType()].size()-1) ){
+  while( counter>=0 && d_index[counter]==(int)(d_domain[counter].size()-1) ){
     counter--;
   }
   if( counter==-1 ){
@@ -147,7 +170,8 @@ void RepAlphabetIterator::getMatch( QuantifiersEngine* ie, InstMatch& m ){
 Node RepAlphabetIterator::getTerm( int i ){
   TypeNode tn = d_f[0][d_index_order[i]].getType();
   Assert( d_model->getReps()->d_type_reps.find( tn )!=d_model->getReps()->d_type_reps.end() );
-  return d_model->getReps()->d_type_reps[tn][d_index[d_index_order[i]]];
+  int index = d_index_order[i];
+  return d_model->getReps()->d_type_reps[tn][d_domain[index][d_index[index]]];
 }
 
 void RepAlphabetIterator::calculateTerms( QuantifiersEngine* qe ){
@@ -328,6 +352,19 @@ UfModel::UfModel( Node op, ModelEngine* me ) : d_op( op ), d_me( me ),
       Node r = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n );
       d_ground_asserts_reps.push_back( r );
       d_ground_asserts.push_back( n );
+#ifdef USE_RELEVANT_DOMAIN
+      //add arguments to domain
+      for( int j=0; j<(int)n.getNumChildren(); j++ ){
+        if( d_me->getReps().hasType( n[j].getType() ) ){
+          Node ra = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n[j] );
+          int raIndex = d_me->getReps().getIndexFor( ra );
+          Assert( raIndex!=-1 );
+          if( std::find( d_active_domain[j].begin(), d_active_domain[j].end(), raIndex )==d_active_domain[j].end() ){
+            d_active_domain[j].push_back( raIndex );
+          }
+        }
+      }
+#endif
     }
   }
   //determine if it is constant
@@ -995,6 +1032,7 @@ int ModelEngine::findExceptions( Node f ){
       tr->resetInstantiationRound();
       tr->reset( Node::null() );
       //d_quantEngine->d_optInstMakeRepresentative = false;
+      //d_quantEngine->d_optMatchIgnoreModelBasis = true;
       addedLemmas += tr->addInstantiations( d_quant_basis_match[f] );
     }
   }
@@ -1026,6 +1064,13 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
   d_eval_failed.clear();
   d_eval_term_model.clear();
   RepAlphabetIterator riter( d_quantEngine, f, this );
+  //compute the domain for the iterator
+#ifdef USE_RELEVANT_DOMAIN
+  std::vector< RepDomain > rd;
+  rd.resize( f[0].getNumChildren() );
+  computeRelevantDomain( d_quantEngine->getCounterexampleBody( f ), Node::null(), -1, rd );
+  riter.setDomain( rd );
+#endif
   while( !riter.isFinished() && ( addedLemmas==0 || !optOneInstPerQuantRound() ) ){
     if( optUseModel() ){
       //see if instantiation is already true in current model
@@ -1035,16 +1080,12 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
       riter.calculateTerms( d_quantEngine );
       Debug("fmf-model-eval") << "Done calculating terms." << std::endl;
       tests++;
-      //if eVal is not (int)rai->d_index.size(), then the instantiation is already true in the model,
-      // and eVal is the highest index in rai which we can safely iterate
-      int depIndex = (int)riter.d_index.size()-1;
+      //if evaluate(...)==1, then the instantiation is already true in the model
+      //  depIndex is the index of the least significant variable that this evaluation relies upon
+      int depIndex = riter.getNumTerms()-1;
       if( evaluate( &riter, d_quantEngine->getCounterexampleBody( f ), depIndex )==1 ){
         Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
-#ifdef DISABLE_EVAL_SKIP_MULTIPLE
-        riter.increment( d_quantEngine );
-#else
         riter.increment2( d_quantEngine, depIndex );
-#endif
       }else{
         Debug("fmf-model-eval") << "  Returned failure, depIndex = " << depIndex << std::endl;
         InstMatch m;
@@ -1053,16 +1094,15 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
         triedLemmas++;
         if( d_quantEngine->addInstantiation( f, m ) ){
           addedLemmas++;
-#ifdef DISABLE_EVAL_SKIP_MULTIPLE
+#ifdef EVAL_FAIL_SKIP_MULTIPLE
+          riter.increment2( d_quantEngine, depIndex );
+#else
           riter.increment( d_quantEngine );
-#else 
-          riter.increment2( d_quantEngine, depIndex ); 
-#endif 
+#endif
         }else{
           Debug("ajr-temp") << "* Failed Add instantiation " << m << std::endl;
           riter.increment( d_quantEngine );
         }
-        //riter.increment( d_quantEngine );
       }
     }else{
       InstMatch m;
@@ -1161,18 +1201,18 @@ Node ModelEngine::getModelBasisApplyUfTerm( Node op ){
   return d_model_basis_term[op];
 }
 
-bool ModelEngine::isModelBasisTerm( Node op, Node n ){
-  if( n.getOperator()==op ){
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      if( !n[i].getAttribute(ModelBasisAttribute()) ){
-        return false;
-      }
-    }
-    return true;
-  }else{
-    return false;
-  }
-}
+//bool ModelEngine::isModelBasisTerm( Node op, Node n ){
+//  if( n.getOperator()==op ){
+//    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+//      if( !n[i].getAttribute(ModelBasisAttribute()) ){
+//        return false;
+//      }
+//    }
+//    return true;
+//  }else{
+//    return false;
+//  }
+//}
 
 void ModelEngine::initializeUf( Node n ){
   std::vector< Node > terms;
@@ -1197,6 +1237,37 @@ void ModelEngine::initializeUfModel( Node op ){
     tn = tn[ (int)tn.getNumChildren()-1 ];
     if( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) ){
       d_uf_model[ op ] = UfModel( op, this );
+    }
+  }
+}
+
+void ModelEngine::computeRelevantDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd ){
+  if( n.getKind()==INST_CONSTANT ){
+    int vi = n.getAttribute(InstVarNumAttribute());
+    Assert( !parent.isNull() );
+    if( parent.getKind()==APPLY_UF ){
+      //if the child of APPLY_UF term f( ... ), only consider the active domain of f at given argument
+      Node op = parent.getOperator();
+      for( int i=0; i<(int)d_uf_model[op].d_active_domain[arg].size(); i++ ){
+        int d = d_uf_model[op].d_active_domain[arg][i];
+        if( std::find( rd[vi].begin(), rd[vi].end(), d )==rd[vi].end() ){
+          rd[vi].push_back( d );
+        }
+      }
+    }else{
+      //otherwise, we must consider the entire domain
+      TypeNode tn = n.getType();
+      Assert( d_reps.hasType( tn ) );
+      if( rd[vi].size()!=d_reps.d_type_reps[tn].size() ){
+        rd[vi].clear();
+        for( int i=0; i<(int)d_reps.d_type_reps[tn].size(); i++ ){
+          rd[vi].push_back( i );
+        }
+      }
+    }
+  }else{
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      computeRelevantDomain( n[i], n, i, rd );
     }
   }
 }
@@ -1294,7 +1365,7 @@ int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
   }else if( n.getKind()==OR || n.getKind()==AND || n.getKind()==IMPLIES ){
     int baseVal = n.getKind()==AND ? 1 : -1;
     int eVal = baseVal;
-    int posDepIndex = (int)rai->d_index.size();
+    int posDepIndex = rai->getNumTerms();
     int negDepIndex = -1;
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
       //evaluate subterm
@@ -1386,7 +1457,7 @@ int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
         int index = rai->d_var_order[ fv_deps[i].getAttribute(InstVarNumAttribute()) ];
         if( index>maxIndex ){
           maxIndex = index;
-          if( index==(int)rai->d_index.size()-1 ){
+          if( index==rai->getNumTerms()-1 ){
             break;
           }
         }

@@ -279,6 +279,7 @@ d_active( c ){
   d_optInstCheckDuplicate = true;
   d_optInstMakeRepresentative = true;
   d_optInstAddSplits = false;
+  d_d_optMatchIgnoreModelBasis = false;
 }
 
 Instantiator* QuantifiersEngine::getInstantiator( int id ){

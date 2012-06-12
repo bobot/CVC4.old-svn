@@ -44,6 +44,8 @@ public:
     d_type_reps.clear();
     d_tmap.clear();
   }
+  /** has type */
+  bool hasType( TypeNode tn ) { return d_type_reps.find( tn )!=d_type_reps.end(); }
   /** set the representatives for type */
   void set( TypeNode t, std::vector< Node >& reps );
   /** returns index in d_type_reps for node n */
@@ -54,13 +56,16 @@ public:
 
 class ModelEngine;
 
+//representative domain
+typedef std::vector< int > RepDomain;
+
 /** this class iterates over a RepAlphabet */
 class RepAlphabetIterator {
 private:
+  //initialize the iterator
   void initialize( QuantifiersEngine* qe, Node f, ModelEngine* model );
 public:
   RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model );
-  RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model, std::vector< int >& indexOrder );
   ~RepAlphabetIterator(){}
   //pointer to quantifier
   Node d_f;
@@ -68,6 +73,8 @@ public:
   ModelEngine* d_model;
   //index we are considering
   std::vector< int > d_index;
+  //domain we are considering
+  std::vector< RepDomain > d_domain;
   //ordering for variables we are indexing over
   //  for example, given reps = { a, b } and quantifier forall( x, y, z ) P( x, y, z ) with d_index_order = { 2, 0, 1 },
   //    then we consider instantiations in this order:
@@ -86,6 +93,10 @@ public:
   //the current terms we are considering
   std::vector< Node > d_terms;
 public:
+  /** set index order */
+  void setIndexOrder( std::vector< int >& indexOrder );
+  /** set domain */
+  void setDomain( std::vector< RepDomain >& domain );
   /** increment the iterator */
   void increment2( QuantifiersEngine* qe, int counter );
   void increment( QuantifiersEngine* qe );
@@ -233,6 +244,8 @@ public:
   UfModelTreeOrdered d_tree;
   //quantifiers that are satisfied because of the constant definition of d_op
   bool d_reconsider_model;
+  //the domain of the arguments
+  std::map< int, RepDomain > d_active_domain;
 public:
   /** debug print */
   void debugPrint( const char* c );
@@ -328,6 +341,8 @@ private:
   void initializeUf( Node n );
   void collectUfTerms( Node n, std::vector< Node >& terms );
   void initializeUfModel( Node op );
+  //for computing relevant domain
+  void computeRelevantDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd );
 public:
   ModelEngine( TheoryQuantifiers* th );
   ~ModelEngine(){}
@@ -342,7 +357,7 @@ public:
   //get model basis term for op
   Node getModelBasisApplyUfTerm( Node op );
   //is model basis term for op
-  bool isModelBasisTerm( Node op, Node n );
+  //bool isModelBasisTerm( Node op, Node n );
 public:
   void check( Theory::Effort e );
   void registerQuantifier( Node f );

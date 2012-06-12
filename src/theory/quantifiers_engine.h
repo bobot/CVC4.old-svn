@@ -452,6 +452,7 @@ public:
   bool d_optInstCheckDuplicate;
   bool d_optInstMakeRepresentative;
   bool d_optInstAddSplits;
+  bool d_optMatchIgnoreModelBasis;
 };/* class QuantifiersEngine */
 
 }/* CVC4::theory namespace */

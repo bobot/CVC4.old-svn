@@ -377,12 +377,9 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
   Debug("matching") << "Matching " << t << " against pattern " << d_match_pattern << " ("
                     << m.d_map.size() << ")" << ", " << d_children.size() << std::endl;
   Assert( !d_match_pattern.isNull() );
-  //AJR-temp
-  if( t.getAttribute(ModelBasisAttribute()) ){
+  if( qe->d_optMatchIgnoreModelBasis && t.getAttribute(ModelBasisAttribute()) ){
     return true;
-  }
-  //AJR-temp
-  if( d_matchPolicy==MATCH_GEN_INTERNAL_ARITHMETIC ){
+  }else if( d_matchPolicy==MATCH_GEN_INTERNAL_ARITHMETIC ){
     return getMatchArithmetic( t, m, qe );
   }else if( d_matchPolicy==MATCH_GEN_INTERNAL_ERROR ){
     return false;
