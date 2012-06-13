@@ -71,68 +71,54 @@ Node TypeNode::mkGroundTerm() const {
   return kind::mkGroundTerm(*this);
 }
 
-bool TypeNode::isBoolean() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    ( getConst<TypeConstant>() == BOOLEAN_TYPE ||
-      getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE );
+bool TypeNode::isSubtypeOf(TypeNode t) const {
+  if(*this == t) {
+    return true;
+  }
+  if(getKind() == kind::TYPE_CONSTANT) {
+    switch(getConst<TypeConstant>()) {
+    case INTEGER_TYPE:
+      return t.getKind() == kind::TYPE_CONSTANT && t.getConst<TypeConstant>() == REAL_TYPE;
+    default:
+      return false;
+    }
+  }
+  if(isSubrange()) {
+    if(t.isSubrange()) {
+      return t.getSubrangeBounds() <= getSubrangeBounds();
+    } else {
+      return t.getKind() == kind::TYPE_CONSTANT &&
+        ( t.getConst<TypeConstant>() == INTEGER_TYPE ||
+          t.getConst<TypeConstant>() == REAL_TYPE );
+    }
+  }
+  if(isPredicateSubtype()) {
+    return getSubtypeBaseType().isSubtypeOf(t);
+  }
+  return false;
 }
 
-bool TypeNode::isInteger() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    ( getConst<TypeConstant>() == INTEGER_TYPE ||
-      getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE );
+bool TypeNode::isComparableTo(TypeNode t) const {
+  if(*this == t) {
+    return true;
+  }
+  if(isSubtypeOf(NodeManager::currentNM()->realType())) {
+    return t.isSubtypeOf(NodeManager::currentNM()->realType());
+  }
+  if(isPredicateSubtype()) {
+    return t.isComparableTo(getSubtypeBaseType());
+  }
+  return false;
 }
 
-bool TypeNode::isReal() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    ( getConst<TypeConstant>() == REAL_TYPE ||
-      getConst<TypeConstant>() == INTEGER_TYPE ||
-      getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE );
+Node TypeNode::getSubtypePredicate() const {
+  Assert(isPredicateSubtype());
+  return Node::fromExpr(getConst<Predicate>());
 }
 
-bool TypeNode::isPseudoboolean() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE;
-}
-
-bool TypeNode::isString() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    getConst<TypeConstant>() == STRING_TYPE;
-}
-
-bool TypeNode::isArray() const {
-  return getKind() == kind::ARRAY_TYPE;
-}
-
-TypeNode TypeNode::getArrayIndexType() const {
-  Assert(isArray());
-  return (*this)[0];
-}
-
-TypeNode TypeNode::getArrayConstituentType() const {
-  Assert(isArray());
-  return (*this)[1];
-}
-
-TypeNode TypeNode::getConstructorRangeType() const {
-  Assert(isConstructor());
-  return (*this)[getNumChildren()-1];
-}
-
-bool TypeNode::isFunction() const {
-  return getKind() == kind::FUNCTION_TYPE;
-}
-
-bool TypeNode::isFunctionLike() const {
-  return
-    getKind() == kind::FUNCTION_TYPE ||
-    getKind() == kind::CONSTRUCTOR_TYPE ||
-    getKind() == kind::SELECTOR_TYPE ||
-    getKind() == kind::TESTER_TYPE;
-}
-
-bool TypeNode::isPredicate() const {
-  return isFunction() && getRangeType().isBoolean();
+TypeNode TypeNode::getSubtypeBaseType() const {
+  Assert(isPredicateSubtype());
+  return getSubtypePredicate().getType().getArgTypes()[0];
 }
 
 std::vector<TypeNode> TypeNode::getArgTypes() const {
@@ -158,19 +144,6 @@ std::vector<TypeNode> TypeNode::getParamTypes() const {
   return params;
 }
 
-TypeNode TypeNode::getRangeType() const {
-  if(isTester()) {
-    return NodeManager::currentNM()->booleanType();
-  }
-  Assert(isFunction() || isConstructor() || isSelector());
-  return (*this)[getNumChildren()-1];
-}
-
-/** Is this a tuple type? */
-bool TypeNode::isTuple() const {
-  return getKind() == kind::TUPLE_TYPE;
-}
-
 /** Is this a tuple type? */
 vector<TypeNode> TypeNode::getTupleTypes() const {
   Assert(isTuple());
@@ -179,37 +152,6 @@ vector<TypeNode> TypeNode::getTupleTypes() const {
     types.push_back((*this)[i]);
   }
   return types;
-}
-
-/** Is this a sort kind */
-bool TypeNode::isSort() const {
-  return getKind() == kind::SORT_TYPE && !hasAttribute(expr::SortArityAttr());
-}
-
-/** Is this a sort constructor kind */
-bool TypeNode::isSortConstructor() const {
-  return getKind() == kind::SORT_TYPE && hasAttribute(expr::SortArityAttr());
-}
-
-/** Is this a kind type (i.e., the type of a type)? */
-bool TypeNode::isKind() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    getConst<TypeConstant>() == KIND_TYPE;
-}
-
-/** Is this a bit-vector type */
-bool TypeNode::isBitVector() const {
-  return getKind() == kind::BITVECTOR_TYPE;
-}
-
-/** Is this a datatype type */
-bool TypeNode::isDatatype() const {
-  return getKind() == kind::DATATYPE_TYPE;
-}
-
-/** Is this a parametric datatype type */
-bool TypeNode::isParametricDatatype() const {
-  return getKind() == kind::PARAMETRIC_DATATYPE;
 }
 
 /** Is this an instantiated datatype type */
@@ -239,31 +181,140 @@ bool TypeNode::isParameterInstantiatedDatatype(unsigned n) const {
   return TypeNode::fromType(dt.getParameter(n)) != (*this)[n + 1];
 }
 
-/** Is this a constructor type */
-bool TypeNode::isConstructor() const {
-  return getKind() == kind::CONSTRUCTOR_TYPE;
+TypeNode TypeNode::leastCommonTypeNode(TypeNode t0, TypeNode t1){
+  Assert( NodeManager::currentNM() != NULL,
+          "There is no current CVC4::NodeManager associated to this thread.\n"
+          "Perhaps a public-facing function is missing a NodeManagerScope ?" );
+
+  Assert(!t0.isNull());
+  Assert(!t1.isNull());
+
+  if(EXPECT_TRUE(t0 == t1)){
+    return t0;
+  }else{ // t0 != t1
+    if(t0.getKind()== kind::TYPE_CONSTANT){
+      switch(t0.getConst<TypeConstant>()) {
+      case INTEGER_TYPE:
+        if(t1.isInteger()){
+          // t0 == IntegerType && t1.isInteger()
+          return t0; //IntegerType
+        }else if(t1.isReal()){
+          // t0 == IntegerType && t1.isReal() && !t1.isInteger()
+          return NodeManager::currentNM()->realType(); // RealType
+        }else{
+          return TypeNode(); //null type
+        }
+      case REAL_TYPE:
+        if(t1.isReal()){
+          return t0; // RealType
+        }else{
+          return TypeNode(); // null type
+        }
+      default:
+        if(t1.isPredicateSubtype() && t1.getSubtypeBaseType().isSubtypeOf(t0)){
+          return t0; // t0 is a constant type
+        }else{
+          return TypeNode(); // null type
+        }
+      }
+    }else if(t1.getKind() == kind::TYPE_CONSTANT){
+      return leastCommonTypeNode(t1, t0); //decrease the number of special cases
+    }else{
+      // t0 != t1 &&
+      // t0.getKind() == kind::TYPE_CONSTANT &&
+      // t1.getKind() == kind::TYPE_CONSTANT
+      switch(t0.getKind()){
+      case kind::ARRAY_TYPE:
+      case kind::BITVECTOR_TYPE:
+      case kind::SORT_TYPE:
+      case kind::PARAMETRIC_DATATYPE:
+      case kind::CONSTRUCTOR_TYPE:
+      case kind::SELECTOR_TYPE:
+      case kind::TESTER_TYPE:
+        if(t1.isPredicateSubtype() && t1.getSubtypeBaseType().isSubtypeOf(t0)){
+          return t0;
+        }else{
+          return TypeNode();
+        }
+      case kind::FUNCTION_TYPE:
+        return TypeNode(); // Not sure if this is right
+      case kind::TUPLE_TYPE:
+        Unimplemented();
+        return TypeNode(); // Not sure if this is right
+      case kind::SUBTYPE_TYPE:
+        if(t1.isPredicateSubtype()){
+          // This is the case where both t0 and t1 are predicate subtypes.
+          return leastCommonPredicateSubtype(t0, t1);
+        }else{ //t0 is a predicate subtype and t1 is not
+          return leastCommonTypeNode(t1, t0); //decrease the number of special cases
+        }
+      case kind::SUBRANGE_TYPE:
+        if(t1.isSubrange()){
+          const SubrangeBounds& t0SR= t0.getSubrangeBounds();
+          const SubrangeBounds& t1SR = t1.getSubrangeBounds();
+          if(SubrangeBounds::joinIsBounded(t0SR, t1SR)){
+            SubrangeBounds j = SubrangeBounds::join(t0SR, t1SR);
+            return NodeManager::currentNM()->mkSubrangeType(j);
+          }else{
+            return NodeManager::currentNM()->integerType();
+          }
+        }else if(t1.isPredicateSubtype()){
+          //t0 is a subrange
+          //t1 is not a subrange
+          //t1 is a predicate subtype
+          if(t1.isInteger()){
+            return NodeManager::currentNM()->integerType();
+          }else if(t1.isReal()){
+            return NodeManager::currentNM()->realType();
+          }else{
+            return TypeNode();
+          }
+        }else{
+          //t0 is a subrange
+          //t1 is not a subrange
+          // t1 is not a type constant && is not a predicate subtype
+          // t1 cannot be real subtype or integer.
+          Assert(t1.isReal());
+          Assert(t1.isInteger());
+          return TypeNode();
+        }
+      default:
+        Unimplemented();
+        return TypeNode();
+      }
+    }
+  }
 }
 
-/** Is this a selector type */
-bool TypeNode::isSelector() const {
-  return getKind() == kind::SELECTOR_TYPE;
-}
+TypeNode TypeNode::leastCommonPredicateSubtype(TypeNode t0, TypeNode t1){
+  Assert(t0.isPredicateSubtype());
+  Assert(t1.isPredicateSubtype());
 
-/** Is this a tester type */
-bool TypeNode::isTester() const {
-  return getKind() == kind::TESTER_TYPE;
-}
+  std::vector<TypeNode> t0stack;
+  t0stack.push_back(t0);
+  while(t0stack.back().isPredicateSubtype()){
+    t0stack.push_back(t0stack.back().getSubtypeBaseType());
+  }
+  std::vector<TypeNode> t1stack;
+  t1stack.push_back(t1);
+  while(t1stack.back().isPredicateSubtype()){
+    t1stack.push_back(t1stack.back().getSubtypeBaseType());
+  }
 
-/** Is this a bit-vector type of size <code>size</code> */
-bool TypeNode::isBitVector(unsigned size) const {
-  return getKind() == kind::BITVECTOR_TYPE &&
-    getConst<BitVectorSize>() == size;
-}
+  Assert(!t0stack.empty());
+  Assert(!t1stack.empty());
 
-/** Get the size of this bit-vector type */
-unsigned TypeNode::getBitVectorSize() const {
-  Assert(isBitVector());
-  return getConst<BitVectorSize>();
+  if(t0stack.back() == t1stack.back()){
+    TypeNode mostGeneral = t1stack.back();
+    t0stack.pop_back(); t1stack.pop_back();
+    while(!t0stack.empty() && t1stack.empty() && t0stack.back() == t1stack.back()){
+      mostGeneral = t0stack.back();
+      t0stack.pop_back(); t1stack.pop_back();
+    }
+    return mostGeneral;
+  }else{
+    return leastCommonTypeNode(t0stack.back(), t1stack.back());
+  }
 }
 
 }/* CVC4 namespace */

@@ -28,6 +28,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <set>
+#include <utility>
 
 namespace CVC4 {
 
@@ -167,6 +168,20 @@ CVC4ostream& CVC4ostream::operator<<(T const& t) {
   return *this;
 }
 
+/**
+ * Does nothing; designed for compilation of non-debug/non-trace
+ * builds.  None of these should ever be called in such builds, but we
+ * offer this to the compiler so it doesn't complain.
+ */
+class CVC4_PUBLIC NullC {
+public:
+  operator bool() { return false; }
+  operator CVC4ostream() { return CVC4ostream(); }
+  operator std::ostream&() { return null_os; }
+};/* class NullC */
+
+extern NullC nullCvc4Stream CVC4_PUBLIC;
+
 /** The debug output class */
 class CVC4_PUBLIC DebugC {
   std::set<std::string> d_tags;
@@ -208,6 +223,7 @@ public:
 
 /** The warning output class */
 class CVC4_PUBLIC WarningC {
+  std::set< std::pair<const char*, size_t> > d_alreadyWarned;
   std::ostream* d_os;
 
 public:
@@ -221,6 +237,22 @@ public:
   std::ostream& getStream() { return *d_os; }
 
   bool isOn() const { return d_os != &null_os; }
+
+  // This function supports the WarningOnce() macro, which allows you
+  // to easily indicate that a warning should be emitted, but only
+  // once for a given run of CVC4.
+  bool warnOnce(const char* file, size_t line) {
+    std::pair<const char*, size_t> pr = std::make_pair(file, line);
+    if(d_alreadyWarned.find(pr) != d_alreadyWarned.end()) {
+      // signal caller not to warn again
+      return false;
+    }
+
+    // okay warn this time, but don't do it again
+    d_alreadyWarned.insert(pr);
+    return true;
+  }
+
 };/* class WarningC */
 
 /** The message output class */
@@ -315,7 +347,7 @@ public:
 };/* class TraceC */
 
 /** The dump output class */
-class CVC4_PUBLIC DumpC {
+class CVC4_PUBLIC DumpOutC {
   std::set<std::string> d_tags;
   std::ostream* d_os;
 
@@ -326,7 +358,7 @@ public:
    * unlimited). */
   static std::ostream dump_cout;
 
-  explicit DumpC(std::ostream* os) : d_os(os) {}
+  explicit DumpOutC(std::ostream* os) : d_os(os) {}
 
   int printf(const char* tag, const char* fmt, ...) __attribute__ ((format(printf, 3, 4)));
   int printf(std::string tag, const char* fmt, ...) __attribute__ ((format(printf, 3, 4)));
@@ -357,7 +389,7 @@ public:
 
   std::ostream& setStream(std::ostream& os) { d_os = &os; return os; }
   std::ostream& getStream() { return *d_os; }
-};/* class DumpC */
+};/* class DumpOutC */
 
 /** The debug output singleton */
 extern DebugC DebugChannel CVC4_PUBLIC;
@@ -372,17 +404,18 @@ extern ChatC ChatChannel CVC4_PUBLIC;
 /** The trace output singleton */
 extern TraceC TraceChannel CVC4_PUBLIC;
 /** The dump output singleton */
-extern DumpC DumpChannel CVC4_PUBLIC;
+extern DumpOutC DumpOutChannel CVC4_PUBLIC;
 
 #ifdef CVC4_MUZZLE
 
 #  define Debug ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::DebugChannel
 #  define Warning ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::WarningChannel
+#  define WarningOnce ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::WarningChannel
 #  define Message ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::MessageChannel
 #  define Notice ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::NoticeChannel
 #  define Chat ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::ChatChannel
 #  define Trace ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::TraceChannel
-#  define Dump ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::DumpChannel
+#  define DumpOut ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::DumpOutChannel
 
 inline int DebugC::printf(const char* tag, const char* fmt, ...) { return 0; }
 inline int DebugC::printf(std::string tag, const char* fmt, ...) { return 0; }
@@ -392,19 +425,20 @@ inline int NoticeC::printf(const char* fmt, ...) { return 0; }
 inline int ChatC::printf(const char* fmt, ...) { return 0; }
 inline int TraceC::printf(const char* tag, const char* fmt, ...) { return 0; }
 inline int TraceC::printf(std::string tag, const char* fmt, ...) { return 0; }
-inline int DumpC::printf(const char* tag, const char* fmt, ...) { return 0; }
-inline int DumpC::printf(std::string tag, const char* fmt, ...) { return 0; }
+inline int DumpOutC::printf(const char* tag, const char* fmt, ...) { return 0; }
+inline int DumpOutC::printf(std::string tag, const char* fmt, ...) { return 0; }
 
 #else /* CVC4_MUZZLE */
 
-#  ifdef CVC4_DEBUG
+#  if defined(CVC4_DEBUG) && defined(CVC4_TRACING)
 #    define Debug ::CVC4::DebugChannel
-#  else /* CVC4_DEBUG */
+#  else /* CVC4_DEBUG && CVC4_TRACING */
 #    define Debug ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::DebugChannel
 inline int DebugC::printf(const char* tag, const char* fmt, ...) { return 0; }
 inline int DebugC::printf(std::string tag, const char* fmt, ...) { return 0; }
-#  endif /* CVC4_DEBUG */
+#  endif /* CVC4_DEBUG && CVC4_TRACING */
 #  define Warning (! ::CVC4::WarningChannel.isOn()) ? ::CVC4::nullCvc4Stream : ::CVC4::WarningChannel
+#  define WarningOnce (! ::CVC4::WarningChannel.isOn() || ! ::CVC4::WarningChannel.warnOnce(__FILE__,__LINE__)) ? ::CVC4::nullCvc4Stream : ::CVC4::WarningChannel
 #  define Message (! ::CVC4::MessageChannel.isOn()) ? ::CVC4::nullCvc4Stream : ::CVC4::MessageChannel
 #  define Notice (! ::CVC4::NoticeChannel.isOn()) ? ::CVC4::nullCvc4Stream : ::CVC4::NoticeChannel
 #  define Chat (! ::CVC4::ChatChannel.isOn()) ? ::CVC4::nullCvc4Stream : ::CVC4::ChatChannel
@@ -416,11 +450,11 @@ inline int TraceC::printf(const char* tag, const char* fmt, ...) { return 0; }
 inline int TraceC::printf(std::string tag, const char* fmt, ...) { return 0; }
 #  endif /* CVC4_TRACING */
 #  ifdef CVC4_DUMPING
-#    define Dump ::CVC4::DumpChannel
+#    define DumpOut ::CVC4::DumpOutChannel
 #  else /* CVC4_DUMPING */
-#    define Dump ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::DumpChannel
-inline int DumpC::printf(const char* tag, const char* fmt, ...) { return 0; }
-inline int DumpC::printf(std::string tag, const char* fmt, ...) { return 0; }
+#    define DumpOut ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::DumpOutChannel
+inline int DumpOutC::printf(const char* tag, const char* fmt, ...) { return 0; }
+inline int DumpOutC::printf(std::string tag, const char* fmt, ...) { return 0; }
 #  endif /* CVC4_DUMPING */
 
 #endif /* CVC4_MUZZLE */
@@ -438,7 +472,7 @@ public:
   inline operator bool() { return true; }
 };/* __cvc4_true */
 
-#ifdef CVC4_DEBUG
+#if defined(CVC4_DEBUG) && defined(CVC4_TRACING)
 
 class CVC4_PUBLIC ScopedDebug {
   std::string d_tag;
@@ -475,7 +509,7 @@ public:
   }
 };/* class ScopedDebug */
 
-#else /* CVC4_DEBUG */
+#else /* CVC4_DEBUG && CVC4_TRACING */
 
 class CVC4_PUBLIC ScopedDebug {
 public:
@@ -483,7 +517,7 @@ public:
   ScopedDebug(const char* tag, bool newSetting = true) {}
 };/* class ScopedDebug */
 
-#endif /* CVC4_DEBUG */
+#endif /* CVC4_DEBUG && CVC4_TRACING */
 
 #ifdef CVC4_TRACING
 
@@ -533,20 +567,6 @@ public:
 #endif /* CVC4_TRACING */
 
 /**
- * Does nothing; designed for compilation of non-debug/non-trace
- * builds.  None of these should ever be called in such builds, but we
- * offer this to the compiler so it doesn't complain.
- */
-class CVC4_PUBLIC NullC {
-public:
-  operator bool() { return false; }
-  operator CVC4ostream() { return CVC4ostream(); }
-  operator std::ostream&() { return null_os; }
-};/* class NullC */
-
-extern NullC nullCvc4Stream CVC4_PUBLIC;
-
-/**
  * Pushes an indentation level on construction, pop on destruction.
  * Useful for tracing recursive functions especially, but also can be
  * used for clearly separating different phases of an algorithm,
@@ -559,13 +579,13 @@ public:
   inline ~IndentedScope();
 };/* class IndentedScope */
 
-#ifdef CVC4_DEBUG
+#if defined(CVC4_DEBUG) && defined(CVC4_TRACING)
 inline IndentedScope::IndentedScope(CVC4ostream out) : d_out(out) { d_out << push; }
 inline IndentedScope::~IndentedScope() { d_out << pop; }
-#else /* CVC4_DEBUG */
+#else /* CVC4_DEBUG && CVC4_TRACING */
 inline IndentedScope::IndentedScope(CVC4ostream out) {}
 inline IndentedScope::~IndentedScope() {}
-#endif /* CVC4_DEBUG */
+#endif /* CVC4_DEBUG && CVC4_TRACING */
 
 }/* CVC4 namespace */
 

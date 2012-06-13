@@ -27,7 +27,11 @@
 
 #include "util/exception.h"
 #include "util/language.h"
+#include "util/lemma_output_channel.h"
+#include "util/lemma_input_channel.h"
 #include "util/tls.h"
+
+#include <vector>
 
 namespace CVC4 {
 
@@ -104,6 +108,9 @@ struct CVC4_PUBLIC Options {
   /** Should we expand function definitions lazily? */
   bool lazyDefinitionExpansion;
 
+  /** Parallel Only: Whether the winner is printed at the end or not. */
+  bool printWinner;
+
   /** Enumeration of simplification modes (when to simplify). */
   typedef enum {
     /** Simplify the assertions as they come in */
@@ -116,9 +123,67 @@ struct CVC4_PUBLIC Options {
 
   /** When/whether to perform nonclausal simplifications. */
   SimplificationMode simplificationMode;
+  /** Whether the user set the nonclausal simplification mode. */
+  bool simplificationModeSetByUser;
+
+  /** Enumeration of decision strategies */
+  typedef enum {
+    /**
+     * Decision engine doesn't do anything. Use sat solver's internal
+     * heuristics
+     */
+    DECISION_STRATEGY_INTERNAL,
+    /**
+     * Use the justification heuristic
+     */
+    DECISION_STRATEGY_JUSTIFICATION,
+    DECISION_STRATEGY_RELEVANCY
+  } DecisionMode;
+  /** When/whether to use any decision strategies */
+  DecisionMode decisionMode;
+  /** Whether the user set the decision strategy */
+  bool decisionModeSetByUser;
+  /** 
+   * Extra settings for decision stuff, varies by strategy enabled
+   * - With DECISION_STRATEGY_RELEVANCY
+   *   > Least significant bit: true if one should only decide on leaves
+   */
+
+  /** DecisionOption along */
+  struct DecisionOptions {
+    bool relevancyLeaves;
+    unsigned short maxRelTimeAsPermille;  /* permille = part per thousand */
+    bool computeRelevancy;    /* if false, do justification stuff using relevancy.h */
+    bool mustRelevancy;       /* use the must be relevant */
+  };
+  DecisionOptions decisionOptions;
 
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
+
+  /** Whether to do the ite-simplification pass */
+  bool doITESimp;
+
+  /**
+   * Whether the user explicitly requested ite simplification
+   */
+  bool doITESimpSetByUser;
+
+  /** Whether to do the unconstrained simplification pass */
+  bool unconstrainedSimp;
+
+  /**
+   * Whether the user explicitly requested unconstrained simplification
+   */
+  bool unconstrainedSimpSetByUser;
+
+  /** Whether to do multiple rounds of nonclausal simplification */
+  bool repeatSimp;
+
+  /**
+   * Whether the user explicitly requested multiple rounds of nonclausal simplification
+   */
+  bool repeatSimpSetByUser;
 
   /** Whether we're in interactive mode or not */
   bool interactive;
@@ -147,7 +212,7 @@ struct CVC4_PUBLIC Options {
 
   /** Whether we produce proofs. */
   bool proof;
-  
+
   /** Whether we support SmtEngine::getAssignment() for this run. */
   bool produceAssignments;
 
@@ -169,12 +234,6 @@ struct CVC4_PUBLIC Options {
   /** Log to write replay instructions to; NULL if not logging. */
   std::ostream* replayLog;
 
-  /** Determines whether arithmetic will try to variables. */
-  bool variableRemovalEnabled;
-
-  /** Turn on and of arithmetic propagation. */
-  bool arithPropagation;
-
   /**
    * Frequency for the sat solver to make random decisions.
    * Should be between 0 and 1.
@@ -187,9 +246,29 @@ struct CVC4_PUBLIC Options {
    **/
   double satRandomSeed;
 
+  /** Variable activity decay factor for Minisat */
+  double satVarDecay;
+
+  /** Clause activity decay factor for Minisat */
+  double satClauseDecay;
+
+  /** Base restart interval for Minisat */
+  int satRestartFirst;
+
+  /** Restart interval increase factor for Minisat */
+  double satRestartInc;
+
+  /** Determines the type of Arithmetic Presolve Lemmas are generated.*/
+  typedef enum { NO_PRESOLVE_LEMMAS, INEQUALITY_PRESOLVE_LEMMAS, EQUALITY_PRESOLVE_LEMMAS, ALL_PRESOLVE_LEMMAS} ArithUnateLemmaMode;
+  ArithUnateLemmaMode arithUnateLemmaMode;
+
+  /** Determines the mode of arithmetic propagation. */
+  typedef enum { NO_PROP, UNATE_PROP, BOUND_INFERENCE_PROP, BOTH_PROP} ArithPropagationMode;
+  ArithPropagationMode arithPropagationMode;
+
   /** The pivot rule for arithmetic */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
-  ArithPivotRule pivotRule;
+  ArithPivotRule arithPivotRule;
 
   /**
    * The number of pivots before Bland's pivot rule is used on a basic
@@ -203,10 +282,188 @@ struct CVC4_PUBLIC Options {
   uint16_t arithPropagateMaxLength;
 
   /**
+   * Whether to do the linear diophantine equation solver
+   * in Arith as described by Griggio JSAT 2012 (on by default).
+   */
+  bool arithDioSolver;
+
+  /**
+   * Whether to split (= x y) into (and (<= x y) (>= x y)) in
+   * arithmetic preprocessing.
+   */
+  bool arithRewriteEq;
+
+  /**
+   * Whether the flag was set by the user
+   */
+  bool arithRewriteEqSetByUser;
+
+  /**
    * Whether to do the symmetry-breaking preprocessing in UF as
    * described by Deharbe et al. in CADE 2011 (on by default).
    */
   bool ufSymmetryBreaker;
+
+  /**
+   * Whether the user explicitly requested that the symmetry
+   * breaker be enabled or disabled.
+   */
+  bool ufSymmetryBreakerSetByUser;
+
+  /**
+   * Whether to mini-scope quantifiers.
+   * For example, forall x. ( P( x ) ^ Q( x ) ) will be rewritten to
+   * ( forall x. P( x ) ) ^ ( forall x. Q( x ) )
+   */
+  bool miniscopeQuant;
+
+  /**
+   * Whether to mini-scope quantifiers based on formulas with no free variables.
+   * For example, forall x. ( P( x ) V Q ) will be rewritten to
+   * ( forall x. P( x ) ) V Q
+   */
+  bool miniscopeQuantFreeVar;
+
+  /**
+   * Whether to prenex (nested universal) quantifiers
+   */
+  bool prenexQuant;
+
+  /**
+   * Whether to variable-eliminate quantifiers.
+   * For example, forall x y. ( P( x, y ) V x != c ) will be rewritten to
+   *   forall y. P( c, y )
+   */
+  bool varElimQuant;
+
+  /**
+   * Whether to CNF quantifier bodies
+   */
+  bool cnfQuant;
+
+  /**
+   * Whether to pre-skolemize quantifier bodies.
+   * For example, forall x. ( P( x ) => (exists y. f( y ) = x) ) will be rewritten to
+   *   forall x. P( x ) => f( S( x ) ) = x
+   */
+  bool preSkolemQuant;
+
+  /**
+   * Whether to use smart triggers
+   */
+  bool smartTriggers;
+
+  /**
+   * Whether to consider terms in the bodies of quantifiers for matching
+   */
+  bool registerQuantBodyTerms;
+
+  /** Enumeration of inst_when modes (when to instantiate). */
+  typedef enum {
+    /** Apply instantiation round before full effort (possibly at standard effort) */
+    INST_WHEN_PRE_FULL,
+    /** Apply instantiation round at full effort or above  */
+    INST_WHEN_FULL,
+    /** Apply instantiation round at full effort half the time, and last call always */
+    INST_WHEN_FULL_LAST_CALL,
+    /** Apply instantiation round at last call only */
+    INST_WHEN_LAST_CALL,
+  } InstWhenMode;
+  /** When to perform instantiation round. */
+  InstWhenMode instWhenMode;
+
+  /**
+   * Whether to eagerly instantiate quantifiers
+   */
+  bool eagerInstQuant;
+
+  /**
+   * Whether to use finite model find heuristic
+   */
+  bool finiteModelFind;
+
+  /**
+   * Whether to use region-based SAT for finite model finding
+   */
+  bool fmfRegionSat;
+
+  /**
+   * Whether to use model-based exhaustive instantiation for finite model finding
+   */
+  bool fmfModelBasedInst;
+
+  /**
+   * Whether to use efficient E-matching
+   */
+  bool efficientEMatching;
+
+  /** Enumeration of literal matching modes. */
+  typedef enum {
+    /** Do not consider polarity of patterns */
+    LITERAL_MATCH_NONE,
+    /** Consider polarity of boolean predicates only */
+    LITERAL_MATCH_PREDICATE,
+    /** Consider polarity of boolean predicates, as well as equalities */
+    LITERAL_MATCH_EQUALITY,
+  } LiteralMatchMode;
+
+  /** Which literal matching mode to use. */
+  LiteralMatchMode literalMatchMode;
+
+  /**
+   * Whether to do counterexample-based quantifier instantiation
+   */
+  bool cbqi;
+
+  /**
+   * Whether the user explicitly requested that counterexample-based
+   * quantifier instantiation be enabled or disabled.
+   */
+  bool cbqiSetByUser;
+
+  /**
+   * Whether to use user patterns for pattern-based instantiation
+   */
+  bool userPatternsQuant;
+
+  /**
+   * Whether to use flip decision (useful when cbqi=true)
+   */
+  bool flipDecision;
+
+  /** The output channel to receive notfication events for new lemmas */
+  LemmaOutputChannel* lemmaOutputChannel;
+  LemmaInputChannel* lemmaInputChannel;
+
+  /** Total number of threads */
+  int threads;
+
+  /** Thread configuration (a string to be passed to parseOptions) */
+  std::vector<std::string> threadArgv;
+
+  /** Thread ID, for internal use in case of multi-threaded run */
+  int thread_id;
+
+  /**
+   * In multi-threaded setting print output of each thread at the
+   * end of run, separated by a divider ("----").
+   **/
+  bool separateOutput;
+
+  /** Filter depending on length of lemma */
+  int sharingFilterByLength;
+
+  /** Bitblast eagerly to the main sat solver */
+  bool bitvectorEagerBitblast;
+
+  /** Fullcheck at each check */
+  bool bitvectorEagerFullcheck;
+
+  /** Bitblast eagerly to the main sat solver */
+  bool bitvectorShareLemmas;
+
+  /** Refine conflicts by doing another full check after a conflict */
+  bool sat_refine_conflicts;
 
   Options();
 

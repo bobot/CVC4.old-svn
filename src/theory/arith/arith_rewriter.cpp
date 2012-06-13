@@ -26,19 +26,23 @@
 #include <set>
 #include <stack>
 
-using namespace CVC4;
-using namespace CVC4::theory;
-using namespace CVC4::theory::arith;
+namespace CVC4 {
+namespace theory {
+namespace arith {
 
 bool isVariable(TNode t){
   return t.getMetaKind() == kind::metakind::VARIABLE;
 }
 
+bool ArithRewriter::isAtom(TNode n) {
+  return arith::isRelationOperator(n.getKind());
+}
+
 RewriteResponse ArithRewriter::rewriteConstant(TNode t){
   Assert(t.getMetaKind() == kind::metakind::CONSTANT);
-  Node val = coerceToRationalNode(t);
+  Assert(t.getKind() == kind::CONST_RATIONAL);
 
-  return RewriteResponse(REWRITE_DONE, val);
+  return RewriteResponse(REWRITE_DONE, t);
 }
 
 RewriteResponse ArithRewriter::rewriteVariable(TNode t){
@@ -50,17 +54,20 @@ RewriteResponse ArithRewriter::rewriteVariable(TNode t){
 RewriteResponse ArithRewriter::rewriteMinus(TNode t, bool pre){
   Assert(t.getKind()== kind::MINUS);
 
-  if(t[0] == t[1]){
-    Rational zero(0);
-    Node zeroNode  = mkRationalNode(zero);
-    return RewriteResponse(REWRITE_DONE, zeroNode);
-  }
-
-  Node noMinus = makeSubtractionNode(t[0],t[1]);
   if(pre){
-    return RewriteResponse(REWRITE_DONE, noMinus);
+    if(t[0] == t[1]){
+      Rational zero(0);
+      Node zeroNode  = mkRationalNode(zero);
+      return RewriteResponse(REWRITE_DONE, zeroNode);
+    }else{
+      Node noMinus = makeSubtractionNode(t[0],t[1]);
+      return RewriteResponse(REWRITE_DONE, noMinus);
+    }
   }else{
-    return RewriteResponse(REWRITE_AGAIN_FULL, noMinus);
+    Polynomial minuend = Polynomial::parsePolynomial(t[0]);
+    Polynomial subtrahend = Polynomial::parsePolynomial(t[0]);
+    Polynomial diff = minuend - subtrahend;
+    return RewriteResponse(REWRITE_DONE, diff.getNode());
   }
 }
 
@@ -84,15 +91,26 @@ RewriteResponse ArithRewriter::preRewriteTerm(TNode t){
   }else if(t.getKind() == kind::UMINUS){
     return rewriteUMinus(t, true);
   }else if(t.getKind() == kind::DIVISION){
-    if(t[0].getKind()== kind::CONST_RATIONAL){
-      return rewriteDivByConstant(t, true);
-    }else{
-      return RewriteResponse(REWRITE_DONE, t);
-    }
+    return RewriteResponse(REWRITE_DONE, t); // wait until t[1] is rewritten
   }else if(t.getKind() == kind::PLUS){
     return preRewritePlus(t);
   }else if(t.getKind() == kind::MULT){
     return preRewriteMult(t);
+  }else if(t.getKind() == kind::INTS_DIVISION){
+    Rational intOne(1);
+    if(t[1].getKind()== kind::CONST_RATIONAL && t[1].getConst<Rational>() == intOne){
+      return RewriteResponse(REWRITE_AGAIN, t[0]);
+    }else{
+      return RewriteResponse(REWRITE_DONE, t);
+    }
+  }else if(t.getKind() == kind::INTS_MODULUS){
+    Rational intOne(1);
+    if(t[1].getKind()== kind::CONST_RATIONAL && t[1].getConst<Rational>() == intOne){
+      Rational intZero(0);
+      return RewriteResponse(REWRITE_AGAIN, mkRationalNode(intZero));
+    }else{
+      return RewriteResponse(REWRITE_DONE, t);
+    }
   }else{
     Unreachable();
   }
@@ -112,6 +130,10 @@ RewriteResponse ArithRewriter::postRewriteTerm(TNode t){
     return postRewritePlus(t);
   }else if(t.getKind() == kind::MULT){
     return postRewriteMult(t);
+  }else if(t.getKind() == kind::INTS_DIVISION){
+    return RewriteResponse(REWRITE_DONE, t);
+  }else if(t.getKind() == kind::INTS_MODULUS){
+    return RewriteResponse(REWRITE_DONE, t);
   }else{
     Unreachable();
   }
@@ -121,22 +143,12 @@ RewriteResponse ArithRewriter::preRewriteMult(TNode t){
   Assert(t.getKind()== kind::MULT);
 
   // Rewrite multiplications with a 0 argument and to 0
-  Integer intZero;
-
   Rational qZero(0);
 
   for(TNode::iterator i = t.begin(); i != t.end(); ++i) {
     if((*i).getKind() == kind::CONST_RATIONAL) {
       if((*i).getConst<Rational>() == qZero) {
         return RewriteResponse(REWRITE_DONE, mkRationalNode(qZero));
-      }
-    } else if((*i).getKind() == kind::CONST_INTEGER) {
-      if((*i).getConst<Integer>() == intZero) {
-        if(t.getType().isInteger()) {
-          return RewriteResponse(REWRITE_DONE, NodeManager::currentNM()->mkConst(intZero));
-        } else {
-          return RewriteResponse(REWRITE_DONE, mkRationalNode(qZero));
-        }
       }
     }
   }
@@ -178,57 +190,30 @@ RewriteResponse ArithRewriter::postRewriteMult(TNode t){
   return RewriteResponse(REWRITE_DONE, res.getNode());
 }
 
-RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
-  TNode left  = t[0];
-  TNode right = t[1];
+// RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
+//   TNode left  = t[0];
+//   TNode right = t[1];
 
-  Comparison cmp = Comparison::mkComparison(t.getKind(), Polynomial::parsePolynomial(left), Constant(right));
+//   Polynomial pLeft = Polynomial::parsePolynomial(left);
+  
 
-  if(cmp.isBoolean()){
-    return RewriteResponse(REWRITE_DONE, cmp.getNode());
-  }
+//   Comparison cmp = Comparison::mkComparison(t.getKind(), Polynomial::parsePolynomial(left), Constant(right));
 
-  if(cmp.getLeft().containsConstant()){
-    Monomial constantHead = cmp.getLeft().getHead();
-    Assert(constantHead.isConstant());
-
-    Constant constant = constantHead.getConstant();
-
-    Constant negativeConstantHead = -constant;
-
-    cmp = cmp.addConstant(negativeConstantHead);
-  }
-  Assert(!cmp.getLeft().containsConstant());
-
-  if(!cmp.getLeft().getHead().coefficientIsOne()){
-    Monomial constantHead = cmp.getLeft().getHead();
-    Assert(!constantHead.isConstant());
-    Constant constant = constantHead.getConstant();
-
-    Constant inverse = Constant::mkConstant(constant.getValue().inverse());
-
-    cmp = cmp.multiplyConstant(inverse);
-  }
-  Assert(cmp.getLeft().getHead().coefficientIsOne());
-
-  Assert(cmp.isBoolean() || cmp.isNormalForm());
-  return RewriteResponse(REWRITE_DONE, cmp.getNode());
-}
+//   Assert(cmp.isNormalForm());
+//   return RewriteResponse(REWRITE_DONE, cmp.getNode());
+// }
 
 RewriteResponse ArithRewriter::postRewriteAtom(TNode atom){
   // left |><| right
   TNode left = atom[0];
   TNode right = atom[1];
 
-  if(right.getMetaKind() == kind::metakind::CONSTANT){
-    return postRewriteAtomConstantRHS(atom);
-  }else{
-    //Transform this to: (left - right) |><| 0
-    Node diff = makeSubtractionNode(left, right);
-    Rational qZero(0);
-    Node reduction = NodeManager::currentNM()->mkNode(atom.getKind(), diff, mkRationalNode(qZero));
-    return RewriteResponse(REWRITE_AGAIN_FULL, reduction);
-  }
+  Polynomial pleft = Polynomial::parsePolynomial(left);
+  Polynomial pright = Polynomial::parsePolynomial(right);
+
+  Comparison cmp = Comparison::mkComparison(atom.getKind(), pleft, pright);
+  Assert(cmp.isNormalForm());
+  return RewriteResponse(REWRITE_DONE, cmp.getNode());
 }
 
 RewriteResponse ArithRewriter::preRewriteAtom(TNode atom){
@@ -240,38 +225,15 @@ RewriteResponse ArithRewriter::preRewriteAtom(TNode atom){
     if(atom[0] == atom[1]) {
       return RewriteResponse(REWRITE_DONE, currNM->mkConst(true));
     }
+  }else if(atom.getKind() == kind::GT){
+    Node leq = currNM->mkNode(kind::LEQ, atom[0], atom[1]);
+    return RewriteResponse(REWRITE_DONE, currNM->mkNode(kind::NOT, leq));
+  }else if(atom.getKind() == kind::LT){
+    Node geq = currNM->mkNode(kind::GEQ, atom[0], atom[1]);
+    return RewriteResponse(REWRITE_DONE, currNM->mkNode(kind::NOT, geq));
   }
 
-  Node reduction = atom;
-
-  if(atom[1].getMetaKind() != kind::metakind::CONSTANT) {
-    // left |><| right
-    TNode left = atom[0];
-    TNode right = atom[1];
-
-    //Transform this to: (left - right) |><| 0
-    Node diff = makeSubtractionNode(left, right);
-    Rational qZero(0);
-    reduction = currNM->mkNode(atom.getKind(), diff, mkRationalNode(qZero));
-  }
-
-  if(reduction.getKind() == kind::GT){
-    Node leq = currNM->mkNode(kind::LEQ, reduction[0], reduction[1]);
-    reduction = currNM->mkNode(kind::NOT, leq);
-  }else if(reduction.getKind() == kind::LT){
-    Node geq = currNM->mkNode(kind::GEQ, reduction[0], reduction[1]);
-    reduction = currNM->mkNode(kind::NOT, geq);
-  }
-  /* BREADCRUMB : Move this rewrite into preprocessing
-  else if( Options::current()->rewriteArithEqualities && reduction.getKind() == kind::EQUAL){
-    Node geq = currNM->mkNode(kind::GEQ, reduction[0], reduction[1]);
-    Node leq = currNM->mkNode(kind::LEQ, reduction[0], reduction[1]);
-    reduction = currNM->mkNode(kind::AND, geq, leq);
-  }
-  */
-
-
-  return RewriteResponse(REWRITE_DONE, reduction);
+  return RewriteResponse(REWRITE_DONE, atom);
 }
 
 RewriteResponse ArithRewriter::postRewrite(TNode t){
@@ -339,3 +301,7 @@ RewriteResponse ArithRewriter::rewriteDivByConstant(TNode t, bool pre){
     return RewriteResponse(REWRITE_AGAIN, mult);
   }
 }
+
+}/* CVC4::theory::arith namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */

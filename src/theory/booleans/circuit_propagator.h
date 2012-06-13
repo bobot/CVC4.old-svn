@@ -28,8 +28,8 @@
 #include "context/context.h"
 #include "util/hash.h"
 #include "expr/node.h"
-#include "context/cdset.h"
-#include "context/cdmap.h"
+#include "context/cdhashset.h"
+#include "context/cdhashmap.h"
 #include "context/cdo.h"
 
 namespace CVC4 {
@@ -68,10 +68,6 @@ public:
 
 private:
 
-  /** Back edges from nodes to where they are used */
-  typedef std::hash_map<TNode, std::vector<TNode>, TNodeHashFunction> BackEdgesMap;
-  BackEdgesMap d_backEdges;
-
   /** The propagation queue */
   std::vector<TNode> d_propagationQueue;
 
@@ -79,16 +75,16 @@ private:
   template <class T>
   class DataClearer : context::ContextNotifyObj {
     T& d_data;
+  protected:
+    void contextNotifyPop() {
+      Trace("circuit-prop") << "CircuitPropagator::DataClearer: clearing data "
+                            << "(size was " << d_data.size() << ")" << std::endl;
+      d_data.clear();
+    }
   public:
     DataClearer(context::Context* context, T& data) :
       context::ContextNotifyObj(context),
       d_data(data) {
-    }
-
-    void notify() {
-      Trace("circuit-prop") << "CircuitPropagator::DataClearer: clearing data "
-                            << "(size was " << d_data.size() << ")" << std::endl;
-      d_data.clear();
     }
   };/* class DataClearer<T> */
 
@@ -111,14 +107,23 @@ private:
    */
   DataClearer< std::vector<Node> > d_learnedLiteralClearer;
 
+  /** Back edges from nodes to where they are used */
+  typedef std::hash_map<Node, std::vector<Node>, NodeHashFunction> BackEdgesMap;
+  BackEdgesMap d_backEdges;
+
+  /**
+   * Similar data clearer for back edges.
+   */
+  DataClearer<BackEdgesMap> d_backEdgesClearer;
+
   /** Nodes that have been attached already (computed forward edges for) */
   // All the nodes we've visited so far
-  context::CDSet<TNode, TNodeHashFunction> d_seen;
+  context::CDHashSet<TNode, TNodeHashFunction> d_seen;
 
   /**
    * Assignment status of each node.
    */
-  typedef context::CDMap<TNode, AssignmentStatus, TNodeHashFunction> AssignmentMap;
+  typedef context::CDHashMap<TNode, AssignmentStatus, TNodeHashFunction> AssignmentMap;
   AssignmentMap d_state;
 
   /**
@@ -231,12 +236,13 @@ public:
    */
   CircuitPropagator(context::Context* context, std::vector<Node>& outLearnedLiterals,
                     bool enableForward = true, bool enableBackward = true) :
-    d_backEdges(),
     d_propagationQueue(),
     d_propagationQueueClearer(context, d_propagationQueue),
     d_conflict(context, false),
     d_learnedLiterals(outLearnedLiterals),
     d_learnedLiteralClearer(context, outLearnedLiterals),
+    d_backEdges(),
+    d_backEdgesClearer(context, d_backEdges),
     d_seen(context),
     d_state(context),
     d_forwardPropagation(enableForward),

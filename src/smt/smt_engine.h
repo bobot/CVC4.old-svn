@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): cconway
+ ** Minor contributors (to current version): cconway, kshitij
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -24,8 +24,8 @@
 #include <vector>
 
 #include "context/cdlist_forward.h"
-#include "context/cdmap_forward.h"
-#include "context/cdset_forward.h"
+#include "context/cdhashmap_forward.h"
+#include "context/cdhashset_forward.h"
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "util/proof.h"
@@ -37,6 +37,7 @@
 #include "util/result.h"
 #include "util/sexpr.h"
 #include "util/stats.h"
+#include "theory/logic_info.h"
 
 // In terms of abstraction, this is below (and provides services to)
 // ValidityChecker and above (and requires the services of)
@@ -50,6 +51,7 @@ typedef NodeTemplate<true> Node;
 typedef NodeTemplate<false> TNode;
 class NodeHashFunction;
 
+class DecisionEngine;
 class TheoryEngine;
 
 class StatisticsRegistry;
@@ -89,12 +91,12 @@ namespace smt {
 class CVC4_PUBLIC SmtEngine {
 
   /** The type of our internal map of defined functions */
-  typedef context::CDMap<Node, smt::DefinedFunction, NodeHashFunction>
+  typedef context::CDHashMap<Node, smt::DefinedFunction, NodeHashFunction>
     DefinedFunctionMap;
   /** The type of our internal assertion list */
   typedef context::CDList<Expr> AssertionList;
   /** The type of our internal assignment set */
-  typedef context::CDSet<Node, NodeHashFunction> AssignmentSet;
+  typedef context::CDHashSet<Node, NodeHashFunction> AssignmentSet;
 
   /** Expr manager context */
   context::Context* d_context;
@@ -109,6 +111,8 @@ class CVC4_PUBLIC SmtEngine {
   /** Our internal expression/node manager */
   NodeManager* d_nodeManager;
   /** The decision engine */
+  DecisionEngine* d_decisionEngine;
+  /** The theory engine */
   TheoryEngine* d_theoryEngine;
   /** The propositional engine */
   prop::PropEngine* d_propEngine;
@@ -128,7 +132,15 @@ class CVC4_PUBLIC SmtEngine {
   /**
    * The logic we're in.
    */
-  std::string d_logic;
+  LogicInfo d_logic;
+
+  /**
+   * Whether or not this SmtEngine has been fully initialized (that is,
+   * the ).  This post-construction initialization is automatically
+   * triggered by the use of the SmtEngine; e.g. when setLogic() is
+   * called, or the first assertion is made, etc.
+   */
+  bool d_fullyInited;
 
   /**
    * Whether or not we have added any assertions/declarations/definitions
@@ -144,6 +156,17 @@ class CVC4_PUBLIC SmtEngine {
    * ModalException.
    */
   bool d_queryMade;
+
+  /**
+   * Internal status flag to indicate whether we've sent a theory
+   * presolve() notification and need to match it with a postsolve().
+   */
+  bool d_needPostsolve;
+
+  /*
+   * Whether to call theory preprocessing during simplification - on by default* but gets turned off if arithRewriteEq is on
+   */
+  bool d_earlyTheoryPP;
 
   /** A user-imposed cumulative time budget, in milliseconds.  0 = no limit. */
   unsigned long d_timeBudgetCumulative;
@@ -168,6 +191,14 @@ class CVC4_PUBLIC SmtEngine {
    * A private utility class to SmtEngine.
    */
   smt::SmtEnginePrivate* d_private;
+
+  /**
+   * This is something of an "init" procedure, but is idempotent; call
+   * as often as you like.  Should be called whenever the final options
+   * and logic for the problem are set (at least, those options that are
+   * not permitted to change after assertions and queries are made).
+   */
+  void finalOptionsAreSet();
 
   /**
    * This is called by the destructor, just before destroying the
@@ -200,6 +231,12 @@ class CVC4_PUBLIC SmtEngine {
 
   void internalPop();
 
+  /**
+   * Internally handle the setting of a logic.  This function should always
+   * be called when d_logic is updated.
+   */
+  void setLogicInternal() throw(AssertionException);
+
   friend class ::CVC4::smt::SmtEnginePrivate;
 
   // === STATISTICS ===
@@ -207,8 +244,24 @@ class CVC4_PUBLIC SmtEngine {
   TimerStat d_definitionExpansionTime;
   /** time spent in non-clausal simplification */
   TimerStat d_nonclausalSimplificationTime;
+  /** Num of constant propagations found during nonclausal simp */
+  IntStat d_numConstantProps;
   /** time spent in static learning */
   TimerStat d_staticLearningTime;
+  /** time spent in simplifying ITEs */
+  TimerStat d_simpITETime;
+  /** time spent in simplifying ITEs */
+  TimerStat d_unconstrainedSimpTime;
+  /** time spent removing ITEs */
+  TimerStat d_iteRemovalTime;
+  /** time spent in theory preprocessing */
+  TimerStat d_theoryPreprocessTime;
+  /** time spent converting to CNF */
+  TimerStat d_cnfConversionTime;
+  /** Num of assertions before ite removal */
+  IntStat d_numAssertionsPre;
+  /** Num of assertions after ite removal */
+  IntStat d_numAssertionsPost;
 
 public:
 
@@ -220,12 +273,17 @@ public:
   /**
    * Destruct the SMT engine.
    */
-  ~SmtEngine();
+  ~SmtEngine() throw();
 
   /**
    * Set the logic of the script.
    */
   void setLogic(const std::string& logic) throw(ModalException);
+
+  /**
+   * Set the logic of the script.
+   */
+  void setLogic(const LogicInfo& logic) throw(ModalException);
 
   /**
    * Set information about the script executing.
@@ -448,6 +506,10 @@ public:
    * Permit access to the underlying StatisticsRegistry.
    */
   StatisticsRegistry* getStatisticsRegistry() const;
+
+  Result getStatusOfLastCommand() const {
+    return d_status;
+  }
 
 };/* class SmtEngine */
 

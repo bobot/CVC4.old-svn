@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Public-facing expression manager interface.
+ ** \brief Public-facing expression manager interface
  **
  ** Public-facing expression manager interface.
  **/
@@ -26,6 +26,7 @@
 #include "expr/kind.h"
 #include "expr/type.h"
 #include "expr/expr.h"
+#include "util/subrange_bound.h"
 
 ${includes}
 
@@ -33,7 +34,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 37 "${template}"
+#line 38 "${template}"
 
 namespace CVC4 {
 
@@ -42,6 +43,13 @@ class SmtEngine;
 class NodeManager;
 struct Options;
 class IntStat;
+class ExprManagerMapCollection;
+
+namespace expr {
+  namespace pickle {
+    class Pickler;
+  }/* CVC4::expr::pickle namespace */
+}/* CVC4::expr namespace */
 
 namespace context {
   class Context;
@@ -112,7 +120,7 @@ public:
    * any expression references that used to be managed by this expression
    * manager and are left-over are bad.
    */
-  ~ExprManager();
+  ~ExprManager() throw();
 
   /** Get this node manager's options */
   const Options* getOptions() const;
@@ -297,6 +305,19 @@ public:
    */
   Expr mkAssociative(Kind kind, const std::vector<Expr>& children);
 
+  /**
+   * Determine whether Exprs of a particular Kind have operators.
+   * @returns true if Exprs of Kind k have operators.
+   */
+  static bool hasOperator(Kind k);
+
+  /**
+   * Get the (singleton) operator of an OPERATOR-kinded kind.  The
+   * returned Expr e will have kind BUILTIN, and calling
+   * e.getConst<CVC4::Kind>() will yield k.
+   */
+  Expr operatorOf(Kind k);
+
   /** Make a function type from domain to range. */
   FunctionType mkFunctionType(Type domain, Type range);
 
@@ -396,19 +417,50 @@ public:
   SortConstructorType mkSortConstructor(const std::string& name,
                                         size_t arity) const;
 
+  /**
+   * Make a predicate subtype type defined by the given LAMBDA
+   * expression.  A TypeCheckingException can be thrown if lambda is
+   * not a LAMBDA, or is ill-typed, or if CVC4 fails at proving that
+   * the resulting predicate subtype is inhabited.
+   */
+  Type mkPredicateSubtype(Expr lambda)
+    throw(TypeCheckingException);
+
+  /**
+   * Make a predicate subtype type defined by the given LAMBDA
+   * expression and whose non-emptiness is witnessed by the given
+   * witness.  A TypeCheckingException can be thrown if lambda is not
+   * a LAMBDA, or is ill-typed, or if the witness is not a witness or
+   * ill-typed.
+   */
+  Type mkPredicateSubtype(Expr lambda, Expr witness)
+    throw(TypeCheckingException);
+
+  /**
+   * Make an integer subrange type as defined by the argument.
+   */
+  Type mkSubrangeType(const SubrangeBounds& bounds)
+    throw(TypeCheckingException);
+
   /** Get the type of an expression */
   Type getType(Expr e, bool check = false)
-    throw (TypeCheckingException);
+    throw(TypeCheckingException);
 
   // variables are special, because duplicates are permitted
   Expr mkVar(const std::string& name, Type type);
   Expr mkVar(Type type);
+
+  /** Export an expr to a different ExprManager */
+  //static Expr exportExpr(const Expr& e, ExprManager* em);
+  /** Export a type to a different ExprManager */
+  static Type exportType(const Type& t, ExprManager* em, ExprManagerMapCollection& vmap);
 
   /** Returns the minimum arity of the given kind. */
   static unsigned minArity(Kind kind);
 
   /** Returns the maximum arity of the given kind. */
   static unsigned maxArity(Kind kind);
+
 };/* class ExprManager */
 
 ${mkConst_instantiations}

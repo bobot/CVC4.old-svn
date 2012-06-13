@@ -118,7 +118,7 @@ ArithVar ArithPriorityQueue::dequeueInconsistentBasicVariable(){
 ArithPriorityQueue::VarDRatPair ArithPriorityQueue::computeDiff(ArithVar basic){
   Assert(basicAndInconsistent(basic));
   const DeltaRational& beta = d_partialModel.getAssignment(basic);
-  DeltaRational diff = d_partialModel.belowLowerBound(basic,beta,true) ?
+  DeltaRational diff = d_partialModel.strictlyLessThanLowerBound(basic,beta) ?
     d_partialModel.getLowerBound(basic) - beta:
     beta - d_partialModel.getUpperBound(basic);
 
@@ -191,12 +191,15 @@ void ArithPriorityQueue::transitionToDifferenceMode() {
 
   switch(d_pivotRule){
   case MINIMUM:
+    Debug("arith::pivotRule") << "Making the minimum heap." << endl;
     make_heap(d_diffQueue.begin(), d_diffQueue.end(), VarDRatPair::minimumRule);
     break;
   case BREAK_TIES:
+    Debug("arith::pivotRule") << "Making the break ties heap." << endl;
     make_heap(d_diffQueue.begin(), d_diffQueue.end(), VarDRatPair::breakTiesRules);
     break;
   case MAXIMUM:
+    Debug("arith::pivotRule") << "Making the maximum heap." << endl;
     make_heap(d_diffQueue.begin(), d_diffQueue.end(), VarDRatPair::maximumRule);
     break;
   }

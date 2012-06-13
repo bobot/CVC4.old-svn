@@ -49,7 +49,7 @@ private:
 public:
 
   /** Constructs a new instance of TheoryDefinitions w.r.t. the provided context.*/
-  TheoryDefinitions(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+    TheoryDefinitions(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo &l, theory::QuantifiersEngine* q);
 
   /** Destructor for the TheoryDefinitions object. */
   ~TheoryDefinitions();

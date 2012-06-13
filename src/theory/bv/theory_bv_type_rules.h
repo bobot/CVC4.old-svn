@@ -30,15 +30,37 @@ namespace bv {
 class BitVectorConstantTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
     return nodeManager->mkBitVectorType(n.getConst<BitVector>().getSize());
   }
 };
 
+
+class BitVectorBitOfTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+    throw (TypeCheckingExceptionPrivate) {
+    
+    if(check) {
+      BitVectorBitOf info = n.getOperator().getConst<BitVectorBitOf>();
+      TypeNode t = n[0].getType(check);
+      
+      if (!t.isBitVector()) {
+        throw TypeCheckingExceptionPrivate(n, "expecting bit-vector term");
+      }
+      if (info.bitIndex >= t.getBitVectorSize()) {
+        throw TypeCheckingExceptionPrivate(n, "extract index is larger than the bitvector size");
+      }
+    }
+    return nodeManager->booleanType(); 
+  }
+};
+
+
 class BitVectorCompRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
     if( check ) {
       TypeNode lhs = n[0].getType(check);
       TypeNode rhs = n[1].getType(check);
@@ -53,7 +75,7 @@ public:
 class BitVectorArithRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
     unsigned maxWidth = 0;
     TNode::iterator it = n.begin();
     TNode::iterator it_end = n.end();
@@ -72,7 +94,7 @@ public:
 class BitVectorFixedWidthTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
     TNode::iterator it = n.begin();
     TypeNode t = (*it).getType(check);
     if( check ) {
@@ -93,7 +115,7 @@ public:
 class BitVectorPredicateTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
     if( check ) {
       TypeNode lhsType = n[0].getType(check);
       if (!lhsType.isBitVector()) {
@@ -111,7 +133,7 @@ public:
 class BitVectorExtractTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
     BitVectorExtract extractInfo = n.getOperator().getConst<BitVectorExtract>();
 
     // NOTE: We're throwing a type-checking exception here even
@@ -137,7 +159,7 @@ public:
 class BitVectorConcatRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
     unsigned size = 0;
     TNode::iterator it = n.begin();
     TNode::iterator it_end = n.end();
@@ -158,7 +180,7 @@ public:
 class BitVectorRepeatTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
     TypeNode t = n[0].getType(check);
     // NOTE: We're throwing a type-checking exception here even
     // when check is false, bc if the argument isn't a bit-vector
@@ -174,7 +196,7 @@ public:
 class BitVectorExtendTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate) {
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
     TypeNode t = n[0].getType(check);
     // NOTE: We're throwing a type-checking exception here even
     // when check is false, bc if the argument isn't a bit-vector

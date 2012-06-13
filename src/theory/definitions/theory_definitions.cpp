@@ -25,8 +25,8 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::definitions;
 
-TheoryDefinitions::TheoryDefinitions(Context* c, UserContext* u, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_DEFINITIONS, c, u, out, valuation) {
+TheoryDefinitions::TheoryDefinitions(Context* c, UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo &l, QuantifiersEngine* q) :
+  Theory(THEORY_DEFINITIONS, c, u, out, valuation, l, q) {
 
 }
 
@@ -74,7 +74,7 @@ void TheoryDefinitions::check(Effort level) {
   }
   */
 
-  if (level == FULL_EFFORT) {
+  if (level == EFFORT_FULL) {
     Notice() << "Called with full effort" << std::endl;
   }
 

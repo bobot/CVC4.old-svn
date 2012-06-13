@@ -28,6 +28,7 @@
 
 #include "util/Assert.h"
 #include "util/cardinality.h"
+#include "util/subrange_bound.h"
 
 namespace CVC4 {
 
@@ -35,6 +36,7 @@ class NodeManager;
 class ExprManager;
 class Expr;
 class TypeNode;
+class ExprManagerMapCollection;
 
 class SmtEngine;
 
@@ -46,7 +48,6 @@ class NodeTemplate;
 class BooleanType;
 class IntegerType;
 class RealType;
-class PseudobooleanType;
 class StringType;
 class BitVectorType;
 class ArrayType;
@@ -59,6 +60,8 @@ class TupleType;
 class KindType;
 class SortType;
 class SortConstructorType;
+class PredicateSubtype;
+class SubrangeType;
 class Type;
 
 /** Strategy for hashing Types */
@@ -75,6 +78,10 @@ struct CVC4_PUBLIC TypeHashFunction {
  */
 std::ostream& operator<<(std::ostream& out, const Type& t) CVC4_PUBLIC;
 
+namespace expr {
+  TypeNode exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* nm, ExprManagerMapCollection& vmap);
+}/* CVC4::expr namespace */
+
 /**
  * Class encapsulating CVC4 expression types.
  */
@@ -86,6 +93,7 @@ class CVC4_PUBLIC Type {
   friend class TypeNode;
   friend struct TypeHashStrategy;
   friend std::ostream& CVC4::operator<<(std::ostream& out, const Type& t);
+  friend TypeNode expr::exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* nm, ExprManagerMapCollection& vmap);
 
 protected:
 
@@ -166,6 +174,11 @@ public:
   ExprManager* getExprManager() const;
 
   /**
+   * Exports this type into a different ExprManager.
+   */
+  Type exportTo(ExprManager* exprManager, ExprManagerMapCollection& vmap);
+
+  /**
    * Assignment operator.
    * @param t the type to assign to this type
    * @return this type after assignment.
@@ -241,18 +254,6 @@ public:
    * @return the RealType
    */
   operator RealType() const throw(AssertionException);
-
-  /**
-   * Is this the pseudoboolean type?
-   * @return true if the type is the pseudoboolean type
-   */
-  bool isPseudoboolean() const;
-
-  /**
-   * Cast this type to a pseudoboolean type
-   * @return the PseudobooleanType
-   */
-  operator PseudobooleanType() const throw(AssertionException);
 
   /**
    * Is this the string type?
@@ -394,6 +395,30 @@ public:
   operator SortConstructorType() const throw(AssertionException);
 
   /**
+   * Is this a predicate subtype?
+   * @return true if this is a predicate subtype
+   */
+  bool isPredicateSubtype() const;
+
+  /**
+   * Cast this type to a predicate subtype
+   * @return the predicate subtype
+   */
+  operator PredicateSubtype() const throw(AssertionException);
+
+  /**
+   * Is this an integer subrange type?
+   * @return true if this is an integer subrange type
+   */
+  bool isSubrange() const;
+
+  /**
+   * Cast this type to an integer subrange type
+   * @return the integer subrange type
+   */
+  operator SubrangeType() const throw(AssertionException);
+
+  /**
    * Is this a kind type (i.e., the type of a type)?
    * @return true if this is a kind type
    */
@@ -449,17 +474,6 @@ public:
   /** Construct from the base type */
   RealType(const Type& type = Type()) throw(AssertionException);
 };/* class RealType */
-
-/**
- * Singleton class encapsulating the pseudoboolean type.
- */
-class CVC4_PUBLIC PseudobooleanType : public Type {
-
-public:
-
-  /** Construct from the base type */
-  PseudobooleanType(const Type& type) throw(AssertionException);
-};/* class PseudobooleanType */
 
 /**
  * Singleton class encapsulating the string type.
@@ -561,6 +575,39 @@ public:
   SortType instantiate(const std::vector<Type>& params) const;
 
 };/* class SortConstructorType */
+
+/**
+ * Class encapsulating a predicate subtype.
+ */
+class CVC4_PUBLIC PredicateSubtype : public Type {
+
+public:
+
+  /** Construct from the base type */
+  PredicateSubtype(const Type& type = Type()) throw(AssertionException);
+
+  /** Get the LAMBDA defining this predicate subtype */
+  Expr getPredicate() const;
+
+  /** Get the base type of this predicate subtype */
+  Type getBaseType() const;
+
+};/* class PredicateSubtype */
+
+/**
+ * Class encapsulating an integer subrange type.
+ */
+class CVC4_PUBLIC SubrangeType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  SubrangeType(const Type& type = Type()) throw(AssertionException);
+
+  /** Get the bounds defining this integer subrange */
+  SubrangeBounds getSubrangeBounds() const;
+
+};/* class SubrangeType */
 
 /**
  * Class encapsulating the kind type (the type of types).

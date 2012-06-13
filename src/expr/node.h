@@ -49,6 +49,12 @@ namespace CVC4 {
 class TypeNode;
 class NodeManager;
 
+namespace expr {
+  namespace pickle {
+    class PicklerPrivate;
+  }/* CVC4::expr::pickle namespace */
+}/* CVC4::expr namespace */
+
 template <bool ref_count>
 class NodeTemplate;
 
@@ -153,6 +159,14 @@ namespace kind {
   }/* CVC4::kind::metakind namespace */
 }/* CVC4::kind namespace */
 
+// for hash_maps, hash_sets..
+struct NodeHashFunction {
+  inline size_t operator()(Node node) const;
+};/* struct NodeHashFunction */
+struct TNodeHashFunction {
+  inline size_t operator()(TNode node) const;
+};/* struct TNodeHashFunction */
+
 /**
  * Encapsulation of an NodeValue pointer.  The reference count is
  * maintained in the NodeValue if ref_count is true.
@@ -160,22 +174,14 @@ namespace kind {
  */
 template <bool ref_count>
 class NodeTemplate {
-
-  // for hash_maps, hash_sets..
-  template <bool ref_count1>
-  struct HashFunction {
-    size_t operator()(CVC4::NodeTemplate<ref_count1> node) const {
-      return (size_t) node.getId();
-    }
-  };/* struct HashFunction */
-
-  typedef HashFunction<false> TNodeHashFunction;
-
   /**
    * The NodeValue has access to the private constructors, so that the
    * iterators can can create new nodes.
    */
   friend class expr::NodeValue;
+
+  friend class expr::pickle::PicklerPrivate;
+  friend Node expr::exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
 
   /** A convenient null-valued encapsulated pointer */
   static NodeTemplate s_null;
@@ -200,6 +206,7 @@ class NodeTemplate {
 
   friend class NodeTemplate<true>;
   friend class NodeTemplate<false>;
+  friend class TypeNode;
   friend class NodeManager;
 
   template <unsigned nchild_thresh>
@@ -224,6 +231,8 @@ class NodeTemplate {
     }
   }
 
+public:
+
   /**
    * Cache-aware, recursive version of substitute() used by the public
    * member function with a similar signature.
@@ -247,8 +256,6 @@ class NodeTemplate {
   template <class Iterator>
   Node substitute(Iterator substitutionsBegin, Iterator substitutionsEnd,
                   std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const;
-
-public:
 
   /** Default constructor, makes a null expression. */
   NodeTemplate() : d_nv(&expr::NodeValue::s_null) { }
@@ -438,6 +445,15 @@ public:
   inline bool isConst() const {
     assertTNodeNotExpired();
     return getMetaKind() == kind::metakind::CONSTANT;
+  }
+
+  /**
+   * Returns true if this node represents a constant
+   * @return true if const
+   */
+  inline bool isVar() const {
+    assertTNodeNotExpired();
+    return getMetaKind() == kind::metakind::VARIABLE;
   }
 
   /**
@@ -784,10 +800,10 @@ public:
    * (might break language compliance, but good for debugging expressions)
    * @param language the language in which to output
    */
-  inline void toStream(std::ostream& out, int toDepth = -1, bool types = false,
+  inline void toStream(std::ostream& out, int toDepth = -1, bool types = false, size_t dag = 1,
                        OutputLanguage language = language::output::LANG_AST) const {
     assertTNodeNotExpired();
-    d_nv->toStream(out, toDepth, types, language);
+    d_nv->toStream(out, toDepth, types, dag, language);
   }
 
   /**
@@ -818,6 +834,11 @@ public:
   typedef expr::ExprPrintTypes printtypes;
 
   /**
+   * IOStream manipulator to print expressions as DAGs (or not).
+   */
+  typedef expr::ExprDag dag;
+
+  /**
    * IOStream manipulator to set the output language for Exprs.
    */
   typedef expr::ExprSetLanguage setlanguage;
@@ -838,6 +859,7 @@ public:
   NodeTemplate<true> eqNode(const NodeTemplate<ref_count2>& right) const;
 
   NodeTemplate<true> notNode() const;
+  NodeTemplate<true> negate() const;
   template <bool ref_count2>
   NodeTemplate<true> andNode(const NodeTemplate<ref_count2>& right) const;
   template <bool ref_count2>
@@ -865,6 +887,7 @@ inline std::ostream& operator<<(std::ostream& out, TNode n) {
   n.toStream(out,
              Node::setdepth::getDepth(out),
              Node::printtypes::getPrintTypes(out),
+             Node::dag::getDag(out),
              Node::setlanguage::getLanguage(out));
   return out;
 }
@@ -878,19 +901,12 @@ inline std::ostream& operator<<(std::ostream& out, TNode n) {
 
 namespace CVC4 {
 
-// for hash_maps, hash_sets..
-struct NodeHashFunction {
-  size_t operator()(CVC4::Node node) const {
-    return (size_t) node.getId();
-  }
-};/* struct NodeHashFunction */
-
-// for hash_maps, hash_sets..
-struct TNodeHashFunction {
-  size_t operator()(CVC4::TNode node) const {
-    return (size_t) node.getId();
-  }
-};/* struct TNodeHashFunction */
+inline size_t NodeHashFunction::operator()(Node node) const {
+  return node.getId();
+}
+inline size_t TNodeHashFunction::operator()(TNode node) const {
+  return node.getId();
+}
 
 struct TNodePairHashFunction {
   size_t operator()(const std::pair<CVC4::TNode, CVC4::TNode>& pair ) const {
@@ -1108,6 +1124,12 @@ NodeTemplate<true> NodeTemplate<ref_count>::notNode() const {
 }
 
 template <bool ref_count>
+NodeTemplate<true> NodeTemplate<ref_count>::negate() const {
+  assertTNodeNotExpired();
+  return (getKind() == kind::NOT) ? NodeTemplate<true>(d_nv->getChild(0)) : NodeManager::currentNM()->mkNode(kind::NOT, *this);
+}
+
+template <bool ref_count>
 template <bool ref_count2>
 NodeTemplate<true>
 NodeTemplate<ref_count>::andNode(const NodeTemplate<ref_count2>& right) const {
@@ -1225,6 +1247,9 @@ TypeNode NodeTemplate<ref_count>::getType(bool check) const
 template <bool ref_count>
 inline Node
 NodeTemplate<ref_count>::substitute(TNode node, TNode replacement) const {
+  if (node == *this) {
+    return replacement;
+  }
   std::hash_map<TNode, TNode, TNodeHashFunction> cache;
   return substitute(node, replacement, cache);
 }
@@ -1233,6 +1258,12 @@ template <bool ref_count>
 Node
 NodeTemplate<ref_count>::substitute(TNode node, TNode replacement,
                                     std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const {
+  Assert(node != *this);
+
+  if (getNumChildren() == 0) {
+    return *this;
+  }
+
   // in cache?
   typename std::hash_map<TNode, TNode, TNodeHashFunction>::const_iterator i = cache.find(*this);
   if(i != cache.end()) {
@@ -1258,6 +1289,7 @@ NodeTemplate<ref_count>::substitute(TNode node, TNode replacement,
 
   // put in cache
   Node n = nb;
+  Assert(node != n);
   cache[*this] = n;
   return n;
 }
@@ -1432,6 +1464,16 @@ bool NodeTemplate<ref_count>::hasSubterm(NodeTemplate<false> t, bool strict) con
  */
 static void __attribute__((used)) debugPrintNode(const NodeTemplate<true>& n) {
   Warning() << Node::setdepth(-1)
+            << Node::printtypes(false)
+            << Node::dag(true)
+            << Node::setlanguage(language::output::LANG_AST)
+            << n << std::endl;
+  Warning().flush();
+}
+static void __attribute__((used)) debugPrintNodeNoDag(const NodeTemplate<true>& n) {
+  Warning() << Node::setdepth(-1)
+            << Node::printtypes(false)
+            << Node::dag(false)
             << Node::setlanguage(language::output::LANG_AST)
             << n << std::endl;
   Warning().flush();
@@ -1443,6 +1485,16 @@ static void __attribute__((used)) debugPrintRawNode(const NodeTemplate<true>& n)
 
 static void __attribute__((used)) debugPrintTNode(const NodeTemplate<false>& n) {
   Warning() << Node::setdepth(-1)
+            << Node::printtypes(false)
+            << Node::dag(true)
+            << Node::setlanguage(language::output::LANG_AST)
+            << n << std::endl;
+  Warning().flush();
+}
+static void __attribute__((used)) debugPrintTNodeNoDag(const NodeTemplate<false>& n) {
+  Warning() << Node::setdepth(-1)
+            << Node::printtypes(false)
+            << Node::dag(false)
             << Node::setlanguage(language::output::LANG_AST)
             << n << std::endl;
   Warning().flush();

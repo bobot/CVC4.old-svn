@@ -38,6 +38,7 @@
 #include "expr/metakind.h"
 #include "expr/node_value.h"
 #include "context/context.h"
+#include "util/subrange_bound.h"
 #include "util/configuration_private.h"
 #include "util/tls.h"
 #include "util/options.h"
@@ -82,11 +83,12 @@ class NodeManager {
 
   static CVC4_THREADLOCAL(NodeManager*) s_current;
 
-  const Options* d_optionsAllocated;
-  const Options* d_options;
+  Options d_options;
   StatisticsRegistry* d_statisticsRegistry;
 
   NodeValuePool d_nodeValuePool;
+
+  size_t next_id;
 
   expr::attr::AttributeManager d_attrManager;
 
@@ -264,9 +266,14 @@ public:
   /** The node manager in the current public-facing CVC4 library context */
   static NodeManager* currentNM() { return s_current; }
 
-  /** Get this node manager's options */
+  /** Get this node manager's options (const version) */
   const Options* getOptions() const {
-    return d_options;
+    return &d_options;
+  }
+
+  /** Get this node manager's options (non-const version) */
+  Options* getOptions() {
+    return &d_options;
   }
 
   /** Get this node manager's statistics registry */
@@ -354,6 +361,9 @@ public:
 
   /** Create a skolem constant with the given type. */
   Node mkSkolem(const TypeNode& type);
+
+  /** Create a instantiation constant with the given type. */
+  Node mkInstConstant(const TypeNode& type);
 
   /**
    * Create a constant of type T.  It will have the appropriate
@@ -503,6 +513,60 @@ public:
                            const AttrKind& attr,
                            const typename AttrKind::value_type& value);
 
+  /**
+   * Retrieve an attribute for a TypeNode.
+   *
+   * @param n the type node
+   * @param attr an instance of the attribute kind to retrieve.
+   * @returns the attribute, if set, or a default-constructed
+   * <code>AttrKind::value_type</code> if not.
+   */
+  template <class AttrKind>
+  inline typename AttrKind::value_type
+  getAttribute(TypeNode n, const AttrKind& attr) const;
+
+  /**
+   * Check whether an attribute is set for a TypeNode.
+   *
+   * @param n the type node
+   * @param attr an instance of the attribute kind to check
+   * @returns <code>true</code> iff <code>attr</code> is set for <code>n</code>.
+   */
+  template <class AttrKind>
+  inline bool hasAttribute(TypeNode n,
+                           const AttrKind& attr) const;
+
+  /**
+   * Check whether an attribute is set for a TypeNode and, if so, retieve
+   * it.
+   *
+   * @param n the type node
+   * @param attr an instance of the attribute kind to check
+   * @param value a reference to an object of the attribute's value type.
+   * <code>value</code> will be set to the value of the attribute, if it is
+   * set for <code>nv</code>; otherwise, it will be set to the default value of
+   * the attribute.
+   * @returns <code>true</code> iff <code>attr</code> is set for <code>n</code>.
+   */
+  template <class AttrKind>
+  inline bool getAttribute(TypeNode n,
+                           const AttrKind& attr,
+                           typename AttrKind::value_type& value) const;
+
+  /**
+   * Set an attribute for a type node.  If the node doesn't have the
+   * attribute, this function assigns one.  If the type node has one,
+   * this overwrites it.
+   *
+   * @param n the type node
+   * @param attr an instance of the attribute kind to set
+   * @param value the value of <code>attr</code> for <code>n</code>
+   */
+  template <class AttrKind>
+  inline void setAttribute(TypeNode n,
+                           const AttrKind& attr,
+                           const typename AttrKind::value_type& value);
+
   /** Get the (singleton) type for Booleans. */
   inline TypeNode booleanType();
 
@@ -512,14 +576,20 @@ public:
   /** Get the (singleton) type for reals. */
   inline TypeNode realType();
 
-  /** Get the (singleton) type for pseudobooleans. */
-  inline TypeNode pseudobooleanType();
-
   /** Get the (singleton) type for strings. */
   inline TypeNode stringType();
 
   /** Get the (singleton) type for sorts. */
   inline TypeNode kindType();
+
+  /** Get the bound var list type. */
+  inline TypeNode boundVarListType();
+
+  /** Get the instantiation pattern type. */
+  inline TypeNode instPatternType();
+
+  /** Get the instantiation pattern type. */
+  inline TypeNode instPatternListType();
 
   /**
    * Get the (singleton) type for builtin operators (that is, the type
@@ -602,6 +672,31 @@ public:
   inline TypeNode mkSortConstructor(const std::string& name, size_t arity);
 
   /**
+   * Make a predicate subtype type defined by the given LAMBDA
+   * expression.  A TypeCheckingExceptionPrivate can be thrown if
+   * lambda is not a LAMBDA, or is ill-typed, or if CVC4 fails at
+   * proving that the resulting predicate subtype is inhabited.
+   */
+  TypeNode mkPredicateSubtype(Expr lambda)
+    throw(TypeCheckingExceptionPrivate);
+
+  /**
+   * Make a predicate subtype type defined by the given LAMBDA
+   * expression and whose non-emptiness is witnessed by the given
+   * witness.  A TypeCheckingExceptionPrivate can be thrown if lambda
+   * is not a LAMBDA, or is ill-typed, or if the witness is not a
+   * witness or ill-typed.
+   */
+  TypeNode mkPredicateSubtype(Expr lambda, Expr witness)
+    throw(TypeCheckingExceptionPrivate);
+
+  /**
+   * Make an integer subrange type as defined by the argument.
+   */
+  TypeNode mkSubrangeType(const SubrangeBounds& bounds)
+    throw(TypeCheckingExceptionPrivate);
+
+  /**
    * Get the type for the given node and optionally do type checking.
    *
    * Initial type computation will be near-constant time if
@@ -627,7 +722,7 @@ public:
    * (default: false)
    */
   TypeNode getType(TNode n, bool check = false)
-    throw (TypeCheckingExceptionPrivate, AssertionException);
+    throw(TypeCheckingExceptionPrivate, AssertionException);
 
   /**
    * Convert a node to an expression.  Uses the ExprManager
@@ -696,14 +791,14 @@ public:
     // Expr is destructed, there's no active node manager.
     //Assert(nm != NULL);
     NodeManager::s_current = nm;
-    Options::s_current = nm ? nm->d_options : NULL;
+    Options::s_current = nm ? &nm->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << NodeManager::s_current << "\n";
   }
 
   ~NodeManagerScope() {
     NodeManager::s_current = d_oldNodeManager;
-    Options::s_current = d_oldNodeManager ? d_oldNodeManager->d_options : NULL;
+    Options::s_current = d_oldNodeManager ? &d_oldNodeManager->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << "returning to " << NodeManager::s_current << "\n";
   }
@@ -762,6 +857,32 @@ NodeManager::setAttribute(TNode n, const AttrKind&,
   d_attrManager.setAttribute(n.d_nv, AttrKind(), value);
 }
 
+template <class AttrKind>
+inline typename AttrKind::value_type
+NodeManager::getAttribute(TypeNode n, const AttrKind&) const {
+  return d_attrManager.getAttribute(n.d_nv, AttrKind());
+}
+
+template <class AttrKind>
+inline bool
+NodeManager::hasAttribute(TypeNode n, const AttrKind&) const {
+  return d_attrManager.hasAttribute(n.d_nv, AttrKind());
+}
+
+template <class AttrKind>
+inline bool
+NodeManager::getAttribute(TypeNode n, const AttrKind&,
+                          typename AttrKind::value_type& ret) const {
+  return d_attrManager.getAttribute(n.d_nv, AttrKind(), ret);
+}
+
+template <class AttrKind>
+inline void
+NodeManager::setAttribute(TypeNode n, const AttrKind&,
+                          const typename AttrKind::value_type& value) {
+  d_attrManager.setAttribute(n.d_nv, AttrKind(), value);
+}
+
 
 /** Get the (singleton) type for booleans. */
 inline TypeNode NodeManager::booleanType() {
@@ -778,11 +899,6 @@ inline TypeNode NodeManager::realType() {
   return TypeNode(mkTypeConst<TypeConstant>(REAL_TYPE));
 }
 
-/** Get the (singleton) type for pseudobooleans. */
-inline TypeNode NodeManager::pseudobooleanType() {
-  return TypeNode(mkTypeConst<TypeConstant>(PSEUDOBOOLEAN_TYPE));
-}
-
 /** Get the (singleton) type for strings. */
 inline TypeNode NodeManager::stringType() {
   return TypeNode(mkTypeConst<TypeConstant>(STRING_TYPE));
@@ -791,6 +907,21 @@ inline TypeNode NodeManager::stringType() {
 /** Get the (singleton) type for sorts. */
 inline TypeNode NodeManager::kindType() {
   return TypeNode(mkTypeConst<TypeConstant>(KIND_TYPE));
+}
+
+/** Get the bound var list type. */
+inline TypeNode NodeManager::boundVarListType() {
+  return TypeNode(mkTypeConst<TypeConstant>(BOUND_VAR_LIST_TYPE));
+}
+
+/** Get the instantiation pattern type. */
+inline TypeNode NodeManager::instPatternType() {
+  return TypeNode(mkTypeConst<TypeConstant>(INST_PATTERN_TYPE));
+}
+
+/** Get the instantiation pattern type. */
+inline TypeNode NodeManager::instPatternListType() {
+  return TypeNode(mkTypeConst<TypeConstant>(INST_PATTERN_LIST_TYPE));
 }
 
 /** Get the (singleton) type for builtin operators. */
@@ -820,6 +951,9 @@ NodeManager::mkFunctionType(const std::vector<TypeNode>& sorts) {
   for (unsigned i = 0; i < sorts.size(); ++ i) {
     CheckArgument(!sorts[i].isFunctionLike(), sorts,
                   "cannot create higher-order function types");
+    if(i + 1 < sorts.size() && sorts[i].isBoolean()) {
+      WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a function type with a Boolean argument)" << std::endl;
+    }
     sortNodes.push_back(sorts[i]);
   }
   return mkTypeNode(kind::FUNCTION_TYPE, sortNodes);
@@ -832,6 +966,9 @@ NodeManager::mkPredicateType(const std::vector<TypeNode>& sorts) {
   for (unsigned i = 0; i < sorts.size(); ++ i) {
     CheckArgument(!sorts[i].isFunctionLike(), sorts,
                   "cannot create higher-order function types");
+    if(i + 1 < sorts.size() && sorts[i].isBoolean()) {
+      WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a predicate type with a Boolean argument)" << std::endl;
+    }
     sortNodes.push_back(sorts[i]);
   }
   sortNodes.push_back(booleanType());
@@ -846,6 +983,9 @@ inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
 #if 0
     CheckArgument(!types[i].isFunctionLike(), types,
                   "cannot put function-like types in tuples");
+    if(types[i].isBoolean()) {
+      WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a tuple type with a Boolean argument)" << std::endl;
+    }
 #endif /* 0 */
     typeNodes.push_back(types[i]);
   }
@@ -858,10 +998,18 @@ inline TypeNode NodeManager::mkBitVectorType(unsigned size) {
 
 inline TypeNode NodeManager::mkArrayType(TypeNode indexType,
                                          TypeNode constituentType) {
-  CheckArgument(!indexType.isFunctionLike(), domain,
+  CheckArgument(!indexType.isNull(), indexType,
+                "unexpected NULL index type");
+  CheckArgument(!constituentType.isNull(), constituentType,
+                "unexpected NULL constituent type");
+  CheckArgument(!indexType.isFunctionLike(), indexType,
                 "cannot index arrays by a function-like type");
-  CheckArgument(!constituentType.isFunctionLike(), domain,
+  CheckArgument(!constituentType.isFunctionLike(), constituentType,
                 "cannot store function-like types in arrays");
+  if(indexType.isBoolean() || constituentType.isBoolean()) {
+    WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created an array type with a Boolean index or constituent type)" << std::endl;
+  }
+  Debug("arrays") << "making array type " << indexType << " " << constituentType << std::endl;
   return mkTypeNode(kind::ARRAY_TYPE, indexType, constituentType);
 }
 
@@ -965,7 +1113,7 @@ inline TypeNode NodeManager::mkSort() {
 
 inline TypeNode NodeManager::mkSort(const std::string& name) {
   TypeNode type = mkSort();
-  type.setAttribute(expr::VarNameAttr(), name);
+  setAttribute(type, expr::VarNameAttr(), name);
   return type;
 }
 
@@ -986,7 +1134,7 @@ inline TypeNode NodeManager::mkSort(TypeNode constructor,
   nb << sortTag;
   nb.append(children);
   TypeNode type = nb.constructTypeNode();
-  type.setAttribute(expr::VarNameAttr(), name);
+  setAttribute(type, expr::VarNameAttr(), name);
   return type;
 }
 
@@ -997,8 +1145,8 @@ inline TypeNode NodeManager::mkSortConstructor(const std::string& name,
   Node sortTag = NodeBuilder<0>(this, kind::SORT_TAG);
   nb << sortTag;
   TypeNode type = nb.constructTypeNode();
-  type.setAttribute(expr::VarNameAttr(), name);
-  type.setAttribute(expr::SortArityAttr(), arity);
+  setAttribute(type, expr::VarNameAttr(), name);
+  setAttribute(type, expr::SortArityAttr(), arity);
   return type;
 }
 
@@ -1211,35 +1359,42 @@ inline TypeNode NodeManager::mkTypeNode(Kind kind,
 
 inline Node NodeManager::mkVar(const std::string& name, const TypeNode& type) {
   Node n = mkVar(type);
-  n.setAttribute(TypeAttr(), type);
-  n.setAttribute(expr::VarNameAttr(), name);
+  setAttribute(n, TypeAttr(), type);
+  setAttribute(n, expr::VarNameAttr(), name);
   return n;
 }
 
 inline Node* NodeManager::mkVarPtr(const std::string& name,
                                    const TypeNode& type) {
   Node* n = mkVarPtr(type);
-  n->setAttribute(TypeAttr(), type);
-  n->setAttribute(expr::VarNameAttr(), name);
+  setAttribute(*n, TypeAttr(), type);
+  setAttribute(*n, expr::VarNameAttr(), name);
   return n;
 }
 
 inline Node NodeManager::mkVar(const TypeNode& type) {
   Node n = NodeBuilder<0>(this, kind::VARIABLE);
-  n.setAttribute(TypeAttr(), type);
-  n.setAttribute(TypeCheckedAttr(), true);
+  setAttribute(n, TypeAttr(), type);
+  setAttribute(n, TypeCheckedAttr(), true);
   return n;
 }
 
 inline Node* NodeManager::mkVarPtr(const TypeNode& type) {
   Node* n = NodeBuilder<0>(this, kind::VARIABLE).constructNodePtr();
-  n->setAttribute(TypeAttr(), type);
-  n->setAttribute(TypeCheckedAttr(), true);
+  setAttribute(*n, TypeAttr(), type);
+  setAttribute(*n, TypeCheckedAttr(), true);
   return n;
 }
 
 inline Node NodeManager::mkSkolem(const TypeNode& type) {
   Node n = NodeBuilder<0>(this, kind::SKOLEM);
+  setAttribute(n, TypeAttr(), type);
+  setAttribute(n, TypeCheckedAttr(), true);
+  return n;
+}
+
+inline Node NodeManager::mkInstConstant(const TypeNode& type) {
+  Node n = NodeBuilder<0>(this, kind::INST_CONSTANT);
   n.setAttribute(TypeAttr(), type);
   n.setAttribute(TypeCheckedAttr(), true);
   return n;
@@ -1266,9 +1421,19 @@ NodeClass NodeManager::mkConstInternal(const T& val) {
   nvStack.d_kind = kind::metakind::ConstantMap<T>::kind;
   nvStack.d_rc = 0;
   nvStack.d_nchildren = 1;
+
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+
   nvStack.d_children[0] =
     const_cast<expr::NodeValue*>(reinterpret_cast<const expr::NodeValue*>(&val));
   expr::NodeValue* nv = poolLookup(&nvStack);
+
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#pragma GCC diagnostic pop
+#endif
 
   if(nv != NULL) {
     return NodeClass(nv);
@@ -1282,7 +1447,7 @@ NodeClass NodeManager::mkConstInternal(const T& val) {
 
   nv->d_nchildren = 0;
   nv->d_kind = kind::metakind::ConstantMap<T>::kind;
-  nv->d_id = expr::NodeValue::next_id++;// FIXME multithreading
+  nv->d_id = next_id++;// FIXME multithreading
   nv->d_rc = 0;
 
   //OwningTheory::mkConst(val);

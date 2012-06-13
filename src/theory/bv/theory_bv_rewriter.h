@@ -23,31 +23,75 @@
 #define __CVC4__THEORY__BV__THEORY_BV_REWRITER_H
 
 #include "theory/rewriter.h"
+#include "util/stats.h"
 
 namespace CVC4 {
 namespace theory {
 namespace bv {
 
 struct AllRewriteRules;
+typedef RewriteResponse (*RewriteFunction) (TNode, bool);
 
 class TheoryBVRewriter {
 
-  static AllRewriteRules* s_allRules;
+  static RewriteFunction d_rewriteTable[kind::LAST_KIND];
+
+  static RewriteResponse IdentityRewrite(TNode node, bool prerewrite = false);
+  static RewriteResponse UndefinedRewrite(TNode node, bool prerewrite = false); 
+
+  static void initializeRewrites();
+  
+ static RewriteResponse RewriteEqual(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteUlt(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteSlt(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteUle(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteSle(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteUgt(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteSgt(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteUge(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteSge(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteNot(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteConcat(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteAnd(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteOr(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteXnor(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteXor(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteNand(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteNor(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteComp(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteMult(TNode node, bool prerewrite = false);
+  static RewriteResponse RewritePlus(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteSub(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteNeg(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteUdiv(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteUrem(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteSmod(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteSdiv(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteSrem(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteShl(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteLshr(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteAshr(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteExtract(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteRepeat(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteZeroExtend(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteSignExtend(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteRotateRight(TNode node, bool prerewrite = false);
+  static RewriteResponse RewriteRotateLeft(TNode node, bool prerewrite = false);
 
 public:
 
   static RewriteResponse postRewrite(TNode node);
 
-  static inline RewriteResponse preRewrite(TNode node) {
-    return RewriteResponse(REWRITE_DONE, node);
-  }
+  static RewriteResponse preRewrite(TNode node);
 
-  static inline Node rewriteEquality(TNode node) {
+  static Node rewriteEquality(TNode node) {
+    Debug("bitvector") << "TheoryBV::rewriteEquality(" << node << ")" << std::endl;
     return postRewrite(node).node;
   }
 
   static void init();
   static void shutdown();
+  
 };/* class TheoryBVRewriter */
 
 }/* CVC4::theory::bv namespace */

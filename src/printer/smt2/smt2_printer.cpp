@@ -24,6 +24,9 @@
 #include <typeinfo>
 
 #include "util/boolean_simplification.h"
+#include "printer/dagification_visitor.h"
+#include "util/node_visitor.h"
+#include "theory/substitutions.h"
 
 using namespace std;
 
@@ -34,6 +37,42 @@ namespace smt2 {
 static string smtKindString(Kind k) throw();
 
 static void printBvParameterizedOp(std::ostream& out, TNode n) throw();
+
+void Smt2Printer::toStream(std::ostream& out, TNode n,
+                           int toDepth, bool types, size_t dag) const throw() {
+  if(dag != 0) {
+    DagificationVisitor dv(dag);
+    NodeVisitor<DagificationVisitor> visitor;
+    visitor.run(dv, n);
+    const theory::SubstitutionMap& lets = dv.getLets();
+    if(!lets.empty()) {
+      out << "(let (";
+      bool first = true;
+      for(theory::SubstitutionMap::const_iterator i = lets.begin();
+          i != lets.end();
+          ++i) {
+        if(!first) {
+          out << ' ';
+        } else {
+          first = false;
+        }
+        out << '(';
+        toStream(out, (*i).second, toDepth, types);
+        out << ' ';
+        toStream(out, (*i).first, toDepth, types);
+        out << ')';
+      }
+      out << ") ";
+    }
+    Node body = dv.getDagifiedBody();
+    toStream(out, body, toDepth, types);
+    if(!lets.empty()) {
+      out << ')';
+    }
+  } else {
+    toStream(out, n, toDepth, types);
+  }
+}
 
 void Smt2Printer::toStream(std::ostream& out, TNode n,
                            int toDepth, bool types) const throw() {
@@ -59,7 +98,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     if(types) {
       // print the whole type, but not *its* type
       out << ":";
-      n.getType().toStream(out, -1, false, language::output::LANG_SMTLIB_V2);
+      n.getType().toStream(out, -1, false, 0, language::output::LANG_SMTLIB_V2);
     }
 
     return;
@@ -85,11 +124,15 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     case kind::CONST_BITVECTOR: {
       const BitVector& bv = n.getConst<BitVector>();
       const Integer& x = bv.getValue();
-      out << "#b";
       unsigned n = bv.getSize();
-      while(n-- > 0) {
-        out << (x.testBit(n) ? '1' : '0');
-      }
+      out << "(_ ";
+      out << "bv" << x <<" " << n; 
+      out << ")"; 
+      // //out << "#b";
+
+      // while(n-- > 0) {
+      //   out << (x.testBit(n) ? '1' : '0');
+      // }
       break;
     }
     case kind::CONST_BOOLEAN:
@@ -100,25 +143,16 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     case kind::BUILTIN:
       out << smtKindString(n.getConst<Kind>());
       break;
-    case kind::CONST_INTEGER: {
-      Integer i = n.getConst<Integer>();
-      if(i < 0) {
-        out << "(- " << -i << ')';
-      } else {
-        out << i;
-      }
-      break;
-    }
     case kind::CONST_RATIONAL: {
       Rational r = n.getConst<Rational>();
       if(r < 0) {
-        if(r.getDenominator() == 1) {
+        if(r.isIntegral()) {
           out << "(- " << -r << ')';
         } else {
           out << "(- (/ " << (-r).getNumerator() << ' ' << (-r).getDenominator() << "))";
         }
       } else {
-        if(r.getDenominator() == 1) {
+        if(r.isIntegral()) {
           out << r;
         } else {
           out << "(/ " << r.getNumerator() << ' ' << r.getDenominator() << ')';
@@ -126,6 +160,23 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
       }
       break;
     }
+
+    case kind::SUBRANGE_TYPE: {
+      const SubrangeBounds& bounds = n.getConst<SubrangeBounds>();
+      // No way to represent subranges in SMT-LIBv2; this is inspired
+      // by yices format (but isn't identical to it).
+      out << "(subrange " << bounds.lower << ' ' << bounds.upper << ')';
+      break;
+    }
+    case kind::SUBTYPE_TYPE:
+      // No way to represent predicate subtypes in SMT-LIBv2; this is
+      // inspired by yices format (but isn't identical to it).
+      out << "(subtype " << n.getConst<Predicate>() << ')';
+      break;
+
+    case kind::DATATYPE_TYPE:
+      out << n.getConst<Datatype>().getName();
+      break;
 
     default:
       // fall back on whatever operator<< does on underlying type; we
@@ -146,7 +197,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
 
   bool stillNeedToPrintParams = true;
   // operator
-  out << '(';
+  if(n.getNumChildren() != 0) out << '(';
   switch(Kind k = n.getKind()) {
     // builtin theory
   case kind::APPLY: break;
@@ -224,6 +275,38 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     stillNeedToPrintParams = false;
     break;
 
+    // datatypes
+  case kind::APPLY_TESTER:
+  case kind::APPLY_CONSTRUCTOR:
+  case kind::APPLY_SELECTOR:
+    break;
+
+    // quantifiers
+  case kind::FORALL: out << "forall "; break;
+  case kind::EXISTS: out << "exists "; break;
+  case kind::BOUND_VAR_LIST:
+    out << '(';
+    for(TNode::iterator i = n.begin(),
+          iend = n.end();
+        i != iend; ) {
+      out << '(';
+      (*i).toStream(out, toDepth < 0 ? toDepth : toDepth - 1,
+                    types, language::output::LANG_SMTLIB_V2);
+      out << ' ';
+      (*i).getType().toStream(out, toDepth < 0 ? toDepth : toDepth - 1,
+                              false, language::output::LANG_SMTLIB_V2);
+      out << ')';
+      if(++i != iend) {
+        out << ' ';
+      }
+    }
+    out << ')';
+    return;
+  case kind::INST_PATTERN:
+  case kind::INST_PATTERN_LIST:
+    // TODO user patterns
+    break;
+
   default:
     // fall back on however the kind prints itself; this probably
     // won't be SMT-LIB v2 compliant, but it will be clear from the
@@ -233,8 +316,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   if(n.getMetaKind() == kind::metakind::PARAMETERIZED &&
      stillNeedToPrintParams) {
     if(toDepth != 0) {
-      n.getOperator().toStream(out, toDepth < 0 ? toDepth : toDepth - 1,
-                               types, language::output::LANG_SMTLIB_V2);
+      toStream(out, n.getOperator(), toDepth < 0 ? toDepth : toDepth - 1, types);
     } else {
       out << "(...)";
     }
@@ -246,8 +328,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
         iend = n.end();
       i != iend; ) {
     if(toDepth != 0) {
-      (*i).toStream(out, toDepth < 0 ? toDepth : toDepth - 1,
-                    types, language::output::LANG_SMTLIB_V2);
+      toStream(out, *i, toDepth < 0 ? toDepth : toDepth - 1, types);
     } else {
       out << "(...)";
     }
@@ -255,7 +336,9 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
       out << ' ';
     }
   }
-  out << ')';
+  if(n.getNumChildren() != 0) {
+    out << ')';
+  }
 }/* Smt2Printer::toStream(TNode) */
 
 static string smtKindString(Kind k) throw() {
@@ -377,9 +460,10 @@ template <class T>
 static bool tryToStream(std::ostream& out, const Command* c) throw();
 
 void Smt2Printer::toStream(std::ostream& out, const Command* c,
-                           int toDepth, bool types) const throw() {
+                           int toDepth, bool types, size_t dag) const throw() {
   expr::ExprSetDepth::Scope sdScope(out, toDepth);
   expr::ExprPrintTypes::Scope ptScope(out, types);
+  expr::ExprDag::Scope dagScope(out, dag);
 
   if(tryToStream<AssertCommand>(out, c) ||
      tryToStream<PushCommand>(out, c) ||
@@ -405,7 +489,8 @@ void Smt2Printer::toStream(std::ostream& out, const Command* c,
      tryToStream<GetOptionCommand>(out, c) ||
      tryToStream<DatatypeDeclarationCommand>(out, c) ||
      tryToStream<CommentCommand>(out, c) ||
-     tryToStream<EmptyCommand>(out, c)) {
+     tryToStream<EmptyCommand>(out, c) ||
+     tryToStream<EchoCommand>(out, c)) {
     return;
   }
 
@@ -413,6 +498,29 @@ void Smt2Printer::toStream(std::ostream& out, const Command* c,
       << typeid(*c).name() << endl;
 
 }/* Smt2Printer::toStream(Command*) */
+
+static void toStream(std::ostream& out, const SExpr& sexpr) throw() {
+  if(sexpr.isInteger()) {
+    out << sexpr.getIntegerValue();
+  } else if(sexpr.isRational()) {
+    out << sexpr.getRationalValue();
+  } else if(sexpr.isString()) {
+    string s = sexpr.getValue();
+    // escape backslash and quote
+    for(size_t i = 0; i < s.length(); ++i) {
+      if(s[i] == '"') {
+        s.replace(i, 1, "\\\"");
+        ++i;
+      } else if(s[i] == '\\') {
+        s.replace(i, 1, "\\\\");
+        ++i;
+      }
+    }
+    out << "\"" << s << "\"";
+  } else {
+    out << sexpr;
+  }
+}
 
 template <class T>
 static bool tryToStream(std::ostream& out, const CommandStatus* s) throw();
@@ -498,19 +606,23 @@ static void toStream(std::ostream& out, const DeclareFunctionCommand* c) throw()
 static void toStream(std::ostream& out, const DefineFunctionCommand* c) throw() {
   Expr func = c->getFunction();
   const vector<Expr>& formals = c->getFormals();
-  Expr formula = c->getFormula();
   out << "(define-fun " << func << " (";
-  vector<Expr>::const_iterator i = formals.begin();
-  for(;;) {
-    out << "(" << (*i) << " " << (*i).getType() << ")";
-    ++i;
-    if(i != formals.end()) {
-      out << " ";
-    } else {
-      break;
+  Type type = func.getType();
+  if(type.isFunction()) {
+    vector<Expr>::const_iterator i = formals.begin();
+    for(;;) {
+      out << "(" << (*i) << " " << (*i).getType() << ")";
+      ++i;
+      if(i != formals.end()) {
+        out << " ";
+      } else {
+        break;
+      }
     }
+    type = FunctionType(type).getRangeType();
   }
-  out << ") " << FunctionType(func.getType()).getRangeType() << " " << formula << ")";
+  Expr formula = c->getFormula();
+  out << ") " << type << " " << formula << ")";
 }
 
 static void toStream(std::ostream& out, const DeclareTypeCommand* c) throw() {
@@ -563,7 +675,9 @@ static void toStream(std::ostream& out, const SetBenchmarkLogicCommand* c) throw
 }
 
 static void toStream(std::ostream& out, const SetInfoCommand* c) throw() {
-  out << "(set-info " << c->getFlag() << " " << c->getSExpr() << ")";
+  out << "(set-info " << c->getFlag() << " ";
+  toStream(out, c->getSExpr());
+  out << ")";
 }
 
 static void toStream(std::ostream& out, const GetInfoCommand* c) throw() {
@@ -571,7 +685,9 @@ static void toStream(std::ostream& out, const GetInfoCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const SetOptionCommand* c) throw() {
-  out << "(set-option " << c->getFlag() << " " << c->getSExpr() << ")";
+  out << "(set-option " << c->getFlag() << " ";
+  toStream(out, c->getSExpr());
+  out << ")";
 }
 
 static void toStream(std::ostream& out, const GetOptionCommand* c) throw() {
@@ -580,16 +696,29 @@ static void toStream(std::ostream& out, const GetOptionCommand* c) throw() {
 
 static void toStream(std::ostream& out, const DatatypeDeclarationCommand* c) throw() {
   const vector<DatatypeType>& datatypes = c->getDatatypes();
-  out << "DatatypeDeclarationCommand([";
+  out << "(declare-datatypes (";
   for(vector<DatatypeType>::const_iterator i = datatypes.begin(),
         i_end = datatypes.end();
       i != i_end;
       ++i) {
-    out << *i << ";" << endl;
-  }
-  out << "])";
 
-  out << "ERROR: don't know how to output datatype declaration command" << endl;
+    const Datatype & d = i->getDatatype();
+
+    out << "(" << d.getName() << "  ";
+    for(Datatype::const_iterator ctor = d.begin(), ctor_end = d.end();
+        ctor != ctor_end; ++ctor){
+      out << "(" << ctor->getName() << " ";
+
+      for(DatatypeConstructor::const_iterator arg = ctor->begin(), arg_end = ctor->end();
+          arg != arg_end; ++arg){
+        out << "(" << arg->getSelector() << " "
+            << static_cast<SelectorType>(arg->getType()).getRangeType() << ")";
+      }
+      out << ") ";
+    }
+    out << ")" << endl;
+  }
+  out << "))";
 }
 
 static void toStream(std::ostream& out, const CommentCommand* c) throw() {
@@ -597,6 +726,10 @@ static void toStream(std::ostream& out, const CommentCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const EmptyCommand* c) throw() {
+}
+
+static void toStream(std::ostream& out, const EchoCommand* c) throw() {
+  out << "(echo \"" << c->getOutput() << "\")";
 }
 
 template <class T>

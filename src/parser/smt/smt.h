@@ -40,7 +40,10 @@ public:
     AUFLIRA,
     AUFNIRA,
     LRA,
+    QF_ABV,
     QF_AUFBV,
+    QF_AUFBVLIA,
+    QF_AUFBVLRA,
     QF_AUFLIA,
     QF_AUFLIRA,
     QF_AX,
@@ -49,14 +52,23 @@ public:
     QF_LIA,
     QF_LRA,
     QF_NIA,
+    QF_NRA,
     QF_RDL,
     QF_SAT,
     QF_UF,
     QF_UFIDL,
+    QF_UFBV,
     QF_UFLIA,
+    QF_UFNIA, // nonstandard
     QF_UFLRA,
+    QF_UFLIRA, // nonstandard
+    QF_UFNIRA, // nonstandard
     QF_UFNRA,
-    UFNIA
+    UFLRA,
+    UFNIRA, // nonstandard
+    UFNIA,
+    QF_ALL_SUPPORTED, // nonstandard
+    ALL_SUPPORTED // nonstandard
   };
 
   enum Theory {
@@ -64,7 +76,7 @@ public:
     THEORY_ARRAYS_EX,
     THEORY_BITVECTORS,
     THEORY_BITVECTORS_32,
-    THEORY_BITVECTORS_ARRAYS_EX,
+    THEORY_BITVECTOR_ARRAYS_EX,
     THEORY_EMPTY,
     THEORY_INTS,
     THEORY_INT_ARRAYS,
@@ -72,6 +84,7 @@ public:
     THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX,
     THEORY_REALS,
     THEORY_REALS_INTS,
+    THEORY_QUANTIFIERS
   };
 
 private:
@@ -103,7 +116,6 @@ public:
 private:
 
   void addArithmeticOperators();
-  void addUf();
   static std::hash_map<const std::string, Logic, CVC4::StringHashFunction> newLogicMap();
 };/* class Smt */
 

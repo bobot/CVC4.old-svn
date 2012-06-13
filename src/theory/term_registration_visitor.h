@@ -26,33 +26,42 @@ namespace CVC4 {
 class TheoryEngine;
 
 /**
- * Visitor that calls the apropriate theory to preregister the term.
+ * Visitor that calls the appropriate theory to pre-register the term. The visitor also keeps track
+ * of the sets of theories that are involved in the terms, so that it can say if there are multiple
+ * theories involved.
+ *
+ * A sub-term has been visited if the theories of both the parent and the term itself have already
+ * visited this term.
+ *
+ * Computation of the set of theories in the original term are computed in the alreadyVisited method
+ * so as no to skip any theories.
  */
 class PreRegisterVisitor {
 
   /** The engine */
   TheoryEngine* d_engine;
 
-  /**
-   * Map from nodes to the theories that have already seen them.
-   */
-  typedef context::CDMap<TNode, theory::Theory::Set, TNodeHashFunction> TNodeVisitedMap;
-  TNodeVisitedMap d_visited;
+  typedef context::CDHashMap<TNode, theory::Theory::Set, TNodeHashFunction> TNodeToTheorySetMap;
 
   /**
-   * All the theories of the visitation.
+   * Map from terms to the theories that have already had this term pre-registered.
+   */
+  TNodeToTheorySetMap d_visited;
+
+  /**
+   * A set of all theories in the term
    */
   theory::Theory::Set d_theories;
+
+  /**
+   * Is true if the term we're traversing involves multiple theories.
+   */
+  bool d_multipleTheories;
 
   /**
    * String representation of the visited map, for debugging purposes.
    */
   std::string toString() const;
-
-  /**
-   * Is there more than one theory involved.
-   */
-  bool d_multipleTheories;
 
 public:
 
@@ -60,12 +69,16 @@ public:
   typedef bool return_type;
   
   PreRegisterVisitor(TheoryEngine* engine, context::Context* context)
-  : d_engine(engine), d_visited(context), d_theories(0) {}
+  : d_engine(engine)
+  , d_visited(context)
+  , d_theories(0)
+  , d_multipleTheories(false)
+  {}
 
   /**
    * Returns true is current has already been pre-registered with both current and parent theories.
    */
-  bool alreadyVisited(TNode current, TNode parent) const;
+  bool alreadyVisited(TNode current, TNode parent);
   
   /**
    * Pre-registeres current with any of the current and parent theories that haven't seen the term yet.

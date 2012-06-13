@@ -95,6 +95,7 @@ phpdata_DATA += php/CVC4.php
 endif
 if CVC4_LANGUAGE_BINDING_PYTHON
 pythonlib_LTLIBRARIES += python/CVC4.la
+python_CVC4_la_CXXFLAGS = $(PYTHON_CXXFLAGS)
 python_CVC4_la_LDFLAGS = \
 	-module \
 	-version-info $(LIBCVC4BINDINGS_VERSION)
@@ -210,7 +211,7 @@ $(patsubst %,%.cpp,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))): %.cpp: @srcdi
 	$(AM_V_GEN)$(SWIG) -Wall -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -c++ -$(patsubst %.cpp,%,$@) -outdir $(patsubst %.cpp,%,$@) $($(subst .,_,$@)_SWIGFLAGS) -o $@ $<
 
 $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))): %.d: @srcdir@/../cvc4.i
-	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -c++ -MM -o $(patsubst %.d,%.cpp,$@) $<
+	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -c++ -$(patsubst %.d,%,$@) -MM -o $(patsubst %.d,%.cpp,$@) $<
 # .PHONY so they get rebuilt each time
 .PHONY: .swig_deps $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS)))
 .swig_deps: $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS)))

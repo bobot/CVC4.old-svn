@@ -496,7 +496,7 @@ protected:
    * class-facing interface.  This is a "forced" makeCurrent(), useful
    * for ContextObjs allocated in CMM that need a special "bottom"
    * case when they disappear out of existence (kind of a destructor).
-   * See CDOmap (in cdmap.h) for an example.
+   * See CDOhash_map (in cdhashmap.h) for an example.
    */
   inline void makeSaveRestorePoint() throw(AssertionException);
 
@@ -658,6 +658,7 @@ public:
  * the ContextObj objects have been restored).
  */
 class ContextNotifyObj {
+
   /**
    * Context is our friend so that when the Context is deleted, any
    * remaining ContextNotifyObj can be removed from the Context list.
@@ -686,6 +687,15 @@ class ContextNotifyObj {
    */
   ContextNotifyObj**& prev() throw() { return d_ppCNOprev; }
 
+protected:
+
+  /**
+   * This is the method called to notify the object of a pop.  It must be
+   * implemented by the subclass. It is protected since context is out
+   * friend.
+   */
+  virtual void contextNotifyPop() = 0;
+
 public:
 
   /**
@@ -702,12 +712,6 @@ public:
    * Destructor: removes object from list
    */
   virtual ~ContextNotifyObj() throw(AssertionException);
-
-  /**
-   * This is the method called to notify the object of a pop.  It must be
-   * implemented by the subclass.
-   */
-  virtual void notify() = 0;
 
 };/* class ContextNotifyObj */
 

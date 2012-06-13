@@ -34,7 +34,7 @@ namespace builtin {
 class ApplyTypeRule {
   public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw (TypeCheckingExceptionPrivate) {
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
     TNode f = n.getOperator();
     TypeNode fType = f.getType(check);
     if( !fType.isFunction() && n.getNumChildren() > 0 ) {
@@ -72,17 +72,17 @@ class ApplyTypeRule {
 
 class EqualityTypeRule {
   public:
-  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) throw (TypeCheckingExceptionPrivate) {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) throw (TypeCheckingExceptionPrivate, AssertionException) {
     TypeNode booleanType = nodeManager->booleanType();
 
     if( check ) {
       TypeNode lhsType = n[0].getType(check);
       TypeNode rhsType = n[1].getType(check);
 
-      if ( lhsType != rhsType ) {
+      if ( TypeNode::leastCommonTypeNode(lhsType, rhsType).isNull() ) {
         std::stringstream ss;
         ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage));
-        ss << "Types do not match in equation:" << std::endl;
+        ss << "Subtypes must have a common type:" << std::endl;
         ss << "Equation: " << n << std::endl;
         ss << "Type 1: " << lhsType << std::endl;
         ss << "Type 2: " << rhsType << std::endl;
@@ -105,9 +105,11 @@ public:
     if( check ) {
       TNode::iterator child_it = n.begin();
       TNode::iterator child_it_end = n.end();
-      TypeNode firstType = (*child_it).getType(check);
+      TypeNode joinType = (*child_it).getType(check);
       for (++child_it; child_it != child_it_end; ++child_it) {
-        if ((*child_it).getType() != firstType) {
+        TypeNode currentType = (*child_it).getType();
+        joinType = TypeNode::leastCommonTypeNode(joinType, currentType);
+        if (joinType.isNull()) {
           throw TypeCheckingExceptionPrivate(n, "Not all arguments are of the same type");
         }
       }
@@ -138,6 +140,22 @@ public:
   }
 };/* class StringConstantTypeRule */
 
+class SortProperties {
+//private:  //FIXME?
+//  static std::map< TypeNode, TNode > d_groundTerms;
+public:
+  inline static bool isWellFounded(TypeNode type) {
+    return true;
+  }
+  inline static Node mkGroundTerm(TypeNode type) {
+    Assert(type.getKind() == kind::SORT_TYPE);
+    //if( d_groundTerms.find( type )==d_groundTerms.end() ){
+    //  d_groundTerms[type] = NodeManager::currentNM()->mkVar( type );
+    //}
+    //return d_groundTerms[type];
+    return NodeManager::currentNM()->mkVar( type );
+  }
+};
 
 class FunctionProperties {
 public:
@@ -210,6 +228,26 @@ public:
     return NodeManager::currentNM()->mkNode(kind::TUPLE, children);
   }
 };/* class TupleProperties */
+
+class SubtypeProperties {
+public:
+
+  inline static Cardinality computeCardinality(TypeNode type) {
+    Assert(type.getKind() == kind::SUBTYPE_TYPE);
+    Unimplemented("Computing the cardinality for predicate subtype not yet supported.");
+  }
+
+  inline static bool isWellFounded(TypeNode type) {
+    Assert(type.getKind() == kind::SUBTYPE_TYPE);
+    Unimplemented("Computing the well-foundedness for predicate subtype not yet supported.");
+  }
+
+  inline static Node mkGroundTerm(TypeNode type) {
+    Assert(type.getKind() == kind::SUBTYPE_TYPE);
+    Unimplemented("Constructing a ground term for predicate subtype not yet supported.");
+  }
+
+};/* class SubtypeProperties */
 
 }/* CVC4::theory::builtin namespace */
 }/* CVC4::theory namespace */

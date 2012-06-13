@@ -203,7 +203,7 @@ if test -n "${enable_replay+set}"; then
 fi
 AC_MSG_RESULT([$with_build])
 
-AM_INIT_AUTOMAKE([1.11 no-define parallel-tests color-tests])
+AM_INIT_AUTOMAKE([1.11 no-define tar-pax parallel-tests color-tests])
 AC_CONFIG_HEADERS([cvc4autoconfig.h])
 
 # Initialize libtool's configuration options.
@@ -259,6 +259,10 @@ if test $cvc4_use_cln = 1 && test $cvc4_use_gmp = 1; then
   AC_MSG_ERROR([You cannot use both CLN and GMP.  Please pick one.])
 fi
 
+# try GMP, fail if not found; GMP is required for both CLN and for GMP
+# versions of CVC4
+AC_CHECK_LIB(gmp, __gmpz_init, , [AC_MSG_ERROR([GNU MP (libgmp) not found, see http://gmplib.org/])])
+
 if test $cvc4_use_cln = 1; then
   # [mdeters] The PKG_CHECK_MODULES macro isn't customizable and doesn't fail
   # gracefully.  You can only specify it once for a given library name.  That
@@ -266,7 +270,11 @@ if test $cvc4_use_cln = 1; then
   # PKG_CHECK_MODULES([CLN], ...).  That's why things are so convoluted here,
   # we have to have PKG_CHECK_MODULES _exactly_ once in configure.ac !
   PKG_CHECK_MODULES([CLN], [cln >= 1.2.2],
-    [cvc4_use_cln=1],
+    [cvc4_use_cln=1
+     AC_LANG_PUSH([C++])
+     AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cln/cln.h>]], [[cln::cl_F pi = "3.1415926";]])])
+     AC_LANG_POP([C++])
+    ],
     [if test $cvc4_use_cln = 0; then
        # fall back to GMP
        AC_MSG_NOTICE([CLN not installed (or too old) or pkgconfig missing, will use gmp])
@@ -278,8 +286,7 @@ if test $cvc4_use_cln = 1; then
   )
 fi
 if test $cvc4_use_cln = 0; then
-  # try GMP, fail if not found
-  AC_CHECK_LIB(gmp, __gmpz_init, , [AC_MSG_ERROR([GNU MP (libgmp) not found, see http://gmplib.org/])])
+  # try GMPXX, fail if not found
   AC_CHECK_LIB(gmpxx, __gmpz_init, , [AC_MSG_ERROR([GNU MP C++ library (libgmpxx) not found, see http://gmplib.org/])])
   cvc4_cln_or_gmp=gmp
 else
@@ -676,6 +683,19 @@ if test "$enable_profiling" = yes; then
   CVC4LDFLAGS="${CVC4LDFLAGS:+$CVC4LDFLAGS }-pg"
 fi
 
+# Check to see if this version/architecture of GNU C++ explicitly
+# instantiates __gnu_cxx::hash<uint64_t> or not.  Some do, some don't.
+# See src/util/hash.h.
+AC_MSG_CHECKING([whether __gnu_cxx::hash<uint64_t> is already specialized])
+AC_LANG_PUSH([C++])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+#include <stdint.h>
+#include <ext/hash_map>
+namespace __gnu_cxx { template<> struct hash<uint64_t> {}; }])],
+                  [AC_MSG_RESULT([no]); CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_NEED_HASH_UINT64_T"],
+                  [AC_MSG_RESULT([yes])])
+AC_LANG_POP([C++])
+
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
@@ -808,8 +828,6 @@ if test -z "$PYTHON"; then
 fi
 
 # Checks for libraries.
-AC_CHECK_LIB(z, gzread, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
-AC_CHECK_HEADER(zlib.h, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
 
 # Check for libreadline (defined in config/readline.m4)
 CVC4_CHECK_FOR_READLINE
@@ -842,6 +860,36 @@ AC_CHECK_HEADERS([getopt.h unistd.h])
 #AC_TYPE_UINT64_T
 #AC_TYPE_SIZE_T
 
+AC_CHECK_DECLS([optreset], [], [], [#include <getopt.h>])
+
+# require boost library
+BOOST_REQUIRE()
+
+# look for boost threading library
+AC_ARG_WITH([portfolio],
+    AS_HELP_STRING([--with-portfolio], [build the multithreaded portfolio version of CVC4 (pcvc4)]))
+cvc4_save_LDFLAGS="$LDFLAGS"
+if test "$enable_static_binary" = yes; then
+  LDFLAGS="-static $LDFLAGS"
+fi
+cvc4_has_threads=yes
+BOOST_THREADS([], [AC_MSG_WARN([disabling multithreaded support])
+                   cvc4_has_threads=no])
+LDFLAGS="$cvc4_save_LDFLAGS"
+if test $cvc4_has_threads = no; then
+  if test x$with_portfolio = xyes; then
+    AC_MSG_ERROR([user gave --with-portfolio but could not build with threads; maybe boost threading library is missing?])
+  fi
+  with_portfolio=no
+fi
+if test x$with_portfolio != xyes; then
+  with_portfolio=no
+fi
+AM_CONDITIONAL([CVC4_BUILD_PCVC4], [test "$with_portfolio" = yes])
+if test "$with_portfolio" = yes; then
+  CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_PORTFOLIO"
+fi
+
 # Whether to build compatibility library
 CVC4_BUILD_LIBCOMPAT=yes
 AC_ARG_WITH([compat],
@@ -859,18 +907,28 @@ AM_CONDITIONAL([CVC4_BUILD_LIBCOMPAT], [test "$CVC4_BUILD_LIBCOMPAT" = yes])
 # Check for availability of TLS support (e.g. __thread storage class)
 AC_MSG_CHECKING([whether to use compiler-supported TLS if available])
 AC_ARG_ENABLE([tls], AS_HELP_STRING([--disable-tls], [don't use compiler-native TLS]))
-if test -z "${enable_tls+set}" || test "$enable_tls" = "yes"; then
-  AC_MSG_RESULT([yes])
-  AX_TLS([CVC4_TLS=$ac_cv_tls], [CVC4_TLS=])
-else
-  AC_MSG_RESULT([no])
-  CVC4_TLS=
-fi
-if test -n "$CVC4_TLS"; then
+if test $cvc4_has_threads = no; then
+  # We disable TLS entirely by simply telling the build system that
+  # the empty string is the __thread keyword.
+  AC_MSG_RESULT([multithreading disabled])
   CVC4_TLS_SUPPORTED=1
+  CVC4_TLS=
+  CVC4_TLS_explanation='disabled (no multithreading support)'
 else
-  CVC4_TLS='pthread_getspecific()'
-  CVC4_TLS_SUPPORTED=0
+  if test -z "${enable_tls+set}" || test "$enable_tls" = "yes"; then
+    AC_MSG_RESULT([yes])
+    AX_TLS([CVC4_TLS=$ac_cv_tls], [CVC4_TLS=])
+  else
+    AC_MSG_RESULT([no])
+    CVC4_TLS=
+  fi
+  if test -n "$CVC4_TLS"; then
+    CVC4_TLS_SUPPORTED=1
+    CVC4_TLS_explanation="$CVC4_TLS"
+  else
+    CVC4_TLS_explanation='pthread_getspecific()'
+    CVC4_TLS_SUPPORTED=0
+  fi
 fi
 AC_SUBST([CVC4_TLS])
 AC_SUBST([CVC4_TLS_SUPPORTED])
@@ -998,8 +1056,18 @@ AC_SUBST(MAN_DATE)
 AC_CONFIG_FILES([
   Makefile.builds
   Makefile]
-  m4_esyscmd([find contrib src test examples -name Makefile.am | sort | sed 's,\.am$,,'])
+  m4_esyscmd([find contrib src test examples -name Makefile.am | grep -v '^contrib/theoryskel/' | grep -v '^src/prop/cryptominisat/' | sort | sed 's,\.am$,,'])
 )
+
+if test $cvc4_has_threads = yes; then
+  support_multithreaded='with boost threading library'
+  AM_CONDITIONAL([CVC4_HAS_THREADS], [true])
+  AC_SUBST([CVC4_HAS_THREADS], 1)
+else
+  support_multithreaded='no'
+  AM_CONDITIONAL([CVC4_HAS_THREADS], [false])
+  AC_SUBST([CVC4_HAS_THREADS], 0)
+fi
 
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/integer.h])
@@ -1010,6 +1078,8 @@ CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.5])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4parser.3])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4compat.3])
+
+# AC_CONFIG_SUBDIRS([src/prop/cryptominisat])
 
 AC_OUTPUT
 
@@ -1048,6 +1118,21 @@ To build CVC4 with GMP instead (which is covered under the more permissive
 LGPL), configure --without-cln.
 
 "
+  if test $with_portfolio = yes; then
+    licensewarn="${licensewarn}
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+
+Note that CLN is UNSAFE FOR USE in parallel contexts!
+This build of CVC4 cannot be used safely as a portfolio solver.
+since the result of building with CLN will include numerous race
+conditions on the refcounts internal to CLN.
+
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+
+"
+  fi
 else
   mplibrary='gmp (LGPL)'
 fi
@@ -1083,13 +1168,16 @@ gcov support : $enable_coverage
 gprof support: $enable_profiling
 CUDD         : $cvc4cudd
 Readline     : $with_readline
-TLS support  : $CVC4_TLS
 
 Static libs  : $enable_static
 Shared libs  : $enable_shared
 Static binary: $enable_static_binary
 Compat lib   : $CVC4_BUILD_LIBCOMPAT
 Bindings     : ${CVC4_LANGUAGE_BINDINGS:-none}
+
+Multithreaded: $support_multithreaded
+TLS support  : $CVC4_TLS_explanation
+Portfolio    : $with_portfolio
 
 MP library   : $mplibrary
 

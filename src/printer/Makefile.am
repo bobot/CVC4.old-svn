@@ -8,6 +8,8 @@ noinst_LTLIBRARIES = libprinter.la
 libprinter_la_SOURCES = \
 	printer.h \
 	printer.cpp \
+	dagification_visitor.h \
+	dagification_visitor.cpp \
 	ast/ast_printer.h \
 	ast/ast_printer.cpp \
 	smt/smt_printer.h \

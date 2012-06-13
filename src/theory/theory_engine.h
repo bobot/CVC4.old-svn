@@ -25,10 +25,11 @@
 #include <vector>
 #include <utility>
 
+#include "decision/decision_engine.h"
 #include "expr/node.h"
 #include "expr/command.h"
 #include "prop/prop_engine.h"
-#include "context/cdset.h"
+#include "context/cdhashset.h"
 #include "theory/theory.h"
 #include "theory/substitutions.h"
 #include "theory/rewriter.h"
@@ -40,31 +41,40 @@
 #include "util/stats.h"
 #include "util/hash.h"
 #include "util/cache.h"
-#include "util/ite_removal.h"
+#include "theory/ite_simplifier.h"
+#include "theory/unconstrained_simplifier.h"
 
 namespace CVC4 {
 
-// In terms of abstraction, this is below (and provides services to)
-// PropEngine.
-
+/**
+ * A pair of a theory and a node. This is used to mark the flow of 
+ * propagations between theories.
+ */ 
 struct NodeTheoryPair {
   Node node;
   theory::TheoryId theory;
-  NodeTheoryPair(Node node, theory::TheoryId theory)
-  : node(node), theory(theory) {}
+  size_t timestamp;
+  NodeTheoryPair(TNode node, theory::TheoryId theory, size_t timestamp)
+  : node(node), theory(theory), timestamp(timestamp) {}
   NodeTheoryPair()
   : theory(theory::THEORY_LAST) {}
+  // Comparison doesn't take into account the timestamp  
   bool operator == (const NodeTheoryPair& pair) const {
     return node == pair.node && theory == pair.theory;
   }
-};
+};/* struct NodeTheoryPair */
 
 struct NodeTheoryPairHashFunction {
   NodeHashFunction hashFunction;
+  // Hash doesn't take into account the timestamp
   size_t operator()(const NodeTheoryPair& pair) const {
     return hashFunction(pair.node)*0x9e3779b9 + pair.theory;
   }
-};
+};/* struct NodeTheoryPairHashFunction */
+
+namespace theory {
+  class Instantiator;
+}/* CVC4::theory namespace */
 
 /**
  * This is essentially an abstraction for a collection of theories.  A
@@ -73,9 +83,15 @@ struct NodeTheoryPairHashFunction {
  * CVC4.
  */
 class TheoryEngine {
+  
+  /** Shared terms database can use the internals notify the theories */
+  friend class SharedTermsDatabase;
 
   /** Associated PropEngine engine */
   prop::PropEngine* d_propEngine;
+
+  /** Access to decision engine */
+  DecisionEngine* d_decisionEngine;
 
   /** Our context */
   context::Context* d_context;
@@ -90,45 +106,53 @@ class TheoryEngine {
   theory::Theory* d_theoryTable[theory::THEORY_LAST];
 
   /**
-   * A bitmap of theories that are "active" for the current run.  We
-   * mark a theory active when we firt see a term or type belonging to
-   * it.  This is important because we can optimize for single-theory
-   * runs (no sharing), can reduce the cost of walking the DAG on
-   * registration, etc.
+   * A collection of theories that are "active" for the current run.
+   * This set is provided by the user (as a logic string, say, in SMT-LIBv2
+   * format input), or else by default it's all-inclusive.  This is important
+   * because we can optimize for single-theory runs (no sharing), can reduce
+   * the cost of walking the DAG on registration, etc.
    */
-  context::CDO<theory::Theory::Set> d_activeTheories;
+  const LogicInfo& d_logicInfo;
 
   /**
    * The database of shared terms.
    */
   SharedTermsDatabase d_sharedTerms;
 
+  /**
+   * The quantifiers engine
+   */
+  theory::QuantifiersEngine* d_quantEngine;
+
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
+  typedef std::hash_map<TNode, Node, TNodeHashFunction> TNodeMap;
 
   /**
-   * Cache from proprocessing of atoms.
+  * Cache for theory-preprocessing of assertions
    */
-  NodeMap d_atomPreprocessingCache;
+  NodeMap d_ppCache;
 
   /**
    * Used for "missed-t-propagations" dumping mode only.  A set of all
    * theory-propagable literals.
    */
-  std::vector<TNode> d_possiblePropagations;
+  context::CDList<TNode> d_possiblePropagations;
 
   /**
    * Used for "missed-t-propagations" dumping mode only.  A
    * context-dependent set of those theory-propagable literals that
    * have been propagated.
    */
-  context::CDSet<TNode, TNodeHashFunction> d_hasPropagated;
+  context::CDHashSet<TNode, TNodeHashFunction> d_hasPropagated;
 
   /**
    * Statistics for a particular theory.
    */
   class Statistics {
 
-    static std::string mkName(std::string prefix, theory::TheoryId theory, std::string suffix) {
+    static std::string mkName(std::string prefix,
+                              theory::TheoryId theory,
+                              std::string suffix) {
       std::stringstream ss;
       ss << prefix << theory << suffix;
       return ss.str();
@@ -136,22 +160,31 @@ class TheoryEngine {
 
   public:
 
-    IntStat conflicts, propagations, lemmas;
+    IntStat conflicts, propagations, lemmas, propagationsAsDecisions, requirePhase, flipDecision;
 
     Statistics(theory::TheoryId theory):
       conflicts(mkName("theory<", theory, ">::conflicts"), 0),
       propagations(mkName("theory<", theory, ">::propagations"), 0),
-      lemmas(mkName("theory<", theory, ">::lemmas"), 0)
+      lemmas(mkName("theory<", theory, ">::lemmas"), 0),
+      propagationsAsDecisions(mkName("theory<", theory, ">::propagationsAsDecisions"), 0),
+      requirePhase(mkName("theory<", theory, ">::requirePhase"), 0),
+      flipDecision(mkName("theory<", theory, ">::flipDecision"), 0)
     {
       StatisticsRegistry::registerStat(&conflicts);
       StatisticsRegistry::registerStat(&propagations);
       StatisticsRegistry::registerStat(&lemmas);
+      StatisticsRegistry::registerStat(&propagationsAsDecisions);
+      StatisticsRegistry::registerStat(&requirePhase);
+      StatisticsRegistry::registerStat(&flipDecision);
     }
 
     ~Statistics() {
       StatisticsRegistry::unregisterStat(&conflicts);
       StatisticsRegistry::unregisterStat(&propagations);
       StatisticsRegistry::unregisterStat(&lemmas);
+      StatisticsRegistry::unregisterStat(&propagationsAsDecisions);
+      StatisticsRegistry::unregisterStat(&requirePhase);
+      StatisticsRegistry::unregisterStat(&flipDecision);
     }
   };/* class TheoryEngine::Statistics */
 
@@ -189,24 +222,46 @@ class TheoryEngine {
     }
 
     void conflict(TNode conflictNode) throw(AssertionException) {
-      Trace("theory") << "EngineOutputChannel<" << d_theory << ">::conflict(" << conflictNode << ")" << std::endl;
+      Trace("theory::conflict") << "EngineOutputChannel<" << d_theory << ">::conflict(" << conflictNode << ")" << std::endl;
       ++ d_statistics.conflicts;
       d_engine->d_outputChannelUsed = true;
       d_engine->conflict(conflictNode, d_theory);
     }
 
-    void propagate(TNode literal) throw(AssertionException) {
-      Trace("theory") << "EngineOutputChannel<" << d_theory << ">::propagate(" << literal << ")" << std::endl;
+    bool propagate(TNode literal) throw(AssertionException) {
+      Trace("theory::propagate") << "EngineOutputChannel<" << d_theory << ">::propagate(" << literal << ")" << std::endl;
       ++ d_statistics.propagations;
       d_engine->d_outputChannelUsed = true;
-      d_engine->propagate(literal, d_theory);
+      return d_engine->propagate(literal, d_theory);
+    }
+
+    void propagateAsDecision(TNode literal) throw(AssertionException) {
+      Trace("theory::propagate") << "EngineOutputChannel<" << d_theory << ">::propagateAsDecision(" << literal << ")" << std::endl;
+      ++ d_statistics.propagationsAsDecisions;
+      d_engine->d_outputChannelUsed = true;
+      d_engine->propagateAsDecision(literal, d_theory);
     }
 
     theory::LemmaStatus lemma(TNode lemma, bool removable = false) throw(TypeCheckingExceptionPrivate, AssertionException) {
-      Trace("theory") << "EngineOutputChannel<" << d_theory << ">::lemma(" << lemma << ")" << std::endl;
+      Trace("theory::lemma") << "EngineOutputChannel<" << d_theory << ">::lemma(" << lemma << ")" << std::endl;
       ++ d_statistics.lemmas;
       d_engine->d_outputChannelUsed = true;
       return d_engine->lemma(lemma, false, removable);
+    }
+
+    void requirePhase(TNode n, bool phase)
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::requirePhase("
+                      << n << ", " << phase << ")" << std::endl;
+      ++ d_statistics.requirePhase;
+      d_engine->d_propEngine->requirePhase(n, phase);
+    }
+
+    bool flipDecision()
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::flipDecision()" << std::endl;
+      ++ d_statistics.flipDecision;
+      return d_engine->d_propEngine->flipDecision();
     }
 
     void setIncomplete() throw(AssertionException) {
@@ -217,7 +272,7 @@ class TheoryEngine {
       d_engine->spendResource();
     }
 
-  };/* class EngineOutputChannel */
+  };/* class TheoryEngine::EngineOutputChannel */
 
   /**
    * Output channels for individual theories.
@@ -228,22 +283,6 @@ class TheoryEngine {
    * Are we in conflict.
    */
   context::CDO<bool> d_inConflict;
-
-  /**
-   * Does the context contain terms shared among multiple theories.
-   */
-  context::CDO<bool> d_sharedTermsExist;
-
-  /**
-   * Explain the equality literals and push all the explaining literals into the builder. All
-   * the non-equality literals are pushed to the builder.
-   */
-  void explainEqualities(theory::TheoryId theoryId, TNode literals, NodeBuilder<>& builder);
-
-  /**
-   * Same as above, but just for single equalities.
-   */
-  void explainEquality(theory::TheoryId theoryId, TNode eqLiteral, NodeBuilder<>& builder);
 
   /**
    * Called by the theories to notify of a conflict.
@@ -277,46 +316,20 @@ class TheoryEngine {
   }
 
   /**
-   * Is the theory active.
+   * Mapping of propagations from recievers to senders.
    */
-  bool isActive(theory::TheoryId theory) {
-    return theory::Theory::setContains(theory, d_activeTheories);
-  }
-
-  struct SharedEquality {
-    /** The node/theory pair for the assertion */
-    NodeTheoryPair toAssert;
-    /** This is the node/theory pair that we will use to explain it */
-    NodeTheoryPair toExplain;
-    
-    SharedEquality(TNode assertion, TNode original, theory::TheoryId sendingTheory, theory::TheoryId receivingTheory)
-    : toAssert(assertion, receivingTheory),
-      toExplain(original, sendingTheory)
-    { }
-  };
-  
-  /**
-   * Map from equalities asserted to a theory, to the theory that can explain them. 
-   */
-  typedef context::CDMap<NodeTheoryPair, NodeTheoryPair, NodeTheoryPairHashFunction> SharedAssertionsMap;
-  
-  /**
-   * A map from asserted facts to where they came from (for explanations).
-   */
-  SharedAssertionsMap d_sharedAssertions;
+  typedef context::CDHashMap<NodeTheoryPair, NodeTheoryPair, NodeTheoryPairHashFunction> PropagationMap;
+  PropagationMap d_propagationMap;
 
   /**
-   * Assert a shared equalities propagated by theories.
+   * Timestamp of propagations
    */
-  void assertSharedEqualities();
-
-  /** The logic of the problem */
-  std::string d_logic;
+  context::CDO<size_t> d_propagationMapTimestamp;
 
   /**
    * Literals that are propagated by the theory. Note that these are TNodes.
    * The theory can only propagate nodes that have an assigned literal in the
-   * sat solver and are hence referenced in the SAT solver.
+   * SAT solver and are hence referenced in the SAT solver.
    */
   context::CDList<TNode> d_propagatedLiterals;
 
@@ -326,20 +339,35 @@ class TheoryEngine {
   context::CDO<unsigned> d_propagatedLiteralsIndex;
 
   /**
-   * Shared term equalities that should be asserted to the individual theories.
+   * Decisions that are requested via propagateAsDecision().  The theory
+   * can only request decisions on nodes that have an assigned litearl in
+   * the SAT solver and are hence referenced in the SAT solver (making the
+   * use of TNode safe).
    */
-  std::vector<SharedEquality> d_propagatedEqualities;
+  context::CDList<TNode> d_decisionRequests;
+
+  /**
+   * The index of the next decision requested by a theory.
+   */
+  context::CDO<unsigned> d_decisionRequestsIndex;
 
   /**
    * Called by the output channel to propagate literals and facts
+   * @return false if immediate conflict
    */
-  void propagate(TNode literal, theory::TheoryId theory);
+  bool propagate(TNode literal, theory::TheoryId theory);
 
   /**
    * Internal method to call the propagation routines and collect the
    * propagated literals.
    */
   void propagate(theory::Theory::Effort effort);
+
+  /**
+   * Called by the output channel to request decisions "as soon as
+   * possible."
+   */
+  void propagateAsDecision(TNode literal, theory::TheoryId theory);
 
   /**
    * A variable to mark if we added any lemmas.
@@ -358,37 +386,18 @@ class TheoryEngine {
   /**
    * Adds a new lemma, returning its status.
    */
-  theory::LemmaStatus lemma(TNode node, bool negated, bool removable) {
-    if(Dump.isOn("t-lemmas")) {
-      Dump("t-lemmas") << CommentCommand("theory lemma: expect valid")
-                       << std::endl
-                       << QueryCommand(node.toExpr()) << std::endl;
-    }
-    // Remove the ITEs and assert to prop engine
-    std::vector<Node> additionalLemmas;
-    additionalLemmas.push_back(node);
-    RemoveITE::run(additionalLemmas);
-    additionalLemmas[0] = theory::Rewriter::rewrite(additionalLemmas[0]);
-    d_propEngine->assertLemma(additionalLemmas[0], negated, removable);
-    for (unsigned i = 1; i < additionalLemmas.size(); ++ i) {
-      additionalLemmas[i] = theory::Rewriter::rewrite(additionalLemmas[i]);
-      d_propEngine->assertLemma(additionalLemmas[i], false, removable);
-    }
+  theory::LemmaStatus lemma(TNode node, bool negated, bool removable);
+  
+  /** Time spent in theory combination */
+  TimerStat d_combineTheoriesTime;
 
-    // Mark that we added some lemmas
-    d_lemmasAdded = true;
-
-    // Lemma analysis isn't online yet; this lemma may only live for this
-    // user level.
-    Node finalForm =
-      negated ? additionalLemmas[0].notNode() : additionalLemmas[0];
-    return theory::LemmaStatus(finalForm, d_userContext->getLevel());
-  }
+  Node d_true;
+  Node d_false;
 
 public:
 
   /** Constructs a theory engine */
-  TheoryEngine(context::Context* context, context::UserContext* userContext);
+  TheoryEngine(context::Context* context, context::UserContext* userContext, const LogicInfo& logic);
 
   /** Destroys a theory engine */
   ~TheoryEngine();
@@ -401,25 +410,17 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this));
-  }
-
-  /**
-   * Sets the logic (SMT-LIB format).  All theory specific setup/hacks
-   * should go in here.
-   */
-  void setLogic(std::string logic);
-
-  /**
-   * Mark a theory active if it's not already.
-   */
-  void markActive(theory::Theory::Set theories) {
-    d_activeTheories = theory::Theory::setUnion(d_activeTheories, theories);
+    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo, getQuantifiersEngine());
   }
 
   inline void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
     d_propEngine = propEngine;
+  }
+
+  inline void setDecisionEngine(DecisionEngine* decisionEngine) {
+    Assert(d_decisionEngine == NULL);
+    d_decisionEngine = decisionEngine;
   }
 
   /**
@@ -428,6 +429,76 @@ public:
   inline prop::PropEngine* getPropEngine() const {
     return d_propEngine;
   }
+
+  /**
+   * Get a pointer to the underlying quantifiers engine.
+   */
+  theory::QuantifiersEngine* getQuantifiersEngine() const {
+    return d_quantEngine;
+  }
+
+private:
+
+  /**
+   * Helper for preprocess
+   */
+  Node ppTheoryRewrite(TNode term);
+
+  /**
+   * Queue of nodes for pre-registration.
+   */
+  std::queue<TNode> d_preregisterQueue;
+
+  /**
+   * Boolean flag denoting we are in pre-registration.
+   */
+  bool d_inPreregister;
+
+  /**
+   * Did the theories get any new facts since the last time we called
+   * check()
+   */
+  context::CDO<bool> d_factsAsserted;
+
+  /**
+   * Assert the formula to the given theory.
+   * @param assertion the assertion to send (not necesserily normalized)
+   * @param original the assertion as it was sent in from the propagating theory
+   * @param toTheoryId the theory to assert to
+   * @param fromTheoryId the theory that sent it
+   */
+  void assertToTheory(TNode assertion, theory::TheoryId toTheoryId, theory::TheoryId fromTheoryId);
+
+  /**
+   * Marks a theory propagation from a theory to a theory where a 
+   * theory could be the THEORY_SAT_SOLVER for literals coming from
+   * or being propagated to the SAT solver. If the receiving theory
+   * already recieved the literal, the method returns false, otherwise
+   * it returns true.
+   * 
+   * @param assertion the normalized assertion being sent
+   * @param originalAssertion the actual assertion that was sent
+   * @param toTheoryId the theory that is on the receiving end
+   * @param fromTheoryId the theory that sent the assertino
+   * @return true if a new assertion, false if theory already got it
+   */
+  bool markPropagation(TNode assertion, TNode originalAssertions, theory::TheoryId toTheoryId, theory::TheoryId fromTheoryId);
+
+  /**
+   * Computes the explanation by travarsing the propagation graph and
+   * asking relevant theories to explain the propagations. Initially 
+   * the explanation vector should contain only the element (node, theory)
+   * where the node is the one to be explained, and the theory is the
+   * theory that sent the literal.
+   */
+  void getExplanation(std::vector<NodeTheoryPair>& explanationVector);
+
+public:
+
+  /**
+   * Signal the start of a new round of assertion preprocessing
+   */
+  void preprocessStart();
 
   /**
    * Runs theory specific preprocesssing on the non-Boolean parts of
@@ -472,7 +543,7 @@ public:
   /**
    * Solve the given literal with a theory that owns it.
    */
-  theory::Theory::SolveStatus solve(TNode literal,
+  theory::Theory::PPAssertStatus solve(TNode literal,
                                     theory::SubstitutionMap& substitutionOut);
 
   /**
@@ -480,15 +551,6 @@ public:
    * theories).
    */
   void preRegister(TNode preprocessed);
-
-  /**
-   * Call the theories to perform one last rewrite on the theory atoms
-   * if they wish. This last rewrite is only performed on the input atoms.
-   * At this point it is ensured that atoms do not contain any Boolean
-   * strucure, i.e. there is no ITE nodes in them.
-   *
-   */
-  Node preCheckRewrite(TNode node);
 
   /**
    * Assert the formula to the appropriate theory.
@@ -508,16 +570,21 @@ public:
   void combineTheories();
 
   /**
-   * Calls staticLearning() on all theories, accumulating their
+   * Calls ppStaticLearn() on all theories, accumulating their
    * combined contributions in the "learned" builder.
    */
-  void staticLearning(TNode in, NodeBuilder<>& learned);
+  void ppStaticLearn(TNode in, NodeBuilder<>& learned);
 
   /**
-   * Calls presolve() on all active theories and returns true
+   * Calls presolve() on all theories and returns true
    * if one of the theories discovers a conflict.
    */
   bool presolve();
+
+   /**
+   * Calls postsolve() on all theories.
+   */
+  void postsolve();
 
   /**
    * Calls notifyRestart() on all active theories.
@@ -526,7 +593,21 @@ public:
 
   void getPropagatedLiterals(std::vector<TNode>& literals) {
     for (; d_propagatedLiteralsIndex < d_propagatedLiterals.size(); d_propagatedLiteralsIndex = d_propagatedLiteralsIndex + 1) {
+      Debug("getPropagatedLiterals") << "TheoryEngine::getPropagatedLiterals: propagating: " << d_propagatedLiterals[d_propagatedLiteralsIndex] << std::endl;
       literals.push_back(d_propagatedLiterals[d_propagatedLiteralsIndex]);
+    }
+  }
+
+  TNode getNextDecisionRequest() {
+    if(d_decisionRequestsIndex < d_decisionRequests.size()) {
+      TNode req = d_decisionRequests[d_decisionRequestsIndex];
+      Debug("propagateAsDecision") << "TheoryEngine requesting decision["
+                                   << d_decisionRequestsIndex << "]: "
+                                   << req << std::endl;
+      d_decisionRequestsIndex = d_decisionRequestsIndex + 1;
+      return req;
+    } else {
+      return TNode::null();
     }
   }
 
@@ -534,8 +615,14 @@ public:
   bool properPropagation(TNode lit) const;
   bool properExplanation(TNode node, TNode expl) const;
 
+  /**
+   * Returns an explanation of the node propagated to the SAT solver.
+   */
   Node getExplanation(TNode node);
 
+  /**
+   * Returns the value of the given node.
+   */
   Node getValue(TNode node);
 
   /**
@@ -560,9 +647,14 @@ public:
     return d_theoryTable[theoryId];
   }
 
+  /** Get the theory for id */
+  theory::Theory* getTheory(int id) {
+    return d_theoryTable[id];
+  }
+
   /**
-   * Returns the equality status of the two terms, from the theory that owns the domain type.
-   * The types of a and b must be the same.
+   * Returns the equality status of the two terms, from the theory
+   * that owns the domain type.  The types of a and b must be the same.
    */
   theory::EqualityStatus getEqualityStatus(TNode a, TNode b);
 
@@ -572,7 +664,24 @@ private:
   PreRegisterVisitor d_preRegistrationVisitor;
 
   /** Visitor for collecting shared terms */
-  SharedTermsVisitor d_sharedTermsVisitor; 
+  SharedTermsVisitor d_sharedTermsVisitor;
+
+  /** Prints the assertions to the debug stream */
+  void printAssertions(const char* tag);
+
+  /** Dump the assertions to the dump */
+  void dumpAssertions(const char* tag);
+
+  /** For preprocessing pass simplifying ITEs */
+  ITESimplifier d_iteSimplifier;
+
+  /** For preprocessing pass simplifying unconstrained expressions */
+  UnconstrainedSimplifier d_unconstrainedSimp;
+
+public:
+
+  Node ppSimpITE(TNode assertion);
+  void ppUnconstrainedSimp(std::vector<Node>& assertions);
 
 };/* class TheoryEngine */
 

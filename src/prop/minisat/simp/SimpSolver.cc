@@ -18,9 +18,9 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#include "mtl/Sort.h"
-#include "simp/SimpSolver.h"
-#include "utils/System.h"
+#include "prop/minisat/mtl/Sort.h"
+#include "prop/minisat/simp/SimpSolver.h"
+#include "prop/minisat/utils/System.h"
 #include "proof/proof.h"
 using namespace Minisat;
 using namespace CVC4;
@@ -44,7 +44,7 @@ static DoubleOption opt_simp_garbage_frac(_cat, "simp-gc-frac", "The fraction of
 // Constructor/Destructor:
 
 
-SimpSolver::SimpSolver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bool enableIncremental) :
+SimpSolver::SimpSolver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, bool enableIncremental) :
     Solver(proxy, context, enableIncremental)
   , grow               (opt_grow)
   , clause_lim         (opt_clause_lim)
@@ -67,6 +67,19 @@ SimpSolver::SimpSolver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* con
     ca.extra_clause_field = true; // NOTE: must happen before allocating the dummy clause below.
     bwdsub_tmpunit        = ca.alloc(0, dummy);
     remove_satisfied      = false;
+
+    // add the initialization for all the internal variables
+    for (int i = frozen.size(); i < vardata.size(); ++ i) {
+      frozen    .push(1);
+      eliminated.push(0);
+      if (use_simplification){
+          n_occ     .push(0);
+          n_occ     .push(0);
+          occurs    .init(i);
+          touched   .push(0);
+          elim_heap .insert(i);
+      }
+    }
 }
 
 
@@ -214,7 +227,7 @@ bool SimpSolver::strengthenClause(CRef cr, Lit l)
         updateElimHeap(var(l));
     }
 
-    return c.size() == 1 ? enqueue(c[0]) && propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef : true;
+    return c.size() == 1 ? enqueue(c[0]) && propagate(CHECK_WITHOUTH_THEORY) == CRef_Undef : true;
 }
 
 
@@ -321,7 +334,7 @@ bool SimpSolver::implied(const vec<Lit>& c)
             uncheckedEnqueue(~c[i]);
         }
 
-    bool result = propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) != CRef_Undef;
+    bool result = propagate(CHECK_WITHOUTH_THEORY) != CRef_Undef;
     cancelUntil(0);
     return result;
 }
@@ -410,7 +423,7 @@ bool SimpSolver::asymm(Var v, CRef cr)
         else
             l = c[i];
 
-    if (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) != CRef_Undef){
+    if (propagate(CHECK_WITHOUTH_THEORY) != CRef_Undef){
         cancelUntil(0);
         asymm_lits++;
         if (!strengthenClause(cr, l))

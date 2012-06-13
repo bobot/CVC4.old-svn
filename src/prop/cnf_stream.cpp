@@ -18,7 +18,6 @@
  ** of given an equisatisfiable stream of assertions to PropEngine.
  **/
 
-#include "prop/sat.h"
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
 #include "theory/theory_engine.h"
@@ -28,6 +27,7 @@
 #include "util/output.h"
 #include "expr/command.h"
 #include "expr/expr.h"
+#include "prop/theory_proxy.h"
 
 #include <queue>
 
@@ -43,36 +43,46 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
-CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) :
+
+CnfStream::CnfStream(SatSolver *satSolver, Registrar* registrar, bool fullLitToNodeMap) :
   d_satSolver(satSolver),
+  d_fullLitToNodeMap(fullLitToNodeMap),
   d_registrar(registrar) {
 }
 
-void CnfStream::recordTranslation(TNode node) {
+void CnfStream::recordTranslation(TNode node, bool alwaysRecord) {
+  Debug("cnf") << "recordTranslation(" << alwaysRecord << "," << d_removable << "): " << node << std::endl;
   if (!d_removable) {
-    d_translationTrail.push_back(stripNot(node));
+    node = stripNot(node);
+    if(d_translationCache.find(node)->second.recorded) {
+      Debug("cnf") << "--> Already recorded, not recording again." << std::endl;
+    } else {
+      Debug("cnf") << "--> Recorded at position " << d_translationTrail.size() << ". (level " << d_translationCache.find(node)->second.level << ")" << std::endl;
+      Assert(d_translationTrail.empty() || d_translationCache.find(node)->second.level >= d_translationCache.find(d_translationTrail.back())->second.level, "levels on the translation trail should be monotonically increasing ?!");
+      d_translationTrail.push_back(node);
+      d_translationCache.find(node)->second.recorded = true;
+      d_translationCache.find(node.notNode())->second.recorded = true;
+    }
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar) :
-  CnfStream(satSolver, registrar) {
+TseitinCnfStream::TseitinCnfStream(SatSolver* satSolver, Registrar* registrar, bool fullLitToNodeMap) :
+  CnfStream(satSolver, registrar, fullLitToNodeMap) {
 }
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
   Debug("cnf") << "Inserting into stream " << c << endl;
   if(Dump.isOn("clauses")) {
-    if(Message.isOn()) {
-      if(c.size() == 1) {
-        Message() << AssertCommand(BoolExpr(getNode(c[0]).toExpr())) << endl;
-      } else {
-        Assert(c.size() > 1);
-        NodeBuilder<> b(kind::OR);
-        for(int i = 0; i < c.size(); ++i) {
-          b << getNode(c[i]);
-        }
-        Node n = b;
-        Message() << AssertCommand(BoolExpr(n.toExpr())) << endl;
+    if(c.size() == 1) {
+      Dump("clauses") << AssertCommand(BoolExpr(getNode(c[0]).toExpr()));
+    } else {
+      Assert(c.size() > 1);
+      NodeBuilder<> b(kind::OR);
+      for(unsigned i = 0; i < c.size(); ++i) {
+        b << getNode(c[i]);
       }
+      Node n = b;
+      Dump("clauses") << AssertCommand(BoolExpr(n.toExpr()));
     }
   }
   d_satSolver->addClause(c, d_removable);
@@ -110,9 +120,11 @@ bool CnfStream::hasLiteral(TNode n) const {
 }
 
 void TseitinCnfStream::ensureLiteral(TNode n) {
+  Debug("cnf") << "ensureLiteral(" << n << ")" << endl;
   if(hasLiteral(n)) {
     // Already a literal!
-    SatLiteral lit = getLiteral(n);
+    // newLiteral() may be necessary to renew a previously-extant literal
+    SatLiteral lit = isTranslated(n) ? getLiteral(n) : newLiteral(n, true);
     NodeCache::iterator i = d_nodeCache.find(lit);
     if(i == d_nodeCache.end()) {
       // Store backward-mappings
@@ -129,7 +141,7 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
                 n.toString().c_str(),
                 n.getType().toString().c_str());
 
-  bool negated = false;
+  bool negated CVC4_UNUSED = false;
   SatLiteral lit;
 
   if(n.getKind() == kind::NOT) {
@@ -158,12 +170,21 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   Debug("cnf") << "newLiteral(" << node << ", " << theoryLiteral << ")" << endl;
+  Assert(node.getKind() != kind::NOT);
 
   // Get the literal for this node
   SatLiteral lit;
   if (!hasLiteral(node)) {
-    // If no literal, well make one
-    lit = variableToLiteral(d_satSolver->newVar(theoryLiteral));
+    // If no literal, we'll make one
+    if (node.getKind() == kind::CONST_BOOLEAN) {
+      if (node.getConst<bool>()) {
+        lit = SatLiteral(d_satSolver->trueVar());
+      } else {
+        lit = SatLiteral(d_satSolver->falseVar());
+      }
+    } else {
+      lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
+    }
     d_translationCache[node].literal = lit;
     d_translationCache[node.notNode()].literal = ~lit;
   } else {
@@ -174,13 +195,15 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
 
   // We will translate clauses, so remember the level
   int level = d_satSolver->getAssertionLevel();
+  d_translationCache[node].recorded = false;
+  d_translationCache[node.notNode()].recorded = false;
   d_translationCache[node].level = level;
   d_translationCache[node.notNode()].level = level;
 
   // If it's a theory literal, need to store it for back queries
-  if ( theoryLiteral ||
+  if ( theoryLiteral || d_fullLitToNodeMap ||
        ( CVC4_USE_REPLAY && Options::current()->replayLog != NULL ) ||
-       Dump.isOn("clauses") ) {
+       (Dump.isOn("clauses")) ) {
     d_nodeCache[lit] = node;
     d_nodeCache[~lit] = node.notNode();
   }
@@ -188,7 +211,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   // If a theory literal, we pre-register it
   if (theoryLiteral) {
     bool backup = d_removable;
-    d_registrar.preRegister(node);
+    d_registrar->preRegister(node);
     d_removable = backup;
   }
 
@@ -211,8 +234,8 @@ SatLiteral CnfStream::convertAtom(TNode node) {
   Debug("cnf") << "convertAtom(" << node << ")" << endl;
 
   Assert(!isTranslated(node), "atom already mapped!");
-
-  bool theoryLiteral = node.getKind() != kind::VARIABLE && !node.getType().isPseudoboolean();
+  // boolean variables are not theory literals
+  bool theoryLiteral = node.getKind() != kind::VARIABLE;
   SatLiteral lit = newLiteral(node, theoryLiteral);
 
   if(node.getKind() == kind::CONST_BOOLEAN) {
@@ -222,6 +245,11 @@ SatLiteral CnfStream::convertAtom(TNode node) {
       assertClause(node, ~lit);
     }
   }
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(node, true);
 
   return lit;
 }
@@ -249,6 +277,11 @@ SatLiteral TseitinCnfStream::handleXor(TNode xorNode) {
   assertClause(xorNode, ~a, ~b, ~xorLit);
   assertClause(xorNode, a, ~b, xorLit);
   assertClause(xorNode, ~a, b, xorLit);
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(xorNode, true);
 
   return xorLit;
 }
@@ -284,6 +317,11 @@ SatLiteral TseitinCnfStream::handleOr(TNode orNode) {
   clause[n_children] = ~orLit;
   // This needs to go last, as the clause might get modified by the SAT solver
   assertClause(orNode, clause);
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(orNode, true);
 
   // Return the literal
   return orLit;
@@ -321,6 +359,12 @@ SatLiteral TseitinCnfStream::handleAnd(TNode andNode) {
   clause[n_children] = andLit;
   // This needs to go last, as the clause might get modified by the SAT solver
   assertClause(andNode, clause);
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(andNode, true);
+
   return andLit;
 }
 
@@ -344,6 +388,11 @@ SatLiteral TseitinCnfStream::handleImplies(TNode impliesNode) {
   // (a | l) & (~b | l)
   assertClause(impliesNode, a, impliesLit);
   assertClause(impliesNode, ~b, impliesLit);
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(impliesNode, true);
 
   return impliesLit;
 }
@@ -376,6 +425,11 @@ SatLiteral TseitinCnfStream::handleIff(TNode iffNode) {
   // (~a | ~b | lit) & (a | b | lit)
   assertClause(iffNode, ~a, ~b, iffLit);
   assertClause(iffNode, a, b, iffLit);
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(iffNode, true);
 
   return iffLit;
 }
@@ -423,6 +477,11 @@ SatLiteral TseitinCnfStream::handleIte(TNode iteNode) {
   assertClause(iteNode, iteLit, ~condLit, ~thenLit);
   assertClause(iteNode, iteLit, condLit, ~elseLit);
 
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(iteNode, true);
+
   return iteLit;
 }
 
@@ -435,6 +494,7 @@ SatLiteral TseitinCnfStream::toCNF(TNode node, bool negated) {
 
   // If the non-negated node has already been translated, get the translation
   if(isTranslated(node)) {
+    Debug("cnf") << "toCNF(): already translated" << endl;
     nodeLit = getLiteral(node);
   } else {
     // Handle each Boolean operator case
@@ -690,15 +750,19 @@ void TseitinCnfStream::convertAndAssert(TNode node, bool negated) {
 
 void CnfStream::removeClausesAboveLevel(int level) {
   while (d_translationTrail.size() > 0) {
+    Debug("cnf") << "Considering translation trail position " << d_translationTrail.size() << std::endl;
     TNode node = d_translationTrail.back();
+    // Get the translation information
+    TranslationInfo& infoPos = d_translationCache.find(node)->second;
+    // If the level of the node is less or equal to given we are done
+    if (infoPos.level >= 0 && infoPos.level <= level) {
+      Debug("cnf") << "Node is " << node << " level " << infoPos.level << ", we're done." << std::endl;
+      break;
+    }
     Debug("cnf") << "Removing node " << node << " from CNF translation" << endl;
     d_translationTrail.pop_back();
-    // Get the translation informations
-    TranslationInfo& infoPos = d_translationCache.find(node)->second;
     // If already untranslated, we're done
     if (infoPos.level == -1) continue;
-    // If the level of the node is less or equal to given we are done
-    if (infoPos.level <= level) break;
     // Otherwise we have to undo the translation
     undoTranslate(node, level);
   }
@@ -734,6 +798,7 @@ void CnfStream::undoTranslate(TNode node, int level) {
 
   // Untranslate
   infoPos.level = -1;
+  infoPos.recorded = false;
 
   // Untranslate the negation node
   // If not a not node, unregister it from sat and untranslate the negation
@@ -747,6 +812,7 @@ void CnfStream::undoTranslate(TNode node, int level) {
     Assert(it != d_translationCache.end());
     TranslationInfo& infoNeg = (*it).second;
     infoNeg.level = -1;
+    infoNeg.recorded = false;
   }
 
   // undoTranslate the children

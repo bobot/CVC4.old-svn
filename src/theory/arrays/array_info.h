@@ -41,7 +41,7 @@
 #define __CVC4__THEORY__ARRAYS__ARRAY_INFO_H
 #include "util/backtrackable.h"
 #include "context/cdlist.h"
-#include "context/cdmap.h"
+#include "context/cdhashmap.h"
 #include "expr/node.h"
 #include "util/stats.h"
 #include "util/ntuple.h"
@@ -55,9 +55,10 @@ namespace theory {
 namespace arrays {
 
 typedef context::CDList<TNode> CTNodeList;
+typedef quad<TNode, TNode, TNode, TNode> RowLemmaType;
 
-struct TNodeQuadHashFunction {
-  size_t operator()(const quad<CVC4::TNode, CVC4::TNode, CVC4::TNode, CVC4::TNode>& q ) const {
+struct RowLemmaTypeHashFunction {
+  size_t operator()(const RowLemmaType& q ) const {
     TNode n1 = q.first;
     TNode n2 = q.second;
     TNode n3 = q.third;
@@ -66,7 +67,7 @@ struct TNodeQuadHashFunction {
         n3.getId()*0x60000005 + n4.getId()*0x07FFFFFF);
 
   }
-};/* struct TNodeQuadHashFunction */
+};/* struct RowLemmaTypeHashFunction */
 
 void printList (CTNodeList* list);
 void printList( List<TNode>* list);
@@ -81,12 +82,14 @@ bool inList(const CTNodeList* l, const TNode el);
 
 class Info {
 public:
-  List<TNode>* indices;
+  context::CDO<bool> isNonLinear;
+  context::CDO<bool> rIntro1Applied;
+  CTNodeList* indices;
   CTNodeList* stores;
   CTNodeList* in_stores;
 
-  Info(context::Context* c, Backtracker<TNode>* bck) {
-    indices = new List<TNode>(bck);
+  Info(context::Context* c, Backtracker<TNode>* bck) : isNonLinear(c, false), rIntro1Applied(c, false) {
+    indices = new(true)CTNodeList(c);
     stores = new(true)CTNodeList(c);
     in_stores = new(true)CTNodeList(c);
 
@@ -95,6 +98,7 @@ public:
   ~Info() {
     //FIXME!
     //indices->deleteSelf();
+    indices->deleteSelf();
     stores->deleteSelf();
     in_stores->deleteSelf();
   }
@@ -103,7 +107,7 @@ public:
    * prints the information
    */
   void print() const {
-    Assert(indices != NULL && stores!= NULL); // && equals != NULL);
+    Assert(indices != NULL && stores!= NULL && in_stores != NULL);
     Trace("arrays-info")<<"  indices   ";
     printList(indices);
     Trace("arrays-info")<<"  stores ";
@@ -132,8 +136,6 @@ private:
   CNodeInfoMap info_map;
 
   CTNodeList* emptyList;
-  List<TNode>* emptyListI;
-
 
   /* == STATISTICS == */
 
@@ -189,7 +191,6 @@ public:
       d_maxList("theory::arrays::maxList",0),
       d_tableSize("theory::arrays::infoTableSize", info_map) {
     emptyList = new(true) CTNodeList(ct);
-    emptyListI = new List<TNode>(bck);
     emptyInfo = new Info(ct, bck);
     StatisticsRegistry::registerStat(&d_mergeInfoTimer);
     StatisticsRegistry::registerStat(&d_avgIndexListLength);
@@ -228,6 +229,8 @@ public:
   void addStore(const Node a, const TNode st);
   void addInStore(const TNode a, const TNode st);
 
+  void setNonLinear(const TNode a);
+  void setRIntro1Applied(const TNode a);
 
   /**
    * Returns the information associated with TNode a
@@ -235,7 +238,11 @@ public:
 
   const Info* getInfo(const TNode a) const;
 
-  List<TNode>* getIndices(const TNode a) const;
+  const bool isNonLinear(const TNode a) const;
+
+  const bool rIntro1Applied(const TNode a) const;
+
+  const CTNodeList* getIndices(const TNode a) const;
 
   const CTNodeList* getStores(const TNode a) const;
 

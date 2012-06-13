@@ -22,6 +22,7 @@
 
 #include "theory/theory.h"
 #include "theory/arith/theory_arith.h"
+#include "theory/quantifiers_engine.h"
 #include "expr/node.h"
 #include "expr/node_manager.h"
 #include "context/context.h"
@@ -48,8 +49,10 @@ class TheoryArithWhite : public CxxTest::TestSuite {
   NodeManagerScope* d_scope;
 
   TestOutputChannel d_outputChannel;
+  LogicInfo d_logicInfo;
   Theory::Effort d_level;
 
+  QuantifiersEngine* d_quantifiersEngine;
   TheoryArith* d_arith;
 
   TypeNode* d_booleanType;
@@ -64,7 +67,7 @@ class TheoryArithWhite : public CxxTest::TestSuite {
 
 public:
 
-  TheoryArithWhite() : d_level(Theory::FULL_EFFORT), d_zero(0), d_one(1), debug(false) {}
+  TheoryArithWhite() : d_level(Theory::EFFORT_FULL), d_zero(0), d_one(1), debug(false) {}
 
   void fakeTheoryEnginePreprocess(TNode inp){
     Node rewrite = inp; //FIXME this needs to enforce that inp is fully rewritten already!
@@ -98,7 +101,9 @@ public:
     d_nm = new NodeManager(d_ctxt, NULL);
     d_scope = new NodeManagerScope(d_nm);
     d_outputChannel.clear();
-    d_arith = new TheoryArith(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL));
+    d_logicInfo.lock();
+    d_quantifiersEngine = new QuantifiersEngine(d_ctxt, NULL);
+    d_arith = new TheoryArith(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL), d_logicInfo, d_quantifiersEngine);
 
     preregistered = new std::set<Node>();
 
@@ -114,6 +119,7 @@ public:
     delete preregistered;
 
     delete d_arith;
+    delete d_quantifiersEngine;
     d_outputChannel.clear();
     delete d_scope;
     delete d_nm;
@@ -125,7 +131,8 @@ public:
     Node x = d_nm->mkVar(*d_realType);
     Node c = d_nm->mkConst<Rational>(d_zero);
 
-    Node leq = d_nm->mkNode(LEQ, x, c);
+    Node gt = d_nm->mkNode(GT, x, c);
+    Node leq = gt.notNode();
     fakeTheoryEnginePreprocess(leq);
 
     d_arith->assertFact(leq, true);
@@ -149,37 +156,40 @@ public:
     Node c0 = d_nm->mkConst<Rational>(d_zero);
     Node c1 = d_nm->mkConst<Rational>(d_one);
 
-    Node leq0 = d_nm->mkNode(LEQ, x, c0);
-    Node leq1 = d_nm->mkNode(LEQ, x, c1);
+    Node gt0 = d_nm->mkNode(GT, x, c0);
+    Node gt1 = d_nm->mkNode(GT, x, c1);
     Node geq1 = d_nm->mkNode(GEQ, x, c1);
-    Node lt1 = d_nm->mkNode(NOT, geq1);
-    Node gt0 = d_nm->mkNode(NOT, leq0);
-    Node gt1 = d_nm->mkNode(NOT, leq1);
+    Node leq0 = gt0.notNode();
+    Node leq1 = gt1.notNode();
+    Node lt1 = geq1.notNode();
 
     fakeTheoryEnginePreprocess(leq0);
     fakeTheoryEnginePreprocess(leq1);
     fakeTheoryEnginePreprocess(geq1);
 
+    d_arith->presolve();
     d_arith->assertFact(lt1, true);
-
-
     d_arith->check(d_level);
     d_arith->propagate(d_level);
 
-    Node gt1ThenGt0  = NodeBuilder<2>(IMPLIES) << gt1 << gt0;
-    Node geq1ThenGt0  = NodeBuilder<2>(IMPLIES) << geq1 << gt0;
-    Node lt1ThenLeq1  = NodeBuilder<2>(IMPLIES) << lt1 << leq1;
+
+    Node gt0Orlt1  = NodeBuilder<2>(OR) << gt0 << lt1;
+    Node geq0OrLeq1  = NodeBuilder<2>(OR) << geq1 << leq1;
+
+    cout << d_outputChannel.getIthNode(0) << endl << endl;
+    cout << d_outputChannel.getIthNode(1) << endl << endl;
+    cout << d_outputChannel.getIthNode(2) << endl << endl;
 
     TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 3u);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(0), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), gt1ThenGt0);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), gt0Orlt1);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(1), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), geq1ThenGt0);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), geq0OrLeq1);
 
-    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), lt1ThenLeq1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), PROPAGATE);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), leq1);
   }
 
 
@@ -188,72 +198,78 @@ public:
     Node c0 = d_nm->mkConst<Rational>(d_zero);
     Node c1 = d_nm->mkConst<Rational>(d_one);
 
-    Node leq0 = d_nm->mkNode(LEQ, x, c0);
-    Node leq1 = d_nm->mkNode(LEQ, x, c1);
+    Node gt0 = d_nm->mkNode(GT, x, c0);
+    Node gt1 = d_nm->mkNode(GT, x, c1);
     Node geq1 = d_nm->mkNode(GEQ, x, c1);
-    Node lt1 = d_nm->mkNode(NOT, geq1);
-    Node gt0 = d_nm->mkNode(NOT, leq0);
-    Node gt1 = d_nm->mkNode(NOT, leq1);
+    Node leq0 = gt0.notNode();
+    Node leq1 = gt1.notNode();
+    Node lt1 = geq1.notNode();
 
     fakeTheoryEnginePreprocess(leq0);
     fakeTheoryEnginePreprocess(leq1);
     fakeTheoryEnginePreprocess(geq1);
 
+    d_arith->presolve();
     d_arith->assertFact(leq0, true);
-
-
     d_arith->check(d_level);
+    d_arith->propagate(d_level);
 
-    Node gt1ThenGt0  = NodeBuilder<2>(IMPLIES) << gt1 << gt0;
-    Node geq1ThenGt0  = NodeBuilder<2>(IMPLIES) << geq1 << gt0;
-    Node lt1ThenLeq1  = NodeBuilder<2>(IMPLIES) << lt1 << leq1;
+    Node gt0Orlt1  = NodeBuilder<2>(OR) << gt0 << lt1;
+    Node geq0OrLeq1  = NodeBuilder<2>(OR) << geq1 << leq1;
 
-    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 3u);
+    cout << d_outputChannel.getIthNode(0) << endl;
+    cout << d_outputChannel.getIthNode(1) << endl;
+    cout << d_outputChannel.getIthNode(2) << endl;
+    cout << d_outputChannel.getIthNode(3) << endl;
+
+    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 4u);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(0), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), gt1ThenGt0);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), gt0Orlt1);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(1), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), geq1ThenGt0);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), geq0OrLeq1);
 
-    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), lt1ThenLeq1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), PROPAGATE);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), lt1 );
+
+    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(3), PROPAGATE);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(3), leq1);
   }
+
   void testTPLeq1() {
     Node x = d_nm->mkVar(*d_realType);
     Node c0 = d_nm->mkConst<Rational>(d_zero);
     Node c1 = d_nm->mkConst<Rational>(d_one);
 
-    Node leq0 = d_nm->mkNode(LEQ, x, c0);
-    Node leq1 = d_nm->mkNode(LEQ, x, c1);
+    Node gt0 = d_nm->mkNode(GT, x, c0);
+    Node gt1 = d_nm->mkNode(GT, x, c1);
     Node geq1 = d_nm->mkNode(GEQ, x, c1);
-    Node lt1 = d_nm->mkNode(NOT, geq1);
-    Node gt0 = d_nm->mkNode(NOT, leq0);
-    Node gt1 = d_nm->mkNode(NOT, leq1);
+    Node leq0 = gt0.notNode();
+    Node leq1 = gt1.notNode();
+    Node lt1 = geq1.notNode();
 
     fakeTheoryEnginePreprocess(leq0);
     fakeTheoryEnginePreprocess(leq1);
     fakeTheoryEnginePreprocess(geq1);
 
+    d_arith->presolve();
     d_arith->assertFact(leq1, true);
-
-
     d_arith->check(d_level);
     d_arith->propagate(d_level);
 
-    Node gt1ThenGt0  = NodeBuilder<2>(IMPLIES) << gt1 << gt0;
-    Node geq1ThenGt0  = NodeBuilder<2>(IMPLIES) << geq1 << gt0;
-    Node lt1ThenLeq1  = NodeBuilder<2>(IMPLIES) << lt1 << leq1;
+    Node gt0Orlt1  = NodeBuilder<2>(OR) << gt0 << lt1;
+    Node geq0OrLeq1  = NodeBuilder<2>(OR) << geq1 << leq1;
 
-    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 3u);
+    cout << d_outputChannel.getIthNode(0) << endl;
+    cout << d_outputChannel.getIthNode(1) << endl;
+
+    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 2u);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(0), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), gt1ThenGt0);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), gt0Orlt1);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(1), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), geq1ThenGt0);
-
-    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), LEMMA);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), lt1ThenLeq1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), geq0OrLeq1);
   }
 };

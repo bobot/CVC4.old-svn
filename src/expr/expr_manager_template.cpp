@@ -11,13 +11,14 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Public-facing expression manager interface, implementation.
+ ** \brief Public-facing expression manager interface, implementation
  **
  ** Public-facing expression manager interface, implementation.
  **/
 
 #include "expr/node_manager.h"
 #include "expr/expr_manager.h"
+#include "expr/variable_type_map.h"
 #include "context/context.h"
 #include "util/options.h"
 #include "util/stats.h"
@@ -30,7 +31,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 34 "${template}"
+#line 35 "${template}"
 
 #ifdef CVC4_STATISTICS_ON
   #define INC_STAT(kind) \
@@ -96,24 +97,33 @@ ExprManager::ExprManager(const Options& options) :
 #endif
 }
 
-ExprManager::~ExprManager() {
-#ifdef CVC4_STATISTICS_ON
+ExprManager::~ExprManager() throw() {
   NodeManagerScope nms(d_nodeManager);
-  for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
-    if (d_exprStatistics[i] != NULL) {
-      StatisticsRegistry::unregisterStat(d_exprStatistics[i]);
-      delete d_exprStatistics[i];
+
+  try {
+
+#ifdef CVC4_STATISTICS_ON
+    for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
+      if (d_exprStatistics[i] != NULL) {
+        StatisticsRegistry::unregisterStat(d_exprStatistics[i]);
+        delete d_exprStatistics[i];
+      }
     }
-  }
-  for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
-    if (d_exprStatisticsVars[i] != NULL) {
-      StatisticsRegistry::unregisterStat(d_exprStatisticsVars[i]);
-      delete d_exprStatisticsVars[i];
+    for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
+      if (d_exprStatisticsVars[i] != NULL) {
+        StatisticsRegistry::unregisterStat(d_exprStatisticsVars[i]);
+        delete d_exprStatisticsVars[i];
+      }
     }
-  }
 #endif
-  delete d_nodeManager;
-  delete d_ctxt;
+
+    delete d_nodeManager;
+    delete d_ctxt;
+
+  } catch(Exception& e) {
+    Warning() << "CVC4 threw an exception during cleanup." << std::endl
+              << e << std::endl;
+  }
 }
 
 const Options* ExprManager::getOptions() const {
@@ -453,6 +463,16 @@ Expr ExprManager::mkExpr(Expr opExpr, const std::vector<Expr>& children) {
   }
 }
 
+bool ExprManager::hasOperator(Kind k) {
+  return NodeManager::hasOperator(k);
+}
+
+Expr ExprManager::operatorOf(Kind k) {
+  NodeManagerScope nms(d_nodeManager);
+
+  return d_nodeManager->operatorOf(k).toExpr();
+}
+
 /** Make a function type from domain to range. */
 FunctionType ExprManager::mkFunctionType(Type domain, Type range) {
   NodeManagerScope nms(d_nodeManager);
@@ -665,6 +685,10 @@ void ExprManager::checkResolvedDatatype(DatatypeType dtt) const {
       // CVC4::Datatype class, but this actually needs to be checked.
       AlwaysAssert(!SelectorType(selectorType).getRangeType().d_typeNode->isFunctionLike(),
                    "cannot put function-like things in datatypes");
+      // currently don't play well with Boolean terms
+      if(SelectorType(selectorType).getRangeType().d_typeNode->isBoolean()) {
+        WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a datatype containing a Boolean)" << std::endl;
+      }
     }
   }
 }
@@ -694,6 +718,39 @@ SortConstructorType ExprManager::mkSortConstructor(const std::string& name,
   NodeManagerScope nms(d_nodeManager);
   return SortConstructorType(Type(d_nodeManager,
               new TypeNode(d_nodeManager->mkSortConstructor(name, arity))));
+}
+
+Type ExprManager::mkPredicateSubtype(Expr lambda)
+  throw(TypeCheckingException) {
+  NodeManagerScope nms(d_nodeManager);
+  try {
+    return PredicateSubtype(Type(d_nodeManager,
+                new TypeNode(d_nodeManager->mkPredicateSubtype(lambda))));
+  } catch (const TypeCheckingExceptionPrivate& e) {
+    throw TypeCheckingException(this, &e);
+  }
+}
+
+Type ExprManager::mkPredicateSubtype(Expr lambda, Expr witness)
+  throw(TypeCheckingException) {
+  NodeManagerScope nms(d_nodeManager);
+  try {
+    return PredicateSubtype(Type(d_nodeManager,
+                new TypeNode(d_nodeManager->mkPredicateSubtype(lambda, witness))));
+  } catch (const TypeCheckingExceptionPrivate& e) {
+    throw TypeCheckingException(this, &e);
+  }
+}
+
+Type ExprManager::mkSubrangeType(const SubrangeBounds& bounds)
+  throw(TypeCheckingException) {
+  NodeManagerScope nms(d_nodeManager);
+  try {
+    return SubrangeType(Type(d_nodeManager,
+                new TypeNode(d_nodeManager->mkSubrangeType(bounds))));
+  } catch (const TypeCheckingExceptionPrivate& e) {
+    throw TypeCheckingException(this, &e);
+  }
 }
 
 /**
@@ -827,6 +884,52 @@ NodeManager* ExprManager::getNodeManager() const {
 
 Context* ExprManager::getContext() const {
   return d_ctxt;
+}
+
+namespace expr {
+
+Node exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
+
+TypeNode exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* to, ExprManagerMapCollection& vmap) {
+  Debug("export") << "type: " << n << std::endl;
+  Assert(n.getKind() == kind::SORT_TYPE ||
+         n.getMetaKind() != kind::metakind::PARAMETERIZED,
+         "PARAMETERIZED-kinded types (other than SORT_KIND) not supported");
+  if(n.getKind() == kind::TYPE_CONSTANT) {
+    return to->mkTypeConst(n.getConst<TypeConstant>());
+  } else if(n.getKind() == kind::BITVECTOR_TYPE) {
+    return to->mkBitVectorType(n.getConst<BitVectorSize>());
+  }
+  Type from_t = from->toType(n);
+  Type& to_t = vmap.d_typeMap[from_t];
+  if(! to_t.isNull()) {
+    Debug("export") << "+ mapped `" << from_t << "' to `" << to_t << "'" << std::endl;
+    return *Type::getTypeNode(to_t);
+  }
+  NodeBuilder<> children(to, n.getKind());
+  if(n.getKind() == kind::SORT_TYPE) {
+    Debug("export") << "type: operator: " << n.getOperator() << std::endl;
+    // make a new sort tag in target node manager
+    Node sortTag = NodeBuilder<0>(to, kind::SORT_TAG);
+    children << sortTag;
+  }
+  for(TypeNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
+    Debug("export") << "type: child: " << *i << std::endl;
+    children << exportTypeInternal(*i, from, to, vmap);
+  }
+  TypeNode out = children.constructTypeNode();// FIXME thread safety
+  to_t = to->toType(out);
+  return out;
+}/* exportTypeInternal() */
+
+}/* CVC4::expr namespace */
+
+Type ExprManager::exportType(const Type& t, ExprManager* em, ExprManagerMapCollection& vmap) {
+  Assert(t.d_nodeManager != em->d_nodeManager,
+         "Can't export a Type to the same ExprManager");
+  NodeManagerScope ems(t.d_nodeManager);
+  return Type(em->d_nodeManager,
+              new TypeNode(expr::exportTypeInternal(*t.d_typeNode, t.d_nodeManager, em->d_nodeManager, vmap)));
 }
 
 ${mkConst_implementations}

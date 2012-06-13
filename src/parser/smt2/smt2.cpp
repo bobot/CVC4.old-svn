@@ -17,6 +17,7 @@
  **/
 
 #include "expr/type.h"
+#include "expr/command.h"
 #include "parser/parser.h"
 #include "parser/smt/smt.h"
 #include "parser/smt2/smt2.h"
@@ -85,6 +86,9 @@ void Smt2::addTheory(Theory theory) {
   case THEORY_BITVECTORS:
     break;
 
+  case THEORY_QUANTIFIERS:
+    break;
+
   default:
     Unhandled(theory);
   }
@@ -116,8 +120,9 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_INTS);
     break;
 
-  case Smt::QF_LRA:
   case Smt::QF_RDL:
+  case Smt::QF_LRA:
+  case Smt::QF_NRA:
     addTheory(THEORY_REALS);
     break;
 
@@ -127,6 +132,7 @@ void Smt2::setLogic(const std::string& name) {
 
   case Smt::QF_UFIDL:
   case Smt::QF_UFLIA:
+  case Smt::QF_UFNIA:// nonstandard logic
     addTheory(THEORY_INTS);
     addOperator(kind::APPLY_UF);
     break;
@@ -137,8 +143,45 @@ void Smt2::setLogic(const std::string& name) {
     addOperator(kind::APPLY_UF);
     break;
 
+  case Smt::QF_UFLIRA:// nonstandard logic
+  case Smt::QF_UFNIRA:// nonstandard logic
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_REALS);
+    break;
+
   case Smt::QF_BV:
     addTheory(THEORY_BITVECTORS);
+    break;
+
+  case Smt::QF_ABV:
+    addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_BITVECTORS);
+    break;
+
+  case Smt::QF_UFBV:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_BITVECTORS);
+    break;
+
+  case Smt::QF_AUFBV:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_BITVECTORS);
+    break;
+
+  case Smt::QF_AUFBVLIA:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_BITVECTORS);
+    addTheory(THEORY_INTS);
+    break;
+
+  case Smt::QF_AUFBVLRA:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_BITVECTORS);
+    addTheory(THEORY_REALS);
     break;
 
   case Smt::QF_AUFLIA:
@@ -154,15 +197,40 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_REALS);
     break;
 
+  case Smt::ALL_SUPPORTED:
+    addTheory(THEORY_QUANTIFIERS);
+    /* fall through */
+  case Smt::QF_ALL_SUPPORTED:
+    addTheory(THEORY_ARRAYS);
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_REALS);
+    addTheory(THEORY_BITVECTORS);
+    break;
+
   case Smt::AUFLIA:
   case Smt::AUFLIRA:
   case Smt::AUFNIRA:
   case Smt::LRA:
   case Smt::UFNIA:
-  case Smt::QF_AUFBV:
-    Unhandled(name);
+  case Smt::UFNIRA:
+  case Smt::UFLRA:
+    if(d_logic != Smt::AUFLIA && d_logic != Smt::UFNIA) {
+      addTheory(THEORY_REALS);
+    }
+    if(d_logic != Smt::LRA) {
+      addOperator(kind::APPLY_UF);
+      if(d_logic != Smt::UFLRA) {
+        addTheory(THEORY_INTS);
+        if(d_logic != Smt::UFNIA && d_logic != Smt::UFNIRA) {
+          addTheory(THEORY_ARRAYS);
+        }
+      }
+    }
+    addTheory(THEORY_QUANTIFIERS);
+    break;
   }
-}
+}/* Smt2::setLogic() */
 
 void Smt2::setInfo(const std::string& flag, const SExpr& sexpr) {
   // TODO: ???
@@ -170,6 +238,23 @@ void Smt2::setInfo(const std::string& flag, const SExpr& sexpr) {
 
 void Smt2::setOption(const std::string& flag, const SExpr& sexpr) {
   // TODO: ???
+}
+
+void Smt2::checkThatLogicIsSet() {
+  if( ! logicIsSet() ) {
+    if( strictModeEnabled() ) {
+      parseError("set-logic must appear before this point.");
+    } else {
+      warning("No set-logic command was given before this point.");
+      warning("CVC4 will assume the non-standard ALL_SUPPORTED logic.");
+      warning("Consider setting a stricter logic for (likely) better performance.");
+      warning("To suppress this warning in the future use (set-logic ALL_SUPPORTED).");
+
+      setLogic("ALL_SUPPORTED");
+
+      preemptCommand(new SetBenchmarkLogicCommand("ALL_SUPPORTED"));
+    }
+  }
 }
 
 }/* CVC4::parser namespace */

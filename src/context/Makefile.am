@@ -12,14 +12,18 @@ libcontext_la_SOURCES = \
 	context_mm.h \
 	cdo.h \
 	cdlist.h \
-	cdlist_context_memory.h \
+	cdchunk_list.h \
 	cdlist_forward.h \
-	cdmap.h \
-	cdmap_forward.h \
-	cdset.h \
-	cdset_forward.h \
+	cdqueue.h \
+	cdtrail_queue.h \
+	cdhashmap.h \
+	cdhashmap_forward.h \
+	cdhashset.h \
+	cdhashset_forward.h \
 	cdcirclist.h \
 	cdcirclist_forward.h \
 	cdvector.h \
+	cdmaybe.h \
 	stacking_map.h \
-	stacking_vector.h
+	stacking_vector.h \
+	cddense_set.h

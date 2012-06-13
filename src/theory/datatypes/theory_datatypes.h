@@ -37,13 +37,16 @@ namespace CVC4 {
 namespace theory {
 namespace datatypes {
 
+class InstantiatorTheoryDatatypes;
+
 class TheoryDatatypes : public Theory {
+  friend class InstantiatorTheoryDatatypes;
 private:
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
-  typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
-  typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > EqListN;
-  typedef context::CDMap<Node, EqListN*, NodeHashFunction> EqListsN;
-  typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
+  typedef context::CDChunkList<TNode> EqList;
+  typedef context::CDHashMap<Node, EqList*, NodeHashFunction> EqLists;
+  typedef context::CDChunkList<Node> EqListN;
+  typedef context::CDHashMap<Node, EqListN*, NodeHashFunction> EqListsN;
+  typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 
   /** for debugging */
   context::CDList<Node> d_currAsserts;
@@ -53,7 +56,7 @@ private:
   BoolMap d_selectors;
   /** keeps track of which nodes are representatives */
   BoolMap d_reps;
-  /** map from (representative) nodes to a list of selectors whose arguments are 
+  /** map from (representative) nodes to a list of selectors whose arguments are
       in the equivalence class of that node */
   EqListsN d_selector_eq;
   /** map from (representative) nodes to list of nodes in their eq class */
@@ -140,13 +143,12 @@ private:
   CongruenceClosureExplainer<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::APPLY_CONSTRUCTOR, kind::APPLY_SELECTOR)> d_cce;
 
 public:
-  TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   ~TheoryDatatypes();
   void preRegisterTerm(TNode n);
   void presolve();
 
   void addSharedTerm(TNode t);
-  void notifyEq(TNode lhs, TNode rhs);
   void check(Effort e);
   Node getValue(TNode n);
   void shutdown() { }
@@ -168,7 +170,7 @@ private:
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);
-  inline TNode find(TNode a); 
+  inline TNode find(TNode a);
   inline TNode debugFind(TNode a) const;
   void appendToDiseqList(TNode of, TNode eq);
   void addDisequality(TNode eq);
@@ -180,8 +182,8 @@ private:
                        NodeBuilder<>& explanation );
 };/* class TheoryDatatypes */
 
-inline bool TheoryDatatypes::hasConflict() { 
-  return d_em.hasConflict(); 
+inline bool TheoryDatatypes::hasConflict() {
+  return d_em.hasConflict();
 }
 
 inline TNode TheoryDatatypes::find(TNode a) {

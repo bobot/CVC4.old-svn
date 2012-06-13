@@ -23,9 +23,9 @@
 #ifndef __CVC4__THEORY__ARITH__ARITH_PRIORITY_QUEUE_H
 #define __CVC4__THEORY__ARITH__ARITH_PRIORITY_QUEUE_H
 
-#include "theory/arith/arith_utilities.h"
+#include "theory/arith/arithvar.h"
 #include "theory/arith/delta_rational.h"
-#include "theory/arith/tableau.h"
+#include "theory/arith/matrix.h"
 #include "theory/arith/partial_model.h"
 
 #include "util/stats.h"
@@ -119,7 +119,7 @@ private:
   /**
    * Priority Queue of the basic variables that may be inconsistent.
    * Variables are ordered according to which violates its bound the most.
-   * This is a hueristic and makes no guarentees to terminate!
+   * This is a heuristic and makes no guarentees to terminate!
    * This heuristic comes from Alberto Griggio's thesis.
    */
   DifferenceArray d_diffQueue;
@@ -136,7 +136,7 @@ private:
    */
   ArithVarArray d_varOrderQueue;
 
-  PermissiveBackArithVarSet d_varSet;
+  DenseSet d_varSet;
 
   /**
    * Reference to the arithmetic partial model for checking if a variable

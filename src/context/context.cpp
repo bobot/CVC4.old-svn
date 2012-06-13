@@ -62,7 +62,7 @@ Context::~Context() throw(AssertionException) {
 
 void Context::push() {
   Trace("pushpop") << std::string(2 * getLevel(), ' ') << "Push [to "
-                   << getLevel() + 1 << "] {" << std::endl;
+                   << getLevel() + 1 << "] { " << this << std::endl;
 
   // Create a new memory region
   d_pCMM->push();
@@ -80,7 +80,7 @@ void Context::pop() {
   while(pCNO != NULL) {
     // pre-store the "next" pointer in case pCNO deletes itself on notify()
     ContextNotifyObj* next = pCNO->d_pCNOnext;
-    pCNO->notify();
+    pCNO->contextNotifyPop();
     pCNO = next;
   }
 
@@ -101,12 +101,12 @@ void Context::pop() {
   while(pCNO != NULL) {
     // pre-store the "next" pointer in case pCNO deletes itself on notify()
     ContextNotifyObj* next = pCNO->d_pCNOnext;
-    pCNO->notify();
+    pCNO->contextNotifyPop();
     pCNO = next;
   }
 
   Trace("pushpop") << std::string(2 * getLevel(), ' ') << "} Pop [to "
-                   << getLevel() << "]" << std::endl;
+                   << getLevel() << "] " << this << std::endl;
 }
 
 

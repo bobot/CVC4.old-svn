@@ -132,9 +132,6 @@ tokens {
   PARENHASH = '(#';
   HASHPAREN = '#)';
 
-  //DOT = '.';
-  DOTDOT = '..';
-
   // Operators
 
   ARROW_TOK = '->';
@@ -198,6 +195,12 @@ tokens {
   BVSGT_TOK = 'BVSGT';
   BVSLE_TOK = 'BVSLE';
   BVSGE_TOK = 'BVSGE';
+
+  // these are parsed by special NUMBER_OR_RANGEOP rule, below
+  DECIMAL_LITERAL;
+  INTEGER_LITERAL;
+  DOT;
+  DOTDOT;
 }/* tokens */
 
 @parser::members {
@@ -312,7 +315,8 @@ Kind getOperatorKind(int type, bool& negate) {
   case PLUS_TOK: return kind::PLUS;
   case MINUS_TOK: return kind::MINUS;
   case STAR_TOK: return kind::MULT;
-  case INTDIV_TOK: Unhandled(CvcParserTokenNames[type]);
+  case INTDIV_TOK: return kind::INTS_DIVISION;
+  case MOD_TOK: return kind::INTS_MODULUS;
   case DIV_TOK: return kind::DIVISION;
   case EXP_TOK: Unhandled(CvcParserTokenNames[type]);
 
@@ -347,7 +351,7 @@ unsigned findPivot(const std::vector<unsigned>& operators,
   return pivot;
 }/* findPivot() */
 
-Expr createPrecedenceTree(ExprManager* em,
+Expr createPrecedenceTree(Parser* parser, ExprManager* em,
                           const std::vector<CVC4::Expr>& expressions,
                           const std::vector<unsigned>& operators,
                           unsigned startIndex, unsigned stopIndex) {
@@ -363,13 +367,21 @@ Expr createPrecedenceTree(ExprManager* em,
   unsigned pivot = findPivot(operators, startIndex, stopIndex - 1);
   //Debug("prec") << "pivot[" << startIndex << "," << stopIndex - 1 << "] at " << pivot << std::endl;
   bool negate;
-  Expr e = em->mkExpr(getOperatorKind(operators[pivot], negate),
-                      createPrecedenceTree(em, expressions, operators, startIndex, pivot),
-                      createPrecedenceTree(em, expressions, operators, pivot + 1, stopIndex));
+  Kind k = getOperatorKind(operators[pivot], negate);
+  Expr lhs = createPrecedenceTree(parser, em, expressions, operators, startIndex, pivot);
+  Expr rhs = createPrecedenceTree(parser, em, expressions, operators, pivot + 1, stopIndex);
+  if(k == kind::EQUAL && lhs.getType().isBoolean()) {
+    if(parser->strictModeEnabled()) {
+      WarningOnce() << "Warning: in strict parsing mode, will not convert BOOL = BOOL to BOOL <=> BOOL" << std::endl;
+    } else {
+      k = kind::IFF;
+    }
+  }
+  Expr e = em->mkExpr(k, lhs, rhs);
   return negate ? em->mkExpr(kind::NOT, e) : e;
 }/* createPrecedenceTree() recursive variant */
 
-Expr createPrecedenceTree(ExprManager* em,
+Expr createPrecedenceTree(Parser* parser, ExprManager* em,
                           const std::vector<CVC4::Expr>& expressions,
                           const std::vector<unsigned>& operators) {
   if(Debug.isOn("prec") && operators.size() > 1) {
@@ -382,7 +394,7 @@ Expr createPrecedenceTree(ExprManager* em,
     Debug("prec") << std::endl;
   }
 
-  Expr e = createPrecedenceTree(em, expressions, operators, 0, expressions.size() - 1);
+  Expr e = createPrecedenceTree(parser, em, expressions, operators, 0, expressions.size() - 1);
   if(Debug.isOn("prec") && operators.size() > 1) {
     Expr::setlanguage::Scope ls(Debug("prec"), language::output::LANG_AST);
     Debug("prec") << "=> " << e << std::endl;
@@ -497,6 +509,8 @@ namespace CVC4 {
 #include "util/output.h"
 
 #include <vector>
+#include <string>
+#include <sstream>
 
 #define REPEAT_COMMAND(k, CommandCtor)                      \
   ({                                                        \
@@ -691,9 +705,12 @@ mainCommand[CVC4::Command*& cmd]
     { UNSUPPORTED("CALL command"); }
 
   | ECHO_TOK
-    ( ( str[s] | IDENTIFIER { s = AntlrInput::tokenText($IDENTIFIER); } )
-      { Message() << s << std::endl; }
-    | { Message() << std::endl; }
+    ( simpleSymbolicExpr[sexpr]
+      { std::stringstream ss;
+        ss << sexpr;
+        cmd = new EchoCommand(ss.str());
+      }
+    | { cmd = new EchoCommand(); }
     )
 
   | EXIT_TOK
@@ -732,17 +749,30 @@ mainCommand[CVC4::Command*& cmd]
   | toplevelDeclaration[cmd]
   ;
 
-symbolicExpr[CVC4::SExpr& sexpr]
+simpleSymbolicExpr[CVC4::SExpr& sexpr]
 @declarations {
-  std::vector<SExpr> children;
   std::string s;
+  CVC4::Rational r;
 }
-  : INTEGER_LITERAL ('.' DIGIT+)?
-    { sexpr = SExpr((const char*)$symbolicExpr.text->chars); }
+  : INTEGER_LITERAL
+    { sexpr = SExpr(AntlrInput::tokenToInteger($INTEGER_LITERAL)); }
+  | DECIMAL_LITERAL
+    { sexpr = SExpr(AntlrInput::tokenToRational($DECIMAL_LITERAL)); }
+  | HEX_LITERAL
+    { sexpr = SExpr(AntlrInput::tokenText($HEX_LITERAL)); }
+  | BINARY_LITERAL
+    { sexpr = SExpr(AntlrInput::tokenText($BINARY_LITERAL)); }
   | str[s]
     { sexpr = SExpr(s); }
   | IDENTIFIER
     { sexpr = SExpr(AntlrInput::tokenText($IDENTIFIER)); }
+  ;
+
+symbolicExpr[CVC4::SExpr& sexpr]
+@declarations {
+  std::vector<SExpr> children;
+}
+  : simpleSymbolicExpr[sexpr]
   | LPAREN (symbolicExpr[sexpr] { children.push_back(sexpr); } )* RPAREN
     { sexpr = SExpr(children); }
   ;
@@ -1020,9 +1050,12 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
                                   bool& lhs]
 @init {
   Type t2;
-  Expr f;
+  Expr f, f2;
   std::string id;
   std::vector<Type> types;
+  std::vector< std::pair<std::string, Type> > typeIds;
+  DeclarationScope* declScope;
+  Parser* parser;
   lhs = false;
 }
     /* named types */
@@ -1033,13 +1066,13 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
          PARSER_STATE->isDeclared(id, SYM_SORT)) {
         Debug("parser-param") << "param: getSort " << id << " " << types.size() << " " << PARSER_STATE->getArity( id )
                               << " " << PARSER_STATE->isDeclared(id, SYM_SORT) << std::endl;
-        if( types.size()>0 ){
+        if(types.size() > 0) {
           t = PARSER_STATE->getSort(id, types);
         }else{
           t = PARSER_STATE->getSort(id);
         }
       } else {
-        if( types.empty() ){
+        if(types.empty()) {
           t = PARSER_STATE->mkUnresolvedType(id);
           Debug("parser-param") << "param: make unres type " << id << std::endl;
         }else{
@@ -1056,24 +1089,33 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
     { t = EXPR_MANAGER->mkArrayType(t, t2); }
 
     /* subtypes */
-  | SUBTYPE_TOK LPAREN formula[f] ( COMMA formula[f] )? RPAREN
-    { UNSUPPORTED("subtypes not supported yet");
-      t = Type(); }
+  | SUBTYPE_TOK LPAREN
+    /* A bit tricky: this LAMBDA expression cannot refer to constants
+     * declared in the outer context.  What follows isn't quite right,
+     * though, since type aliases and function definitions should be
+     * retained in the set of current declarations. */
+    { /*declScope = PARSER_STATE->getDeclarationScope();
+      PARSER_STATE->useDeclarationsFrom(new DeclarationScope());*/ }
+    formula[f] ( COMMA formula[f2] )? RPAREN
+    { /*DeclarationScope* old = PARSER_STATE->getDeclarationScope();
+      PARSER_STATE->useDeclarationsFrom(declScope);
+      delete old;*/
+      t = f2.isNull() ?
+        EXPR_MANAGER->mkPredicateSubtype(f) :
+        EXPR_MANAGER->mkPredicateSubtype(f, f2);
+    }
 
     /* subrange types */
   | LBRACKET k1=bound DOTDOT k2=bound RBRACKET
-    { std::stringstream ss;
-      ss << "subranges not supported yet: [" << k1 << ":" << k2 << ']';
-      UNSUPPORTED(ss.str());
-      if(k1.hasBound() && k2.hasBound() &&
+    { if(k1.hasBound() && k2.hasBound() &&
          k1.getBound() > k2.getBound()) {
-        ss.str("");
+        std::stringstream ss;
         ss << "Subrange [" << k1.getBound() << ".." << k2.getBound()
            << "] inappropriate: range must be nonempty!";
         PARSER_STATE->parseError(ss.str());
       }
-      Debug("subranges") << ss.str() << std::endl;
-      t = Type(); }
+      t = EXPR_MANAGER->mkSubrangeType(SubrangeBounds(k1, k2));
+    }
 
     /* tuple types / old-style function types */
   | LBRACKET type[t,check] { types.push_back(t); }
@@ -1087,15 +1129,14 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
         }
       } else {
         // tuple type [ T, U, V... ]
-        t = EXPR_MANAGER->mkTupleType(types);
+        t = PARSER_STATE->mkTupleType(types);
       }
     }
 
     /* record types */
-  | SQHASH identifier[id,CHECK_NONE,SYM_SORT] COLON type[t,check]
-    ( COMMA identifier[id,CHECK_NONE,SYM_SORT] COLON type[t,check] )* HASHSQ
-    { UNSUPPORTED("records not supported yet");
-      t = Type(); }
+  | SQHASH identifier[id,CHECK_NONE,SYM_SORT] COLON type[t,check] { typeIds.push_back(std::make_pair(id, t)); }
+    ( COMMA identifier[id,CHECK_NONE,SYM_SORT] COLON type[t,check] { typeIds.push_back(std::make_pair(id, t)); } )* HASHSQ
+    { t = PARSER_STATE->mkRecordType(typeIds); }
 
     /* bitvector types */
   | BITVECTOR_TOK LPAREN k=numeral RPAREN
@@ -1127,7 +1168,7 @@ parameterization[CVC4::parser::DeclarationCheck check,
 
 bound returns [CVC4::parser::cvc::mySubrangeBound bound]
   : UNDERSCORE { $bound = SubrangeBound(); }
-  | k=integer { $bound = SubrangeBound(k); }
+  | k=integer { $bound = SubrangeBound(k.getNumerator()); }
 ;
 
 typeLetDecl[CVC4::parser::DeclarationCheck check]
@@ -1161,8 +1202,8 @@ formula[CVC4::Expr& f]
       { f = addNots(EXPR_MANAGER, n, f);
         expressions.push_back(f);
       }
-      i=morecomparisons[expressions,operators]?
-      { f = createPrecedenceTree(EXPR_MANAGER, expressions, operators); }
+      morecomparisons[expressions,operators]?
+      { f = createPrecedenceTree(PARSER_STATE, EXPR_MANAGER, expressions, operators); }
     )
   ;
 
@@ -1181,7 +1222,7 @@ morecomparisons[std::vector<CVC4::Expr>& expressions,
       { f = addNots(EXPR_MANAGER, n, f);
         expressions.push_back(f);
       }
-      inner=morecomparisons[expressions,operators]?
+      morecomparisons[expressions,operators]?
     )
   ;
 
@@ -1195,22 +1236,36 @@ prefixFormula[CVC4::Expr& f]
   std::vector<std::string> ids;
   std::vector<Expr> terms;
   std::vector<Type> types;
+  std::vector<Expr> bvs;
   Type t;
+  Kind k;
+  Expr ipl;
 }
     /* quantifiers */
-  : FORALL_TOK { PARSER_STATE->pushScope(); } LPAREN
-    boundVarDecl[ids,t] (COMMA boundVarDecl[ids,t])* RPAREN
-    COLON instantiationPatterns? formula[f]
-    { PARSER_STATE->popScope();
-      UNSUPPORTED("quantifiers not supported yet");
-      f = EXPR_MANAGER->mkVar(EXPR_MANAGER->booleanType());
+  : ( FORALL_TOK { k = kind::FORALL; } | EXISTS_TOK { k = kind::EXISTS; } )
+    { PARSER_STATE->pushScope(); } LPAREN
+    boundVarDecl[ids,t]
+    { for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
+        bvs.push_back(PARSER_STATE->mkVar(*i, t));
+      }
+      ids.clear();
     }
-  | EXISTS_TOK { PARSER_STATE->pushScope(); } LPAREN
-    boundVarDecl[ids,t] (COMMA boundVarDecl[ids,t])* RPAREN
-    COLON instantiationPatterns? formula[f]
+    ( COMMA boundVarDecl[ids,t]
+      {
+        for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
+          bvs.push_back(PARSER_STATE->mkVar(*i, t));
+        }
+        ids.clear();
+      }
+    )* RPAREN {
+      terms.push_back( EXPR_MANAGER->mkExpr( kind::BOUND_VAR_LIST, bvs ) ); }
+    COLON instantiationPatterns[ipl]? formula[f]
     { PARSER_STATE->popScope();
-      UNSUPPORTED("quantifiers not supported yet");
-      f = EXPR_MANAGER->mkVar(EXPR_MANAGER->booleanType());
+      terms.push_back(f);
+      if(! ipl.isNull()) {
+        terms.push_back(ipl);
+      }
+      f = MK_EXPR(k, terms);
     }
 
    /* lets: letDecl defines the variables and functionss, we just
@@ -1242,11 +1297,20 @@ prefixFormula[CVC4::Expr& f]
     }
   ;
 
-instantiationPatterns
+instantiationPatterns[ CVC4::Expr& expr ]
 @init {
+  std::vector<Expr> args;
   Expr f;
+  std::vector<Expr> patterns;
 }
-  : ( PATTERN_TOK LPAREN formula[f] (COMMA formula[f])* RPAREN COLON )+
+  : ( PATTERN_TOK LPAREN formula[f] { args.push_back( f ); } (COMMA formula[f] { args.push_back( f ); } )* RPAREN COLON
+      { patterns.push_back( EXPR_MANAGER->mkExpr( kind::INST_PATTERN, args ) );
+        args.clear();
+      } )+
+    { if(! patterns.empty()) {
+       expr = EXPR_MANAGER->mkExpr( kind::INST_PATTERN_LIST, patterns );
+       }
+    }
   ;
 
 /**
@@ -1286,7 +1350,7 @@ comparison[CVC4::Expr& f]
   : term[f] { expressions.push_back(f); }
     ( comparisonBinop[op] term[f]
       { operators.push_back(op); expressions.push_back(f); } )*
-    { f = createPrecedenceTree(EXPR_MANAGER, expressions, operators); }
+    { f = createPrecedenceTree(PARSER_STATE, EXPR_MANAGER, expressions, operators); }
   ;
 
 comparisonBinop[unsigned& op]
@@ -1310,7 +1374,7 @@ term[CVC4::Expr& f]
 }
   : storeTerm[f] { expressions.push_back(f); }
     ( arithmeticBinop[op] storeTerm[f] { operators.push_back(op); expressions.push_back(f); } )*
-    { f = createPrecedenceTree(EXPR_MANAGER, expressions, operators); }
+    { f = createPrecedenceTree(PARSER_STATE, EXPR_MANAGER, expressions, operators); }
   ;
 
 arithmeticBinop[unsigned& op]
@@ -1321,14 +1385,20 @@ arithmeticBinop[unsigned& op]
   | MINUS_TOK
   | STAR_TOK
   | INTDIV_TOK
+  | MOD_TOK
   | DIV_TOK
   | EXP_TOK
   ;
 
-/** Parses an array assignment term. */
+/** Parses an array/tuple/record assignment term. */
 storeTerm[CVC4::Expr& f]
   : uminusTerm[f]
-    ( WITH_TOK arrayStore[f] ( COMMA arrayStore[f] )* )*
+    ( WITH_TOK
+      ( arrayStore[f] ( COMMA arrayStore[f] )*
+      | DOT ( tupleStore[f] ( COMMA DOT tupleStore[f] )*
+            | recordStore[f] ( COMMA DOT recordStore[f] )* ) )
+    | /* nothing */
+    )
   ;
 
 /**
@@ -1361,6 +1431,84 @@ arrayStore[CVC4::Expr& f]
     }
   ;
 
+/**
+ * Parses just part of the tuple assignment (and constructs
+ * the store terms).
+ */
+tupleStore[CVC4::Expr& f]
+@init {
+  Expr f2;
+}
+  : k=numeral ASSIGN_TOK uminusTerm[f2]
+    {
+      Type t = f.getType();
+      if(! t.isDatatype()) {
+        PARSER_STATE->parseError("tuple-update applied to non-tuple");
+      }
+      Datatype tuple = DatatypeType(f.getType()).getDatatype();
+      if(tuple.getName() != "__cvc4_tuple") {
+        PARSER_STATE->parseError("tuple-update applied to non-tuple");
+      }
+      if(k < tuple[0].getNumArgs()) {
+        std::vector<Expr> args;
+        for(unsigned i = 0; i < tuple[0].getNumArgs(); ++i) {
+          if(i == k) {
+            args.push_back(f2);
+          } else {
+            Expr selectorOp = tuple[0][i].getSelector();
+            Expr select = MK_EXPR(CVC4::kind::APPLY_SELECTOR, selectorOp, f);
+            args.push_back(select);
+          }
+        }
+        f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, tuple[0].getConstructor(), args);
+      } else {
+        std::stringstream ss;
+        ss << "tuple is of length " << tuple[0].getNumArgs() << "; cannot update index " << k;
+        PARSER_STATE->parseError(ss.str());
+      }
+    }
+  ;
+
+/**
+ * Parses just part of the record assignment (and constructs
+ * the store terms).
+ */
+recordStore[CVC4::Expr& f]
+@init {
+  std::string id;
+  Expr f2;
+}
+  : identifier[id,CHECK_NONE,SYM_VARIABLE] ASSIGN_TOK uminusTerm[f2]
+    {
+      Type t = f.getType();
+      if(! t.isDatatype()) {
+        PARSER_STATE->parseError("record-update applied to non-record");
+      }
+      Datatype record = DatatypeType(f.getType()).getDatatype();
+      if(record.getName() != "__cvc4_record") {
+        PARSER_STATE->parseError("record-update applied to non-record");
+      }
+      const DatatypeConstructorArg* updateArg = 0;
+      try {
+        updateArg = &record[0][id];
+      } catch(IllegalArgumentException& e) {
+        PARSER_STATE->parseError(std::string("no such field `") + id + "' in record");
+      }
+      std::vector<Expr> args;
+      for(unsigned i = 0; i < record[0].getNumArgs(); ++i) {
+        const DatatypeConstructorArg* thisArg = &record[0][i];
+        if(thisArg == updateArg) {
+          args.push_back(f2);
+        } else {
+          Expr selectorOp = record[0][i].getSelector();
+          Expr select = MK_EXPR(CVC4::kind::APPLY_SELECTOR, selectorOp, f);
+          args.push_back(select);
+        }
+      }
+      f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, record[0].getConstructor(), args);
+    }
+  ;
+
 /** Parses a unary minus term. */
 uminusTerm[CVC4::Expr& f]
 @init {
@@ -1381,7 +1529,7 @@ bvBinaryOpTerm[CVC4::Expr& f]
 }
   : bvNegTerm[f] { expressions.push_back(f); }
     ( bvBinop[op] bvNegTerm[f] { operators.push_back(op); expressions.push_back(f); } )*
-    { f = createPrecedenceTree(EXPR_MANAGER, expressions, operators); }
+    { f = createPrecedenceTree(PARSER_STATE, EXPR_MANAGER, expressions, operators); }
   ;
 bvBinop[unsigned& op]
 @init {
@@ -1469,20 +1617,42 @@ postfixTerm[CVC4::Expr& f]
       }
 
       /* record / tuple select */
-    // FIXME - clash in lexer between tuple-select and real; can
-    // resolve with syntactic predicate in ANTLR 3.3, but broken in
-    // 3.2 ?
-    /*| DOT
+    | DOT
       ( identifier[id,CHECK_NONE,SYM_VARIABLE]
-        { UNSUPPORTED("record select not implemented yet");
-          f = Expr(); }
+        { Type t = f.getType();
+          if(! t.isDatatype()) {
+            PARSER_STATE->parseError("record-select applied to non-record");
+          }
+          Datatype record = DatatypeType(f.getType()).getDatatype();
+          if(record.getName() != "__cvc4_record") {
+            PARSER_STATE->parseError("record-select applied to non-record");
+          }
+          try {
+            Expr selectorOp = record[0][id].getSelector();
+            f = MK_EXPR(CVC4::kind::APPLY_SELECTOR, selectorOp, f);
+          } catch(IllegalArgumentException& e) {
+            PARSER_STATE->parseError(std::string("no such field `") + id + "' in record");
+          }
+        }
       | k=numeral
-        { UNSUPPORTED("tuple select not implemented yet");
-          // This will assert-fail if k too big or f not a tuple
-          // that's ok for now, once a TUPLE_SELECT operator exists,
-          // that will do any necessary type checking
-          f = EXPR_MANAGER->mkVar(TupleType(f.getType()).getTypes()[k]); }
-      )*/
+        { Type t = f.getType();
+          if(! t.isDatatype()) {
+            PARSER_STATE->parseError("tuple-select applied to non-tuple");
+          }
+          Datatype tuple = DatatypeType(f.getType()).getDatatype();
+          if(tuple.getName() != "__cvc4_tuple") {
+            PARSER_STATE->parseError("tuple-select applied to non-tuple");
+          }
+          try {
+            Expr selectorOp = tuple[0][k].getSelector();
+            f = MK_EXPR(CVC4::kind::APPLY_SELECTOR, selectorOp, f);
+          } catch(IllegalArgumentException& e) {
+            std::stringstream ss;
+            ss << "tuple is of length " << tuple[0].getNumArgs() << "; cannot access index " << k;
+            PARSER_STATE->parseError(ss.str());
+          }
+        }
+      )
     )*
     ( typeAscription[f, t]
       { if(f.getKind() == CVC4::kind::APPLY_CONSTRUCTOR && t.isDatatype()) {
@@ -1641,6 +1811,8 @@ simpleTerm[CVC4::Expr& f]
 @init {
   std::string name;
   std::vector<Expr> args;
+  std::vector<std::string> names;
+  Expr e;
   Debug("parser-extra") << "term: " << AntlrInput::tokenText(LT(1)) << std::endl;
   Type t;
 }
@@ -1654,7 +1826,12 @@ simpleTerm[CVC4::Expr& f]
         /* If args has elements, we must be a tuple literal.
          * Otherwise, f is already the sub-formula, and
          * there's nothing to do */
-        f = EXPR_MANAGER->mkExpr(kind::TUPLE, args);
+        std::vector<Type> types;
+        for(std::vector<Expr>::const_iterator i = args.begin(); i != args.end(); ++i) {
+          types.push_back((*i).getType());
+        }
+        DatatypeType t = PARSER_STATE->mkTupleType(types);
+        f = EXPR_MANAGER->mkExpr(kind::APPLY_CONSTRUCTOR, t.getDatatype()[0].getConstructor(), args);
       }
     }
 
@@ -1677,9 +1854,16 @@ simpleTerm[CVC4::Expr& f]
       std::string binString = AntlrInput::tokenTextSubstr($BINARY_LITERAL, 4);
       f = MK_CONST( BitVector(binString, 2) ); }
     /* record literals */
-  | PARENHASH recordEntry (COMMA recordEntry)+ HASHPAREN
-    { UNSUPPORTED("records not implemented yet");
-      f = Expr(); }
+  | PARENHASH recordEntry[name,e] { names.push_back(name); args.push_back(e); }
+    ( COMMA recordEntry[name,e] { names.push_back(name); args.push_back(e); } )* HASHPAREN
+    { std::vector< std::pair<std::string, Type> > typeIds;
+      Assert(names.size() == args.size());
+      for(unsigned i = 0; i < names.size(); ++i) {
+        typeIds.push_back(std::make_pair(names[i], args[i].getType()));
+      }
+      DatatypeType t = PARSER_STATE->mkRecordType(typeIds);
+      f = EXPR_MANAGER->mkExpr(kind::APPLY_CONSTRUCTOR, t.getDatatype()[0].getConstructor(), args);
+    }
 
     /* variable / zero-ary constructor application */
   | identifier[name,CHECK_DECLARED,SYM_VARIABLE]
@@ -1707,12 +1891,8 @@ typeAscription[const CVC4::Expr& f, CVC4::Type& t]
 /**
  * Matches an entry in a record literal.
  */
-recordEntry
-@init {
-  std::string id;
-  Expr f;
-}
-  : identifier[id,CHECK_DECLARED,SYM_VARIABLE] ASSIGN_TOK formula[f]
+recordEntry[std::string& name, CVC4::Expr& ex]
+  : identifier[name,CHECK_NONE,SYM_VARIABLE] ASSIGN_TOK formula[ex]
   ;
 
 /**
@@ -1824,22 +2004,6 @@ selector[CVC4::DatatypeConstructor& ctor]
 IDENTIFIER : (ALPHA | '_') (ALPHA | DIGIT | '_' | '\'' | '\\' | '?' | '$' | '~')*;
 
 /**
- * Matches an integer literal.
- */
-INTEGER_LITERAL
-  : ( '0'
-    | '1'..'9' DIGIT*
-    )
-  ;
-
-/**
- * Matches a decimal literal.
- */
-DECIMAL_LITERAL
-  : INTEGER_LITERAL '.' DIGIT+
-  ;
-
-/**
  * Same as an integer literal converted to an unsigned int, but
  * slightly more convenient AND works around a strange ANTLR bug (?)
  * in the BVPLUS/BVMINUS/BVMULT rules where $INTEGER_LITERAL was
@@ -1853,7 +2017,7 @@ numeral returns [unsigned k = 0]
 /**
  * Similar to numeral but for arbitrary-precision, signed integer.
  */
-integer returns [CVC4::Integer k = 0]
+integer returns [CVC4::Rational k = 0]
   : INTEGER_LITERAL
     { $k = AntlrInput::tokenToInteger($INTEGER_LITERAL); }
   | MINUS_TOK INTEGER_LITERAL
@@ -1900,6 +2064,32 @@ fragment ALPHA : 'a'..'z' | 'A'..'Z';
  * Matches the decimal digits (0-9)
  */
 fragment DIGIT : '0'..'9';
+
+// This rule adapted from http://www.antlr.org/wiki/pages/viewpage.action?pageId=13828121
+// which reportedly comes from Tapestry (http://tapestry.apache.org/tapestry5/)
+//
+// Special rule that uses parsing tricks to identify numbers and ranges; it's all about
+// the dot ('.').
+// Recognizes:
+// '.' as DOT
+// '..' as DOTDOT
+// INTEGER_LITERAL (digit+)
+// DECIMAL_LITERAL (digit* . digit+)
+// Has to watch out for embedded rangeop (i.e. "1..10" is not "1." and ".10").
+//
+// This doesn't ever generate the NUMBER_OR_RANGEOP token, it
+// manipulates the $type inside to return the right token.
+NUMBER_OR_RANGEOP
+  : DIGIT+
+    (
+      { LA(2) != '.' }? => '.' DIGIT* { $type = DECIMAL_LITERAL; }
+      | { $type = INTEGER_LITERAL; }
+    )
+  | '.'
+    ( '.' {$type = DOTDOT; }
+    | {$type = DOT; }
+    )
+  ;
 
 /**
  * Matches the hexidecimal digits (0-9, a-f, A-F)

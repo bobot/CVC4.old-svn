@@ -36,9 +36,9 @@ namespace theory {
  * The status of an equality in the current context.
  */
 enum EqualityStatus {
-  /** The equality is known to be true, and has been propagated */
-  EQUALITY_TRUE_AND_PROPAGATED,
   /** The equality is known to be true and has been propagated */
+  EQUALITY_TRUE_AND_PROPAGATED,
+  /** The equality is known to be false and has been propagated */
   EQUALITY_FALSE_AND_PROPAGATED,
   /** The equality is known to be true */
   EQUALITY_TRUE,
@@ -111,6 +111,14 @@ public:
    * as well as CNF conversion
    */
   Node ensureLiteral(TNode n) CVC4_WARN_UNUSED_RESULT;
+
+  /**
+   * Returns whether the given lit (which must be a SAT literal) is a decision
+   * literal or not.  Throws an exception if lit is not a SAT literal.  "lit" may
+   * be in either phase; that is, if "lit" is a SAT literal, this function returns
+   * true both for lit and the negation of lit.
+   */
+  bool isDecision(Node lit) const;
 
 };/* class Valuation */
 

@@ -192,6 +192,30 @@ public:
     }
   }
 
+  bool isZero() const {
+    return cln::zerop(d_value);
+  }
+
+  bool isOne() const {
+    return d_value == 1;
+  }
+
+  bool isNegativeOne() const {
+    return d_value == -1;
+  }
+
+  Rational abs() const {
+    if(sgn() < 0){
+      return -(*this);
+    }else{
+      return *this;
+    }
+  }
+
+  bool isIntegral() const{
+    return getDenominator() == 1;
+  }
+
   Integer floor() const {
     return Integer(cln::floor1(d_value));
   }

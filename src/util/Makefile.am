@@ -50,10 +50,18 @@ libutil_la_SOURCES = \
 	stats.cpp \
 	dynamic_array.h \
 	language.h \
+	lemma_input_channel.h \
+	lemma_output_channel.h \
+	dense_map.h \
+	channel.h \
 	language.cpp \
 	ntuple.h \
 	recursion_breaker.h \
 	subrange_bound.h \
+	dump.h \
+	dump.cpp \
+	predicate.h \
+	predicate.cpp \
 	cardinality.h \
 	cardinality.cpp \
 	cache.h \
@@ -64,9 +72,8 @@ libutil_la_SOURCES = \
 	boolean_simplification.cpp \
 	ite_removal.h \
 	ite_removal.cpp \
-	pseudoboolean.h \
-	pseudoboolean.cpp \
-	node_visitor.h
+	node_visitor.h \
+	index.h
 
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
@@ -79,6 +86,7 @@ BUILT_SOURCES = \
 	integer.h \
 	tls.h
 if CVC4_DEBUG
+if CVC4_TRACING
 # listing Debug_tags too ensures that make doesn't auto-remove it
 # after building (if it does, we don't get the "cached" effect with
 # the .tmp files below, and we have to re-compile and re-link each
@@ -86,6 +94,7 @@ if CVC4_DEBUG
 BUILT_SOURCES += \
 	Debug_tags.h \
 	Debug_tags
+endif
 endif
 if CVC4_TRACING
 # listing Trace_tags too ensures that make doesn't auto-remove it
@@ -119,9 +128,9 @@ endif
 # expression (no |, no \<, ...).
 Debug_tags.tmp Trace_tags.tmp:
 	$(AM_V_GEN)\
-	grep '\<$(@:_tags.tmp=) *( *\".*\" *)' \
+	grep '\<$(@:_tags.tmp=)\(\.isOn\)* *( *\".*\" *)' \
 		`find @srcdir@/../ -name "*.cpp" -or -name "*.h" -or -name "*.cc" -or -name "*.g"` | \
-	sed 's/^$(@:_tags.tmp=) *( *\"\([^"]*\)\".*/\1/;s/.*[^a-zA-Z0-9_]$(@:_tags.tmp=) *( *\"\([^"]*\)\".*/\1/' | sort | uniq >"$@"
+	sed 's/^$(@:_tags.tmp=)\(\.isOn\)* *( *\"\([^"]*\)\".*/\2/;s/.*[^a-zA-Z0-9_]$(@:_tags.tmp=)\(\.isOn\)* *( *\"\([^"]*\)\".*/\2/' | LC_ALL=C sort | uniq >"$@"
 
 if CVC4_CLN_IMP
 libutil_la_SOURCES += \
@@ -160,7 +169,6 @@ EXTRA_DIST = \
 	options.i \
 	ascription_type.i \
 	rational.i \
-	pseudoboolean.i \
 	hash.i
 
 MOSTLYCLEANFILES = \

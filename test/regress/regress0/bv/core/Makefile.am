@@ -1,7 +1,8 @@
+BINARY = cvc4
 if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../../run_regression --proof @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../../run_regression $(RUN_REGRESSION_ARGS) --proof @top_builddir@/src/main/$(BINARY)
 else
-TESTS_ENVIRONMENT = @srcdir@/../../../run_regression @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = @srcdir@/../../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
 endif
 
 # These are run for all build profiles.
@@ -67,7 +68,6 @@ TESTS =	\
 	slice-18.smt \
 	slice-19.smt \
 	slice-20.smt \
-	ext_con_004_001_1024.smt \
 	a78test0002.smt \
 	a95test0002.smt \
 	bitvec0.smt \

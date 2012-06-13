@@ -22,10 +22,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <iostream>
 
-#include "mtl/Sort.h"
-#include "core/Solver.h"
+#include "prop/minisat/mtl/Sort.h"
+#include "prop/minisat/core/Solver.h"
 
-#include "prop/sat.h"
+#include "prop/theory_proxy.h"
+#include "prop/minisat/minisat.h"
 #include "util/output.h"
 #include "expr/command.h"
 #include "proof/proof_manager.h"
@@ -71,7 +72,7 @@ public:
 //=================================================================================================
 // Constructor/Destructor:
 
-Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bool enable_incremental) :
+Solver::Solver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, bool enable_incremental) :
     proxy(proxy)
   , context(context)
   , assertionLevel(0)
@@ -125,6 +126,14 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bo
   , asynch_interrupt   (false)
 {
   PROOF(ProofManager::initSatProof(this);)
+
+  // Create the constant variables
+  varTrue = newVar(true, false, false);
+  varFalse = newVar(false, false, false);
+
+  // Assert the constants
+  uncheckedEnqueue(mkLit(varTrue, false));
+  uncheckedEnqueue(mkLit(varFalse, true));
 }
 
 
@@ -177,8 +186,10 @@ CRef Solver::reason(Var x) {
     Lit l = mkLit(x, value(x) != l_True);
 
     // Get the explanation from the theory
-    SatClause explanation;
-    proxy->explainPropagation(l, explanation);
+    SatClause explanation_cl;
+    proxy->explainPropagation(MinisatSatSolver::toSatLiteral(l), explanation_cl);
+    vec<Lit> explanation;
+    MinisatSatSolver::toMinisatClause(explanation_cl, explanation); 
 
     // Sort the literals by trail index level
     lemma_lt lt(*this);
@@ -187,14 +198,27 @@ CRef Solver::reason(Var x) {
 
     // Compute the assertion level for this clause
     int explLevel = 0;
-    for (int i = 0; i < explanation.size(); ++ i) {
+    int i, j;
+    Lit prev = lit_Undef;
+    for (i = 0, j = 0; i < explanation.size(); ++ i) {
       int varLevel = intro_level(var(explanation[i]));
       if (varLevel > explLevel) {
         explLevel = varLevel;
       }
+      Assert(value(explanation[i]) != l_Undef);
+      Assert(i == 0 || trail_index(var(explanation[0])) > trail_index(var(explanation[i])));
+      // ignore zero level literals
+      if (i == 0 || (level(var(explanation[i])) > 0 && explanation[i] != prev)) {
+        prev = explanation[j++] = explanation[i];
+      }
+    }
+    explanation.shrink(i - j);
+    if (j == 1) {
+      // Add not TRUE to the clause
+      explanation.push(mkLit(varTrue, true));
     }
 
-    // Construct the reason (level 0)
+    // Construct the reason
     CRef real_reason = ca.alloc(explLevel, explanation, true);
     vardata[x] = mkVarData(real_reason, level(x), intro_level(x), trail_index(x));
     clauses_removable.push(real_reason);
@@ -245,7 +269,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable)
             Debug("minisat") << "got new unit " << ps[0] << " at assertion level " << assertionLevel << std::endl;
             trail_user.push(ps[0]);
           }
-          return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
+          return ok = (propagate(CHECK_WITHOUTH_THEORY) == CRef_Undef);
         } else return ok;
       } else {
         CRef cr = ca.alloc(assertionLevel, ps, false);
@@ -319,7 +343,7 @@ void Solver::cancelUntil(int level) {
         for (int l = trail_lim.size() - level; l > 0; --l) {
           context->pop();
           if(Dump.isOn("state")) {
-            Dump("state") << PopCommand() << std::endl;
+            Dump("state") << PopCommand();
           }
         }
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
@@ -327,7 +351,7 @@ void Solver::cancelUntil(int level) {
             if(intro_level(x) != -1) {// might be unregistered
               assigns [x] = l_Undef;
               vardata[x].trail_index = -1;
-              if (phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
+              if ((phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last()) && (polarity[x] & 0x2) == 0)
                 polarity[x] = sign(trail[c]);
               insertVarOrder(x);
             }
@@ -335,12 +359,13 @@ void Solver::cancelUntil(int level) {
         qhead = trail_lim[level];
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
+        flipped.shrink(flipped.size() - level);
 
         // Register variables that have not been registered yet
         int currentLevel = decisionLevel();
         for(int i = variables_to_register.size() - 1; i >= 0 && variables_to_register[i].level > currentLevel; --i) {
           variables_to_register[i].level = currentLevel;
-          proxy->variableNotify(variables_to_register[i].var);
+          proxy->variableNotify(MinisatSatSolver::toSatVariable(variables_to_register[i].var));
         }
     }
 }
@@ -355,12 +380,32 @@ void Solver::popTrail() {
 
 Lit Solver::pickBranchLit()
 {
+    Lit nextLit;
+
 #ifdef CVC4_REPLAY
-    Lit nextLit = proxy->getNextReplayDecision();
+    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextReplayDecision());
+
     if (nextLit != lit_Undef) {
       return nextLit;
     }
 #endif /* CVC4_REPLAY */
+
+    // Theory/DE requests
+    bool stopSearch = false;
+    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
+    while (nextLit != lit_Undef) {
+      if(value(var(nextLit)) == l_Undef) {
+        Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
+        decisions++;
+        return nextLit;
+      } else {
+        Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit << " but it already has an assignment" << std::endl;
+      }
+      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest(stopSearch));
+    }
+    if(stopSearch) {
+      return lit_Undef;
+    }
 
     Var next = var_Undef;
 
@@ -371,14 +416,35 @@ Lit Solver::pickBranchLit()
             rnd_decisions++; }
 
     // Activity based decision:
-    while (next == var_Undef || value(next) != l_Undef || !decision[next])
+    while (next == var_Undef || value(next) != l_Undef || !decision[next]) {
         if (order_heap.empty()){
             next = var_Undef;
             break;
-        }else
+        }else {
             next = order_heap.removeMin();
+        }
 
-    return next == var_Undef ? lit_Undef : mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
+        if(!decision[next]) continue;
+        // Check with decision engine about relevancy
+        if(proxy->isDecisionRelevant(MinisatSatSolver::toSatVariable(next)) == false ) {
+          next = var_Undef;
+        }
+    }
+
+    if(next == var_Undef) {
+      return lit_Undef;
+    } else {
+      decisions++;
+      // Check with decision engine if it can tell polarity
+      lbool dec_pol = MinisatSatSolver::toMinisatlbool
+        (proxy->getDecisionPolarity(MinisatSatSolver::toSatVariable(next)));
+      if(dec_pol != l_Undef) {
+        Assert(dec_pol == l_True || dec_pol == l_False);
+        return mkLit(next, (dec_pol == l_True) );
+      }
+      // If it can't use internal heuristic to do that
+      return mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : (polarity[next] & 0x1));
+    }
 }
 
 
@@ -612,19 +678,11 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     Debug("minisat") << "unchecked enqueue of " << p << " (" << trail_index(var(p)) << ") trail size is " << trail.size() << " cap is " << trail.capacity() << std::endl;
     assert(value(p) == l_Undef);
     assigns[var(p)] = lbool(!sign(p));
-    if(trail_index(var(p)) != -1) {
-      // This var is already represented in the trail, presumably from
-      // an earlier incarnation as a unit clause (it has been
-      // unregistered and renewed since then)
-      vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)), trail_index(var(p)));
-      trail[trail_index(var(p))] = p;
-    } else {
-      vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)), trail.size());
-      trail.push_(p);
-    }
+    vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)), trail.size());
+    trail.push_(p);
     if (theory[var(p)]) {
       // Enqueue to the theory
-      proxy->enqueueTheoryLiteral(p);
+      proxy->enqueueTheoryLiteral(MinisatSatSolver::toSatLiteral(p));
     }
 }
 
@@ -633,11 +691,12 @@ CRef Solver::propagate(TheoryCheckType type)
 {
     CRef confl = CRef_Undef;
     recheck = false;
+    theoryConflict = false;
 
     ScopedBool scoped_bool(minisat_busy, true);
 
-    // If we are not in the quick mode add the lemmas that were left begind
-    if (type != CHECK_WITHOUTH_PROPAGATION_QUICK && lemmas.size() > 0) {
+    // Add lemmas that we're left behind
+    if (lemmas.size() > 0) {
       confl = updateLemmas();
       if (confl != CRef_Undef) {
         return confl;
@@ -646,9 +705,11 @@ CRef Solver::propagate(TheoryCheckType type)
 
     // If this is the final check, no need for Boolean propagation and
     // theory propagation
-    if (type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
+    if (type == CHECK_FINAL) {
       // Do the theory check
-      theoryCheck(CVC4::theory::Theory::FULL_EFFORT);
+      theoryCheck(CVC4::theory::Theory::EFFORT_FULL);
+      // Pick up the theory propagated literals (there could be some, if new lemmas are added)
+      propagateTheory();
       // If there are lemmas (or conflicts) update them
       if (lemmas.size() > 0) {
         recheck = true;
@@ -659,46 +720,61 @@ CRef Solver::propagate(TheoryCheckType type)
       }
     }
 
-    // The effort we will be using to theory check
-    CVC4::theory::Theory::Effort effort = type == CHECK_WITHOUTH_PROPAGATION_QUICK ?
-    		CVC4::theory::Theory::QUICK_CHECK : 
-    		CVC4::theory::Theory::STANDARD;
-
     // Keep running until we have checked everything, we
     // have no conflict and no new literals have been asserted
     do {
-        do {
-          // Propagate on the clauses
-          confl = propagateBool();
+        // Propagate on the clauses
+        confl = propagateBool();
 
-          // If no conflict, do the theory check
-          if (confl == CRef_Undef) {
-              // Do the theory check
-              theoryCheck(effort);
-              // If there are lemmas (or conflicts) update them
-              if (lemmas.size() > 0) {
-                  confl = updateLemmas();
-              }
-          }
-        } while (confl == CRef_Undef && qhead < trail.size());
-
-        // If still consistent do some theory propagation
-        if (confl == CRef_Undef && type == CHECK_WITH_PROPAGATION_STANDARD) {
-          propagateTheory();
+        // If no conflict, do the theory check
+        if (confl == CRef_Undef && type != CHECK_WITHOUTH_THEORY) {
+            // Do the theory check
+            if (type == CHECK_FINAL_FAKE) {
+              theoryCheck(CVC4::theory::Theory::EFFORT_FULL);
+            } else {
+              theoryCheck(CVC4::theory::Theory::EFFORT_STANDARD);
+            }
+            // Pick up the theory propagated literals
+            propagateTheory();
+            // If there are lemmas (or conflicts) update them
+            if (lemmas.size() > 0) {
+                confl = updateLemmas();
+            }
+        } else {
+          // Even though in conflict, we still need to discharge the lemmas
           if (lemmas.size() > 0) {
-              confl = updateLemmas();
+            // Remember the trail size
+            int oldLevel = decisionLevel();
+            // Update the lemmas
+            CRef lemmaConflict = updateLemmas();
+            // If we get a conflict, we prefer it since it's earlier in the trail
+            if (lemmaConflict != CRef_Undef) {
+              // Lemma conflict takes precedence, since it's earlier in the trail
+              confl = lemmaConflict;
+            } else {
+              // Otherwise, the Boolean conflict is canceled in the case we popped the trail
+              if (oldLevel > decisionLevel()) {
+                confl = CRef_Undef;
+              }
+            }
           }
         }
-
     } while (confl == CRef_Undef && qhead < trail.size());
 
     return confl;
 }
 
 void Solver::propagateTheory() {
-  std::vector<Lit> propagatedLiterals;
-  proxy->theoryPropagate(propagatedLiterals);
+  SatClause propagatedLiteralsClause;
+  // Doesn't actually call propagate(); that's done in theoryCheck() now that combination
+  // is online.  This just incorporates those propagations previously discovered.
+  proxy->theoryPropagate(propagatedLiteralsClause);
+
+  vec<Lit> propagatedLiterals;
+  MinisatSatSolver::toMinisatClause(propagatedLiteralsClause, propagatedLiterals); 
+
   int oldTrailSize = trail.size();
+  Debug("minisat") << "old trail size is " << oldTrailSize << ", propagating " << propagatedLiterals.size() << " lits..." << std::endl;
   for (unsigned i = 0, i_end = propagatedLiterals.size(); i < i_end; ++ i) {
     Debug("minisat") << "Theory propagated: " << propagatedLiterals[i] << std::endl;
     // multiple theories can propagate the same literal
@@ -706,9 +782,14 @@ void Solver::propagateTheory() {
     if (value(p) == l_Undef) {
       uncheckedEnqueue(p, CRef_Lazy);
     } else {
-      // but we check that this is the case and that they agree
-      Assert(trail_index(var(p)) >= oldTrailSize);
-      Assert(value(p) == lbool(!sign(p)));
+      if (value(p) == l_False) {
+        Debug("minisat") << "Conflict in theory propagation" << std::endl;
+        SatClause explanation_cl;
+        proxy->explainPropagation(MinisatSatSolver::toSatLiteral(p), explanation_cl);
+        vec<Lit> explanation;
+        MinisatSatSolver::toMinisatClause(explanation_cl, explanation);
+        addClause(explanation, true);
+      }
     }
   }
 }
@@ -860,10 +941,22 @@ void Solver::removeClausesAboveLevel(vec<CRef>& cs, int level)
     for (i = j = 0; i < cs.size(); i++){
         Clause& c = ca[cs[i]];
         if (c.level() > level) {
-            Debug("minisat") << "removeClausesAboveLevel(" << level << "): removing level-" << c.level() << " clause: " << c << std::endl;
+            if(Debug.isOn("minisat")) {
+              Debug("minisat") << "removeClausesAboveLevel(" << level << "): removing level-" << c.level() << " clause: " << c << ":";
+              for(int i = 0; i < c.size(); ++i) {
+                Debug("minisat") << " " << c[i];
+              }
+              Debug("minisat") << std::endl;
+            }
             removeClause(cs[i]);
         } else {
-            Debug("minisat") << "removeClausesAboveLevel(" << level << "): leaving level-" << c.level() << " clause: " << c << std::endl;
+            if(Debug.isOn("minisat")) {
+              Debug("minisat") << "removeClausesAboveLevel(" << level << "): leaving level-" << c.level() << " clause: " << c << ":";
+              for(int i = 0; i < c.size(); ++i) {
+                Debug("minisat") << " " << c[i];
+              }
+              Debug("minisat") << std::endl;
+            }
             cs[j++] = cs[i];
         }
     }
@@ -893,7 +986,7 @@ bool Solver::simplify()
 {
     assert(decisionLevel() == 0);
 
-    if (!ok || propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) != CRef_Undef)
+    if (!ok || propagate(CHECK_WITHOUTH_THEORY) != CRef_Undef)
         return ok = false;
 
     if (nAssigns() == simpDB_assigns || (simpDB_props > 0))
@@ -934,7 +1027,7 @@ lbool Solver::search(int nof_conflicts)
     vec<Lit>    learnt_clause;
     starts++;
 
-    TheoryCheckType check_type = CHECK_WITH_PROPAGATION_STANDARD;
+    TheoryCheckType check_type = CHECK_WITH_THEORY;
     for (;;) {
 
         // Propagate and call the theory solvers
@@ -943,12 +1036,12 @@ lbool Solver::search(int nof_conflicts)
 
         if (confl != CRef_Undef) {
 
-          conflicts++; conflictC++;
+            conflicts++; conflictC++;
 
-          if (decisionLevel() == 0) {
-            PROOF( ProofManager::getSatProof()->finalizeProof(confl); )
-            return l_False;
-          }
+            if (decisionLevel() == 0) {
+                PROOF( ProofManager::getSatProof()->finalizeProof(confl); )
+                return l_False;
+            }
 
             // Analyze the conflict
             learnt_clause.clear();
@@ -961,7 +1054,7 @@ lbool Solver::search(int nof_conflicts)
 
                 PROOF( ProofManager::getSatProof()->endResChain(learnt_clause[0]); )
 
-             } else {
+            } else {
                 CRef cr = ca.alloc(max_level, learnt_clause, true);
                 clauses_removable.push(cr);
                 attachClause(cr);
@@ -986,23 +1079,31 @@ lbool Solver::search(int nof_conflicts)
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
             }
 
-             // We have a conflict so, we are going back to standard checks
-            check_type = CHECK_WITH_PROPAGATION_STANDARD;
+            if (theoryConflict && Options::current()->sat_refine_conflicts) {
+              check_type = CHECK_FINAL_FAKE;
+            } else {
+              check_type = CHECK_WITH_THEORY;
+            }
+
         } else {
 
 	    // If this was a final check, we are satisfiable
-            if (check_type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
+            if (check_type == CHECK_FINAL) {
+	      bool decisionEngineDone = proxy->isDecisionEngineDone();
               // Unless a lemma has added more stuff to the queues
-              if (!order_heap.empty() || qhead < trail.size()) {
-                check_type = CHECK_WITH_PROPAGATION_STANDARD;
+              if (!decisionEngineDone  &&
+		  (!order_heap.empty() || qhead < trail.size()) ) {
+                check_type = CHECK_WITH_THEORY;
                 continue;
-              } else if (recheck) {
+              } else if (!decisionEngineDone && recheck) {
                 // There some additional stuff added, so we go for another full-check
                 continue;
               } else {
                 // Yes, we're truly satisfiable
                 return l_True;
               }
+            } else if (check_type == CHECK_FINAL_FAKE) {
+              check_type = CHECK_WITH_THEORY;
             }
 
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()) {
@@ -1043,17 +1144,18 @@ lbool Solver::search(int nof_conflicts)
 
             if (next == lit_Undef) {
                 // New variable decision:
-                decisions++;
                 next = pickBranchLit();
 
                 if (next == lit_Undef) {
                     // We need to do a full theory check to confirm
-                    check_type = CHECK_WITHOUTH_PROPAGATION_FINAL;
+                  Debug("minisat::search") << "Doing a full theoy check..."
+                                           << std::endl;
+                    check_type = CHECK_FINAL;
                     continue;
                 }
 
 #ifdef CVC4_REPLAY
-                proxy->logDecision(next);
+                proxy->logDecision(MinisatSatSolver::toSatLiteral(next));
 #endif /* CVC4_REPLAY */
             }
 
@@ -1303,16 +1405,25 @@ void Solver::push()
   Debug("minisat") << "in user push, increasing assertion level to " << assertionLevel << std::endl;
   trail_user.push(lit_Undef);
   trail_ok.push(ok);
+  trail_user_lim.push(trail.size());
+  assert(trail_user_lim.size() == assertionLevel);
+  Debug("minisat") << "MINISAT PUSH assertionLevel is " << assertionLevel << ", trail.size is " << trail.size() << std::endl;
 }
 
 void Solver::pop()
 {
   assert(enable_incremental);
 
+  Debug("minisat") << "MINISAT POP at level " << decisionLevel() << " (context " << context->getLevel() << "), popping trail..." << std::endl;
   popTrail();
+  Debug("minisat") << "MINISAT POP now at   " << decisionLevel() << " (context " << context->getLevel() << ")" << std::endl;
+ 
+  assert(decisionLevel() == 0);
+  assert(trail_user_lim.size() == assertionLevel);
 
   --assertionLevel;
 
+  Debug("minisat") << "MINISAT POP assertionLevel is now down to " << assertionLevel << ", trail.size is " << trail.size() << ", need to get down to " << trail_user_lim.last() << std::endl;
   Debug("minisat") << "in user pop, reducing assertion level to " << assertionLevel << " and removing clauses above this from db" << std::endl;
 
   // Remove all the clauses asserted (and implied) above the new base level
@@ -1321,6 +1432,23 @@ void Solver::pop()
 
   Debug("minisat") << "in user pop, at " << trail_lim.size() << " : " << assertionLevel << std::endl;
 
+  int downto = trail_user_lim.last();
+  while(downto < trail.size()) {
+    Debug("minisat") << "== unassigning " << trail.last() << std::endl;
+    Var      x  = var(trail.last());
+    if(intro_level(x) != -1) {// might be unregistered
+      assigns [x] = l_Undef;
+      vardata[x].trail_index = -1;
+      polarity[x] = sign(trail.last());
+      insertVarOrder(x);
+    }
+    trail.pop();
+  }
+  qhead = trail.size();
+  Debug("minisat") << "MINISAT POP assertionLevel is now down to " << assertionLevel << ", trail.size is " << trail.size() << ", should be at " << trail_user_lim.last() << std::endl;
+  assert(trail_user_lim.last() == qhead);
+  trail_user_lim.pop();
+
   // Unset any units learned or added at this level
   Debug("minisat") << "in user pop, unsetting level units for level " << assertionLevel << std::endl;
   while(trail_user.last() != lit_Undef) {
@@ -1328,7 +1456,7 @@ void Solver::pop()
     Debug("minisat") << "== unassigning " << l << std::endl;
     Var      x  = var(l);
     assigns [x] = l_Undef;
-    if (phase_saving >= 1)
+    if (phase_saving >= 1 && (polarity[x] & 0x2) == 0)
       polarity[x] = sign(l);
     insertVarOrder(x);
     trail_user.pop();
@@ -1356,7 +1484,45 @@ void Solver::renewVar(Lit lit, int level) {
   Var v = var(lit);
   vardata[v].intro_level = (level == -1 ? getAssertionLevel() : level);
   setDecisionVar(v, true);
+  // explicitly not resetting polarity phase-locking here
 }
+
+bool Solver::flipDecision() {
+  Debug("flipdec") << "FLIP: decision level is " << decisionLevel() << std::endl;
+  if(decisionLevel() == 0) {
+    Debug("flipdec") << "FLIP: no decisions, returning false" << std::endl;
+    return false;
+  }
+
+  // find the level to cancel until
+  int level = trail_lim.size() - 1;
+  Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << ((polarity[var(trail[trail_lim[level]])] & 0x2) == 0 ? 1 : 0) << " flipped?" << flipped[level] << std::endl;
+  while(level > 0 && (flipped[level] || /* phase-locked */ (polarity[var(trail[trail_lim[level]])] & 0x2) != 0)) {
+    --level;
+    Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << ((polarity[var(trail[trail_lim[level]])] & 0x2) == 0 ? 2 : 0) << " flipped?" << flipped[level] << std::endl;
+  }
+  if(level < 0) {
+    Lit l = trail[trail_lim[0]];
+    Debug("flipdec") << "FLIP: canceling everything, flipping root decision " << l << std::endl;
+    cancelUntil(0);
+    newDecisionLevel();
+    Debug("flipdec") << "FLIP: enqueuing " << ~l << std::endl;
+    uncheckedEnqueue(~l);
+    flipped[0] = true;
+    Debug("flipdec") << "FLIP: returning false" << std::endl;
+    return false;
+  }
+  Lit l = trail[trail_lim[level]];
+  Debug("flipdec") << "FLIP: canceling to level " << level << ", flipping decision " << l << std::endl;
+  cancelUntil(level);
+  newDecisionLevel();
+  Debug("flipdec") << "FLIP: enqueuing " << ~l << std::endl;
+  uncheckedEnqueue(~l);
+  flipped[level] = true;
+  Debug("flipdec") << "FLIP: returning true" << std::endl;
+  return true;
+}
+
 
 CRef Solver::updateLemmas() {
 
@@ -1437,14 +1603,6 @@ CRef Solver::updateLemmas() {
             conflict = CRef_Lazy;
           }
         } else {
-//          if (Debug.isOn("minisat::lemmas")) {
-//          	Debug("minisat::lemmas") << "Solver::updateLemmas(): " << lemma[0] << " from ";
-//          	Clause& c = ca[lemma_ref];
-//          	for (int i = 0; i < c.size(); ++ i) {
-//          	   Debug("minisat::lemmas") << c[i] << "(" << value(c[i]) << "," << level(var(c[i])) << "," << trail_index(var(c[i])) << ") "; 
-//          	} 
-//			Debug("minisat::lemmas") << std::endl; 
-//          }
           Debug("minisat::lemmas") << "lemma size is " << lemma.size() << std::endl;
           uncheckedEnqueue(lemma[0], lemma_ref);
           if(lemma.size() == 1 && assertionLevel > 0) {
@@ -1461,6 +1619,10 @@ CRef Solver::updateLemmas() {
   // Clear the lemmas
   lemmas.clear();
   lemmas_removable.clear();
+
+  if (conflict != CRef_Undef) {
+    theoryConflict = true;
+  }
 
   return conflict;
 }

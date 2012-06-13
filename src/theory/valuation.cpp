@@ -79,9 +79,8 @@ Node Valuation::getSatValue(TNode n) const {
 }
 
 bool Valuation::hasSatValue(TNode n, bool& value) const {
-  Node normalized = Rewriter::rewrite(n);
-  if (d_engine->getPropEngine()->isSatLiteral(normalized)) {
-    return d_engine->getPropEngine()->hasValue(normalized, value);
+  if (d_engine->getPropEngine()->isSatLiteral(n)) {
+    return d_engine->getPropEngine()->hasValue(n, value);
   } else {
     return false;
   }
@@ -99,6 +98,10 @@ Node Valuation::ensureLiteral(TNode n) {
   Debug("ensureLiteral") << "preproced: " << preprocessed << std::endl;
   d_engine->getPropEngine()->ensureLiteral(preprocessed);
   return preprocessed;
+}
+
+bool Valuation::isDecision(Node lit) const {
+  return d_engine->getPropEngine()->isDecision(lit);
 }
 
 }/* CVC4::theory namespace */

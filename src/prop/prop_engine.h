@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: taking, dejan
- ** Minor contributors (to current version): cconway, barrett
+ ** Minor contributors (to current version): cconway, barrett, kshitij
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -27,17 +27,17 @@
 #include "util/options.h"
 #include "util/result.h"
 #include "smt/modal_exception.h"
-
 #include <sys/time.h>
 
 namespace CVC4 {
 
+class DecisionEngine;
 class TheoryEngine;
 
 namespace prop {
 
 class CnfStream;
-class SatSolver;
+class DPLLSatSolverInterface;
 
 class PropEngine;
 
@@ -128,11 +128,14 @@ class PropEngine {
   /** The theory engine we will be using */
   TheoryEngine *d_theoryEngine;
 
+  /** The decision engine we will be using */
+  DecisionEngine *d_decisionEngine;
+
   /** The context */
   context::Context* d_context;
 
   /** The SAT solver proxy */
-  SatSolver* d_satSolver;
+  DPLLSatSolverInterface* d_satSolver;
 
   /** List of all of the assertions that need to be made */
   std::vector<Node> d_assertionList;
@@ -154,7 +157,7 @@ public:
   /**
    * Create a PropEngine with a particular decision and theory engine.
    */
-  PropEngine(TheoryEngine*, context::Context*);
+  PropEngine(TheoryEngine*, DecisionEngine*, context::Context*);
 
   /**
    * Destructor.
@@ -189,6 +192,37 @@ public:
    * on an activity heuristic (or not)
    */
   void assertLemma(TNode node, bool negated, bool removable);
+
+  /**
+   * If ever n is decided upon, it must be in the given phase.  This
+   * occurs *globally*, i.e., even if the literal is untranslated by
+   * user pop and retranslated, it keeps this phase.  The associated
+   * variable will _always_ be phase-locked.
+   *
+   * @param n the node in question; must have an associated SAT literal
+   * @param phase the phase to use
+   */
+  void requirePhase(TNode n, bool phase);
+
+  /**
+   * Backtracks to and flips the most recent unflipped decision, and
+   * returns TRUE.  If the decision stack is nonempty but all
+   * decisions have been flipped already, the state is backtracked to
+   * the root decision, which is re-flipped to the original phase (and
+   * FALSE is returned).  If the decision stack is empty, the state is
+   * unchanged and FALSE is returned.
+   *
+   * @return true if a decision was flipped as requested; false if the
+   * root decision was reflipped, or if no decisions are on the stack.
+   */
+  bool flipDecision();
+
+  /**
+   * Return whether the given literal is a SAT decision.  Either phase
+   * is permitted; that is, if "lit" is a SAT decision, this function
+   * returns true for both lit and the negation of lit.
+   */
+  bool isDecision(Node lit) const;
 
   /**
    * Checks the current context for satisfiability.
@@ -243,6 +277,17 @@ public:
   void pop();
 
   /**
+   * Get the assertion level of the SAT solver.
+   */
+  unsigned getAssertionLevel() const;
+
+  /**
+   * Return true if we are currently searching (either in this or
+   * another thread).
+   */
+  bool isRunning() const;
+
+  /**
    * Check the current time budget.
    */
   void checkTime();
@@ -259,11 +304,23 @@ public:
    */
   void spendResource() throw();
 
+  /**
+   * For debugging.  Return true if "expl" is a well-formed
+   * explanation for "node," meaning:
+   *
+   * 1. expl is either a SAT literal or an AND of SAT literals
+   *    currently assigned true;
+   * 2. node is assigned true;
+   * 3. node does not appear in expl; and
+   * 4. node was assigned after all of the literals in expl
+   */
+  bool properExplanation(TNode node, TNode expl) const;
+
 };/* class PropEngine */
 
 
 inline void SatTimer::check() {
-  if(expired()) {
+  if(d_propEngine.isRunning() && expired()) {
     Trace("limit") << "SatTimer::check(): interrupt!" << std::endl;
     d_propEngine.interrupt();
   }

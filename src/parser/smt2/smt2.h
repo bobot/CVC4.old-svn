@@ -41,6 +41,7 @@ public:
     THEORY_INTS,
     THEORY_REALS,
     THEORY_REALS_INTS,
+    THEORY_QUANTIFIERS,
   };
 
 private:
@@ -71,6 +72,8 @@ public:
   void setInfo(const std::string& flag, const SExpr& sexpr);
 
   void setOption(const std::string& flag, const SExpr& sexpr);
+
+  void checkThatLogicIsSet();
 
 private:
 

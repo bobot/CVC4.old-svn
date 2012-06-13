@@ -1,9 +1,10 @@
 SUBDIRS = .
 
+BINARY=cvc4
 if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression --proof @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) --proof @top_builddir@/src/main/$(BINARY)
 else
-TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
 endif
 
 MAKEFLAGS = -k
@@ -12,6 +13,9 @@ MAKEFLAGS = -k
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
+	tuple.cvc \
+	rec1.cvc \
+	rec2.cvc \
 	datatype.cvc \
 	datatype0.cvc \
 	datatype1.cvc \
@@ -34,6 +38,7 @@ TESTS =	\
 	v5l30058.cvc \
 	bug286.cvc
 
+FAILING_TESTS = rec5.cvc
 
 EXTRA_DIST = $(TESTS)
 
@@ -45,7 +50,8 @@ endif
 
 # and make sure to distribute it
 EXTRA_DIST += \
-	error.cvc
+	error.cvc \
+	rec4.cvc
 
 # synonyms for "check"
 .PHONY: regress regress0 test

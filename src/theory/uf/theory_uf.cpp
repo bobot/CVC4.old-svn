@@ -18,17 +18,17 @@
  **/
 
 #include "theory/uf/theory_uf.h"
-#include "theory/uf/equality_engine_impl.h"
+#include "theory/uf/theory_uf_instantiator.h"
+#include "theory/uf/theory_uf_strong_solver.h"
 
 using namespace std;
-
-namespace CVC4 {
-namespace theory {
-namespace uf {
+using namespace CVC4;
+using namespace CVC4::theory;
+using namespace CVC4::theory::uf;
 
 /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_UF, c, u, out, valuation),
+TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
+  Theory(THEORY_UF, c, u, out, valuation, logicInfo, qe),
   d_notify(*this),
   d_equalityEngine(d_notify, c, "theory::uf::TheoryUF"),
   d_conflict(c, false),
@@ -38,14 +38,12 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
-  d_equalityEngine.addFunctionKind(kind::EQUAL);
 
-  // The boolean constants
-  d_true = NodeManager::currentNM()->mkConst<bool>(true);
-  d_false = NodeManager::currentNM()->mkConst<bool>(false);
-  d_equalityEngine.addTerm(d_true);
-  d_equalityEngine.addTerm(d_false);
-  d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
+  if (Options::current()->finiteModelFind) {
+    d_thss = new StrongSolverTheoryUf(c, u, out, this);
+  } else {
+    d_thss = NULL;
+  }
 }/* TheoryUF::TheoryUF() */
 
 static Node mkAnd(const std::vector<TNode>& conjunctions) {
@@ -72,109 +70,59 @@ static Node mkAnd(const std::vector<TNode>& conjunctions) {
 
 void TheoryUF::check(Effort level) {
 
-  while (!done() && !d_conflict) 
+  while (!done() && !d_conflict)
   {
     // Get all the assertions
     Assertion assertion = get();
     TNode fact = assertion.assertion;
 
     Debug("uf") << "TheoryUF::check(): processing " << fact << std::endl;
-
-    // If the assertion doesn't have a literal, it's a shared equality, so we set it up
-    if (!assertion.isPreregistered) {
-      Debug("uf") << "TheoryUF::check(): shared equality, setting up " << fact << std::endl;
-      if (fact.getKind() == kind::NOT) {
-        preRegisterTerm(fact[0]);
-      } else {
-        preRegisterTerm(fact);
-      }
+    if (d_thss != NULL) {
+      bool isDecision = d_valuation.isSatLiteral(fact) && d_valuation.isDecision(fact);
+      d_thss->assertNode(fact, isDecision);
     }
 
     // Do the work
-    switch (fact.getKind()) {
-    case kind::EQUAL:
-      d_equalityEngine.addEquality(fact[0], fact[1], fact);
-      break;
-    case kind::APPLY_UF:
-      d_equalityEngine.addEquality(fact, d_true, fact);
-      break;
-    case kind::NOT:
-      if (fact[0].getKind() == kind::APPLY_UF) {
-        d_equalityEngine.addEquality(fact[0], d_false, fact);
-      } else {
-        // Assert the dis-equality
-        d_equalityEngine.addDisequality(fact[0][0], fact[0][1], fact);
-      }
-      break;
-    default:
-      Unreachable();
+    bool polarity = fact.getKind() != kind::NOT;
+    TNode atom = polarity ? fact : fact[0];
+    if (atom.getKind() == kind::EQUAL) {
+      d_equalityEngine.assertEquality(atom, polarity, fact);
+    } else if (atom.getKind() == kind::CARDINALITY_CONSTRAINT) {
+      // do nothing
+    } else {
+      d_equalityEngine.assertPredicate(atom, polarity, fact);
     }
   }
 
-  // If in conflict, output the conflict
-  if (d_conflict) {
-    Debug("uf") << "TheoryUF::check(): conflict " << d_conflictNode << std::endl;
-    d_out->conflict(d_conflictNode);
+
+  if (d_thss != NULL) {
+    if (! d_conflict) {
+      d_thss->check(level);
+    }
   }
 
-  // Otherwise we propagate in order to detect a weird conflict like
-  // p, x = y
-  // p -> f(x) != f(y) -- f(x) = f(y) gets added to the propagation list at preregistration time
-  // but when f(x) != f(y) is deduced by the sat solver, so it's asserted, and we don't detect the conflict
-  // until we go through the propagation list
-  propagate(level);
 }/* TheoryUF::check() */
-
-void TheoryUF::propagate(Effort level) {
-  Debug("uf") << "TheoryUF::propagate()" << std::endl;
-  if (!d_conflict) {
-    for (; d_literalsToPropagateIndex < d_literalsToPropagate.size(); d_literalsToPropagateIndex = d_literalsToPropagateIndex + 1) {
-      TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
-      Debug("uf") << "TheoryUF::propagate(): propagating " << literal << std::endl;
-      bool satValue;
-      if (!d_valuation.hasSatValue(literal, satValue)) {
-        d_out->propagate(literal);
-      } else {
-        if (!satValue) {
-          Debug("uf") << "TheoryUF::propagate(): in conflict" << std::endl;
-          Node negatedLiteral;
-          std::vector<TNode> assumptions;
-          if (literal != d_false) {
-            negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
-            assumptions.push_back(negatedLiteral);
-          }
-          explain(literal, assumptions);
-          d_conflictNode = mkAnd(assumptions);
-          d_conflict = true;
-          break;
-        } else {
-          Debug("uf") << "TheoryUF::propagate(): already asserted" << std::endl;
-        }
-      }
-    }
-  }
-}/* TheoryUF::propagate(Effort) */
 
 void TheoryUF::preRegisterTerm(TNode node) {
   Debug("uf") << "TheoryUF::preRegisterTerm(" << node << ")" << std::endl;
 
+  if (d_thss != NULL) {
+    d_thss->preRegisterTerm(node);
+  }
+
   switch (node.getKind()) {
   case kind::EQUAL:
-    // Add the terms
-    d_equalityEngine.addTerm(node[0]);
-    d_equalityEngine.addTerm(node[1]);
     // Add the trigger for equality
-    d_equalityEngine.addTriggerEquality(node[0], node[1], node);
-    d_equalityEngine.addTriggerDisequality(node[0], node[1], node.notNode());
+    d_equalityEngine.addTriggerEquality(node);
     break;
   case kind::APPLY_UF:
-    // Function applications/predicates
-    d_equalityEngine.addTerm(node);
     // Maybe it's a predicate
     if (node.getType().isBoolean()) {
       // Get triggered for both equal and dis-equal
-      d_equalityEngine.addTriggerEquality(node, d_true, node);
-      d_equalityEngine.addTriggerEquality(node, d_false, node.notNode());
+      d_equalityEngine.addTriggerPredicate(node);
+    } else {
+      // Function applications/predicates
+      d_equalityEngine.addTerm(node);
     }
     // Remember the function and predicate terms
     d_functionsTerms.push_back(node);
@@ -187,76 +135,35 @@ void TheoryUF::preRegisterTerm(TNode node) {
 }/* TheoryUF::preRegisterTerm() */
 
 bool TheoryUF::propagate(TNode literal) {
-  Debug("uf") << "TheoryUF::propagate(" << literal  << ")" << std::endl;
-
+  Debug("uf::propagate") << "TheoryUF::propagate(" << literal  << ")" << std::endl;
   // If already in conflict, no more propagation
   if (d_conflict) {
-    Debug("uf") << "TheoryUF::propagate(" << literal << "): already in conflict" << std::endl;
+    Debug("uf::propagate") << "TheoryUF::propagate(" << literal << "): already in conflict" << std::endl;
     return false;
   }
-
-  // See if the literal has been asserted already
-  bool satValue = false;
-  bool isAsserted = literal == d_false || d_valuation.hasSatValue(literal, satValue);
-
-  // If asserted, we're done or in conflict
-  if (isAsserted) {
-    if (satValue) {
-      Debug("uf") << "TheoryUF::propagate(" << literal << ") => already known" << std::endl;
-      return true;
-    } else {
-      Debug("uf") << "TheoryUF::propagate(" << literal << ") => conflict" << std::endl;
-      std::vector<TNode> assumptions;
-      Node negatedLiteral;
-      if (literal != d_false) {
-        negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
-        assumptions.push_back(negatedLiteral);
-      }
-      explain(literal, assumptions);
-      d_conflictNode = mkAnd(assumptions);
-      d_conflict = true;
-      return false;
-    }
+  // Propagate out
+  bool ok = d_out->propagate(literal);
+  if (!ok) {
+    d_conflict = true;
   }
-
-  // Nothing, just enqueue it for propagation and mark it as asserted already
-  Debug("uf") << "TheoryUF::propagate(" << literal << ") => enqueuing for propagation" << std::endl;
-  d_literalsToPropagate.push_back(literal);
-
-  return true;
+  return ok;
 }/* TheoryUF::propagate(TNode) */
 
-void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
-  TNode lhs, rhs;
-  switch (literal.getKind()) {
-    case kind::EQUAL:
-      lhs = literal[0];
-      rhs = literal[1];
-      break;
-    case kind::APPLY_UF:
-      lhs = literal;
-      rhs = d_true;
-      break;
-    case kind::NOT:
-      if (literal[0].getKind() == kind::EQUAL) {
-        // Disequalities
-        d_equalityEngine.explainDisequality(literal[0][0], literal[0][1], assumptions);
-        return;
-      } else {
-        // Predicates
-        lhs = literal[0];
-        rhs = d_false;
-        break;
-      }
-    case kind::CONST_BOOLEAN:
-      // we get to explain true = false, since we set false to be the trigger of this
-      lhs = d_true;
-      rhs = d_false;
-      break;
-    default:
-      Unreachable();
+void TheoryUF::propagate(Effort effort) {
+  if (d_thss != NULL) {
+    return d_thss->propagate(effort);
   }
-  d_equalityEngine.explainEquality(lhs, rhs, assumptions);
+}
+
+void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
+  // Do the work
+  bool polarity = literal.getKind() != kind::NOT;
+  TNode atom = polarity ? literal : literal[0];
+  if (atom.getKind() == kind::EQUAL || atom.getKind() == kind::IFF) {
+    d_equalityEngine.explainEquality(atom[0], atom[1], polarity, assumptions);
+  } else {
+    d_equalityEngine.explainPredicate(atom, polarity, assumptions);
+  }
 }
 
 Node TheoryUF::explain(TNode literal) {
@@ -282,7 +189,7 @@ void TheoryUF::presolve() {
   Debug("uf") << "uf: end presolve()" << endl;
 }
 
-void TheoryUF::staticLearning(TNode n, NodeBuilder<>& learned) {
+void TheoryUF::ppStaticLearn(TNode n, NodeBuilder<>& learned) {
   //TimerStat::CodeTimer codeTimer(d_staticLearningTimer);
 
   vector<TNode> workList;
@@ -393,37 +300,44 @@ void TheoryUF::staticLearning(TNode n, NodeBuilder<>& learned) {
   if(Options::current()->ufSymmetryBreaker) {
     d_symb.assertFormula(n);
   }
-}/* TheoryUF::staticLearning() */
+}/* TheoryUF::ppStaticLearn() */
 
 EqualityStatus TheoryUF::getEqualityStatus(TNode a, TNode b) {
+
+  // Check for equality (simplest)
   if (d_equalityEngine.areEqual(a, b)) {
     // The terms are implied to be equal
     return EQUALITY_TRUE;
   }
-  if (d_equalityEngine.areDisequal(a, b)) {
-    // The rems are implied to be dis-equal
+
+  // Check for disequality
+  if (d_equalityEngine.areDisequal(a, b, false)) {
+    // The terms are implied to be dis-equal
     return EQUALITY_FALSE;
   }
+
   // All other terms we interpret as dis-equal in the model
   return EQUALITY_FALSE_IN_MODEL;
 }
 
 void TheoryUF::addSharedTerm(TNode t) {
   Debug("uf::sharing") << "TheoryUF::addSharedTerm(" << t << ")" << std::endl;
-  d_equalityEngine.addTriggerTerm(t);
+  d_equalityEngine.addTriggerTerm(t, THEORY_UF);
 }
 
-void TheoryUF::computeCareGraph(CareGraph& careGraph) {
+void TheoryUF::computeCareGraph() {
 
   if (d_sharedTerms.size() > 0) {
 
-    std::vector<CarePair> currentPairs;
+    vector< pair<TNode, TNode> > currentPairs;
 
     // Go through the function terms and see if there are any to split on
     unsigned functionTerms = d_functionsTerms.size();
     for (unsigned i = 0; i < functionTerms; ++ i) {
+
       TNode f1 = d_functionsTerms[i];
       Node op = f1.getOperator();
+
       for (unsigned j = i + 1; j < functionTerms; ++ j) {
 
         TNode f2 = d_functionsTerms[j];
@@ -453,39 +367,113 @@ void TheoryUF::computeCareGraph(CareGraph& careGraph) {
 
           Debug("uf::sharing") << "TheoryUf::computeCareGraph(): checking arguments " << x << " and " << y << std::endl;
 
-          EqualityStatus eqStatusUf = getEqualityStatus(x, y);
-
-          if (eqStatusUf == EQUALITY_FALSE) {
+          if (d_equalityEngine.areDisequal(x, y, false)) {
             // Mark that there is a dis-equal pair and break
             somePairIsDisequal = true;
             Debug("uf::sharing") << "TheoryUf::computeCareGraph(): disequal, disregarding all" << std::endl;
             break;
           }
 
-	    	  if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
-	    	    // Not connected to shared terms, we don't care
-	    	    continue;
-	    	  }
-
-          if (eqStatusUf == EQUALITY_TRUE) {
-            // We don't neeed this one
+          if (d_equalityEngine.areEqual(x, y)) {
+            // We don't need this one
             Debug("uf::sharing") << "TheoryUf::computeCareGraph(): equal" << std::endl;
             continue;
           }
 
+          if (!d_equalityEngine.isTriggerTerm(x, THEORY_UF) || !d_equalityEngine.isTriggerTerm(y, THEORY_UF)) {
+            // Not connected to shared terms, we don't care
+            continue;
+          }
+
+          // Get representative trigger terms
+          TNode x_shared = d_equalityEngine.getTriggerTermRepresentative(x, THEORY_UF);
+          TNode y_shared = d_equalityEngine.getTriggerTermRepresentative(y, THEORY_UF);
+
+          EqualityStatus eqStatusDomain = d_valuation.getEqualityStatus(x_shared, y_shared);
+          switch (eqStatusDomain) {
+          case EQUALITY_FALSE_AND_PROPAGATED:
+          case EQUALITY_FALSE:
+          case EQUALITY_FALSE_IN_MODEL:
+            somePairIsDisequal = true;
+            continue;
+            break;
+          default:
+            break;
+            // nothing
+          }
+
           // Otherwise, we need to figure it out
           Debug("uf::sharing") << "TheoryUf::computeCareGraph(): adding to care-graph" << std::endl;
-          currentPairs.push_back(CarePair(x, y, THEORY_UF));
+          currentPairs.push_back(make_pair(x_shared, y_shared));
         }
 
         if (!somePairIsDisequal) {
-          careGraph.insert(careGraph.end(), currentPairs.begin(), currentPairs.end());
+          for (unsigned i = 0; i < currentPairs.size(); ++ i) {
+            addCarePair(currentPairs[i].first, currentPairs[i].second);
+          }
         }
       }
     }
   }
 }/* TheoryUF::computeCareGraph() */
 
-}/* CVC4::theory::uf namespace */
-}/* CVC4::theory namespace */
-}/* CVC4 namespace */
+void TheoryUF::conflict(TNode a, TNode b) {
+  if (Theory::theoryOf(a) == theory::THEORY_BOOL) {
+    d_conflictNode = explain(a.iffNode(b));
+  } else {
+    d_conflictNode = explain(a.eqNode(b));
+  }
+  d_out->conflict(d_conflictNode);
+  d_conflict = true;
+}
+
+void TheoryUF::eqNotifyNewClass(TNode t) {
+  if (d_thss != NULL) {
+    d_thss->newEqClass(t);
+  }
+  // this can be called very early, during initialization
+  if (!getLogicInfo().isLocked() || getLogicInfo().isQuantified()) {
+    ((InstantiatorTheoryUf*) getInstantiator())->newEqClass(t);
+  }
+}
+
+void TheoryUF::eqNotifyPreMerge(TNode t1, TNode t2) {
+  if (getLogicInfo().isQuantified()) {
+    ((InstantiatorTheoryUf*) getInstantiator())->merge(t1, t2);
+  }
+}
+
+void TheoryUF::eqNotifyPostMerge(TNode t1, TNode t2) {
+  if (d_thss != NULL) {
+    d_thss->merge(t1, t2);
+  }
+}
+
+void TheoryUF::eqNotifyDisequal(TNode t1, TNode t2, TNode reason) {
+  if (d_thss != NULL) {
+    d_thss->assertDisequal(t1, t2, reason);
+  }
+  if (getLogicInfo().isQuantified()) {
+    ((InstantiatorTheoryUf*) getInstantiator())->assertDisequal(t1, t2, reason);
+  }
+}
+
+Node TheoryUF::ppRewrite(TNode node) {
+
+  if (node.getKind() != kind::APPLY_UF) {
+    return node;
+  }
+
+  // perform the callbacks requested by TheoryUF::registerPpRewrite()
+  RegisterPpRewrites::iterator c = d_registeredPpRewrites.find(node.getOperator());
+  if (c == d_registeredPpRewrites.end()) {
+    return node;
+  } else {
+    Node res = c->second->ppRewrite(node);
+    if (res != node) {
+      return ppRewrite(res);
+    } else {
+      return res;
+    }
+  }
+}

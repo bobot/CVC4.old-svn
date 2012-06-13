@@ -30,13 +30,13 @@ namespace booleans {
 
 class TheoryBool : public Theory {
 public:
-  TheoryBool(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
-    Theory(THEORY_BOOL, c, u, out, valuation) {
+  TheoryBool(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
+    Theory(THEORY_BOOL, c, u, out, valuation, logicInfo, qe) {
   }
 
   Node getValue(TNode n);
 
-  SolveStatus solve(TNode in, SubstitutionMap& outSubstitutions);
+  PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
 
   std::string identify() const { return std::string("TheoryBool"); }
 };/* class TheoryBool */

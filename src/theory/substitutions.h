@@ -28,7 +28,7 @@
 #include "expr/node.h"
 #include "context/context.h"
 #include "context/cdo.h"
-#include "context/cdmap.h"
+#include "context/cdhashmap.h"
 #include "util/hash.h"
 
 namespace CVC4 {
@@ -46,7 +46,10 @@ class SubstitutionMap {
 
 public:
 
-  typedef context::CDMap<Node, Node, NodeHashFunction> NodeMap;
+  typedef context::CDHashMap<Node, Node, NodeHashFunction> NodeMap;
+
+  typedef NodeMap::iterator iterator;
+  typedef NodeMap::const_iterator const_iterator;
 
 private:
 
@@ -70,16 +73,16 @@ private:
   /** Helper class to invalidate cache on user pop */
   class CacheInvalidator : public context::ContextNotifyObj {
     bool& d_cacheInvalidated;
-
+  protected:
+    void contextNotifyPop() {
+      d_cacheInvalidated = true;
+    }
   public:
     CacheInvalidator(context::Context* context, bool& cacheInvalidated) :
       context::ContextNotifyObj(context),
       d_cacheInvalidated(cacheInvalidated) {
     }
 
-    void notify() {
-      d_cacheInvalidated = true;
-    }
   };/* class SubstitutionMap::CacheInvalidator */
 
   /**
@@ -87,6 +90,10 @@ private:
    * cache as invalidated.
    */
   CacheInvalidator d_cacheInvalidator;
+
+  // Helper list and method for simplifyLHS methods
+  std::vector<std::pair<Node, Node> > d_worklist;
+  void processWorklist(std::vector<std::pair<Node, Node> >& equalities, bool rewrite);
 
 public:
 
@@ -99,9 +106,23 @@ public:
   }
 
   /**
-   * Adds a substitution from x to t
+   * Adds a substitution from x to t.  Typically you also want to apply this
+   * substitution to the existing set (backSub), but you do not need to
+   * apply the existing set to the new substitution (forwardSub).  However,
+   * the method allows you to do either.  Probably you should not do both,
+   * as it will be very difficult to maintain the invariant that no
+   * left-hand side appears on any right-hand side.
    */
-  void addSubstitution(TNode x, TNode t, bool invalidateCache = true);
+  void addSubstitution(TNode x, TNode t,
+                       bool invalidateCache = true,
+                       bool backSub = true,
+                       bool forwardSub = false);
+
+  /**
+   * Returns true iff x is in the substitution map
+   */
+  bool hasSubstitution(TNode x)
+    { return d_substitutions.find(x) != d_substitutions.end(); }
 
   /**
    * Apply the substitutions to the node.
@@ -115,18 +136,55 @@ public:
     return const_cast<SubstitutionMap*>(this)->apply(t);
   }
 
+  iterator begin() {
+    return d_substitutions.begin();
+  }
+
+  iterator end() {
+    return d_substitutions.end();
+  }
+
+  const_iterator begin() const {
+    return d_substitutions.begin();
+  }
+
+  const_iterator end() const {
+    return d_substitutions.end();
+  }
+
+  bool empty() const {
+    return d_substitutions.empty();
+  }
+
   // NOTE [MGD]: removed clear() and swap() from the interface
   // when this data structure became context-dependent
   // because they weren't used---and it's not clear how they
-  // should // best interact with cache invalidation on context
+  // should best interact with cache invalidation on context
   // pops.
+
+  // Simplify right-hand sides of current map using the given substitutions
+  void simplifyRHS(const SubstitutionMap& subMap);
+
+  // Simplify right-hand sides of current map with lhs -> rhs
+  void simplifyRHS(TNode lhs, TNode rhs);
+
+  // Simplify left-hand sides of current map using the given substitutions
+  void simplifyLHS(const SubstitutionMap& subMap,
+                   std::vector<std::pair<Node,Node> >& equalities,
+                   bool rewrite = true);
+
+  // Simplify left-hand sides of current map with lhs -> rhs and then add lhs -> rhs to the substitutions set
+  void simplifyLHS(TNode lhs, TNode rhs,
+                   std::vector<std::pair<Node,Node> >& equalities,
+                   bool rewrite = true);
 
   /**
    * Print to the output stream
    */
   void print(std::ostream& out) const;
+  void debugPrint() const;
 
-};
+};/* class SubstitutionMap */
 
 inline std::ostream& operator << (std::ostream& out, const SubstitutionMap& subst) {
   subst.print(out);
@@ -134,6 +192,9 @@ inline std::ostream& operator << (std::ostream& out, const SubstitutionMap& subs
 }
 
 }/* CVC4::theory namespace */
+
+std::ostream& operator<<(std::ostream& out, const theory::SubstitutionMap::iterator& i);
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__THEORY__SUBSTITUTIONS_H */

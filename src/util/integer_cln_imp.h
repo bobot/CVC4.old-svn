@@ -167,6 +167,7 @@ public:
     return *this;
   }
 
+  /*
   Integer operator/(const Integer& y) const {
     return Integer( cln::floor1(d_value, y.d_value) );
   }
@@ -182,7 +183,107 @@ public:
     d_value = cln::floor2(d_value, y.d_value).remainder;
     return *this;
   }
+  */
 
+
+  Integer bitwiseOr(const Integer& y) const {
+    return Integer(cln::logior(d_value, y.d_value));  
+  }
+
+  Integer bitwiseAnd(const Integer& y) const {
+    return Integer(cln::logand(d_value, y.d_value));  
+  }
+
+  Integer bitwiseXor(const Integer& y) const {
+    return Integer(cln::logxor(d_value, y.d_value));  
+  }
+
+  Integer bitwiseNot() const {
+    return Integer(cln::lognot(d_value));  
+  }
+  
+  
+  /**
+   * Return this*(2^pow).
+   */
+  Integer multiplyByPow2(uint32_t pow) const {
+    cln::cl_I ipow(pow);
+    return Integer( d_value << ipow);
+  }
+
+  Integer oneExtend(uint32_t size, uint32_t amount) const {
+    Assert((*this) < Integer(1).multiplyByPow2(size));
+    cln::cl_byte range(amount, size);
+    cln::cl_I allones = (cln::cl_I(1) << (size + amount))- 1; // 2^size - 1
+    Integer temp(allones);
+    
+    return Integer(cln::deposit_field(allones, d_value, range)); 
+  }
+  
+  uint32_t toUnsignedInt() const {
+    return cln::cl_I_to_uint(d_value); 
+  }
+  
+  
+  /** See CLN Documentation. */
+  Integer extractBitRange(uint32_t bitCount, uint32_t low) const {
+    cln::cl_byte range(bitCount, low);
+    return Integer(cln::ldb(d_value, range));
+  }
+
+  /**
+   * Returns the floor(this / y)
+   */
+  Integer floorDivideQuotient(const Integer& y) const {
+    return Integer( cln::floor1(d_value, y.d_value) );
+  }
+
+  /**
+   * Returns r == this - floor(this/y)*y
+   */
+  Integer floorDivideRemainder(const Integer& y) const {
+    return Integer( cln::floor2(d_value, y.d_value).remainder );
+  }
+   /**
+   * Computes a floor quoient and remainder for x divided by y.
+   */
+  static void floorQR(Integer& q, Integer& r, const Integer& x, const Integer& y) {
+    cln::cl_I_div_t res = cln::floor2(x.d_value, y.d_value);
+    q.d_value = res.quotient;
+    r.d_value = res.remainder;
+  }
+
+  /**
+   * Returns the ceil(this / y)
+   */
+  Integer ceilingDivideQuotient(const Integer& y) const {
+    return Integer( cln::ceiling1(d_value, y.d_value) );
+  }
+
+  /**
+   * Returns the ceil(this / y)
+   */
+  Integer ceilingDivideRemainder(const Integer& y) const {
+    return Integer( cln::ceiling2(d_value, y.d_value).remainder );
+  }
+
+  /**
+   * If y divides *this, then exactQuotient returns (this/y)
+   */
+  Integer exactQuotient(const Integer& y) const {
+    Assert(y.divides(*this));
+    return Integer( cln::exquo(d_value, y.d_value) );
+  }
+
+  Integer modByPow2(uint32_t exp) const {
+    cln::cl_byte range(exp, 0);
+    return Integer(cln::ldb(d_value, range));
+  }
+
+  Integer divByPow2(uint32_t exp) const {
+    return d_value >> exp; 
+  }
+  
   /**
    * Raise this Integer to the power <code>exp</code>.
    *
@@ -205,6 +306,22 @@ public:
   Integer gcd(const Integer& y) const {
     cln::cl_I result = cln::gcd(d_value, y.d_value);
     return Integer(result);
+  }
+
+  /**
+   * Return the least common multiple of this integer with another.
+   */
+  Integer lcm(const Integer& y) const {
+    cln::cl_I result = cln::lcm(d_value, y.d_value);
+    return Integer(result);
+  }
+
+  /**
+   * Return true if *this exactly divides y.
+   */
+  bool divides(const Integer& y) const {
+    cln::cl_I result = cln::rem(y.d_value, d_value);
+    return cln::zerop(result);
   }
 
   /**
@@ -243,6 +360,24 @@ public:
     return output;
   }
 
+  int sgn() const {
+    cln::cl_I sgn = cln::signum(d_value);
+    Assert(sgn == 0 || sgn == -1 || sgn == 1);
+    return cln::cl_I_to_int(sgn);
+  }
+
+  bool isZero() const {
+    return cln::zerop(d_value);
+  }
+
+  bool isOne() const {
+    return d_value == 1;
+  }
+
+  bool isNegativeOne() const {
+    return d_value == -1;
+  }
+
   //friend std::ostream& operator<<(std::ostream& os, const Integer& n);
 
   long getLong() const {
@@ -279,6 +414,47 @@ public:
    */
   bool testBit(unsigned n) const {
     return cln::logbitp(n, d_value);
+  }
+
+  /**
+   * Returns k if the integer is equal to 2^(k-1)
+   * @return k if the integer is equal to 2^(k-1) and 0 otherwise
+   */
+  unsigned isPow2() const {
+    if (d_value <= 0) return 0;
+    // power2p returns n such that d_value = 2^(n-1) 
+    return cln::power2p(d_value);
+  }
+
+  /**
+   * If x != 0, returns the unique n s.t. 2^{n-1} <= abs(x) < 2^{n}.
+   * If x == 0, returns 1.
+   */
+  size_t length() const {
+    int s = sgn();
+    if(s == 0){
+      return 1;
+    }else if(s < 0){
+      return cln::integer_length(-d_value);
+    }else{
+      return cln::integer_length(d_value);
+    }
+  }
+
+/*   cl_I xgcd (const cl_I& a, const cl_I& b, cl_I* u, cl_I* v) */
+/* This function ("extended gcd") returns the greatest common divisor g of a and b and at the same time the representation of g as an integral linear combination of a and b: u and v with u*a+v*b = g, g >= 0. u and v will be normalized to be of smallest possible absolute value, in the following sense: If a and b are non-zero, and abs(a) != abs(b), u and v will satisfy the inequalities abs(u) <= abs(b)/(2*g), abs(v) <= abs(a)/(2*g). */
+  static void extendedGcd(Integer& g, Integer& s, Integer& t, const Integer& a, const Integer& b){
+    g.d_value = cln::xgcd(a.d_value, b.d_value, &s.d_value, &t.d_value);
+  }
+
+  /** Returns a reference to the minimum of two integers. */
+  static const Integer& min(const Integer& a, const Integer& b){
+    return (a <=b ) ? a : b;
+  }
+
+  /** Returns a reference to the maximum of two integers. */
+  static const Integer& max(const Integer& a, const Integer& b){
+    return (a >= b ) ? a : b;
   }
 
   friend class CVC4::Rational;

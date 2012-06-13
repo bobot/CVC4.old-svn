@@ -55,11 +55,24 @@ public:
   }
 
   int sgn() const {
-    int x = getNoninfinitesimalPart().sgn();
-    if(x == 0){
-      return getInfinitesimalPart().sgn();
+    int s = getNoninfinitesimalPart().sgn();
+    if(s == 0){
+      return infinitesimalSgn();
     }else{
-      return x;
+      return s;
+    }
+  }
+
+  int infinitesimalSgn() const {
+    return getInfinitesimalPart().sgn();
+  }
+
+  int cmp(const DeltaRational& other) const{
+    int cmp = c.cmp(other.c);
+    if(cmp == 0){
+      return k.cmp(other.k);
+    }else{
+      return cmp;
     }
   }
 
@@ -78,6 +91,22 @@ public:
   DeltaRational operator-(const DeltaRational& a) const{
     CVC4::Rational negOne(CVC4::Integer(-1));
     return *(this) + (a * negOne);
+  }
+
+  DeltaRational operator-() const{
+    return DeltaRational(-c, -k);
+  }
+
+  DeltaRational operator/(const Rational& a) const{
+    CVC4::Rational tmpC = c/a;
+    CVC4::Rational tmpK = k/a;
+    return DeltaRational(tmpC, tmpK);
+  }
+
+  DeltaRational operator/(const Integer& a) const{
+    CVC4::Rational tmpC = c/a;
+    CVC4::Rational tmpK = k/a;
+    return DeltaRational(tmpC, tmpK);
   }
 
   bool operator==(const DeltaRational& other) const{
@@ -116,6 +145,38 @@ public:
     k += other.k;
 
     return *(this);
+  }
+
+  bool isIntegral() const {
+    if(getInfinitesimalPart().sgn() == 0){
+      return getNoninfinitesimalPart().isIntegral();
+    }else{
+      return false;
+    }
+  }
+
+  Integer floor() const {
+    if(getNoninfinitesimalPart().isIntegral()){
+      if(getInfinitesimalPart().sgn() >= 0){
+        return getNoninfinitesimalPart().getNumerator();
+      }else{
+        return getNoninfinitesimalPart().getNumerator() - Integer(1);
+      }
+    }else{
+      return getNoninfinitesimalPart().floor();
+    }
+  }
+
+  Integer ceiling() const {
+    if(getNoninfinitesimalPart().isIntegral()){
+      if(getInfinitesimalPart().sgn() <= 0){
+        return getNoninfinitesimalPart().getNumerator();
+      }else{
+        return getNoninfinitesimalPart().getNumerator() + Integer(1);
+      }
+    }else{
+      return getNoninfinitesimalPart().ceiling();
+    }
   }
 
   std::string toString() const;

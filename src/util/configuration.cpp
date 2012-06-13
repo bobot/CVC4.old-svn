@@ -19,15 +19,17 @@
  **/
 
 #include <string>
+#include <string.h>
+#include <stdlib.h>
 #include <sstream>
 
 #include "util/configuration.h"
 #include "util/configuration_private.h"
 #include "cvc4autoconfig.h"
 
-#ifdef CVC4_DEBUG
+#if defined(CVC4_DEBUG) && defined(CVC4_TRACING)
 #  include "util/Debug_tags.h"
-#endif /* CVC4_DEBUG */
+#endif /* CVC4_DEBUG && CVC4_TRACING */
 
 #ifdef CVC4_TRACING
 #  include "util/Trace_tags.h"
@@ -130,25 +132,44 @@ bool Configuration::isBuiltWithTlsSupport() {
 }
 
 unsigned Configuration::getNumDebugTags() {
-#if CVC4_DEBUG
-  return sizeof(Debug_tags) / sizeof(Debug_tags[0]);
-#else /* CVC4_DEBUG */
+#if defined(CVC4_DEBUG) && defined(CVC4_TRACING)
+  /* -1 because a NULL pointer is inserted as the last value */
+  return (sizeof(Debug_tags) / sizeof(Debug_tags[0])) - 1;
+#else /* CVC4_DEBUG && CVC4_TRACING */
   return 0;
-#endif /* CVC4_DEBUG */
+#endif /* CVC4_DEBUG && CVC4_TRACING */
 }
 
 char const* const* Configuration::getDebugTags() {
-#if CVC4_DEBUG
+#if defined(CVC4_DEBUG) && defined(CVC4_TRACING)
   return Debug_tags;
-#else /* CVC4_DEBUG */
+#else /* CVC4_DEBUG && CVC4_TRACING */
   static char const* no_tags[] = { NULL };
   return no_tags;
-#endif /* CVC4_DEBUG */
+#endif /* CVC4_DEBUG && CVC4_TRACING */
+}
+
+int strcmpptr(const char **s1, const char **s2){
+  return strcmp(*s1,*s2);
+}
+
+bool Configuration::isDebugTag(char const *tag){
+#if defined(CVC4_DEBUG) && defined(CVC4_TRACING)
+  unsigned ntags = getNumDebugTags();
+  char const* const* tags = getDebugTags();
+  for (unsigned i = 0; i < ntags; ++ i) {
+    if (strcmp(tag, tags[i]) == 0) {
+      return true;
+    }
+  }
+#endif /* CVC4_DEBUG && CVC4_TRACING */
+  return false;
 }
 
 unsigned Configuration::getNumTraceTags() {
 #if CVC4_TRACING
-  return sizeof(Trace_tags) / sizeof(Trace_tags[0]);
+  /* -1 because a NULL pointer is inserted as the last value */
+  return sizeof(Trace_tags) / sizeof(Trace_tags[0]) - 1;
 #else /* CVC4_TRACING */
   return 0;
 #endif /* CVC4_TRACING */
@@ -161,6 +182,19 @@ char const* const* Configuration::getTraceTags() {
   static char const* no_tags[] = { NULL };
   return no_tags;
 #endif /* CVC4_TRACING */
+}
+
+bool Configuration::isTraceTag(char const * tag){
+#if CVC4_TRACING
+  unsigned ntags = getNumTraceTags();
+  char const* const* tags = getTraceTags();
+  for (unsigned i = 0; i < ntags; ++ i) {
+    if (strcmp(tag, tags[i]) == 0) {
+      return true;
+    }
+  }
+#endif /* CVC4_TRACING */
+  return false;
 }
 
 bool Configuration::isSubversionBuild() {
@@ -190,7 +224,7 @@ string Configuration::getSubversionId() {
   return ss.str();
 }
 
-string Configuration::getCompiler() {
+std::string Configuration::getCompiler() {
   stringstream ss;
 #ifdef __GNUC__
   ss << "GCC";
@@ -203,6 +237,10 @@ string Configuration::getCompiler() {
   ss << ", unknown version";
 #endif /* __VERSION__ */
   return ss.str();
+}
+
+std::string Configuration::getCompiledDateTime() {
+  return __DATE__ " " __TIME__;
 }
 
 }/* CVC4 namespace */

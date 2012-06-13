@@ -57,15 +57,31 @@ public:
     push(CONFLICT, n);
   }
 
-  void propagate(TNode n)
+  bool propagate(TNode n)
     throw(AssertionException) {
     push(PROPAGATE, n);
+    return true;
+  }
+
+  void propagateAsDecision(TNode n)
+    throw(AssertionException) {
+    // ignore
   }
 
   LemmaStatus lemma(TNode n, bool removable)
     throw(AssertionException) {
     push(LEMMA, n);
     return LemmaStatus(Node::null(), 0);
+  }
+
+  void requirePhase(TNode, bool)
+    throw(Interrupted, AssertionException) {
+    Unreachable();
+  }
+
+  bool flipDecision()
+    throw(Interrupted, AssertionException) {
+    Unreachable();
   }
 
   void setIncomplete()
@@ -96,8 +112,8 @@ public:
   set<Node> d_registered;
   vector<Node> d_getSequence;
 
-  DummyTheory(Context* ctxt, UserContext* uctxt, OutputChannel& out, Valuation valuation) :
-    Theory(theory::THEORY_BUILTIN, ctxt, uctxt, out, valuation) {
+  DummyTheory(Context* ctxt, UserContext* uctxt, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
+    Theory(theory::THEORY_BUILTIN, ctxt, uctxt, out, valuation, logicInfo, qe) {
   }
 
   void registerTerm(TNode n) {
@@ -144,6 +160,7 @@ class TheoryBlack : public CxxTest::TestSuite {
   UserContext* d_uctxt;
   NodeManager* d_nm;
   NodeManagerScope* d_scope;
+  LogicInfo* d_logicInfo;
 
   TestOutputChannel d_outputChannel;
 
@@ -159,7 +176,9 @@ public:
     d_uctxt = new UserContext();
     d_nm = new NodeManager(d_ctxt, NULL);
     d_scope = new NodeManagerScope(d_nm);
-    d_dummy = new DummyTheory(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL));
+    d_logicInfo = new LogicInfo();
+    d_logicInfo->lock();
+    d_dummy = new DummyTheory(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL), *d_logicInfo, NULL);
     d_outputChannel.clear();
     atom0 = d_nm->mkConst(true);
     atom1 = d_nm->mkConst(false);
@@ -169,6 +188,7 @@ public:
     atom1 = Node::null();
     atom0 = Node::null();
     delete d_dummy;
+    delete d_logicInfo;
     delete d_scope;
     delete d_nm;
     delete d_uctxt;
@@ -176,38 +196,15 @@ public:
   }
 
   void testEffort(){
-    Theory::Effort m = Theory::MIN_EFFORT;
-    Theory::Effort q = Theory::QUICK_CHECK;
-    Theory::Effort s = Theory::STANDARD;
-    Theory::Effort f = Theory::FULL_EFFORT;
+    Theory::Effort s = Theory::EFFORT_STANDARD;
+    Theory::Effort f = Theory::EFFORT_FULL;
 
-    TS_ASSERT( Theory::minEffortOnly(m));
-    TS_ASSERT(!Theory::minEffortOnly(q));
-    TS_ASSERT(!Theory::minEffortOnly(s));
-    TS_ASSERT(!Theory::minEffortOnly(f));
-
-    TS_ASSERT(!Theory::quickCheckOnly(m));
-    TS_ASSERT( Theory::quickCheckOnly(q));
-    TS_ASSERT(!Theory::quickCheckOnly(s));
-    TS_ASSERT(!Theory::quickCheckOnly(f));
-
-    TS_ASSERT(!Theory::standardEffortOnly(m));
-    TS_ASSERT(!Theory::standardEffortOnly(q));
     TS_ASSERT( Theory::standardEffortOnly(s));
     TS_ASSERT(!Theory::standardEffortOnly(f));
 
-    TS_ASSERT(!Theory::fullEffort(m));
-    TS_ASSERT(!Theory::fullEffort(q));
     TS_ASSERT(!Theory::fullEffort(s));
     TS_ASSERT( Theory::fullEffort(f));
 
-    TS_ASSERT(!Theory::quickCheckOrMore(m));
-    TS_ASSERT( Theory::quickCheckOrMore(q));
-    TS_ASSERT( Theory::quickCheckOrMore(s));
-    TS_ASSERT( Theory::quickCheckOrMore(f));
-
-    TS_ASSERT(!Theory::standardEffortOrMore(m));
-    TS_ASSERT(!Theory::standardEffortOrMore(q));
     TS_ASSERT( Theory::standardEffortOrMore(s));
     TS_ASSERT( Theory::standardEffortOrMore(f));
   }
@@ -220,7 +217,7 @@ public:
 
     TS_ASSERT(!d_dummy->doneWrapper());
 
-    d_dummy->check(Theory::FULL_EFFORT);
+    d_dummy->check(Theory::EFFORT_FULL);
 
     TS_ASSERT(d_dummy->doneWrapper());
   }

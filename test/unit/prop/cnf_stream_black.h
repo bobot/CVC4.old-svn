@@ -28,12 +28,12 @@
 #include "context/context.h"
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
-#include "prop/sat.h"
+#include "prop/theory_proxy.h"
 #include "smt/smt_engine.h"
-#include "theory/registrar.h"
 
 #include "theory/theory.h"
 #include "theory/theory_engine.h"
+#include "theory/theory_registrar.h"
 
 #include "theory/builtin/theory_builtin.h"
 #include "theory/booleans/theory_bool.h"
@@ -45,7 +45,7 @@ using namespace CVC4::prop;
 using namespace std;
 
 /* This fake class relies on the face that a MiniSat variable is just an int. */
-class FakeSatSolver : public SatInputInterface {
+class FakeSatSolver : public SatSolver {
   SatVariable d_nextVar;
   bool d_addClauseCalled;
 
@@ -56,6 +56,14 @@ public:
   }
 
   SatVariable newVar(bool theoryAtom) {
+    return d_nextVar++;
+  }
+
+  SatVariable trueVar() {
+    return d_nextVar++;
+  }
+
+  SatVariable falseVar() {
     return d_nextVar++;
   }
 
@@ -71,8 +79,12 @@ public:
     return d_addClauseCalled;
   }
 
-  int getAssertionLevel() const {
+  unsigned getAssertionLevel() const {
     return 0;
+  }
+
+  bool isDecision(Node) const {
+    return false;
   }
 
   void unregisterVar(SatLiteral lit) {
@@ -83,11 +95,35 @@ public:
 
   void interrupt() {
   }
-};
+  
+  SatValue solve() {
+    return SAT_VALUE_UNKNOWN;
+  }
+
+  SatValue solve(long unsigned int& resource) {
+    return SAT_VALUE_UNKNOWN;
+  }
+
+  SatValue value(SatLiteral l) {
+    return SAT_VALUE_UNKNOWN;
+  }
+
+  SatValue modelValue(SatLiteral l) {
+    return SAT_VALUE_UNKNOWN;
+  }
+
+  bool properExplanation(SatLiteral lit, SatLiteral expl) const {
+    return true;
+  }
+
+};/* class FakeSatSolver */
 
 class CnfStreamBlack : public CxxTest::TestSuite {
   /** The SAT solver proxy */
   FakeSatSolver* d_satSolver;
+
+  /** The logic info */
+  LogicInfo* d_logicInfo;
 
   /** The theory engine */
   TheoryEngine* d_theoryEngine;
@@ -113,12 +149,13 @@ class CnfStreamBlack : public CxxTest::TestSuite {
     d_nodeManager = new NodeManager(d_context, NULL);
     NodeManagerScope nms(d_nodeManager);
     d_satSolver = new FakeSatSolver();
-    d_theoryEngine = new TheoryEngine(d_context, d_userContext);
+    d_logicInfo = new LogicInfo();
+    d_logicInfo->lock();
+    d_theoryEngine = new TheoryEngine(d_context, d_userContext, *d_logicInfo);
     d_theoryEngine->addTheory<theory::builtin::TheoryBuiltin>(theory::THEORY_BUILTIN);
     d_theoryEngine->addTheory<theory::booleans::TheoryBool>(theory::THEORY_BOOL);
     d_theoryEngine->addTheory<theory::arith::TheoryArith>(theory::THEORY_ARITH);
-    theory::Registrar registrar(d_theoryEngine);
-    d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, registrar);
+    d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, new theory::TheoryRegistrar(d_theoryEngine));
   }
 
   void tearDown() {
@@ -126,6 +163,7 @@ class CnfStreamBlack : public CxxTest::TestSuite {
     delete d_cnfStream;
     d_theoryEngine->shutdown();
     delete d_theoryEngine;
+    delete d_logicInfo;
     delete d_satSolver;
     delete d_nodeManager;
     delete d_userContext;
@@ -167,9 +205,15 @@ public:
     TS_ASSERT( d_satSolver->addClauseCalled() );
   }
 
+  void testTrue() {
+    NodeManagerScope nms(d_nodeManager);
+    d_cnfStream->convertAndAssert( d_nodeManager->mkConst(true), false, false );
+    TS_ASSERT( d_satSolver->addClauseCalled() );
+  }
+
   void testFalse() {
     NodeManagerScope nms(d_nodeManager);
-    d_cnfStream->convertAndAssert(  d_nodeManager->mkConst(false), false, false );
+    d_cnfStream->convertAndAssert( d_nodeManager->mkConst(false), false, false );
     TS_ASSERT( d_satSolver->addClauseCalled() );
   }
 
@@ -219,12 +263,6 @@ public:
     Node b = d_nodeManager->mkVar(d_nodeManager->booleanType());
     Node c = d_nodeManager->mkVar(d_nodeManager->booleanType());
     d_cnfStream->convertAndAssert( d_nodeManager->mkNode(kind::OR, a, b, c), false, false );
-    TS_ASSERT( d_satSolver->addClauseCalled() );
-  }
-
-  void testTrue() {
-    NodeManagerScope nms(d_nodeManager);
-    d_cnfStream->convertAndAssert(  d_nodeManager->mkConst(true), false, false );
     TS_ASSERT( d_satSolver->addClauseCalled() );
   }
 

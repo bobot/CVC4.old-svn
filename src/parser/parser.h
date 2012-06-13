@@ -142,6 +142,20 @@ class CVC4_PUBLIC Parser {
   /** Are we only parsing? */
   bool d_parseOnly;
 
+  /**
+   * We might see the same record type multiple times; we have
+   * to match always to the same Type.  This map contains all the
+   * record types we have.
+   */
+  std::map<std::vector< std::pair<std::string, Type> >, DatatypeType> d_recordTypes;
+
+  /**
+   * We might see the same tuple type multiple times; we have
+   * to match always to the same Type.  This map contains all the
+   * tuple types we have.
+   */
+  std::map<std::vector<Type>, DatatypeType> d_tupleTypes;
+
   /** The set of operators available in the current logic. */
   std::set<Kind> d_logicOperators;
 
@@ -399,6 +413,16 @@ public:
   mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes);
 
   /**
+   * Create a record type, or if there's already a matching one, return that one.
+   */
+  DatatypeType mkRecordType(const std::vector< std::pair<std::string, Type> >& typeIds);
+
+  /**
+   * Create a tuple type, or if there's already a matching one, return that one.
+   */
+  DatatypeType mkTupleType(const std::vector<Type>& types);
+
+  /**
    * Add an operator to the current legal set.
    *
    * @param kind the built-in operator to add
@@ -432,6 +456,11 @@ public:
 
   /** Parse and return the next expression. */
   Expr nextExpression() throw(ParserException);
+
+  /** Issue a warning to the user. */
+  inline void warning(const std::string& msg) {
+    d_input->warning(msg);
+  }
 
   /** Raise a parse error with the given message. */
   inline void parseError(const std::string& msg) throw(ParserException) {
@@ -492,6 +521,14 @@ public:
     } else {
       d_declScope = parser->d_declScope;
     }
+  }
+
+  inline void useDeclarationsFrom(DeclarationScope* scope) {
+    d_declScope = scope;
+  }
+
+  inline DeclarationScope* getDeclarationScope() const {
+    return d_declScope;
   }
 
   /**

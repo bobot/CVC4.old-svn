@@ -32,6 +32,7 @@
 
 #include "expr/expr.h"
 #include "expr/type.h"
+#include "expr/variable_type_map.h"
 #include "util/result.h"
 #include "util/sexpr.h"
 #include "util/datatype.h"
@@ -56,7 +57,7 @@ enum BenchmarkStatus {
   SMT_UNSATISFIABLE,
   /** The status of the benchmark is unknown */
   SMT_UNKNOWN
-};
+};/* enum BenchmarkStatus */
 
 std::ostream& operator<<(std::ostream& out,
                          BenchmarkStatus status) throw() CVC4_PUBLIC;
@@ -157,21 +158,26 @@ public:
   virtual ~CommandStatus() throw() {}
   void toStream(std::ostream& out,
                 OutputLanguage language = language::output::LANG_AST) const throw();
+  virtual CommandStatus& clone() const = 0;
 };/* class CommandStatus */
 
 class CVC4_PUBLIC CommandSuccess : public CommandStatus {
   static const CommandSuccess* s_instance;
 public:
   static const CommandSuccess* instance() throw() { return s_instance; }
+  CommandStatus& clone() const { return const_cast<CommandSuccess&>(*this); }
 };/* class CommandSuccess */
 
 class CVC4_PUBLIC CommandUnsupported : public CommandStatus {
+public:
+  CommandStatus& clone() const { return *new CommandUnsupported(*this); }
 };/* class CommandSuccess */
 
 class CVC4_PUBLIC CommandFailure : public CommandStatus {
   std::string d_message;
 public:
   CommandFailure(std::string message) throw() : d_message(message) {}
+  CommandFailure& clone() const { return *new CommandFailure(*this); }
   ~CommandFailure() throw() {}
   std::string getMessage() const throw() { return d_message; }
 };/* class CommandFailure */
@@ -192,12 +198,14 @@ public:
   typedef CommandPrintSuccess printsuccess;
 
   Command() throw();
+  Command(const Command& cmd);
+
   virtual ~Command() throw();
 
   virtual void invoke(SmtEngine* smtEngine) throw() = 0;
   virtual void invoke(SmtEngine* smtEngine, std::ostream& out) throw();
 
-  virtual void toStream(std::ostream& out, int toDepth = -1, bool types = false,
+  virtual void toStream(std::ostream& out, int toDepth = -1, bool types = false, size_t dag = 1,
                         OutputLanguage language = language::output::LANG_AST) const throw();
 
   std::string toString() const throw();
@@ -210,6 +218,34 @@ public:
 
   virtual void printResult(std::ostream& out) const throw();
 
+  /**
+   * Maps this Command into one for a different ExprManager, using
+   * variableMap for the translation and extending it with any new
+   * mappings.
+   */
+  virtual Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) = 0;
+
+  /**
+   * Clone this Command (make a shallow copy).
+   */
+  virtual Command* clone() const = 0;
+
+protected:
+  class ExportTransformer {
+    ExprManager* d_exprManager;
+    ExprManagerMapCollection& d_variableMap;
+  public:
+    ExportTransformer(ExprManager* exprManager, ExprManagerMapCollection& variableMap) :
+      d_exprManager(exprManager),
+      d_variableMap(variableMap) {
+    }
+    Expr operator()(Expr e) {
+      return e.exportTo(d_exprManager, d_variableMap);
+    }
+    Type operator()(Type t) {
+      return t.exportTo(d_exprManager, d_variableMap);
+    }
+  };/* class Command::ExportTransformer */
 };/* class Command */
 
 /**
@@ -224,7 +260,22 @@ public:
   ~EmptyCommand() throw() {}
   std::string getName() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class EmptyCommand */
+
+class CVC4_PUBLIC EchoCommand : public Command {
+protected:
+  std::string d_output;
+public:
+  EchoCommand(std::string output = "") throw();
+  ~EchoCommand() throw() {}
+  std::string getOutput() const throw();
+  void invoke(SmtEngine* smtEngine) throw();
+  void invoke(SmtEngine* smtEngine, std::ostream& out) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class EchoCommand */
 
 class CVC4_PUBLIC AssertCommand : public Command {
 protected:
@@ -234,18 +285,24 @@ public:
   ~AssertCommand() throw() {}
   BoolExpr getExpr() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class AssertCommand */
 
 class CVC4_PUBLIC PushCommand : public Command {
 public:
   ~PushCommand() throw() {}
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class PushCommand */
 
 class CVC4_PUBLIC PopCommand : public Command {
 public:
   ~PopCommand() throw() {}
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class PopCommand */
 
 class CVC4_PUBLIC DeclarationDefinitionCommand : public Command {
@@ -265,6 +322,8 @@ public:
   ~DeclareFunctionCommand() throw() {}
   Type getType() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class DeclareFunctionCommand */
 
 class CVC4_PUBLIC DeclareTypeCommand : public DeclarationDefinitionCommand {
@@ -277,6 +336,8 @@ public:
   size_t getArity() const throw();
   Type getType() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class DeclareTypeCommand */
 
 class CVC4_PUBLIC DefineTypeCommand : public DeclarationDefinitionCommand {
@@ -290,6 +351,8 @@ public:
   const std::vector<Type>& getParameters() const throw();
   Type getType() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class DefineTypeCommand */
 
 class CVC4_PUBLIC DefineFunctionCommand : public DeclarationDefinitionCommand {
@@ -306,6 +369,8 @@ public:
   const std::vector<Expr>& getFormals() const throw();
   Expr getFormula() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class DefineFunctionCommand */
 
 /**
@@ -318,6 +383,8 @@ public:
   DefineNamedFunctionCommand(const std::string& id, Expr func,
                              const std::vector<Expr>& formals, Expr formula) throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class DefineNamedFunctionCommand */
 
 class CVC4_PUBLIC CheckSatCommand : public Command {
@@ -332,6 +399,8 @@ public:
   void invoke(SmtEngine* smtEngine) throw();
   Result getResult() const throw();
   void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class CheckSatCommand */
 
 class CVC4_PUBLIC QueryCommand : public Command {
@@ -345,6 +414,8 @@ public:
   void invoke(SmtEngine* smtEngine) throw();
   Result getResult() const throw();
   void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class QueryCommand */
 
 // this is TRANSFORM in the CVC presentation language
@@ -359,6 +430,8 @@ public:
   void invoke(SmtEngine* smtEngine) throw();
   Expr getResult() const throw();
   void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class SimplifyCommand */
 
 class CVC4_PUBLIC GetValueCommand : public Command {
@@ -372,6 +445,8 @@ public:
   void invoke(SmtEngine* smtEngine) throw();
   Expr getResult() const throw();
   void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class GetValueCommand */
 
 class CVC4_PUBLIC GetAssignmentCommand : public Command {
@@ -383,6 +458,8 @@ public:
   void invoke(SmtEngine* smtEngine) throw();
   SExpr getResult() const throw();
   void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class GetAssignmentCommand */
 
 class CVC4_PUBLIC GetProofCommand : public Command {
@@ -394,6 +471,8 @@ public:
   void invoke(SmtEngine* smtEngine) throw();
   Proof* getResult() const throw();
   void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class GetProofCommand */
 
 class CVC4_PUBLIC GetAssertionsCommand : public Command {
@@ -405,6 +484,8 @@ public:
   void invoke(SmtEngine* smtEngine) throw();
   std::string getResult() const throw();
   void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class GetAssertionsCommand */
 
 class CVC4_PUBLIC SetBenchmarkStatusCommand : public Command {
@@ -415,6 +496,8 @@ public:
   ~SetBenchmarkStatusCommand() throw() {}
   BenchmarkStatus getStatus() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class SetBenchmarkStatusCommand */
 
 class CVC4_PUBLIC SetBenchmarkLogicCommand : public Command {
@@ -425,6 +508,8 @@ public:
   ~SetBenchmarkLogicCommand() throw() {}
   std::string getLogic() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class SetBenchmarkLogicCommand */
 
 class CVC4_PUBLIC SetInfoCommand : public Command {
@@ -437,6 +522,8 @@ public:
   std::string getFlag() const throw();
   SExpr getSExpr() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class SetInfoCommand */
 
 class CVC4_PUBLIC GetInfoCommand : public Command {
@@ -450,6 +537,8 @@ public:
   void invoke(SmtEngine* smtEngine) throw();
   std::string getResult() const throw();
   void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class GetInfoCommand */
 
 class CVC4_PUBLIC SetOptionCommand : public Command {
@@ -462,6 +551,8 @@ public:
   std::string getFlag() const throw();
   SExpr getSExpr() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class SetOptionCommand */
 
 class CVC4_PUBLIC GetOptionCommand : public Command {
@@ -475,6 +566,8 @@ public:
   void invoke(SmtEngine* smtEngine) throw();
   std::string getResult() const throw();
   void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class GetOptionCommand */
 
 class CVC4_PUBLIC DatatypeDeclarationCommand : public Command {
@@ -486,6 +579,8 @@ public:
   DatatypeDeclarationCommand(const std::vector<DatatypeType>& datatypes) throw();
   const std::vector<DatatypeType>& getDatatypes() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class DatatypeDeclarationCommand */
 
 class CVC4_PUBLIC QuitCommand : public Command {
@@ -493,6 +588,8 @@ public:
   QuitCommand() throw();
   ~QuitCommand() throw() {}
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class QuitCommand */
 
 class CVC4_PUBLIC CommentCommand : public Command {
@@ -502,6 +599,8 @@ public:
   ~CommentCommand() throw() {}
   std::string getComment() const throw();
   void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class CommentCommand */
 
 class CVC4_PUBLIC CommandSequence : public Command {
@@ -515,6 +614,7 @@ public:
   ~CommandSequence() throw();
 
   void addCommand(Command* cmd) throw();
+  void clear() throw();
 
   void invoke(SmtEngine* smtEngine) throw();
   void invoke(SmtEngine* smtEngine, std::ostream& out) throw();
@@ -528,6 +628,8 @@ public:
   iterator begin() throw();
   iterator end() throw();
 
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
 };/* class CommandSequence */
 
 class CVC4_PUBLIC DeclarationSequence : public CommandSequence {

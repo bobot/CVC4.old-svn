@@ -169,6 +169,26 @@ public:
     return mpq_sgn(d_value.get_mpq_t());
   }
 
+  bool isZero() const {
+    return sgn() == 0;
+  }
+
+  bool isOne() const {
+    return mpq_cmp_si(d_value.get_mpq_t(), 1, 1) == 0;
+  }
+
+  bool isNegativeOne() const {
+    return mpq_cmp_si(d_value.get_mpq_t(), -1, 1) == 0;
+  }
+
+  Rational abs() const {
+    if(sgn() < 0){
+      return -(*this);
+    }else{
+      return *this;
+    }
+  }
+
   Integer floor() const {
     mpz_class q;
     mpz_fdiv_q(q.get_mpz_t(), d_value.get_num_mpz_t(), d_value.get_den_mpz_t());
@@ -242,6 +262,10 @@ public:
   Rational& operator/=(const Rational& y){
     d_value /= y.d_value;
     return (*this);
+  }
+
+  bool isIntegral() const{
+    return getDenominator() == 1;
   }
 
   /** Returns a string representing the rational in the given base. */

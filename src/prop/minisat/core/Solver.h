@@ -25,11 +25,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <iostream>
 
-#include "mtl/Vec.h"
-#include "mtl/Heap.h"
-#include "mtl/Alg.h"
-#include "utils/Options.h"
-#include "core/SolverTypes.h"
+#include "prop/minisat/mtl/Vec.h"
+#include "prop/minisat/mtl/Heap.h"
+#include "prop/minisat/mtl/Alg.h"
+#include "prop/minisat/utils/Options.h"
+#include "prop/minisat/core/SolverTypes.h"
 
 #include "context/context.h"
 #include "theory/theory.h"
@@ -40,7 +40,7 @@ namespace CVC4 {
 class SatProof;
 
 namespace prop {
-  class SatSolver;
+  class TheoryProxy;
 }/* CVC4::prop namespace */
 
 }/* CVC4 namespace */
@@ -53,24 +53,31 @@ namespace Minisat {
 class Solver {
 
   /** The only two CVC4 entry points to the private solver data */
-  friend class CVC4::prop::SatSolver;
-  friend class CVC4::SatProof; 
+  friend class CVC4::prop::TheoryProxy;
+  friend class CVC4::SatProof;
 protected:
 
   /** The pointer to the proxy that provides interfaces to the SMT engine */
-  CVC4::prop::SatSolver* proxy;
+  CVC4::prop::TheoryProxy* proxy;
 
   /** The context from the SMT solver */
   CVC4::context::Context* context;
 
   /** The current assertion level (user) */
-  int assertionLevel; 
+  int assertionLevel;
 
+  /** Variable representing true */
+  Var varTrue;
+
+  /** Variable representing false */
+  Var varFalse;
+
+public:
   /** Returns the current user assertion level */
   int getAssertionLevel() const { return assertionLevel; }
-
+protected:
   /** Do we allow incremental solving */
-  bool enable_incremental;  
+  bool enable_incremental;
 
   /** Literals propagated by lemmas */
   vec< vec<Lit> > lemmas;
@@ -82,7 +89,7 @@ protected:
   bool recheck;
 
   /** Shrink 'cs' to contain only clauses below given level */
-  void removeClausesAboveLevel(vec<CRef>& cs, int level); 
+  void removeClausesAboveLevel(vec<CRef>& cs, int level);
 
   /** True if we are currently solving. */
   bool minisat_busy;
@@ -102,12 +109,14 @@ public:
 
     // Constructor/Destructor:
     //
-    Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bool enableIncremental = false);
+    Solver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, bool enableIncremental = false);
     CVC4_PUBLIC virtual ~Solver();
 
     // Problem specification:
     //
     Var     newVar    (bool polarity = true, bool dvar = true, bool theoryAtom = false); // Add a new variable with parameters specifying variable mode.
+    Var     trueVar() const { return varTrue; }
+    Var     falseVar() const { return varFalse; }
 
     // Less than for literals in a lemma
     struct lemma_lt {
@@ -173,11 +182,13 @@ public:
     void    toDimacs     (const char* file, Lit p);
     void    toDimacs     (const char* file, Lit p, Lit q);
     void    toDimacs     (const char* file, Lit p, Lit q, Lit r);
-    
+
     // Variable mode:
-    // 
+    //
     void    setPolarity    (Var v, bool b); // Declare which polarity the decision heuristic should use for a variable. Requires mode 'polarity_user'.
+    void    freezePolarity (Var v, bool b); // Declare which polarity the decision heuristic MUST ALWAYS use for a variable. Requires mode 'polarity_user'.
     void    setDecisionVar (Var v, bool b); // Declare if a variable should be eligible for selection in the decision heuristic.
+    bool    flipDecision   ();              // Backtrack and flip most recent decision
 
     // Read state:
     //
@@ -190,6 +201,11 @@ public:
     int     nLearnts   ()      const;       // The current number of learnt clauses.
     int     nVars      ()      const;       // The current number of variables.
     int     nFreeVars  ()      const;
+    bool    isDecision (Var x) const;       // is the given var a decision?
+
+    // Debugging SMT explanations
+    //
+    bool    properExplanation(Lit l, Lit expl) const; // returns true if expl can be used to explain l---i.e., both assigned and trail_index(expl) < trail_index(l)
 
     // Resource contraints:
     //
@@ -277,11 +293,13 @@ protected:
     OccLists<Lit, vec<Watcher>, WatcherDeleted>
                         watches;            // 'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
     vec<lbool>          assigns;            // The current assignments.
-    vec<char>           polarity;           // The preferred polarity of each variable.
+    vec<char>           polarity;           // The preferred polarity of each variable (bit 0) and whether it's locked (bit 1).
     vec<char>           decision;           // Declares if a variable is eligible for selection in the decision heuristic.
+    vec<int>            flipped;            // Which trail_lim decisions have been flipped in this context.
     vec<Lit>            trail;              // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;          // Separator indices for different decision levels in 'trail'.
     vec<Lit>            trail_user;         // Stack of assignments to UNdo on user pop.
+    vec<int>            trail_user_lim;     // Separator indices for different user levels in 'trail'.
     vec<bool>           trail_ok;           // Stack of "whether we're in conflict" flags.
     vec<VarData>        vardata;            // Stores reason and level for each variable.
     int                 qhead;              // Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
@@ -298,12 +316,14 @@ protected:
     vec<bool>           theory;           // Is the variable representing a theory atom
 
     enum TheoryCheckType {
-      // Quick check, but don't perform theory propagation
-      CHECK_WITHOUTH_PROPAGATION_QUICK,
-      // Check and perform theory propagation
-      CHECK_WITH_PROPAGATION_STANDARD,
-      // The SAT problem is satisfiable, perform a full theory check
-      CHECK_WITHOUTH_PROPAGATION_FINAL
+      // Quick check, but don't perform theory reasoning
+      CHECK_WITHOUTH_THEORY,
+      // Check and perform theory reasoning
+      CHECK_WITH_THEORY,
+      // The SAT abstraction of the problem is satisfiable, perform a full theory check
+      CHECK_FINAL,
+      // Perform a full theory check even if not done with everything
+      CHECK_FINAL_FAKE
     };
 
     // Temporaries (to reduce allocation overhead). Each variable is prefixed by the method in which it is
@@ -331,6 +351,7 @@ protected:
     void     newDecisionLevel ();                                                      // Begins a new decision level.
     void     uncheckedEnqueue (Lit p, CRef from = CRef_Undef);                         // Enqueue a literal. Assumes value of literal is undefined.
     bool     enqueue          (Lit p, CRef from = CRef_Undef);                         // Test if fact 'p' contradicts current state, enqueue otherwise.
+    bool     theoryConflict;                                                           // Was the last conflict a theory conflict
     CRef     propagate        (TheoryCheckType type);                                  // Perform Boolean and Theory. Returns possibly conflicting clause.
     CRef     propagateBool    ();                                                      // Perform Boolean propagation. Returns possibly conflicting clause.
     void     propagateTheory  ();                                                      // Perform Theory propagation.
@@ -406,6 +427,8 @@ inline bool Solver::isPropagated(Var x) const { return vardata[x].reason != CRef
 
 inline bool Solver::isPropagatedBy(Var x, const Clause& c) const { return vardata[x].reason != CRef_Undef && vardata[x].reason != CRef_Lazy && ca.lea(vardata[var(c[0])].reason) == &c; }
 
+inline bool Solver::isDecision(Var x) const { Debug("minisat") << "var " << x << " is a decision iff " << (vardata[x].reason == CRef_Undef) << " && " << level(x) << " > 0" << std::endl; return vardata[x].reason == CRef_Undef && level(x) > 0; }
+
 inline int  Solver::level (Var x) const { return vardata[x].level; }
 
 inline int  Solver::intro_level(Var x) const { return vardata[x].intro_level; }
@@ -449,7 +472,7 @@ inline bool     Solver::addClause       (Lit p, bool removable)                 
 inline bool     Solver::addClause       (Lit p, Lit q, bool removable)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, removable); }
 inline bool     Solver::addClause       (Lit p, Lit q, Lit r, bool removable)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, removable); }
 inline bool     Solver::locked          (const Clause& c) const { return value(c[0]) == l_True && isPropagatedBy(var(c[0]), c); }
-inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); context->push(); if(Dump.isOn("state")) { Dump("state") << CVC4::PushCommand() << std::endl; } }
+inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); flipped.push(false); context->push(); if(Dump.isOn("state")) { Dump("state") << CVC4::PushCommand(); } }
 
 inline int      Solver::decisionLevel ()      const   { return trail_lim.size(); }
 inline uint32_t Solver::abstractLevel (Var x) const   { return 1 << (level(x) & 31); }
@@ -462,15 +485,18 @@ inline int      Solver::nClauses      ()      const   { return clauses_persisten
 inline int      Solver::nLearnts      ()      const   { return clauses_removable.size(); }
 inline int      Solver::nVars         ()      const   { return vardata.size(); }
 inline int      Solver::nFreeVars     ()      const   { return (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]); }
+inline bool     Solver::properExplanation(Lit l, Lit expl) const { return value(l) == l_True && value(expl) == l_True && trail_index(var(expl)) < trail_index(var(l)); }
 inline void     Solver::setPolarity   (Var v, bool b) { polarity[v] = b; }
-inline void     Solver::setDecisionVar(Var v, bool b) 
-{ 
-    if      ( b && !decision[v]) dec_vars++;
-    else if (!b &&  decision[v]) dec_vars--;
+inline void     Solver::freezePolarity(Var v, bool b) { polarity[v] = int(b) | 0x2; }
+inline void     Solver::setDecisionVar(Var v, bool b)
+{
+    if      ( b && !decision[v] ) dec_vars++;
+    else if (!b &&  decision[v] ) dec_vars--;
 
     decision[v] = b;
     insertVarOrder(v);
 }
+
 inline void     Solver::setConfBudget(int64_t x){ conflict_budget    = conflicts    + x; }
 inline void     Solver::setPropBudget(int64_t x){ propagation_budget = propagations + x; }
 inline void     Solver::interrupt(){ asynch_interrupt = true; }

@@ -15,13 +15,13 @@ else
   fi
   AC_CHECK_LIB([readline], [readline],
                [AC_CHECK_HEADER([readline/readline.h],
-                  [READLINE_LIBS="-lreadline -lncurses"],
+                  [READLINE_LIBS="-lreadline -lncurses -ltermcap -ltinfo"],
                   [if test "$with_readline" != check; then
                      AC_MSG_FAILURE([cannot find libreadline!])
                    fi])],
                [if test "$with_readline" != check; then
                   AC_MSG_FAILURE([cannot find libreadline!])
-                fi], -lncurses)
+                fi], [-lncurses -ltermcap -ltinfo])
   if test -z "$READLINE_LIBS"; then
     with_readline=no
   else
@@ -33,8 +33,8 @@ else
       cvc4_save_LDFLAGS="$LDFLAGS"
       LDFLAGS="-static $LDFLAGS"
       LIBS="$READLINE_LIBS $LIBS"
-      AC_LINK_IFELSE(AC_LANG_PROGRAM([#include <readline/readline.h>],
-                                     [readline("")]),
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <readline/readline.h>],
+                                     [readline("")])],
         [ AC_MSG_RESULT([yes, it works])
           with_readline=yes ],
         [ AC_MSG_RESULT([no])
@@ -53,6 +53,7 @@ else
     HAVE_LIBREADLINE=1
   else
     HAVE_LIBREADLINE=0
+    READLINE_LIBS=
   fi
   AC_DEFINE_UNQUOTED([HAVE_LIBREADLINE], ${HAVE_LIBREADLINE}, [Define to 1 to use libreadline])
   AC_SUBST([READLINE_LIBS])

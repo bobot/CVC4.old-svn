@@ -17,7 +17,7 @@ AM_CPPFLAGS = \
 	-I@srcdir@/include -I@srcdir@ -I@builddir@
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-SUBDIRS = lib expr util context theory prop smt printer proof . parser compat bindings main
+SUBDIRS = lib expr util context theory prop decision smt printer proof . parser compat bindings main
 
 lib_LTLIBRARIES = libcvc4.la
 if HAVE_CXXTESTGEN
@@ -39,9 +39,11 @@ libcvc4_la_LIBADD = \
 	@builddir@/proof/libproof.la \
 	@builddir@/prop/libprop.la \
 	@builddir@/prop/minisat/libminisat.la \
+	@builddir@/prop/bvminisat/libbvminisat.la \
 	@builddir@/printer/libprinter.la \
 	@builddir@/smt/libsmt.la \
 	@builddir@/theory/libtheory.la \
+	@builddir@/decision/libdecision.la \
 	@builddir@/lib/libreplacements.la
 libcvc4_noinst_la_LIBADD = \
 	@builddir@/util/libutil.la \
@@ -50,9 +52,11 @@ libcvc4_noinst_la_LIBADD = \
 	@builddir@/proof/libproof.la \
 	@builddir@/prop/libprop.la \
 	@builddir@/prop/minisat/libminisat.la \
+	@builddir@/prop/bvminisat/libbvminisat.la \
 	@builddir@/printer/libprinter.la \
 	@builddir@/smt/libsmt.la \
 	@builddir@/theory/libtheory.la \
+	@builddir@/decision/libdecision.la \
 	@builddir@/lib/libreplacements.la
 
 CLEANFILES = \

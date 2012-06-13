@@ -193,8 +193,8 @@ benchAttribute returns [CVC4::Command* smt_command = NULL]
   | STATUS_TOK status[b_status]
     { smt_command = new SetBenchmarkStatusCommand(b_status); }
   | EXTRAFUNS_TOK LPAREN_TOK
-    ( { smt_command = new CommandSequence(); }
-      functionDeclaration[c]
+    { smt_command = new CommandSequence(); }
+    ( functionDeclaration[c]
       { ((CommandSequence*) smt_command)->addCommand(c); }
     )+ RPAREN_TOK
   | EXTRAPREDS_TOK LPAREN_TOK
@@ -242,6 +242,19 @@ annotatedFormula[CVC4::Expr& expr]
         PARSER_STATE->checkArity(kind, args.size());
         expr = MK_EXPR(kind, args);
       }
+    }
+
+  | /* A quantifier */
+    LPAREN_TOK
+    ( FORALL_TOK { kind = kind::FORALL; } | EXISTS_TOK { kind = kind::EXISTS; } )
+    { PARSER_STATE->pushScope(); }
+    ( LPAREN_TOK let_identifier[name,CHECK_NONE] t=sortSymbol RPAREN_TOK
+      { args.push_back(PARSER_STATE->mkVar(name, t)); }
+    )+
+    annotatedFormula[expr] RPAREN_TOK
+    { args.push_back(expr);
+      expr = MK_EXPR(kind, args);
+      PARSER_STATE->popScope();
     }
 
   | /* A non-built-in function application */
@@ -512,7 +525,13 @@ sortSymbol returns [CVC4::parser::smt::myType t]
   	{ $t = PARSER_STATE->getSort(name); }
   | BITVECTOR_TOK '[' NUMERAL_TOK ']' {
   	$t = EXPR_MANAGER->mkBitVectorType(AntlrInput::tokenToUnsigned($NUMERAL_TOK));
-  }
+    }
+  /* attaching 'Array' to '[' allows us to parse regular 'Array' correctly in
+   * e.g. QF_AX, and also 'Array[m:n]' in e.g. QF_AUFBV */
+  | 'Array[' n1=NUMERAL_TOK ':' n2=NUMERAL_TOK ']' {
+        $t = EXPR_MANAGER->mkArrayType(EXPR_MANAGER->mkBitVectorType(AntlrInput::tokenToUnsigned(n1)),
+                                       EXPR_MANAGER->mkBitVectorType(AntlrInput::tokenToUnsigned(n2)));
+    }
   ;
 
 /**
@@ -534,7 +553,15 @@ annotation[CVC4::Command*& smt_command]
 }
   : attribute[key]
     ( USER_VALUE
-      { smt_command = new SetInfoCommand(key, AntlrInput::tokenText($USER_VALUE)); }
+      { std::string value = AntlrInput::tokenText($USER_VALUE);
+        Assert(*value.begin() == '{');
+        Assert(*value.rbegin() == '}');
+        // trim whitespace
+        value.erase(value.begin(), value.begin() + 1);
+        value.erase(value.begin(), std::find_if(value.begin(), value.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+        value.erase(value.end() - 1);
+        value.erase(std::find_if(value.rbegin(), value.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), value.end());
+        smt_command = new SetInfoCommand(key, value); }
     )?
     { if(smt_command == NULL) {
         smt_command = new EmptyCommand(std::string("annotation: ") + key);
@@ -717,7 +744,7 @@ FLET_IDENTIFIER
  * with an open brace and end with closed brace.
  */
 USER_VALUE
-  : '{' ( '\\{' | '\\}' | ~('{' | '}') )* '}'
+  : '{' ('\\{' | '\\}' | ~('{' | '}'))* '}'
   ;
 
 /**

@@ -7,17 +7,17 @@ noinst_LTLIBRARIES = libarith.la
 
 libarith_la_SOURCES = \
 	theory_arith_type_rules.h \
+	arithvar.h \
 	arith_rewriter.h \
 	arith_rewriter.cpp \
 	arith_static_learner.h \
 	arith_static_learner.cpp \
-	arith_prop_manager.h \
-	arith_prop_manager.cpp \
 	arithvar_node_map.h \
-	atom_database.h \
-	atom_database.cpp \
-	difference_manager.h \
-	difference_manager.cpp \
+	constraint_forward.h \
+	constraint.h \
+	constraint.cpp \
+	congruence_manager.h \
+	congruence_manager.cpp \
 	normal_form.h\
 	normal_form.cpp \
 	arith_utilities.h \
@@ -25,10 +25,10 @@ libarith_la_SOURCES = \
 	delta_rational.cpp \
 	partial_model.h \
 	partial_model.cpp \
-	ordered_set.h \
-	arithvar_set.h \
-	tableau.h \
-	tableau.cpp \
+	linear_equality.h \
+	linear_equality.cpp \
+	matrix.h \
+	matrix.cpp \
 	arith_priority_queue.h \
 	arith_priority_queue.cpp \
 	simplex.h \
@@ -36,7 +36,9 @@ libarith_la_SOURCES = \
 	theory_arith.h \
 	theory_arith.cpp \
 	dio_solver.h \
-	dio_solver.cpp
+	dio_solver.cpp \
+	theory_arith_instantiator.h \
+	theory_arith_instantiator.cpp
 
 EXTRA_DIST = \
 	kinds
