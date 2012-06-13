@@ -16,11 +16,9 @@ TESTS =	\
 	try5_small_difret_functions_wp_su.set_char_quoting.il.wp.delta01.smt \
 	diseqprop.01.smt \
 	wchains010ue.delta01.smt \
-	wchains010ue.delta02.smt \
 	dubreva005ue.delta01.smt \
 	fuzz00.smt \
 	fuzz01.delta01.smt \
-	fuzz01.smt \
 	fuzz02.delta01.smt \
 	fuzz02.smt \  
 	fuzz03.delta01.smt \
@@ -29,6 +27,8 @@ TESTS =	\
 	fuzz04.smt
 
 #bug347.smt \
+#	wchains010ue.delta02.smt \
+#	fuzz01.smt \
 #
 
 EXTRA_DIST = $(TESTS)

@@ -70,10 +70,12 @@ TESTS =	\
 	slice-20.smt \
 	a78test0002.smt \
 	a95test0002.smt \
-	bitvec0.smt \
 	bitvec2.smt \
-	bitvec5.smt \
 	bitvec7.smt
+
+#	bitvec0.smt \
+#	bitvec5.smt \
+#
 
 EXTRA_DIST = $(TESTS)
 
