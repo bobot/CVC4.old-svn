@@ -951,7 +951,7 @@ void TheoryEngine::assertFact(TNode literal)
 
 bool TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
 
-  Debug("theory") << "TheoryEngine::propagate(" << literal << ", " << theory << ")" << std::endl;
+  Debug("theory::propagate") << "TheoryEngine::propagate(" << literal << ", " << theory << ")" << std::endl;
 
   d_propEngine->checkTime();
 
@@ -1137,11 +1137,11 @@ void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
     Node fullConflict = mkExplanation(explanationVector);
     Debug("theory::conflict") << "TheoryEngine::conflict(" << conflict << ", " << theoryId << "): full = " << fullConflict << std::endl;
     Assert(properConflict(fullConflict));
-    lemma(fullConflict, true, false);
+    lemma(fullConflict, true, true);
   } else {
     // When only one theory, the conflict should need no processing
     Assert(properConflict(conflict));
-    lemma(conflict, true, false);
+    lemma(conflict, true, true);
   }
 }
 
