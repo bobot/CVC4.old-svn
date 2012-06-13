@@ -11,26 +11,19 @@ MAKEFLAGS = -k
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
-	bug00.smt \
-	bug338.smt2 \
-	bug347.smt \
-	try5_small_difret_functions_wp_su.set_char_quoting.il.wp.delta01.smt \
-	diseqprop.01.smt \
-	wchains010ue.delta01.smt \
 	wchains010ue.delta02.smt \
-	dubreva005ue.delta01.smt \
-	fuzz00.smt \
-	fuzz01.delta01.smt \
-	fuzz02.delta01.smt \
-	fuzz02.smt \  
-	fuzz03.delta01.smt \
-	fuzz03.smt \
-	fuzz04.delta01.smt \
-	fuzz04.smt \
-	fuzz05.delta01.smt \
-	fuzz05.smt
+	bitvec0.smt \
+	bitvec0.delta01.smt \
+	bitvec5.smt \
+	quant-Arrays_Q1-noinfer.smt2 \
+	uflia-error0.smt2 \
+	uflia-xs-09-16-3-4-1-5.smt \
+	bug347.smt
 
-#	fuzz01.smt \
+# Incorrect answers:
+#	aufbv-fuzz01.smt \
+#	quant-symmetric_unsat_7.smt2 \
+#	uflia-xs-09-16-3-4-1-5.delta03.smt \
 #
 
 EXTRA_DIST = $(TESTS)

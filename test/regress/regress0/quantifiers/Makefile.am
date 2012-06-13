@@ -17,6 +17,7 @@ TESTS =	\
 	bug290.smt2 \
 	bug291.smt2 \
 	ex3.smt2 \
+	Arrays_Q1-noinfer.smt2 \
 	bignum_quant.smt2 \
 	bug269.smt2 \
 	burns13.smt2 \
@@ -30,9 +31,7 @@ TESTS =	\
 	smtlibf957ea.smt2 \
 	set3.smt2
 
-# removed because of failure with decision engine
 #	array-unsat-simp3.smt2 \
-#	Arrays_Q1-noinfer.smt2 \
 #	ex1.smt2 \
 #	ex7.smt2 \
 #	ricart-agrawala6.smt2 \
