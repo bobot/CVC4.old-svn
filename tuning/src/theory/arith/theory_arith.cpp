@@ -598,7 +598,12 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
       // Add the substitution if not recursive
       Assert(elim == Rewriter::rewrite(elim));
 
-      if(elim.hasSubterm(minVar)){
+
+      static const int MAX_SUB_SIZE = 2;
+      if(right.size() > MAX_SUB_SIZE){
+        Debug("simplify") << "TheoryArith::solve(): did not substitute due to the right hand side containing too many terms: " << minVar << ":" << elim << endl;
+        Debug("simplify") << right.size() << endl;
+      }else if(elim.hasSubterm(minVar)){
         Debug("simplify") << "TheoryArith::solve(): can't substitute due to recursive pattern with sharing: " << minVar << ":" << elim << endl;
       }else if (!minVar.getType().isInteger() || right.isIntegral()) {
         Assert(!elim.hasSubterm(minVar));
