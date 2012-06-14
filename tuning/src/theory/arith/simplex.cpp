@@ -314,6 +314,15 @@ Result::Sat SimplexDecisionProcedure::findModel(bool exactResult){
           findConflictOnTheQueue(AfterVarOrderSearch);
         }
       }
+      if(verbose){
+        if(result ==  Result::UNSAT){
+          cout << "bland found unsat" << endl;
+        }else if(d_queue.empty()){
+          cout << "bland found model" << endl;
+        }else{
+          cout << "bland order missed" << endl;
+        }
+      }
     }else{
       d_queue.transitionToVariableOrderMode();
 
@@ -551,7 +560,9 @@ Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar
     const Rational& coeff = entry.getCoefficient();
     bool weakening = false;
     Constraint c = weakestExplanation(aboveUpper, surplus, v, coeff, weakening, basicVar);
-    Debug("weak") << "weak : " << weakening << " " << c->assertedToTheTheory()
+    Debug("weak") << "weak : " << weakening << " "
+                  << c->assertedToTheTheory() << " "
+                  << d_partialModel.getAssignment(v) << " "
                   << c << endl
                   << c->explainForConflict() << endl;
     anyWeakenings = anyWeakenings || weakening;

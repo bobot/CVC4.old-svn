@@ -163,6 +163,11 @@ class CVC4_PUBLIC SmtEngine {
    */
   bool d_needPostsolve;
 
+  /*
+   * Whether to call theory preprocessing during simplification - on by default* but gets turned off if arithRewriteEq is on
+   */
+  bool d_earlyTheoryPP;
+
   /** A user-imposed cumulative time budget, in milliseconds.  0 = no limit. */
   unsigned long d_timeBudgetCumulative;
   /** A user-imposed per-call time budget, in milliseconds.  0 = no limit. */
@@ -257,9 +262,6 @@ class CVC4_PUBLIC SmtEngine {
   IntStat d_numAssertionsPre;
   /** Num of assertions after ite removal */
   IntStat d_numAssertionsPost;
-
-  /** how the SMT engine got the answer -- SAT solver or DE */
-  BackedStat<std::string> d_statResultSource;
 
 public:
 

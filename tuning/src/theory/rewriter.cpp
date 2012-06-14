@@ -26,6 +26,8 @@ using namespace std;
 namespace CVC4 {
 namespace theory {
 
+std::hash_set<Node, NodeHashFunction> d_rewriteStack;
+
 /**
  * TheoryEngine::rewrite() keeps a stack of things that are being pre-
  * and post-rewritten.  Each element of the stack is a
@@ -62,12 +64,11 @@ Node Rewriter::rewrite(TNode node) {
   return rewriteTo(theory::Theory::theoryOf(node), node);
 }
 
-Node Rewriter::rewriteEquality(theory::TheoryId theoryId, TNode node) {
-  Trace("rewriter") << "Rewriter::rewriteEquality(" << theoryId << "," << node << ")"<< std::endl;
-  return Rewriter::callRewriteEquality(theoryId, node);
-}
-
 Node Rewriter::rewriteTo(theory::TheoryId theoryId, Node node) {
+
+#ifdef CVC4_ASSERTIONS
+  bool isEquality = node.getKind() == kind::EQUAL;
+#endif
 
   Trace("rewriter") << "Rewriter::rewriteTo(" << theoryId << "," << node << ")"<< std::endl;
 
@@ -164,7 +165,15 @@ Node Rewriter::rewriteTo(theory::TheoryId theoryId, Node node) {
         if (newTheoryId != (TheoryId) rewriteStackTop.theoryId || response.status == REWRITE_AGAIN_FULL) {
           // In the post rewrite if we've changed theories, we must do a full rewrite
           Assert(response.node != rewriteStackTop.node);
+          //TODO: this is not thread-safe - should make this assertion dependent on sequential build
+#ifdef CVC4_ASSERTIONS
+          Assert(d_rewriteStack.find(response.node) == d_rewriteStack.end());
+          d_rewriteStack.insert(response.node);
+#endif
           rewriteStackTop.node = rewriteTo(newTheoryId, response.node);
+#ifdef CVC4_ASSERTIONS
+          d_rewriteStack.erase(response.node);
+#endif
           break;
         } else if (response.status == REWRITE_DONE) {
 #ifdef CVC4_ASSERTIONS
@@ -190,6 +199,7 @@ Node Rewriter::rewriteTo(theory::TheoryId theoryId, Node node) {
 
     // If this is the last node, just return
     if (rewriteStack.size() == 1) {
+      Assert(!isEquality || rewriteStackTop.node.getKind() == kind::EQUAL || rewriteStackTop.node.isConst());
       return rewriteStackTop.node;
     }
 

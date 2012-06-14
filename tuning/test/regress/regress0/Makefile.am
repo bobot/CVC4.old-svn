@@ -1,4 +1,4 @@
-SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers rewriterules lemmas push-pop preprocess unconstrained
+SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers rewriterules lemmas push-pop preprocess unconstrained decision
 
 BINARY = cvc4
 if PROOF_REGRESSIONS
@@ -95,6 +95,9 @@ BUG_TESTS = \
 	bug187.smt2 \
 	bug220.smt2 \
 	bug239.smt \
+	bug288.smt \
+	bug288b.smt \
+	bug288c.smt \
 	buggy-ite.smt2 \
 	bug303.smt2 \
 	bug310.cvc \
@@ -103,11 +106,6 @@ BUG_TESTS = \
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 
 EXTRA_DIST = $(TESTS) \
-	bug216.smt2 \
-	bug216.smt2.expect \
-	bug288b.smt \
-	bug288c.smt \
-	bug288.smt \
 	simplification_bug4.smt2.expect
 
 if CVC4_BUILD_PROFILE_COMPETITION

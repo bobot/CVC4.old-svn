@@ -394,7 +394,9 @@ void TheoryEngine::combineTheories() {
     Assert(!d_sharedTerms.areDisequal(carePair.a, carePair.b), "Please don't care about stuff you were notified about");
 
     // The equality in question
-    Node equality = Rewriter::rewriteEquality(carePair.theory, carePair.a.eqNode(carePair.b));
+    Node equality = carePair.a < carePair.b ?
+        carePair.a.eqNode(carePair.b) :
+        carePair.b.eqNode(carePair.a);
 
     // Normalize the equality
     Node normalizedEquality = Rewriter::rewrite(equality);
@@ -862,33 +864,41 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
     }
     return;
   }
-  
-  // We are left with internal distribution of shared literals
-  Assert(atom.getKind() == kind::EQUAL);
-  Node normalizedAtom = Rewriter::rewriteEquality(toTheoryId, atom);
-  Node normalizedAssertion = polarity ? normalizedAtom : normalizedAtom.notNode();
-  
-  // If we normalize to true or false, it's a special case
-  if (normalizedAtom.isConst()) {
-    if (polarity == normalizedAtom.getConst<bool>()) {
-      // Trivially true, just ignore
-      return;
+
+  // See if it rewrites to true or false directly
+  Node normalizedLiteral = Rewriter::rewrite(assertion);
+  if (normalizedLiteral.isConst()) {
+    if (normalizedLiteral.getConst<bool>()) {
+      // trivially true, but theories need to share even trivially true facts
+      // unless of course it is the theory that normalized it
+      if (Theory::theoryOf(atom) == toTheoryId) {
+      	return;
+      }
     } else {
       // Mark the propagation for explanations
-      if (markPropagation(normalizedAssertion, assertion, toTheoryId, fromTheoryId)) {
+      if (markPropagation(normalizedLiteral, assertion, toTheoryId, fromTheoryId)) {
         // Get the explanation (conflict will figure out where it came from)
-        conflict(normalizedAssertion, toTheoryId);
+        conflict(normalizedLiteral, toTheoryId);
       } else {
         Unreachable();
       }
       return;
     }
   }
-  
-  // Try and assert
+
+  // Normalize to lhs < rhs
+  Assert(atom.getKind() == kind::EQUAL);
+  Assert(atom[0] != atom[1]);
+  Node normalizedAtom = atom;
+  if (atom[0] > atom[1]) {
+    normalizedAtom = atom[1].eqNode(atom[0]);
+  }
+  Node normalizedAssertion = polarity ? normalizedAtom : normalizedAtom.notNode();
+
+  // Try and assert (note that we assert the non-normalized one)
   if (markPropagation(normalizedAssertion, assertion, toTheoryId, fromTheoryId)) {
     // Check if has been pre-registered with the theory
-    bool preregistered = d_propEngine->isSatLiteral(normalizedAssertion) && Theory::theoryOf(normalizedAtom) == toTheoryId;
+    bool preregistered = d_propEngine->isSatLiteral(normalizedAssertion) && Theory::theoryOf(normalizedAssertion) == toTheoryId;
     // Assert away
     theoryOf(toTheoryId)->assertFact(normalizedAssertion, preregistered);
     d_factsAsserted = true;
@@ -951,7 +961,7 @@ void TheoryEngine::assertFact(TNode literal)
 
 bool TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
 
-  Debug("theory") << "TheoryEngine::propagate(" << literal << ", " << theory << ")" << std::endl;
+  Debug("theory::propagate") << "TheoryEngine::propagate(" << literal << ", " << theory << ")" << std::endl;
 
   d_propEngine->checkTime();
 
@@ -1137,11 +1147,12 @@ void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
     Node fullConflict = mkExplanation(explanationVector);
     Debug("theory::conflict") << "TheoryEngine::conflict(" << conflict << ", " << theoryId << "): full = " << fullConflict << std::endl;
     Assert(properConflict(fullConflict));
-    lemma(fullConflict, true, false);
+    lemma(fullConflict, true, true);
   } else {
     // When only one theory, the conflict should need no processing
+    Debug("theory::conflict") << "TheoryEngine::conflict(" << conflict << ", " << theoryId << ")" << std::endl;
     Assert(properConflict(conflict));
-    lemma(conflict, true, false);
+    lemma(conflict, true, true);
   }
 }
 
