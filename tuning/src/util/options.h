@@ -275,6 +275,15 @@ struct CVC4_PUBLIC Options {
   int16_t arithHeuristicPivots;
   bool arithHeuristicPivotsSetByUser;
 
+  /**
+   * The maximum number of variable order pivots to do per invokation of simplex.
+   * If this is negative, the number of pivots done is unlimited.
+   * If this is not set by the user, different logics are free to chose different
+   * defaults.
+   */
+  int16_t arithStandardCheckVarOrderPivots;
+  bool arithStandardCheckVarOrderPivotsSetByUser;
+
   /** The heuristic pivot rule for arithmetic. */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithHeuristicPivotRule;
   ArithHeuristicPivotRule arithHeuristicPivotRule;

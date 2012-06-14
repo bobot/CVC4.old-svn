@@ -124,6 +124,8 @@ Options::Options() :
   arithPropagationMode(BOTH_PROP),
   arithHeuristicPivots(0),
   arithHeuristicPivotsSetByUser(false),
+  arithStandardCheckVarOrderPivots(-1),
+  arithStandardCheckVarOrderPivotsSetByUser(false),
   arithHeuristicPivotRule(MINIMUM),
   arithSimplexCheckPeriod(200),
   arithPivotThreshold(2),
@@ -538,6 +540,7 @@ enum OptionValue {
   ARITHMETIC_UNATE_LEMMA_MODE,
   ARITHMETIC_PROPAGATION_MODE,
   ARITHMETIC_HEURISTIC_PIVOTS,
+  ARITHMETIC_VAR_ORDER_PIVOTS,
   ARITHMETIC_PIVOT_RULE,
   ARITHMETIC_CHECK_PERIOD,
   ARITHMETIC_PIVOT_THRESHOLD,
@@ -666,6 +669,7 @@ static struct option cmdlineOptions[] = {
   { "arith-prop", required_argument, NULL, ARITHMETIC_PROPAGATION_MODE },
   { "heuristic-pivots", required_argument, NULL, ARITHMETIC_HEURISTIC_PIVOTS },
   { "heuristic-pivot-rule" , required_argument, NULL, ARITHMETIC_PIVOT_RULE  },
+  { "standard-effort-variable-order-pivots", required_argument, NULL, ARITHMETIC_VAR_ORDER_PIVOTS },
   { "simplex-check-period" , required_argument, NULL, ARITHMETIC_CHECK_PERIOD  },
   { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
   { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
@@ -1386,6 +1390,11 @@ throw(OptionException) {
     case ARITHMETIC_HEURISTIC_PIVOTS:
       arithHeuristicPivots = atoi(optarg);
       arithHeuristicPivotsSetByUser = true;
+      break;
+
+    case ARITHMETIC_VAR_ORDER_PIVOTS:
+      arithStandardCheckVarOrderPivots = atoi(optarg);
+      arithStandardCheckVarOrderPivotsSetByUser = true;
       break;
 
     case ARITHMETIC_PIVOT_RULE:

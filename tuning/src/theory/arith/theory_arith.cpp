@@ -55,6 +55,8 @@ const uint32_t RESET_START = 2;
 
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
   Theory(THEORY_ARITH, c, u, out, valuation, logicInfo, qe),
+  d_qflraStatus(Result::SAT_UNKNOWN),
+  d_unknownsInARow(0),
   d_hasDoneWorkSinceCut(false),
   d_learner(d_pbSubstitutions),
   d_setupLiteralCallback(this),
@@ -100,7 +102,13 @@ TheoryArith::Statistics::Statistics():
   d_restartTimer("theory::arith::restartTimer"),
   d_boundComputationTime("theory::arith::bound::time"),
   d_boundComputations("theory::arith::bound::boundComputations",0),
-  d_boundPropagations("theory::arith::bound::boundPropagations",0)
+  d_boundPropagations("theory::arith::bound::boundPropagations",0),
+  d_unknownChecks("theory::arith::status::unknowns", 0),
+  d_maxUnknownsInARow("theory::arith::status::maxUnknownsInARow", 0),
+  d_avgUnknownsInARow("theory::arith::status::avgUnknownsInARow"),
+  d_revertsOnConflicts("theory::arith::status::revertsOnConflicts",0),
+  d_commitsOnConflicts("theory::arith::status::commitsOnConflicts",0),
+  d_nontrivialSatChecks("theory::arith::status::nontrivialSatChecks",0)
 {
   StatisticsRegistry::registerStat(&d_statAssertUpperConflicts);
   StatisticsRegistry::registerStat(&d_statAssertLowerConflicts);
@@ -125,6 +133,13 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_boundComputationTime);
   StatisticsRegistry::registerStat(&d_boundComputations);
   StatisticsRegistry::registerStat(&d_boundPropagations);
+
+  StatisticsRegistry::registerStat(&d_unknownChecks);
+  StatisticsRegistry::registerStat(&d_maxUnknownsInARow);
+  StatisticsRegistry::registerStat(&d_avgUnknownsInARow);
+  StatisticsRegistry::registerStat(&d_revertsOnConflicts);
+  StatisticsRegistry::registerStat(&d_commitsOnConflicts);
+  StatisticsRegistry::registerStat(&d_nontrivialSatChecks);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -151,6 +166,13 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_boundComputationTime);
   StatisticsRegistry::unregisterStat(&d_boundComputations);
   StatisticsRegistry::unregisterStat(&d_boundPropagations);
+
+  StatisticsRegistry::unregisterStat(&d_unknownChecks);
+  StatisticsRegistry::unregisterStat(&d_maxUnknownsInARow);
+  StatisticsRegistry::unregisterStat(&d_avgUnknownsInARow);
+  StatisticsRegistry::unregisterStat(&d_revertsOnConflicts);
+  StatisticsRegistry::unregisterStat(&d_commitsOnConflicts);
+  StatisticsRegistry::unregisterStat(&d_nontrivialSatChecks);
 }
 
 void TheoryArith::revertOutOfConflict(){
@@ -599,8 +621,8 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
       Assert(elim == Rewriter::rewrite(elim));
 
 
-      static const int MAX_SUB_SIZE = 2;
-      if(right.size() > MAX_SUB_SIZE){
+      static const int MAX_SUB_SIZE = 20;
+      if(false && right.size() > MAX_SUB_SIZE){
         Debug("simplify") << "TheoryArith::solve(): did not substitute due to the right hand side containing too many terms: " << minVar << ":" << elim << endl;
         Debug("simplify") << right.size() << endl;
       }else if(elim.hasSubterm(minVar)){
@@ -1162,9 +1184,16 @@ bool TheoryArith::hasIntegerModel(){
 
 void TheoryArith::check(Effort effortLevel){
   Assert(d_currentPropagationList.empty());
-  Debug("arith") << "TheoryArith::check begun" << std::endl;
+  Debug("effortlevel") << "TheoryArith::check " << effortLevel << std::endl;
+  Debug("arith") << "TheoryArith::check begun " << effortLevel << std::endl;
 
-  d_hasDoneWorkSinceCut = d_hasDoneWorkSinceCut || !done();
+  bool newFacts = !done();
+  Result::Sat previous = d_qflraStatus;
+  if(newFacts){
+    d_qflraStatus = Result::SAT_UNKNOWN;
+    d_hasDoneWorkSinceCut = true;
+  }
+
   while(!done()){
 
     Node assertion = get();
@@ -1175,9 +1204,11 @@ void TheoryArith::check(Effort effortLevel){
 
       Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
       d_out->conflict(possibleConflict);
+      d_qflraStatus = Result::UNSAT;
       return;
     }
     if(d_congruenceManager.inConflict()){
+      d_qflraStatus = Result::UNSAT;
       Node c = d_congruenceManager.conflict();
       revertOutOfConflict();
       Debug("arith::conflict") << "difference manager conflict   " << c << endl;
@@ -1192,10 +1223,39 @@ void TheoryArith::check(Effort effortLevel){
   }
 
   bool emmittedConflictOrSplit = false;
+
+
   Assert(d_conflicts.empty());
-  bool foundConflict = d_simplex.findModel();
-  if(foundConflict){
-    revertOutOfConflict();
+
+  d_qflraStatus = d_simplex.findModel(fullEffort(effortLevel));
+  switch(d_qflraStatus){
+  case Result::SAT:
+    if(newFacts){
+      ++d_statistics.d_nontrivialSatChecks;
+    }
+    d_partialModel.commitAssignmentChanges();
+    d_unknownsInARow = 0;
+    break;
+  case Result::SAT_UNKNOWN:
+    ++d_unknownsInARow;
+    ++(d_statistics.d_unknownChecks);
+    Assert(!fullEffort(effortLevel));
+    d_partialModel.commitAssignmentChanges();
+    d_statistics.d_maxUnknownsInARow.maxAssign(d_unknownsInARow);
+    break;
+  case Result::UNSAT:
+    d_unknownsInARow = 0;
+    if(previous == Result::SAT){
+      ++d_statistics.d_revertsOnConflicts;
+
+      revertOutOfConflict();
+      d_simplex.clearQueue();
+    }else{
+      ++d_statistics.d_commitsOnConflicts;
+
+      d_partialModel.commitAssignmentChanges();
+      revertOutOfConflict();
+    }
 
     Assert(!d_conflicts.empty());
     for(size_t i = 0, i_end = d_conflicts.size(); i < i_end; ++i){
@@ -1204,14 +1264,18 @@ void TheoryArith::check(Effort effortLevel){
       d_out->conflict(conflict);
     }
     emmittedConflictOrSplit = true;
-  }else{
-    d_partialModel.commitAssignmentChanges();
+    break;
+  default:
+    Unimplemented();
   }
+  d_statistics.d_avgUnknownsInARow.addEntry(d_unknownsInARow);
 
+  // This should be fine if sat or unknown
   if(!emmittedConflictOrSplit &&
      (Options::current()->arithPropagationMode == Options::UNATE_PROP ||
       Options::current()->arithPropagationMode == Options::BOTH_PROP)){
     TimerStat::CodeTimer codeTimer(d_statistics.d_newPropTime);
+    Assert(d_qflraStatus != Result::UNSAT);
 
     while(!d_currentPropagationList.empty()){
       Constraint curr = d_currentPropagationList.front();
@@ -1418,6 +1482,8 @@ void TheoryArith::debugPrintModel(){
   }
 }
 
+
+
 Node TheoryArith::explain(TNode n) {
 
   Debug("arith::explain") << "explain @" << getSatContext()->getLevel() << ": " << n << endl;
@@ -1437,7 +1503,9 @@ Node TheoryArith::explain(TNode n) {
 
 
 void TheoryArith::propagate(Effort e) {
-  if((Options::current()->arithPropagationMode == Options::BOUND_INFERENCE_PROP ||
+  // This uses model values for safety. Disable for now.
+  if(d_qflraStatus == Result::SAT &&
+     (Options::current()->arithPropagationMode == Options::BOUND_INFERENCE_PROP ||
       Options::current()->arithPropagationMode == Options::BOTH_PROP)
      && hasAnyUpdates()){
     propagateCandidates();
@@ -1494,6 +1562,7 @@ void TheoryArith::propagate(Effort e) {
 }
 
 bool TheoryArith::getDeltaAtomValue(TNode n) {
+  Assert(d_qflraStatus != Result::SAT_UNKNOWN);
 
   switch (n.getKind()) {
     case kind::EQUAL: // 2 args
@@ -1513,7 +1582,7 @@ bool TheoryArith::getDeltaAtomValue(TNode n) {
 
 
 DeltaRational TheoryArith::getDeltaValue(TNode n) {
-
+  Assert(d_qflraStatus != Result::SAT_UNKNOWN);
   Debug("arith::value") << n << std::endl;
 
   switch(n.getKind()) {
@@ -1737,7 +1806,9 @@ void TheoryArith::presolve(){
 }
 
 EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
-  if (getDeltaValue(a) == getDeltaValue(b)) {
+  if(d_qflraStatus == Result::SAT_UNKNOWN){
+    return EQUALITY_UNKNOWN;
+  }else if (getDeltaValue(a) == getDeltaValue(b)) {
     return EQUALITY_TRUE_IN_MODEL;
   } else {
     return EQUALITY_FALSE_IN_MODEL;

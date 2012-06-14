@@ -514,6 +514,14 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
     Trace("smt") << "setting arith arithPivotThreshold  " << pivotThreshold << std::endl;
     NodeManager::currentNM()->getOptions()->arithPivotThreshold = pivotThreshold;
   }
+  if(! Options::current()->arithStandardCheckVarOrderPivotsSetByUser){
+    int16_t varOrderPivots = -1;
+    if(d_logic.isPure(theory::THEORY_ARITH) && !d_logic.isQuantified()){
+      varOrderPivots = 200;
+    }
+    Trace("smt") << "setting arithStandardCheckVarOrderPivots  " << varOrderPivots << std::endl;
+    NodeManager::currentNM()->getOptions()->arithStandardCheckVarOrderPivots = varOrderPivots;
+  }
 }
 
 void SmtEngine::setInfo(const std::string& key, const SExpr& value)
