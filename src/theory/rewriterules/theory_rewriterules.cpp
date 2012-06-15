@@ -133,7 +133,7 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
                                        QuantifiersEngine* qe) :
   Theory(THEORY_REWRITERULES, c, u, out, valuation, logicInfo, qe),
   d_rules(c), d_ruleinsts(c), d_guardeds(c), d_checkLevel(c,0),
-  d_explanations(c), d_ruleinsts_to_add()
+  d_explanations(c), d_ruleinsts_to_add(), d_ppAssert_on(false)
   {
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
@@ -180,7 +180,11 @@ void TheoryRewriteRules::check(Effort level) {
   while(!done()) {
     // Get all the assertions
     // TODO: Test that it have already been ppAsserted
-    get();
+
+    //if we are here and ppAssert has not been done
+    // that means that ppAssert is off so we need to assert now
+    if(!d_ppAssert_on) addRewriteRule(get());
+    else get();
     // Assertion assertion = get();
     // TNode fact = assertion.assertion;
 
@@ -511,6 +515,7 @@ Node TheoryRewriteRules::explain(TNode n){
 
 Theory::PPAssertStatus TheoryRewriteRules::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
   addRewriteRule(in);
+  d_ppAssert_on = true;
   return PP_ASSERT_STATUS_UNSOLVED;
 }
 

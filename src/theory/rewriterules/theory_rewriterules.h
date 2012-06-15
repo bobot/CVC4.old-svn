@@ -183,6 +183,7 @@ private:
       inside check */
   typedef std::vector< RuleInst* > QRuleInsts;
   QRuleInsts d_ruleinsts_to_add;
+  bool d_ppAssert_on; //Indicate if a ppAssert have been done
  public:
   /** true and false for predicate */
   Node d_true;
