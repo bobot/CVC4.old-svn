@@ -79,7 +79,7 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
   // propagation
   for (unsigned i = 0; i < assertions.size(); ++i) {
     TNode fact = assertions[i];
-    if (!d_bv->inConflict() && !d_bv->propagatedBy(fact, TheoryBV::SUB_BITBLAST)) {
+    if (!d_bv->inConflict() && !d_bv->propagatedBy(fact, SUB_BITBLAST)) {
       // Some atoms have not been bit-blasted yet
       d_bitblaster->bbAtom(fact);
       // Assert to sat
@@ -90,6 +90,17 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
         d_bv->setConflict(mkConjunction(conflictAtoms));
         return false;
       }
+    }
+  }
+
+  // We need to ensure we are fully propagated, so propagate now
+  if (d_useSatPropagation) {
+    bool ok = d_bitblaster->propagate();
+    if (!ok) {
+      std::vector<TNode> conflictAtoms;
+      d_bitblaster->getConflict(conflictAtoms);
+      d_bv->setConflict(mkConjunction(conflictAtoms));
+      return false;
     }
   }
 

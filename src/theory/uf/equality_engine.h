@@ -22,6 +22,7 @@
 #pragma once
 
 #include <queue>
+#include <deque>
 #include <vector>
 #include <ext/hash_map>
 
@@ -190,7 +191,7 @@ public:
    */
   void storeApplicationLookup(FunctionApplication& funNormalized, EqualityNodeId funId);
 
-//private:
+private:
 
   /** The context we are using */
   context::Context* d_context;
@@ -415,10 +416,10 @@ public:
   EqualityNodeId newNode(TNode t);
 
   /** Propagation queue */
-  std::queue<MergeCandidate> d_propagationQueue;
+  std::deque<MergeCandidate> d_propagationQueue;
 
   /** Enqueue to the propagation queue */
-  void enqueue(const MergeCandidate& candidate);
+  void enqueue(const MergeCandidate& candidate, bool back = true);
 
   /** Do the propagation */
   void propagate();

@@ -14,11 +14,31 @@ TESTS =	\
 	bug00.smt \
 	bug338.smt2 \
 	bug347.smt \
+	bug348.smt \
 	try5_small_difret_functions_wp_su.set_char_quoting.il.wp.delta01.smt \
 	diseqprop.01.smt \
 	wchains010ue.delta01.smt \
 	wchains010ue.delta02.smt \
-	dubreva005ue.delta01.smt
+	dubreva005ue.delta01.smt \
+	fuzz00.smt \
+	fuzz01.delta01.smt \
+	fuzz02.delta01.smt \
+	fuzz02.smt \  
+	fuzz03.delta01.smt \
+	fuzz03.smt \
+	fuzz04.delta01.smt \
+	fuzz04.smt \
+	fuzz05.delta01.smt \
+	fuzz05.smt \
+	fuzz06.delta01.smt \
+	fuzz06.smt \
+	fuzz07.smt \
+	fuzz08.smt \
+	fuzz09.smt 
+
+# failing
+#	fuzz01.smt \
+#
 
 EXTRA_DIST = $(TESTS)
 

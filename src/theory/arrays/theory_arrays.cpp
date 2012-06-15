@@ -359,6 +359,9 @@ void TheoryArrays::explain(TNode literal, std::vector<TNode>& assumptions) {
  */
 void TheoryArrays::preRegisterTerm(TNode node)
 {
+  if (d_conflict) {
+    return;
+  }
   Debug("arrays") << spaces(getSatContext()->getLevel()) << "TheoryArrays::preRegisterTerm(" << node << ")" << std::endl;
   switch (node.getKind()) {
   case kind::EQUAL:
@@ -539,9 +542,9 @@ void TheoryArrays::computeCareGraph()
       TNode r1 = d_reads[i];
 
       // Make sure shared terms were identified correctly
-      Assert(theoryOf(r1[0]) == THEORY_ARRAY || isShared(r1[0]));
-      Assert(theoryOf(r1[1]) == THEORY_ARRAY ||
-             d_sharedOther.find(r1[1]) != d_sharedOther.end());
+      // Assert(theoryOf(r1[0]) == THEORY_ARRAY || isShared(r1[0]));
+      // Assert(theoryOf(r1[1]) == THEORY_ARRAY ||
+      //        d_sharedOther.find(r1[1]) != d_sharedOther.end());
 
       for (unsigned j = i + 1; j < size; ++ j) {
         TNode r2 = d_reads[j];
@@ -719,9 +722,9 @@ void TheoryArrays::check(Effort e) {
             Node bk = nm->mkNode(kind::SELECT, fact[0][1], k);
             Node eq = d_valuation.ensureLiteral(ak.eqNode(bk));
             Assert(eq.getKind() == kind::EQUAL);
-            d_equalityEngine.assertEquality(eq, false, fact);
-            propagate(eq.notNode());
-            Trace("arrays-lem")<<"Arrays::addExtLemma "<< ak << " /= " << bk <<"\n";
+            Node lemma = fact[0].orNode(eq.notNode());
+            Trace("arrays-lem")<<"Arrays::addExtLemma " << lemma <<"\n";
+            d_out->lemma(lemma);
             ++d_numExt;
           }
         }

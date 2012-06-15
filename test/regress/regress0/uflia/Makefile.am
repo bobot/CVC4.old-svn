@@ -19,8 +19,10 @@ SMT_TESTS = \
 	xs-09-16-3-4-1-5.delta03.smt \
 	xs-09-16-3-4-1-5.delta04.smt \
 	error0.smt2 \
+	error1.smt \
 	error0.delta01.smt \
-	simple_cyclic2.smt2
+	simple_cyclic2.smt2 \
+	error30.smt
 
 # Regression tests for SMT2 inputs
 SMT2_TESTS = 

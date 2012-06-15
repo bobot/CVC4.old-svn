@@ -56,7 +56,8 @@ ConstraintValue::ConstraintValue(ArithVar x,  ConstraintType t, const DeltaRatio
     d_literal(Node::null()),
     d_negation(NullConstraint),
     d_canBePropagated(false),
-    d_assertionOrder(AssertionOrderSentinel),
+    _d_assertionOrder(AssertionOrderSentinel),
+    d_witness(TNode::null()),
     d_proof(ProofIdSentinel),
     d_split(false),
     d_variablePosition()
@@ -127,7 +128,7 @@ std::ostream& operator<<(std::ostream& o, const ValueCollection& vc){
 }
 
 void ConstraintValue::debugPrint() const {
-  cout << *this << endl;
+  Message() << *this << endl;
 }
 
 void ValueCollection::push_into(std::vector<Constraint>& vec) const {
@@ -347,11 +348,11 @@ void ConstraintValue::setCanBePropagated() {
   d_database->pushCanBePropagatedWatch(this);
 }
 
-void ConstraintValue::setAssertedToTheTheory() {
+void ConstraintValue::setAssertedToTheTheory(TNode witness) {
   Assert(hasLiteral());
   Assert(!assertedToTheTheory());
   Assert(!d_negation->assertedToTheTheory());
-  d_database->pushAssertionOrderWatch(this);
+  d_database->pushAssertionOrderWatch(this, witness);
 }
 
 bool ConstraintValue::isSelfExplaining() const {
@@ -448,7 +449,7 @@ Constraint ConstraintValue::makeNegation(ArithVar v, ConstraintType t, const Del
   }
 }
 
-ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap, ArithCongruenceManager& cm)
+ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap, ArithCongruenceManager& cm, NodeCallBack& raiseConflict)
   : d_varDatabases(),
     d_toPropagate(satContext),
     d_proofs(satContext, false),
@@ -456,7 +457,8 @@ ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Co
     d_av2nodeMap(av2nodeMap),
     d_congruenceManager(cm),
     d_satContext(satContext),
-    d_satAllocationLevel(d_satContext->getLevel())
+    d_satAllocationLevel(d_satContext->getLevel()),
+    d_raiseConflict(raiseConflict)
 {
   d_selfExplainingProof = d_proofs.size();
   d_proofs.push_back(NullConstraint);
@@ -852,7 +854,7 @@ void ConstraintValue::explainBefore(NodeBuilder<>& nb, AssertionOrder order) con
   Assert(!isSelfExplaining() || assertedToTheTheory());
 
   if(assertedBefore(order)){
-    nb << getLiteral();
+    nb << getWitness();
   }else if(hasEqualityEngineProof()){
     d_database->eeExplain(this, nb);
   }else{
@@ -869,7 +871,7 @@ Node ConstraintValue::explainBefore(AssertionOrder order) const{
   Assert(hasProof());
   Assert(!isSelfExplaining() || assertedBefore(order));
   if(assertedBefore(order)){
-    return getLiteral();
+    return getWitness();
   }else if(hasEqualityEngineProof()){
     return d_database->eeExplain(this);
   }else{
@@ -1153,6 +1155,20 @@ void ConstraintDatabase::outputUnateInequalityLemmas(std::vector<Node>& lemmas) 
   }
 }
 
+void ConstraintDatabase::raiseUnateConflict(Constraint ant, Constraint cons){
+  Assert(ant->hasProof());
+  Constraint negCons = cons->getNegation();
+  Assert(negCons->hasProof());
+
+  Debug("arith::unate::conf") << ant << "implies " << cons << endl;
+  Debug("arith::unate::conf") << negCons << " is true." << endl;
+
+
+  Node conf = ConstraintValue::explainConflict(ant, negCons);
+  Debug("arith::unate::conf") << conf << std::endl;
+  d_raiseConflict(conf);
+}
+
 void ConstraintDatabase::unatePropLowerBound(Constraint curr, Constraint prev){
   Debug("arith::unate") << "unatePropLowerBound " << curr << " " << prev << endl;
   Assert(curr != prev);
@@ -1186,17 +1202,25 @@ void ConstraintDatabase::unatePropLowerBound(Constraint curr, Constraint prev){
     //These should all be handled by propagating the LowerBounds!
     if(vc.hasLowerBound()){
       Constraint lb = vc.getLowerBound();
-      if(!lb->isTrue()){
+      if(lb->negationHasProof()){
+        raiseUnateConflict(curr, lb);
+        return;
+      }else if(!lb->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
         Debug("arith::unate") << "unatePropLowerBound " << curr << " implies " << lb << endl;
+
         lb->impliedBy(curr);
       }
     }
     if(vc.hasDisequality()){
       Constraint dis = vc.getDisequality();
-      if(!dis->isTrue()){
+      if(dis->negationHasProof()){
+        raiseUnateConflict(curr, dis);
+        return;
+      }else if(!dis->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
         Debug("arith::unate") << "unatePropLowerBound " << curr << " implies " << dis << endl;
+
         dis->impliedBy(curr);
       }
     }
@@ -1229,7 +1253,10 @@ void ConstraintDatabase::unatePropUpperBound(Constraint curr, Constraint prev){
     //These should all be handled by propagating the UpperBounds!
     if(vc.hasUpperBound()){
       Constraint ub = vc.getUpperBound();
-      if(!ub->isTrue()){
+      if(ub->negationHasProof()){
+        raiseUnateConflict(curr, ub);
+        return;
+      }else if(!ub->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
         Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << ub << endl;
         ub->impliedBy(curr);
@@ -1237,9 +1264,13 @@ void ConstraintDatabase::unatePropUpperBound(Constraint curr, Constraint prev){
     }
     if(vc.hasDisequality()){
       Constraint dis = vc.getDisequality();
-      if(!dis->isTrue()){
+      if(dis->negationHasProof()){
+        raiseUnateConflict(curr, dis);
+        return;
+      }else if(!dis->isTrue()){
         Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << dis << endl;
         ++d_statistics.d_unatePropagateImplications;
+
         dis->impliedBy(curr);
       }
     }
@@ -1279,7 +1310,10 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
     //These should all be handled by propagating the LowerBounds!
     if(vc.hasLowerBound()){
       Constraint lb = vc.getLowerBound();
-      if(!lb->isTrue()){
+      if(lb->negationHasProof()){
+        raiseUnateConflict(curr, lb);
+        return;
+      }else if(!lb->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
         Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << lb << endl;
         lb->impliedBy(curr);
@@ -1287,9 +1321,13 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
     }
     if(vc.hasDisequality()){
       Constraint dis = vc.getDisequality();
-      if(!dis->isTrue()){
+      if(dis->negationHasProof()){
+        raiseUnateConflict(curr, dis);
+        return;
+      }else if(!dis->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
         Debug("arith::unate") << "unatePropUpperBound " << curr << " implies " << dis << endl;
+
         dis->impliedBy(curr);
       }
     }
@@ -1307,15 +1345,22 @@ void ConstraintDatabase::unatePropEquality(Constraint curr, Constraint prevLB, C
     //These should all be handled by propagating the UpperBounds!
     if(vc.hasUpperBound()){
       Constraint ub = vc.getUpperBound();
-      if(!ub->isTrue()){
+      if(ub->negationHasProof()){
+        raiseUnateConflict(curr, ub);
+        return;
+      }else if(!ub->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
         Debug("arith::unate") << "unateProp " << curr << " implies " << ub << endl;
+
         ub->impliedBy(curr);
       }
     }
     if(vc.hasDisequality()){
       Constraint dis = vc.getDisequality();
-      if(!dis->isTrue()){
+      if(dis->negationHasProof()){
+        raiseUnateConflict(curr, dis);
+        return;
+      }else if(!dis->isTrue()){
         ++d_statistics.d_unatePropagateImplications;
         Debug("arith::unate") << "unateProp " << curr << " implies " << dis << endl;
         dis->impliedBy(curr);
