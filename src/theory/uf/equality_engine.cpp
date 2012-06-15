@@ -65,6 +65,7 @@ void EqualityEngine::init() {
   d_triggerDatabaseAllocatedSize = 100000;
   d_triggerDatabase = (char*) malloc(d_triggerDatabaseAllocatedSize);
 
+  ScopedBool sb(d_performNotify, false);
   addTerm(d_true);
   addTerm(d_false);
 

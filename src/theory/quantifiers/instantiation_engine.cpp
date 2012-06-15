@@ -89,7 +89,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   Debug("inst-engine-ctrl") << "IE: Instantiation Round." << std::endl;
   //reset instantiators
   Debug("inst-engine-ctrl") << "Reset IE" << std::endl;
-  for( int i=0; i<theory::THEORY_LAST; i++ ){
+  for( theory::TheoryId i=theory::THEORY_FIRST; i<theory::THEORY_LAST; ++i ){
     if( getQuantifiersEngine()->getInstantiator( i ) ){
       getQuantifiersEngine()->getInstantiator( i )->resetInstantiationRound( effort );
     }
@@ -113,7 +113,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
         int e_use = e;
         if( e_use>=0 ){
           //use each theory instantiator to instantiate f
-          for( int i=0; i<theory::THEORY_LAST; i++ ){
+          for( theory::TheoryId i=theory::THEORY_FIRST; i<theory::THEORY_LAST; ++i ){
             if( getQuantifiersEngine()->getInstantiator( i ) ){
               Debug("inst-engine-debug") << "Do " << getQuantifiersEngine()->getInstantiator( i )->identify() << " " << e_use << std::endl;
               int limitInst = 0;
@@ -136,7 +136,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   //Notice() << "All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
   if( !getQuantifiersEngine()->hasAddedLemma() ){
     Debug("inst-engine-stuck") << "No instantiations produced at this state: " << std::endl;
-    for( int i=0; i<theory::THEORY_LAST; i++ ){
+    for( theory::TheoryId i=theory::THEORY_FIRST; i<theory::THEORY_LAST; ++i ){
       if( getQuantifiersEngine()->getInstantiator( i ) ){
         getQuantifiersEngine()->getInstantiator( i )->debugPrint("inst-engine-stuck");
         Debug("inst-engine-stuck") << std::endl;

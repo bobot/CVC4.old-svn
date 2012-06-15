@@ -649,8 +649,8 @@ public:
   }
 
   /** Get the theory for id */
-  theory::Theory* getTheory(int id) {
-    return d_theoryTable[id];
+  theory::Theory* getTheory(theory::TheoryId theoryId) {
+    return d_theoryTable[theoryId];
   }
 
   /**

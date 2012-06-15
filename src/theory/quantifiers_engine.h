@@ -236,7 +236,7 @@ public:
   QuantifiersEngine(context::Context* c, TheoryEngine* te);
   ~QuantifiersEngine(){}
   /** get instantiator for id */
-  Instantiator* getInstantiator( int id );
+  Instantiator* getInstantiator( theory::TheoryId id );
   /** get theory engine */
   TheoryEngine* getTheoryEngine() { return d_te; }
   /** get equality query object */

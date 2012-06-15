@@ -195,7 +195,7 @@ d_active( c ){
   d_term_db = new TermDb( this );
 }
 
-Instantiator* QuantifiersEngine::getInstantiator( int id ){
+Instantiator* QuantifiersEngine::getInstantiator( theory::TheoryId id ){
   return d_te->getTheory( id )->getInstantiator();
 }
 
