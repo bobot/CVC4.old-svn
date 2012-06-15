@@ -140,7 +140,7 @@ class SmtEnginePrivate {
    * then nothing has been pushed out yet. */
   context::CDO<theory::SubstitutionMap::iterator> d_lastSubstitutionPos;
 
-  static const bool d_doConstantProp = false;
+  static const bool d_doConstantProp = true;
 
   /**
    * Runs the nonclausal solver and tries to solve all the assigned
@@ -899,13 +899,14 @@ void SmtEnginePrivate::nonClausalSimplify() {
         Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                           << "solved " << learnedLiteral << endl;
         Assert(theory::Rewriter::rewrite(d_topLevelSubstitutions.apply(learnedLiteral)).isConst());
-        vector<pair<Node, Node> > equations;
-        constantPropagations.simplifyLHS(d_topLevelSubstitutions, equations, true);
-        if (equations.empty()) {
-          break;
-        }
-        Assert(equations[0].first.isConst() && equations[0].second.isConst() && equations[0].first != equations[0].second);
+        //        vector<pair<Node, Node> > equations;
+        //        constantPropagations.simplifyLHS(d_topLevelSubstitutions, equations, true);
+        //        if (equations.empty()) {
+        //          break;
+        //        }
+        //        Assert(equations[0].first.isConst() && equations[0].second.isConst() && equations[0].first != equations[0].second);
         // else fall through
+        break;
       }
       case Theory::PP_ASSERT_STATUS_CONFLICT:
         // If in conflict, we return false
@@ -931,15 +932,16 @@ void SmtEnginePrivate::nonClausalSimplify() {
           Assert(!t.isConst());
           Assert(constantPropagations.apply(t) == t);
           Assert(d_topLevelSubstitutions.apply(t) == t);
-          vector<pair<Node,Node> > equations;
-          constantPropagations.simplifyLHS(t, c, equations, true);
-          if (!equations.empty()) {
-            Assert(equations[0].first.isConst() && equations[0].second.isConst() && equations[0].first != equations[0].second);
-            d_assertionsToPreprocess.clear();
-            d_assertionsToCheck.push_back(NodeManager::currentNM()->mkConst<bool>(false));
-            return;
-          }
-          d_topLevelSubstitutions.simplifyRHS(constantPropagations);
+          constantPropagations.addSubstitution(t, c, true, false, false);
+          // vector<pair<Node,Node> > equations;a
+          // constantPropagations.simplifyLHS(t, c, equations, true);
+          // if (!equations.empty()) {
+          //   Assert(equations[0].first.isConst() && equations[0].second.isConst() && equations[0].first != equations[0].second);
+          //   d_assertionsToPreprocess.clear();
+          //   d_assertionsToCheck.push_back(NodeManager::currentNM()->mkConst<bool>(false));
+          //   return;
+          // }
+          // d_topLevelSubstitutions.simplifyRHS(constantPropagations);
         }
         else {
           // Keep the literal
@@ -968,7 +970,6 @@ void SmtEnginePrivate::nonClausalSimplify() {
         ++pos;
       }
     }
-
 #ifdef CVC4_ASSERTIONS
     // Check data structure invariants:
     // 1. for each lhs of d_topLevelSubstitutions, does not appear anywhere in rhs of d_topLevelSubstitutions or anywhere in constantPropagations
@@ -984,18 +985,18 @@ void SmtEnginePrivate::nonClausalSimplify() {
     for (pos = constantPropagations.begin(); pos != constantPropagations.end(); ++pos) {
       Assert((*pos).second.isConst());
       Assert(Rewriter::rewrite((*pos).first) == (*pos).first);
-      Node newLeft = d_topLevelSubstitutions.apply((*pos).first);
-      if (newLeft != (*pos).first) {
-        newLeft = Rewriter::rewrite(newLeft);
-        Assert(newLeft == (*pos).second ||
-               (constantPropagations.hasSubstitution(newLeft) && constantPropagations.apply(newLeft) == (*pos).second));
-      }
-      newLeft = constantPropagations.apply((*pos).first);
-      if (newLeft != (*pos).first) {
-        newLeft = Rewriter::rewrite(newLeft);
-        Assert(newLeft == (*pos).second ||
-               (constantPropagations.hasSubstitution(newLeft) && constantPropagations.apply(newLeft) == (*pos).second));
-      }
+      // Node newLeft = d_topLevelSubstitutions.apply((*pos).first);
+      // if (newLeft != (*pos).first) {
+      //   newLeft = Rewriter::rewrite(newLeft);
+      //   Assert(newLeft == (*pos).second ||
+      //          (constantPropagations.hasSubstitution(newLeft) && constantPropagations.apply(newLeft) == (*pos).second));
+      // }
+      // newLeft = constantPropagations.apply((*pos).first);
+      // if (newLeft != (*pos).first) {
+      //   newLeft = Rewriter::rewrite(newLeft);
+      //   Assert(newLeft == (*pos).second ||
+      //          (constantPropagations.hasSubstitution(newLeft) && constantPropagations.apply(newLeft) == (*pos).second));
+      // }
       Assert(constantPropagations.apply((*pos).second) == (*pos).second);
     }
 #endif
