@@ -120,6 +120,8 @@
 (assert-rewrite ((?m mem)(?x0 elt)(?x1 elt)(?exc elt)) () (R_avoid ?m ?x0 ?x1 ?exc)
                  (or (R ?m ?x0 ?x1 ?exc) (and (R ?m ?x0 ?x1 ?x1) (not (R ?m ?x0 ?exc ?exc)))) () )
 
+
+;; Identity of Back to the future p175
 (assert-rewrite ((?p elt)(?q elt)(?u elt)(?v elt)(?w elt)(?m mem)) () (R (store ?m ?p ?q) ?u ?v ?w)
                 (or (and (R ?m ?u ?v ?w) (R_avoid ?m ?u ?w ?p) )
                     (and (not (= ?p ?w)) (R_avoid ?m ?u ?p ?w) (R ?m ?u ?v ?p) (R_avoid ?m ?q ?w ?p) )
@@ -137,6 +139,37 @@
 (assert-propagation ((?m mem)(?x elt)(?y elt)(?z elt)) () ((R ?m ?x ?z ?z)(R ?m ?y ?z ?z)) (R ?m ?x (join ?m ?x ?y) ?z) (((join ?m ?x ?y))) )
 (assert-propagation ((?m mem)(?x elt)(?y elt)) () () (or (and (R ?m ?x (join ?m ?x ?y) (join ?m ?x ?y)) (R ?m ?y (join ?m ?x ?y) (join ?m ?x ?y))) (= (join ?m ?x ?y) null))  (((join ?m ?x ?y))) )
 
+;;extended join
+(assert-propagation ((?m mem)(?x elt)(?y elt)(?z elt)) () ((R ?m ?x ?z (join ?m ?x ?y))(R ?m ?y ?z (join ?m ?x ?y))) (= ?z (join ?m ?x ?y)) () )
+
+
+;; An identity for join
+(assert-propagation ((?p elt)(?q elt)(?m mem)(?u elt)(?v elt)) () ()
+                    (= (join (store ?m ?p ?q) ?u ?v)
+                       (let ((jp (join ?m ?u ?v)))
+                         ;; In ?m: ?u ?v have a nearest point of junction (join ?m ?u ?v)
+                         (ite (and (R ?m ?u jp jp) (R ?m ?v jp jp))
+                              ;; The modification is in the ?u branch
+                              (ite (R ?m ?u ?p jp) (join ?m ?q ?v)
+                              ;; The modification is in the ?v branch
+                                   (ite (R ?m ?v ?p jp) (join ?m ?u ?q)
+                              ;; The modification is not before the point of junction
+                                        (join ?m ?u ?v)
+                                   )
+                              )
+                         ;; In ?m: ?u ?v doens't have a point of junction
+                              ;;The modification is accesible from ?u
+                              (ite (R ?m ?u ?p ?p) (join ?m ?q ?v)
+                              ;;The modification is accesible from ?v
+                                   (ite (R ?m ?v ?p ?p) (join ?m ?u ?q)
+                              ;;The modification is accesible neither from ?u neither from ?v
+                                        (join ?m ?u ?v)
+                                   )
+                              )
+                         )
+                       ))
+                    (((join (store ?m ?p ?q) ?u ?v)))
+                    )
 
 (declare-fun next2 () mem)
 
@@ -151,7 +184,49 @@
 ;;              )
 ;;         )
 
+
+
 ;;Thomas' example3
+;;case to consider
+;;(assert (or (not (R next e1 null null)) (R next e1 null null)))
+
+;;first case to consider
+;;(assert (R next e1 null null))
+
+;;second case to consider
+;; (assert (not (R next e1 null null)))
+
+
+;;hyp
+(assert (= (join next e1 e2) null))
+(assert (R next e2 null null))
+(assert (not (= e2 null)))
+(assert (= next2 (store next e2 e1)))
+(assert (= e3 e2))
+(assert (= e4 (select next e2)))
+
+;; help
+;; have a join point
+(assert (R next e2 e4 e4))
+(assert (R next e4 e4 e4))
+
+(assert (R next e2 (join next e2 e4) e4))
+(assert (not (R next e4 e2 e2)))
+(assert (not (or (and (R next e2 (join next e2 e4) (join next e2 e4))(R next e4 (join next e2 e4) (join next e2 e4))) (= (join next e2 e4) null))))
+
+;;(assert (not (not (= e2 (join next e2 e4)))));; not proved
+
+;;(assert (= e4 (join next e2 e4))) ;;provable
+;; in e2 branch
+;;(assert (not (R next e4 e2 null))) ;; provable
+;; the auxillary join
+;;(assert (= (join next2 e1 e4) null))
+
+
+;;to prove
+;; (assert (not (= (join next2 e3 e4) null)))
+
+
 ;; (assert (not (=> (and (= (join next e1 e2) null)
 ;;                       (R next e2 null null)
 ;;                       (not (= e2 null))
@@ -165,25 +240,27 @@
 ;;         )
 
 
+
+
 ;;Thomas' example3
-(assert(not
-        (=>
-         (and
-          ;; (= (join e1 e2) null)
-          (R next e2 null null)
-          (not (= e2 null)))
-         ;; (next' == upd(next, e2, e1)
-         ;;join(next',e1,e2) == null
-(or (and (not (R next (select next e2) e2 e2)) (not (R next e1 e2 e2) ))
-    (and (R next (select next e2) e2 e2) (not (R next e1 e1 e1) ))
-    (and (R next e1 e2 e2) (not (R next (select next e2) e1 e1)) )
-)
-;; (or
-;;  (and (not (Rf e1 e2 e2)) (not (Rf e2 e2 e2)))
-;;  (and (Rf e1 e2 e2) (not (Rf e2 e1 e1)))
-;;  (and (Rf e2 e2 e2) (not (Rf e1 e1 e1)))
+;; (assert(not
+;;         (=>
+;;          (and
+;;           ;; (= (join e1 e2) null)
+;;           (R next e2 null null)
+;;           (not (= e2 null)))
+;;          ;; (next' == upd(next, e2, e1)
+;;          ;;join(next',e1,e2) == null
+;; (or (and (not (R next (select next e2) e2 e2)) (not (R next e1 e2 e2) ))
+;;     (and (R next (select next e2) e2 e2) (not (R next e1 e1 e1) ))
+;;     (and (R next e1 e2 e2) (not (R next (select next e2) e1 e1)) )
 ;; )
-)))
+;; ;; (or
+;; ;;  (and (not (Rf e1 e2 e2)) (not (Rf e2 e2 e2)))
+;; ;;  (and (Rf e1 e2 e2) (not (Rf e2 e1 e1)))
+;; ;;  (and (Rf e2 e2 e2) (not (Rf e1 e1 e1)))
+;; ;; )
+;; )))
 
 
 
@@ -201,25 +278,37 @@
 ;; ;; )
 ;; )))
 
-;; ;;example4
+;; ;;example4 sat
 ;; (assert (not (=> (and
-;;                   (= (join e1 e2) null)
-;;                   (Rf e2 null null) (not (= e2 null))
+;;                   (= (join next e1 e2) null)
+;;                   (R next e2 null null) (not (= e2 null))
 ;;                   )
-;; (not (Rf e2 e2 e2))
+;; (not (R next e2 e2 e2))
 ;; )))
 
 
-;; ;;example5
+;;example5 unsat
 ;; (assert (and
 ;;          ;; (= (join e1 e2) null)
-;;          (= (f (f e1)) e1)
-;;          (Rf e1 e2 e2)
+;;          (= (select next (select next e1)) e1)
+;;          (R next e1 e2 e2)
 ;;          (not (= e2 e1))
-;;          (not (= e2 (f e1)))
+;;          (not (= e2 (select next e1)))
 ;;          )
 ;; )
 
+;; ;; example 6 unsat
+;; ;; join is the nearest junction point
+;; (assert (and (not (= e3 (join next e1 e2)))
+;;              (R next e1 e3 (join next e1 e2))
+;;              (R next e2 e3 (join next e1 e2))
+;; ))
+
+
+;; example6 unsat
+;; (assert (R next e1 e2 (select next e1)))
+;; (assert (not (= e1 e2)))
+;; (assert (not (= e2 (select next e1))))
 
 
 

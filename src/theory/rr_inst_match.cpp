@@ -324,13 +324,17 @@ public:
 class VarMatcher: public Matcher{
   Node d_var;
   bool d_binded; /* True if the reset bind the variable to some value */
+  EqualityQuery* d_q;
 public:
-  VarMatcher(Node var, QuantifiersEngine* qe): d_var(var), d_binded(false){}
+  VarMatcher(Node var, QuantifiersEngine* qe): d_var(var), d_binded(false){
+    d_q = qe->getEqualityQuery(var.getType());
+  }
   void resetInstantiationRound( QuantifiersEngine* qe ){};
   bool reset( TNode n, InstMatch& m, QuantifiersEngine* qe ){
-    EqualityQuery* q = qe->getEqualityQuery();
-    if(!m.setMatch( q, d_var, n, d_binded )){
+    if(!m.setMatch( d_q, d_var, n, d_binded )){
       //match is in conflict
+      Debug("matching-fail") << "Match fail: " << m.get(d_var)
+                             << " and " << n << std::endl;
       return false;
     } else return true;
   };
@@ -594,6 +598,8 @@ private:
 
 public:
   CandidateGenerator* mkCandidateGenerator(TypeNode ty, TheoryEngine* te){
+    Debug("inst-match-gen") << "MetaCandidateGenerator for type: " << ty
+                            << " Theory : " << Theory::theoryOf(ty) << std::endl;
     if( Theory::theoryOf(ty) == theory::THEORY_DATATYPES ){
       // datatypes::TheoryDatatypes* dt = static_cast<datatypes::TheoryDatatypes *>(te->getTheory( theory::THEORY_DATATYPES ));
       // return new datatypes::rrinst::CandidateGeneratorTheoryClasses(dt);
@@ -647,6 +653,7 @@ private:
   static inline AuxMatcher1 createCgm(TNode pat, QuantifiersEngine* qe){
     Assert( pat.getKind()==INST_CONSTANT );
     TypeNode ty = pat.getType();
+    Debug("inst-match-gen") << "create AllVarMatcher for type: " << ty << std::endl;
     /** In reverse order of matcher sequence */
     /** Distribute it to all the pattern */
     AuxMatcher3 am3(pat,qe);
@@ -1004,7 +1011,7 @@ private:
     size_t index = reset ? 0 : max;
     while(true){
       Debug("matching") << "MultiPatsMatcher::index " << index << "/"
-                        << max << std::endl;
+                        << max << (reset ? " reset_phase" : "") << std::endl;
       if(reset ?
          d_patterns[index]->reset( d_im, qe ) :
          d_patterns[index]->getNextMatch( d_im, qe )){

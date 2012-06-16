@@ -40,7 +40,7 @@ private:
   TheoryDatatypes::EqListN::const_iterator d_eqc_i;
   TheoryDatatypes::EqListN* d_eqc;
 public:
-  CandidateGeneratorTheoryClass( TheoryDatatypes* th): d_th( th ){}
+  CandidateGeneratorTheoryClass( TheoryDatatypes* th): d_th( th ), d_eqc(NULL){}
   ~CandidateGeneratorTheoryClass(){}
   void resetInstantiationRound(){};
   void reset( TNode n ){
