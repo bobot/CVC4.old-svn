@@ -70,7 +70,19 @@ bool TermArgTrie::addTerm2( QuantifiersEngine* qe, Node n, int argIndex ){
   }
 }
 
-TermDb::TermDb( QuantifiersEngine* qe ): d_quantEngine( qe ), d_matching_active( true ), d_processed(qe->getTheoryEngine()->d_context){};
+void addTermEfficient( Node n, std::set< Node >& added){
+  static AvailableInTermDb aitdi;
+  if (Trigger::isAtomicTrigger( n ) && !n.getAttribute(aitdi)){
+    //Already processed but new in this branch
+    n.setAttribute(aitdi,true);
+    added.insert( n );
+    for( size_t i=0; i< n.getNumChildren(); i++ ){
+      addTermEfficient(n[i],added);
+    }
+  }
+
+}
+
 
 void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
   //don't add terms in quantifier bodies
@@ -79,7 +91,9 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
   }
   if( d_processed.find( n )==d_processed.end() ){
     d_processed.insert(n);
+    n.setAttribute(AvailableInTermDb(),true);
     //if this is an atomic trigger, consider adding it
+    //Call the children?
     if( Trigger::isAtomicTrigger( n ) ){
       if( !n.hasAttribute(InstConstantAttribute()) ){
         Debug("term-db") << "register trigger term " << n << std::endl;
@@ -125,9 +139,16 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
       }
     }
   }else{
-    Debug("term-db") << "Already registered trigger term " << n << std::endl;
+     if( Options::current()->efficientEMatching &&
+         !n.hasAttribute(InstConstantAttribute())){
+       //Efficient e-matching must be notified
+       //The term in triggers are not important here
+       Debug("term-db") << "New in this branch term " << n << std::endl;
+       addTermEfficient(n,added);
+     }
   }
-}
+};
+
 
 void TermDb::reset( Theory::Effort effort ){
   int nonCongruentCount = 0;
@@ -348,6 +369,7 @@ void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
       d_ith->newTerms(added);
     }
 #ifdef COMPUTE_RELEVANCE
+    //added contains also the Node that just have been asserted in this branch
     for( std::set< Node >::iterator i=added.begin(), end=added.end();
          i!=end; i++ ){
       if( !withinQuant ){

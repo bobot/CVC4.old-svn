@@ -118,9 +118,9 @@ private:
   /** calculated no match terms */
   bool d_matching_active;
   /** terms processed */
-  context::CDHashSet< Node, NodeHashFunction > d_processed;
+  std::hash_set< Node, NodeHashFunction > d_processed;
 public:
-  TermDb( QuantifiersEngine* qe );
+  TermDb( QuantifiersEngine* qe ): d_quantEngine( qe ), d_matching_active( true ) {};
   ~TermDb(){};
   /** map from APPLY_UF operators to ground terms for that operator */
   std::map< Node, std::vector< Node > > d_op_map;

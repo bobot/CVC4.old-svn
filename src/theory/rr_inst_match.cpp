@@ -1893,34 +1893,32 @@ private:
   }
 
   bool resetOther( QuantifiersEngine* qe ){
-    size_t index = 0;
-    while( index< d_patterns.size() ){
-      Debug("matching") << "MultiEfficientPatsMatcher::reset " << index << std::endl;
-      if(!d_patterns[index]->reset( d_im, qe )){
-        Debug("matching") << "MultiEfficientPatsMatcher::reset fail " << index << std::endl;
-        if(decrIndex(index)) return false;
-        else return getNextMatchOther(qe,index);
-      };
-      ++index;
-    };
-    return true;
+    return getNextMatchOther(qe,true);
   };
 
-  bool getNextMatchOther( QuantifiersEngine* qe, size_t index ){
-    //combine child matches
-    Assert( index< d_patterns.size() );
-    while( true ){
-      Debug("matching") << "MultiEfficientPatsMatcher::index " << index << std::endl;
-      if( d_patterns[index]->getNextMatch( d_im, qe ) ){
-        if ( incrIndex(index) ) return true;
-        Debug("matching") << "MultiEfficientPatsMatcher::rereset " << index << std::endl;
-        // If the initialization failed we come back.
-        if(!d_patterns[index]->reset( d_im, qe )) --index;
+
+  bool getNextMatchOther(QuantifiersEngine* qe, bool reset){
+    size_t index = reset ? 0 : d_patterns.size();
+    if(!reset && decrIndex(index)) return false;
+    if( reset &&
+        (index == d_mc.first.second
+         || (!d_phase_mono && index == d_mc.second.second))
+        && incrIndex(index)) return true;
+    while(true){
+      Debug("matching") << "MultiEfficientPatsMatcher::index " << index << "/"
+                        << d_patterns.size() - 1 << std::endl;
+      if(reset ?
+         d_patterns[index]->reset( d_im, qe ) :
+         d_patterns[index]->getNextMatch( d_im, qe )){
+        if(incrIndex(index)) return true;
+        reset=true;
       }else{
         if(decrIndex(index)) return false;
-      }
+        reset=false;
+      };
     }
   }
+
 public:
 
   bool getNextMatch( QuantifiersEngine* qe ){
@@ -1972,8 +1970,7 @@ public:
         break;
       case ES_NEXT_OTHER:
         {
-          size_t index = d_patterns.size();
-          if(decrIndex(index) || !getNextMatchOther(qe,index)){
+          if(!getNextMatchOther(qe,false)){
             d_step = d_phase_mono ? ES_NEXT1 : ES_NEXT2;
           }else{
             d_step = ES_NEXT_OTHER;

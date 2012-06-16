@@ -384,9 +384,9 @@ private:
   void computeCandidatesPpPairs( Node a, Node b );
   /** collect terms based on inverted path string */
   void collectTermsIps( Ips& ips, SetNode& terms, int index);
-  void collectTermsIps( Ips& ips, SetNode& terms);
   bool collectParentsTermsIps( Node n, Node f, int arg, SetNode& terms, bool addRep, bool modEq = true );
 public:
+  void collectTermsIps( Ips& ips, SetNode& terms);
   /** Register candidate generator cg for pattern pat. (for use with efficient e-matching)
       This request will ensure that calls will be made to cg->addCandidate( n ) for all
       ground terms n that are relevant for matching with pat.

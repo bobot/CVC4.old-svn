@@ -257,14 +257,6 @@ bool Trigger::isUsable( Node n, Node f ){
   }
 }
 
-bool Trigger::isUsableTrigger( Node n, Node f ){
-  //return n.getAttribute(InstConstantAttribute())==f && n.getKind()==APPLY_UF;
-  return n.getAttribute(InstConstantAttribute())==f && isAtomicTrigger( n ) && isUsable( n, f );
-}
-
-bool Trigger::isAtomicTrigger( Node n ){
-  return n.getKind()==APPLY_UF || n.getKind()==SELECT || n.getKind()==STORE;
-}
 bool Trigger::isSimpleTrigger( Node n ){
   if( isAtomicTrigger( n ) ){
     for( int i=0; i<(int)n.getNumChildren(); i++ ){

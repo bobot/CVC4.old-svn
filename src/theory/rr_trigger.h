@@ -128,9 +128,17 @@ public:
   static void collectPatTerms( QuantifiersEngine* qe, Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst = false );
 public:
   /** is usable trigger */
+  static inline bool isUsableTrigger( TNode n, TNode f ){
+    //return n.getAttribute(InstConstantAttribute())==f && n.getKind()==APPLY_UF;
+    return n.getAttribute(InstConstantAttribute())==f && isAtomicTrigger( n ) && isUsable( n, f );
+  }
+  static inline bool isAtomicTrigger( TNode n ){
+    return
+      n.getKind()==kind::APPLY_UF ||
+      n.getKind()==kind::SELECT ||
+      n.getKind()==kind::STORE;
+  }
   static bool isUsableTrigger( std::vector< Node >& nodes, Node f );
-  static bool isUsableTrigger( Node n, Node f );
-  static bool isAtomicTrigger( Node n );
   static bool isSimpleTrigger( Node n );
   /** filter all nodes that have instances */
   static void filterInstances( std::vector< Node >& nodes );
