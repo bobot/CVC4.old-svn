@@ -48,6 +48,7 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
   class RewriteRule{
   public:
     // constant
+    const size_t id; //for debugging
     const bool d_split;
     mutable Trigger trigger;
     std::vector<Node> guards;

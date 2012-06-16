@@ -277,13 +277,13 @@ bool willDecide(TNode node, bool positive = true){
   }
 }
 
-
+static size_t id_next = 0;
 RewriteRule::RewriteRule(TheoryRewriteRules & re,
                          Trigger & tr, Trigger & tr2,
                          std::vector<Node> & g, Node b, TNode nt,
                          std::vector<Node> & fv,std::vector<Node> & iv,
                          std::vector<Node> & to_r, bool drr) :
-  d_split(willDecide(b)),
+  id(++id_next), d_split(willDecide(b)),
   trigger(tr), body(b), new_terms(nt), free_vars(), inst_vars(),
   body_match(re.getSatContext()),trigger_for_body_match(tr2),
   d_cache(re.getSatContext(),re.getQuantifiersEngine()), directrr(drr){
@@ -300,6 +300,7 @@ bool RewriteRule::inCache(TheoryRewriteRules & re, InstMatch & im)const{
 
 /** A rewrite rule */
 void RewriteRule::toStream(std::ostream& out) const{
+  out << "[" << id << "] ";
   for(std::vector<Node>::const_iterator
         iter = guards.begin(); iter != guards.end(); ++iter){
     out << *iter;
@@ -308,7 +309,7 @@ void RewriteRule::toStream(std::ostream& out) const{
   out << "{";
   for(BodyMatch::const_iterator
         iter = body_match.begin(); iter != body_match.end(); ++iter){
-    out << (*iter).first << "(" << (*iter).second << ")" << ",";
+    out << (*iter).first << "[" << (*iter).second->id << "]" << ",";
   };
   out << "}" << (directrr?"*":"") << std::endl;
 }
