@@ -392,6 +392,7 @@ void InstMatchGenerator::resetInstantiationRound( QuantifiersEngine* qe ){
     for( int i=0; i<(int)d_children_multi_efficient.size(); i++ ){
       d_children_multi_efficient[i]->resetInstantiationRound( qe );
     }
+    d_children_multi_efficient_index = 0;
   }else{
     if( d_cg ){
       d_cg->resetInstantiationRound();
@@ -406,6 +407,10 @@ void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
       d_children[i]->reset( eqc, qe );
       //std::cout << d_children[i]->d_match_pattern.getOperator() << ":" << qe->getTermDatabase()->d_op_map[ d_children[i]->d_match_pattern.getOperator() ].size() << " ";
     }
+    for( int i=0; i<(int)d_children_multi_efficient.size(); i++ ){
+      d_children_multi_efficient[i]->reset( eqc, qe );
+    }
+    d_children_multi_efficient_index = 0;
     //std::cout << std::endl;
     d_partial.clear();
   }else{
@@ -430,7 +435,26 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
   }
 
   // It's a multi-trigger, d_partial is used as the stack for the search.
-  if( d_partial.empty() ) d_partial.push_back( InstMatch() );
+  if( d_partial.empty() ){
+    Debug("inst_match::getNextMatch") << "inst_match::getNextMatch new round" << std::endl;
+    // First search of this round
+    d_partial.push_back( InstMatch() );
+    if(d_matchPolicy == MATCH_GEN_EFFICIENT_E_MATCH){
+      // Ask to efficient e-matching a new possibility
+      Assert(d_children_multi_efficient_index == 0 &&
+             d_children_multi_efficient.size() > 1);
+      while(!d_children_multi_efficient[d_children_multi_efficient_index]->
+            getNextMatch( d_partial.back(), qe)) {
+        d_partial.back().clear();
+        ++d_children_multi_efficient_index;
+        if(d_children_multi_efficient_index == d_children_multi_efficient.size()){
+          // None of the patterns have new matching terms
+          Debug("inst_match::getNextMatch") << "inst_match::getNextMatch No new terms by efficient e-matching" << std::endl;
+          return false;
+        }
+      }
+    }
+  }
   /** todo reset? */
 
   while( d_children.size() + 1 != d_partial.size() ) {
@@ -438,18 +462,47 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
 
     Assert(d_children.size() + 1 >= d_partial.size());
     const size_t index = d_partial.size() - 2;
-    if(!d_children[index]->getNextMatch( d_partial.back(), qe ) ){
+    Debug("inst_match::getNextMatch") << "inst_match::getNextMatch "
+                                      << "meindex " << d_children_multi_efficient_index
+                                      << " index " << index
+                                      << " d_partial " << d_partial.back() << std::endl;
+    if( !((d_matchPolicy == MATCH_GEN_EFFICIENT_E_MATCH &&
+           d_children_multi_efficient_index == index)
+          || d_children[index]->getNextMatch( d_partial.back(), qe ))
+       ){
       /** No more match: backtrack */
       d_children[index]->reset( Node::null(), qe );
       d_partial.pop_back();
-      if(d_partial.size() == 1) return false;  /** No more possibilities */
-      d_partial.pop_back();
+      if(d_matchPolicy == MATCH_GEN_EFFICIENT_E_MATCH &&
+         d_children_multi_efficient_index == index - 1)
+        d_partial.pop_back(); //step above this one
+      if(d_partial.size() == 1){
+        /* Bottom of the stack */
+        if(d_matchPolicy != MATCH_GEN_EFFICIENT_E_MATCH)
+          return false;  /** No more possibilities */
+
+        // Ask to efficient e-matching a new possibility
+        d_partial.back().clear();
+        while(!d_children_multi_efficient[d_children_multi_efficient_index]->
+              getNextMatch( d_partial.back(), qe)) {
+          d_partial.back().clear();
+          ++d_children_multi_efficient_index;
+          if(d_children_multi_efficient_index == d_children_multi_efficient.size())
+            // The patterns have no more new matching terms
+            // (given by efficient e matching)
+            Debug("inst_match::getNextMatch") << "inst_match::getNextMatch No more new terms by efficient e-matching" << std::endl;
+            return false;
+        }
+      }else d_partial.pop_back();
     };
   }
 
   /** A match is found */
   m = d_partial.back();
   d_partial.pop_back();
+  if(d_matchPolicy == MATCH_GEN_EFFICIENT_E_MATCH &&
+     d_children_multi_efficient_index == d_partial.size() - 1)
+    d_partial.pop_back(); //step above this one
   return true;
 
 }
