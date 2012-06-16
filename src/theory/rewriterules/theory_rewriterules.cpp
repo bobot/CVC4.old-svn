@@ -458,17 +458,11 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
                            inst->substNode(*this,rule->guards[0],cache) : equality[0],
                            conjunction);
       Debug("rewriterules-directrr") << "lemma:" << lemma << " :: " << inst->d_matched;
-      if(rule->guards.size() > 0){
-        //reduction rule
-        Assert(rule->guards.size() == 1);
-        conjunction << inst->d_matched;
-      }else{
-        //rewrite rule
-        TypeNode booleanType = NodeManager::currentNM()->booleanType();
-        if(equality[1].getType(false) == booleanType)
-          equality = inst->d_matched.iffNode(equality[1]);
-        else equality = inst->d_matched.eqNode(equality[1]);
-      }
+      //rewrite rule
+      TypeNode booleanType = NodeManager::currentNM()->booleanType();
+      if(equality[1].getType(false) == booleanType)
+        equality = inst->d_matched.iffNode(equality[1]);
+      else equality = inst->d_matched.eqNode(equality[1]);
       lemma = normalizeConjunction(conjunction).impNode(equality);
       Debug("rewriterules-directrr") << " -> " << lemma << std::endl;
     }
