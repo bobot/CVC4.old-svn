@@ -127,6 +127,11 @@ void InstMatchGenerator::initializePatterns( std::vector< Node >& pats, Quantifi
   for( int i=0; i<(int)pats.size(); i++ ){
     d_children.push_back( new InstMatchGenerator( pats[i], qe, childMatchPolicy ) );
   }
+  if (d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH)
+    for( int i=0; i<(int)pats.size(); i++ ){
+      d_children_multi_efficient.push_back(
+          new InstMatchGenerator( pats[i], qe,MATCH_GEN_EFFICIENT_E_MATCH ) );
+    }
   d_pattern = Node::null();
   d_match_pattern = Node::null();
   d_cg = NULL;
@@ -384,6 +389,9 @@ void InstMatchGenerator::resetInstantiationRound( QuantifiersEngine* qe ){
     for( int i=0; i<(int)d_children.size(); i++ ){
       d_children[i]->resetInstantiationRound( qe );
     }
+    for( int i=0; i<(int)d_children_multi_efficient.size(); i++ ){
+      d_children_multi_efficient[i]->resetInstantiationRound( qe );
+    }
   }else{
     if( d_cg ){
       d_cg->resetInstantiationRound();
@@ -414,37 +422,36 @@ void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
 
 bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
   m.d_matched = Node::null();
-  if( d_match_pattern.isNull() ){
-    int index = (int)d_partial.size();
-    while( index>=0 && index<(int)d_children.size() ){
-      if( index>0 ){
-        d_partial.push_back( InstMatch( &d_partial[index-1] ) );
-      }else{
-        d_partial.push_back( InstMatch() );
-      }
-      if( d_children[index]->getNextMatch( d_partial[index], qe ) ){
-        index++;
-      }else{
-        d_children[index]->reset( Node::null(), qe );
-        d_partial.pop_back();
-        if( !d_partial.empty() ){
-          d_partial.pop_back();
-        }
-        index--;
-      }
-    }
-    if( index>=0 ){
-      m = d_partial.back();
-      d_partial.pop_back();
-      return true;
-    }else{
-      return false;
-    }
-  }else{
+  if(!d_match_pattern.isNull() ){
+    // Mono-trigger
     bool res = getNextMatch2( m, qe, true );
     Assert(!res || !m.d_matched.isNull());
     return res;
   }
+
+  // It's a multi-trigger, d_partial is used as the stack for the search.
+  if( d_partial.empty() ) d_partial.push_back( InstMatch() );
+  /** todo reset? */
+
+  while( d_children.size() + 1 != d_partial.size() ) {
+    d_partial.push_back( InstMatch( &d_partial.back() ) );
+
+    Assert(d_children.size() + 1 >= d_partial.size());
+    const size_t index = d_partial.size() - 2;
+    if(!d_children[index]->getNextMatch( d_partial.back(), qe ) ){
+      /** No more match: backtrack */
+      d_children[index]->reset( Node::null(), qe );
+      d_partial.pop_back();
+      if(d_partial.size() == 1) return false;  /** No more possibilities */
+      d_partial.pop_back();
+    };
+  }
+
+  /** A match is found */
+  m = d_partial.back();
+  d_partial.pop_back();
+  return true;
+
 }
 
 

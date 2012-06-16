@@ -185,6 +185,7 @@ private:
   /** children generators */
   std::vector< InstMatchGenerator* > d_children;
   std::vector< int > d_children_index;
+  std::vector< InstMatchGenerator* > d_children_multi_efficient;
   /** partial vector */
   std::vector< InstMatch > d_partial;
   /** eq class */
