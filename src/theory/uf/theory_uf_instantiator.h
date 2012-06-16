@@ -44,6 +44,14 @@ class HandlerPpDispatcher;
 
 typedef std::set<Node> SetNode;
 
+template<class T>
+class CleanUpPointer{
+public:
+  inline void operator()(T** e){
+    delete(*e);
+  };
+};
+
 class EfficientHandler{
 public:
   typedef std::pair< Node, size_t > MonoCandidate;
@@ -52,8 +60,8 @@ public:
   typedef std::pair< MonoCandidates, MonoCandidates > MultiCandidates;
 private:
   /* Queue of candidates */
-  typedef context::CDQueue< MonoCandidates > MonoCandidatesQueue;
-  typedef context::CDQueue< MultiCandidates > MultiCandidatesQueue;
+  typedef context::CDQueue< MonoCandidates *, CleanUpPointer<MonoCandidates> > MonoCandidatesQueue;
+  typedef context::CDQueue< MultiCandidates *, CleanUpPointer<MultiCandidates> > MultiCandidatesQueue;
   MonoCandidatesQueue d_monoCandidates;
   typedef uf::SetNode::iterator SetNodeIter;
   context::CDO<SetNodeIter> d_si;
@@ -71,11 +79,12 @@ private:
 protected:
   void addMonoCandidate(SetNode & s, size_t index){
     Assert(!s.empty());
-    d_monoCandidates.push(make_pair(s,index));
+    d_monoCandidates.push(new MonoCandidates(s,index));
   }
   void addMultiCandidate(SetNode & s1, size_t index1, SetNode & s2, size_t index2){
     Assert(!s1.empty() && !s2.empty());
-    d_multiCandidates.push(make_pair(make_pair(s1,index1),make_pair(s2,index2)));
+    d_multiCandidates.push(new MultiCandidates(MonoCandidates(s1,index1),
+                                               MonoCandidates(s2,index2)));
   }
 public:
   EfficientHandler(context::Context * c):
@@ -84,19 +93,19 @@ public:
 
   bool getNextMonoCandidate(MonoCandidate & candidate){
     if(d_monoCandidates.empty()) return false;
-    const MonoCandidates & front = d_monoCandidates.front();
+    const MonoCandidates * front = d_monoCandidates.front();
     SetNodeIter si_tmp;
     if(d_mono_first){
-      Assert(front.first.begin() != front.first.end());
+      Assert(front->first.begin() != front->first.end());
       d_mono_first = false;
-      si_tmp=front.first.begin();
+      si_tmp=front->first.begin();
     }else{
       si_tmp = d_si;
       ++si_tmp;
     };
-    if(si_tmp != front.first.end()){
+    if(si_tmp != front->first.end()){
       candidate.first = (*si_tmp);
-      candidate.second = front.second;
+      candidate.second = front->second;
       d_si = si_tmp;
       return true;
     };
@@ -107,35 +116,35 @@ public:
 
   bool getNextMultiCandidate(MultiCandidate & candidate){
     if(d_multiCandidates.empty()) return false;
-    const MultiCandidates& front = d_multiCandidates.front();
+    const MultiCandidates* front = d_multiCandidates.front();
     SetNodeIter si1_tmp;
     SetNodeIter si2_tmp;
     if(d_multi_first){
-      Assert(front.first.first.begin() != front.first.first.end());
-      Assert(front.second.first.begin() != front.second.first.end());
-      si1_tmp = front.first.first.begin();
-      si2_tmp = front.second.first.begin();
+      Assert(front->first.first.begin() != front->first.first.end());
+      Assert(front->second.first.begin() != front->second.first.end());
+      si1_tmp = front->first.first.begin();
+      si2_tmp = front->second.first.begin();
     }else{
       si1_tmp = d_si1;
       si2_tmp = d_si2;
       ++si2_tmp;
     };
-    if(si2_tmp != front.second.first.end()){
+    if(si2_tmp != front->second.first.end()){
       candidate.first.first = *si1_tmp;
-      candidate.first.second = front.first.second;
+      candidate.first.second = front->first.second;
       candidate.second.first = *si2_tmp;
-      candidate.second.second = front.second.second;
+      candidate.second.second = front->second.second;
       if(d_multi_first){d_si1 = si1_tmp; d_multi_first = false; };
       d_si2 = si2_tmp;
       return true;
     }; // end of the second set
-    si2_tmp = front.second.first.begin();
+    si2_tmp = front->second.first.begin();
     ++si1_tmp;
-    if(si1_tmp != front.first.first.end()){
+    if(si1_tmp != front->first.first.end()){
       candidate.first.first = *si1_tmp;
-      candidate.first.second = front.first.second;
+      candidate.first.second = front->first.second;
       candidate.second.first = *si2_tmp;
-      candidate.second.second = front.second.second;
+      candidate.second.second = front->second.second;
       d_si1 = si1_tmp;
       d_si2 = si2_tmp;
       return true;
