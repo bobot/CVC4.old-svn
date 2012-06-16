@@ -843,8 +843,7 @@ class DumbPatMatcher: public PatMatcher{
 /* The order of the matching is:
    reset arg1, nextMatch arg1, reset arg2, nextMatch arg2, ... */
 ApplyMatcher::ApplyMatcher( Node pat, QuantifiersEngine* qe): d_pattern(pat){
-  Assert( pat.hasAttribute(InstConstantAttribute()) );
-  Assert( pat.getKind() == kind::APPLY_UF );
+  //  Assert( pat.hasAttribute(InstConstantAttribute()) );
 
   //set-up d_children, d_children_index and d_binded
   for( size_t i=0; i< d_pattern.getNumChildren(); ++i ){

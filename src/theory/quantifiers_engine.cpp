@@ -70,13 +70,15 @@ bool TermArgTrie::addTerm2( QuantifiersEngine* qe, Node n, int argIndex ){
   }
 }
 
+TermDb::TermDb( QuantifiersEngine* qe ): d_quantEngine( qe ), d_matching_active( true ), d_processed(qe->getTheoryEngine()->d_context){};
+
 void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
   //don't add terms in quantifier bodies
   if( withinQuant && !Options::current()->registerQuantBodyTerms ){
     return;
   }
   if( d_processed.find( n )==d_processed.end() ){
-    d_processed[n] = true;
+    d_processed.insert(n);
     //if this is an atomic trigger, consider adding it
     if( Trigger::isAtomicTrigger( n ) ){
       if( !n.hasAttribute(InstConstantAttribute()) ){
@@ -122,6 +124,8 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
         addTerm( n[i], added, withinQuant );
       }
     }
+  }else{
+    Debug("term-db") << "Already registered trigger term " << n << std::endl;
   }
 }
 
