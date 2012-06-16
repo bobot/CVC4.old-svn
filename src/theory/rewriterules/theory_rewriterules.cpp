@@ -425,6 +425,22 @@ void explainInstantiation(const RuleInst *inst, TNode substHead, NodeBuilder<> &
   }
 }
 
+Node skolemizeBody( Node f ){
+  /*TODO skolemize the subformula of s with constant or skolemize
+    directly in the body of the rewrite rule with an uninterpreted
+    function.
+   */
+  if ( f.getKind()!=EXISTS ) return f;
+  std::vector< Node > vars;
+  std::vector< Node > csts;
+  for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+    csts.push_back( NodeManager::currentNM()->mkSkolem( f[0][i].getType()) );
+    vars.push_back( f[0][i] );
+  }
+  return f[ 1 ].substitute( vars.begin(), vars.end(),
+                            csts.begin(), csts.end() );
+}
+
 
 void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
@@ -432,7 +448,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   const RewriteRule * rule = inst->rule;
   ++rule->nb_applied;
   // Can be more something else than an equality in fact (eg. propagation rule)
-  Node equality = inst->substNode(*this,rule->body,cache);
+  Node equality = skolemizeBody(inst->substNode(*this,rule->body,cache));
   if(propagate_as_lemma){
     Node lemma = equality;
     if(rule->directrr){
@@ -460,6 +476,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
       substGuards(inst,cache,conjunction);
       lemma = normalizeConjunction(conjunction).impNode(equality);
     }
+    Debug("rewriterules::lemma") << "propagated " << lemma << std::endl;
     getOutputChannel().lemma(lemma);
   }else{
     Node lemma_lit = equality;
