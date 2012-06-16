@@ -389,6 +389,43 @@ void TheoryRewriteRules::notifyEq(TNode lhs, TNode rhs) {
 };
 
 
+Node TheoryRewriteRules::normalizeConjunction(NodeBuilder<> & conjunction){
+  Assert(conjunction.getKind() == kind::AND);
+  switch(conjunction.getNumChildren()){
+  case 0:
+    return d_true;
+  case 1:
+    return conjunction[0];
+  default:
+    return conjunction;
+  }
+
+}
+
+void explainInstantiation(const RuleInst *inst, TNode substHead, NodeBuilder<> & conjunction ){
+  TypeNode booleanType = NodeManager::currentNM()->booleanType();
+  // if the rule is directly applied by the rewriter,
+  // we should take care to use the representative that can't be directly rewritable:
+  // If "car(a)" is somewhere and we know that "a = cons(x,l)" we shouldn't
+  // add the constraint car(cons(x,l) = x because it is rewritten to x = x.
+  // But we should say cons(a) = x
+  Assert(!inst->d_matched.isNull());
+  Assert( inst->d_matched.getKind() == kind::APPLY_UF);
+  Assert( substHead.getKind() == kind::APPLY_UF );
+  Assert( inst->d_matched.getOperator() == substHead.getOperator() );
+  Assert(conjunction.getKind() == kind::AND);
+  // replace the left hand side by the term really matched
+  NodeBuilder<2> nb;
+  for(size_t i = 0,
+        iend = inst->d_matched.getNumChildren(); i < iend; ++i){
+    nb.clear( inst->d_matched[i].getType(false) == booleanType ?
+              kind::IFF : kind::EQUAL );
+    nb << inst->d_matched[i] << substHead[i];
+    conjunction << static_cast<Node>(nb);
+  }
+}
+
+
 void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
   Debug("rewriterules") << "propagateRule" << *inst << std::endl;
@@ -398,59 +435,59 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   Node equality = inst->substNode(*this,rule->body,cache);
   if(propagate_as_lemma){
     Node lemma = equality;
-    if(rule->guards.size() > 0){
-      // TODO: problem with reduction rule => instead of <=>
-      lemma = substGuards(inst, cache).impNode(equality);
-    };
     if(rule->directrr){
-      TypeNode booleanType = NodeManager::currentNM()->booleanType();
-      // if the rule is directly applied by the rewriter,
-      // we should take care to use the representative that can't be directly rewritable:
-      // If "car(a)" is somewhere and we know that "a = cons(x,l)" we shouldn't
-      // add the constraint car(cons(x,l) = x because it is rewritten to x = x.
-      // But we should say cons(a) = x
-      Assert(lemma.getKind() == kind::EQUAL ||
-             lemma.getKind() == kind::IMPLIES);
-      Assert(!inst->d_matched.isNull());
-      Assert( inst->d_matched.getOperator() == lemma[0].getOperator() );
-      // replace the left hand side by the term really matched
+      NodeBuilder<> conjunction(kind::AND);
+      explainInstantiation(inst,
+                           rule->guards.size() > 0?
+                           inst->substNode(*this,rule->guards[0],cache) : equality[0],
+                           conjunction);
       Debug("rewriterules-directrr") << "lemma:" << lemma << " :: " << inst->d_matched;
-      Node hyp;
-      NodeBuilder<2> nb;
-      if(inst->d_matched.getNumChildren() == 1){
-        nb.clear( inst->d_matched[0].getType(false) == booleanType ?
-                  kind::IFF : kind::EQUAL );
-        nb << inst->d_matched[0] << lemma[0][0];
-        hyp = nb;
+      if(rule->guards.size() > 0){
+        //reduction rule
+        Assert(rule->guards.size() == 1);
+        conjunction << inst->d_matched;
       }else{
-        NodeBuilder<> andb(kind::AND);
-        for(size_t i = 0,
-              iend = inst->d_matched.getNumChildren(); i < iend; ++i){
-          nb.clear( inst->d_matched[i].getType(false) == booleanType ?
-                    kind::IFF : kind::EQUAL );
-          nb << inst->d_matched[i] << lemma[0][i];
-          andb << static_cast<Node>(nb);
-        }
-        hyp = andb;
-      };
-      nb.clear(lemma.getKind());
-      nb << inst->d_matched << lemma[1];
-      lemma = hyp.impNode(static_cast<Node>(nb));
+        //rewrite rule
+        equality = inst->d_matched.eqNode(equality[1]);
+      }
+      lemma = normalizeConjunction(conjunction).impNode(equality);
       Debug("rewriterules-directrr") << " -> " << lemma << std::endl;
-    };
-    // Debug("rewriterules") << "lemma:" << lemma << std::endl;
+    }
+    else if(rule->guards.size() > 0){
+      // We can use implication for reduction rules since the head is known
+      // to be true
+      NodeBuilder<> conjunction(kind::AND);
+      substGuards(inst,cache,conjunction);
+      lemma = normalizeConjunction(conjunction).impNode(equality);
+    }
     getOutputChannel().lemma(lemma);
   }else{
-    Assert(!direct_rewrite);
-    Node lemma_lit = getValuation().ensureLiteral(equality);
+    Node lemma_lit = equality;
+    if(rule->directrr && rule->guards.size() == 0)
+      lemma_lit = inst->d_matched.eqNode(equality[1]); // rewrite rules
+    lemma_lit = getValuation().ensureLiteral(lemma_lit);
     ExplanationMap::const_iterator p = d_explanations.find(lemma_lit);
     if(p!=d_explanations.end()) return; //Already propagated
     bool value;
     if(getValuation().hasSatValue(lemma_lit,value)){
       /* Already assigned */
       if (!value){
-        Node conflict = substGuards(inst,cache,lemma_lit);
-        getOutputChannel().conflict(conflict);
+        NodeBuilder<> conflict(kind::AND);
+
+        if(rule->directrr){
+          explainInstantiation(inst,
+                               rule->guards.size() > 0?
+                               inst->substNode(*this,rule->guards[0],cache) : equality[0],
+                               conflict);
+          if(rule->guards.size() > 0){
+            //reduction rule
+            Assert(rule->guards.size() == 1);
+            conflict << inst->d_matched; //this one will be two times
+          }
+        }
+        substGuards(inst,cache,conflict);
+        conflict << lemma_lit;
+        getOutputChannel().conflict(normalizeConjunction(conflict));
       };
     }else{
       getOutputChannel().propagate(lemma_lit);
@@ -484,34 +521,39 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   }
 };
 
-
-Node TheoryRewriteRules::substGuards(const RuleInst *inst,
+void TheoryRewriteRules::substGuards(const RuleInst *inst,
                                      TCache cache,
-                                     /* Already substituted */
-                                     Node last){
+                                     NodeBuilder<> & conjunction){
   const RewriteRule * r = inst->rule;
-  /** No guards */
-  const size_t size = r->guards.size();
-  if(size == 0) return (last.isNull()?d_true:last);
-  /** One guard */
-  if(size == 1 && last.isNull()) return inst->substNode(*this,r->guards[0],cache);
   /** Guards */ /* TODO remove the duplicate with a set like in uf? */
-  NodeBuilder<> conjunction(kind::AND);
   for(std::vector<Node>::const_iterator p = r->guards.begin();
       p != r->guards.end(); ++p) {
     Assert(!p->isNull());
     conjunction << inst->substNode(*this,*p,cache);
   };
-  if (!last.isNull()) conjunction << last;
-  return conjunction;
 }
 
 Node TheoryRewriteRules::explain(TNode n){
   ExplanationMap::const_iterator p = d_explanations.find(n);
   Assert(p!=d_explanations.end(),"I forget the explanation...");
-  RuleInst i = (*p).second;
-  //Notice() << n << "<-" << *(i.rule) << std::endl;
-  return substGuards(&i, TCache ());
+  RuleInst inst = (*p).second;
+  const RewriteRule * rule = inst.rule;
+  TCache cache;
+  NodeBuilder<> explanation(kind::AND);
+  if(rule->directrr){
+    explainInstantiation(&inst,
+                         rule->guards.size() > 0?
+                         inst.substNode(*this,rule->guards[0],cache):
+                         inst.substNode(*this,rule->body[0]  ,cache),
+                         explanation);
+    if(rule->guards.size() > 0){
+      //reduction rule
+      Assert(rule->guards.size() == 1);
+      explanation << inst.d_matched; //this one will be two times
+    }
+  };
+  substGuards(&inst, cache ,explanation);
+  return normalizeConjunction(explanation);
 }
 
 Theory::PPAssertStatus TheoryRewriteRules::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {

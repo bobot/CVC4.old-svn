@@ -242,14 +242,16 @@ private:
      already true */
   bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
 
-  Node substGuards(const RuleInst * inst,
+  void substGuards(const RuleInst * inst,
                    TCache cache,
-                   Node last = Node::null());
+                   NodeBuilder<> & conjunction);
 
   void addRewriteRule(const Node r);
   void computeMatchBody ( const RewriteRule * r, size_t start = 0);
   void addMatchRuleTrigger(const RewriteRule* r,
                            InstMatch & im, bool delay = true);
+
+  Node normalizeConjunction(NodeBuilder<> & conjunction);
 
   /* rewrite pattern */
   typedef std::hash_map< Node, rewriter::RRPpRewrite*, NodeHashFunction > RegisterRRPpRewrite;
