@@ -175,14 +175,14 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
   };
   /* Add the other triggers */
   if( r[2].getNumChildren() >= 3 )
-    for(Node::iterator i = r[2][2].begin(); i != r[2][2].end(); ++i) {
+    for(Node::iterator i = r[2][2][0].begin(); i != r[2][2][0].end(); ++i) {
       // todo test during typing that its a good term (no not, atom, or term...)
-      addPattern(*this,(*i)[0],pattern,vars,inst_constants,r);
+      addPattern(*this,*i,pattern,vars,inst_constants,r);
     };
   // Assert(pattern.size() == 1, "currently only single pattern are supported");
   //Every variable must be seen in the pattern
   if (!checkPatternVars(pattern,inst_constants)){
-    Warning() << "The rule" << r <<
+    Warning() << Node::setdepth(-1) << "The rule" << r <<
       " has been removed since it doesn't contain every variables."
               << std::endl;
     return;

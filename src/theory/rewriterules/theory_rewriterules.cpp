@@ -140,6 +140,7 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
   Debug("rewriterules") << Node::setdepth(-1);
   Debug("rewriterules-rewrite") << Node::setdepth(-1);
+  Debug("rewriterules::lemma") << Node::setdepth(-1);
 }
 
 void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
