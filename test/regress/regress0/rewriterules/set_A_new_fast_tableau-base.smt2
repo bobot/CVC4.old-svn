@@ -54,6 +54,29 @@
 (assert (forall ((?s elt) (?t1 set) (?t2 set))
                 (! (! (=> (and (not (in ?s ?t1))  (not (in ?s ?t2))) (not (in ?s (union ?t1 ?t2)))) :pattern ((union ?t1 ?t2)) ) :rewrite-rule) ))
 
+;;;;;;;;;;;;;;;;;;;;
+;; diff
+
+(declare-fun diff (set set)  set)
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (in ?s (diff ?t1 ?t2)) (and (in ?s ?t1) (not (in ?s ?t2)))) :rewrite-rule)))
+
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (not (in ?s ?t1)) (not (in ?s (diff ?t1 ?t2)))) :pattern ((diff ?t1 ?t2)) ) :rewrite-rule) ))
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (in ?s ?t2) (not (in ?s (diff ?t1 ?t2)))) :pattern ((diff ?t1 ?t2)) ) :rewrite-rule) ))
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (and (not (in ?s (diff ?t1 ?t2)))  (in ?s ?t1)) (in ?s ?t2)) :rewrite-rule) ))
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (and (not (in ?s (diff ?t1 ?t2)))  (not (in ?s ?t2))) (not (in ?s ?t1))) :rewrite-rule) ))
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (and (in ?s ?t1)  (not (in ?s ?t2))) (in ?s (diff ?t1 ?t2))) :pattern ((diff ?t1 ?t2)) ) :rewrite-rule) ))
+
 ;;;;;;;;;;;;;;;;
 ;;sing
 
@@ -67,10 +90,8 @@
 (assert (forall ((?s elt) (?t1 elt))
                 (! (=> (not (in ?s (sing ?t1))) (not (= ?s ?t1))) :rewrite-rule) ))
 
-
-
 ;;;;;;;;;;;;;;;;;;;
-;; fullfiling
+;; fullfiling runned at Full effort
 (assert (forall ((?s elt) (?t1 set) (?t2 set))
                 (! (=> (in ?s (union ?t1 ?t2)) (or (in ?s ?t1) (not (in ?s ?t1)))) :rewrite-rule)))
 
@@ -78,6 +99,12 @@
                 (! (! (=> (in ?s ?t1) (or (in ?s ?t2) (not (in ?s ?t2)))) :pattern ((inter ?t1 ?t2))) :rewrite-rule)))
 
 (assert (forall ((?t1 set) (?t2 set)) (! (=> (not (= ?t1 ?t2)) (exists ((?e elt)) (or (and (in ?e ?t1) (not (in ?e ?t2))) (and (not (in ?e ?t1)) (in ?e ?t2))))) :rewrite-rule)))
+
+;;;;;;;;;;;;;;;;;;;
+;; shortcut
+(declare-fun subset (set set) Bool)
+(assert (forall ((?t1 set) (?t2 set))
+                (! (=> true (= (subset ?t1 ?t2) (= (union ?t1 ?t2) ?t2))) :rewrite-rule)))
 
 (declare-fun e () elt)
 (declare-fun t1 () set)
