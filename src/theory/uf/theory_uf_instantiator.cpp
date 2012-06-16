@@ -717,7 +717,7 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
     TNode c;
     SetNode ele;
     while( !(c = cg->getNextCandidate()).isNull() ){
-      ele.insert(c);
+      if( c.getType() == ty ) ele.insert(c);
     }
     if( !ele.empty() ){
       // for(std::vector<Node>::iterator i = db->d_op_map[op].begin(), end = db->d_op_map[op].end(); i != end; ++i){

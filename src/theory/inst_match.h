@@ -137,6 +137,8 @@ public:
 
 /** basic class defining an instantiation */
 class InstMatch {
+  /* map from variable to ground terms */
+  std::map< Node, Node > d_map;
 public:
   InstMatch();
   InstMatch( InstMatch* m );
@@ -176,8 +178,20 @@ public:
   void erase(Node node){ d_map.erase(node); }
   /** is_empty */
   bool empty(){ return d_map.empty(); }
-  /* map from variable to ground terms */
-  std::map< Node, Node > d_map;
+  /** set */
+  void set(TNode var, TNode n){
+    //std::cout << "var.getType() " << var.getType() << "n.getType() " << n.getType() << std::endl ;
+    Assert( !var.isNull() );
+    Assert( n.isNull() ||// For a strange use in inst_match.cpp InstMatchGeneratorSimple::addInstantiations
+            var.getType() == n.getType() );
+    d_map[var] = n;
+  }
+  Node get(TNode var){ return d_map[var]; }
+  size_t size(){ return d_map.size(); }
+  /* iterator */
+  std::map< Node, Node >::iterator begin(){ return d_map.begin(); };
+  std::map< Node, Node >::iterator end(){ return d_map.end(); };
+  std::map< Node, Node >::iterator find(Node var){ return d_map.find(var); };
   /* Node used for matching the trigger only for mono-trigger (just for
      efficiency because I need only that) */
   Node d_matched;

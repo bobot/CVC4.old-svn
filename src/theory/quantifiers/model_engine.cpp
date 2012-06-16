@@ -138,7 +138,7 @@ bool RepAlphabetIterator::isFinished(){
 
 void RepAlphabetIterator::getMatch( QuantifiersEngine* ie, InstMatch& m ){
   for( int i=0; i<(int)d_index.size(); i++ ){
-    m.d_map[ ie->getInstantiationConstant( d_f, i ) ] = getTerm( i );
+    m.set( ie->getInstantiationConstant( d_f, i ), getTerm( i ) );
   }
 }
 

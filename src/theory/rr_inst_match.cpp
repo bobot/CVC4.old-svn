@@ -41,71 +41,6 @@ namespace rrinst{
 typedef CVC4::theory::inst::InstMatch InstMatch;
 typedef CVC4::theory::inst::CandidateGeneratorQueue CandidateGeneratorQueue;
 
-/** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
-void InstMatchTrie::addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index, ImtIndexOrder* imtio ){
-  //std::cout << "Add " << index << " " << f[0].getNumChildren() << std::endl;
-  if( index<(int)f[0].getNumChildren() && ( !imtio || index<(int)imtio->d_order.size() ) ){
-    int i_index = imtio ? imtio->d_order[index] : index;
-    Node n = m.d_map[ qe->getInstantiationConstant( f, i_index ) ];
-    d_data[n].addInstMatch2( qe, f, m, index+1, imtio );
-  }
-}
-
-/** exists match */
-bool InstMatchTrie::existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, int index, ImtIndexOrder* imtio ){
-  //std::cout << "Exists " << index << " " << f[0].getNumChildren() << std::endl;
-  if( index==(int)f[0].getNumChildren() || ( imtio && index==(int)imtio->d_order.size() ) ){
-    return true;
-  }else{
-    int i_index = imtio ? imtio->d_order[index] : index;
-    Node n = m.d_map[ qe->getInstantiationConstant( f, i_index ) ];
-    std::map< Node, InstMatchTrie >::iterator it = d_data.find( n );
-    if( it!=d_data.end() ){
-      if( it->second.existsInstMatch( qe, f, m, modEq, index+1, imtio ) ){
-        return true;
-      }
-    }
-    if( modEq ){
-      //check modulo equality if any other instantiation match exists
-      if( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->hasTerm( n ) ){
-        eq::EqClassIterator eqc = eq::EqClassIterator( qe->getEqualityQuery()->getRepresentative( n ),
-                                ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
-        while( !eqc.isFinished() ){
-          Node en = (*eqc);
-          if( en!=n ){
-            std::map< Node, InstMatchTrie >::iterator itc = d_data.find( en );
-            if( itc!=d_data.end() ){
-              if( itc->second.existsInstMatch( qe, f, m, modEq, index+1, imtio ) ){
-                return true;
-              }
-            }
-          }
-          ++eqc;
-        }
-      }
-      //for( std::map< Node, InstMatchTrie >::iterator itc = d_data.begin(); itc != d_data.end(); ++itc ){
-      //  if( itc->first!=n && qe->getEqualityQuery()->areEqual( n, itc->first ) ){
-      //    if( itc->second.existsInstMatch( qe, f, m, modEq, index+1 ) ){
-      //      return true;
-      //    }
-      //  }
-      //}
-    }
-    return false;
-  }
-}
-
-bool InstMatchTrie::addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, ImtIndexOrder* imtio ){
-  if( !existsInstMatch( qe, f, m, modEq, 0, imtio ) ){
-    //std::cout << "~Exists, add." << std::endl;
-    addInstMatch2( qe, f, m, 0, imtio );
-    return true;
-  }else{
-    //std::cout << "Exists, fail." << std::endl;
-    return false;
-  }
-}
-
 template<bool modEq>
 class InstMatchTrie2Pairs
 {
@@ -233,7 +168,7 @@ void ApplyMatcher::resetInstantiationRound( QuantifiersEngine* qe ){
 
 bool ApplyMatcher::reset(TNode t, InstMatch & m, QuantifiersEngine* qe){
   Debug("matching") << "Matching " << t << " against pattern " << d_pattern << " ("
-                    << m.d_map.size() << ")"  << std::endl;
+                    << m.size() << ")"  << std::endl;
 
   //if t is null
   Assert( !t.isNull() );
@@ -261,9 +196,9 @@ bool ApplyMatcher::reset(TNode t, InstMatch & m, QuantifiersEngine* qe){
       //match is in conflict
       Debug("matching-debug") << "Match in conflict " << t[i->second] << " and "
                               << i->first << " because "
-                              << m.d_map[i->first]
+                              << m.get(i->first)
                               << std::endl;
-      Debug("matching-fail") << "Match fail: " << m.d_map[i->first] << " and " << t[i->second] << std::endl;
+      Debug("matching-fail") << "Match fail: " << m.get(i->first) << " and " << t[i->second] << std::endl;
       //setMatchFail( qe, partial[0].d_map[d_pattern[i]], t[i] );
       m.erase(d_binded.begin(), d_binded.end());
       return false;
@@ -993,14 +928,14 @@ bool ArithMatcher::reset( TNode t, InstMatch& m, QuantifiersEngine* qe ){
     for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
       Debug("matching-arith") << it->first << " -> " << it->second << std::endl;
       if( !it->first.isNull() ){
-        if( m.d_map.find( it->first )==m.d_map.end() ){
+        if( m.find( it->first )==m.end() ){
           //see if we can choose this to set
           if( ic.isNull() && ( it->second.isNull() || !it->first.getType().isInteger() ) ){
             ic = it->first;
           }
         }else{
-          Debug("matching-arith") << "already set " << m.d_map[ it->first ] << std::endl;
-          Node tm = m.d_map[ it->first ];
+          Debug("matching-arith") << "already set " << m.get( it->first ) << std::endl;
+          Node tm = m.get( it->first );
           if( !it->second.isNull() ){
             tm = NodeManager::currentNM()->mkNode( MULT, it->second, tm );
           }
@@ -1023,13 +958,13 @@ bool ArithMatcher::reset( TNode t, InstMatch& m, QuantifiersEngine* qe ){
         Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_arith_coeffs[ ic ].getConst<Rational>() );
         tm = NodeManager::currentNM()->mkNode( MULT, coeff, tm );
       }
-      m.d_map[ ic ] = Rewriter::rewrite( tm );
+      m.set( ic, Rewriter::rewrite( tm ));
       d_binded.push_back(ic);
       //set the rest to zeros
       for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
         if( !it->first.isNull() ){
-          if( m.d_map.find( it->first )==m.d_map.end() ){
-            m.d_map[ it->first ] = NodeManager::currentNM()->mkConst( Rational(0) );
+          if( m.find( it->first )==m.end() ){
+            m.set( it->first, NodeManager::currentNM()->mkConst( Rational(0) ));
             d_binded.push_back(ic);
           }
         }

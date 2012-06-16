@@ -79,52 +79,6 @@ inline std::ostream& operator<<(std::ostream& out, const InstMatch& m) {
   return out;
 }
 
-/** trie for InstMatch objects */
-class InstMatchTrie
-{
-public:
-  class ImtIndexOrder{
-  public:
-    std::vector< int > d_order;
-  };
-private:
-  /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
-  void addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index, ImtIndexOrder* imtio );
-  /** exists match */
-  bool existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, int index, ImtIndexOrder* imtio );
-public:
-  /** the data */
-  std::map< Node, InstMatchTrie > d_data;
-public:
-  InstMatchTrie(){}
-  ~InstMatchTrie(){}
-public:
-  /** add match m for quantifier f, take into account equalities if modEq = true, 
-      if imtio is non-null, this is the order to add to trie
-      return true if successful 
-  */
-  bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false, ImtIndexOrder* imtio = NULL );
-};
-
-class InstMatchTrieOrdered
-{
-private:
-  InstMatchTrie::ImtIndexOrder* d_imtio;
-  InstMatchTrie d_imt;
-public:
-  InstMatchTrieOrdered( InstMatchTrie::ImtIndexOrder* imtio ) : d_imtio( imtio ){}
-  ~InstMatchTrieOrdered(){}
-  /** get ordering */
-  InstMatchTrie::ImtIndexOrder* getOrdering() { return d_imtio; }
-  /** get trie */
-  InstMatchTrie* getTrie() { return &d_imt; }
-public:
-  /** add match m, return true if successful */
-  bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false ){
-    return d_imt.addInstMatch( qe, f, m, modEq, d_imtio );
-  }
-};
-
 template<bool modEq = false> class InstMatchTrie2;
 template<bool modEq = false> class InstMatchTrie2Pairs;
 

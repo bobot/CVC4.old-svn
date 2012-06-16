@@ -102,8 +102,8 @@ bool InstMatchTrie2Gen<modEq>::existsInstMatch(InstMatchTrie2Gen<modEq>::Tree * 
 template<bool modEq>
 bool InstMatchTrie2Gen<modEq>::
 addInstMatch( InstMatch& m, InstMatchTrie2Gen<modEq>::Tree* e ) {
- mapIter begin = m.d_map.begin();
- mapIter end = m.d_map.end();
+ mapIter begin = m.begin();
+ mapIter end = m.end();
  mapIter diverge = begin;
  if( !existsInstMatch(e, begin, end, e, diverge ) ){
    Assert(!diverge->second.isNull());

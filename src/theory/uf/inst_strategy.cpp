@@ -83,7 +83,7 @@ void InstStrategyCheckCESolved::calcSolved( Node f ){
     Node i = d_quantEngine->getInstantiationConstant( f, j );
     Node rep = d_th->getInternalRepresentative( i );
     if( !rep.hasAttribute(InstConstantAttribute()) ){
-      d_th->d_baseMatch[f].d_map[ i ] = rep;
+      d_th->d_baseMatch[f].set(i,rep);
     }else{
       d_solved[ f ] = false;
     }
