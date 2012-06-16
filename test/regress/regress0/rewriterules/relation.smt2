@@ -1,4 +1,3 @@
-;; A new fast tableau-base ... Domenico Cantone et Calogero G.Zarba
 (set-logic AUFLIA)
 (set-info :status unsat)
 
@@ -8,9 +7,7 @@
 (declare-fun R (elt elt) Bool)
 
 ;; reflexive
-;; TODO add explicit remove term
-(assert-propagation ((x elt)) () ((R x x)) true ())
-(assert-propagation ((x elt)) () ((not (R x x))) false ())
+(assert-rewrite ((x elt)) () (R x x) true ())
 
 ;; transitive
 (assert-propagation ((x elt) (y elt) (z elt)) () ((R x y) (R y z)) (R x z) ())
@@ -26,4 +23,5 @@
 (assert (not (=> (and (R e1 e2) (R e2 e3) (R e3 e4) (R e4 e1)) (= e1 e4))))
 
 (check-sat)
+
 (exit)
