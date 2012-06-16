@@ -1860,14 +1860,34 @@ private:
   static const Step START = GET_MONO_CANDIDATE;
   Step d_step;
 
+  //return true if it becomes bigger than d_patterns.size() - 1
+  bool incrIndex(size_t & index){
+    if(index == d_patterns.size() - 1) return true;
+    ++index;
+    if(index == d_mc.first.second
+       || (!d_phase_mono && index == d_mc.second.second))
+      return incrIndex(index);
+    else return false;
+  }
+
+  //return true if it becomes smaller than 0
+  bool decrIndex(size_t & index){
+    if(index == 0) return true;
+    --index;
+    if(index == d_mc.first.second
+       || (!d_phase_mono && index == d_mc.second.second))
+      return decrIndex(index);
+    else return false;
+  }
+
   bool resetOther( QuantifiersEngine* qe ){
     size_t index = 0;
     while( index< d_patterns.size() ){
       Debug("matching") << "MultiEfficientPatsMatcher::reset " << index << std::endl;
       if(!d_patterns[index]->reset( d_im, qe )){
         Debug("matching") << "MultiEfficientPatsMatcher::reset fail " << index << std::endl;
-        if(index == 0) return false;
-        else return getNextMatchOther(qe,index-1);
+        if(decrIndex(index)) return false;
+        else return getNextMatchOther(qe,index);
       };
       ++index;
     };
@@ -1880,16 +1900,12 @@ private:
     while( true ){
       Debug("matching") << "MultiEfficientPatsMatcher::index " << index << std::endl;
       if( d_patterns[index]->getNextMatch( d_im, qe ) ){
-        ++index;
-        if ( index == d_patterns.size() ) return true;
+        if ( incrIndex(index) ) return true;
         Debug("matching") << "MultiEfficientPatsMatcher::rereset " << index << std::endl;
         // If the initialization failed we come back.
         if(!d_patterns[index]->reset( d_im, qe )) --index;
       }else{
-        if(index == 0){
-          return false;
-        }
-        --index;
+        if(decrIndex(index)) return false;
       }
     }
   }
@@ -1943,10 +1959,15 @@ public:
         } else d_step = d_phase_mono ? NEXT1 : NEXT2;
         break;
       case NEXT_OTHER:
-        if(getNextMatchOther(qe,d_patterns.size() - 1)){
-          d_step = NEXT_OTHER;
-          return true;
-        } else d_step = d_phase_mono ? NEXT1 : NEXT2;
+        {
+          size_t index = d_patterns.size();
+          if(decrIndex(index) || !getNextMatchOther(qe,index)){
+            d_step = d_phase_mono ? NEXT1 : NEXT2;
+          }else{
+            d_step = NEXT_OTHER;
+            return true;
+          }
+        }
         break;
       case STOP:
         Assert(d_im.empty());
