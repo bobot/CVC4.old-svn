@@ -498,10 +498,14 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   if(simulateRewritting){
     static NoMatchAttribute rewrittenNodeAttribute;
     // Tag the rewritted terms
-    for(std::vector<Node>::iterator i = rule->to_remove.begin();
-        i == rule->to_remove.end(); ++i){
-      (*i).setAttribute(rewrittenNodeAttribute,true);
+    // for(std::vector<Node>::iterator i = rule->to_remove.begin();
+    //     i == rule->to_remove.end(); ++i){
+    //   (*i).setAttribute(rewrittenNodeAttribute,true);
+    // };
+    for(size_t i = 0; i < rule->to_remove.size(); ++i){
+      rule->to_remove[i].setAttribute(rewrittenNodeAttribute,true);
     };
+
   };
 
   //Verify that this instantiation can't immediately fire another rule
