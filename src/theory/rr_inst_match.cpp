@@ -35,6 +35,34 @@ namespace CVC4{
 namespace theory{
 namespace rrinst{
 
+// void CandidateGeneratorQueue::addCandidate( Node n ) {
+//   if( isLegalCandidate( n ) ){
+//     d_candidates.push_back( n );
+//   }
+// }
+
+// void CandidateGeneratorQueue::reset( TNode eqc ){
+//   if( d_candidate_index>0 ){
+//     d_candidates.erase( d_candidates.begin(), d_candidates.begin() + d_candidate_index );
+//     d_candidate_index = 0;
+//   }
+//   if( !eqc.isNull() ){
+//     d_candidates.push_back( eqc );
+//   }
+// }
+// Node CandidateGeneratorQueue::getNextCandidate(){
+//   if( d_candidate_index<(int)d_candidates.size() ){
+//     Node n = d_candidates[d_candidate_index];
+//     d_candidate_index++;
+//     return n;
+//   }else{
+//     d_candidate_index = 0;
+//     d_candidates.clear();
+//     return Node::null();
+//   }
+// }
+
+
 typedef CVC4::theory::inst::InstMatch InstMatch;
 typedef CVC4::theory::inst::CandidateGeneratorQueue CandidateGeneratorQueue;
 
@@ -821,7 +849,7 @@ bool nonunifiable( TNode t0, TNode pat, const std::vector<Node> & vars){
 /** New things */
 class DumbMatcher: public Matcher{
   void resetInstantiationRound( QuantifiersEngine* qe ){};
-  bool reset( Node n, InstMatch& m, QuantifiersEngine* qe ){
+  bool reset( TNode n, InstMatch& m, QuantifiersEngine* qe ){
     return false;
   }
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
@@ -864,7 +892,7 @@ void ApplyMatcher::resetInstantiationRound( QuantifiersEngine* qe ){
   }
 }
 
-bool ApplyMatcher::reset(Node t, InstMatch & m, QuantifiersEngine* qe){
+bool ApplyMatcher::reset(TNode t, InstMatch & m, QuantifiersEngine* qe){
   Debug("matching") << "Matching " << t << " against pattern " << d_pattern << " ("
                     << m.d_map.size() << ")"  << std::endl;
   EqualityQuery* q = qe->getEqualityQuery();
@@ -964,7 +992,7 @@ public:
     d_cg.resetInstantiationRound();
     d_m.resetInstantiationRound(qe);
   };
-  bool reset( Node n, InstMatch& m, QuantifiersEngine* qe ){
+  bool reset( TNode n, InstMatch& m, QuantifiersEngine* qe ){
     d_cg.reset(n);
     return findMatch(m,qe);
   }
@@ -975,9 +1003,8 @@ public:
 private:
   bool findMatch( InstMatch& m, QuantifiersEngine* qe ){
     // Otherwise try to find a new candidate that has at least one match
-    Node n;
     while(true){
-      n = d_cg.getNextCandidate();
+      TNode n = d_cg.getNextCandidate();//kept somewhere Term-db
       if(n.isNull()) return false;
       if(d_m.reset(n,m,qe)) return true;
     };
@@ -1015,7 +1042,7 @@ private:
 public:
   ArithMatcher(Node pat, QuantifiersEngine* qe);
   void resetInstantiationRound( QuantifiersEngine* qe ){};
-  bool reset( Node n, InstMatch& m, QuantifiersEngine* qe );
+  bool reset( TNode n, InstMatch& m, QuantifiersEngine* qe );
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe );
 };
 
@@ -1026,7 +1053,7 @@ class VarMatcher: public Matcher{
 public:
   VarMatcher(Node var, QuantifiersEngine* qe): d_var(var), d_binded(false){}
   void resetInstantiationRound( QuantifiersEngine* qe ){};
-  bool reset( Node n, InstMatch& m, QuantifiersEngine* qe ){
+  bool reset( TNode n, InstMatch& m, QuantifiersEngine* qe ){
     EqualityQuery* q = qe->getEqualityQuery();
     if(!m.setMatch( q, d_var, n, d_binded )){
       //match is in conflict
@@ -1049,7 +1076,7 @@ public:
   inline void resetInstantiationRound(QuantifiersEngine* qe){
     d_m.resetInstantiationRound(qe);
   }
-  inline bool reset(Node n, InstMatch& m, QuantifiersEngine* qe){
+  inline bool reset(TNode n, InstMatch& m, QuantifiersEngine* qe){
     return d_test(n) && d_m.reset(n, m, qe);
   }
   inline bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
@@ -1061,7 +1088,7 @@ class LegalOpTest: public unary_function<Node,bool> {
   Node d_op;
 public:
   inline LegalOpTest(Node op): d_op(op){}
-  inline bool operator() (Node n) {
+  inline bool operator() (TNode n) {
     return
       CandidateGenerator::isLegalCandidate(n) &&
       n.getKind()==APPLY_UF &&
@@ -1073,7 +1100,7 @@ class LegalKindTest : public unary_function<Node,bool> {
   Kind d_kind;
 public:
   inline LegalKindTest(Kind kind): d_kind(kind){}
-  inline bool operator() (Node n) {
+  inline bool operator() (TNode n) {
     return
       CandidateGenerator::isLegalCandidate(n) &&
       n.getKind()==d_kind;
@@ -1084,7 +1111,7 @@ class LegalTypeTest : public unary_function<Node,bool> {
   TypeNode d_type;
 public:
   inline LegalTypeTest(TypeNode type): d_type(type){}
-  inline bool operator() (Node n) {
+  inline bool operator() (TNode n) {
     return
       CandidateGenerator::isLegalCandidate(n) &&
       n.getType()==d_type;
@@ -1093,7 +1120,7 @@ public:
 
 class LegalTest : public unary_function<Node,bool> {
 public:
-  inline bool operator() (Node n) {
+  inline bool operator() (TNode n) {
     return CandidateGenerator::isLegalCandidate(n);
   };
 };
@@ -1126,7 +1153,7 @@ public:
   void resetInstantiationRound( QuantifiersEngine* qe ){
     d_cgm.resetInstantiationRound(qe);
   };
-  bool reset( Node t, InstMatch& m, QuantifiersEngine* qe ){
+  bool reset( TNode t, InstMatch& m, QuantifiersEngine* qe ){
     return d_cgm.reset(t, m, qe);
   }
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
@@ -1156,7 +1183,7 @@ class AllOpMatcher: public PatMatcher{
     return am1;
   }
 public:
-  AllOpMatcher( Node pat, QuantifiersEngine* qe ):
+  AllOpMatcher( TNode pat, QuantifiersEngine* qe ):
     d_cgm(createCgm(pat, qe)){}
 
   void resetInstantiationRound( QuantifiersEngine* qe ){
@@ -1184,10 +1211,11 @@ public:
   void resetInstantiationRound( QuantifiersEngine* qe ){
     d_m.resetInstantiationRound(qe);
   };
-  bool reset( Node ex, InstMatch& m, QuantifiersEngine* qe ){
+  bool reset( TNode ex, InstMatch& m, QuantifiersEngine* qe ){
     NodeBuilder<> n(kind::INST_PATTERN);
     for(size_t i = 0; i < size; ++i) n << ex;
-    return d_m.reset(n,m,qe);
+    Node nn = n;
+    return d_m.reset(nn,m,qe);
   };
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
     return getNextMatch(m, qe);
@@ -1412,7 +1440,7 @@ ArithMatcher::ArithMatcher(Node pat, QuantifiersEngine* qe): d_pattern(pat){
 
 };
 
-bool ArithMatcher::reset( Node t, InstMatch& m, QuantifiersEngine* qe ){
+bool ArithMatcher::reset( TNode t, InstMatch& m, QuantifiersEngine* qe ){
   Debug("matching-arith") << "Matching " << t << " " << d_pattern << std::endl;
   d_binded.clear();
   if( !d_arith_coeffs.empty() ){

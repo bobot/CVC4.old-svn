@@ -44,11 +44,11 @@ public:
   CandidateGeneratorTheoryUfClasses( InstantiatorTheoryUf * ith): d_ith( ith ){}
   ~CandidateGeneratorTheoryUfClasses(){}
   void resetInstantiationRound(){};
-  void reset( Node eqc ){
+  void reset( TNode eqc ){
     Assert(eqc.isNull());
     d_eq = eq::EqClassesIterator( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
   }; //* the argument is not used
-  Node getNextCandidate(){
+  TNode getNextCandidate(){
     if( !d_eq.isFinished() ) return (*(d_eq++));
     else return Node::null();
   };
@@ -68,7 +68,7 @@ public:
   CandidateGeneratorTheoryUfClass( InstantiatorTheoryUf* ith): d_ith( ith ){}
   ~CandidateGeneratorTheoryUfClass(){}
   void resetInstantiationRound(){};
-  void reset( Node eqc ){
+  void reset( TNode eqc ){
     Assert(!eqc.isNull());
     if( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->hasTerm( eqc ) ){
       /* eqc is in uf  */
@@ -82,7 +82,7 @@ public:
       d_eqc = eq::EqClassIterator();
     }
   }; //* the argument is not used
-  Node getNextCandidate(){
+  TNode getNextCandidate(){
     if(d_retNode.isNull()){
       if( !d_eqc.isFinished() ) return (*(d_eqc++));
       else return Node::null();
@@ -110,11 +110,11 @@ public:
   void resetInstantiationRound(){
     d_term_iter_limit = d_ith->getQuantifiersEngine()->getTermDatabase()->d_op_map[d_op].size();
   };
-  void reset( Node eqc ){
+  void reset( TNode eqc ){
     Assert(eqc.isNull());
     d_term_iter = 0;
   }; //* the argument is not used
-  Node getNextCandidate(){
+  TNode getNextCandidate(){
     if( d_term_iter<d_term_iter_limit ){
       TNode n = d_ith->getQuantifiersEngine()->getTermDatabase()->d_op_map[d_op][d_term_iter];
       ++d_term_iter;
@@ -139,11 +139,11 @@ public:
   void resetInstantiationRound(){
     d_term_iter_limit = d_ith->getQuantifiersEngine()->getTermDatabase()->d_type_map[d_type].size();
   };
-  void reset( Node eqc ){
+  void reset( TNode eqc ){
     Assert(eqc.isNull());
     d_term_iter = 0;
   }; //* the argument is not used
-  Node getNextCandidate(){
+  TNode getNextCandidate(){
     if( d_term_iter<d_term_iter_limit ){
       TNode n = d_ith->getQuantifiersEngine()->getTermDatabase()->d_type_map[d_type][d_term_iter];
       ++d_term_iter;
@@ -184,25 +184,25 @@ public:
   Node getNextCandidate();
 };
 
-//class CandidateGeneratorTheoryUfDisequal : public CandidateGenerator
-//{
-//private:
-//  //equivalence class 
-//  Node d_eq_class;
-//  //equivalence class info
-//  EqClassInfo* d_eci;
-//  //equivalence class iterator
-//  EqClassInfo::BoolMap::const_iterator d_eqci_iter;
-//  //instantiator pointer
-//  InstantiatorTheoryUf* d_ith;
-//public:
-//  CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc );
-//  ~CandidateGeneratorTheoryUfDisequal(){}
-//
-//  void resetInstantiationRound();
-//  void reset( Node eqc );   //should be what you want to be disequal from
-//  Node getNextCandidate();
-//};
+class CandidateGeneratorTheoryUfDisequal : public CandidateGenerator
+{
+private:
+ //equivalence class 
+ Node d_eq_class;
+ //equivalence class info
+ EqClassInfo* d_eci;
+ //equivalence class iterator
+ EqClassInfo::BoolMap::const_iterator d_eqci_iter;
+ //instantiator pointer
+ InstantiatorTheoryUf* d_ith;
+public:
+ CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc );
+ ~CandidateGeneratorTheoryUfDisequal(){}
+
+ void resetInstantiationRound();
+ void reset( Node eqc );   //should be what you want to be disequal from
+ Node getNextCandidate();
+};
 
 class CandidateGeneratorTheoryUfLitEq : public CandidateGenerator
 {

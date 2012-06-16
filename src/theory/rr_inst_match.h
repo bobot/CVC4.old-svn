@@ -56,8 +56,8 @@ public:
       
       eqc is the equivalence class you are searching in
   */
-  virtual void reset( Node eqc ) = 0;
-  virtual Node getNextCandidate() = 0;
+  virtual void reset( TNode eqc ) = 0;
+  virtual TNode getNextCandidate() = 0;
   /** add candidate to list of nodes returned by this generator */
   virtual void addCandidate( Node n ) {}
   /** call this at the beginning of each instantiation round */
@@ -71,6 +71,23 @@ public:
 }
 
 };
+
+// /** candidate generator queue (for manual candidate generation) */
+// class CandidateGeneratorQueue : public CandidateGenerator
+// {
+// private:
+//   std::vector< Node > d_candidates;
+//   int d_candidate_index;
+// public:
+//   CandidateGeneratorQueue() : d_candidate_index( 0 ){}
+//   ~CandidateGeneratorQueue(){}
+
+//   void addCandidate( Node n );
+
+//   void resetInstantiationRound(){}
+//   void reset( TNode eqc );
+//   TNode getNextCandidate();
+// };
 
 
 inline std::ostream& operator<<(std::ostream& out, const InstMatch& m) {
@@ -193,7 +210,7 @@ public:
   /** reset instantiation round (call this whenever equivalence classes have changed) */
   virtual void resetInstantiationRound( QuantifiersEngine* qe ) = 0;
   /** reset the term to match, return false if there is no such term */
-  virtual bool reset( Node n, InstMatch& m, QuantifiersEngine* qe ) = 0;
+  virtual bool reset( TNode n, InstMatch& m, QuantifiersEngine* qe ) = 0;
   /** get the next match. If it return false once you shouldn't call
       getNextMatch again before doing a reset */
   virtual bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) = 0;
@@ -222,7 +239,7 @@ public:
   /** reset instantiation round (call this whenever equivalence classes have changed) */
   void resetInstantiationRound( QuantifiersEngine* qe );
   /** reset the term to match */
-  bool reset( Node n, InstMatch& m, QuantifiersEngine* qe );
+  bool reset( TNode n, InstMatch& m, QuantifiersEngine* qe );
   /** get the next match. */
   bool getNextMatch(InstMatch& m, QuantifiersEngine* qe);
 private:
