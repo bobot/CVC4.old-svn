@@ -22,6 +22,7 @@
 #include "theory/rewriterules/theory_rewriterules_params.h"
 #include "theory/rewriterules/theory_rewriterules_preprocess.h"
 #include "theory/rewriterules/theory_rewriterules.h"
+#include "util/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -74,7 +75,10 @@ inline void addPattern(TheoryRewriteRules & re,
                        TNode r){
   if (tri.getKind() == kind::NOT && tri[0].getKind() == kind::APPLY_UF)
     tri = tri[0];
-  pattern.push_back(re.getQuantifiersEngine()->
+  pattern.push_back(
+                    Options::current()->rewriteRulesAsAxioms?
+                    static_cast<Node>(tri):
+                    re.getQuantifiersEngine()->
                     convertNodeToPattern(tri,r,vars,inst_constants));
 }
 
@@ -106,6 +110,7 @@ bool checkPatternVars(const std::vector<Node> & pattern,
 void TheoryRewriteRules::addRewriteRule(const Node r)
 {
   Assert(r.getKind() == kind::REWRITE_RULE);
+  Kind rrkind = r[2].getKind();
   /*   Replace variables by Inst_* variable and tag the terms that
        contain them */
   std::vector<Node> vars;
@@ -126,7 +131,7 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
   /* shortcut */
   TNode head = r[2][0];
   TypeNode booleanType = NodeManager::currentNM()->booleanType();
-  switch(r[2].getKind()){
+  switch(rrkind){
   case kind::RR_REWRITE:
     /* Equality */
     to_remove.push_back(head);
@@ -180,6 +185,36 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
       addPattern(*this,*i,pattern,vars,inst_constants,r);
     };
   // Assert(pattern.size() == 1, "currently only single pattern are supported");
+
+
+
+
+  //If we convert to usual axioms
+  if(Options::current()->rewriteRulesAsAxioms){
+    NodeBuilder<> forallB(kind::FORALL);
+    forallB << r[0];
+    NodeBuilder<> guardsB(kind::AND);
+    guardsB.append(guards);
+    forallB << normalizeConjunction(guardsB).impNode(body);
+    NodeBuilder<> patternB(kind::INST_PATTERN);
+    patternB.append(pattern);
+    NodeBuilder<> patternListB(kind::INST_PATTERN_LIST);
+    patternListB << static_cast<Node>(patternB);
+    forallB << static_cast<Node>(patternListB);
+    getOutputChannel().lemma((Node) forallB);
+    return;
+  }
+
+  //turn all to propagate
+  // if(true){
+  //   NodeBuilder<> guardsB(kind::AND);
+  //   guardsB.append(guards);
+  //   body = normalizeConjunction(guardsB).impNode(body);
+  //   guards.clear();
+  //   rrkind = kind::RR_DEDUCTION;
+  // }
+
+
   //Every variable must be seen in the pattern
   if (!checkPatternVars(pattern,inst_constants)){
     Warning() << Node::setdepth(-1) << "The rule" << r <<
@@ -188,13 +223,15 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
     return;
   }
 
+
   //Add to direct rewrite rule
   bool directrr = false;
   if(direct_rewrite &&
-     guards.size() == 0 && r[2].getKind() == kind::RR_REWRITE
+     guards.size() == 0 && rrkind == kind::RR_REWRITE
      && pattern.size() == 1){
     directrr = addRewritePattern(pattern[0],new_terms, inst_constants, vars);
   }
+
 
   // final construction
   Trigger trigger = createTrigger(r,pattern);
@@ -212,7 +249,7 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
       computeMatchBody(d_rules[rid],
                        d_rules.size() - 1);
 
-  Debug("rewriterules") << "created rewriterule"<< (rr->d_split?"(split)":"") << ":(" << d_rules.size() - 1 << ")"
+  Debug("rewriterules::new") << "created rewriterule"<< (rr->d_split?"(split)":"") << ":(" << d_rules.size() - 1 << ")"
                         << *rr << std::endl;
 
 }
@@ -230,7 +267,7 @@ bool willDecide(TNode node, bool positive = true){
   case XOR:
     return true;
   case IMPLIES:
-    return false;
+    return true;
   case ITE:
     return true;
   case NOT:
@@ -256,8 +293,8 @@ RewriteRule::RewriteRule(TheoryRewriteRules & re,
 
 bool RewriteRule::inCache(TheoryRewriteRules & re, InstMatch & im)const{
   bool res = !d_cache.addInstMatch(im);
-  Debug("rewriterules::cache") << "rewriterules::cache " << im
-                               << (res ? " HIT" : " MISS") << std::endl;
+  Debug("rewriterules::matching") << "rewriterules::cache " << im
+                                  << (res ? " HIT" : " MISS") << std::endl;
   return res;
 };
 
@@ -277,7 +314,7 @@ void RewriteRule::toStream(std::ostream& out) const{
 }
 
 RewriteRule::~RewriteRule(){
-  Debug("rewriterule-stats") << *this
+  Debug("rewriterule::stats") << *this
                              << "  (" << nb_matched
                              << ","   << nb_applied
                              << ","   << nb_propagated

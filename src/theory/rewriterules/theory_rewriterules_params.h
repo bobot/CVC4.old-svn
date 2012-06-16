@@ -18,7 +18,6 @@
  ** \todo document this file
  **/
 
-
 #ifndef __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
 #define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
 
@@ -70,13 +69,6 @@ static const bool useCurrentModel = false;
    Simulate rewritting by tagging rewritten terms.
  */
 static const bool simulateRewritting = true;
-
-/**
-   Choose the kind of matching to use:
-   - InstMatchGenerator::MATCH_GEN_DEFAULT 0
-   - InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH 1
-*/
-static const int match_gen_kind = 0;
 
 /**
    Do narrowing at full effort

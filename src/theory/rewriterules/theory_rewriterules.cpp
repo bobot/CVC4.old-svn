@@ -24,6 +24,8 @@
 
 #include "theory/rewriterules/theory_rewriterules_preprocess.h"
 #include "theory/rewriter.h"
+#include "util/options.h"
+
 
 using namespace std;
 using namespace CVC4;
@@ -71,14 +73,14 @@ size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
     Node g = substNode(re,rule->guards[start],cache);
     switch(re.addWatchIfDontKnow(g,this,start)){
     case ATRUE:
-      Debug("rewriterules") << g << "is true" << std::endl;
+      Debug("rewriterules::guards") << g << "is true" << std::endl;
       ++start;
       continue;
     case AFALSE:
-      Debug("rewriterules") << g << "is false" << std::endl;
+      Debug("rewriterules::guards") << g << "is false" << std::endl;
       return -1;
     case ADONTKNOW:
-      Debug("rewriterules") << g << "is unknown" << std::endl;
+      Debug("rewriterules::guards") << g << "is unknown" << std::endl;
       return start;
     }
   }
@@ -157,9 +159,9 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
     im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);
     RuleInst * ri = new RuleInst(*this,r,subst,
                                  r->directrr ? im.d_matched : Node::null());
-    Debug("rewriterules") << "One matching found"
-                          << (delay? "(delayed)":"")
-                          << ":" << *ri << std::endl;
+    Debug("rewriterules::matching") << "One matching found"
+                                    << (delay? "(delayed)":"")
+                                    << ":" << *ri << std::endl;
     // Find the first non verified guard, don't save the rule if the
     // rule can already be fired In fact I save it otherwise strange
     // things append.
@@ -197,13 +199,13 @@ void TheoryRewriteRules::check(Effort level) {
 
     };
 
-  Debug("rewriterules") << "Check:" << d_checkLevel << (level==EFFORT_FULL? " EFFORT_FULL":"") << std::endl;
+  Debug("rewriterules::check") << "RewriteRules::Check start " << d_checkLevel << (level==EFFORT_FULL? " EFFORT_FULL":"") << std::endl;
 
   /** Test each rewrite rule */
   for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid) {
     RewriteRule * r = d_rules[rid];
     if (level!=EFFORT_FULL && r->d_split) continue;
-    Debug("rewriterules") << "  rule: " << *r << std::endl;
+    Debug("rewriterules::check") << "RewriteRules::Check  rule: " << *r << std::endl;
     Trigger & tr = r->trigger;
     //reset instantiation round for trigger (set up match production)
     tr.resetInstantiationRound();
@@ -246,7 +248,7 @@ void TheoryRewriteRules::check(Effort level) {
       bool value;
       if(getValuation().hasSatValue(g,value)){
         if(value) polldone = true; //One guard is true so pass n check
-        Debug("rewriterules") << "Poll value:" << g
+        Debug("rewriterules::guards") << "Poll value:" << g
                              << " is " << (value ? "true" : "false") << std::endl;
         notification(g,value);
         //const Guarded & glast2 = (*l)[l->size()-1];
@@ -273,14 +275,14 @@ void TheoryRewriteRules::check(Effort level) {
       // If it has a value it should already has been notified
       bool value; value = value; // avoiding the warning in non debug mode
       Assert(!getValuation().hasSatValue(g,value));
-      Debug("rewriterules") << "Narrowing on:" << g << std::endl;
+      Debug("rewriterules::check") << "RewriteRules::Check Narrowing on:" << g << std::endl;
       /** Can split on already rewritten instrule... but... */
       getOutputChannel().split(g);
     }
   }
 
   Assert(d_ruleinsts_to_add.empty());
-  Debug("rewriterules") << "Check done:" << d_checkLevel << std::endl;
+  Debug("rewriterules::check") << "RewriteRules::Check done " << d_checkLevel << std::endl;
 
 };
 
@@ -290,7 +292,13 @@ Trigger TheoryRewriteRules::createTrigger( TNode n, std::vector<Node> & pattern 
   //  Debug("rewriterules") << "createTrigger:";
   getQuantifiersEngine()->registerPattern(pattern);
   return *Trigger::mkTrigger(getQuantifiersEngine(),n,pattern,
-                             match_gen_kind, true);
+                             Options::current()->efficientEMatching?
+                             InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH :
+                             InstMatchGenerator::MATCH_GEN_DEFAULT,
+                             true,
+                             Trigger::TR_MAKE_NEW,
+                             false);
+  //                             Options::current()->smartMultiTriggers);
 };
 
 bool TheoryRewriteRules::notifyIfKnown(const GList * const ltested,
@@ -327,7 +335,7 @@ Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, const RuleInst* ri,
   /* If it false in one model (current valuation) it's false for all */
   if (useCurrentModel){
     Node val = getValuation().getValue(g0);
-    Debug("rewriterules") << "getValue:" << g0 << " = "
+    Debug("rewriterules::guards") << "getValue:" << g0 << " = "
                           << val << " is " << (val == d_false) << std::endl;
     if (val == d_false) return AFALSE;
   };
@@ -445,7 +453,7 @@ Node skolemizeBody( Node f ){
 
 void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
-  Debug("rewriterules") << "propagateRule" << *inst << std::endl;
+  Debug("rewriterules::propagate") << "propagateRule" << *inst << std::endl;
   const RewriteRule * rule = inst->rule;
   ++rule->nb_applied;
   // Can be more something else than an equality in fact (eg. propagation rule)
@@ -474,7 +482,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
       substGuards(inst,cache,conjunction);
       lemma = normalizeConjunction(conjunction).impNode(equality);
     }
-    Debug("rewriterules::lemma") << "propagated " << lemma << std::endl;
+    Debug("rewriterules::propagate") << "propagated " << lemma << std::endl;
     getOutputChannel().lemma(lemma);
   }else{
     Node lemma_lit = equality;

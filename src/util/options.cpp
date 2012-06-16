@@ -154,6 +154,7 @@ Options::Options() :
   cbqi(false),
   cbqiSetByUser(false),
   userPatternsQuant(true),
+  rewriteRulesAsAxioms(false),
   flipDecision(false),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
@@ -289,6 +290,7 @@ Additional CVC4 options:\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
    --ignore-user-patterns ignore user-provided patterns for quantifier instantiation\n\
    --enable-flip-decision turns on flip decision heuristic\n\
+   --rewrite-rules-as-axioms convert rewrite rules into usual axioms (for debugging only)\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n\
    --threads=N            sets the number of solver threads\n\
@@ -569,6 +571,7 @@ enum OptionValue {
   DISABLE_CBQI,
   IGNORE_USER_PATTERNS,
   ENABLE_FLIP_DECISION,
+  REWRITE_RULES_AS_AXIOMS,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
   PORTFOLIO_FILTER_LENGTH,
@@ -697,6 +700,7 @@ static struct option cmdlineOptions[] = {
   { "disable-cbqi", no_argument, NULL, DISABLE_CBQI },
   { "ignore-user-patterns", no_argument, NULL, IGNORE_USER_PATTERNS },
   { "enable-flip-decision", no_argument, NULL, ENABLE_FLIP_DECISION },
+  { "rewrite-rules-as-axioms", no_argument, NULL, REWRITE_RULES_AS_AXIOMS },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
@@ -1254,6 +1258,9 @@ throw(OptionException) {
       break;
     case ENABLE_FLIP_DECISION:
       flipDecision = true;
+      break;
+    case REWRITE_RULES_AS_AXIOMS:
+      rewriteRulesAsAxioms = true;
       break;
     case TIME_LIMIT:
       {

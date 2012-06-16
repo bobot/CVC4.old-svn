@@ -448,6 +448,11 @@ struct CVC4_PUBLIC Options {
   bool cbqiSetByUser;
 
   /**
+   * Whether to convert rewrite rules to usual axioms (for debugging only)
+   */
+  bool rewriteRulesAsAxioms;
+
+  /** 
    * Whether to use user patterns for pattern-based instantiation
    */
   bool userPatternsQuant;
