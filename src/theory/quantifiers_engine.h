@@ -251,11 +251,13 @@ public:
   Instantiator* getInstantiator( theory::TheoryId id );
   /** get theory engine */
   TheoryEngine* getTheoryEngine() { return d_te; }
-  /** get equality query object for the given type */
+  /** get equality query object for the given type. The default is the
+      one of UF */
   inst::EqualityQuery* getEqualityQuery(TypeNode t) {
     TheoryId id = Theory::theoryOf(t);
-    id = id == theory::THEORY_DATATYPES ? id : theory::THEORY_UF;
-    return d_eq_query[id];
+    inst::EqualityQuery* eq = d_eq_query[id];
+    if(eq == NULL) return d_eq_query[theory::THEORY_UF];
+    else return eq;
   }
   inst::EqualityQuery* getEqualityQuery() {
     return d_eq_query[theory::THEORY_UF];

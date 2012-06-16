@@ -27,7 +27,8 @@ using namespace CVC4::theory::arrays;
 
 InstantiatorTheoryArrays::InstantiatorTheoryArrays(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
-
+  ie->setEqualityQuery( theory::THEORY_ARRAY,
+                        new EqualityQueryInstantiatorTheoryEq( ((TheoryArrays*)d_th)->getEqualityEngine() ));
 }
 
 void InstantiatorTheoryArrays::preRegisterTerm( Node t ){

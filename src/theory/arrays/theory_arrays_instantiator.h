@@ -21,6 +21,7 @@
 #define __CVC4__INSTANTIATOR_THEORY_ARRAYS_H
 
 #include "theory/quantifiers_engine.h"
+#include "theory/uf/equality_engine.h"
 
 namespace CVC4 {
 namespace theory {
@@ -43,6 +44,38 @@ public:
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryArrays"); }
 };/* class Instantiatior */
+
+/** equality query object using instantiator theory uf */
+class EqualityQueryInstantiatorTheoryEq : public EqualityQuery
+{
+private:
+  /** pointer to instantiator uf class */
+  eq::EqualityEngine* d_ee;
+public:
+  EqualityQueryInstantiatorTheoryEq( eq::EqualityEngine* ee ) : d_ee( ee ){}
+  ~EqualityQueryInstantiatorTheoryEq(){}
+  /** general queries about equality */
+  bool hasTerm( Node a ) { return d_ee->hasTerm( a ); }
+  Node getRepresentative( Node a ) { return d_ee->getRepresentative( a ); }
+  bool areEqual( Node a, Node b ) {
+    if( d_ee->hasTerm(a) && d_ee->hasTerm(b) ){
+      return d_ee->areEqual( a, b );
+    }else{
+      return a == b;
+    };
+  }
+  bool areDisequal( Node a, Node b ) {
+    if( d_ee->hasTerm(a) && d_ee->hasTerm(b) ){
+      return d_ee->areDisequal( a, b, false );
+    }else{
+      return a == b;
+    };
+  }
+  Node getInternalRepresentative( Node a ) {
+    Unimplemented("arrays getInternalRepresentative");
+  }
+}; /* EqualityQueryInstantiatorTheoryEq */
+
 
 }
 }

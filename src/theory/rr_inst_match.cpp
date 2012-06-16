@@ -24,6 +24,7 @@
 #include "theory/uf/theory_uf_candidate_generator.h"
 #include "theory/datatypes/theory_datatypes_candidate_generator.h"
 #include "theory/uf/equality_engine.h"
+#include "theory/arrays/theory_arrays.h"
 
 using namespace std;
 using namespace CVC4;
@@ -343,7 +344,7 @@ private:
     // Otherwise try to find a new candidate that has at least one match
     while(true){
       TNode n = d_cg.getNextCandidate();//kept somewhere Term-db
-      Debug("matching") << "GenCand" << n << std::endl;
+      Debug("matching") << "GenCand " << n << std::endl;
       if(n.isNull()) return false;
       if(d_m.reset(n,m,qe)) return true;
     };
@@ -423,19 +424,20 @@ public:
   }
 };
 
-class LegalOpTest: public unary_function<Node,bool> {
+class LegalOpTest: public unary_function<TNode,bool> {
   Node d_op;
 public:
   inline LegalOpTest(Node op): d_op(op){}
   inline bool operator() (TNode n) {
     return
       CandidateGenerator::isLegalCandidate(n) &&
-      (n.getKind()==APPLY_UF || n.getKind()==APPLY_CONSTRUCTOR) &&
+      ( //n.getKind()==SELECT || n.getKind()==STORE ||
+       n.getKind()==APPLY_UF || n.getKind()==APPLY_CONSTRUCTOR) &&
       n.getOperator()==d_op;
   };
 };
 
-class LegalKindTest : public unary_function<Node,bool> {
+class LegalKindTest : public unary_function<TNode,bool> {
   Kind d_kind;
 public:
   inline LegalKindTest(Kind kind): d_kind(kind){}
@@ -446,7 +448,7 @@ public:
   };
 };
 
-class LegalTypeTest : public unary_function<Node,bool> {
+class LegalTypeTest : public unary_function<TNode,bool> {
   TypeNode d_type;
 public:
   inline LegalTypeTest(TypeNode type): d_type(type){}
@@ -457,7 +459,7 @@ public:
   };
 };
 
-class LegalTest : public unary_function<Node,bool> {
+class LegalTest : public unary_function<TNode,bool> {
 public:
   inline bool operator() (TNode n) {
     return CandidateGenerator::isLegalCandidate(n);
@@ -559,6 +561,53 @@ public:
   bool reset( TNode t, InstMatch& m, QuantifiersEngine* qe ){
     Debug("matching") << "datatypes: " << t << " matches " << d_pat << std::endl;
     return d_cgm.reset(t, m, qe);
+  }
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
+    return d_cgm.getNextMatch(m, qe);
+  }
+};
+
+class ArrayMatcher: public Matcher{
+  /* The matcher */
+  typedef ApplyMatcher AuxMatcher3;
+  typedef TestMatcher< AuxMatcher3, LegalKindTest > AuxMatcher2;
+  typedef CandidateGeneratorMatcher< CandidateGeneratorTheoryEeClass, AuxMatcher2> AuxMatcher1;
+  AuxMatcher1 d_cgm;
+  static inline AuxMatcher1 createCgm(Node pat, QuantifiersEngine* qe){
+    Assert( pat.getKind() == kind::SELECT || pat.getKind() == kind::STORE );
+    /** In reverse order of matcher sequence */
+    AuxMatcher3 am3(pat,qe);
+    /** Keep only the one that have the good operator */
+    AuxMatcher2 am2(am3, LegalKindTest(pat.getKind()));
+    /** Iter on the equivalence class of the given term */
+    arrays::TheoryArrays* ar = static_cast<arrays::TheoryArrays *>(qe->getTheoryEngine()->getTheory( theory::THEORY_ARRAY ));
+    eq::EqualityEngine* ee =
+      static_cast<eq::EqualityEngine*>(ar->getEqualityEngine());
+    CandidateGeneratorTheoryEeClass cdtUfEq(ee);
+    /* Create a matcher from the candidate generator */
+    AuxMatcher1 am1(cdtUfEq,am2);
+    return am1;
+  }
+  size_t d_num_var;
+  Node d_pat;
+public:
+  ArrayMatcher( Node pat, QuantifiersEngine* qe ):
+    d_cgm(createCgm(pat, qe)),d_num_var(numFreeVar(pat)),
+    d_pat(pat) {}
+
+  void resetInstantiationRound( QuantifiersEngine* qe ){
+    d_cgm.resetInstantiationRound(qe);
+  };
+  bool reset( TNode t, InstMatch& m, QuantifiersEngine* qe ){
+    // size_t m_size = m.d_map.size();
+    // if(m_size == d_num_var){
+    //   uf::EqualityEngine<uf::TheoryUF::NotifyClass>* ee = (static_cast<uf::TheoryUF*>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF )))->getEqualityEngine();
+    //   std::cout << "!";
+    //   return ee->areEqual(m.subst(d_pat),t);
+    // }else{
+    // std::cout << m.d_map.size() << std::endl;
+    return d_cgm.reset(t, m, qe);
+    // }
   }
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
     return d_cgm.getNextMatch(m, qe);
@@ -756,8 +805,10 @@ Matcher* mkMatcher( Node pat, QuantifiersEngine* qe ){
 
   if( pat.getKind() == kind::APPLY_UF){
     return new OpMatcher(pat, qe);
-  } else if ( pat.getKind() == kind::APPLY_CONSTRUCTOR ){
+  } else if( pat.getKind() == kind::APPLY_CONSTRUCTOR ){
     return new DatatypesMatcher(pat, qe);
+  } else if( pat.getKind() == kind::SELECT || pat.getKind() == kind::STORE ){
+    return new ArrayMatcher(pat, qe);
   } else { /* Arithmetic? */
     /** TODO: something simpler to see if the pattern is a good
         arithmetic pattern */

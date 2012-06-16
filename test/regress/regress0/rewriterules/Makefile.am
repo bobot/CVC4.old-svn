@@ -14,7 +14,7 @@ TESTS =	\
 	length_trick.smt2 length_trick2.smt2 length_gen_020.smt2 \
 	datatypes.smt2 datatypes_sat.smt2 set_A_new_fast_tableau-base.smt2 \
 	set_A_new_fast_tableau-base_sat.smt2 relation.smt2 simulate_rewritting.smt2 \
-	reachability_back_to_the_future.smt2
+	reachability_back_to_the_future.smt2 native_arrays.smt2
 
 EXTRA_DIST = $(TESTS)
 
