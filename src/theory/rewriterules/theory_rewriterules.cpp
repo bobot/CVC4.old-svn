@@ -520,7 +520,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
     //   (*i).setAttribute(rewrittenNodeAttribute,true);
     // };
     for(size_t i = 0; i < rule->to_remove.size(); ++i){
-      rule->to_remove[i].setAttribute(rewrittenNodeAttribute,true);
+      (inst->substNode(*this,rule->to_remove[i],cache)).setAttribute(rewrittenNodeAttribute,true);
     };
 
   };

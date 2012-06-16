@@ -69,7 +69,7 @@ static const bool useCurrentModel = false;
 /**
    Simulate rewritting by tagging rewritten terms.
  */
-static const bool simulateRewritting = false;
+static const bool simulateRewritting = true;
 
 /**
    Choose the kind of matching to use:
