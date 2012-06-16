@@ -31,6 +31,7 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::rewriterules;
+using namespace CVC4::theory::rrinst;
 
 
 namespace CVC4 {

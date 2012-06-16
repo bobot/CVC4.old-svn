@@ -26,6 +26,9 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
+namespace inst{
+typedef CVC4::theory::inst::CandidateGenerator CandidateGenerator;
+
 class CandidateGeneratorTheoryUfDisequal;
 
 class CandidateGeneratorTheoryUf : public CandidateGenerator
@@ -108,7 +111,8 @@ public:
 };
 
 
-}
+}/* CVC4::theory::uf::inst namespace */
+}/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 

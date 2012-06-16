@@ -26,6 +26,7 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
+using namespace CVC4::theory::inst;
 
 EqClassInfo::EqClassInfo( context::Context* c ) : d_funs( c ), d_pfuns( c ), d_disequal( c ){
 
@@ -490,7 +491,7 @@ void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, N
   Debug("efficient-e-match") << "Done." << std::endl;
 }
 
-void InstantiatorTheoryUf::registerTrigger( Trigger* tr, Node op ){
+void InstantiatorTheoryUf::registerTrigger( inst::Trigger* tr, Node op ){
   if( std::find( d_op_triggers[op].begin(), d_op_triggers[op].end(), tr )==d_op_triggers[op].end() ){
     d_op_triggers[op].push_back( tr );
   }

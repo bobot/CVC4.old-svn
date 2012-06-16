@@ -28,13 +28,16 @@
 #include "theory/theory_engine.h"
 #include "theory/quantifiers_engine.h"
 #include "context/context_mm.h"
-#include "theory/inst_match_impl.h"
+#include "theory/rr_inst_match_impl.h"
+#include "theory/rr_trigger.h"
 #include "util/stats.h"
 #include "theory/rewriterules/theory_rewriterules_preprocess.h"
 
 namespace CVC4 {
 namespace theory {
 namespace rewriterules {
+using namespace CVC4::theory::rrinst;
+typedef CVC4::theory::rrinst::Trigger Trigger;
 
 typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
 

@@ -16,18 +16,18 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__INST_MATCH_IMPL_H
-#define __CVC4__INST_MATCH_IMPL_H
+#ifndef __CVC4__RR_INST_MATCH_IMPL_H
+#define __CVC4__RR_INST_MATCH_IMPL_H
 
-#include "theory/inst_match.h"
+#include "theory/rr_inst_match.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers_engine.h"
-#include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_candidate_generator.h"
 #include "theory/uf/equality_engine.h"
 
 namespace CVC4 {
 namespace theory {
+namespace rrinst {
 
 template<bool modEq>
 InstMatchTrie2<modEq>::InstMatchTrie2(context::Context* c,  QuantifiersEngine* qe):
@@ -100,7 +100,7 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
 }
 
 template<bool modEq>
-bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
+bool InstMatchTrie2<modEq>::addInstMatch( inst::InstMatch& m ) {
  mapIter begin = m.d_map.begin();
  mapIter end = m.d_map.end();
  InstMatchTrie2<modEq>::Tree * e = &d_data;
@@ -118,8 +118,10 @@ bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
  }
 }
 
+}/* CVC4::theory::rrinst namespace */
+
 }/* CVC4::theory namespace */
 
 }/* CVC4 namespace */
 
-#endif /*  __CVC4__INST_MATCH_IMPL_H */
+#endif /*  __CVC4__RR_INST_MATCH_IMPL_H */

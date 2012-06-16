@@ -16,20 +16,22 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__TRIGGER_H
-#define __CVC4__TRIGGER_H
+#ifndef __CVC4__RR_TRIGGER_H
+#define __CVC4__RR_TRIGGER_H
 
-#include "theory/inst_match.h"
+#include "theory/rr_inst_match.h"
 
 namespace CVC4 {
 namespace theory {
-namespace inst {
+namespace rrinst {
 
 //a collect of nodes representing a trigger
 class Trigger {
+public:
+  static int trCount;
 private:
   /** computation of variable contains */
-  static std::map< TNode, std::vector< TNode > > d_var_contains;
+  static std::map< Node, std::vector< Node > > d_var_contains;
   static void computeVarContains( Node n );
   static void computeVarContains2( Node n, Node parent );
 private:
@@ -41,14 +43,15 @@ private:
   IMGenerator* d_mg;
 private:
   /** a trie of triggers */
-  class TrTrie {
+  class TrTrie
+  {
   private:
     Trigger* getTrigger2( std::vector< Node >& nodes );
     void addTrigger2( std::vector< Node >& nodes, Trigger* t );
   public:
     TrTrie() : d_tr( NULL ){}
     Trigger* d_tr;
-    std::map< TNode, TrTrie* > d_children;
+    std::map< Node, TrTrie* > d_children;
     Trigger* getTrigger( std::vector< Node >& nodes ){
       std::vector< Node > temp;
       temp.insert( temp.begin(), nodes.begin(), nodes.end() );
@@ -61,7 +64,7 @@ private:
       std::sort( temp.begin(), temp.end() );
       return addTrigger2( temp, t );
     }
-  };/* class Trigger::TrTrie */
+  };
   /** all triggers will be stored in this trie */
   static TrTrie d_tr_trie;
 private:
@@ -86,8 +89,6 @@ public:
       Currently the trigger should not be a multi-trigger.
   */
   bool getMatch( Node t, InstMatch& m);
-  /** add ground term t, called when t is added to the TermDb */
-  int addTerm( Node t );
   /** return true if whatever Node is subsituted for the variables the
       given Node can't match the pattern */
   bool nonunifiable( TNode t, const std::vector<Node> & vars){
@@ -164,10 +165,10 @@ inline std::ostream& operator<<(std::ostream& out, const Trigger & tr) {
   return out;
 }
 
-}/* CVC4::theory::inst namespace */
+}/* CVC4::theory::rrinst namespace */
 
 }/* CVC4::theory namespace */
 
 }/* CVC4 namespace */
 
-#endif /* __CVC4__TRIGGER_H */
+#endif /* __CVC4__RR_TRIGGER_H */

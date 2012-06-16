@@ -27,6 +27,7 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
+using namespace CVC4::theory::inst;
 
 #define USE_SINGLE_TRIGGER_BEFORE_MULTI_TRIGGER
 //#define MULTI_TRIGGER_FULL_EFFORT_HALF

@@ -27,6 +27,7 @@
 
 #include "util/stats.h"
 #include "theory/uf/theory_uf.h"
+#include "theory/trigger.h"
 
 namespace CVC4 {
 namespace theory {
@@ -66,7 +67,7 @@ public:
 };
 
 class InstantiatorTheoryUf : public Instantiator{
-  friend class ::CVC4::theory::InstMatchGenerator;
+  friend class ::CVC4::theory::inst::InstMatchGenerator;
   friend class ::CVC4::theory::TermDb;
 protected:
   typedef context::CDHashMap<Node, bool, NodeHashFunction> BoolMap;
@@ -144,9 +145,9 @@ private:
   /** Parent/Parent Pairs (for efficient E-matching) */
   std::map< Node, std::map< Node, std::map< Node, std::vector< IpsPair > > > > d_pp_pairs;
   /** list of all candidate generators for each operator */
-  std::map< Node, std::vector< CandidateGenerator* > > d_cand_gens;
+  std::map< Node, std::vector< inst::CandidateGenerator* > > d_cand_gens;
   /** map from patterns to candidate generators */
-  std::map< Node, std::vector< CandidateGenerator* > > d_pat_cand_gens;
+  std::map< Node, std::vector< inst::CandidateGenerator* > > d_pat_cand_gens;
   /** helper functions */
   void registerPatternElementPairs2( Node opat, Node pat, InvertedPathString& ips,
                                      std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >& ips_map );
@@ -163,13 +164,15 @@ public:
       This request will ensure that calls will be made to cg->addCandidate( n ) for all
       ground terms n that are relevant for matching with pat.
   */
-  void registerCandidateGenerator( CandidateGenerator* cg, Node pat );
+  void registerCandidateGenerator( inst::CandidateGenerator* cg, Node pat );
+
 private:
   /** triggers */
-  std::map< Node, std::vector< Trigger* > > d_op_triggers;
+  std::map< Node, std::vector< inst::Trigger* > > d_op_triggers;
 public:
   /** register trigger (for eager quantifier instantiation) */
-  void registerTrigger( Trigger* tr, Node op );
+  void registerTrigger( inst::Trigger* tr, Node op );
+
 public:
   /** output eq class */
   void outputEqClass( const char* c, Node n );

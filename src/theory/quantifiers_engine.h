@@ -21,7 +21,7 @@
 
 #include "theory/theory.h"
 #include "util/hash.h"
-#include "theory/trigger.h"
+#include "theory/inst_match.h"
 
 #include "util/stats.h"
 
@@ -164,7 +164,7 @@ namespace quantifiers {
 
 class QuantifiersEngine {
   friend class quantifiers::InstantiationEngine;
-  friend class InstMatch;
+  friend class inst::InstMatch;
 private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
   /** reference to theory engine object */
@@ -172,7 +172,7 @@ private:
   /** vector of modules for quantifiers */
   std::vector< QuantifiersModule* > d_modules;
   /** equality query class */
-  EqualityQuery* d_eq_query;
+  inst::EqualityQuery* d_eq_query;
 
   /** list of all quantifiers */
   std::vector< Node > d_quants;
@@ -199,7 +199,7 @@ private:
   /** lemmas waiting */
   std::vector< Node > d_lemmas_waiting;
   /** inst matches produced for each quantifier */
-  std::map< Node, InstMatchTrie > d_inst_match_trie;
+  std::map< Node, inst::InstMatchTrie > d_inst_match_trie;
   /** free variable for instantiation constant type */
   std::map< TypeNode, Node > d_free_vars;
   /** owner of quantifiers */
@@ -240,9 +240,9 @@ public:
   /** get theory engine */
   TheoryEngine* getTheoryEngine() { return d_te; }
   /** get equality query object */
-  EqualityQuery* getEqualityQuery() { return d_eq_query; }
+  inst::EqualityQuery* getEqualityQuery() { return d_eq_query; }
   /** set equality query object */
-  void setEqualityQuery( EqualityQuery* eq ) { d_eq_query = eq; }
+  void setEqualityQuery( inst::EqualityQuery* eq ) { d_eq_query = eq; }
 public:
   /** add module */
   void addModule( QuantifiersModule* qm ) { d_modules.push_back( qm ); }
@@ -262,7 +262,7 @@ public:
   /** instantiate f with arguments terms */
   bool addInstantiation( Node f, std::vector< Node >& terms );
   /** do instantiation specified by m */
-  bool addInstantiation( Node f, InstMatch& m, bool addSplits = false );
+  bool addInstantiation( Node f, inst::InstMatch& m, bool addSplits = false );
   /** split on node n */
   bool addSplit( Node n, bool reqPhase = false, bool reqPhasePol = true );
   /** add split equality */
