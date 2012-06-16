@@ -48,9 +48,18 @@ public:
   Node getInternalRepresentative( Node a ) { return getRepresentative( a ); }
 }; /* EqualityQueryInstantiatorTheoryUf */
 
+
+struct DatatypesRRCreateCandidateGenerator : QuantifiersEngine::RRCreateCandidateGenerator{
+  theory::rrinst::CandidateGenerator* operator()(QuantifiersEngine* qe){
+    Unimplemented("MetaCandidateGeneratorClasses for THEORY_DATATYPES");
+  }
+};
+
 InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, TheoryDatatypes* th) :
 Instantiator( c, ie, th ){
   ie->setEqualityQuery( theory::THEORY_DATATYPES, new EqualityQueryTheory( th ) );
+  ie->setRRCreateCandidateGenerator( theory::THEORY_DATATYPES, new DatatypesRRCreateCandidateGenerator() );
+
 }
 
 void InstantiatorTheoryDatatypes::assertNode( Node assertion ){

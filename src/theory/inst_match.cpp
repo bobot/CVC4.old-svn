@@ -322,9 +322,9 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       d_eq_class = d_pattern[1];
     }
   }else if( Trigger::isAtomicTrigger( d_match_pattern ) ){
-    if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){
-      Warning() << "Currently efficient e matching is not taken into account for quantifiers" << std::endl;
-    }
+    //if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){
+      //Warning() << "Currently efficient e matching is not taken into account for quantifiers: " << d_pattern << std::endl;
+    //}
     //we will be scanning lists trying to find d_match_pattern.getOperator()
     d_cg = new uf::inst::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
   }else{

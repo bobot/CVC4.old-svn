@@ -17,6 +17,7 @@
 #include "theory/theory_engine.h"
 #include "theory/arrays/theory_arrays_instantiator.h"
 #include "theory/arrays/theory_arrays.h"
+#include "theory/uf/theory_uf_candidate_generator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -25,10 +26,22 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arrays;
 
+
+struct ArraysRRCreateCandidateGenerator : QuantifiersEngine::RRCreateCandidateGenerator{
+  rrinst::CandidateGenerator* operator()(QuantifiersEngine* qe){
+    arrays::TheoryArrays* ar = static_cast<arrays::TheoryArrays *>(qe->getTheoryEngine()->getTheory( theory::THEORY_ARRAY ));
+    eq::EqualityEngine* ee =
+      static_cast<eq::EqualityEngine*>(ar->getEqualityEngine());
+    return new eq::rrinst::CandidateGeneratorTheoryEeClasses(ee);
+  }
+};
+
+
 InstantiatorTheoryArrays::InstantiatorTheoryArrays(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
   ie->setEqualityQuery( theory::THEORY_ARRAY,
                         new EqualityQueryInstantiatorTheoryEq( ((TheoryArrays*)d_th)->getEqualityEngine() ));
+  ie->setRRCreateCandidateGenerator( theory::THEORY_ARRAY, new ArraysRRCreateCandidateGenerator() );
 }
 
 void InstantiatorTheoryArrays::preRegisterTerm( Node t ){

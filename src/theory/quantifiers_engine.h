@@ -22,6 +22,7 @@
 #include "theory/theory.h"
 #include "util/hash.h"
 #include "theory/inst_match.h"
+#include "theory/rr_inst_match.h"
 
 #include "util/stats.h"
 
@@ -181,10 +182,20 @@ private:
   std::vector< QuantifiersModule* > d_modules;
   /** equality query class */
   /**
-   * A table of from theory IDs to theory pointers. Never use this table
-   * directly, use theoryOf() instead.
+   * A table from theory IDs to equality query. use getEqualityQuery;
    */
   inst::EqualityQuery* d_eq_query[theory::THEORY_LAST];
+public:
+  /**
+   * A table from theory IDs to candidate generator of rrinst.
+   use getRrinstCandidateGenerator;
+   */
+  struct RRCreateCandidateGenerator:
+    std::unary_function<QuantifiersEngine*, rrinst::CandidateGenerator*>{
+    virtual rrinst::CandidateGenerator* operator()(QuantifiersEngine*) = 0;
+  };
+private:
+  RRCreateCandidateGenerator* d_rr_gen_classes[theory::THEORY_LAST];
 
   /** list of all quantifiers */
   std::vector< Node > d_quants;
@@ -246,7 +257,7 @@ private:
 
 public:
   QuantifiersEngine(context::Context* c, TheoryEngine* te);
-  ~QuantifiersEngine(){}
+  ~QuantifiersEngine();
   /** get instantiator for id */
   Instantiator* getInstantiator( theory::TheoryId id );
   /** get theory engine */
@@ -265,6 +276,18 @@ public:
   /** set equality query object */
   void setEqualityQuery( TheoryId id, EqualityQuery* eq ) {
     d_eq_query[id] = eq;
+  }
+  /** get equality query object for the given type. The default is the
+      one of UF */
+  rrinst::CandidateGenerator* getRRCandidateGenerator(TypeNode t) {
+    TheoryId id = Theory::theoryOf(t);
+    RRCreateCandidateGenerator* eq = d_rr_gen_classes[id];
+    if(eq == NULL) return (*d_rr_gen_classes[theory::THEORY_UF])(this);
+    else return (*eq)(this);
+  }
+  /** set creator of candidate generator object */
+  void setRRCreateCandidateGenerator( TheoryId id, RRCreateCandidateGenerator* eq ) {
+    d_rr_gen_classes[id] = eq;
   }
 public:
   /** add module */

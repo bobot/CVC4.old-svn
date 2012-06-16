@@ -218,7 +218,20 @@ d_active( c ){
   for(TheoryId i = THEORY_FIRST; i < theory::THEORY_LAST; ++i){
     d_eq_query[i] = NULL;
   };
+  for(TheoryId i = THEORY_FIRST; i < theory::THEORY_LAST; ++i){
+    d_rr_gen_classes[i] = NULL;
+  };
   d_term_db = new TermDb( this );
+}
+
+QuantifiersEngine::~QuantifiersEngine(){
+  for(TheoryId i = THEORY_FIRST; i < theory::THEORY_LAST; ++i){
+    delete(d_eq_query[i]);
+  };
+  for(TheoryId i = THEORY_FIRST; i < theory::THEORY_LAST; ++i){
+    delete(d_rr_gen_classes[i]);
+  };
+  delete(d_term_db);
 }
 
 Instantiator* QuantifiersEngine::getInstantiator( theory::TheoryId id ){

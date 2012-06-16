@@ -7,19 +7,16 @@
 (declare-fun f (elt) elt)
 (declare-fun Rf (elt elt elt) Bool)
 
-(declare-fun hack (elt) Bool)
-
-
 ;;eq
-(assert-propagation ((?x elt)) () () (or (= ?x ?x) (not (= ?x ?x))) (((hack ?x))) )
+(assert-propagation ((?x elt)) () () (or (= ?x ?x) (not (= ?x ?x))) ((?x)) )
 ;; reflexive
-(assert-propagation ((?x elt)) () () (Rf ?x ?x ?x) (((hack ?x))) )
+(assert-propagation ((?x elt)) () () (Rf ?x ?x ?x) ((?x)) )
 ;; step
 (assert-propagation ((?x elt)) () () (Rf ?x (f ?x) (f ?x)) (((f ?x))) )
 ;; reach
 (assert-propagation ((?x1 elt)(?x2 elt)) () ((Rf ?x1 ?x2 ?x2)) (or (= ?x1 ?x2) (Rf ?x1 (f ?x1) ?x2)) (((f ?x1))) )
 ;; cycle
-(assert-propagation ((?x1 elt)(?x2 elt)) () ((= (f ?x1) ?x1) (Rf ?x1 ?x2 ?x2)) (= ?x1 ?x2) () )
+(assert-propagation ((?x1 elt)(?x2 elt)) ((= (f ?x1) ?x1)) ((Rf ?x1 ?x2 ?x2)) (= ?x1 ?x2) (((f ?x1))) )
 ;; sandwich
 (assert-propagation ((?x1 elt)(?x2 elt)) () ((Rf ?x1 ?x2 ?x1)) (= ?x1 ?x2) () )
 ;; order1
@@ -42,9 +39,6 @@
 (declare-fun e2 () elt)
 (declare-fun e3 () elt)
 (declare-fun e4 () elt)
-
-
-(assert (and (hack e1) (hack e2) (hack e3) (hack e4) (hack (f e1))))
 
 
 ;; (assert (=> (Rf e1 e2 e3) (Rf e1 (f e1) (f e1)) ))

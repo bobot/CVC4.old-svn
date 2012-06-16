@@ -284,7 +284,7 @@ Additional CVC4 options:\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --use-fmf-region-sat   use region-based SAT heuristic for finite model finding\n\
    --disable-fmf-model-inst  disable model-based instantiation for finite model finding\n\
-   --efficient-e-matching use efficient E-matching\n\
+   --efficient-e-matching use efficient E-matching (only for rewrite rules)\n\
    --literal-matching=MODE  choose literal matching mode\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [off by default]\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\

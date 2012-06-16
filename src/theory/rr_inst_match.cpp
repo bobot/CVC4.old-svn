@@ -26,7 +26,6 @@
 #include "theory/uf/equality_engine.h"
 #include "theory/arrays/theory_arrays.h"
 
-using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
 using namespace CVC4::context;
@@ -652,7 +651,92 @@ public:
   }
 };
 
+class MetaCandidateGeneratorClasses: public CandidateGenerator{
+private:
+  CandidateGenerator* d_cg;
+  TypeNode d_ty;
+  TheoryEngine* d_te;
 
+public:
+  CandidateGenerator* mkCandidateGenerator(TypeNode ty, TheoryEngine* te){
+    if( Theory::theoryOf(ty) == theory::THEORY_DATATYPES ){
+      // datatypes::TheoryDatatypes* dt = static_cast<datatypes::TheoryDatatypes *>(te->getTheory( theory::THEORY_DATATYPES ));
+      // return new datatypes::rrinst::CandidateGeneratorTheoryClasses(dt);
+      Unimplemented("MetaCandidateGeneratorClasses for THEORY_DATATYPES");
+    }else if ( Theory::theoryOf(ty) == theory::THEORY_ARRAY ){
+      arrays::TheoryArrays* ar = static_cast<arrays::TheoryArrays *>(te->getTheory( theory::THEORY_ARRAY ));
+      eq::EqualityEngine* ee =
+        static_cast<eq::EqualityEngine*>(ar->getEqualityEngine());
+      return new CandidateGeneratorTheoryEeClasses(ee);
+    } else {
+      uf::TheoryUF* uf = static_cast<uf::TheoryUF*>(te->getTheory( theory::THEORY_UF ));
+      eq::EqualityEngine* ee =
+        static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
+      return new CandidateGeneratorTheoryEeClasses(ee);
+    }
+  }
+  MetaCandidateGeneratorClasses(TypeNode ty, TheoryEngine* te):
+    d_ty(ty), d_te(te) {
+    d_cg = mkCandidateGenerator(ty,te);
+  }
+  ~MetaCandidateGeneratorClasses(){
+    delete(d_cg);
+  }
+  const MetaCandidateGeneratorClasses & operator =(const MetaCandidateGeneratorClasses & m){
+    d_cg = mkCandidateGenerator(m.d_ty, m.d_te);
+    return m;
+  };
+  MetaCandidateGeneratorClasses(const MetaCandidateGeneratorClasses & m):
+  d_ty(m.d_ty), d_te(m.d_te){
+    d_cg = mkCandidateGenerator(m.d_ty, m.d_te);
+  }
+  void resetInstantiationRound(){
+    d_cg->resetInstantiationRound();
+  };
+  void reset( TNode eqc ){
+    d_cg->reset(eqc);
+  }; //* the argument is not used
+  TNode getNextCandidate(){
+    return d_cg->getNextCandidate();
+  };
+}; /* MetaCandidateGeneratorClasses */
+
+/** Match just a variable */
+class AllVarMatcher: public PatMatcher{
+private:
+  /* generator */
+  typedef VarMatcher AuxMatcher3;
+  typedef TestMatcher< AuxMatcher3, LegalTypeTest > AuxMatcher2;
+  typedef CandidateGeneratorMatcher< MetaCandidateGeneratorClasses, AuxMatcher2 > AuxMatcher1;
+  AuxMatcher1 d_cgm;
+  static inline AuxMatcher1 createCgm(TNode pat, QuantifiersEngine* qe){
+    Assert( pat.getKind()==INST_CONSTANT );
+    TypeNode ty = pat.getType();
+    /** In reverse order of matcher sequence */
+    /** Distribute it to all the pattern */
+    AuxMatcher3 am3(pat,qe);
+    /** Keep only the one that have the good type */
+    AuxMatcher2 am2(am3,LegalTypeTest(ty));
+    /** Generate one term by eq classes */
+    MetaCandidateGeneratorClasses mcdt(ty,qe->getTheoryEngine());
+    /* Create a matcher from the candidate generator */
+    AuxMatcher1 am1(mcdt,am2);
+    return am1;
+  }
+public:
+  AllVarMatcher( TNode pat, QuantifiersEngine* qe ):
+    d_cgm(createCgm(pat, qe)){}
+
+  void resetInstantiationRound( QuantifiersEngine* qe ){
+    d_cgm.resetInstantiationRound(qe);
+  };
+  bool reset( InstMatch& m, QuantifiersEngine* qe ){
+    return d_cgm.reset(Node::null(), m, qe); //cdtUfEq doesn't use it's argument for reset
+  }
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
+    return d_cgm.getNextMatch(m, qe);
+  }
+};
 
 /** Match all the pattern with the same term */
 class SplitMatcher: public Matcher{
@@ -814,8 +898,8 @@ Matcher* mkMatcher( Node pat, QuantifiersEngine* qe ){
         arithmetic pattern */
     std::map< Node, Node > d_arith_coeffs;
     if( !Trigger::getPatternArithmetic( pat.getAttribute(InstConstantAttribute()), pat, d_arith_coeffs ) ){
-      Debug("inst-match-gen") << "(?) Unknown matching pattern is " << pat << std::endl;
       std::cout << "(?) Unknown matching pattern is " << pat << std::endl;
+      Unimplemented("pattern not implemented");
       return new DumbMatcher();
     }else{
       Debug("matching-arith") << "Generated arithmetic pattern for " << pat << ": " << std::endl;
@@ -856,6 +940,9 @@ PatMatcher* mkPattern( Node pat, QuantifiersEngine* qe ){
     }
   } else if( Trigger::isAtomicTrigger( pat ) ){
     return new AllOpMatcher(pat, qe);
+  } else if( pat.getKind()==INST_CONSTANT ){
+    // just a variable
+    return new AllVarMatcher(pat, qe);
   } else { /* Arithmetic? */
     /** TODO: something simpler to see if the pattern is a good
         arithmetic pattern */
@@ -1077,7 +1164,7 @@ private:
   bool d_phase_mono;
   bool d_phase_new_term;
   std::vector< PatMatcher* > d_patterns;
-  std::vector< ApplyMatcher > d_direct_patterns;
+  std::vector< Matcher* > d_direct_patterns;
   InstMatch d_im;
   uf::EfficientHandler d_eh;
   uf::EfficientHandler::MultiCandidate d_mc;
@@ -1199,25 +1286,23 @@ public:
         } else d_step = ES_STOP;
         break;
       case ES_RESET1:
-        Assert(d_direct_patterns[d_mc.first.second].d_pattern.getOperator() == d_mc.first.first.getOperator() );
-        if(d_direct_patterns[d_mc.first.second].reset(d_mc.first.first,d_im,qe))
+        if(d_direct_patterns[d_mc.first.second]->reset(d_mc.first.first,d_im,qe))
           d_step = d_phase_mono ? TestMonoCache(qe) : ES_RESET2;
         else d_step = d_phase_mono ? ES_GET_MONO_CANDIDATE : ES_GET_MULTI_CANDIDATE;
         break;
       case ES_RESET2:
-        Assert(d_direct_patterns[d_mc.second.second].d_pattern.getOperator() == d_mc.second.first.getOperator() );
         Assert(!d_phase_mono);
-        if(d_direct_patterns[d_mc.second.second].reset(d_mc.second.first,d_im,qe))
+        if(d_direct_patterns[d_mc.second.second]->reset(d_mc.second.first,d_im,qe))
           d_step = TestMultiCache(qe);
         else d_step = ES_NEXT1;
         break;
       case ES_NEXT1:
-        if(d_direct_patterns[d_mc.first.second].getNextMatch(d_im,qe))
+        if(d_direct_patterns[d_mc.first.second]->getNextMatch(d_im,qe))
           d_step = d_phase_mono ? TestMonoCache(qe) : ES_RESET2;
         else d_step = d_phase_mono ? ES_GET_MONO_CANDIDATE : ES_GET_MULTI_CANDIDATE;
         break;
       case ES_NEXT2:
-        if(d_direct_patterns[d_mc.second.second].getNextMatch(d_im,qe))
+        if(d_direct_patterns[d_mc.second.second]->getNextMatch(d_im,qe))
           d_step = TestMultiCache(qe);
         else d_step = ES_NEXT1;
         break;
@@ -1251,8 +1336,11 @@ public:
     Assert(pats.size() > 0);
     for( size_t i=0; i< pats.size(); i++ ){
       d_patterns.push_back(mkPattern(pats[i],qe));
-      Assert(pats[i].getKind()==kind::APPLY_UF);
-      d_direct_patterns.push_back(ApplyMatcher(pats[i],qe));
+      if(pats[i].getKind()==kind::INST_CONSTANT){
+        d_direct_patterns.push_back(new VarMatcher(pats[i],qe));
+      } else {
+        d_direct_patterns.push_back(new ApplyMatcher(pats[i],qe));
+      }
     };
     Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF );
     uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
@@ -1262,7 +1350,7 @@ public:
     Assert(d_step == ES_START || d_step == ES_STOP);
     for( size_t i=0; i< d_patterns.size(); i++ ){
       d_patterns[i]->resetInstantiationRound( qe );
-      d_direct_patterns[i].resetInstantiationRound( qe );
+      d_direct_patterns[i]->resetInstantiationRound( qe );
     };
     d_step = ES_START;
     d_phase_new_term = false;

@@ -17,6 +17,7 @@
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
+#include "theory/uf/theory_uf_candidate_generator.h"
 #include "theory/uf/equality_engine.h"
 //#include "theory/uf/inst_strategy_model_find.h"
 
@@ -86,10 +87,20 @@ inline void outputEqClassInfo( const char* c, const EqClassInfo* eci){
 }
 
 
+struct UfRRCreateCandidateGenerator : QuantifiersEngine::RRCreateCandidateGenerator{
+  rrinst::CandidateGenerator* operator()(QuantifiersEngine* qe){
+    uf::TheoryUF* uf = static_cast<uf::TheoryUF*>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF ));
+    eq::EqualityEngine* ee =
+      static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
+    return new eq::rrinst::CandidateGeneratorTheoryEeClasses(ee);
+  }
+};
+
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* qe, Theory* th) :
 Instantiator( c, qe, th )
 {
   qe->setEqualityQuery( theory::THEORY_UF, new EqualityQueryInstantiatorTheoryUf( this ) );
+  qe->setRRCreateCandidateGenerator( theory::THEORY_UF, new UfRRCreateCandidateGenerator() );
 
   if( Options::current()->finiteModelFind ){
     //if( Options::current()->cbqi ){
@@ -254,21 +265,43 @@ void InstantiatorTheoryUf::newEqClass( TNode n ){
 void InstantiatorTheoryUf::newTerms(SetNode& s){
   /* op -> nodes (if the set is empty, the op is not interesting) */
   std::hash_map< TNode, SetNode, TNodeHashFunction > h;
+  /* types -> nodes (if the set is empty, the type is not interesting) */
+  std::hash_map< TypeNode, SetNode, TypeNodeHashFunction > tyh;
   for(SetNode::iterator i=s.begin(), end=s.end(); i != end; ++i){
-    TNode op = i->getOperator();
-    std::hash_map< TNode, SetNode, TNodeHashFunction >::iterator
-      is = h.find(op);
-    if(is == h.end()){
-      std::pair<std::hash_map< TNode, SetNode, TNodeHashFunction >::iterator,bool>
-        p = h.insert(make_pair(op,SetNode()));
-      is = p.first;
-      if(d_cand_gens.find(op) != d_cand_gens.end()){
+    if( !d_cand_gens.empty() ){
+      // op
+      TNode op = i->getOperator();
+      std::hash_map< TNode, SetNode, TNodeHashFunction >::iterator
+        is = h.find(op);
+      if(is == h.end()){
+        std::pair<std::hash_map< TNode, SetNode, TNodeHashFunction >::iterator,bool>
+          p = h.insert(make_pair(op,SetNode()));
+        is = p.first;
+        if(d_cand_gens.find(op) != d_cand_gens.end()){
+          is->second.insert(*i);
+        } /* else we have inserted an empty set */
+      }else if(!is->second.empty()){
         is->second.insert(*i);
-      } /* else we insert an empty set */
-    }else if(!is->second.empty()){
-      is->second.insert(*i);
+      }
+    }
+    if( !d_cand_gen_types.empty() ){
+      //type
+      TypeNode ty = i->getType();
+      std::hash_map< TypeNode, SetNode, TypeNodeHashFunction >::iterator
+        is = tyh.find(ty);
+      if(is == tyh.end()){
+        std::pair<std::hash_map< TypeNode, SetNode, TypeNodeHashFunction >::iterator,bool>
+          p = tyh.insert(make_pair(ty,SetNode()));
+        is = p.first;
+        if(d_cand_gen_types.find(ty) != d_cand_gen_types.end()){
+          is->second.insert(*i);
+        } /* else we have inserted an empty set */
+      }else if(!is->second.empty()){
+        is->second.insert(*i);
+      }
     }
   }
+  //op
   for(std::hash_map< TNode, SetNode, TNodeHashFunction >::iterator i=h.begin(), end=h.end();
       i != end; ++i){
     //new term, add n to candidate generators
@@ -279,6 +312,18 @@ void InstantiatorTheoryUf::newTerms(SetNode& s){
     Assert(inpc != d_cand_gens.end());
     inpc->second.send(i->second);
   }
+  //type
+  for(std::hash_map< TypeNode, SetNode, TypeNodeHashFunction >::iterator i=tyh.begin(), end=tyh.end();
+      i != end; ++i){
+    //new term, add n to candidate generators
+    if(i->second.empty()) continue;
+    std::map< TypeNode, NodeNewTermDispatcher >::iterator
+      inpc = d_cand_gen_types.find(i->first);
+    //we know that this op exists
+    Assert(inpc != d_cand_gen_types.end());
+    inpc->second.send(i->second);
+  }
+
 }
 
 
@@ -615,8 +660,18 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
 
   MultiPpIpsMap multi_pp_ips_map;
   PpIpsMap pp_ips_map;
+  //In a multi-pattern Pattern that is only a variable are specials,
+  //if the variable appears in another pattern, it can be discarded.
+  //Otherwise new term of this term can be candidate. So we stock them
+  //here before adding them.
+  std::vector< size_t > patVars;
+
   Debug("pattern-element-opt") << "Register patterns" << pats << std::endl;
   for(size_t i = 0; i < pats.size(); ++i){
+    if( pats[i].getKind() == kind::INST_CONSTANT){
+      patVars.push_back(i);
+      continue;
+    }
     Debug("pattern-element-opt") << " Register candidate generator..." << pats[i] << std::endl;
     /* Has the pattern already been seen */
     if( d_pat_cand_gens.find( pats[i] )==d_pat_cand_gens.end() ){
@@ -644,24 +699,54 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
     pp_ips_map.clear();
   }
 
+  for(size_t i = 0; i < patVars.size(); ++i){
+    TNode var = pats[patVars[i]];
+    Assert( var.getKind() == kind::INST_CONSTANT );
+    if( multi_pp_ips_map.find(var) != multi_pp_ips_map.end() ){
+      //The variable appear in another pattern, skip it
+      continue;
+    };
+    d_cand_gen_types[var.getType()].addNewTermDispatcher(&handler,patVars[i]);
+  }
+
   //take all terms from the uf term db and add to candidate generator
-  Node op = pats[0].getOperator();
-  TermDb* db = d_quantEngine->getTermDatabase();
-  if(db->d_op_map[op].begin() != db->d_op_map[op].end()){
+  if( pats[0].getKind() == kind::INST_CONSTANT ){
+    TypeNode ty = pats[0].getType();
+    rrinst::CandidateGenerator* cg = d_quantEngine->getRRCandidateGenerator(ty);
+    cg->reset(Node::null());
+    TNode c;
     SetNode ele;
-    // for(std::vector<Node>::iterator i = db->d_op_map[op].begin(), end = db->d_op_map[op].end(); i != end; ++i){
-    //   if(CandidateGenerator::isLegalCandidate(*i)) ele.insert(*i);
-    // }
-    ele.insert(db->d_op_map[op].begin(), db->d_op_map[op].end());
-    if(Debug.isOn("efficient-e-match-stats")){
-      Debug("efficient-e-match-stats") << "pattern " << pats << " initialized with " << ele.size() << " terms"<< std::endl;
+    while( !(c = cg->getNextCandidate()).isNull() ){
+      ele.insert(c);
     }
-    handler.addMonoCandidate(ele, 0);
+    if( !ele.empty() ){
+      // for(std::vector<Node>::iterator i = db->d_op_map[op].begin(), end = db->d_op_map[op].end(); i != end; ++i){
+      //   if(CandidateGenerator::isLegalCandidate(*i)) ele.insert(*i);
+      // }
+      if(Debug.isOn("efficient-e-match-stats")){
+        Debug("efficient-e-match-stats") << "pattern " << pats << " initialized with " << ele.size() << " terms"<< std::endl;
+      }
+      handler.addMonoCandidate(ele, 0);
+    }
+  } else {
+    Node op = pats[0].getOperator();
+    TermDb* db = d_quantEngine->getTermDatabase();
+    if(db->d_op_map[op].begin() != db->d_op_map[op].end()){
+      SetNode ele;
+      // for(std::vector<Node>::iterator i = db->d_op_map[op].begin(), end = db->d_op_map[op].end(); i != end; ++i){
+      //   if(CandidateGenerator::isLegalCandidate(*i)) ele.insert(*i);
+      // }
+      ele.insert(db->d_op_map[op].begin(), db->d_op_map[op].end());
+      if(Debug.isOn("efficient-e-match-stats")){
+        Debug("efficient-e-match-stats") << "pattern " << pats << " initialized with " << ele.size() << " terms"<< std::endl;
+      }
+      handler.addMonoCandidate(ele, 0);
+    }
   }
   Debug("efficient-e-match") << "Done." << std::endl;
 }
 
-void InstantiatorTheoryUf::registerTrigger( inst::Trigger* tr, Node op ){
+void InstantiatorTheoryUf::registerTrigger( theory::inst::Trigger* tr, Node op ){
   if( std::find( d_op_triggers[op].begin(), d_op_triggers[op].end(), tr )==d_op_triggers[op].end() ){
     d_op_triggers[op].push_back( tr );
   }

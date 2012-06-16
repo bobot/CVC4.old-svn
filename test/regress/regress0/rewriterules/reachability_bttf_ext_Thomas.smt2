@@ -7,11 +7,8 @@
 (declare-fun f (elt) elt)
 (declare-fun Rf (elt elt elt) Bool)
 
-(declare-fun hack (elt) Bool)
-
-
 ;; reflexive
-;;(assert-propagation ((?x elt)) () () (Rf ?x ?x ?x) (((hack ?x))) )
+;;(assert-propagation ((?x elt)) () () (Rf ?x ?x ?x) ((?x)) )
 ;; step
 (assert-propagation ((?x elt)) () () (Rf ?x (f ?x) (f ?x)) (((f ?x))) )
 ;; (assert-propagation ((?x elt)) () () (Rf ?x (f ?x) (f ?x)) (((Rf ?x (f ?x) (f ?x)))) )

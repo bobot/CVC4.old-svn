@@ -449,6 +449,8 @@ private:
   std::map< Node, std::map< Node, std::vector< triple< NodePpDispatcher*, Ips, Ips > > > > d_pp_pairs;
   /** list of all candidate generators for each operator */
   std::map< Node, NodeNewTermDispatcher > d_cand_gens;
+  /** list of all candidate generators for each type */
+  std::map< TypeNode, NodeNewTermDispatcher > d_cand_gen_types;
   /** map from patterns to candidate generators */
   std::map< Node, std::pair<NodePcDispatcher*, NodePpDispatcher*> > d_pat_cand_gens;
   /** helper functions */
