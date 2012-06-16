@@ -387,6 +387,71 @@ extendedCommand[CVC4::Command*& cmd]
       }
     | { cmd = new EchoCommand(); }
     )
+  | rewriterulesCommand[cmd]
+  ;
+
+rewriterulesCommand[CVC4::Command*& cmd]
+@declarations {
+  std::vector<std::pair<std::string, Type> > sortedVarNames;
+  std::vector<Expr> args, guards, triggers;
+  Expr head, body, expr, expr2, bvl;
+  Kind kind;
+}
+  : /* rewrite rules */
+    rewriteKind[kind]
+    LPAREN_TOK sortedVarList[sortedVarNames] RPAREN_TOK
+    {
+      PARSER_STATE->pushScope();
+      for(std::vector<std::pair<std::string, CVC4::Type> >::const_iterator i =
+            sortedVarNames.begin(), iend = sortedVarNames.end();
+          i != iend;
+          ++i) {
+        args.push_back(PARSER_STATE->mkVar((*i).first, (*i).second));
+      }
+      bvl = MK_EXPR(kind::BOUND_VAR_LIST, args);
+    }
+    LPAREN_TOK (termList[guards,expr])? RPAREN_TOK
+    term[head, expr2] term[body, expr2]
+    (LPAREN_TOK ( pattern[expr] { triggers.push_back( expr ); } )+ RPAREN_TOK)?
+    {
+      args.clear();
+      args.push_back(head);
+      args.push_back(body);
+      /* triggers */
+      if( !triggers.empty() ){
+        expr2 = MK_EXPR(kind::INST_PATTERN_LIST, triggers);
+        args.push_back(expr2);
+      };
+      expr2 = MK_EXPR(kind, args);
+      args.clear();
+      args.push_back(bvl);
+      /* guards */
+      if( guards.empty() ){
+        args.push_back(MK_CONST(bool(true)));
+      }else{
+        expr2 = MK_EXPR(kind::AND, guards);
+        args.push_back(expr2);
+      }
+      args.push_back(expr2);
+      expr = MK_EXPR(CVC4::kind::REWRITE_RULE, args);
+      cmd = new AssertCommand(expr); }
+  ;
+
+rewriteKind[CVC4::Kind& kind]
+  : REWRITE_RULE_TOK      { $kind = CVC4::kind::RR_REWRITE; }
+  | REDUCTION_RULE_TOK    { $kind = CVC4::kind::RR_REDUCTION; }
+  | PROPAGATION_RULE_TOK  { $kind = CVC4::kind::RR_DEDUCTION; }
+  ;
+
+pattern[CVC4::Expr& expr]
+@declarations {
+  std::vector<Expr> patexpr;
+}
+  : LPAREN_TOK termList[patexpr,expr] RPAREN_TOK
+    {
+      expr = MK_EXPR(kind::INST_PATTERN, patexpr);
+      //std::cout << "parsed pattern expr " << retExpr << std::endl;
+    }
   ;
 
 simpleSymbolicExpr[CVC4::SExpr& sexpr]
@@ -1044,6 +1109,9 @@ POP_TOK : 'pop';
 // extended commands
 DECLARE_DATATYPES_TOK : 'declare-datatypes';
 ECHO_TOK : 'echo';
+REWRITE_RULE_TOK : 'rewrite-rule';
+REDUCTION_RULE_TOK : 'reduction-rule';
+PROPAGATION_RULE_TOK : 'propagation-rule';
 
 // attributes
 ATTRIBUTE_PATTERN_TOK : ':pattern';
