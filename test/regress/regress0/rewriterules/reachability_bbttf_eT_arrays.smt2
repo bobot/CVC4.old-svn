@@ -173,7 +173,10 @@
 
 (declare-fun next2 () mem)
 
+;;===================
 ;; ;;Thomas' example2
+;;===================
+
 ;; (assert (not (=>
 ;;               (and (R next e1 null null)
 ;;                    (= (join next e1 e2) null)
@@ -185,48 +188,49 @@
 ;;         )
 
 
-
+;;================
 ;;Thomas' example3
-;;case to consider
-;;(assert (or (not (R next e1 null null)) (R next e1 null null)))
+;;================
 
-;;first case to consider
-;;(assert (R next e1 null null))
+;; ;;case to consider
+;; ;;(assert (or (not (R next e1 null null)) (R next e1 null null)))
 
-;;second case to consider
-;; (assert (not (R next e1 null null)))
+;; ;;first case to consider
+;; ;;(assert (R next e1 null null))
 
-
-;;hyp
-(assert (= (join next e1 e2) null))
-(assert (R next e2 null null))
-(assert (not (= e2 null)))
-(assert (= next2 (store next e2 e1)))
-(assert (= e3 e2))
-(assert (= e4 (select next e2)))
-
-;; help
-;; have a join point
-(assert (R next e2 e4 e4))
-(assert (R next e4 e4 e4))
-
-(assert (R next e2 (join next e2 e4) e4))
-(assert (not (R next e4 e2 e2)))
-(assert (not (or (and (R next e2 (join next e2 e4) (join next e2 e4))(R next e4 (join next e2 e4) (join next e2 e4))) (= (join next e2 e4) null))))
-
-;;(assert (not (not (= e2 (join next e2 e4)))));; not proved
-
-;;(assert (= e4 (join next e2 e4))) ;;provable
-;; in e2 branch
-;;(assert (not (R next e4 e2 null))) ;; provable
-;; the auxillary join
-;;(assert (= (join next2 e1 e4) null))
+;; ;;second case to consider
+;; ;; (assert (not (R next e1 null null)))
 
 
-;;to prove
+;; ;;hyp
+;; (assert (= (join next e1 e2) null))
+;; (assert (R next e2 null null))
+;; (assert (not (= e2 null)))
+;; (assert (= next2 (store next e2 e1)))
+;; (assert (= e3 e2))
+;; (assert (= e4 (select next e2)))
+
+;; ;; help
+;; ;; have a join point
+;; ;; (assert (R next e2 e4 e4))
+;; ;; (assert (R next e4 e4 e4))
+
+;; ;; (assert (R next e2 (join next e2 e4) e4))
+;; ;; (assert (not (R next e4 e2 e2)))
+
+;; ;; (assert (not (= e2 (join next e2 e4))));;  slow with efficient (/axioms)
+
+;; ;; (assert (= e4 (join next e2 e4))) ;; unprovable with efficient (/axioms)
+;; ;; in e2 branch
+;; ;; (assert (not (R next e4 e2 null))) ;; 
+;; ;; the auxillary join
+;; ;; (assert (= (join next2 e1 e4) null))
+
+
+;; ;;to prove
 ;; (assert (not (= (join next2 e3 e4) null)))
 
-
+;;=main
 ;; (assert (not (=> (and (= (join next e1 e2) null)
 ;;                       (R next e2 null null)
 ;;                       (not (= e2 null))
@@ -238,47 +242,28 @@
 ;;                  )
 ;;              )
 ;;         )
+;;====================
 
 
-
-
-;;Thomas' example3
-;; (assert(not
-;;         (=>
-;;          (and
-;;           ;; (= (join e1 e2) null)
-;;           (R next e2 null null)
-;;           (not (= e2 null)))
-;;          ;; (next' == upd(next, e2, e1)
-;;          ;;join(next',e1,e2) == null
-;; (or (and (not (R next (select next e2) e2 e2)) (not (R next e1 e2 e2) ))
-;;     (and (R next (select next e2) e2 e2) (not (R next e1 e1 e1) ))
-;;     (and (R next e1 e2 e2) (not (R next (select next e2) e1 e1)) )
-;; )
-;; ;; (or
-;; ;;  (and (not (Rf e1 e2 e2)) (not (Rf e2 e2 e2)))
-;; ;;  (and (Rf e1 e2 e2) (not (Rf e2 e1 e1)))
-;; ;;  (and (Rf e2 e2 e2) (not (Rf e1 e1 e1)))
-;; ;; )
-;; )))
-
-
-
+;;====================
 ;; ;;Thomas' example wrong sat?
-;; (assert (not (=> (and
-;;                   (= (join e1 e2) null)
-;;                   (Rf e2 null null) (not (= e2 null)))
-;; ;; (next' == upd(next, e2, e1)
-;; ;;join(next',e1,e2) == null
-;; (not (Rf e2 e2 e2))
-;; ;; (or
-;; ;;  (and (not (Rf e1 e2 e2)) (not (Rf e2 e2 e2)))
-;; ;;  (and (Rf e1 e2 e2) (not (Rf e2 e1 e1)))
-;; ;;  (and (Rf e2 e2 e2) (not (Rf e1 e1 e1)))
-;; ;; )
-;; )))
+;;====================
 
+(assert (not (=> (and
+                  (= (join next e1 e2) null)
+                  (R next e2 null null)
+                  (not (= e2 null))
+                  (= next2 (store next e2 e1))
+                  )
+                 (= (join next2 e1 e2) null)
+                 )
+             )
+        )
+
+;;====================
 ;; ;;example4 sat
+;;====================
+
 ;; (assert (not (=> (and
 ;;                   (= (join next e1 e2) null)
 ;;                   (R next e2 null null) (not (= e2 null))
@@ -287,7 +272,10 @@
 ;; )))
 
 
+;;====================
 ;;example5 unsat
+;;====================
+
 ;; (assert (and
 ;;          ;; (= (join e1 e2) null)
 ;;          (= (select next (select next e1)) e1)
@@ -297,7 +285,10 @@
 ;;          )
 ;; )
 
+;;====================
 ;; ;; example 6 unsat
+;;====================
+
 ;; ;; join is the nearest junction point
 ;; (assert (and (not (= e3 (join next e1 e2)))
 ;;              (R next e1 e3 (join next e1 e2))
@@ -305,7 +296,10 @@
 ;; ))
 
 
+;;====================
 ;; example6 unsat
+;;====================
+
 ;; (assert (R next e1 e2 (select next e1)))
 ;; (assert (not (= e1 e2)))
 ;; (assert (not (= e2 (select next e1))))
