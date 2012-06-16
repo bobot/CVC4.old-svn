@@ -149,6 +149,7 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
                                              InstMatch & im,
                                              bool delay){
   ++r->nb_matched;
+
   if(rewrite_instantiation) im.applyRewrite();
   if(representative_instantiation)
     im.makeRepresentative( getQuantifiersEngine() );
@@ -209,14 +210,11 @@ void TheoryRewriteRules::check(Effort level) {
     Trigger & tr = r->trigger;
     //reset instantiation round for trigger (set up match production)
     tr.resetInstantiationRound();
-    //begin iterating from the first match produced by the trigger
-    tr.reset( Node::null() );
 
     /** Test the possible matching one by one */
-    InstMatch im;
-    while(tr.getNextMatch( im )){
+    while(tr.getNextMatch()){
+      InstMatch im = tr.getInstMatch();
       addMatchRuleTrigger(r, im, true);
-      im.clear();
     }
   }
 
@@ -293,8 +291,8 @@ Trigger TheoryRewriteRules::createTrigger( TNode n, std::vector<Node> & pattern 
   getQuantifiersEngine()->registerPattern(pattern);
   return *Trigger::mkTrigger(getQuantifiersEngine(),n,pattern,
                              Options::current()->efficientEMatching?
-                             InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH :
-                             InstMatchGenerator::MATCH_GEN_DEFAULT,
+                             Trigger::MATCH_GEN_EFFICIENT_E_MATCH :
+                             Trigger::MATCH_GEN_DEFAULT,
                              true,
                              Trigger::TR_MAKE_NEW,
                              false);
@@ -531,21 +529,21 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
 
   };
 
-  //Verify that this instantiation can't immediately fire another rule
-  for(RewriteRule::BodyMatch::const_iterator p = rule->body_match.begin();
-      p != rule->body_match.end(); ++p){
-    RewriteRule * r = (*p).second;
-    // Debug("rewriterules") << "  rule: " << r << std::endl;
-    // Use trigger2 since we can be in check
-    Trigger & tr = r->trigger_for_body_match;
-    InstMatch im;
-    TNode m = inst->substNode(*this,(*p).first, cache);
-    tr.getMatch(m,im);
-    if(!im.empty()){
-      im.d_matched = m;
-      addMatchRuleTrigger(r, im);
-    }
-  }
+  // //Verify that this instantiation can't immediately fire another rule
+  // for(RewriteRule::BodyMatch::const_iterator p = rule->body_match.begin();
+  //     p != rule->body_match.end(); ++p){
+  //   RewriteRule * r = (*p).second;
+  //   // Debug("rewriterules") << "  rule: " << r << std::endl;
+  //   // Use trigger2 since we can be in check
+  //   Trigger & tr = r->trigger_for_body_match;
+  //   InstMatch im;
+  //   TNode m = inst->substNode(*this,(*p).first, cache);
+  //   tr.getMatch(m,im);
+  //   if(!im.empty()){
+  //     im.d_matched = m;
+  //     addMatchRuleTrigger(r, im);
+  //   }
+  // }
 };
 
 void TheoryRewriteRules::substGuards(const RuleInst *inst,

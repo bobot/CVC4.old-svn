@@ -31,6 +31,8 @@
 #include "context/cdlist.h"
 
 #include "theory/inst_match.h"
+#include "expr/node_manager.h"
+#include "expr/node_builder.h"
 
 //#define USE_EFFICIENT_E_MATCHING
 
@@ -38,6 +40,38 @@ namespace CVC4 {
 namespace theory {
 
 namespace rrinst{
+
+class CandidateGenerator
+{
+public:
+  CandidateGenerator(){}
+  ~CandidateGenerator(){}
+
+  /** Get candidates functions.  These set up a context to get all match candidates.
+      cg->reset( eqc );
+      do{
+        Node cand = cg->getNextCandidate();
+        //.......
+      }while( !cand.isNull() );
+      
+      eqc is the equivalence class you are searching in
+  */
+  virtual void reset( Node eqc ) = 0;
+  virtual Node getNextCandidate() = 0;
+  /** add candidate to list of nodes returned by this generator */
+  virtual void addCandidate( Node n ) {}
+  /** call this at the beginning of each instantiation round */
+  virtual void resetInstantiationRound() = 0;
+public:
+  /** legal candidate */
+  static inline bool isLegalCandidate( TNode n ){
+    return !n.getAttribute(NoMatchAttribute()) &&
+      ( !Options::current()->cbqi || !n.hasAttribute(InstConstantAttribute())) &&
+      ( !Options::current()->efficientEMatching || n.hasAttribute(AvailableInTermDb()) );
+}
+
+};
+
 
 inline std::ostream& operator<<(std::ostream& out, const InstMatch& m) {
   m.toStream(out);
@@ -153,173 +187,376 @@ public:
   bool addInstMatch( InstMatch& m);
 };/* class InstMatchTrie2 */
 
-/** base class for producing InstMatch objects */
-class IMGenerator
+class Matcher
 {
 public:
-  /** reset instantiation round (call this at beginning of instantiation round) */
+  /** reset instantiation round (call this whenever equivalence classes have changed) */
   virtual void resetInstantiationRound( QuantifiersEngine* qe ) = 0;
-  /** reset, eqc is the equivalence class to search in (any if eqc=null) */
-  virtual void reset( Node eqc, QuantifiersEngine* qe ) = 0;
-  /** get the next match.  must call reset( eqc ) before this function. */
+  /** reset the term to match, return false if there is no such term */
+  virtual bool reset( Node n, InstMatch& m, QuantifiersEngine* qe ) = 0;
+  /** get the next match. If it return false once you shouldn't call
+      getNextMatch again before doing a reset */
   virtual bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) = 0;
-  /** return true if whatever Node is subsituted for the variables the
-      given Node can't match the pattern */
-  virtual bool nonunifiable( TNode t, const std::vector<Node> & vars) = 0;
-  /** add instantiations directly */
-  virtual int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ) = 0;
+  /** If reset, or getNextMatch return false they remove from the
+      InstMatch the binding that they have previously created */
 };
 
 
-class InstMatchGenerator : public IMGenerator
-{
-public:
-  static std::map< Node, std::map< Node, std::vector< InstMatchGenerator* > > > d_match_fails;
-  /** set match fail */
-  void setMatchFail( QuantifiersEngine* qe, Node n1, Node n2 );
+class ApplyMatcher: public Matcher{
 private:
-  /** candidate generator */
-  inst::CandidateGenerator* d_cg;
-  /** policy to use for matching */
-  int d_matchPolicy;
-  /** children generators */
-  std::vector< InstMatchGenerator* > d_children;
+  /** children generators, only the sub-pattern which are
+      neither a variable neither a constant appears */
+  std::vector< Matcher* > d_children;
   std::vector< int > d_children_index;
-  /** Used by multi-pattern with efficient e-matching */
-  std::vector< InstMatchGenerator* > d_children_multi_efficient;
-  size_t d_children_multi_efficient_index;
-  /** partial vector */
-  std::vector< InstMatch > d_partial;
-  /** eq class */
-  Node d_eq_class;
-  /** for arithmetic matching */
-  std::map< Node, Node > d_arith_coeffs;
-  /** initialize pattern */
-  void initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe );
-  void initializePattern( Node pat, QuantifiersEngine* qe );
-public:
-  enum {
-    //options for producing matches
-    MATCH_GEN_DEFAULT = 0,     
-    MATCH_GEN_EFFICIENT_E_MATCH,   //generate matches via Efficient E-matching for SMT solvers
-    //others (internally used)
-    MATCH_GEN_INTERNAL_ARITHMETIC,
-    MATCH_GEN_INTERNAL_ERROR,
-  };
-private:
-  /** get the next match.  must call d_cg->reset( ... ) before using. 
-      only valid for use where !d_match_pattern.isNull().
-  */
-  bool getNextMatch2( InstMatch& m, QuantifiersEngine* qe, bool saveMatched = false );
-  /** for arithmetic */
-  bool getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe );
-public:
-  /** get the match against ground term or formula t.
-      d_match_mattern and t should have the same shape.
-      only valid for use where !d_match_pattern.isNull().
-  */
-  bool getMatch( Node t, InstMatch& m, QuantifiersEngine* qe );
-
-  /** constructors */
-  InstMatchGenerator( Node pat, QuantifiersEngine* qe, int matchOption = 0 );
-  InstMatchGenerator( std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption = 0 );
-  /** destructor */
-  ~InstMatchGenerator(){}
-  /** The pattern we are producing matches for.
-      If null, this is a multi trigger that is merging matches from d_children.
-  */
+  /** the variable that have been set by this matcher (during its own reset) */
+  std::vector< TNode > d_binded; /* TNode because the variable are already in d_pattern */
+  /** the representant of the argument of the term given by the last reset */
+  std::vector< Node > d_reps;
+  /** The pattern we are producing matches for */
   Node d_pattern;
-  /** match pattern */
-  Node d_match_pattern;
-public:
-  /** reset instantiation round (call this whenever equivalence classes have changed) */
-  void resetInstantiationRound( QuantifiersEngine* qe );
-  /** reset, eqc is the equivalence class to search in (any if eqc=null) */
-  void reset( Node eqc, QuantifiersEngine* qe );
-  /** get the next match.  must call reset( eqc ) before this function. */
-  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe );
-  /** return true if whatever Node is subsituted for the variables the
-      given Node can't match the pattern */
-  bool nonunifiable( TNode t, const std::vector<Node> & vars);
-  /** add instantiations */
-  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
-};
-
-/** smart multi-trigger implementation */
-class InstMatchGeneratorMulti : public IMGenerator
-{
-private:
-  /** indexed trie */
-  typedef std::pair< std::pair< int, int >, InstMatchTrie* > IndexedTrie;
-  /** collect instantiations */
-  void collectInstantiations( QuantifiersEngine* qe, InstMatch& m, int& addedLemmas, InstMatchTrie* tr, 
-                              std::vector< IndexedTrie >& unique_var_tries,
-                              int trieIndex, int childIndex, int endChildIndex, bool modEq );
-  /** collect instantiations 2 */
-  void collectInstantiations2( QuantifiersEngine* qe, InstMatch& m, int& addedLemmas,
-                               std::vector< IndexedTrie >& unique_var_tries,
-                               int uvtIndex, InstMatchTrie* tr = NULL, int trieIndex = 0 );
-private:
-  /** var contains (variable indicies) for each pattern node */
-  std::map< Node, std::vector< int > > d_var_contains;
-  /** variable indicies contained to pattern nodes */
-  std::map< int, std::vector< Node > > d_var_to_node;
-  /** quantifier to use */
-  Node d_f;
-  /** policy to use for matching */
-  int d_matchPolicy;
-  /** children generators */
-  std::vector< InstMatchGenerator* > d_children;
-  /** inst match tries for each child */
-  std::vector< InstMatchTrieOrdered > d_children_trie;
-  /** calculate matches */
-  void calculateMatches( QuantifiersEngine* qe );
 public:
   /** constructors */
-  InstMatchGeneratorMulti( Node f, std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption = 0 );
+  ApplyMatcher( Node pat, QuantifiersEngine* qe);
   /** destructor */
-  ~InstMatchGeneratorMulti(){}
+  ~ApplyMatcher(){}
   /** reset instantiation round (call this whenever equivalence classes have changed) */
   void resetInstantiationRound( QuantifiersEngine* qe );
-  /** reset, eqc is the equivalence class to search in (any if eqc=null) */
-  void reset( Node eqc, QuantifiersEngine* qe );
-  /** get the next match.  must call reset( eqc ) before this function. (not implemented) */
-  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; } 
-  /** return true if whatever Node is subsituted for the variables the
-      given Node can't match the pattern */
-  bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
-  /** add instantiations */
-  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  /** reset the term to match */
+  bool reset( Node n, InstMatch& m, QuantifiersEngine* qe );
+  /** get the next match. */
+  bool getNextMatch(InstMatch& m, QuantifiersEngine* qe);
+private:
+  bool getNextMatch(InstMatch& m, QuantifiersEngine* qe, size_t index);
 };
 
-/** smart (single)-trigger implementation */
-class InstMatchGeneratorSimple : public IMGenerator
+
+/* Match literal so you don't choose the equivalence class( */
+class PatMatcher
 {
-private:
-  /** quantifier for match term */
-  Node d_f;
-  /** match term */
-  Node d_match_pattern;
-  /** add instantiations */
-  void addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, 
-                          int argIndex, TermArgTrie* tat, int instLimit, bool addSplits );
 public:
-  /** constructors */
-  InstMatchGeneratorSimple( Node f, Node pat ) : d_f( f ), d_match_pattern( pat ){}
-  /** destructor */
-  ~InstMatchGeneratorSimple(){}
   /** reset instantiation round (call this whenever equivalence classes have changed) */
-  void resetInstantiationRound( QuantifiersEngine* qe ) {}
-  /** reset, eqc is the equivalence class to search in (any if eqc=null) */
-  void reset( Node eqc, QuantifiersEngine* qe ) {}
-  /** get the next match.  must call reset( eqc ) before this function. (not implemented) */
-  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; } 
-  /** return true if whatever Node is subsituted for the variables the
-      given Node can't match the pattern */
-  bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
-  /** add instantiations */
-  int addInstantiations( Node f, InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+  virtual void resetInstantiationRound( QuantifiersEngine* qe ) = 0;
+  /** reset the matcher, return false if there is no such term */
+  virtual bool reset( InstMatch& m, QuantifiersEngine* qe ) = 0;
+  /** get the next match. If it return false once you shouldn't call
+      getNextMatch again before doing a reset */
+  virtual bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) = 0;
+  /** If reset, or getNextMatch return false they remove from the
+      InstMatch the binding that they have previously created */
 };
+
+Matcher* mkMatcher( Node pat, QuantifiersEngine* qe );
+PatMatcher* mkPattern( Node pat, QuantifiersEngine* qe );
+
+/* Match literal so you don't choose the equivalence class( */
+class PatsMatcher
+{
+public:
+  /** reset instantiation round (call this whenever equivalence classes have changed) */
+  virtual void resetInstantiationRound( QuantifiersEngine* qe ) = 0;
+  /** reset the matcher, return false if there is no such term */
+  virtual bool getNextMatch( QuantifiersEngine* qe ) = 0;
+  virtual const InstMatch& getInstMatch() = 0;
+  /** Add directly the instantiation to quantifiers engine */
+  virtual int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits ) = 0;
+};
+
+PatsMatcher* mkPatterns( std::vector< Node > pat, QuantifiersEngine* qe );
+
+/** return true if whatever Node is subsituted for the variables the
+    given Node can't match the pattern */
+bool nonunifiable( TNode t, TNode pat, const std::vector<Node> & vars);
+
+class InstMatchGenerator;
+
+// /* Base Generator: generate term for sub-term of pattern */
+// class InstMatchGenerator
+// {
+
+// public:
+//   static std::map< Node, std::map< Node, std::vector< InstMatchGenerator* > > > d_match_fails;
+//   /** set match fail */
+//   void setMatchFail( QuantifiersEngine* qe, Node n1, Node n2 );
+// private:
+//   /** candidate generator */
+//   CandidateGenerator* d_cg;
+//   /** policy to use for matching */
+//   int d_matchPolicy;
+//   /** children generators */
+//   std::vector< InstMatchGenerator* > d_children;
+//   std::vector< int > d_children_index;
+//   /** partial vector */
+//   std::vector< InstMatch > d_partial;
+//   /** eq class */
+//   Node d_eq_class;
+//   /** for arithmetic matching */
+//   std::map< Node, Node > d_arith_coeffs;
+//   /** initialize pattern */
+//   void initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe );
+//   void initializePattern( Node pat, QuantifiersEngine* qe );
+// private:
+//   /** get the next match.  must call d_cg->reset( ... ) before using. 
+//       only valid for use where !d_match_pattern.isNull().
+//   */
+//   bool getNextMatch2( InstMatch& m, QuantifiersEngine* qe, bool saveMatched = false );
+//   /** for arithmetic */
+//   bool getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe );
+// public:
+//   /** get the match against ground term or formula t.
+//       d_match_mattern and t should have the same shape.
+//       only valid for use where !d_match_pattern.isNull().
+//   */
+//   bool getMatch( Node t, InstMatch& m, QuantifiersEngine* qe );
+
+//   /** constructors */
+//   InstMatchGenerator( Node pat, QuantifiersEngine* qe, int matchOption = 0 );
+//   //  InstMatchGenerator( std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption = 0 );
+//   /** destructor */
+//   ~InstMatchGenerator(){}
+//   /** The pattern we are producing matches for.
+//       If null, this is a multi trigger that is merging matches from d_children.
+//   */
+//   Node d_pattern;
+//   /** match pattern */
+//   Node d_match_pattern;
+// public:
+//   /** reset instantiation round (call this whenever equivalence classes have changed) */
+//   void resetInstantiationRound( QuantifiersEngine* qe );
+//   /** reset, eqc is the equivalence class to search in (any if eqc=null) */
+//   void reset( Node eqc, QuantifiersEngine* qe );
+//   /** get the next match.  must call reset( eqc ) before this function. */
+//   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe );
+//   /** add instantiations */
+//   int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+// };
+
+// /** base class for producing InstMatch objects.
+//     They match at the level of the patterns */
+// class IMGenerator
+// {
+// public:
+//   /** reset instantiation round (call this at beginning of instantiation round) */
+//   virtual void resetInstantiationRound( QuantifiersEngine* qe ) = 0;
+//   /** get the next match.  must call reset( eqc ) before this function. */
+//   virtual bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) = 0;
+//   /** return true if whatever Node is subsituted for the variables the
+//       given Node can't match the pattern */
+//   virtual bool nonunifiable( TNode t, const std::vector<Node> & vars) = 0;
+//   /** add instantiations directly */
+//   virtual int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ) = 0;
+// };
+
+// class InstMatchGeneratorMonoSimple: public IMGenerator
+// {
+//   InstMatchGenerator img;
+//   InstMatchGeneratorMonoSimple(TNode t, QuantifiersEngine* qe):
+//     img(t[0],qe) {
+//     Assert(t.getKind() == kind::INST_PATTERN);
+//     Assert(t.getNumChildren() == 1);
+//   };
+
+//   void resetInstantiationRound( QuantifiersEngine* qe ){
+//     img.resetInstantiationRound(qe);
+//   };
+
+//   /** get the next match.  must call reset( eqc ) before this function. */
+//   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
+//     img.getNextMatch(m,qe);
+//   };
+
+//   /** return true if whatever Node is subsituted for the variables the
+//       given Node can't match the pattern */
+//   bool nonunifiable( TNode t, const std::vector<Node> & vars){
+//     img.nonunifiable(t,vars);
+//   };
+
+//   /** add instantiations directly */
+//   virtual int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false ){
+//     img.addInstantiations(baseMatch,qe,instLimit,addSplits);
+//   };
+
+// };
+
+// class InstMatchGeneratorMonoEfficient: public InstMatchGeneratorMono{
+
+//   CandidateGeneratorQueue d_eem;
+
+//   InstMatchGeneratorMonoEfficient(TNode t, QuantifiersEngine* qe):
+//     InstMatchGeneratorMono(t,qe) {
+//     Assert(t[0].getKind()!=EQUAL || t[0].getKind()!=IFF);
+//     //register the candidate generator to the efficient e-matching framework
+//     Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF );
+//     uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
+//     ith->registerCandidateGenerator( &d_eem, t[0] );
+
+//   };
+
+//   void resetInstantiationRound( QuantifiersEngine* qe ){
+//     InstMatchGeneratorMono::resetInstantiationRound(qe);
+//     d_eem.reset(Node::Null());
+//   };
+
+//   /** get the next match.  must call resetInstantiationRound
+//       before this function. */
+//   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
+//     Node t;
+//     do{
+//       //get the next candidate term t from efficient e-matching
+//       t = d_eem.getNextCandidate();
+//     }while( !t.isNull() && !getMatch( t, m, qe ) );
+//     m.d_matched = t;
+//     return !t.isNull();
+//   };
+
+//   /** add instantiations directly */
+//   int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+//     Assert(false);
+//     return 0;
+//   };
+
+// };
+
+// class InstMatchGeneratorMultiSimple: public IMGenerator
+// {
+// private:
+//   /** children generators */
+//   std::vector< InstMatchGenerator > d_children;
+//   /** partial vector */
+//   std::vector< InstMatch > d_partial;
+//   /** constructors */
+//   InstMatchGeneratorMultiSimple( std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption = 0 );
+//   /** destructor */
+//   ~InstMatchGenerator(){}
+// public:
+//   /** reset instantiation round (call this whenever equivalence classes have changed) */
+//   void resetInstantiationRound( QuantifiersEngine* qe );
+//   /** get the next match.  must call reset( eqc ) before this function. */
+//   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe );
+//   /** return true if whatever Node is subsituted for the variables the
+//       given Node can't match the pattern */
+//   bool nonunifiable( TNode t, const std::vector<Node> & vars);
+//   /** add instantiations */
+//   int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+// };
+
+
+// class InstMatchGeneratorMultiEfficient{
+// private:
+//   /** children generators */
+//   std::vector< InstMatchGenerator > d_children;
+//   /** partial vector */
+//   std::vector< InstMatch > d_partial;
+//   /** Used by multi-pattern with efficient e-matching */
+//   std::vector< InstMatchGenerator* > d_children_multi_efficient;
+//   size_t d_children_multi_efficient_index;
+// private:
+//   /** get the next match.  must call d_cg->reset( ... ) before using. 
+//       only valid for use where !d_match_pattern.isNull().
+//   */
+//   bool getNextMatch2( InstMatch& m, QuantifiersEngine* qe, bool saveMatched = false );
+//   /** for arithmetic */
+//   bool getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe );
+// public:
+//   /** get the match against ground term or formula t.
+//       d_match_mattern and t should have the same shape.
+//       only valid for use where !d_match_pattern.isNull().
+//   */
+//   bool getMatch( Node t, InstMatch& m, QuantifiersEngine* qe );
+
+//   /** constructors */
+//   InstMatchGeneratorMultiSimple( std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption = 0 );
+//   /** destructor */
+//   ~InstMatchGenerator(){}
+// public:
+//   /** reset instantiation round (call this whenever equivalence classes have changed) */
+//   void resetInstantiationRound( QuantifiersEngine* qe );
+//   /** get the next match.  must call reset( eqc ) before this function. */
+//   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe );
+//   /** return true if whatever Node is subsituted for the variables the
+//       given Node can't match the pattern */
+//   bool nonunifiable( TNode t, const std::vector<Node> & vars);
+//   /** add instantiations */
+//   int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+// };
+
+
+// /** smart multi-trigger implementation */
+// class InstMatchGeneratorMulti : public IMGenerator
+// {
+// private:
+//   /** indexed trie */
+//   typedef std::pair< std::pair< int, int >, InstMatchTrie* > IndexedTrie;
+//   /** collect instantiations */
+//   void collectInstantiations( QuantifiersEngine* qe, InstMatch& m, int& addedLemmas, InstMatchTrie* tr, 
+//                               std::vector< IndexedTrie >& unique_var_tries,
+//                               int trieIndex, int childIndex, int endChildIndex, bool modEq );
+//   /** collect instantiations 2 */
+//   void collectInstantiations2( QuantifiersEngine* qe, InstMatch& m, int& addedLemmas,
+//                                std::vector< IndexedTrie >& unique_var_tries,
+//                                int uvtIndex, InstMatchTrie* tr = NULL, int trieIndex = 0 );
+// private:
+//   /** var contains (variable indicies) for each pattern node */
+//   std::map< Node, std::vector< int > > d_var_contains;
+//   /** variable indicies contained to pattern nodes */
+//   std::map< int, std::vector< Node > > d_var_to_node;
+//   /** quantifier to use */
+//   Node d_f;
+//   /** policy to use for matching */
+//   int d_matchPolicy;
+//   /** children generators */
+//   std::vector< InstMatchGenerator* > d_children;
+//   /** inst match tries for each child */
+//   std::vector< InstMatchTrieOrdered > d_children_trie;
+//   /** calculate matches */
+//   void calculateMatches( QuantifiersEngine* qe );
+// public:
+//   /** constructors */
+//   InstMatchGeneratorMulti( Node f, std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption = 0 );
+//   /** destructor */
+//   ~InstMatchGeneratorMulti(){}
+//   /** reset instantiation round (call this whenever equivalence classes have changed) */
+//   void resetInstantiationRound( QuantifiersEngine* qe );
+//   /** reset, eqc is the equivalence class to search in (any if eqc=null) */
+//   void reset( Node eqc, QuantifiersEngine* qe );
+//   /** get the next match.  must call reset( eqc ) before this function. (not implemented) */
+//   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; } 
+//   /** return true if whatever Node is subsituted for the variables the
+//       given Node can't match the pattern */
+//   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
+//   /** add instantiations */
+//   int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+// };
+
+class TermArgTrie;
+
+// /** smart (single)-trigger implementation */
+// class InstMatchGeneratorSimple : public IMGenerator
+// {
+// private:
+//   /** quantifier for match term */
+//   Node d_f;
+//   /** match term */
+//   Node d_match_pattern;
+//   /** add instantiations */
+//   void addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, 
+//                           int argIndex, TermArgTrie* tat, int instLimit, bool addSplits );
+// public:
+//   /** constructors */
+//   InstMatchGeneratorSimple( Node f, Node pat ) : d_f( f ), d_match_pattern( pat ){}
+//   /** destructor */
+//   ~InstMatchGeneratorSimple(){}
+//   /** reset instantiation round (call this whenever equivalence classes have changed) */
+//   void resetInstantiationRound( QuantifiersEngine* qe ) {}
+//   /** reset, eqc is the equivalence class to search in (any if eqc=null) */
+//   void reset( Node eqc, QuantifiersEngine* qe ) {}
+//   /** get the next match.  must call reset( eqc ) before this function. (not implemented) */
+//   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) { return false; } 
+//   /** return true if whatever Node is subsituted for the variables the
+//       given Node can't match the pattern */
+//   bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
+//   /** add instantiations */
+//   int addInstantiations( InstMatch& baseMatch, QuantifiersEngine* qe, int instLimit = 0, bool addSplits = false );
+// };
 
 }/* CVC4::theory rrinst */
 

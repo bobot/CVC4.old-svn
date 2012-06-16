@@ -67,14 +67,22 @@ InstMatch::InstMatch( InstMatch* m ) {
   d_map = m->d_map;
 }
 
-bool InstMatch::setMatch( EqualityQuery* q, Node v, Node m ){
-  if( d_map.find( v )==d_map.end() ){
+inline bool InstMatch::setMatch( EqualityQuery* q, Node v, Node m, bool & set ){
+  std::map< Node, Node >::iterator vn = d_map.find( v );
+  if( vn==d_map.end() ){
+    set = true;
     d_map[v] = m;
     Debug("matching-debug") << "Add partial " << v << "->" << m << std::endl;
     return true;
   }else{
-    return q->areEqual( d_map[v], m );
+    set = false;
+    return q->areEqual( vn->second, m );
   }
+}
+
+bool InstMatch::setMatch( EqualityQuery* q, Node v, Node m ){
+  bool set;
+  return setMatch(q,v,m,set);
 }
 
 bool InstMatch::add( InstMatch& m ){

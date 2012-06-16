@@ -49,6 +49,7 @@ void CandidateGeneratorTheoryUf::reset( Node eqc ){
       d_retNode = Node::null();
     }else{
       d_retNode = eqc;
+
     }
     d_term_iter = -1;
   }

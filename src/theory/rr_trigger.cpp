@@ -66,19 +66,7 @@ Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int
 d_quantEngine( qe ), d_f( f ){
   trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
-  if( smartTriggers ){
-    if( d_nodes.size()==1 ){
-      if( isSimpleTrigger( d_nodes[0] ) ){
-        d_mg = new InstMatchGeneratorSimple( f, d_nodes[0] );
-      }else{
-        d_mg = new InstMatchGenerator( d_nodes[0], qe, matchOption );
-      }
-    }else{
-      d_mg = new InstMatchGeneratorMulti( f, d_nodes, qe, matchOption );
-    }
-  }else{
-    d_mg = new InstMatchGenerator( d_nodes, qe, matchOption );
-  }
+  d_mg = mkPatterns( d_nodes, qe );
   Debug("trigger") << "Trigger for " << f << ": " << std::endl;
   for( int i=0; i<(int)d_nodes.size(); i++ ){
     Debug("trigger") << "   " << d_nodes[i] << std::endl;
@@ -120,24 +108,23 @@ void Trigger::resetInstantiationRound(){
   d_mg->resetInstantiationRound( d_quantEngine );
 }
 
-void Trigger::reset( Node eqc ){
-  d_mg->reset( eqc, d_quantEngine );
-}
 
-bool Trigger::getNextMatch( InstMatch& m ){
-  bool retVal = d_mg->getNextMatch( m, d_quantEngine );
+bool Trigger::getNextMatch(){
+  bool retVal = d_mg->getNextMatch( d_quantEngine );
   //m.makeInternal( d_quantEngine->getEqualityQuery() );
   return retVal;
 }
 
-bool Trigger::getMatch( Node t, InstMatch& m ){
-  //FIXME: this assumes d_mg is an inst match generator
-  return ((InstMatchGenerator*)d_mg)->getMatch( t, m, d_quantEngine );
-}
+// bool Trigger::getMatch( Node t, InstMatch& m ){
+//   //FIXME: this assumes d_mg is an inst match generator
+//   return ((InstMatchGenerator*)d_mg)->getMatch( t, m, d_quantEngine );
+// }
 
 
 int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSplits ){
-  int addedLemmas = d_mg->addInstantiations( d_f, baseMatch, d_quantEngine, instLimit, addSplits );
+  int addedLemmas = d_mg->addInstantiations( baseMatch,
+                                             d_nodes[0].getAttribute(InstConstantAttribute()),
+                                             d_quantEngine, instLimit, addSplits );
   if( addedLemmas>0 ){
     Debug("inst-trigger") << "Added " << addedLemmas << " lemmas, trigger was ";
     for( int i=0; i<(int)d_nodes.size(); i++ ){

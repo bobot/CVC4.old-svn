@@ -44,6 +44,26 @@ typedef expr::Attribute< NoMatchAttributeId,
                          true // context dependent
                        > NoMatchAttribute;
 
+// attribute for "contains instantiation constants from"
+struct InstConstantAttributeId {};
+typedef expr::Attribute<InstConstantAttributeId, Node> InstConstantAttribute;
+
+struct InstLevelAttributeId {};
+typedef expr::Attribute<InstLevelAttributeId, uint64_t> InstLevelAttribute;
+
+struct InstVarNumAttributeId {};
+typedef expr::Attribute<InstVarNumAttributeId, uint64_t> InstVarNumAttribute;
+
+// Attribute that tell if a node have been asserted in this branch
+struct AvailableInTermDbId {};
+/** use the special for boolean flag */
+typedef expr::Attribute<AvailableInTermDbId,
+                        bool,
+                        expr::attr::NullCleanupStrategy,
+                        true  // context dependent
+                        > AvailableInTermDb;
+
+
 class QuantifiersEngine;
 class TermArgTrie;
 
@@ -123,6 +143,8 @@ public:
 
   /** set the match of v to m */
   bool setMatch( EqualityQuery* q, Node v, Node m );
+  /* This version tell if the variable has been set */
+  bool setMatch( EqualityQuery* q, Node v, Node m, bool & set);
   /** fill all unfilled values with m */
   bool add( InstMatch& m );
   /** if compatible, fill all unfilled values with m and return true
@@ -144,6 +166,14 @@ public:
   void computeTermVec( const std::vector< Node >& vars, std::vector< Node >& match );
   /** clear */
   void clear(){ d_map.clear(); }
+  /** erase */
+  template<class Iterator>
+  void erase(Iterator begin, Iterator end){
+    for(Iterator i = begin; i != end; ++i){
+      d_map.erase(*i);
+    };
+  }
+  void erase(Node node){ d_map.erase(node); }
   /** is_empty */
   bool empty(){ return d_map.empty(); }
   /* map from variable to ground terms */

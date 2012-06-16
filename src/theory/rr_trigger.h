@@ -40,7 +40,7 @@ private:
   /** the quantifier this trigger is for */
   Node d_f;
   /** match generators */
-  IMGenerator* d_mg;
+  PatsMatcher * d_mg;
 private:
   /** a trie of triggers */
   class TrTrie
@@ -76,24 +76,13 @@ public:
   std::vector< Node > d_nodes;
 public:
   void debugPrint( const char* c );
-  IMGenerator* getGenerator() { return d_mg; }
+  PatsMatcher* getGenerator() { return d_mg; }
 public:
   /** reset instantiation round (call this whenever equivalence classes have changed) */
   void resetInstantiationRound();
-  /** reset, eqc is the equivalence class to search in (search in any if eqc=null) */
-  void reset( Node eqc );
   /** get next match.  must call reset( eqc ) once before this function. */
-  bool getNextMatch( InstMatch& m );
-  /** get the match against ground term or formula t.
-      the trigger and t should have the same shape.
-      Currently the trigger should not be a multi-trigger.
-  */
-  bool getMatch( Node t, InstMatch& m);
-  /** return true if whatever Node is subsituted for the variables the
-      given Node can't match the pattern */
-  bool nonunifiable( TNode t, const std::vector<Node> & vars){
-    return d_mg->nonunifiable(t,vars);
-  }
+  bool getNextMatch();
+  const InstMatch & getInstMatch(){return d_mg->getInstMatch();};
   /** return whether this is a multi-trigger */
   bool isMultiTrigger() { return d_nodes.size()>1; }
 public:
@@ -108,6 +97,11 @@ public:
      keepAll: don't remove unneeded patterns;
      trOption : policy for dealing with triggers that already existed (see below)
   */
+  enum {
+    //options for producing matches
+    MATCH_GEN_DEFAULT = 0,
+    MATCH_GEN_EFFICIENT_E_MATCH,   //generate matches via Efficient E
+  };
   enum{
     TR_MAKE_NEW,    //make new trigger even if it already may exist
     TR_GET_OLD,     //return a previous trigger if it had already been created

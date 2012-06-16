@@ -52,8 +52,8 @@ void TheoryRewriteRules::computeMatchBody ( const RewriteRule * rule,
       for(size_t rid = start, end = d_rules.size(); rid < end; ++rid) {
         RewriteRule * r = d_rules[rid];
         if(r->d_split) continue;
-        Trigger & tr = const_cast<Trigger &> (r->trigger_for_body_match);
-        if(!tr.nonunifiable(t, rule->free_vars)){
+        //Trigger & tr = const_cast<Trigger &> (r->trigger_for_body_match);
+        if( false ){//!tr.nonunifiable(t, rule->free_vars)){
           rule->body_match.push_back(std::make_pair(t,r));
         }
       }

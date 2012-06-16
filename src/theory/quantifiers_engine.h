@@ -33,16 +33,6 @@ namespace CVC4 {
 
 class TheoryEngine;
 
-// attribute for "contains instantiation constants from"
-struct InstConstantAttributeId {};
-typedef expr::Attribute<InstConstantAttributeId, Node> InstConstantAttribute;
-
-struct InstLevelAttributeId {};
-typedef expr::Attribute<InstLevelAttributeId, uint64_t> InstLevelAttribute;
-
-struct InstVarNumAttributeId {};
-typedef expr::Attribute<InstVarNumAttributeId, uint64_t> InstVarNumAttribute;
-
 namespace theory {
 
 class QuantifiersEngine;
