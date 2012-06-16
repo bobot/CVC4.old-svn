@@ -66,7 +66,8 @@ Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int
 d_quantEngine( qe ), d_f( f ){
   trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
-  d_mg = mkPatterns( d_nodes, qe );
+  if(matchOption == MATCH_GEN_DEFAULT) d_mg = mkPatterns( d_nodes, qe );
+  else d_mg = mkPatternsEfficient( d_nodes, qe );
   Debug("trigger") << "Trigger for " << f << ": " << std::endl;
   for( int i=0; i<(int)d_nodes.size(); i++ ){
     Debug("trigger") << "   " << d_nodes[i] << std::endl;

@@ -28,6 +28,8 @@
 #include "util/stats.h"
 #include "theory/uf/theory_uf.h"
 #include "theory/trigger.h"
+#include "util/ntuple.h"
+#include "context/cdqueue.h"
 
 namespace CVC4 {
 namespace theory {
@@ -37,6 +39,143 @@ class TermDb;
 namespace uf {
 
 class InstantiatorTheoryUf;
+class HandlerPcDispatcher;
+class HandlerPpDispatcher;
+
+typedef std::set<Node> SetNode;
+
+class EfficientHandler{
+public:
+  typedef std::pair< SetNode, size_t > MonoCandidates;
+  typedef std::pair< MonoCandidates, MonoCandidates > MultiCandidates;
+private:
+  /* Queue of candidates */
+  typedef context::CDQueue< MonoCandidates > MonoCandidatesQueue;
+  typedef context::CDQueue< MultiCandidates > MultiCandidatesQueue;
+  MonoCandidatesQueue d_monoCandidates;
+  MultiCandidatesQueue d_multiCandidates;
+
+  friend class InstantiatorTheoryUf;
+  friend class HandlerPcDispatcher;
+  friend class HandlerPpDispatcher;
+protected:
+  void addMonoCandidate(SetNode & s, size_t index){
+    d_monoCandidates.push(make_pair(s,index));
+  }
+  void addMultiCandidate(SetNode & s1, size_t index1, SetNode & s2, size_t index2){
+    d_multiCandidates.push(make_pair(make_pair(s1,index1),make_pair(s2,index2)));
+  }
+public:
+  EfficientHandler(context::Context * c):
+  d_monoCandidates(c), d_multiCandidates(c){};
+  bool getNextMonoCandidate(MonoCandidates & candidate){
+    if(d_monoCandidates.empty()) return false;
+    else{
+      candidate = d_monoCandidates.back();
+      d_monoCandidates.pop();
+      return true;
+    }
+  }
+  bool getNextMultiCandidate(MultiCandidates & candidate){
+    if(d_multiCandidates.empty()) return false;
+    else{
+      candidate = d_multiCandidates.front();
+      d_multiCandidates.pop();
+      return true;
+    }
+  }
+};
+
+class PcDispatcher{
+public:
+  /* Send the node to the dispatcher */
+  virtual void send(SetNode & s) = 0;
+};
+
+
+class HandlerPcDispatcher: public PcDispatcher{
+  EfficientHandler* d_handler;
+  size_t d_index;
+public:
+  HandlerPcDispatcher(EfficientHandler* handler, size_t index):
+    d_handler(handler), d_index(index) {};
+  void send(SetNode & s){
+    d_handler->addMonoCandidate(s,d_index);
+  }
+};
+
+
+/** All the dispatcher that correspond to this node */
+class NodePcDispatcher: public PcDispatcher{
+#ifdef CVC4_DEBUG
+public:
+  Node pat;
+#endif/* CVC4_DEBUG*/
+private:
+  std::vector<HandlerPcDispatcher> d_dis;
+public:
+  void send(SetNode & s){
+    for(std::vector<HandlerPcDispatcher>::iterator i = d_dis.begin(), end = d_dis.end();
+        i != end; ++i){
+      (*i).send(s);
+    }
+  }
+  void addPcDispatcher(EfficientHandler* handler, size_t index){
+    d_dis.push_back(HandlerPcDispatcher(handler,index));
+  }
+};
+
+class PpDispatcher{
+public:
+  /* Send the node to the dispatcher */
+  virtual void send(SetNode & s1, SetNode & s2, SetNode & sinter) = 0;
+};
+
+
+class HandlerPpDispatcher: public PpDispatcher{
+  EfficientHandler* d_handler;
+  size_t d_index1;
+  size_t d_index2;
+public:
+  HandlerPpDispatcher(EfficientHandler* handler, size_t index1, size_t index2):
+    d_handler(handler), d_index1(index1), d_index2(index2) {};
+  void send(SetNode & s1, SetNode & s2, SetNode & sinter){
+    if(d_index1 == d_index2){
+      d_handler->addMonoCandidate(sinter,d_index1);
+    }else{
+      d_handler->addMultiCandidate(s1,d_index1,s2,d_index2);
+    }
+  }
+};
+
+
+/** All the dispatcher that correspond to this node */
+class NodePpDispatcher: public PpDispatcher{
+#ifdef CVC4_DEBUG
+public:
+  Node pat1;
+  Node pat2;
+#endif/* CVC4_DEBUG */
+private:
+  std::vector<HandlerPpDispatcher> d_dis;
+public:
+  void send(SetNode & s1, SetNode & s2, SetNode & inter){
+    for(std::vector<HandlerPpDispatcher>::iterator i = d_dis.begin(), end = d_dis.end();
+        i != end; ++i){
+      (*i).send(s1,s2,inter);
+    }
+  }
+  void send(SetNode & s1, SetNode & s2){
+    // can be done in HandlerPpDispatcher lazily
+    SetNode inter;
+    std::set_intersection( s1.begin(), s1.end(), s2.begin(), s2.end(),
+                           std::inserter( inter, inter.begin() ) );
+    send(s1,s2,inter);
+  }
+  void addPpDispatcher(EfficientHandler* handler, size_t index1, size_t index2){
+    d_dis.push_back(HandlerPpDispatcher(handler,index1,index2));
+  }
+};
 
 //equivalence class info
 class EqClassInfo
@@ -81,7 +220,14 @@ protected:
   InstStrategyUserPatterns* d_isup;
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* qe, Theory* th);
-  ~InstantiatorTheoryUf() {}
+  ~InstantiatorTheoryUf() {
+    for(std::map< Node, std::pair<NodePcDispatcher*, NodePpDispatcher*> >::iterator
+          i = d_pat_cand_gens.begin(), end = d_pat_cand_gens.end();
+        i != end; i++){
+      delete(i->second.first);
+      delete(i->second.second);
+    }
+  }
   /** assertNode method */
   void assertNode( Node assertion );
   /** Pre-register a term.  Done one time for a Node, ever. */
@@ -135,50 +281,57 @@ public:
   /** get equivalence class info */
   EqClassInfo* getEquivalenceClassInfo( Node n );
   EqClassInfo* getOrCreateEquivalenceClassInfo( Node n );
+  typedef std::vector< std::pair< Node, int > > Ips;
+  typedef std::map< Node, std::vector< std::pair< Node, Ips > > > PpIpsMap;
+  typedef std::map< Node, std::vector< triple< size_t, Node, Ips > > > MultiPpIpsMap;
+
 private:
-  typedef std::vector< std::pair< Node, int > > InvertedPathString;
-  typedef std::pair< InvertedPathString, InvertedPathString > IpsPair;
   /** Parent/Child Pairs (for efficient E-matching)
       So, for example, if we have the pattern f( g( x ) ), then d_pc_pairs[g][f][f( g( x ) )] = { f.0 }.
   */
-  std::map< Node, std::map< Node, std::map< Node, std::vector< InvertedPathString > > > > d_pc_pairs;
+  std::map< Node, std::map< Node, std::vector< std::pair< NodePcDispatcher*, Ips > > > > d_pc_pairs;
   /** Parent/Parent Pairs (for efficient E-matching) */
-  std::map< Node, std::map< Node, std::map< Node, std::vector< IpsPair > > > > d_pp_pairs;
+  std::map< Node, std::map< Node, std::vector< triple< NodePpDispatcher*, Ips, Ips > > > > d_pp_pairs;
   /** list of all candidate generators for each operator */
-  std::map< Node, std::vector< inst::CandidateGenerator* > > d_cand_gens;
+  std::map< Node, NodePcDispatcher > d_cand_gens;
   /** map from patterns to candidate generators */
-  std::map< Node, std::vector< inst::CandidateGenerator* > > d_pat_cand_gens;
+  std::map< Node, std::pair<NodePcDispatcher*, NodePpDispatcher*> > d_pat_cand_gens;
   /** helper functions */
-  void registerPatternElementPairs2( Node opat, Node pat, InvertedPathString& ips,
-                                     std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >& ips_map );
-  void registerPatternElementPairs( Node pat );
+  void registerPatternElementPairs2( Node pat, Ips& ips,
+                                     PpIpsMap & pp_ips_map, NodePcDispatcher* npc);
+  void registerPatternElementPairs( Node pat, PpIpsMap & pp_ips_map,
+                                    NodePcDispatcher* npc, NodePpDispatcher* npp);
+  /** find the pp-pair between pattern inside multi-pattern*/
+  void combineMultiPpIpsMap(PpIpsMap & pp_ips_map, MultiPpIpsMap multi_pp_ips_map,
+                            EfficientHandler& eh, size_t index2,
+                            const std::vector<Node> & pats); //pats for debug
   /** compute candidates for pc pairs */
   void computeCandidatesPcPairs( Node a, Node b );
   /** compute candidates for pp pairs */
   void computeCandidatesPpPairs( Node a, Node b );
   /** collect terms based on inverted path string */
-  void collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms, int index);
-  void collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms);
-  bool collectParentsTermsIps( Node n, Node f, int arg, std::vector< Node >& terms, bool addRep, bool modEq = true );
+  void collectTermsIps( Ips& ips, SetNode& terms, int index);
+  void collectTermsIps( Ips& ips, SetNode& terms);
+  bool collectParentsTermsIps( Node n, Node f, int arg, SetNode& terms, bool addRep, bool modEq = true );
 public:
   /** Register candidate generator cg for pattern pat. (for use with efficient e-matching)
       This request will ensure that calls will be made to cg->addCandidate( n ) for all
       ground terms n that are relevant for matching with pat.
   */
-  void registerCandidateGenerator( inst::CandidateGenerator* cg, Node pat );
-
 private:
   /** triggers */
   std::map< Node, std::vector< inst::Trigger* > > d_op_triggers;
 public:
   /** register trigger (for eager quantifier instantiation) */
   void registerTrigger( inst::Trigger* tr, Node op );
-
+  void registerEfficientHandler( EfficientHandler& eh, const std::vector<Node> & pat );
+public:
+  void newTerms(SetNode& s);
 public:
   /** output eq class */
   void outputEqClass( const char* c, Node n );
   /** output inverted path string */
-  void outputInvertedPathString( const char* c, InvertedPathString& ips );
+  void outputIps( const char* c, Ips& ips );
 };/* class InstantiatorTheoryUf */
 
 /** equality query object using instantiator theory uf */

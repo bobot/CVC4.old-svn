@@ -228,6 +228,37 @@ void InstantiatorTheoryUf::newEqClass( TNode n ){
   d_quantEngine->addTermToDatabase( n );
 }
 
+void InstantiatorTheoryUf::newTerms(SetNode& s){
+  /* op -> nodes (if the set is empty, the op is not interesting) */
+  std::hash_map< TNode, SetNode, TNodeHashFunction > h;
+  for(SetNode::iterator i=s.begin(), end=s.end(); i != end; ++i){
+    TNode op = i->getOperator();
+    std::hash_map< TNode, SetNode, TNodeHashFunction >::iterator
+      is = h.find(op);
+    if(is == h.end()){
+      std::pair<std::hash_map< TNode, SetNode, TNodeHashFunction >::iterator,bool>
+        p = h.insert(make_pair(op,SetNode()));
+      is = p.first;
+      if(d_cand_gens.find(op) != d_cand_gens.end()){
+        is->second.insert(*i);
+      } /* else we insert an empty set */
+    }else if(!is->second.empty()){
+      is->second.insert(*i);
+    }
+  }
+  for(std::hash_map< TNode, SetNode, TNodeHashFunction >::iterator i=h.begin(), end=h.end();
+      i != end; ++i){
+    //new term, add n to candidate generators
+    if(i->second.empty()) continue;
+    std::map< Node, NodePcDispatcher >::iterator
+      inpc = d_cand_gens.find(i->first);
+    //we know that this op exists
+    Assert(inpc != d_cand_gens.end());
+    inpc->second.send(i->second);
+  }
+}
+
+
 /** merge */
 void InstantiatorTheoryUf::merge( TNode a, TNode b ){
   if( Options::current()->efficientEMatching ){
@@ -271,13 +302,13 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
   outputEqClass( "efficient-e-match", a);
   Debug("efficient-e-match") << "]" << std::endl;
   EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
-  EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( a );
+  EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
   for( BoolMap::iterator it = eci_a->d_funs.begin(); it != eci_a->d_funs.end(); it++ ) {
     //the child function:  a member of eq_class( a ) has top symbol g, in other words g is in funs( a )
     Node g = (*it).first;
     Debug("efficient-e-match") << "  Checking application " << g << std::endl;
     //look at all parent/child pairs
-    for( std::map< Node, std::map< Node, std::vector< InvertedPathString > > >::iterator itf = d_pc_pairs[g].begin();
+    for( std::map< Node, std::vector< std::pair< NodePcDispatcher*, Ips > > >::iterator itf = d_pc_pairs[g].begin();
          itf != d_pc_pairs[g].end(); ++itf ){
       //f/g is a parent/child pair
       Node f = itf->first;
@@ -285,32 +316,27 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
         //DO_THIS: determine if f in pfuns( b ), only do the follow if so
         Debug("efficient-e-match") << "    Checking parent application " << f << std::endl;
         //scan through the list of inverted path strings/candidate generators
-        for( std::map< Node, std::vector< InvertedPathString > >::iterator cit = itf->second.begin();
-            cit != itf->second.end(); ++cit ){
-          Node pat = cit->first;
-          Debug("efficient-e-match") << "      Checking pattern " << pat << std::endl;
-          for( int c=0; c<(int)cit->second.size(); c++ ){
-            Debug("efficient-e-match") << "        Check inverted path string for pattern ";
-            outputInvertedPathString( "efficient-e-match", cit->second[c] );
-            Debug("efficient-e-match") << std::endl;
+        for( std::vector< std::pair< NodePcDispatcher*, Ips > >::iterator cit = itf->second.begin();
+             cit != itf->second.end(); ++cit ){
+          Debug("efficient-e-match") << "      Checking pattern " << cit->first->pat << std::endl;
 
-            //collect all new relevant terms
-            std::vector< Node > terms;
-            terms.push_back( b );
-            collectTermsIps( cit->second[c], terms );
-            if( !terms.empty() ){
-              Debug("efficient-e-match") << "        -> Added terms (" << (int)terms.size() << "): ";
-              //add them as candidates to the candidate generator
-              for( int t=0; t<(int)terms.size(); t++ ){
-                Debug("efficient-e-match") << terms[t] << " ";
-                //Notice() << "Add candidate (PC) " << terms[t] << std::endl;
-                for( int cg=0; cg<(int)d_pat_cand_gens[pat].size(); cg++ ){
-                  d_pat_cand_gens[pat][cg]->addCandidate( terms[t] );
-                }
-              }
-              Debug("efficient-e-match") << std::endl;
-            }
+          Debug("efficient-e-match") << "          Check inverted path string for pattern ";
+          outputIps( "efficient-e-match", cit->second );
+          Debug("efficient-e-match") << std::endl;
+
+          //collect all new relevant terms
+          SetNode terms;
+          terms.insert( b );
+          collectTermsIps( cit->second, terms );
+          if( terms.empty() ) continue;
+          Debug("efficient-e-match") << "        -> Added terms (" << terms.size() << "): ";
+          for( SetNode::const_iterator t=terms.begin(), end=terms.end();
+               t!=end; ++t ){
+            Debug("efficient-e-match") << (*t) << " ";
           }
+          Debug("efficient-e-match") << std::endl;
+          //add them as candidates to the candidate generator
+          cit->first->send(terms);
         }
       }
     }
@@ -321,41 +347,44 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
   Debug("efficient-e-match") << "Compute candidates for pp pairs..." << std::endl;
   EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
   EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
-  for( std::map< Node, std::map< Node, std::map< Node, std::vector< IpsPair > > > >::iterator it = d_pp_pairs.begin();
+  for( std::map< Node, std::map< Node, std::vector< triple< NodePpDispatcher*, Ips, Ips > > > >::iterator it = d_pp_pairs.begin();
        it != d_pp_pairs.end(); ++it ){
     Node f = it->first;
     if( eci_a->hasParent( f ) ){
       Debug("efficient-e-match") << "  Checking parent application " << f << std::endl;
-      for( std::map< Node, std::map< Node, std::vector< IpsPair > > >::iterator it2 = it->second.begin();
+      for( std::map< Node, std::vector< triple<NodePpDispatcher*, Ips, Ips> > >::iterator it2 = it->second.begin();
            it2 != it->second.end(); ++it2 ){
         Node g = it2->first;
         if( eci_b->hasParent( g ) ){
           Debug("efficient-e-match") << "    Checking parent application " << g << std::endl;
           //if f in pfuns( a ) and g is in pfuns( b ), only do the follow if so
-          for( std::map< Node, std::vector< IpsPair > >::iterator cit = it2->second.begin();
+          for( std::vector< triple<NodePpDispatcher*, Ips, Ips> > ::iterator cit = it2->second.begin();
                cit != it2->second.end(); ++cit ){
-            Node pat = cit->first;
-            for( int c=0; c<(int)cit->second.size(); c++ ){
-              std::vector< Node > a_terms;
-              a_terms.push_back( a );
-              if( !a_terms.empty() ){
-                collectTermsIps( cit->second[c].first, a_terms );
-                std::vector< Node > b_terms;
-                b_terms.push_back( b );
-                collectTermsIps( cit->second[c].first, b_terms );
-                //take intersection
-                for( int t=0; t<(int)a_terms.size(); t++ ){
-                  if( std::find( b_terms.begin(), b_terms.end(), a_terms[t] )!=b_terms.end() ){
-                                //Notice() << "Add candidate (PP) " << a_terms[t] << std::endl;
-                    Debug("efficient-e-match") << "      -> Add term " << a_terms[t] << std::endl;
-                    //add to all candidate generators having this term
-                    for( int cg=0; cg<(int)d_pat_cand_gens[pat].size(); cg++ ){
-                      d_pat_cand_gens[pat][cg]->addCandidate( a_terms[t] );
-                    }
-                  }
-                }
-              }
+            Debug("efficient-e-match") << "    Checking pattern " << cit->first->pat1 << " and " << cit->first->pat2 << std::endl;
+            SetNode a_terms;
+            a_terms.insert( a );
+            collectTermsIps( cit->second, a_terms );
+            if( a_terms.empty() ) continue;
+            SetNode b_terms;
+            b_terms.insert( b );
+            collectTermsIps( cit->third, b_terms );
+            if( b_terms.empty() ) continue;
+            //Start debug
+            Debug("efficient-e-match") << "        -> Possibly Added termsA (" << a_terms.size() << "): ";
+            for( SetNode::const_iterator t=a_terms.begin(), end=a_terms.end();
+                 t!=end; ++t ){
+              Debug("efficient-e-match") << (*t) << " ";
             }
+            Debug("efficient-e-match") << std::endl;
+            Debug("efficient-e-match") << "        -> Possibly Added termsB (" << b_terms.size() << "): ";
+            for( SetNode::const_iterator t=b_terms.begin(), end=b_terms.end();
+                 t!=end; ++t ){
+              Debug("efficient-e-match") << (*t) << " ";
+            }
+            Debug("efficient-e-match") << std::endl;
+            //End debug
+
+            cit->first->send(a_terms,b_terms);
           }
         }
       }
@@ -363,42 +392,47 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
   }
 }
 
-void InstantiatorTheoryUf::collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms ){
+void InstantiatorTheoryUf::collectTermsIps( Ips& ips, SetNode & terms ){
+  Assert( ips.size() > 0);
   return collectTermsIps( ips, terms,  ips.size() - 1);
 }
 
-void InstantiatorTheoryUf::collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms, int index ){
-  if( index > 0 && !terms.empty() ){
+void InstantiatorTheoryUf::collectTermsIps( Ips& ips, SetNode& terms, int index ){
+  if( !terms.empty() ){
     Debug("efficient-e-match-debug") << "> Process " << index << std::endl;
     Node f = ips[index].first;
     int arg = ips[index].second;
 
     //for each term in terms, determine if any term (modulo equality) has parent "f" from position "arg"
     bool addRep = ( index!=0 );
-    std::vector< Node > newTerms;
-    for( int t=0; t<(int)terms.size(); t++ ){
-      collectParentsTermsIps( terms[t], f, arg, newTerms, addRep );
+    SetNode newTerms;
+    for( SetNode::const_iterator t=terms.begin(), end=terms.end();
+         t!=end; ++t ){
+      collectParentsTermsIps( *t, f, arg, newTerms, addRep );
     }
     terms.swap(newTerms);
 
     Debug("efficient-e-match-debug") << "> Terms are now: ";
-    for( int t=0; t<(int)terms.size(); t++ ){
-      Debug("efficient-e-match-debug") << terms[t] << " ";
+    for( SetNode::const_iterator t=terms.begin(), end=terms.end();
+         t!=end; ++t ){
+      Debug("efficient-e-match-debug") << *t << " ";
     }
     Debug("efficient-e-match-debug") << std::endl;
 
-    collectTermsIps( ips, terms, index-1 );
+    if(index!=0) collectTermsIps( ips, terms, index-1 );
   }
 }
 
-bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, std::vector< Node >& terms, bool addRep, bool modEq ){
+bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, SetNode & terms, bool addRep, bool modEq ){ //modEq default true
   bool addedTerm = false;
-  if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( n ) && modEq ){
+  if( modEq && ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( n )){
     Assert( getRepresentative( n )==n );
     //collect modulo equality
     //DO_THIS: this should (if necessary) compute a current set of (f, arg) parents for n and cache it
     eq::EqClassIterator eqc_iter( getRepresentative( n ), &((TheoryUF*)d_th)->d_equalityEngine );
     while( !eqc_iter.isFinished() ){
+      Debug("efficient-e-match-debug") << "> look at " << (*eqc_iter)
+                                       << std::endl;
       if( collectParentsTermsIps( (*eqc_iter), f, arg, terms, addRep, false ) ){
         //if only one argument, we know we can stop (since all others added will be congruent)
         if( f.getType().getNumChildren()==2 ){
@@ -411,85 +445,176 @@ bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, std:
   }else{
     TermDb* db = d_quantEngine->getTermDatabase();
     //see if parent f exists from argument arg
-    if( db->d_parents.find( n )!=db->d_parents.end() ){
-      if( db->d_parents[n].find( f )!=db->d_parents[n].end() ){
-        if( db->d_parents[n][f].find( arg )!=db->d_parents[n][f].end() ){
-          for( int i=0; i<(int)db->d_parents[n][f][arg].size(); i++ ){
-            Node t = db->d_parents[n][f][arg][i];
-            if( addRep ){
-              t = getRepresentative( t );
-            }
-            if( std::find( terms.begin(), terms.end(), t )==terms.end() ){
-              terms.push_back( t );
-            }
-            addedTerm = true;
-          }
-        }
-      }
+    const std::vector<Node> & parents = db->getParents(n,f,arg);
+    for( size_t i=0; i<parents.size(); ++i ){
+      TNode t = parents[i];
+      if( addRep ) t = getRepresentative( t );
+      terms.insert(t);
+      addedTerm = true;
     }
   }
   return addedTerm;
 }
 
-void InstantiatorTheoryUf::registerPatternElementPairs2( Node opat, Node pat, InvertedPathString& ips,
-                                                       std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >& ips_map  ){
+void InstantiatorTheoryUf::registerPatternElementPairs2( Node pat, Ips& ips, PpIpsMap & pp_ips_map, NodePcDispatcher* npc ){
   Assert( pat.getKind()==APPLY_UF );
   //add information for possible pp-pair
+  ips.push_back( std::pair< Node, int >( pat.getOperator(), 0 ) ); //0 is just a dumb value
+
   for( int i=0; i<(int)pat.getNumChildren(); i++ ){
     if( pat[i].getKind()==INST_CONSTANT ){
-      ips_map[ pat[i] ].push_back( std::pair< Node, InvertedPathString >( pat.getOperator(), InvertedPathString( ips ) ) );
+      ips.back().second = i;
+      pp_ips_map[ pat[i] ].push_back( make_pair( pat.getOperator(), Ips( ips ) ) );
     }
   }
-  ips.push_back( std::pair< Node, int >( pat.getOperator(), 0 ) );
+
   for( int i=0; i<(int)pat.getNumChildren(); i++ ){
     if( pat[i].getKind()==APPLY_UF ){
       ips.back().second = i;
-      registerPatternElementPairs2( opat, pat[i], ips, ips_map );
+      registerPatternElementPairs2( pat[i], ips, pp_ips_map, npc );
       Debug("pattern-element-opt") << "Found pc-pair ( " << pat.getOperator() << ", " << pat[i].getOperator() << " )" << std::endl;
       Debug("pattern-element-opt") << "   Path = ";
-      outputInvertedPathString( "pattern-element-opt", ips );
+      outputIps( "pattern-element-opt", ips );
       Debug("pattern-element-opt") << std::endl;
       //pat.getOperator() and pat[i].getOperator() are a pc-pair
-      d_pc_pairs[ pat[i].getOperator() ][ pat.getOperator() ][opat].push_back( InvertedPathString( ips ) );
+      d_pc_pairs[ pat[i].getOperator() ][ pat.getOperator() ]
+        .push_back( make_pair(npc,Ips(ips)) );
     }
   }
   ips.pop_back();
 }
 
-void InstantiatorTheoryUf::registerPatternElementPairs( Node pat ){
-  InvertedPathString ips;
-  std::map< Node, std::vector< std::pair< Node, InvertedPathString > > > ips_map;
-  registerPatternElementPairs2( pat, pat, ips, ips_map );
-  for( std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >::iterator it = ips_map.begin(); it != ips_map.end(); ++it ){
-    for( int j=0; j<(int)it->second.size(); j++ ){
-      for( int k=j+1; k<(int)it->second.size(); k++ ){
+void InstantiatorTheoryUf::registerPatternElementPairs( Node pat, PpIpsMap & pp_ips_map,
+                                                        NodePcDispatcher* npc,
+                                                        NodePpDispatcher* npp){
+  Ips ips;
+  registerPatternElementPairs2( pat, ips, pp_ips_map, npc );
+  for( PpIpsMap::iterator it = pp_ips_map.begin(); it != pp_ips_map.end(); ++it ){
+    // for each variable construct all the pp-pair
+    for( size_t j=0; j<it->second.size(); j++ ){
+      for( size_t k=j+1; k<it->second.size(); k++ ){
         //found a pp-pair
         Debug("pattern-element-opt") << "Found pp-pair ( " << it->second[j].first << ", " << it->second[k].first << " )" << std::endl;
         Debug("pattern-element-opt") << "   Paths = ";
-        outputInvertedPathString( "pattern-element-opt", it->second[j].second );
+        outputIps( "pattern-element-opt", it->second[j].second );
         Debug("pattern-element-opt") << " and ";
-        outputInvertedPathString( "pattern-element-opt", it->second[k].second );
+        outputIps( "pattern-element-opt", it->second[k].second );
         Debug("pattern-element-opt") << std::endl;
-        d_pp_pairs[ it->second[j].first ][ it->second[k].first ][pat].push_back( IpsPair( it->second[j].second, it->second[k].second ) );
+        d_pp_pairs[ it->second[j].first ][ it->second[k].first ]
+          .push_back( make_triple( npp, it->second[j].second, it->second[k].second ));
       }
     }
   }
+};
+
+void findPpSite(Node pat, InstantiatorTheoryUf::Ips& ips, InstantiatorTheoryUf::PpIpsMap & pp_ips_map){
+  Assert( pat.getKind()==APPLY_UF );
+  //add information for possible pp-pair
+
+  ips.push_back( make_pair( pat.getOperator(), 0) );
+  for( size_t i=0; i<pat.getNumChildren(); i++ ){
+    if( pat[i].getKind()==INST_CONSTANT ){
+      ips.back().second = i;
+      pp_ips_map[ pat[i] ].push_back( make_pair( pat.getOperator(), InstantiatorTheoryUf::Ips( ips ) ) );
+    }
+  }
+
+  for( size_t i=0; i<pat.getNumChildren(); i++ ){
+    if( pat[i].getKind()==APPLY_UF ){
+      ips.back().second = i;
+      findPpSite( pat[i], ips, pp_ips_map );
+    }
+  }
+  ips.pop_back();
 }
 
-void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, Node pat ){
-  Debug("efficient-e-match") << "Register candidate generator..." << pat << std::endl;
-  if( d_pat_cand_gens.find( pat )==d_pat_cand_gens.end() ){
-    registerPatternElementPairs( pat );
+void InstantiatorTheoryUf::combineMultiPpIpsMap(PpIpsMap & pp_ips_map, MultiPpIpsMap multi_pp_ips_map,
+                                                EfficientHandler& eh, size_t index2,const std::vector<Node> & pats){
+  hash_map<size_t,NodePpDispatcher*> npps;
+  for( PpIpsMap::iterator it = pp_ips_map.begin(); it != pp_ips_map.end(); ++it ){
+    MultiPpIpsMap::iterator mit = multi_pp_ips_map.find(it->first);
+    if(mit == multi_pp_ips_map.end()) continue;
+    // for each variable construct all the pp-pair
+    for( std::vector< std::pair< Node, Ips > >::iterator j=it->second.begin(), jend = it->second.end() ;
+         j != jend; ++j){
+      for( std::vector< triple< size_t, Node, Ips > >::iterator k=mit->second.begin(), kend = mit->second.end() ;
+           k != kend; ++k){
+        //found a pp-pair
+        Debug("pattern-element-opt") << "Found multi-pp-pair ( " << j->first
+                                     << ", " << k->second << " in "<< k->first
+                                     << " )" << std::endl;
+        Debug("pattern-element-opt") << "   Paths = ";
+        outputIps( "pattern-element-opt", j->second );
+        Debug("pattern-element-opt") << " and ";
+        outputIps( "pattern-element-opt", k->third );
+        Debug("pattern-element-opt") << std::endl;
+        NodePpDispatcher* dispatcher;
+        hash_map<size_t,NodePpDispatcher*>::iterator inpp = npps.find(k->first);
+        if( inpp != npps.end() ) dispatcher = inpp->second;
+        else{
+          dispatcher = new NodePpDispatcher();
+#ifdef CVC4_DEBUG
+          dispatcher->pat1 = pats[k->first];
+          dispatcher->pat2 = pats[index2];
+#endif
+          dispatcher->addPpDispatcher(&eh,k->first,index2);
+        };
+        d_pp_pairs[ j->first ][ k->second ].push_back( make_triple( dispatcher, j->second, k->third ));
+      }
+    }
   }
-  d_pat_cand_gens[pat].push_back( cg );
+
+  /** Put pp_ips_map to multi_pp_ips_map */
+  for( PpIpsMap::iterator it = pp_ips_map.begin(); it != pp_ips_map.end(); ++it ){
+    for( std::vector< std::pair< Node, Ips > >::iterator j=it->second.begin(), jend = it->second.end() ;
+         j != jend; ++j){
+      multi_pp_ips_map[it->first].push_back(make_triple(index2, j->first, j->second));
+    }
+  }
+
+}
+
+
+void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
+                                                     const std::vector< Node > & pats ){
+  Assert(pats.size() > 0);
+
+  MultiPpIpsMap multi_pp_ips_map;
+  PpIpsMap pp_ips_map;
+  for(size_t i = 0; i < pats.size(); ++i){
+    Debug("efficient-e-match") << "Register candidate generator..." << pats[i] << std::endl;
+    /* Has the pattern already been seen */
+    if( d_pat_cand_gens.find( pats[i] )==d_pat_cand_gens.end() ){
+      NodePcDispatcher* npc = new NodePcDispatcher();
+      NodePpDispatcher* npp = new NodePpDispatcher();
+#ifdef CVC4_DEBUG
+      npc->pat = pats[i];
+      npp->pat1 = pats[i];
+      npp->pat2 = pats[i];
+#endif
+      d_pat_cand_gens[pats[i]] = make_pair(npc,npp);
+      registerPatternElementPairs( pats[i], pp_ips_map, npc, npp );
+    }else{
+      Ips ips;
+      findPpSite(pats[i],ips,pp_ips_map);
+    }
+    //Has the top operator already been seen */
+    TNode op = pats[i].getOperator();
+    d_pat_cand_gens[pats[i]].first->addPcDispatcher(&handler,i);
+    d_pat_cand_gens[pats[i]].second->addPpDispatcher(&handler,i,i);
+    d_cand_gens[op].addPcDispatcher(&handler,i);
+
+    combineMultiPpIpsMap(pp_ips_map,multi_pp_ips_map,handler,i,pats);
+
+    pp_ips_map.clear();
+  }
 
   //take all terms from the uf term db and add to candidate generator
-  Node op = pat.getOperator();
+  Node op = pats[0].getOperator();
   TermDb* db = d_quantEngine->getTermDatabase();
-  for( int i=0; i<(int)db->d_op_map[op].size(); i++ ){
-    cg->addCandidate( db->d_op_map[op][i] );
-  }
-  d_cand_gens[op].push_back( cg );
+  SetNode ele;
+  ele.insert(db->d_op_map[op].begin(), db->d_op_map[op].end());
+  handler.addMonoCandidate(ele, 0);
 
   Debug("efficient-e-match") << "Done." << std::endl;
 }
@@ -516,7 +641,7 @@ void InstantiatorTheoryUf::outputEqClass( const char* c, Node n ){
   }
 }
 
-void InstantiatorTheoryUf::outputInvertedPathString( const char* c, InvertedPathString& ips ){
+void InstantiatorTheoryUf::outputIps( const char* c, Ips& ips ){
   for( int i=0; i<(int)ips.size(); i++ ){
     if( i>0 ){ Debug( c ) << "."; }
     Debug( c ) << ips[i].first << "." << ips[i].second;

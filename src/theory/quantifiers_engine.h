@@ -131,7 +131,7 @@ public:
   /** map from type nodes to terms of that type */
   std::map< TypeNode, std::vector< Node > > d_type_map;
   /** add a term to the database */
-  void addTerm( Node n, std::vector< Node >& added, bool withinQuant = false );
+  void addTerm( Node n, std::set< Node >& added, bool withinQuant = false );
   /** reset (calculate which terms are active) */
   void reset( Theory::Effort effort );
   /** set active */
@@ -145,7 +145,25 @@ public:
         has operator "op", and n'["index"] = n.
       for example, d_parents[n][f][1] = { f( t1, n ), f( t2, n ), ... }
   */
+  /* Todo replace int by size_t */
   std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
+  const std::vector<Node> & getParents(TNode n, TNode f, int arg){
+    std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > >::const_iterator
+      rn = d_parents.find( n );
+    if( rn !=d_parents.end() ){
+      std::map< Node, std::map< int, std::vector< Node > > > ::const_iterator
+        rf = rn->second.find(f);
+      if( rf != rn->second.end() ){
+        std::map< int, std::vector< Node > > ::const_iterator
+          ra = rf->second.find(arg);
+        if( ra != rf->second.end() ){
+          return ra->second;
+        }
+      }
+    }
+    static std::vector<Node> empty;
+    return empty;
+  }
 };/* class TermDb */
 
 namespace quantifiers {

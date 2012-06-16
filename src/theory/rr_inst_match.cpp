@@ -1567,10 +1567,6 @@ int MultiPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, Quant
   return addedLemmas;
 }
 
-PatsMatcher* mkPatterns( std::vector< Node > pat, QuantifiersEngine* qe ){
-  return new MultiPatsMatcher( pat, qe);
-}
-
 // /** constructors */
 // InstMatchGeneratorMulti::InstMatchGeneratorMulti( Node f, std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption ) :
 // d_f( f ){
@@ -1808,6 +1804,109 @@ PatsMatcher* mkPatterns( std::vector< Node > pat, QuantifiersEngine* qe ){
 //     }
 //   }
 // }
+
+
+PatsMatcher* mkPatterns( std::vector< Node > pat, QuantifiersEngine* qe ){
+  return new MultiPatsMatcher( pat, qe);
+}
+
+class MultiEfficientPatsMatcher: public PatsMatcher{
+private:
+  bool d_reset_done;
+  bool d_phase_mono;
+  std::vector< PatMatcher* > d_patterns;
+  InstMatch im;
+  uf::EfficientHandler d_eh;
+  uf::EfficientHandler::MultiCandidates d_c;
+  uf::SetNode::iterator d_si1;
+  uf::SetNode::iterator d_si2;
+
+  bool reset( QuantifiersEngine* qe ){
+    im.clear();
+    d_reset_done = true;
+
+    size_t index = 0;
+    while( index< d_patterns.size() ){
+      Debug("matching") << "MultiEfficientPatsMatcher::reset " << index << std::endl;
+      if(!d_patterns[index]->reset( im, qe )){
+        Debug("matching") << "MultiEfficientPatsMatcher::reset fail " << index << std::endl;
+        if(index == 0) return false;
+        else return getNextMatch(qe,index-1);
+      };
+      ++index;
+    };
+    return true;
+  };
+
+  bool getNextMatch( QuantifiersEngine* qe, size_t index ){
+    //combine child matches
+    Assert( index< d_patterns.size() );
+    while( true ){
+      Debug("matching") << "MultiEfficientPatsMatcher::index " << index << std::endl;
+      if( d_patterns[index]->getNextMatch( im, qe ) ){
+        ++index;
+        if ( index == d_patterns.size() ) return true;
+        Debug("matching") << "MultiEfficientPatsMatcher::rereset " << index << std::endl;
+        // If the initialization failed we come back.
+        if(!d_patterns[index]->reset( im, qe )) --index;
+      }else{
+        if(index == 0){
+          return false;
+        }
+        --index;
+      }
+    }
+  }
+public:
+  MultiEfficientPatsMatcher(std::vector< Node > & pats, QuantifiersEngine* qe):
+    d_reset_done(false), d_eh(qe->getTheoryEngine()->d_context){
+    Assert(pats.size() > 0);
+    for( size_t i=0; i< pats.size(); i++ ){
+      d_patterns.push_back(mkPattern(pats[i],qe));
+    };
+    Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF );
+    uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
+    ith->registerEfficientHandler(d_eh, pats);
+  };
+  void resetInstantiationRound( QuantifiersEngine* qe ){
+    for( size_t i=0; i< d_patterns.size(); i++ ){
+      d_patterns[i]->resetInstantiationRound( qe );
+    };
+    d_reset_done = false;
+    im.clear();
+  };
+  bool getNextMatch( QuantifiersEngine* qe ){
+    Assert(d_patterns.size()>0);
+    if(d_reset_done) return getNextMatch(qe,d_patterns.size() - 1);
+    else return reset(qe);
+  }
+  const InstMatch& getInstMatch(){return im;};
+
+  int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits );
+};
+
+int MultiEfficientPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+  //now, try to add instantiation for each match produced
+  int addedLemmas = 0;
+  resetInstantiationRound( qe );
+  im.add( baseMatch );
+  while( getNextMatch( qe ) ){
+    InstMatch im_copy = getInstMatch();
+    //m.makeInternal( d_quantEngine->getEqualityQuery() );
+    if( qe->addInstantiation( quant, im_copy, addSplits ) ){
+      addedLemmas++;
+      if( instLimit>0 && addedLemmas==instLimit ){
+        return addedLemmas;
+      }
+    }
+  }
+  //return number of lemmas added
+  return addedLemmas;
+};
+
+PatsMatcher* mkPatternsEfficient( std::vector< Node > pat, QuantifiersEngine* qe ){
+  return new MultiEfficientPatsMatcher( pat, qe);
+}
 
 } /* CVC4::theory::rrinst */
 } /* CVC4::theory */

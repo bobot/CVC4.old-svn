@@ -93,12 +93,13 @@ class TheoryEngine {
   /** Access to decision engine */
   DecisionEngine* d_decisionEngine;
 
+public:
   /** Our context */
   context::Context* d_context;
 
   /** Our user context */
   context::UserContext* d_userContext;
-
+private:
   /**
    * A table of from theory IDs to theory pointers. Never use this table
    * directly, use theoryOf() instead.

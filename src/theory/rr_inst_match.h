@@ -262,6 +262,7 @@ public:
 };
 
 PatsMatcher* mkPatterns( std::vector< Node > pat, QuantifiersEngine* qe );
+PatsMatcher* mkPatternsEfficient( std::vector< Node > pat, QuantifiersEngine* qe );
 
 /** return true if whatever Node is subsituted for the variables the
     given Node can't match the pattern */
