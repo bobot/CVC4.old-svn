@@ -184,25 +184,25 @@ public:
   Node getNextCandidate();
 };
 
-class CandidateGeneratorTheoryUfDisequal : public CandidateGenerator
-{
-private:
- //equivalence class 
- Node d_eq_class;
- //equivalence class info
- EqClassInfo* d_eci;
- //equivalence class iterator
- EqClassInfo::BoolMap::const_iterator d_eqci_iter;
- //instantiator pointer
- InstantiatorTheoryUf* d_ith;
-public:
- CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc );
- ~CandidateGeneratorTheoryUfDisequal(){}
-
- void resetInstantiationRound();
- void reset( Node eqc );   //should be what you want to be disequal from
- Node getNextCandidate();
-};
+//class CandidateGeneratorTheoryUfDisequal : public CandidateGenerator
+//{
+//private:
+//  //equivalence class 
+//  Node d_eq_class;
+//  //equivalence class info
+//  EqClassInfo* d_eci;
+//  //equivalence class iterator
+//  EqClassInfo::BoolMap::const_iterator d_eqci_iter;
+//  //instantiator pointer
+//  InstantiatorTheoryUf* d_ith;
+//public:
+//  CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc );
+//  ~CandidateGeneratorTheoryUfDisequal(){}
+//
+//  void resetInstantiationRound();
+//  void reset( Node eqc );   //should be what you want to be disequal from
+//  Node getNextCandidate();
+//};
 
 class CandidateGeneratorTheoryUfLitEq : public CandidateGenerator
 {
@@ -222,7 +222,8 @@ public:
   Node getNextCandidate();
 };
 
-class CandidateGeneratorTheoryUfLitDeq : public CandidateGenerator{
+class CandidateGeneratorTheoryUfLitDeq : public CandidateGenerator
+{
 private:
   //the equality class iterator for false
   eq::EqClassIterator d_eqc_false;

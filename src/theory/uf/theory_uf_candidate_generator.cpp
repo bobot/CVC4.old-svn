@@ -90,39 +90,39 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
 }
 
 
-CandidateGeneratorTheoryUfDisequal::CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc ) : 
- d_ith( ith ), d_eq_class( eqc ){
- d_eci = NULL;
-}
-void CandidateGeneratorTheoryUfDisequal::resetInstantiationRound(){
- 
-}
-//we will iterate over all terms that are disequal from eqc
-void CandidateGeneratorTheoryUfDisequal::reset( Node eqc ){
- //Assert( !eqc.isNull() );
- ////begin iterating over equivalence classes that are disequal from eqc
- //d_eci = d_ith->getEquivalenceClassInfo( eqc );
- //if( d_eci ){
- //  d_eqci_iter = d_eci->d_disequal.begin();
- //}
-}
-Node CandidateGeneratorTheoryUfDisequal::getNextCandidate(){
- //if( d_eci ){
- //  while( d_eqci_iter != d_eci->d_disequal.end() ){
- //    if( (*d_eqci_iter).second ){
- //      //we have an equivalence class that is disequal from eqc
- //      d_cg->reset( (*d_eqci_iter).first );
- //      Node n = d_cg->getNextCandidate();
- //      //if there is a candidate in this equivalence class, return it
- //      if( !n.isNull() ){
- //        return n;
- //      }
- //    }
- //    ++d_eqci_iter;
- //  }
- //}
- return Node::null();
-}
+//CandidateGeneratorTheoryUfDisequal::CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc ) : 
+//  d_ith( ith ), d_eq_class( eqc ){
+//  d_eci = NULL;
+//}
+//void CandidateGeneratorTheoryUfDisequal::resetInstantiationRound(){
+//  
+//}
+////we will iterate over all terms that are disequal from eqc
+//void CandidateGeneratorTheoryUfDisequal::reset( Node eqc ){
+//  //Assert( !eqc.isNull() );
+//  ////begin iterating over equivalence classes that are disequal from eqc
+//  //d_eci = d_ith->getEquivalenceClassInfo( eqc );
+//  //if( d_eci ){
+//  //  d_eqci_iter = d_eci->d_disequal.begin();
+//  //}
+//}
+//Node CandidateGeneratorTheoryUfDisequal::getNextCandidate(){
+//  //if( d_eci ){
+//  //  while( d_eqci_iter != d_eci->d_disequal.end() ){
+//  //    if( (*d_eqci_iter).second ){
+//  //      //we have an equivalence class that is disequal from eqc
+//  //      d_cg->reset( (*d_eqci_iter).first );
+//  //      Node n = d_cg->getNextCandidate();
+//  //      //if there is a candidate in this equivalence class, return it
+//  //      if( !n.isNull() ){
+//  //        return n;
+//  //      }
+//  //    }
+//  //    ++d_eqci_iter;
+//  //  }
+//  //}
+//  return Node::null();
+//}
 
 
 CandidateGeneratorTheoryUfLitEq::CandidateGeneratorTheoryUfLitEq( InstantiatorTheoryUf* ith, Node mpat ) : 
@@ -155,7 +155,6 @@ CandidateGeneratorTheoryUfLitDeq::CandidateGeneratorTheoryUfLitDeq( Instantiator
 void CandidateGeneratorTheoryUfLitDeq::resetInstantiationRound(){
 
 }
-
 void CandidateGeneratorTheoryUfLitDeq::reset( Node eqc ){
   Node false_term = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative( 
                       NodeManager::currentNM()->mkConst<bool>(false) );
