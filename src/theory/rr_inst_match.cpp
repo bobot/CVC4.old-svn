@@ -917,36 +917,30 @@ bool ApplyMatcher::reset(Node t, InstMatch & m, QuantifiersEngine* qe){
     d_reps.push_back( rep );
   }
 
-  size_t index = 0;
-  while( index< d_children.size() ){
-    if(!d_children[index]->reset( d_reps[index], m, qe )){
-      if(index == 0){
-        m.erase(d_binded.begin(), d_binded.end());
-        return false;
-      } else return getNextMatch(m, qe, index-1);
-    };
-    ++index;
-  };
-  return true;
+  if(d_children.size() == 0) return true;
+  else return getNextMatch(m, qe, true);
 }
 
-
-bool ApplyMatcher::getNextMatch(InstMatch& m, QuantifiersEngine* qe, size_t index){
-  //combine child matches
-  Assert ( index < d_children.size() );
-  while( true ){
-    if( d_children[index]->getNextMatch( m, qe ) ){
+bool ApplyMatcher::getNextMatch(InstMatch& m, QuantifiersEngine* qe, bool reset){
+  Assert(d_children_index.size() > 0);
+  const size_t max = d_children.size() - 1;
+  size_t index = reset ? 0 : max;
+  Assert(d_children.size() == d_reps.size());
+  while(true){
+    if(reset ?
+       d_children[index]->reset( d_reps[index], m, qe ) :
+       d_children[index]->getNextMatch( m, qe )){
+      if(index==max) return true;
       ++index;
-      if ( index == d_children.size() ) return true;
-      // If the initialization failed we come back.
-      if(!d_children[index]->reset( d_reps[index], m, qe )) --index;
+      reset=true;
     }else{
-      if(index == 0){
+      if(index==0){
         m.erase(d_binded.begin(), d_binded.end());
         return false;
       }
       --index;
-    }
+      reset=false;
+    };
   }
 }
 
@@ -954,7 +948,7 @@ bool ApplyMatcher::getNextMatch(InstMatch& m, QuantifiersEngine* qe){
   if(d_children.size() == 0){
     m.erase(d_binded.begin(), d_binded.end());
     return false;
-  } else return getNextMatch(m, qe, d_children.size() - 1);
+  } else return getNextMatch(m, qe, false);
 }
 
 /** Proxy that call the sub-matcher on the result return by the given candidate generator */
@@ -1490,43 +1484,34 @@ class MultiPatsMatcher: public PatsMatcher{
 private:
   bool d_reset_done;
   std::vector< PatMatcher* > d_patterns;
-  InstMatch im;
+  InstMatch d_im;
   bool reset( QuantifiersEngine* qe ){
-    im.clear();
+    d_im.clear();
     d_reset_done = true;
 
-    size_t index = 0;
-    while( index< d_patterns.size() ){
-      Debug("matching") << "MultiPatsMatcher::reset " << index << std::endl;
-      if(!d_patterns[index]->reset( im, qe )){
-        Debug("matching") << "MultiPatsMatcher::reset fail " << index << std::endl;
-        if(index == 0) return false;
-        else return getNextMatch(qe,index-1);
-      };
-      ++index;
-    };
-    return true;
+    return getNextMatch(qe,true);
   };
 
-  bool getNextMatch( QuantifiersEngine* qe, size_t index ){
-    //combine child matches
-    Assert( index< d_patterns.size() );
-    while( true ){
-      Debug("matching") << "MultiPatsMatcher::index " << index << std::endl;
-      if( d_patterns[index]->getNextMatch( im, qe ) ){
+  bool getNextMatch(QuantifiersEngine* qe, bool reset){
+    const size_t max = d_patterns.size() - 1;
+    size_t index = reset ? 0 : max;
+    while(true){
+      Debug("matching") << "MultiPatsMatcher::index " << index << "/"
+                        << max << std::endl;
+      if(reset ?
+         d_patterns[index]->reset( d_im, qe ) :
+         d_patterns[index]->getNextMatch( d_im, qe )){
+        if(index==max) return true;
         ++index;
-        if ( index == d_patterns.size() ) return true;
-        Debug("matching") << "MultiPatsMatcher::rereset " << index << std::endl;
-        // If the initialization failed we come back.
-        if(!d_patterns[index]->reset( im, qe )) --index;
+        reset=true;
       }else{
-        if(index == 0){
-          return false;
-        }
+        if(index==0) return false;
         --index;
-      }
+        reset=false;
+      };
     }
   }
+
 public:
   MultiPatsMatcher(std::vector< Node > & pats, QuantifiersEngine* qe):
     d_reset_done(false){
@@ -1540,40 +1525,40 @@ public:
       d_patterns[i]->resetInstantiationRound( qe );
     };
     d_reset_done = false;
-    im.clear();
+    d_im.clear();
   };
   bool getNextMatch( QuantifiersEngine* qe ){
     Assert(d_patterns.size()>0);
-    if(d_reset_done) return getNextMatch(qe,d_patterns.size() - 1);
+    if(d_reset_done) return getNextMatch(qe,false);
     else return reset(qe);
   }
-  const InstMatch& getInstMatch(){return im;};
+  const InstMatch& getInstMatch(){return d_im;};
 
   int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits );
 };
 
-enum Step{
-  STOP,
-  GET_MONO_CANDIDATE,
-  GET_MULTI_CANDIDATE,
-  RESET1,
-  RESET2,
-  NEXT1,
-  NEXT2,
-  RESET_OTHER,
-  NEXT_OTHER,
+enum EffiStep{
+  ES_STOP,
+  ES_GET_MONO_CANDIDATE,
+  ES_GET_MULTI_CANDIDATE,
+  ES_RESET1,
+  ES_RESET2,
+  ES_NEXT1,
+  ES_NEXT2,
+  ES_RESET_OTHER,
+  ES_NEXT_OTHER,
 };
-static inline std::ostream& operator<<(std::ostream& out, const Step& step) {
+static inline std::ostream& operator<<(std::ostream& out, const EffiStep& step) {
   switch(step){
-  case STOP: out << "STOP"; break;
-  case GET_MONO_CANDIDATE: out << "GET_MONO_CANDIDATE"; break;
-  case GET_MULTI_CANDIDATE: out << "GET_MULTI_CANDIDATE"; break;
-  case RESET1: out << "RESET1"; break;
-  case RESET2: out << "RESET2"; break;
-  case NEXT1: out << "NEXT1"; break;
-  case NEXT2: out << "NEXT2"; break;
-  case RESET_OTHER: out << "RESET_OTHER"; break;
-  case NEXT_OTHER: out << "NEXT_OTHER"; break;
+  case ES_STOP: out << "STOP"; break;
+  case ES_GET_MONO_CANDIDATE: out << "GET_MONO_CANDIDATE"; break;
+  case ES_GET_MULTI_CANDIDATE: out << "GET_MULTI_CANDIDATE"; break;
+  case ES_RESET1: out << "RESET1"; break;
+  case ES_RESET2: out << "RESET2"; break;
+  case ES_NEXT1: out << "NEXT1"; break;
+  case ES_NEXT2: out << "NEXT2"; break;
+  case ES_RESET_OTHER: out << "RESET_OTHER"; break;
+  case ES_NEXT_OTHER: out << "NEXT_OTHER"; break;
   }
   return out;
 }
@@ -1583,7 +1568,7 @@ int MultiPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, Quant
   //now, try to add instantiation for each match produced
   int addedLemmas = 0;
   resetInstantiationRound( qe );
-  im.add( baseMatch );
+  d_im.add( baseMatch );
   while( getNextMatch( qe ) ){
     InstMatch im_copy = getInstMatch();
     //m.makeInternal( d_quantEngine->getEqualityQuery() );
@@ -1857,8 +1842,8 @@ private:
 
 
 
-  static const Step START = GET_MONO_CANDIDATE;
-  Step d_step;
+  static const EffiStep ES_START = ES_GET_MONO_CANDIDATE;
+  EffiStep d_step;
 
   //return true if it becomes bigger than d_patterns.size() - 1
   bool incrIndex(size_t & index){
@@ -1912,64 +1897,64 @@ private:
 public:
 
   bool getNextMatch( QuantifiersEngine* qe ){
-    Assert( d_step == START || d_step == NEXT_OTHER || d_step == STOP );
+    Assert( d_step == ES_START || d_step == ES_NEXT_OTHER || d_step == ES_STOP );
     while(true){
       Debug("matching") << "d_step=" << d_step << " "
                         << "d_im=" << d_im << std::endl;
       switch(d_step){
-      case GET_MONO_CANDIDATE:
+      case ES_GET_MONO_CANDIDATE:
         Assert(d_im.empty());
         if(d_eh.getNextMonoCandidate(d_mc.first)){
           d_phase_mono = true;
-          d_step = RESET1;
-        } else d_step = GET_MULTI_CANDIDATE;
+          d_step = ES_RESET1;
+        } else d_step = ES_GET_MULTI_CANDIDATE;
         break;
-      case GET_MULTI_CANDIDATE:
+      case ES_GET_MULTI_CANDIDATE:
         Assert(d_im.empty());
         if(d_eh.getNextMultiCandidate(d_mc)){
           d_phase_mono = false;
-          d_step = RESET1;
-        } else d_step = STOP;
+          d_step = ES_RESET1;
+        } else d_step = ES_STOP;
         break;
-      case RESET1:
+      case ES_RESET1:
         if(d_direct_patterns[d_mc.first.second].reset(d_mc.first.first,d_im,qe))
-          d_step = d_phase_mono ? RESET_OTHER : RESET2;
-        else d_step = d_phase_mono ? GET_MONO_CANDIDATE : GET_MULTI_CANDIDATE;
+          d_step = d_phase_mono ? ES_RESET_OTHER : ES_RESET2;
+        else d_step = d_phase_mono ? ES_GET_MONO_CANDIDATE : ES_GET_MULTI_CANDIDATE;
         break;
-      case RESET2:
+      case ES_RESET2:
         Assert(!d_phase_mono);
         if(d_direct_patterns[d_mc.second.second].reset(d_mc.second.first,d_im,qe))
-          d_step = RESET_OTHER;
-        else d_step = NEXT1;
+          d_step = ES_RESET_OTHER;
+        else d_step = ES_NEXT1;
         break;
-      case NEXT1:
+      case ES_NEXT1:
         if(d_direct_patterns[d_mc.first.second].getNextMatch(d_im,qe))
-          d_step = d_phase_mono ? RESET_OTHER : RESET2;
-        else d_step = d_phase_mono ? GET_MONO_CANDIDATE : GET_MULTI_CANDIDATE;
+          d_step = d_phase_mono ? ES_RESET_OTHER : ES_RESET2;
+        else d_step = d_phase_mono ? ES_GET_MONO_CANDIDATE : ES_GET_MULTI_CANDIDATE;
         break;
-      case NEXT2:
+      case ES_NEXT2:
         if(d_direct_patterns[d_mc.second.second].getNextMatch(d_im,qe))
-          d_step = RESET_OTHER;
-        else d_step = NEXT1;
+          d_step = ES_RESET_OTHER;
+        else d_step = ES_NEXT1;
         break;
-      case RESET_OTHER:
+      case ES_RESET_OTHER:
         if(resetOther(qe)){
-          d_step = NEXT_OTHER;
+          d_step = ES_NEXT_OTHER;
           return true;
-        } else d_step = d_phase_mono ? NEXT1 : NEXT2;
+        } else d_step = d_phase_mono ? ES_NEXT1 : ES_NEXT2;
         break;
-      case NEXT_OTHER:
+      case ES_NEXT_OTHER:
         {
           size_t index = d_patterns.size();
           if(decrIndex(index) || !getNextMatchOther(qe,index)){
-            d_step = d_phase_mono ? NEXT1 : NEXT2;
+            d_step = d_phase_mono ? ES_NEXT1 : ES_NEXT2;
           }else{
-            d_step = NEXT_OTHER;
+            d_step = ES_NEXT_OTHER;
             return true;
           }
         }
         break;
-      case STOP:
+      case ES_STOP:
         Assert(d_im.empty());
         return false;
       }
@@ -1977,7 +1962,7 @@ public:
   }
 
   MultiEfficientPatsMatcher(std::vector< Node > & pats, QuantifiersEngine* qe):
-    d_eh(qe->getTheoryEngine()->d_context), d_step(START){
+    d_eh(qe->getTheoryEngine()->d_context), d_step(ES_START){
     Assert(pats.size() > 0);
     for( size_t i=0; i< pats.size(); i++ ){
       d_patterns.push_back(mkPattern(pats[i],qe));
@@ -1989,12 +1974,12 @@ public:
     ith->registerEfficientHandler(d_eh, pats);
   };
   void resetInstantiationRound( QuantifiersEngine* qe ){
-    Assert(d_step == START || d_step == STOP);
+    Assert(d_step == ES_START || d_step == ES_STOP);
     for( size_t i=0; i< d_patterns.size(); i++ ){
       d_patterns[i]->resetInstantiationRound( qe );
       d_direct_patterns[i].resetInstantiationRound( qe );
     };
-    d_step = START;
+    d_step = ES_START;
     Assert(d_im.empty());
   };
 

@@ -448,7 +448,7 @@ bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, SetN
     Assert( getRepresentative( n )==n );
     //collect modulo equality
     //DO_THIS: this should (if necessary) compute a current set of (f, arg) parents for n and cache it
-    eq::EqClassIterator eqc_iter( getRepresentative( n ), &((TheoryUF*)d_th)->d_equalityEngine );
+    eq::EqClassIterator eqc_iter( n, &((TheoryUF*)d_th)->d_equalityEngine );
     while( !eqc_iter.isFinished() ){
       Debug("efficient-e-match-debug") << "> look at " << (*eqc_iter)
                                        << std::endl;
@@ -467,6 +467,7 @@ bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, SetN
     const std::vector<Node> & parents = db->getParents(n,f,arg);
     for( size_t i=0; i<parents.size(); ++i ){
       TNode t = parents[i];
+      if(!CandidateGenerator::isLegalCandidate(t)) continue;
       if( addRep ) t = getRepresentative( t );
       terms.insert(t);
       addedTerm = true;

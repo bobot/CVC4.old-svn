@@ -226,7 +226,7 @@ public:
   /** get the next match. */
   bool getNextMatch(InstMatch& m, QuantifiersEngine* qe);
 private:
-  bool getNextMatch(InstMatch& m, QuantifiersEngine* qe, size_t index);
+  bool getNextMatch(InstMatch& m, QuantifiersEngine* qe, bool reset);
 };
 
 
