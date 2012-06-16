@@ -58,7 +58,7 @@ static const bool representative_instantiation = false;
 
    Allow to break loop with other theories.
  */
-static const size_t checkSlowdown = 10;
+static const size_t checkSlowdown = 0;
 
 /**
    Use the current model to eliminate guard before asking for notification
@@ -78,7 +78,7 @@ static const bool narrowing_full_effort = false;
 /**
    Direct rewrite: Add rewrite rules directly in the rewriter.
  */
-static const bool direct_rewrite = true;
+static const bool direct_rewrite = false;
 
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */

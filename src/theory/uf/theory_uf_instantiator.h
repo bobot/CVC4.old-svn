@@ -46,6 +46,8 @@ typedef std::set<Node> SetNode;
 
 class EfficientHandler{
 public:
+  typedef std::pair< Node, size_t > MonoCandidate;
+  typedef std::pair< MonoCandidate, MonoCandidate > MultiCandidate;
   typedef std::pair< SetNode, size_t > MonoCandidates;
   typedef std::pair< MonoCandidates, MonoCandidates > MultiCandidates;
 private:
@@ -53,36 +55,94 @@ private:
   typedef context::CDQueue< MonoCandidates > MonoCandidatesQueue;
   typedef context::CDQueue< MultiCandidates > MultiCandidatesQueue;
   MonoCandidatesQueue d_monoCandidates;
+  typedef uf::SetNode::iterator SetNodeIter;
+  context::CDO<SetNodeIter> d_si;
+  context::CDO<bool> d_mono_first;
+
   MultiCandidatesQueue d_multiCandidates;
+  context::CDO<SetNodeIter> d_si1;
+  context::CDO<SetNodeIter> d_si2;
+  context::CDO<bool> d_multi_first;
+
 
   friend class InstantiatorTheoryUf;
   friend class HandlerPcDispatcher;
   friend class HandlerPpDispatcher;
 protected:
   void addMonoCandidate(SetNode & s, size_t index){
+    Assert(!s.empty());
     d_monoCandidates.push(make_pair(s,index));
   }
   void addMultiCandidate(SetNode & s1, size_t index1, SetNode & s2, size_t index2){
+    Assert(!s1.empty() && !s2.empty());
     d_multiCandidates.push(make_pair(make_pair(s1,index1),make_pair(s2,index2)));
   }
 public:
   EfficientHandler(context::Context * c):
-  d_monoCandidates(c), d_multiCandidates(c){};
-  bool getNextMonoCandidate(MonoCandidates & candidate){
+    d_monoCandidates(c), d_si(c), d_mono_first(c,true),
+    d_multiCandidates(c) , d_si1(c), d_si2(c), d_multi_first(c,true) {};
+
+  bool getNextMonoCandidate(MonoCandidate & candidate){
     if(d_monoCandidates.empty()) return false;
-    else{
-      candidate = d_monoCandidates.back();
-      d_monoCandidates.pop();
+    const MonoCandidates & front = d_monoCandidates.front();
+    SetNodeIter si_tmp;
+    if(d_mono_first){
+      Assert(front.first.begin() != front.first.end());
+      d_mono_first = false;
+      si_tmp=front.first.begin();
+    }else{
+      si_tmp = d_si;
+      ++si_tmp;
+    };
+    if(si_tmp != front.first.end()){
+      candidate.first = (*si_tmp);
+      candidate.second = front.second;
+      d_si = si_tmp;
       return true;
-    }
-  }
-  bool getNextMultiCandidate(MultiCandidates & candidate){
+    };
+    d_monoCandidates.pop();
+    d_mono_first = true;
+    return getNextMonoCandidate(candidate);
+  };
+
+  bool getNextMultiCandidate(MultiCandidate & candidate){
     if(d_multiCandidates.empty()) return false;
-    else{
-      candidate = d_multiCandidates.front();
-      d_multiCandidates.pop();
+    const MultiCandidates& front = d_multiCandidates.front();
+    SetNodeIter si1_tmp;
+    SetNodeIter si2_tmp;
+    if(d_multi_first){
+      Assert(front.first.first.begin() != front.first.first.end());
+      Assert(front.second.first.begin() != front.second.first.end());
+      si1_tmp = front.first.first.begin();
+      si2_tmp = front.second.first.begin();
+    }else{
+      si1_tmp = d_si1;
+      si2_tmp = d_si2;
+      ++si2_tmp;
+    };
+    if(si2_tmp != front.second.first.end()){
+      candidate.first.first = *si1_tmp;
+      candidate.first.second = front.first.second;
+      candidate.second.first = *si2_tmp;
+      candidate.second.second = front.second.second;
+      if(d_multi_first){d_si1 = si1_tmp; d_multi_first = false; };
+      d_si2 = si2_tmp;
       return true;
-    }
+    }; // end of the second set
+    si2_tmp = front.second.first.begin();
+    ++si1_tmp;
+    if(si1_tmp != front.first.first.end()){
+      candidate.first.first = *si1_tmp;
+      candidate.first.second = front.first.second;
+      candidate.second.first = *si2_tmp;
+      candidate.second.second = front.second.second;
+      d_si1 = si1_tmp;
+      d_si2 = si2_tmp;
+      return true;
+    }; // end of the first set
+    d_multiCandidates.pop();
+    d_multi_first = true;
+    return getNextMultiCandidate(candidate);
   }
 };
 
@@ -115,6 +175,7 @@ private:
   std::vector<HandlerPcDispatcher> d_dis;
 public:
   void send(SetNode & s){
+    Assert(!s.empty());
     for(std::vector<HandlerPcDispatcher>::iterator i = d_dis.begin(), end = d_dis.end();
         i != end; ++i){
       (*i).send(s);
@@ -141,7 +202,8 @@ public:
     d_handler(handler), d_index1(index1), d_index2(index2) {};
   void send(SetNode & s1, SetNode & s2, SetNode & sinter){
     if(d_index1 == d_index2){
-      d_handler->addMonoCandidate(sinter,d_index1);
+      if(!sinter.empty())
+        d_handler->addMonoCandidate(sinter,d_index1);
     }else{
       d_handler->addMultiCandidate(s1,d_index1,s2,d_index2);
     }
@@ -158,15 +220,16 @@ public:
 #endif/* CVC4_DEBUG */
 private:
   std::vector<HandlerPpDispatcher> d_dis;
-public:
   void send(SetNode & s1, SetNode & s2, SetNode & inter){
     for(std::vector<HandlerPpDispatcher>::iterator i = d_dis.begin(), end = d_dis.end();
         i != end; ++i){
       (*i).send(s1,s2,inter);
     }
   }
+public:
   void send(SetNode & s1, SetNode & s2){
     // can be done in HandlerPpDispatcher lazily
+    Assert(!s1.empty() && !s2.empty());
     SetNode inter;
     std::set_intersection( s1.begin(), s1.end(), s2.begin(), s2.end(),
                            std::inserter( inter, inter.begin() ) );
@@ -302,7 +365,7 @@ private:
   void registerPatternElementPairs( Node pat, PpIpsMap & pp_ips_map,
                                     NodePcDispatcher* npc, NodePpDispatcher* npp);
   /** find the pp-pair between pattern inside multi-pattern*/
-  void combineMultiPpIpsMap(PpIpsMap & pp_ips_map, MultiPpIpsMap multi_pp_ips_map,
+  void combineMultiPpIpsMap(PpIpsMap & pp_ips_map, MultiPpIpsMap & multi_pp_ips_map,
                             EfficientHandler& eh, size_t index2,
                             const std::vector<Node> & pats); //pats for debug
   /** compute candidates for pc pairs */

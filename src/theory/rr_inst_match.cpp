@@ -920,8 +920,10 @@ bool ApplyMatcher::reset(Node t, InstMatch & m, QuantifiersEngine* qe){
   size_t index = 0;
   while( index< d_children.size() ){
     if(!d_children[index]->reset( d_reps[index], m, qe )){
-      if(index == 0) return false;
-      else return getNextMatch(m, qe, index-1);
+      if(index == 0){
+        m.erase(d_binded.begin(), d_binded.end());
+        return false;
+      } else return getNextMatch(m, qe, index-1);
     };
     ++index;
   };
@@ -949,8 +951,10 @@ bool ApplyMatcher::getNextMatch(InstMatch& m, QuantifiersEngine* qe, size_t inde
 }
 
 bool ApplyMatcher::getNextMatch(InstMatch& m, QuantifiersEngine* qe){
-  if(d_children.size() == 0) return false;
-  else return getNextMatch(m, qe, d_children.size() - 1);
+  if(d_children.size() == 0){
+    m.erase(d_binded.begin(), d_binded.end());
+    return false;
+  } else return getNextMatch(m, qe, d_children.size() - 1);
 }
 
 /** Proxy that call the sub-matcher on the result return by the given candidate generator */
@@ -1548,6 +1552,33 @@ public:
   int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits );
 };
 
+enum Step{
+  STOP,
+  GET_MONO_CANDIDATE,
+  GET_MULTI_CANDIDATE,
+  RESET1,
+  RESET2,
+  NEXT1,
+  NEXT2,
+  RESET_OTHER,
+  NEXT_OTHER,
+};
+static inline std::ostream& operator<<(std::ostream& out, const Step& step) {
+  switch(step){
+  case STOP: out << "STOP"; break;
+  case GET_MONO_CANDIDATE: out << "GET_MONO_CANDIDATE"; break;
+  case GET_MULTI_CANDIDATE: out << "GET_MULTI_CANDIDATE"; break;
+  case RESET1: out << "RESET1"; break;
+  case RESET2: out << "RESET2"; break;
+  case NEXT1: out << "NEXT1"; break;
+  case NEXT2: out << "NEXT2"; break;
+  case RESET_OTHER: out << "RESET_OTHER"; break;
+  case NEXT_OTHER: out << "NEXT_OTHER"; break;
+  }
+  return out;
+}
+
+
 int MultiPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits ){
   //now, try to add instantiation for each match produced
   int addedLemmas = 0;
@@ -1812,43 +1843,48 @@ PatsMatcher* mkPatterns( std::vector< Node > pat, QuantifiersEngine* qe ){
 
 class MultiEfficientPatsMatcher: public PatsMatcher{
 private:
-  bool d_reset_done;
   bool d_phase_mono;
   std::vector< PatMatcher* > d_patterns;
-  InstMatch im;
+  std::vector< ApplyMatcher > d_direct_patterns;
+  InstMatch d_im;
   uf::EfficientHandler d_eh;
-  uf::EfficientHandler::MultiCandidates d_c;
-  uf::SetNode::iterator d_si1;
-  uf::SetNode::iterator d_si2;
+  uf::EfficientHandler::MultiCandidate d_mc;
 
-  bool reset( QuantifiersEngine* qe ){
-    im.clear();
-    d_reset_done = true;
+  // bool indexDone( size_t i){
+  //   return i == d_c.first.second ||
+  //     ( i == d_c.second.second && d_c.second.first.empty());
+  // }
 
+
+
+  static const Step START = GET_MONO_CANDIDATE;
+  Step d_step;
+
+  bool resetOther( QuantifiersEngine* qe ){
     size_t index = 0;
     while( index< d_patterns.size() ){
       Debug("matching") << "MultiEfficientPatsMatcher::reset " << index << std::endl;
-      if(!d_patterns[index]->reset( im, qe )){
+      if(!d_patterns[index]->reset( d_im, qe )){
         Debug("matching") << "MultiEfficientPatsMatcher::reset fail " << index << std::endl;
         if(index == 0) return false;
-        else return getNextMatch(qe,index-1);
+        else return getNextMatchOther(qe,index-1);
       };
       ++index;
     };
     return true;
   };
 
-  bool getNextMatch( QuantifiersEngine* qe, size_t index ){
+  bool getNextMatchOther( QuantifiersEngine* qe, size_t index ){
     //combine child matches
     Assert( index< d_patterns.size() );
     while( true ){
       Debug("matching") << "MultiEfficientPatsMatcher::index " << index << std::endl;
-      if( d_patterns[index]->getNextMatch( im, qe ) ){
+      if( d_patterns[index]->getNextMatch( d_im, qe ) ){
         ++index;
         if ( index == d_patterns.size() ) return true;
         Debug("matching") << "MultiEfficientPatsMatcher::rereset " << index << std::endl;
         // If the initialization failed we come back.
-        if(!d_patterns[index]->reset( im, qe )) --index;
+        if(!d_patterns[index]->reset( d_im, qe )) --index;
       }else{
         if(index == 0){
           return false;
@@ -1858,29 +1894,90 @@ private:
     }
   }
 public:
+
+  bool getNextMatch( QuantifiersEngine* qe ){
+    Assert( d_step == START || d_step == NEXT_OTHER || d_step == STOP );
+    while(true){
+      Debug("matching") << "d_step=" << d_step << " "
+                        << "d_im=" << d_im << std::endl;
+      switch(d_step){
+      case GET_MONO_CANDIDATE:
+        Assert(d_im.empty());
+        if(d_eh.getNextMonoCandidate(d_mc.first)){
+          d_phase_mono = true;
+          d_step = RESET1;
+        } else d_step = GET_MULTI_CANDIDATE;
+        break;
+      case GET_MULTI_CANDIDATE:
+        Assert(d_im.empty());
+        if(d_eh.getNextMultiCandidate(d_mc)){
+          d_phase_mono = false;
+          d_step = RESET1;
+        } else d_step = STOP;
+        break;
+      case RESET1:
+        if(d_direct_patterns[d_mc.first.second].reset(d_mc.first.first,d_im,qe))
+          d_step = d_phase_mono ? RESET_OTHER : RESET2;
+        else d_step = d_phase_mono ? GET_MONO_CANDIDATE : GET_MULTI_CANDIDATE;
+        break;
+      case RESET2:
+        Assert(!d_phase_mono);
+        if(d_direct_patterns[d_mc.second.second].reset(d_mc.second.first,d_im,qe))
+          d_step = RESET_OTHER;
+        else d_step = NEXT1;
+        break;
+      case NEXT1:
+        if(d_direct_patterns[d_mc.first.second].getNextMatch(d_im,qe))
+          d_step = d_phase_mono ? RESET_OTHER : RESET2;
+        else d_step = d_phase_mono ? GET_MONO_CANDIDATE : GET_MULTI_CANDIDATE;
+        break;
+      case NEXT2:
+        if(d_direct_patterns[d_mc.second.second].getNextMatch(d_im,qe))
+          d_step = RESET_OTHER;
+        else d_step = NEXT1;
+        break;
+      case RESET_OTHER:
+        if(resetOther(qe)){
+          d_step = NEXT_OTHER;
+          return true;
+        } else d_step = d_phase_mono ? NEXT1 : NEXT2;
+        break;
+      case NEXT_OTHER:
+        if(getNextMatchOther(qe,d_patterns.size() - 1)){
+          d_step = NEXT_OTHER;
+          return true;
+        } else d_step = d_phase_mono ? NEXT1 : NEXT2;
+        break;
+      case STOP:
+        Assert(d_im.empty());
+        return false;
+      }
+    }
+  }
+
   MultiEfficientPatsMatcher(std::vector< Node > & pats, QuantifiersEngine* qe):
-    d_reset_done(false), d_eh(qe->getTheoryEngine()->d_context){
+    d_eh(qe->getTheoryEngine()->d_context), d_step(START){
     Assert(pats.size() > 0);
     for( size_t i=0; i< pats.size(); i++ ){
       d_patterns.push_back(mkPattern(pats[i],qe));
+      Assert(pats[i].getKind()==kind::APPLY_UF);
+      d_direct_patterns.push_back(ApplyMatcher(pats[i],qe));
     };
     Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF );
     uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
     ith->registerEfficientHandler(d_eh, pats);
   };
   void resetInstantiationRound( QuantifiersEngine* qe ){
+    Assert(d_step == START || d_step == STOP);
     for( size_t i=0; i< d_patterns.size(); i++ ){
       d_patterns[i]->resetInstantiationRound( qe );
+      d_direct_patterns[i].resetInstantiationRound( qe );
     };
-    d_reset_done = false;
-    im.clear();
+    d_step = START;
+    Assert(d_im.empty());
   };
-  bool getNextMatch( QuantifiersEngine* qe ){
-    Assert(d_patterns.size()>0);
-    if(d_reset_done) return getNextMatch(qe,d_patterns.size() - 1);
-    else return reset(qe);
-  }
-  const InstMatch& getInstMatch(){return im;};
+
+  const InstMatch& getInstMatch(){return d_im;};
 
   int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits );
 };
@@ -1888,8 +1985,8 @@ public:
 int MultiEfficientPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits ){
   //now, try to add instantiation for each match produced
   int addedLemmas = 0;
+  Assert(baseMatch.empty());
   resetInstantiationRound( qe );
-  im.add( baseMatch );
   while( getNextMatch( qe ) ){
     InstMatch im_copy = getInstMatch();
     //m.makeInternal( d_quantEngine->getEqualityQuery() );

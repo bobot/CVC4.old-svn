@@ -35,12 +35,14 @@ EqClassInfo::EqClassInfo( context::Context* c ) : d_funs( c ), d_pfuns( c ), d_d
 //set member
 void EqClassInfo::setMember( Node n, TermDb* db ){
   if( n.getKind()==APPLY_UF ){
-    d_funs[n.getOperator()] = true;
+    d_funs.insertAtContextLevelZero(n.getOperator(),true);
   }
   //add parent functions
   for( std::map< Node, std::map< int, std::vector< Node > > >::iterator it = db->d_parents[n].begin();
     it != db->d_parents[n].end(); ++it ){
-    d_pfuns[ it->first ] = true;
+    //TODO Is it true to do it at level 0? That depend when SetMember is called
+    // At worst it is a good overapproximation
+    d_pfuns.insertAtContextLevelZero( it->first, true);
   }
 }
 
@@ -62,6 +64,19 @@ void EqClassInfo::merge( EqClassInfo* eci ){
     d_pfuns[ (*it).first ] = true;
   }
 }
+
+inline void outputEqClassInfo( const char* c, const EqClassInfo* eci){
+  Debug(c) << " funs:";
+  for( EqClassInfo::BoolMap::iterator it = eci->d_funs.begin(); it != eci->d_funs.end(); it++ ) {
+    Debug(c) << (*it).first << ",";
+  }
+  Debug(c) << std::endl << "pfuns:";
+  for( EqClassInfo::BoolMap::iterator it = eci->d_pfuns.begin(); it != eci->d_pfuns.end(); it++ ) {
+    Debug(c) << (*it).first << ",";
+  }
+  Debug(c) << std::endl;
+}
+
 
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* qe, Theory* th) :
 Instantiator( c, qe, th )
@@ -302,6 +317,7 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
   outputEqClass( "efficient-e-match", a);
   Debug("efficient-e-match") << "]" << std::endl;
   EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
+  outputEqClassInfo("efficient-e-match",eci_a);
   EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
   for( BoolMap::iterator it = eci_a->d_funs.begin(); it != eci_a->d_funs.end(); it++ ) {
     //the child function:  a member of eq_class( a ) has top symbol g, in other words g is in funs( a )
@@ -318,8 +334,9 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
         //scan through the list of inverted path strings/candidate generators
         for( std::vector< std::pair< NodePcDispatcher*, Ips > >::iterator cit = itf->second.begin();
              cit != itf->second.end(); ++cit ){
+#ifdef CVC4_DEBUG
           Debug("efficient-e-match") << "      Checking pattern " << cit->first->pat << std::endl;
-
+#endif
           Debug("efficient-e-match") << "          Check inverted path string for pattern ";
           outputIps( "efficient-e-match", cit->second );
           Debug("efficient-e-match") << std::endl;
@@ -360,7 +377,9 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
           //if f in pfuns( a ) and g is in pfuns( b ), only do the follow if so
           for( std::vector< triple<NodePpDispatcher*, Ips, Ips> > ::iterator cit = it2->second.begin();
                cit != it2->second.end(); ++cit ){
+#ifdef CVC4_DEBUG
             Debug("efficient-e-match") << "    Checking pattern " << cit->first->pat1 << " and " << cit->first->pat2 << std::endl;
+#endif
             SetNode a_terms;
             a_terms.insert( a );
             collectTermsIps( cit->second, a_terms );
@@ -404,7 +423,7 @@ void InstantiatorTheoryUf::collectTermsIps( Ips& ips, SetNode& terms, int index 
     int arg = ips[index].second;
 
     //for each term in terms, determine if any term (modulo equality) has parent "f" from position "arg"
-    bool addRep = ( index!=0 );
+    bool addRep = ( index!=0 ); // We want to keep the top symbol for the last
     SetNode newTerms;
     for( SetNode::const_iterator t=terms.begin(), end=terms.end();
          t!=end; ++t ){
@@ -528,7 +547,7 @@ void findPpSite(Node pat, InstantiatorTheoryUf::Ips& ips, InstantiatorTheoryUf::
   ips.pop_back();
 }
 
-void InstantiatorTheoryUf::combineMultiPpIpsMap(PpIpsMap & pp_ips_map, MultiPpIpsMap multi_pp_ips_map,
+void InstantiatorTheoryUf::combineMultiPpIpsMap(PpIpsMap & pp_ips_map, MultiPpIpsMap & multi_pp_ips_map,
                                                 EfficientHandler& eh, size_t index2,const std::vector<Node> & pats){
   hash_map<size_t,NodePpDispatcher*> npps;
   for( PpIpsMap::iterator it = pp_ips_map.begin(); it != pp_ips_map.end(); ++it ){
@@ -603,7 +622,7 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
     d_pat_cand_gens[pats[i]].first->addPcDispatcher(&handler,i);
     d_pat_cand_gens[pats[i]].second->addPpDispatcher(&handler,i,i);
     d_cand_gens[op].addPcDispatcher(&handler,i);
-
+    
     combineMultiPpIpsMap(pp_ips_map,multi_pp_ips_map,handler,i,pats);
 
     pp_ips_map.clear();
@@ -612,10 +631,11 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
   //take all terms from the uf term db and add to candidate generator
   Node op = pats[0].getOperator();
   TermDb* db = d_quantEngine->getTermDatabase();
-  SetNode ele;
-  ele.insert(db->d_op_map[op].begin(), db->d_op_map[op].end());
-  handler.addMonoCandidate(ele, 0);
-
+  if(db->d_op_map[op].begin() != db->d_op_map[op].end()){
+    SetNode ele;
+    ele.insert(db->d_op_map[op].begin(), db->d_op_map[op].end());
+    handler.addMonoCandidate(ele, 0);
+  }
   Debug("efficient-e-match") << "Done." << std::endl;
 }
 
