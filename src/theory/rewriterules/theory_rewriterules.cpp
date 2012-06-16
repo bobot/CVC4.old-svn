@@ -202,7 +202,7 @@ void TheoryRewriteRules::check(Effort level) {
   for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid) {
     RewriteRule * r = d_rules[rid];
     if (level!=EFFORT_FULL && r->d_split) continue;
-    Debug("rewriterules") << "  rule: " << r << std::endl;
+    Debug("rewriterules") << "  rule: " << *r << std::endl;
     Trigger & tr = r->trigger;
     //reset instantiation round for trigger (set up match production)
     tr.resetInstantiationRound();
@@ -464,7 +464,10 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
         conjunction << inst->d_matched;
       }else{
         //rewrite rule
-        equality = inst->d_matched.eqNode(equality[1]);
+        TypeNode booleanType = NodeManager::currentNM()->booleanType();
+        if(equality[1].getType(false) == booleanType)
+          equality = inst->d_matched.iffNode(equality[1]);
+        else equality = inst->d_matched.eqNode(equality[1]);
       }
       lemma = normalizeConjunction(conjunction).impNode(equality);
       Debug("rewriterules-directrr") << " -> " << lemma << std::endl;

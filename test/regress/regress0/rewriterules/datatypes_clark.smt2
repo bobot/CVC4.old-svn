@@ -41,8 +41,8 @@
 (assert-propagation ((?x1 nat)) () ((is_zero ?x1)) (= ?x1 zero) ())
 
 ;;; directrr
-(assert-reduction ((?x1 nat)) () ((is_succ (succ ?x1))) true () )
-(assert-reduction ((?x1 nat)) () ((is_zero (succ ?x1))) false () )
+(assert-rewrite ((?x1 nat)) () (is_succ (succ ?x1)) true () )
+(assert-rewrite ((?x1 nat)) () (is_zero (succ ?x1)) false () )
 
 
 ;;;;;;;;;;;;;;;;;;;;
@@ -120,8 +120,8 @@
 (assert-propagation ((?x1 list)) () ((is_null ?x1)) (= ?x1 null) ())
 
 ;;; directrr
-(assert-reduction ((?x1 tree) (?x2 list)) () ((is_cons (cons ?x1 ?x2))) true ())
-(assert-reduction ((?x1 tree) (?x2 list)) () ((is_null (cons ?x1 ?x2))) false ())
+(assert-rewrite ((?x1 tree) (?x2 list)) () (is_cons (cons ?x1 ?x2)) true ())
+(assert-rewrite ((?x1 tree) (?x2 list)) () (is_null (cons ?x1 ?x2)) false ())
 
 
 
@@ -176,10 +176,10 @@
 (assert-propagation ((?x1 tree)) () ((is_leaf ?x1)) (= (children ?x1) null) (((children ?x1))) )
 
 ;;; directrr
-(assert-reduction ((?x1 list)) () ((is_node (node ?x1))) true () )
-(assert-reduction ((?x1 list)) () ((is_leaf (node ?x1))) false () )
-(assert-reduction ((?x1 nat)) () ((is_leaf (leaf ?x1))) true () )
-(assert-reduction ((?x1 nat)) () ((is_node (leaf ?x1))) false () )
+(assert-rewrite ((?x1 list)) () (is_node (node ?x1)) true () )
+(assert-rewrite ((?x1 list)) () (is_leaf (node ?x1)) false () )
+(assert-rewrite ((?x1 nat)) () (is_leaf (leaf ?x1)) true () )
+(assert-rewrite ((?x1 nat)) () (is_node (leaf ?x1)) false () )
 
 
 ;;;;;;;;;;;;;;;;;;;;

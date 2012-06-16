@@ -125,16 +125,20 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
                                    when fired */
   /* shortcut */
   TNode head = r[2][0];
+  TypeNode booleanType = NodeManager::currentNM()->booleanType();
   switch(r[2].getKind()){
   case kind::RR_REWRITE:
     /* Equality */
     to_remove.push_back(head);
     addPattern(*this,head,pattern,vars,inst_constants,r);
-    body = head.eqNode(body);
+    if(head.getType(false) == booleanType) body = head.iffNode(body);
+    else body = head.eqNode(body);
     break;
   case kind::RR_REDUCTION:
     /** Add head to remove */
-    to_remove.push_back(head);
+      for(Node::iterator i = head.begin(); i != head.end(); ++i) {
+        to_remove.push_back(*i);
+      };
   case kind::RR_DEDUCTION:
     /** Add head to guards and pattern */
     switch(head.getKind()){
@@ -252,7 +256,10 @@ RewriteRule::RewriteRule(TheoryRewriteRules & re,
 
 
 bool RewriteRule::inCache(TheoryRewriteRules & re, InstMatch & im)const{
-  return !d_cache.addInstMatch(im);
+  bool res = !d_cache.addInstMatch(im);
+  Debug("rewriterules::cache") << "rewriterules::cache " << im
+                               << (res ? " HIT" : " MISS") << std::endl;
+  return res;
 };
 
 /** A rewrite rule */
@@ -262,12 +269,12 @@ void RewriteRule::toStream(std::ostream& out) const{
     out << *iter;
   };
   out << "=>" << body << std::endl;
-  out << "[";
+  out << "{";
   for(BodyMatch::const_iterator
         iter = body_match.begin(); iter != body_match.end(); ++iter){
     out << (*iter).first << "(" << (*iter).second << ")" << ",";
   };
-  out << "]" << (directrr?"*":"") << std::endl;
+  out << "}" << (directrr?"*":"") << std::endl;
 }
 
 RewriteRule::~RewriteRule(){
