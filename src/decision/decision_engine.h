@@ -60,6 +60,7 @@ class DecisionEngine {
   // init/shutdown state
   unsigned d_engineState;    // 0=pre-init; 1=init,pre-shutdown; 2=shutdown
 public:
+
   // Necessary functions
 
   /** Constructor */
