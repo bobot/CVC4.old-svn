@@ -30,15 +30,15 @@ namespace theory {
 namespace rrinst {
 
 template<bool modEq>
-InstMatchTrie2<modEq>::InstMatchTrie2(context::Context* c,  QuantifiersEngine* qe):
-  d_data(c->getLevel()), d_context(c), d_mods(c) {
+InstMatchTrie2Gen<modEq>::InstMatchTrie2Gen(context::Context* c,  QuantifiersEngine* qe):
+  d_context(c), d_mods(c) {
   d_eQ = qe->getEqualityQuery();
   d_eE = ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine();
 };
 
 /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
 template<bool modEq>
-void InstMatchTrie2<modEq>::addSubTree( Tree * root, mapIter current, mapIter end, size_t currLevel ) {
+void InstMatchTrie2Gen<modEq>::addSubTree( Tree * root, mapIter current, mapIter end, size_t currLevel ) {
   if( current == end ) return;
 
   Assert(root->e.find(current->second) == root->e.end());
@@ -49,7 +49,7 @@ void InstMatchTrie2<modEq>::addSubTree( Tree * root, mapIter current, mapIter en
 
 /** exists match */
 template<bool modEq>
-bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
+bool InstMatchTrie2Gen<modEq>::existsInstMatch(InstMatchTrie2Gen<modEq>::Tree * root,
                                             mapIter & current, mapIter & end,
                                             Tree * & e, mapIter & diverge) const{
   if( current == end ) {
@@ -65,7 +65,7 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
   };
 
   TNode n = current->second;
-  typename InstMatchTrie2<modEq>::Tree::MLevel::iterator it =
+  typename InstMatchTrie2Gen<modEq>::Tree::MLevel::iterator it =
     root->e.find( n );
   if( it!=root->e.end() &&
       existsInstMatch( (*it).second, ++current, end, e, diverge) ){
@@ -84,7 +84,7 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
     for( ;!eqc.isFinished();++eqc ){
       TNode en = (*eqc);
       if( en == n ) continue; // already tested
-      typename InstMatchTrie2<modEq>::Tree::MLevel::iterator itc =
+      typename InstMatchTrie2Gen<modEq>::Tree::MLevel::iterator itc =
         root->e.find( en );
       if( itc!=root->e.end() &&
           existsInstMatch( (*itc).second, ++current, end, e, diverge) ){
@@ -100,10 +100,10 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
 }
 
 template<bool modEq>
-bool InstMatchTrie2<modEq>::addInstMatch( inst::InstMatch& m ) {
+bool InstMatchTrie2Gen<modEq>::
+addInstMatch( InstMatch& m, InstMatchTrie2Gen<modEq>::Tree* e ) {
  mapIter begin = m.d_map.begin();
  mapIter end = m.d_map.end();
- InstMatchTrie2<modEq>::Tree * e = &d_data;
  mapIter diverge = begin;
  if( !existsInstMatch(e, begin, end, e, diverge ) ){
    Assert(!diverge->second.isNull());

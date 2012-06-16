@@ -40,7 +40,7 @@ static const bool cache_match = true;
    to new instantiation (try only single trigger). During propagation
    we check if the instantiation of these terms are known terms.
  */
-static const bool compute_opt = true;
+static const bool compute_opt = false;
 
 /**
    rewrite the matching found

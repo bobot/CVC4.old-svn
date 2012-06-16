@@ -149,13 +149,14 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
                                              InstMatch & im,
                                              bool delay){
   ++r->nb_matched;
-
+  ++d_statistics.d_match_found;
   if(rewrite_instantiation) im.applyRewrite();
   if(representative_instantiation)
     im.makeRepresentative( getQuantifiersEngine() );
 
   if(!cache_match || !r->inCache(*this,im)){
     ++r->nb_applied;
+    ++d_statistics.d_cache_miss;
     std::vector<Node> subst;
     im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);
     RuleInst * ri = new RuleInst(*this,r,subst,
@@ -174,6 +175,8 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
         d_ruleinsts.push_back(ri);
       else delete(ri);
     };
+  }else{
+    ++d_statistics.d_cache_hit;
   };
 }
 
@@ -220,6 +223,9 @@ void TheoryRewriteRules::check(Effort level) {
 
   const bool do_notification = d_checkLevel == 0 || level==EFFORT_FULL;
   bool polldone = false;
+
+  if(level==EFFORT_FULL) ++d_statistics.d_full_check;
+  else ++d_statistics.d_check;
 
   GuardedMap::const_iterator p = d_guardeds.begin();
   do{
@@ -586,6 +592,35 @@ Theory::PPAssertStatus TheoryRewriteRules::ppAssert(TNode in, SubstitutionMap& o
   d_ppAssert_on = true;
   return PP_ASSERT_STATUS_UNSOLVED;
 }
+
+TheoryRewriteRules::Statistics::Statistics():
+  d_num_rewriterules("TheoryRewriteRules::Num_RewriteRules", 0),
+  d_check("TheoryRewriteRules::Check", 0),
+  d_full_check("TheoryRewriteRules::FullCheck", 0),
+  d_poll("TheoryRewriteRules::Poll", 0),
+  d_match_found("TheoryRewriteRules::MatchFound", 0),
+  d_cache_hit("TheoryRewriteRules::CacheHit", 0),
+  d_cache_miss("TheoryRewriteRules::CacheMiss", 0)
+{
+  StatisticsRegistry::registerStat(&d_num_rewriterules);
+  StatisticsRegistry::registerStat(&d_check);
+  StatisticsRegistry::registerStat(&d_full_check);
+  StatisticsRegistry::registerStat(&d_poll);
+  StatisticsRegistry::registerStat(&d_match_found);
+  StatisticsRegistry::registerStat(&d_cache_hit);
+  StatisticsRegistry::registerStat(&d_cache_miss);
+}
+
+TheoryRewriteRules::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_num_rewriterules);
+  StatisticsRegistry::unregisterStat(&d_check);
+  StatisticsRegistry::unregisterStat(&d_full_check);
+  StatisticsRegistry::unregisterStat(&d_poll);
+  StatisticsRegistry::unregisterStat(&d_match_found);
+  StatisticsRegistry::unregisterStat(&d_cache_hit);
+  StatisticsRegistry::unregisterStat(&d_cache_miss);
+}
+
 
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */

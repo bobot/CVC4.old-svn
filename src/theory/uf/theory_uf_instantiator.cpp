@@ -28,6 +28,14 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 using namespace CVC4::theory::inst;
 
+namespace CVC4 {
+namespace theory {
+namespace uf {
+
+inline std::ostream& operator<<(std::ostream& out, const InstantiatorTheoryUf::Ips& ips) {
+  return out;
+};
+
 EqClassInfo::EqClassInfo( context::Context* c ) : d_funs( c ), d_pfuns( c ), d_disequal( c ){
 
 }
@@ -265,7 +273,7 @@ void InstantiatorTheoryUf::newTerms(SetNode& s){
       i != end; ++i){
     //new term, add n to candidate generators
     if(i->second.empty()) continue;
-    std::map< Node, NodePcDispatcher >::iterator
+    std::map< Node, NodeNewTermDispatcher >::iterator
       inpc = d_cand_gens.find(i->first);
     //we know that this op exists
     Assert(inpc != d_cand_gens.end());
@@ -380,10 +388,14 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
 #ifdef CVC4_DEBUG
             Debug("efficient-e-match") << "    Checking pattern " << cit->first->pat1 << " and " << cit->first->pat2 << std::endl;
 #endif
+            Debug("efficient-e-match") << "          Check inverted path string ";
+            outputIps( "efficient-e-match", cit->second );
             SetNode a_terms;
             a_terms.insert( a );
             collectTermsIps( cit->second, a_terms );
             if( a_terms.empty() ) continue;
+            Debug("efficient-e-match") << "          And check inverted path string ";
+            outputIps( "efficient-e-match", cit->third );
             SetNode b_terms;
             b_terms.insert( b );
             collectTermsIps( cit->third, b_terms );
@@ -603,8 +615,9 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
 
   MultiPpIpsMap multi_pp_ips_map;
   PpIpsMap pp_ips_map;
+  Debug("pattern-element-opt") << "Register patterns" << pats << std::endl;
   for(size_t i = 0; i < pats.size(); ++i){
-    Debug("efficient-e-match") << "Register candidate generator..." << pats[i] << std::endl;
+    Debug("pattern-element-opt") << " Register candidate generator..." << pats[i] << std::endl;
     /* Has the pattern already been seen */
     if( d_pat_cand_gens.find( pats[i] )==d_pat_cand_gens.end() ){
       NodePcDispatcher* npc = new NodePcDispatcher();
@@ -624,7 +637,7 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
     TNode op = pats[i].getOperator();
     d_pat_cand_gens[pats[i]].first->addPcDispatcher(&handler,i);
     d_pat_cand_gens[pats[i]].second->addPpDispatcher(&handler,i,i);
-    d_cand_gens[op].addPcDispatcher(&handler,i);
+    d_cand_gens[op].addNewTermDispatcher(&handler,i);
     
     combineMultiPpIpsMap(pp_ips_map,multi_pp_ips_map,handler,i,pats);
 
@@ -676,3 +689,7 @@ void InstantiatorTheoryUf::outputIps( const char* c, Ips& ips ){
     Debug( c ) << ips[i].first << "." << ips[i].second;
   }
 }
+
+} /* namespace uf */
+} /* namespace theory */
+} /* namespace cvc4 */

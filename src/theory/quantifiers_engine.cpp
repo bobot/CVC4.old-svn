@@ -729,8 +729,14 @@ QuantifiersEngine::Statistics::Statistics():
   d_simple_triggers("QuantifiersEngine::Triggers_Simple", 0),
   d_multi_triggers("QuantifiersEngine::Triggers_Multi", 0),
   d_multi_trigger_instantiations("QuantifiersEngine::Multi_Trigger_Instantiations", 0),
-  d_term_in_termdb("QuantifiersEngine::Term_in_TermDb", 0)
-
+  d_term_in_termdb("QuantifiersEngine::Term_in_TermDb", 0),
+  d_num_mono_candidates("QuantifiersEngine::NumMonoCandidates", 0),
+  d_num_mono_candidates_new_term("QuantifiersEngine::NumMonoCandidatesNewTerm", 0),
+  d_num_multi_candidates("QuantifiersEngine::NumMultiCandidates", 0),
+  d_mono_candidates_cache_hit("QuantifiersEngine::MonoCandidatesCacheHit", 0),
+  d_mono_candidates_cache_miss("QuantifiersEngine::MonoCandidatesCacheMiss", 0),
+  d_multi_candidates_cache_hit("QuantifiersEngine::MultiCandidatesCacheHit", 0),
+  d_multi_candidates_cache_miss("QuantifiersEngine::MultiCandidatesCacheMiss", 0)
 {
   StatisticsRegistry::registerStat(&d_num_quant);
   StatisticsRegistry::registerStat(&d_instantiation_rounds);
@@ -749,6 +755,13 @@ QuantifiersEngine::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_multi_triggers);
   StatisticsRegistry::registerStat(&d_multi_trigger_instantiations);
   StatisticsRegistry::registerStat(&d_term_in_termdb);
+  StatisticsRegistry::registerStat(&d_num_mono_candidates);
+  StatisticsRegistry::registerStat(&d_num_mono_candidates_new_term);
+  StatisticsRegistry::registerStat(&d_num_multi_candidates);
+  StatisticsRegistry::registerStat(&d_mono_candidates_cache_hit);
+  StatisticsRegistry::registerStat(&d_mono_candidates_cache_miss);
+  StatisticsRegistry::registerStat(&d_multi_candidates_cache_hit);
+  StatisticsRegistry::registerStat(&d_multi_candidates_cache_miss);
 }
 
 QuantifiersEngine::Statistics::~Statistics(){
@@ -769,6 +782,13 @@ QuantifiersEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_multi_triggers);
   StatisticsRegistry::unregisterStat(&d_multi_trigger_instantiations);
   StatisticsRegistry::unregisterStat(&d_term_in_termdb);
+  StatisticsRegistry::unregisterStat(&d_num_mono_candidates);
+  StatisticsRegistry::unregisterStat(&d_num_mono_candidates_new_term);
+  StatisticsRegistry::unregisterStat(&d_num_multi_candidates);
+  StatisticsRegistry::unregisterStat(&d_mono_candidates_cache_hit);
+  StatisticsRegistry::unregisterStat(&d_mono_candidates_cache_miss);
+  StatisticsRegistry::unregisterStat(&d_multi_candidates_cache_hit);
+  StatisticsRegistry::unregisterStat(&d_multi_candidates_cache_miss);
 }
 
 Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){

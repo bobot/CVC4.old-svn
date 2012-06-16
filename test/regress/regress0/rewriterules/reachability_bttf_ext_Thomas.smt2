@@ -18,7 +18,7 @@
 ;; (assert-propagation ((?x elt)) () () (=> true (Rf ?x (f ?x) (f ?x))) (((f ?x))) )
 
 ;; reach
-;; (assert-propagation ((?x1 elt)(?x2 elt)) () ((Rf ?x1 ?x2 ?x2)) (or (= ?x1 ?x2) (Rf ?x1 (f ?x1) ?x2)) (((f ?x1))) )
+(assert-propagation ((?x1 elt)(?x2 elt)) () ((Rf ?x1 ?x2 ?x2)) (or (= ?x1 ?x2) (Rf ?x1 (f ?x1) ?x2)) (((f ?x1))) )
 ;; ;; reach extended
 ;; (assert-propagation ((?x1 elt)(?x2 elt)) ((not (= ?x1 ?x2))(Rf ?x1 ?x2 ?x2)) () (Rf ?x1 (f ?x1) ?x2) (((Rf ?x1 (f ?x1) ?x2))) )
 ;; ;; reach extended
@@ -35,11 +35,11 @@
 ;; (assert-propagation ((?x1 elt)(?x2 elt)) () () (=> (Rf ?x1 ?x2 ?x1) (= ?x1 ?x2)) (((Rf ?x1 ?x2 ?x1))) )
 
 ;; order1
-;; (assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) ()
-;;                     ((Rf ?x1 ?x2 ?x2)(Rf ?x1 ?x3 ?x3)) (or (Rf ?x1 ?x2 ?x3) (Rf ?x1 ?x3 ?x2)) () )
+(assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) ()
+                    ((Rf ?x1 ?x2 ?x2)(Rf ?x1 ?x3 ?x3)) (or (Rf ?x1 ?x2 ?x3) (Rf ?x1 ?x3 ?x2)) () )
 
-(assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) () ()
-                    (=> (and (Rf ?x1 ?x2 ?x2)(Rf ?x1 ?x3 ?x3)) (or (Rf ?x1 ?x2 ?x3) (Rf ?x1 ?x3 ?x2))) (((Rf ?x1 ?x2 ?x2)(Rf ?x1 ?x3 ?x3))) )
+;; (assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) () ()
+;;                     (=> (and (Rf ?x1 ?x2 ?x2)(Rf ?x1 ?x3 ?x3)) (or (Rf ?x1 ?x2 ?x3) (Rf ?x1 ?x3 ?x2))) (((Rf ?x1 ?x2 ?x2)(Rf ?x1 ?x3 ?x3))) )
 
 ;; ;; order1 extended
 ;; (assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) ((Rf ?x1 ?x2 ?x2)(Rf ?x1 ?x3 ?x3)(not (Rf ?x1 ?x3 ?x2))) ()
@@ -61,11 +61,11 @@
 ;;                     (Rf ?x1 ?x3 ?x2) (((Rf ?x1 ?x2 ?x2)(Rf ?x1 ?x3 ?x3))) )
 
 ;; order2
-;; (assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) () ((Rf ?x1 ?x2 ?x3))
-;;                     (and (Rf ?x1 ?x2 ?x2) (Rf ?x2 ?x3 ?x3)) () )
+(assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) () ((Rf ?x1 ?x2 ?x3))
+                    (and (Rf ?x1 ?x2 ?x2) (Rf ?x2 ?x3 ?x3)) () )
 ;; transitive1
-;; (assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) () ((Rf ?x1 ?x2 ?x2)(Rf ?x2 ?x3 ?x3))
-;;                     (Rf ?x1 ?x3 ?x3) () )
+(assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) () ((Rf ?x1 ?x2 ?x2)(Rf ?x2 ?x3 ?x3))
+                    (Rf ?x1 ?x3 ?x3) () )
 ;; ;; transitive1 extended
 ;; (assert-propagation ((?x1 elt)(?x2 elt)(?x3 elt)) () ((not (Rf ?x1 ?x3 ?x3))(Rf ?x2 ?x3 ?x3))
 ;;                     (not (Rf ?x1 ?x2 ?x2)) () )
@@ -74,15 +74,15 @@
 ;;                     (not (Rf ?x2 ?x3 ?x3)) () )
 
 ;;transitive2
-;; (assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ((Rf ?x0 ?x1 ?x2)(Rf ?x1 ?x3 ?x2))
-;;                     (and (Rf ?x0 ?x1 ?x3) (Rf ?x0 ?x3 ?x2)) () )
+(assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ((Rf ?x0 ?x1 ?x2)(Rf ?x1 ?x3 ?x2))
+                    (and (Rf ?x0 ?x1 ?x3) (Rf ?x0 ?x3 ?x2)) () )
 
-(assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ()
-                    (=> (and (Rf ?x0 ?x1 ?x2)(Rf ?x1 ?x3 ?x2))
-                        (and (Rf ?x0 ?x1 ?x3) (Rf ?x0 ?x3 ?x2)))
-                    (((Rf ?x0 ?x1 ?x2)(Rf ?x1 ?x3 ?x2))) )
+;; (assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ()
+;;                     (=> (and (Rf ?x0 ?x1 ?x2)(Rf ?x1 ?x3 ?x2))
+;;                         (and (Rf ?x0 ?x1 ?x3) (Rf ?x0 ?x3 ?x2)))
+;;                     (((Rf ?x0 ?x1 ?x2)(Rf ?x1 ?x3 ?x2))) )
 
-;; ;; ;; transitive2 extended
+;; ;; transitive2 extended
 ;; (assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ((not (Rf ?x0 ?x1 ?x3))(Rf ?x1 ?x3 ?x2))
 ;;                     (not (Rf ?x0 ?x1 ?x2)) (((Rf ?x0 ?x1 ?x2))) )
 ;; ;; transitive2 extended
@@ -95,13 +95,13 @@
 ;; (assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ((Rf ?x0 ?x1 ?x2)(not (Rf ?x0 ?x3 ?x2)))
 ;;                     (not (Rf ?x1 ?x3 ?x2)) (((Rf ?x1 ?x3 ?x2))) )
 
-;;transitive3
-;; (assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ((Rf ?x0 ?x1 ?x2)(Rf ?x0 ?x3 ?x1))
-;;                     (and (Rf ?x0 ?x3 ?x2) (Rf ?x3 ?x1 ?x2)) () )
+;; ;;transitive3
+(assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ((Rf ?x0 ?x1 ?x2)(Rf ?x0 ?x3 ?x1))
+                    (and (Rf ?x0 ?x3 ?x2) (Rf ?x3 ?x1 ?x2)) () )
 
-(assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ()
-                    (=> (and (Rf ?x0 ?x1 ?x2)(Rf ?x0 ?x3 ?x1))
-                        (and (Rf ?x0 ?x3 ?x2) (Rf ?x3 ?x1 ?x2))) (((Rf ?x0 ?x1 ?x2)(Rf ?x0 ?x3 ?x1))) )
+;; (assert-propagation ((?x0 elt)(?x1 elt)(?x2 elt)(?x3 elt)) () ()
+;;                     (=> (and (Rf ?x0 ?x1 ?x2)(Rf ?x0 ?x3 ?x1))
+;;                         (and (Rf ?x0 ?x3 ?x2) (Rf ?x3 ?x1 ?x2))) (((Rf ?x0 ?x1 ?x2)(Rf ?x0 ?x3 ?x1))) )
 
 
 (declare-fun e1 () elt)

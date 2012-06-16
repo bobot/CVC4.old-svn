@@ -67,7 +67,7 @@ InstMatch::InstMatch( InstMatch* m ) {
   d_map = m->d_map;
 }
 
-inline bool InstMatch::setMatch( EqualityQuery* q, TNode v, TNode m, bool & set ){
+bool InstMatch::setMatch( EqualityQuery* q, TNode v, TNode m, bool & set ){
   std::map< Node, Node >::iterator vn = d_map.find( v );
   if( vn==d_map.end() ){
     set = true;

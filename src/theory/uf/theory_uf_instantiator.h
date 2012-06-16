@@ -67,6 +67,11 @@ private:
   context::CDO<SetNodeIter> d_si;
   context::CDO<bool> d_mono_not_first;
 
+  MonoCandidatesQueue d_monoCandidatesNewTerm;
+  context::CDO<SetNodeIter> d_si_new_term;
+  context::CDO<bool> d_mono_not_first_new_term;
+
+
   MultiCandidatesQueue d_multiCandidates;
   context::CDO<SetNodeIter> d_si1;
   context::CDO<SetNodeIter> d_si2;
@@ -76,10 +81,15 @@ private:
   friend class InstantiatorTheoryUf;
   friend class HandlerPcDispatcher;
   friend class HandlerPpDispatcher;
+  friend class HandlerNewTermDispatcher;
 protected:
   void addMonoCandidate(SetNode & s, size_t index){
     Assert(!s.empty());
     d_monoCandidates.push(new MonoCandidates(s,index));
+  }
+  void addMonoCandidateNewTerm(SetNode & s, size_t index){
+    Assert(!s.empty());
+    d_monoCandidatesNewTerm.push(new MonoCandidates(s,index));
   }
   void addMultiCandidate(SetNode & s1, size_t index1, SetNode & s2, size_t index2){
     Assert(!s1.empty() && !s2.empty());
@@ -90,6 +100,8 @@ public:
   EfficientHandler(context::Context * c):
     //false for d_mono_not_first beacause its the default constructor
     d_monoCandidates(c), d_si(c), d_mono_not_first(c,false),
+    d_monoCandidatesNewTerm(c), d_si_new_term(c),
+    d_mono_not_first_new_term(c,false),
     d_multiCandidates(c) , d_si1(c), d_si2(c), d_multi_not_first(c,false) {};
 
   bool getNextMonoCandidate(MonoCandidate & candidate){
@@ -114,6 +126,30 @@ public:
     d_monoCandidates.pop();
     d_mono_not_first = false;
     return getNextMonoCandidate(candidate);
+  };
+
+  bool getNextMonoCandidateNewTerm(MonoCandidate & candidate){
+    if(d_monoCandidatesNewTerm.empty()) return false;
+    const MonoCandidates * front = d_monoCandidatesNewTerm.front();
+    SetNodeIter si_tmp;
+    if(!d_mono_not_first_new_term){
+      Assert(front->first.begin() != front->first.end());
+      d_mono_not_first_new_term = true;
+      si_tmp=front->first.begin();
+    }else{
+      si_tmp = d_si_new_term;
+      ++si_tmp;
+    };
+    if(si_tmp != front->first.end()){
+      candidate.first = (*si_tmp);
+      candidate.second = front->second;
+      d_si_new_term = si_tmp;
+      Debug("efficienthandler") << "Mono produces " << candidate.first << " for " << candidate.second << std::endl;
+      return true;
+    };
+    d_monoCandidatesNewTerm.pop();
+    d_mono_not_first_new_term = false;
+    return getNextMonoCandidateNewTerm(candidate);
   };
 
   bool getNextMultiCandidate(MultiCandidate & candidate){
@@ -206,6 +242,39 @@ public:
   }
   void addPcDispatcher(EfficientHandler* handler, size_t index){
     d_dis.push_back(HandlerPcDispatcher(handler,index));
+  }
+};
+
+
+class HandlerNewTermDispatcher: public PcDispatcher{
+  EfficientHandler* d_handler;
+  size_t d_index;
+public:
+  HandlerNewTermDispatcher(EfficientHandler* handler, size_t index):
+    d_handler(handler), d_index(index) {};
+  void send(SetNode & s){
+    d_handler->addMonoCandidateNewTerm(s,d_index);
+  }
+};
+
+/** All the dispatcher that correspond to this node */
+class NodeNewTermDispatcher: public PcDispatcher{
+#ifdef CVC4_DEBUG
+public:
+  Node pat;
+#endif/* CVC4_DEBUG*/
+private:
+  std::vector<HandlerNewTermDispatcher> d_dis;
+public:
+  void send(SetNode & s){
+    Assert(!s.empty());
+    for(std::vector<HandlerNewTermDispatcher>::iterator i = d_dis.begin(), end = d_dis.end();
+        i != end; ++i){
+      (*i).send(s);
+    }
+  }
+  void addNewTermDispatcher(EfficientHandler* handler, size_t index){
+    d_dis.push_back(HandlerNewTermDispatcher(handler,index));
   }
 };
 
@@ -379,7 +448,7 @@ private:
   /** Parent/Parent Pairs (for efficient E-matching) */
   std::map< Node, std::map< Node, std::vector< triple< NodePpDispatcher*, Ips, Ips > > > > d_pp_pairs;
   /** list of all candidate generators for each operator */
-  std::map< Node, NodePcDispatcher > d_cand_gens;
+  std::map< Node, NodeNewTermDispatcher > d_cand_gens;
   /** map from patterns to candidate generators */
   std::map< Node, std::pair<NodePcDispatcher*, NodePpDispatcher*> > d_pat_cand_gens;
   /** helper functions */

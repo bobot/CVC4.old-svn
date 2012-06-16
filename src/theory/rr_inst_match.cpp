@@ -17,6 +17,7 @@
 #include "theory/inst_match.h"
 #include "theory/rr_inst_match.h"
 #include "theory/rr_trigger.h"
+#include "theory/rr_inst_match_impl.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
@@ -129,6 +130,41 @@ bool InstMatchTrie::addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, b
     return false;
   }
 }
+
+template<bool modEq>
+class InstMatchTrie2Pairs
+{
+  typename std::vector< std::vector < typename InstMatchTrie2Gen<modEq>::Tree > > d_data;
+  InstMatchTrie2Gen<modEq> d_backtrack;
+public:
+  InstMatchTrie2Pairs(context::Context* c,  QuantifiersEngine* q, size_t n):
+  d_backtrack(c,q) {
+    // resize to a triangle
+    //
+    // |     *
+    // |   * *
+    // | * * *
+    // | -----> i
+    d_data.resize(n);
+    for(size_t i=0; i < n; ++i){
+      d_data[i].resize(i+1,typename InstMatchTrie2Gen<modEq>::Tree(0));
+    }
+  };
+  InstMatchTrie2Pairs(const InstMatchTrie2Pairs &) CVC4_UNDEFINED;
+  const InstMatchTrie2Pairs & operator =(const InstMatchTrie2Pairs & e) CVC4_UNDEFINED;
+  /** add match m in the trie,
+      return true if it was never seen */
+  inline bool addInstMatch( size_t i, size_t j, InstMatch& m){
+    size_t k = std::min(i,j);
+    size_t l = std::max(i,j);
+    return d_backtrack.addInstMatch(m,&(d_data[l][k]));
+  };
+  inline bool addInstMatch( size_t i, InstMatch& m){
+    return d_backtrack.addInstMatch(m,&(d_data[i][i]));
+  };
+
+};
+
 
 // InstMatchGenerator::InstMatchGenerator( Node pat, QuantifiersEngine* qe, int matchPolicy ) : d_matchPolicy( matchPolicy ){
 //   initializePattern( pat, qe );
@@ -1127,6 +1163,22 @@ public:
   };
 };
 
+size_t numFreeVar(TNode t){
+  size_t n = 0;
+  for( size_t i=0, size =t.getNumChildren(); i < size; ++i ){
+    if( t[i].hasAttribute(InstConstantAttribute()) ){
+      if( t[i].getKind()==INST_CONSTANT ){
+        //variable
+        ++n;
+      }else{
+        //neither variable nor constant
+        n += numFreeVar(t[i]);
+      }
+    }
+  }
+  return n;
+}
+
 class OpMatcher: public Matcher{
   /* The matcher */
   typedef ApplyMatcher AuxMatcher3;
@@ -1148,15 +1200,26 @@ class OpMatcher: public Matcher{
     AuxMatcher1 am1(cdtUfEq,am2);
     return am1;
   }
+  size_t d_num_var;
+  Node d_pat;
 public:
   OpMatcher( Node pat, QuantifiersEngine* qe ):
-    d_cgm(createCgm(pat, qe)){}
+    d_cgm(createCgm(pat, qe)),d_num_var(numFreeVar(pat)),
+    d_pat(pat) {}
 
   void resetInstantiationRound( QuantifiersEngine* qe ){
     d_cgm.resetInstantiationRound(qe);
   };
   bool reset( TNode t, InstMatch& m, QuantifiersEngine* qe ){
+    // size_t m_size = m.d_map.size();
+    // if(m_size == d_num_var){
+    //   uf::EqualityEngine<uf::TheoryUF::NotifyClass>* ee = (static_cast<uf::TheoryUF*>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF )))->getEqualityEngine();
+    //   std::cout << "!";
+    //   return ee->areEqual(m.subst(d_pat),t);
+    // }else{
+    // std::cout << m.d_map.size() << std::endl;
     return d_cgm.reset(t, m, qe);
+    // }
   }
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
     return d_cgm.getNextMatch(m, qe);
@@ -1184,14 +1247,18 @@ class AllOpMatcher: public PatMatcher{
     AuxMatcher1 am1(cdtUfEq,am2);
     return am1;
   }
+  size_t d_num_var;
+  Node d_pat;
 public:
   AllOpMatcher( TNode pat, QuantifiersEngine* qe ):
-    d_cgm(createCgm(pat, qe)){}
+    d_cgm(createCgm(pat, qe)), d_num_var(numFreeVar(pat)),
+    d_pat(pat) {}
 
   void resetInstantiationRound( QuantifiersEngine* qe ){
     d_cgm.resetInstantiationRound(qe);
   };
   bool reset( InstMatch& m, QuantifiersEngine* qe ){
+    //    std::cout << m.d_map.size() << "/" << d_num_var << std::endl;
     return d_cgm.reset(Node::null(), m, qe);
   }
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
@@ -1858,11 +1925,13 @@ PatsMatcher* mkPatterns( std::vector< Node > pat, QuantifiersEngine* qe ){
 class MultiEfficientPatsMatcher: public PatsMatcher{
 private:
   bool d_phase_mono;
+  bool d_phase_new_term;
   std::vector< PatMatcher* > d_patterns;
   std::vector< ApplyMatcher > d_direct_patterns;
   InstMatch d_im;
   uf::EfficientHandler d_eh;
   uf::EfficientHandler::MultiCandidate d_mc;
+  InstMatchTrie2Pairs<true> d_cache;
   std::vector<Node> d_pats;
   // bool indexDone( size_t i){
   //   return i == d_c.first.second ||
@@ -1921,6 +1990,33 @@ private:
     }
   }
 
+  inline EffiStep TestMonoCache(QuantifiersEngine* qe){
+    if( //!d_phase_new_term ||
+       d_pats.size() == 1) return ES_RESET_OTHER;
+    if(d_cache.addInstMatch(d_mc.first.second,d_im)){
+      Debug("inst-match::cache") << "Cache miss" << d_im << std::endl;
+      ++qe->d_statistics.d_mono_candidates_cache_miss;
+      return ES_RESET_OTHER;
+    } else {
+      Debug("inst-match::cache") << "Cache hit" << d_im << std::endl;
+      ++qe->d_statistics.d_mono_candidates_cache_hit;
+      return ES_NEXT1;
+    }
+    // ++qe->d_statistics.d_mono_candidates_cache_miss;
+    // return ES_RESET_OTHER;
+  }
+
+  inline EffiStep TestMultiCache(QuantifiersEngine* qe){
+    if(d_cache.addInstMatch(d_mc.first.second,d_mc.second.second,d_im)){
+      ++qe->d_statistics.d_multi_candidates_cache_miss;
+      return ES_RESET_OTHER;
+    } else {
+      ++qe->d_statistics.d_multi_candidates_cache_hit;
+      return ES_NEXT2;
+    }
+  }
+
+
 public:
 
   bool getNextMatch( QuantifiersEngine* qe ){
@@ -1931,14 +2027,23 @@ public:
       switch(d_step){
       case ES_GET_MONO_CANDIDATE:
         Assert(d_im.empty());
-        if(d_eh.getNextMonoCandidate(d_mc.first)){
+        if(d_phase_new_term ? d_eh.getNextMonoCandidate(d_mc.first) : d_eh.getNextMonoCandidateNewTerm(d_mc.first)){
+          if(d_phase_new_term) ++qe->d_statistics.d_num_mono_candidates_new_term;
+          else ++qe->d_statistics.d_num_mono_candidates;
           d_phase_mono = true;
           d_step = ES_RESET1;
-        } else d_step = ES_GET_MULTI_CANDIDATE;
+        } else if (!d_phase_new_term){
+          d_phase_new_term = true;
+          d_step = ES_GET_MONO_CANDIDATE;
+        } else {
+          d_phase_new_term = false;
+          d_step = ES_GET_MULTI_CANDIDATE;
+        }
         break;
       case ES_GET_MULTI_CANDIDATE:
         Assert(d_im.empty());
         if(d_eh.getNextMultiCandidate(d_mc)){
+          ++qe->d_statistics.d_num_multi_candidates;
           d_phase_mono = false;
           d_step = ES_RESET1;
         } else d_step = ES_STOP;
@@ -1946,24 +2051,24 @@ public:
       case ES_RESET1:
         Assert(d_direct_patterns[d_mc.first.second].d_pattern.getOperator() == d_mc.first.first.getOperator() );
         if(d_direct_patterns[d_mc.first.second].reset(d_mc.first.first,d_im,qe))
-          d_step = d_phase_mono ? ES_RESET_OTHER : ES_RESET2;
+          d_step = d_phase_mono ? TestMonoCache(qe) : ES_RESET2;
         else d_step = d_phase_mono ? ES_GET_MONO_CANDIDATE : ES_GET_MULTI_CANDIDATE;
         break;
       case ES_RESET2:
         Assert(d_direct_patterns[d_mc.second.second].d_pattern.getOperator() == d_mc.second.first.getOperator() );
         Assert(!d_phase_mono);
         if(d_direct_patterns[d_mc.second.second].reset(d_mc.second.first,d_im,qe))
-          d_step = ES_RESET_OTHER;
+          d_step = TestMultiCache(qe);
         else d_step = ES_NEXT1;
         break;
       case ES_NEXT1:
         if(d_direct_patterns[d_mc.first.second].getNextMatch(d_im,qe))
-          d_step = d_phase_mono ? ES_RESET_OTHER : ES_RESET2;
+          d_step = d_phase_mono ? TestMonoCache(qe) : ES_RESET2;
         else d_step = d_phase_mono ? ES_GET_MONO_CANDIDATE : ES_GET_MULTI_CANDIDATE;
         break;
       case ES_NEXT2:
         if(d_direct_patterns[d_mc.second.second].getNextMatch(d_im,qe))
-          d_step = ES_RESET_OTHER;
+          d_step = TestMultiCache(qe);
         else d_step = ES_NEXT1;
         break;
       case ES_RESET_OTHER:
@@ -1990,7 +2095,9 @@ public:
   }
 
   MultiEfficientPatsMatcher(std::vector< Node > & pats, QuantifiersEngine* qe):
-    d_eh(qe->getTheoryEngine()->d_context), d_step(ES_START), d_pats(pats){
+    d_eh(qe->getTheoryEngine()->d_context),
+    d_cache(qe->getTheoryEngine()->d_context,qe,pats.size()),
+    d_pats(pats), d_step(ES_START) {
     Assert(pats.size() > 0);
     for( size_t i=0; i< pats.size(); i++ ){
       d_patterns.push_back(mkPattern(pats[i],qe));
@@ -2008,6 +2115,7 @@ public:
       d_direct_patterns[i].resetInstantiationRound( qe );
     };
     d_step = ES_START;
+    d_phase_new_term = false;
     Assert(d_im.empty());
   };
 

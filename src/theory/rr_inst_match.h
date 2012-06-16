@@ -141,9 +141,15 @@ public:
   }
 };
 
+template<bool modEq = false> class InstMatchTrie2;
+template<bool modEq = false> class InstMatchTrie2Pairs;
+
 template<bool modEq = false>
-class InstMatchTrie2
+class InstMatchTrie2Gen
 {
+  friend class InstMatchTrie2<modEq>;
+  friend class InstMatchTrie2Pairs<modEq>;
+
 private:
 
   class Tree {
@@ -152,7 +158,11 @@ private:
     MLevel e;
     const size_t level; //context level of creation
     Tree() CVC4_UNDEFINED;
-    const Tree & operator =(const Tree & t) CVC4_UNDEFINED;
+    const Tree & operator =(const Tree & t){
+      Assert(t.e.empty()); Assert(e.empty());
+      Assert(t.level == level);
+      return t;
+    }
     Tree(size_t l): level(l) {};
     ~Tree(){
       for(typename MLevel::iterator i = e.begin(); i!=e.end(); ++i)
@@ -175,9 +185,6 @@ private:
   EqualityQuery* d_eQ;
   eq::EqualityEngine * d_eE;
 
-  /* before for the order of destruction */
-  Tree d_data;
-
   context::Context* d_context;
   context::CDList<Mod, CleanUp, std::allocator<Mod> > d_mods;
 
@@ -194,14 +201,32 @@ private:
                         mapIter & current, mapIter & end,
                         Tree * & e, mapIter & diverge) const;
 
+  /** add match m in the trie root
+      return true if it was never seen */
+  bool addInstMatch( InstMatch& m, Tree * root);
+
 public:
-  InstMatchTrie2(context::Context* c,  QuantifiersEngine* q);
+  InstMatchTrie2Gen(context::Context* c,  QuantifiersEngine* q);
+  InstMatchTrie2Gen(const InstMatchTrie2Gen &) CVC4_UNDEFINED;
+  const InstMatchTrie2Gen & operator =(const InstMatchTrie2Gen & e) CVC4_UNDEFINED;
+};
+
+template<bool modEq>
+class InstMatchTrie2
+{
+  typename InstMatchTrie2Gen<modEq>::Tree d_data;
+  InstMatchTrie2Gen<modEq> d_backtrack;
+public:
+  InstMatchTrie2(context::Context* c,  QuantifiersEngine* q): d_data(0),
+                                                              d_backtrack(c,q) {};
   InstMatchTrie2(const InstMatchTrie2 &) CVC4_UNDEFINED;
   const InstMatchTrie2 & operator =(const InstMatchTrie2 & e) CVC4_UNDEFINED;
   /** add match m in the trie,
-      modEq specify to take into account equalities,
       return true if it was never seen */
-  bool addInstMatch( InstMatch& m);
+  inline bool addInstMatch( InstMatch& m){
+    return d_backtrack.addInstMatch(m,&d_data);
+  };
+
 };/* class InstMatchTrie2 */
 
 class Matcher

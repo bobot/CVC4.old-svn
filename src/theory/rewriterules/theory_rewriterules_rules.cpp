@@ -235,8 +235,8 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
 
   // final construction
   Trigger trigger = createTrigger(r,pattern);
-  Trigger trigger2 = createTrigger(r,pattern); //Hack
-  RewriteRule * rr = new RewriteRule(*this, trigger, trigger2,
+  //Trigger trigger2 = createTrigger(r,pattern); //Hack
+  RewriteRule * rr = new RewriteRule(*this, trigger, trigger,
                                      guards, body, new_terms,
                                      vars, inst_constants, to_remove,
                                      directrr);

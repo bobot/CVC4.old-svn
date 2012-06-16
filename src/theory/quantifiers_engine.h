@@ -385,6 +385,13 @@ public:
     IntStat d_multi_triggers;
     IntStat d_multi_trigger_instantiations;
     IntStat d_term_in_termdb;
+    IntStat d_num_mono_candidates;
+    IntStat d_num_mono_candidates_new_term;
+    IntStat d_num_multi_candidates;
+    IntStat d_mono_candidates_cache_hit;
+    IntStat d_mono_candidates_cache_miss;
+    IntStat d_multi_candidates_cache_hit;
+    IntStat d_multi_candidates_cache_miss;
     Statistics();
     ~Statistics();
   };/* class QuantifiersEngine::Statistics */

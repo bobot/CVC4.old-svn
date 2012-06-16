@@ -262,6 +262,21 @@ private:
                          rewriter::Subst & pvars,
                          rewriter::Subst & vars);
 
+    /** statistics class */
+  class Statistics {
+  public:
+    IntStat d_num_rewriterules;
+    IntStat d_check;
+    IntStat d_full_check;
+    IntStat d_poll;
+    IntStat d_match_found;
+    IntStat d_cache_hit;
+    IntStat d_cache_miss;
+    Statistics();
+    ~Statistics();
+  };
+  Statistics d_statistics;
+
 };/* class TheoryRewriteRules */
 
 }/* CVC4::theory::rewriterules namespace */
