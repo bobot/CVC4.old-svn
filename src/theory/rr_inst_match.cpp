@@ -453,6 +453,9 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
           return false;
         }
       }
+    Debug("inst_match::getNextMatch") << "inst_match::getNextMatch "
+                                      << " by initial " << d_children_multi_efficient_index
+                                      << " efficient d_partial " << d_partial.back() << std::endl;
     }
   }
   /** todo reset? */
@@ -462,10 +465,6 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
 
     Assert(d_children.size() + 1 >= d_partial.size());
     const size_t index = d_partial.size() - 2;
-    Debug("inst_match::getNextMatch") << "inst_match::getNextMatch "
-                                      << "meindex " << d_children_multi_efficient_index
-                                      << " index " << index
-                                      << " d_partial " << d_partial.back() << std::endl;
     if( !((d_matchPolicy == MATCH_GEN_EFFICIENT_E_MATCH &&
            d_children_multi_efficient_index == index)
           || d_children[index]->getNextMatch( d_partial.back(), qe ))
@@ -487,12 +486,16 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
               getNextMatch( d_partial.back(), qe)) {
           d_partial.back().clear();
           ++d_children_multi_efficient_index;
-          if(d_children_multi_efficient_index == d_children_multi_efficient.size())
+          if(d_children_multi_efficient_index == d_children_multi_efficient.size()){
             // The patterns have no more new matching terms
             // (given by efficient e matching)
             Debug("inst_match::getNextMatch") << "inst_match::getNextMatch No more new terms by efficient e-matching" << std::endl;
             return false;
+          }
         }
+        Debug("inst_match::getNextMatch") << "inst_match::getNextMatch "
+                                          << " by " << d_children_multi_efficient_index
+                                          <<" efficient d_partial " << d_partial.back() << std::endl;
       }else d_partial.pop_back();
     };
   }
