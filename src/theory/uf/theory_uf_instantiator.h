@@ -65,12 +65,12 @@ private:
   MonoCandidatesQueue d_monoCandidates;
   typedef uf::SetNode::iterator SetNodeIter;
   context::CDO<SetNodeIter> d_si;
-  context::CDO<bool> d_mono_first;
+  context::CDO<bool> d_mono_not_first;
 
   MultiCandidatesQueue d_multiCandidates;
   context::CDO<SetNodeIter> d_si1;
   context::CDO<SetNodeIter> d_si2;
-  context::CDO<bool> d_multi_first;
+  context::CDO<bool> d_multi_not_first;
 
 
   friend class InstantiatorTheoryUf;
@@ -88,16 +88,17 @@ protected:
   }
 public:
   EfficientHandler(context::Context * c):
-    d_monoCandidates(c), d_si(c), d_mono_first(c,true),
-    d_multiCandidates(c) , d_si1(c), d_si2(c), d_multi_first(c,true) {};
+    //false for d_mono_not_first beacause its the default constructor
+    d_monoCandidates(c), d_si(c), d_mono_not_first(c,false),
+    d_multiCandidates(c) , d_si1(c), d_si2(c), d_multi_not_first(c,false) {};
 
   bool getNextMonoCandidate(MonoCandidate & candidate){
     if(d_monoCandidates.empty()) return false;
     const MonoCandidates * front = d_monoCandidates.front();
     SetNodeIter si_tmp;
-    if(d_mono_first){
+    if(!d_mono_not_first){
       Assert(front->first.begin() != front->first.end());
-      d_mono_first = false;
+      d_mono_not_first = true;
       si_tmp=front->first.begin();
     }else{
       si_tmp = d_si;
@@ -110,7 +111,7 @@ public:
       return true;
     };
     d_monoCandidates.pop();
-    d_mono_first = true;
+    d_mono_not_first = false;
     return getNextMonoCandidate(candidate);
   };
 
@@ -119,7 +120,7 @@ public:
     const MultiCandidates* front = d_multiCandidates.front();
     SetNodeIter si1_tmp;
     SetNodeIter si2_tmp;
-    if(d_multi_first){
+    if(!d_multi_not_first){
       Assert(front->first.first.begin() != front->first.first.end());
       Assert(front->second.first.begin() != front->second.first.end());
       si1_tmp = front->first.first.begin();
@@ -134,7 +135,7 @@ public:
       candidate.first.second = front->first.second;
       candidate.second.first = *si2_tmp;
       candidate.second.second = front->second.second;
-      if(d_multi_first){d_si1 = si1_tmp; d_multi_first = false; };
+      if(!d_multi_not_first){d_si1 = si1_tmp; d_multi_not_first = true; };
       d_si2 = si2_tmp;
       return true;
     }; // end of the second set
@@ -150,7 +151,7 @@ public:
       return true;
     }; // end of the first set
     d_multiCandidates.pop();
-    d_multi_first = true;
+    d_multi_not_first = false;
     return getNextMultiCandidate(candidate);
   }
 };
