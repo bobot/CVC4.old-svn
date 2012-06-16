@@ -28,10 +28,12 @@ namespace CVC4 {
 namespace theory {
 namespace datatypes {
 
+class TheoryDatatypes;
+
 class InstantiatorTheoryDatatypes : public Instantiator{
   friend class QuantifiersEngine;
 public:
-  InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, Theory* th);
+  InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, TheoryDatatypes* th);
   ~InstantiatorTheoryDatatypes() {}
 
   /** assertNode function, assertion is asserted to theory */
@@ -56,6 +58,7 @@ private:
   };
   Statistics d_statistics;
 };/* class InstantiatiorTheoryDatatypes  */
+
 
 }
 }

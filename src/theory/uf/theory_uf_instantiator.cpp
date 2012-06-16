@@ -89,7 +89,7 @@ inline void outputEqClassInfo( const char* c, const EqClassInfo* eci){
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* qe, Theory* th) :
 Instantiator( c, qe, th )
 {
-  qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( this ) );
+  qe->setEqualityQuery( theory::THEORY_UF, new EqualityQueryInstantiatorTheoryUf( this ) );
 
   if( Options::current()->finiteModelFind ){
     //if( Options::current()->cbqi ){

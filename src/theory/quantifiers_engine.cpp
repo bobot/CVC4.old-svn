@@ -95,7 +95,7 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
     n.setAttribute(AvailableInTermDb(),true);
     //if this is an atomic trigger, consider adding it
     //Call the children?
-    if( Trigger::isAtomicTrigger( n ) ){
+    if( Trigger::isAtomicTrigger( n ) || n.getKind() == kind::APPLY_CONSTRUCTOR ){
       if( !n.hasAttribute(InstConstantAttribute()) ){
         Debug("term-db") << "register trigger term " << n << std::endl;
         //std::cout << "register trigger term " << n << std::endl;
@@ -215,7 +215,9 @@ QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_forall_asserts( c ),
 d_active( c ){
-  d_eq_query = NULL;
+  for(TheoryId i = THEORY_FIRST; i < theory::THEORY_LAST; ++i){
+    d_eq_query[i] = NULL;
+  };
   d_term_db = new TermDb( this );
 }
 

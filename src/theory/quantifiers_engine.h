@@ -180,7 +180,11 @@ private:
   /** vector of modules for quantifiers */
   std::vector< QuantifiersModule* > d_modules;
   /** equality query class */
-  inst::EqualityQuery* d_eq_query;
+  /**
+   * A table of from theory IDs to theory pointers. Never use this table
+   * directly, use theoryOf() instead.
+   */
+  inst::EqualityQuery* d_eq_query[theory::THEORY_LAST];
 
   /** list of all quantifiers */
   std::vector< Node > d_quants;
@@ -247,10 +251,19 @@ public:
   Instantiator* getInstantiator( theory::TheoryId id );
   /** get theory engine */
   TheoryEngine* getTheoryEngine() { return d_te; }
-  /** get equality query object */
-  inst::EqualityQuery* getEqualityQuery() { return d_eq_query; }
+  /** get equality query object for the given type */
+  inst::EqualityQuery* getEqualityQuery(TypeNode t) {
+    TheoryId id = Theory::theoryOf(t);
+    id = id == theory::THEORY_DATATYPES ? id : theory::THEORY_UF;
+    return d_eq_query[id];
+  }
+  inst::EqualityQuery* getEqualityQuery() {
+    return d_eq_query[theory::THEORY_UF];
+  }
   /** set equality query object */
-  void setEqualityQuery( inst::EqualityQuery* eq ) { d_eq_query = eq; }
+  void setEqualityQuery( TheoryId id, EqualityQuery* eq ) {
+    d_eq_query[id] = eq;
+  }
 public:
   /** add module */
   void addModule( QuantifiersModule* qm ) { d_modules.push_back( qm ); }

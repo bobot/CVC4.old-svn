@@ -25,9 +25,32 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::datatypes;
 
-InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, Theory* th) :
-Instantiator( c, ie, th ){
+/** equality query object using instantiator theory uf */
+class CVC4::theory::datatypes::EqualityQueryTheory : public EqualityQuery
+{
+private:
+  /** pointer to instantiator uf class */
+  TheoryDatatypes* d_th;
+public:
+  EqualityQueryTheory( TheoryDatatypes* th ) : d_th( th ){}
+  ~EqualityQueryTheory(){}
+  /** general queries about equality */
+  bool hasTerm( Node a ) { return true; } //d_th->d_reps.find(a) != d_th->d_reps.end()}
+  Node getRepresentative( Node a ) {
+    //std::cout << a << "->" << d_th->d_unionFind.find( a ) << std::endl;
+    return d_th->d_unionFind.find( a );
+  }
+  bool areEqual( Node a, Node b )
+  { return getRepresentative(a) == getRepresentative(b); }
+  bool areDisequal( Node a, Node b )
+  { Assert(false, "datatypes::EqualityQueryInstantiatorTheory::areDisequal is not implemented");
+    return false; }
+  Node getInternalRepresentative( Node a ) { return getRepresentative( a ); }
+}; /* EqualityQueryInstantiatorTheoryUf */
 
+InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, TheoryDatatypes* th) :
+Instantiator( c, ie, th ){
+  ie->setEqualityQuery( theory::THEORY_DATATYPES, new EqualityQueryTheory( th ) );
 }
 
 void InstantiatorTheoryDatatypes::assertNode( Node assertion ){

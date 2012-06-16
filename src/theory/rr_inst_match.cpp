@@ -22,6 +22,7 @@
 #include "theory/quantifiers_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_candidate_generator.h"
+#include "theory/datatypes/theory_datatypes_candidate_generator.h"
 #include "theory/uf/equality_engine.h"
 
 using namespace std;
@@ -205,18 +206,20 @@ ApplyMatcher::ApplyMatcher( Node pat, QuantifiersEngine* qe): d_pattern(pat){
 
   //set-up d_variables, d_constants, d_childrens
   for( size_t i=0; i< d_pattern.getNumChildren(); ++i ){
+    EqualityQuery* q = qe->getEqualityQuery(d_pattern[i].getType());
+    Assert( q != NULL );
     if( d_pattern[i].hasAttribute(InstConstantAttribute()) ){
       if( d_pattern[i].getKind()==INST_CONSTANT ){
         //It's a variable
-        d_variables.push_back(make_pair(d_pattern[i],i));
+        d_variables.push_back(make_triple((TNode)d_pattern[i],i,q));
       }else{
         //It's neither a constant argument neither a variable
         //we create the matcher for the subpattern
-        d_childrens.push_back(make_pair(mkMatcher(d_pattern[i], qe),i));
+        d_childrens.push_back(make_triple(mkMatcher((TNode)d_pattern[i], qe),i,q));
       };
     }else{
       // It's a constant
-      d_constants.push_back(make_pair(d_pattern[i],i));
+      d_constants.push_back(make_triple((TNode)d_pattern[i],i,q));
     }
   }
 }
@@ -230,17 +233,18 @@ void ApplyMatcher::resetInstantiationRound( QuantifiersEngine* qe ){
 bool ApplyMatcher::reset(TNode t, InstMatch & m, QuantifiersEngine* qe){
   Debug("matching") << "Matching " << t << " against pattern " << d_pattern << " ("
                     << m.d_map.size() << ")"  << std::endl;
-  EqualityQuery* q = qe->getEqualityQuery();
+
   //if t is null
   Assert( !t.isNull() );
   Assert( !t.hasAttribute(InstConstantAttribute()) );
   Assert( t.getKind()==d_pattern.getKind() );
-  Assert( t.getKind()!=APPLY_UF || t.getOperator()==d_pattern.getOperator() );
+  Assert( (t.getKind()!=APPLY_UF && t.getKind()!=APPLY_CONSTRUCTOR)
+          || t.getOperator()==d_pattern.getOperator() );
 
-  typedef std::vector< std::pair<TNode,size_t> >::iterator iterator;
+  typedef std::vector< triple<TNode,size_t,EqualityQuery*> >::iterator iterator;
   for(iterator i = d_constants.begin(), end = d_constants.end();
       i != end; ++i){
-    if( !q->areEqual( i->first, t[i->second] ) ){
+    if( !i->third->areEqual( i->first, t[i->second] ) ){
       Debug("matching-fail") << "Match fail arg: " << i->first << " and " << t[i->second] << std::endl;
       //setMatchFail( qe, d_pattern[i], t[i] );
       //ground arguments are not equal
@@ -252,7 +256,7 @@ bool ApplyMatcher::reset(TNode t, InstMatch & m, QuantifiersEngine* qe){
   bool set;
   for(iterator i = d_variables.begin(), end = d_variables.end();
       i != end; ++i){
-    if( !m.setMatch( q, i->first, t[i->second], set) ){
+    if( !m.setMatch( i->third, i->first, t[i->second], set) ){
       //match is in conflict
       Debug("matching-debug") << "Match in conflict " << t[i->second] << " and "
                               << i->first << " because "
@@ -273,7 +277,7 @@ bool ApplyMatcher::reset(TNode t, InstMatch & m, QuantifiersEngine* qe){
   //we will be requesting candidates for matching terms for each child
   d_reps.clear();
   for( size_t i=0; i< d_childrens.size(); i++ ){
-    Node rep = q->getRepresentative( t[ d_childrens[i].second ] );
+    Node rep = d_childrens[i].third->getRepresentative( t[ d_childrens[i].second ] );
     d_reps.push_back( rep );
   }
 
@@ -338,6 +342,7 @@ private:
     // Otherwise try to find a new candidate that has at least one match
     while(true){
       TNode n = d_cg.getNextCandidate();//kept somewhere Term-db
+      Debug("matching") << "GenCand" << n << std::endl;
       if(n.isNull()) return false;
       if(d_m.reset(n,m,qe)) return true;
     };
@@ -424,7 +429,7 @@ public:
   inline bool operator() (TNode n) {
     return
       CandidateGenerator::isLegalCandidate(n) &&
-      n.getKind()==APPLY_UF &&
+      (n.getKind()==APPLY_UF || n.getKind()==APPLY_CONSTRUCTOR) &&
       n.getOperator()==d_op;
   };
 };
@@ -515,6 +520,44 @@ public:
     // std::cout << m.d_map.size() << std::endl;
     return d_cgm.reset(t, m, qe);
     // }
+  }
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
+    return d_cgm.getNextMatch(m, qe);
+  }
+};
+
+class DatatypesMatcher: public Matcher{
+  /* The matcher */
+  typedef ApplyMatcher AuxMatcher3;
+  typedef TestMatcher< AuxMatcher3, LegalOpTest > AuxMatcher2;
+  typedef CandidateGeneratorMatcher< datatypes::rrinst::CandidateGeneratorTheoryClass, AuxMatcher2> AuxMatcher1;
+  AuxMatcher1 d_cgm;
+  static inline AuxMatcher1 createCgm(Node pat, QuantifiersEngine* qe){
+    Assert( pat.getKind() == kind::APPLY_CONSTRUCTOR,
+            "For datatypes only constructor are accepted in pattern" );
+    /** In reverse order of matcher sequence */
+    AuxMatcher3 am3(pat,qe);
+    /** Keep only the one that have the good operator */
+    AuxMatcher2 am2(am3,LegalOpTest(pat.getOperator()));
+    /** Iter on the equivalence class of the given term */
+    datatypes::TheoryDatatypes* dt = static_cast<datatypes::TheoryDatatypes *>(qe->getTheoryEngine()->getTheory( theory::THEORY_DATATYPES ));
+    datatypes::rrinst::CandidateGeneratorTheoryClass cdtDtEq(dt);
+    /* Create a matcher from the candidate generator */
+    AuxMatcher1 am1(cdtDtEq,am2);
+    return am1;
+  }
+  Node d_pat;
+public:
+  DatatypesMatcher( Node pat, QuantifiersEngine* qe ):
+    d_cgm(createCgm(pat, qe)),
+    d_pat(pat) {}
+
+  void resetInstantiationRound( QuantifiersEngine* qe ){
+    d_cgm.resetInstantiationRound(qe);
+  };
+  bool reset( TNode t, InstMatch& m, QuantifiersEngine* qe ){
+    Debug("matching") << "datatypes: " << t << " matches " << d_pat << std::endl;
+    return d_cgm.reset(t, m, qe);
   }
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
     return d_cgm.getNextMatch(m, qe);
@@ -714,6 +757,8 @@ Matcher* mkMatcher( Node pat, QuantifiersEngine* qe ){
 
   if( Trigger::isAtomicTrigger( pat ) ){
     return new OpMatcher(pat, qe);
+  } else if ( pat.getKind() == kind::APPLY_CONSTRUCTOR ){
+    return new DatatypesMatcher(pat, qe);
   } else { /* Arithmetic? */
     /** TODO: something simpler to see if the pattern is a good
         arithmetic pattern */
@@ -870,6 +915,7 @@ bool ArithMatcher::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
   m.erase(d_binded.begin(), d_binded.end());
   return false;
 };
+
 
 class MultiPatsMatcher: public PatsMatcher{
 private:
