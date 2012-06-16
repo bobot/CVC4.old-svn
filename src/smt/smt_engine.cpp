@@ -456,6 +456,17 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
 
   d_logic.lock();
 
+  // Set the options for the theoryOf
+  if(!Options::current()->theoryOfModeSetByUser) {
+    if(d_logic.isSharingEnabled() && !d_logic.isTheoryEnabled(THEORY_BV) && !d_logic.isQuantified()) {
+      Theory::setTheoryOfMode(theory::THEORY_OF_TERM_BASED);
+    } else {
+      Theory::setTheoryOfMode(theory::THEORY_OF_TYPE_BASED);
+    }
+  } else {
+    Theory::setTheoryOfMode(Options::current()->theoryOfMode);
+  }
+
   // by default, symmetry breaker is on only for QF_UF
   if(! Options::current()->ufSymmetryBreakerSetByUser) {
     bool qf_uf = d_logic.isPure(THEORY_UF) && !d_logic.isQuantified();
@@ -471,7 +482,7 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
   }
 
   // If in arrays, set the UF handler to arrays
-  if(d_logic.isPure(THEORY_ARRAY) && !d_logic.isQuantified()) {
+  if(d_logic.isTheoryEnabled(THEORY_ARRAY) && !d_logic.isQuantified()) {
     Theory::setUninterpretedSortOwner(THEORY_ARRAY);
   } else {
     Theory::setUninterpretedSortOwner(THEORY_UF);
@@ -542,7 +553,7 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
   }
   // Turn on justification heuristic of the decision engine for QF_BV and QF_AUFBV
   if(!Options::current()->decisionModeSetByUser) {
-    Options::DecisionMode decMode = 
+    Options::DecisionMode decMode =
       //QF_BV
       ( !d_logic.isQuantified() &&
         d_logic.isPure(THEORY_BV)
@@ -558,7 +569,7 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
     Trace("smt") << "setting decision mode to " << decMode << std::endl;
     NodeManager::currentNM()->getOptions()->decisionMode = decMode;
   }
- 
+
 }
 
 void SmtEngine::setInfo(const std::string& key, const SExpr& value)
