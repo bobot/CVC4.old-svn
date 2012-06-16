@@ -158,7 +158,7 @@ public:
       << std::endl;
 
     // Save the 'real' assertions locally
-    for(unsigned i = 0; i < assertionsEnd && i < assertions.size(); ++i)
+    for(unsigned i = 0; i < assertionsEnd; ++i)
       d_assertions.push_back(assertions[i]);
 
     // Save mapping between ite skolems and ite assertions
