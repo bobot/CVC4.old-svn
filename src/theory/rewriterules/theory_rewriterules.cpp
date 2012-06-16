@@ -305,9 +305,9 @@ bool TheoryRewriteRules::notifyIfKnown(const GList * const ltested,
 
 void TheoryRewriteRules::notification(GList * const lpropa, bool b){
   if (b){
-    for(GList::const_iterator g = lpropa->begin();
-        g != lpropa->end(); ++g) {
-      (*g).nextGuard(*this);
+    for(size_t ig = 0;
+        ig != lpropa->size(); ++ig) {
+      (*lpropa)[ig].nextGuard(*this);
     };
     lpropa->push_back(Guarded(RULEINST_TRUE,0));
   }else{
