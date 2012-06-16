@@ -423,7 +423,7 @@ rewriterulesCommand[CVC4::Command*& cmd]
         expr2 = MK_EXPR(kind::INST_PATTERN_LIST, triggers);
         args.push_back(expr2);
       };
-      expr2 = MK_EXPR(kind, args);
+      expr = MK_EXPR(kind, args);
       args.clear();
       args.push_back(bvl);
       /* guards */
@@ -436,7 +436,7 @@ rewriterulesCommand[CVC4::Command*& cmd]
         expr2 = MK_EXPR(kind::AND, guards);
         args.push_back(expr2); break;
       };
-      args.push_back(expr2);
+      args.push_back(expr);
       expr = MK_EXPR(CVC4::kind::REWRITE_RULE, args);
       cmd = new AssertCommand(expr); }
     /* propagation rule */
@@ -474,7 +474,7 @@ rewriterulesCommand[CVC4::Command*& cmd]
         expr2 = MK_EXPR(kind::INST_PATTERN_LIST, triggers);
         args.push_back(expr2);
       };
-      expr2 = MK_EXPR(kind, args);
+      expr = MK_EXPR(kind, args);
       args.clear();
       args.push_back(bvl);
       /* guards */
@@ -487,7 +487,7 @@ rewriterulesCommand[CVC4::Command*& cmd]
         expr2 = MK_EXPR(kind::AND, guards);
         args.push_back(expr2); break;
       };
-      args.push_back(expr2);
+      args.push_back(expr);
       expr = MK_EXPR(CVC4::kind::REWRITE_RULE, args);
       cmd = new AssertCommand(expr); }
   ;
