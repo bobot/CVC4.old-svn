@@ -320,7 +320,7 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
 void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
   Debug("efficient-e-match") << "Compute candidates for pp pairs..." << std::endl;
   EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
-  EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( a );
+  EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
   for( std::map< Node, std::map< Node, std::map< Node, std::vector< IpsPair > > > >::iterator it = d_pp_pairs.begin();
        it != d_pp_pairs.end(); ++it ){
     Node f = it->first;
