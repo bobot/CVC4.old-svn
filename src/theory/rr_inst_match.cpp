@@ -1273,6 +1273,8 @@ public:
       d_patterns.push_back(mkPattern(pats[i],qe));
       if(pats[i].getKind()==kind::INST_CONSTANT){
         d_direct_patterns.push_back(new VarMatcher(pats[i],qe));
+      } else if( pats[i].getKind() == kind::NOT && pats[i][0].getKind() == kind::EQUAL){
+        d_direct_patterns.push_back(new ApplyMatcher(pats[i][0],qe));
       } else {
         d_direct_patterns.push_back(new ApplyMatcher(pats[i],qe));
       }

@@ -447,6 +447,11 @@ private:
   std::map< Node, std::map< Node, std::vector< std::pair< NodePcDispatcher*, Ips > > > > d_pc_pairs;
   /** Parent/Parent Pairs (for efficient E-matching) */
   std::map< Node, std::map< Node, std::vector< triple< NodePpDispatcher*, Ips, Ips > > > > d_pp_pairs;
+  /** Constants/Child Pairs
+      So, for example, if we have the pattern f( x ) = c, then d_pc_pairs[f][c] = ..., pcdispatcher, ...
+  */
+  //TODO constant in pattern can use the same thing just add an Ips
+  std::map< Node, std::map< Node, NodePcDispatcher* > > d_cc_pairs;
   /** list of all candidate generators for each operator */
   std::map< Node, NodeNewTermDispatcher > d_cand_gens;
   /** list of all candidate generators for each type */
@@ -466,6 +471,8 @@ private:
   void computeCandidatesPcPairs( Node a, Node b );
   /** compute candidates for pp pairs */
   void computeCandidatesPpPairs( Node a, Node b );
+  /** compute candidates for cc pairs */
+  void computeCandidatesConstants( Node a, Node b );
   /** collect terms based on inverted path string */
   void collectTermsIps( Ips& ips, SetNode& terms, int index);
   bool collectParentsTermsIps( Node n, Node f, int arg, SetNode& terms, bool addRep, bool modEq = true );

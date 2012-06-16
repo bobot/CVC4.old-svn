@@ -41,9 +41,14 @@ EqClassInfo::EqClassInfo( context::Context* c ) : d_funs( c ), d_pfuns( c ), d_d
 
 }
 
+bool operatorKind(TNode n){
+  return  n.getMetaKind() == kind::metakind::OPERATOR ||
+    n.getMetaKind() == kind::metakind::PARAMETERIZED;
+}
+
 //set member
 void EqClassInfo::setMember( Node n, TermDb* db ){
-  if( n.getKind()==APPLY_UF ){
+  if( operatorKind(n) ){
     d_funs.insertAtContextLevelZero(n.getOperator(),true);
   }
   //add parent functions
@@ -339,6 +344,9 @@ void InstantiatorTheoryUf::merge( TNode a, TNode b ){
       computeCandidatesPpPairs( a, b );
       computeCandidatesPpPairs( b, a );
     }
+    computeCandidatesConstants( a, b);
+    computeCandidatesConstants( b, a);
+
     //merge eqc_ops of b into a
     EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
     EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
@@ -468,6 +476,47 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
   }
 }
 
+
+void InstantiatorTheoryUf::computeCandidatesConstants( Node a, Node b ){
+  Debug("efficient-e-match") << "Compute candidates constants for cc pairs..." << std::endl;
+  Debug("efficient-e-match") << "  Eq class = [";
+  outputEqClass( "efficient-e-match", a);
+  Debug("efficient-e-match") << "]" << std::endl;
+  EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
+  outputEqClassInfo("efficient-e-match",eci_a);
+  EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
+  for( std::map< Node, std::map< Node, NodePcDispatcher* > >::iterator
+         it = d_cc_pairs.begin(), end = d_cc_pairs.end();
+       it != end; ++it ) {
+    Debug("efficient-e-match") << "  Checking application " << it->first << std::endl;
+    if( !eci_b->hasFunction(it->first) ) continue;
+    for( std::map< Node, NodePcDispatcher* >::iterator
+           itc = it->second.begin(), end = it->second.end();
+       itc != end; ++itc ) {
+      //The constant
+      Debug("efficient-e-match") << "    Checking constant " << a << std::endl;
+      if(getRepresentative(itc->first) != a) continue;
+      SetNode s;
+      eq::EqClassIterator eqc_iter( b, &((TheoryUF*)d_th)->d_equalityEngine );
+      while( !eqc_iter.isFinished() ){
+        Debug("efficient-e-match-debug") << "> look at " << (*eqc_iter)
+                                         << std::endl;
+        if( operatorKind(*eqc_iter) && (*eqc_iter).getOperator() == it->first ) s.insert(*eqc_iter);
+        eqc_iter++;
+      }
+
+      if( s.empty() ) continue;
+      Debug("efficient-e-match") << "        -> Added terms (" << s.size() << "): ";
+      for( SetNode::const_iterator t=s.begin(), end=s.end();
+           t!=end; ++t ){
+        Debug("efficient-e-match") << (*t) << " ";
+      }
+      Debug("efficient-e-match") << std::endl;
+      itc->second->send(s);
+    }
+  }
+}
+
 void InstantiatorTheoryUf::collectTermsIps( Ips& ips, SetNode & terms ){
   Assert( ips.size() > 0);
   return collectTermsIps( ips, terms,  ips.size() - 1);
@@ -501,6 +550,7 @@ void InstantiatorTheoryUf::collectTermsIps( Ips& ips, SetNode& terms, int index 
 
 bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, SetNode & terms, bool addRep, bool modEq ){ //modEq default true
   bool addedTerm = false;
+  
   if( modEq && ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( n )){
     Assert( getRepresentative( n )==n );
     //collect modulo equality
@@ -672,6 +722,17 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
       patVars.push_back(i);
       continue;
     }
+    //to complete
+    if( pats[i].getKind() == kind::NOT && pats[i][0].getKind() == kind::EQUAL){
+      Node cst = NodeManager::currentNM()->mkConst<bool>(false);
+      TNode op = pats[i][0].getOperator();
+      if(d_cc_pairs[op][cst] == NULL){
+        d_cc_pairs[op][cst] = new NodePcDispatcher();
+      }
+      d_cc_pairs[op][cst]->addPcDispatcher(&handler,i);
+      continue;
+    }
+    //end to complete
     Debug("pattern-element-opt") << " Register candidate generator..." << pats[i] << std::endl;
     /* Has the pattern already been seen */
     if( d_pat_cand_gens.find( pats[i] )==d_pat_cand_gens.end() ){
@@ -728,6 +789,26 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
       }
       handler.addMonoCandidate(ele, 0);
     }
+
+  } else if( pats[0].getKind() == kind::NOT && pats[0][0].getKind() == kind::EQUAL){
+    Node cst = NodeManager::currentNM()->mkConst<bool>(false);
+    TNode op = pats[0][0].getOperator();
+    cst = getRepresentative(cst);
+    SetNode ele;
+    eq::EqClassIterator eqc_iter( cst, &((TheoryUF*)d_th)->d_equalityEngine );
+    while( !eqc_iter.isFinished() ){
+      Debug("efficient-e-match-debug") << "> look at " << (*eqc_iter)
+                                       << std::endl;
+      if( operatorKind(*eqc_iter) && (*eqc_iter).getOperator() == op ) ele.insert(*eqc_iter);
+      eqc_iter++;
+    }
+    if( !ele.empty() ){
+      if(Debug.isOn("efficient-e-match-stats")){
+        Debug("efficient-e-match-stats") << "pattern " << pats << " initialized with " << ele.size() << " terms"<< std::endl;
+      }
+      handler.addMonoCandidate(ele, 0);
+    }
+
   } else {
     Node op = pats[0].getOperator();
     TermDb* db = d_quantEngine->getTermDatabase();
