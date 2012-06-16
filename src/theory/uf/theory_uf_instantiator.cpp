@@ -576,12 +576,12 @@ void InstantiatorTheoryUf::combineMultiPpIpsMap(PpIpsMap & pp_ips_map, MultiPpIp
         else{
           dispatcher = new NodePpDispatcher();
 #ifdef CVC4_DEBUG
-          dispatcher->pat1 = pats[k->first];
-          dispatcher->pat2 = pats[index2];
+          dispatcher->pat1 = pats[index2];
+          dispatcher->pat2 = pats[k->first];
 #endif
-          dispatcher->addPpDispatcher(&eh,k->first,index2);
+          dispatcher->addPpDispatcher(&eh,index2,k->first);
         };
-        d_pp_pairs[ j->first ][ k->second ].push_back( make_triple( dispatcher, k->third, j->second ));
+        d_pp_pairs[ j->first ][ k->second ].push_back( make_triple( dispatcher, j->second, k->third ));
       }
     }
   }
