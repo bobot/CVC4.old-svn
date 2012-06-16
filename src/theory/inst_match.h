@@ -142,9 +142,9 @@ public:
   InstMatch( InstMatch* m );
 
   /** set the match of v to m */
-  bool setMatch( EqualityQuery* q, Node v, Node m );
+  bool setMatch( EqualityQuery* q, TNode v, TNode m );
   /* This version tell if the variable has been set */
-  bool setMatch( EqualityQuery* q, Node v, Node m, bool & set);
+  bool setMatch( EqualityQuery* q, TNode v, TNode m, bool & set);
   /** fill all unfilled values with m */
   bool add( InstMatch& m );
   /** if compatible, fill all unfilled values with m and return true

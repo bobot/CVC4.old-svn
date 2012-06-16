@@ -221,14 +221,17 @@ public:
 
 class ApplyMatcher: public Matcher{
 private:
+  /** What to check first: constant and variable */
+  std::vector< std::pair<TNode,size_t> > d_constants;
+  std::vector< std::pair<TNode,size_t> > d_variables;
   /** children generators, only the sub-pattern which are
       neither a variable neither a constant appears */
-  std::vector< Matcher* > d_children;
-  std::vector< int > d_children_index;
+  std::vector< std::pair<Matcher*,size_t> > d_childrens;
   /** the variable that have been set by this matcher (during its own reset) */
   std::vector< TNode > d_binded; /* TNode because the variable are already in d_pattern */
   /** the representant of the argument of the term given by the last reset */
   std::vector< Node > d_reps;
+public:
   /** The pattern we are producing matches for */
   Node d_pattern;
 public:

@@ -62,7 +62,6 @@ namespace rrinst{
 //   }
 // }
 
-
 typedef CVC4::theory::inst::InstMatch InstMatch;
 typedef CVC4::theory::inst::CandidateGeneratorQueue CandidateGeneratorQueue;
 
@@ -873,22 +872,27 @@ class DumbPatMatcher: public PatMatcher{
 ApplyMatcher::ApplyMatcher( Node pat, QuantifiersEngine* qe): d_pattern(pat){
   //  Assert( pat.hasAttribute(InstConstantAttribute()) );
 
-  //set-up d_children, d_children_index and d_binded
+  //set-up d_variables, d_constants, d_childrens
   for( size_t i=0; i< d_pattern.getNumChildren(); ++i ){
     if( d_pattern[i].hasAttribute(InstConstantAttribute()) ){
-      if( d_pattern[i].getKind()!=INST_CONSTANT ){
+      if( d_pattern[i].getKind()==INST_CONSTANT ){
+        //It's a variable
+        d_variables.push_back(make_pair(d_pattern[i],i));
+      }else{
         //It's neither a constant argument neither a variable
         //we create the matcher for the subpattern
-        d_children.push_back(mkMatcher(d_pattern[i], qe));
-        d_children_index.push_back( i );
-      }
+        d_childrens.push_back(make_pair(mkMatcher(d_pattern[i], qe),i));
+      };
+    }else{
+      // It's a constant
+      d_constants.push_back(make_pair(d_pattern[i],i));
     }
   }
 }
 
 void ApplyMatcher::resetInstantiationRound( QuantifiersEngine* qe ){
-  for( size_t i=0; i< d_children.size(); i++ ){
-    d_children[i]->resetInstantiationRound( qe );
+  for( size_t i=0; i< d_childrens.size(); i++ ){
+    d_childrens[i].first->resetInstantiationRound( qe );
   }
 }
 
@@ -896,42 +900,40 @@ bool ApplyMatcher::reset(TNode t, InstMatch & m, QuantifiersEngine* qe){
   Debug("matching") << "Matching " << t << " against pattern " << d_pattern << " ("
                     << m.d_map.size() << ")"  << std::endl;
   EqualityQuery* q = qe->getEqualityQuery();
-  d_binded.clear();
-
   //if t is null
   Assert( !t.isNull() );
   Assert( !t.hasAttribute(InstConstantAttribute()) );
   Assert( t.getKind()==d_pattern.getKind() );
   Assert( t.getKind()!=APPLY_UF || t.getOperator()==d_pattern.getOperator() );
-  //first, check if ground arguments are not equal, or a match is in conflict
-  for( size_t i=0; i< d_pattern.getNumChildren(); i++ ){
-    if( d_pattern[i].hasAttribute(InstConstantAttribute()) ){
-      if( d_pattern[i].getKind()==INST_CONSTANT ){
-        bool set;
-        if( !m.setMatch( q, d_pattern[i], t[i], set) ){
-          //match is in conflict
-          Debug("matching-debug") << "Match in conflict " << t[i] << " and "
-                                  << d_pattern[i] << " because "
-                                  << m.d_map[d_pattern[i]]
-                                  << std::endl;
-          Debug("matching-fail") << "Match fail: " << m.d_map[d_pattern[i]] << " and " << t[i] << std::endl;
-          //setMatchFail( qe, partial[0].d_map[d_pattern[i]], t[i] );
-          m.erase(d_binded.begin(), d_binded.end());
-          return false;
-        }else{
-          if(set){ //The variable has just been set
-            d_binded.push_back(d_pattern[i]);
-          }
-        }
-      }
+
+  typedef std::vector< std::pair<TNode,size_t> >::iterator iterator;
+  for(iterator i = d_constants.begin(), end = d_constants.end();
+      i != end; ++i){
+    if( !q->areEqual( i->first, t[i->second] ) ){
+      Debug("matching-fail") << "Match fail arg: " << i->first << " and " << t[i->second] << std::endl;
+      //setMatchFail( qe, d_pattern[i], t[i] );
+      //ground arguments are not equal
+      return false;
+    }
+  }
+
+  d_binded.clear();
+  bool set;
+  for(iterator i = d_variables.begin(), end = d_variables.end();
+      i != end; ++i){
+    if( !m.setMatch( q, i->first, t[i->second], set) ){
+      //match is in conflict
+      Debug("matching-debug") << "Match in conflict " << t[i->second] << " and "
+                              << i->first << " because "
+                              << m.d_map[i->first]
+                              << std::endl;
+      Debug("matching-fail") << "Match fail: " << m.d_map[i->first] << " and " << t[i->second] << std::endl;
+      //setMatchFail( qe, partial[0].d_map[d_pattern[i]], t[i] );
+      m.erase(d_binded.begin(), d_binded.end());
+      return false;
     }else{
-      //This argument is a constant
-      if( !q->areEqual( d_pattern[i], t[i] ) ){
-        Debug("matching-fail") << "Match fail arg: " << d_pattern[i] << " and " << t[i] << std::endl;
-        //setMatchFail( qe, d_pattern[i], t[i] );
-        //ground arguments are not equal
-        m.erase(d_binded.begin(), d_binded.end());
-        return false;
+      if(set){ //The variable has just been set
+        d_binded.push_back(i->first);
       }
     }
   }
@@ -939,24 +941,24 @@ bool ApplyMatcher::reset(TNode t, InstMatch & m, QuantifiersEngine* qe){
   //now, fit children into match
   //we will be requesting candidates for matching terms for each child
   d_reps.clear();
-  for( size_t i=0; i< d_children.size(); i++ ){
-    Node rep = q->getRepresentative( t[ d_children_index[i] ] );
+  for( size_t i=0; i< d_childrens.size(); i++ ){
+    Node rep = q->getRepresentative( t[ d_childrens[i].second ] );
     d_reps.push_back( rep );
   }
 
-  if(d_children.size() == 0) return true;
+  if(d_childrens.size() == 0) return true;
   else return getNextMatch(m, qe, true);
 }
 
 bool ApplyMatcher::getNextMatch(InstMatch& m, QuantifiersEngine* qe, bool reset){
-  Assert(d_children_index.size() > 0);
-  const size_t max = d_children.size() - 1;
+  Assert(d_childrens.size() > 0);
+  const size_t max = d_childrens.size() - 1;
   size_t index = reset ? 0 : max;
-  Assert(d_children.size() == d_reps.size());
+  Assert(d_childrens.size() == d_reps.size());
   while(true){
     if(reset ?
-       d_children[index]->reset( d_reps[index], m, qe ) :
-       d_children[index]->getNextMatch( m, qe )){
+       d_childrens[index].first->reset( d_reps[index], m, qe ) :
+       d_childrens[index].first->getNextMatch( m, qe )){
       if(index==max) return true;
       ++index;
       reset=true;
@@ -972,7 +974,7 @@ bool ApplyMatcher::getNextMatch(InstMatch& m, QuantifiersEngine* qe, bool reset)
 }
 
 bool ApplyMatcher::getNextMatch(InstMatch& m, QuantifiersEngine* qe){
-  if(d_children.size() == 0){
+  if(d_childrens.size() == 0){
     m.erase(d_binded.begin(), d_binded.end());
     return false;
   } else return getNextMatch(m, qe, false);
@@ -1861,7 +1863,7 @@ private:
   InstMatch d_im;
   uf::EfficientHandler d_eh;
   uf::EfficientHandler::MultiCandidate d_mc;
-
+  std::vector<Node> d_pats;
   // bool indexDone( size_t i){
   //   return i == d_c.first.second ||
   //     ( i == d_c.second.second && d_c.second.first.empty());
@@ -1942,11 +1944,13 @@ public:
         } else d_step = ES_STOP;
         break;
       case ES_RESET1:
+        Assert(d_direct_patterns[d_mc.first.second].d_pattern.getOperator() == d_mc.first.first.getOperator() );
         if(d_direct_patterns[d_mc.first.second].reset(d_mc.first.first,d_im,qe))
           d_step = d_phase_mono ? ES_RESET_OTHER : ES_RESET2;
         else d_step = d_phase_mono ? ES_GET_MONO_CANDIDATE : ES_GET_MULTI_CANDIDATE;
         break;
       case ES_RESET2:
+        Assert(d_direct_patterns[d_mc.second.second].d_pattern.getOperator() == d_mc.second.first.getOperator() );
         Assert(!d_phase_mono);
         if(d_direct_patterns[d_mc.second.second].reset(d_mc.second.first,d_im,qe))
           d_step = ES_RESET_OTHER;
@@ -1986,7 +1990,7 @@ public:
   }
 
   MultiEfficientPatsMatcher(std::vector< Node > & pats, QuantifiersEngine* qe):
-    d_eh(qe->getTheoryEngine()->d_context), d_step(ES_START){
+    d_eh(qe->getTheoryEngine()->d_context), d_step(ES_START), d_pats(pats){
     Assert(pats.size() > 0);
     for( size_t i=0; i< pats.size(); i++ ){
       d_patterns.push_back(mkPattern(pats[i],qe));

@@ -108,6 +108,7 @@ public:
       candidate.first = (*si_tmp);
       candidate.second = front->second;
       d_si = si_tmp;
+      Debug("efficienthandler") << "Mono produces " << candidate.first << " for " << candidate.second << std::endl;
       return true;
     };
     d_monoCandidates.pop();
@@ -137,6 +138,12 @@ public:
       candidate.second.second = front->second.second;
       if(!d_multi_not_first){d_si1 = si1_tmp; d_multi_not_first = true; };
       d_si2 = si2_tmp;
+      Debug("efficienthandler") << "Multi1 produces "
+                                << candidate.first.first << " for "
+                                << candidate.first.second << " and "
+                                << candidate.second.first << " for "
+                                << candidate.second.second << " and "
+                                << std::endl;
       return true;
     }; // end of the second set
     si2_tmp = front->second.first.begin();
@@ -148,6 +155,12 @@ public:
       candidate.second.second = front->second.second;
       d_si1 = si1_tmp;
       d_si2 = si2_tmp;
+      Debug("efficienthandler") << "Multi2 produces "
+                                << candidate.first.first << " for "
+                                << candidate.first.second << " and "
+                                << candidate.second.first << " for "
+                                << candidate.second.second << " and "
+                                << std::endl;
       return true;
     }; // end of the first set
     d_multiCandidates.pop();

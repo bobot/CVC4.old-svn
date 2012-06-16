@@ -146,15 +146,15 @@ public:
       for example, d_parents[n][f][1] = { f( t1, n ), f( t2, n ), ... }
   */
   /* Todo replace int by size_t */
-  std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
+  std::hash_map< Node, std::hash_map< Node, std::hash_map< int, std::vector< Node >  >, NodeHashFunction  > , NodeHashFunction > d_parents;
   const std::vector<Node> & getParents(TNode n, TNode f, int arg){
-    std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > >::const_iterator
+    std::hash_map< Node, std::hash_map< Node, std::hash_map< int, std::vector< Node > >,NodeHashFunction  >,NodeHashFunction  >::const_iterator
       rn = d_parents.find( n );
     if( rn !=d_parents.end() ){
-      std::map< Node, std::map< int, std::vector< Node > > > ::const_iterator
+      std::hash_map< Node, std::hash_map< int, std::vector< Node > > , NodeHashFunction  > ::const_iterator
         rf = rn->second.find(f);
       if( rf != rn->second.end() ){
-        std::map< int, std::vector< Node > > ::const_iterator
+        std::hash_map< int, std::vector< Node > > ::const_iterator
           ra = rf->second.find(arg);
         if( ra != rf->second.end() ){
           return ra->second;
@@ -384,6 +384,7 @@ public:
     IntStat d_simple_triggers;
     IntStat d_multi_triggers;
     IntStat d_multi_trigger_instantiations;
+    IntStat d_term_in_termdb;
     Statistics();
     ~Statistics();
   };/* class QuantifiersEngine::Statistics */

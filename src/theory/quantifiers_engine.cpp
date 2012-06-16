@@ -90,6 +90,7 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
     return;
   }
   if( d_processed.find( n )==d_processed.end() ){
+    ++(d_quantEngine->d_statistics.d_term_in_termdb);
     d_processed.insert(n);
     n.setAttribute(AvailableInTermDb(),true);
     //if this is an atomic trigger, consider adding it
@@ -727,7 +728,9 @@ QuantifiersEngine::Statistics::Statistics():
   d_triggers("QuantifiersEngine::Triggers", 0),
   d_simple_triggers("QuantifiersEngine::Triggers_Simple", 0),
   d_multi_triggers("QuantifiersEngine::Triggers_Multi", 0),
-  d_multi_trigger_instantiations("QuantifiersEngine::Multi_Trigger_Instantiations", 0)
+  d_multi_trigger_instantiations("QuantifiersEngine::Multi_Trigger_Instantiations", 0),
+  d_term_in_termdb("QuantifiersEngine::Term_in_TermDb", 0)
+
 {
   StatisticsRegistry::registerStat(&d_num_quant);
   StatisticsRegistry::registerStat(&d_instantiation_rounds);
@@ -745,6 +748,7 @@ QuantifiersEngine::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_simple_triggers);
   StatisticsRegistry::registerStat(&d_multi_triggers);
   StatisticsRegistry::registerStat(&d_multi_trigger_instantiations);
+  StatisticsRegistry::registerStat(&d_term_in_termdb);
 }
 
 QuantifiersEngine::Statistics::~Statistics(){
@@ -764,6 +768,7 @@ QuantifiersEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_simple_triggers);
   StatisticsRegistry::unregisterStat(&d_multi_triggers);
   StatisticsRegistry::unregisterStat(&d_multi_trigger_instantiations);
+  StatisticsRegistry::unregisterStat(&d_term_in_termdb);
 }
 
 Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){

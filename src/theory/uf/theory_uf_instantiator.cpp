@@ -38,7 +38,7 @@ void EqClassInfo::setMember( Node n, TermDb* db ){
     d_funs.insertAtContextLevelZero(n.getOperator(),true);
   }
   //add parent functions
-  for( std::map< Node, std::map< int, std::vector< Node > > >::iterator it = db->d_parents[n].begin();
+  for( std::hash_map< Node, std::hash_map< int, std::vector< Node >  >, NodeHashFunction >::iterator it = db->d_parents[n].begin();
     it != db->d_parents[n].end(); ++it ){
     //TODO Is it true to do it at level 0? That depend when SetMember is called
     // At worst it is a good overapproximation
@@ -555,8 +555,10 @@ void InstantiatorTheoryUf::combineMultiPpIpsMap(PpIpsMap & pp_ips_map, MultiPpIp
     MultiPpIpsMap::iterator mit = multi_pp_ips_map.find(it->first);
     if(mit == multi_pp_ips_map.end()) continue;
     // for each variable construct all the pp-pair
+    // j the last pattern treated
     for( std::vector< std::pair< Node, Ips > >::iterator j=it->second.begin(), jend = it->second.end() ;
          j != jend; ++j){
+      // k one of the previous one
       for( std::vector< triple< size_t, Node, Ips > >::iterator k=mit->second.begin(), kend = mit->second.end() ;
            k != kend; ++k){
         //found a pp-pair
@@ -579,7 +581,7 @@ void InstantiatorTheoryUf::combineMultiPpIpsMap(PpIpsMap & pp_ips_map, MultiPpIp
 #endif
           dispatcher->addPpDispatcher(&eh,k->first,index2);
         };
-        d_pp_pairs[ j->first ][ k->second ].push_back( make_triple( dispatcher, j->second, k->third ));
+        d_pp_pairs[ j->first ][ k->second ].push_back( make_triple( dispatcher, k->third, j->second ));
       }
     }
   }
@@ -634,7 +636,13 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
   TermDb* db = d_quantEngine->getTermDatabase();
   if(db->d_op_map[op].begin() != db->d_op_map[op].end()){
     SetNode ele;
+    // for(std::vector<Node>::iterator i = db->d_op_map[op].begin(), end = db->d_op_map[op].end(); i != end; ++i){
+    //   if(CandidateGenerator::isLegalCandidate(*i)) ele.insert(*i);
+    // }
     ele.insert(db->d_op_map[op].begin(), db->d_op_map[op].end());
+    if(Debug.isOn("efficient-e-match-stats")){
+      Debug("efficient-e-match-stats") << "pattern " << pats << " initialized with " << ele.size() << " terms"<< std::endl;
+    }
     handler.addMonoCandidate(ele, 0);
   }
   Debug("efficient-e-match") << "Done." << std::endl;

@@ -13,9 +13,9 @@
 ;; reflexive
 ;;(assert-propagation ((?x elt)) () () (Rf ?x ?x ?x) (((hack ?x))) )
 ;; step
-;;(assert-propagation ((?x elt)) () () (Rf ?x (f ?x) (f ?x)) (((f ?x))) )
-(assert-propagation ((?x elt)) () () (Rf ?x (f ?x) (f ?x)) (((Rf ?x (f ?x) (f ?x)))) )
-(assert-propagation ((?x elt)) () () (=> true (Rf ?x (f ?x) (f ?x))) (((f ?x))) )
+(assert-propagation ((?x elt)) () () (Rf ?x (f ?x) (f ?x)) (((f ?x))) )
+;; (assert-propagation ((?x elt)) () () (Rf ?x (f ?x) (f ?x)) (((Rf ?x (f ?x) (f ?x)))) )
+;; (assert-propagation ((?x elt)) () () (=> true (Rf ?x (f ?x) (f ?x))) (((f ?x))) )
 
 ;; reach
 ;; (assert-propagation ((?x1 elt)(?x2 elt)) () ((Rf ?x1 ?x2 ?x2)) (or (= ?x1 ?x2) (Rf ?x1 (f ?x1) ?x2)) (((f ?x1))) )
@@ -25,10 +25,10 @@
 ;; (assert-propagation ((?x1 elt)(?x2 elt)) ((not (Rf ?x1 (f ?x1) ?x2))(Rf ?x1 ?x2 ?x2)) () (= ?x1 ?x2) (((Rf ?x1 (f ?x1) ?x2))) )
 
 ;; cycle
-;; (assert-propagation ((?x1 elt)(?x2 elt)) ((= (f ?x1) ?x1)) ((Rf ?x1 ?x2 ?x2)) (= ?x1 ?x2) (((f ?x1))) )
+(assert-propagation ((?x1 elt)(?x2 elt)) ((= (f ?x1) ?x1)) ((Rf ?x1 ?x2 ?x2)) (= ?x1 ?x2) (((f ?x1))) )
 ;; (assert-propagation ((?x1 elt)(?x2 elt)) ((= (f ?x1) ?x1)) ((Rf ?x1 ?x2 ?x2)) (= ?x1 ?x2) () )
 
-(assert-propagation ((?x1 elt)(?x2 elt)) () () (=> (and (= (f ?x1) ?x1) (Rf ?x1 ?x2 ?x2)) (= ?x1 ?x2)) (((Rf ?x1 ?x2 ?x2)(f ?x1))) )
+;; (assert-propagation ((?x1 elt)(?x2 elt)) () () (=> (and (= (f ?x1) ?x1) (Rf ?x1 ?x2 ?x2)) (= ?x1 ?x2)) (((Rf ?x1 ?x2 ?x2)(f ?x1))) )
 
 ;; sandwich
 (assert-propagation ((?x1 elt)(?x2 elt)) () ((Rf ?x1 ?x2 ?x1)) (= ?x1 ?x2) () )
