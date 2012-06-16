@@ -155,6 +155,10 @@ class TheoryArrays : public Theory {
 
   public:
 
+  eq::EqualityEngine* getEqualityEngine() {
+    return &d_equalityEngine;
+  }
+
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
   Node ppRewrite(TNode atom);
 

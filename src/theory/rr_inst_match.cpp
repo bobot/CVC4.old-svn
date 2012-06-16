@@ -32,6 +32,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::rrinst;
 using namespace CVC4::theory::uf::rrinst;
+using namespace CVC4::theory::eq::rrinst;
 
 namespace CVC4{
 namespace theory{
@@ -483,7 +484,7 @@ class OpMatcher: public Matcher{
   /* The matcher */
   typedef ApplyMatcher AuxMatcher3;
   typedef TestMatcher< AuxMatcher3, LegalOpTest > AuxMatcher2;
-  typedef CandidateGeneratorMatcher< CandidateGeneratorTheoryUfClass, AuxMatcher2> AuxMatcher1;
+  typedef CandidateGeneratorMatcher< CandidateGeneratorTheoryEeClass, AuxMatcher2> AuxMatcher1;
   AuxMatcher1 d_cgm;
   static inline AuxMatcher1 createCgm(Node pat, QuantifiersEngine* qe){
     Assert( pat.getKind() == kind::APPLY_UF );
@@ -493,9 +494,9 @@ class OpMatcher: public Matcher{
     AuxMatcher2 am2(am3,LegalOpTest(pat.getOperator()));
     /** Iter on the equivalence class of the given term */
     uf::TheoryUF* uf = static_cast<uf::TheoryUF *>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF ));
-    uf::InstantiatorTheoryUf* ith =
-      static_cast<uf::InstantiatorTheoryUf*>(uf->getInstantiator());
-    CandidateGeneratorTheoryUfClass cdtUfEq(ith);
+    eq::EqualityEngine* ee =
+      static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
+    CandidateGeneratorTheoryEeClass cdtUfEq(ee);
     /* Create a matcher from the candidate generator */
     AuxMatcher1 am1(cdtUfEq,am2);
     return am1;
@@ -577,10 +578,8 @@ class AllOpMatcher: public PatMatcher{
     /** Keep only the one that have the good operator */
     AuxMatcher2 am2(am3,LegalTest());
     /** Iter on the equivalence class of the given term */
-    uf::TheoryUF* uf = static_cast<uf::TheoryUF *>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF ));
-    uf::InstantiatorTheoryUf* ith =
-      static_cast<uf::InstantiatorTheoryUf*>(uf->getInstantiator());
-    CandidateGeneratorTheoryUfOp cdtUfEq(pat.getOperator(),ith);
+    TermDb* tdb = qe->getTermDatabase();
+    CandidateGeneratorTheoryUfOp cdtUfEq(pat.getOperator(),tdb);
     /* Create a matcher from the candidate generator */
     AuxMatcher1 am1(cdtUfEq,am2);
     return am1;
@@ -658,7 +657,7 @@ private:
   /* generator */
   typedef SplitMatcher AuxMatcher3;
   typedef TestMatcher< AuxMatcher3, LegalTypeTest > AuxMatcher2;
-  typedef CandidateGeneratorMatcher< CandidateGeneratorTheoryUfClasses, AuxMatcher2 > AuxMatcher1;
+  typedef CandidateGeneratorMatcher< CandidateGeneratorTheoryEeClasses, AuxMatcher2 > AuxMatcher1;
   AuxMatcher1 d_cgm;
   static inline AuxMatcher1 createCgm(std::vector<Node> & pat, QuantifiersEngine* qe){
     Assert( pat.size() > 0);
@@ -673,9 +672,9 @@ private:
     AuxMatcher2 am2(am3,LegalTypeTest(ty));
     /** Generate one term by eq classes */
     uf::TheoryUF* uf = static_cast<uf::TheoryUF*>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF ));
-    uf::InstantiatorTheoryUf* ith =
-      static_cast<uf::InstantiatorTheoryUf*>(uf->getInstantiator());
-    CandidateGeneratorTheoryUfClasses cdtUfEq(ith);
+    eq::EqualityEngine* ee =
+      static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
+    CandidateGeneratorTheoryEeClasses cdtUfEq(ee);
     /* Create a matcher from the candidate generator */
     AuxMatcher1 am1(cdtUfEq,am2);
     return am1;
@@ -714,7 +713,7 @@ private:
     };
   };
   typedef TestMatcher< AuxMatcher3, EqTest > AuxMatcher2;
-  typedef CandidateGeneratorMatcher< CandidateGeneratorTheoryUfClass, AuxMatcher2 > AuxMatcher1;
+  typedef CandidateGeneratorMatcher< CandidateGeneratorTheoryEeClass, AuxMatcher2 > AuxMatcher1;
   AuxMatcher1 d_cgm;
   Node false_term;
   static inline AuxMatcher1 createCgm(Node pat, QuantifiersEngine* qe){
@@ -729,9 +728,9 @@ private:
     AuxMatcher2 am2(am3,EqTest(ty));
     /** Will generate all the terms of the eq class of false */
     uf::TheoryUF* uf = static_cast<uf::TheoryUF*>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF ));
-    uf::InstantiatorTheoryUf* ith =
-      static_cast<uf::InstantiatorTheoryUf*>(uf->getInstantiator());
-    CandidateGeneratorTheoryUfClass cdtUfEq(ith);
+    eq::EqualityEngine* ee =
+      static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
+    CandidateGeneratorTheoryEeClass cdtUfEq(ee);
     /* Create a matcher from the candidate generator */
     AuxMatcher1 am1(cdtUfEq,am2);
     return am1;
@@ -755,7 +754,7 @@ public:
 Matcher* mkMatcher( Node pat, QuantifiersEngine* qe ){
   Debug("inst-match-gen") << "mkMatcher: Pattern term is " << pat << std::endl;
 
-  if( Trigger::isAtomicTrigger( pat ) ){
+  if( pat.getKind() == kind::APPLY_UF){
     return new OpMatcher(pat, qe);
   } else if ( pat.getKind() == kind::APPLY_CONSTRUCTOR ){
     return new DatatypesMatcher(pat, qe);
@@ -777,10 +776,10 @@ Matcher* mkMatcher( Node pat, QuantifiersEngine* qe ){
         am2(am3,LegalTypeTest(pat.getType()));
       /* generator */
       uf::TheoryUF* uf = static_cast<uf::TheoryUF*>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF ));
-      uf::InstantiatorTheoryUf* ith =
-        static_cast<uf::InstantiatorTheoryUf*> (uf->getInstantiator());
-      CandidateGeneratorTheoryUfClass cdtUfEq(ith);
-      return new CandidateGeneratorMatcher< CandidateGeneratorTheoryUfClass,
+      eq::EqualityEngine* ee =
+        static_cast<eq::EqualityEngine*> (uf->getEqualityEngine());
+      CandidateGeneratorTheoryEeClass cdtUfEq(ee);
+      return new CandidateGeneratorMatcher< CandidateGeneratorTheoryEeClass,
         TestMatcher<ArithMatcher, LegalTypeTest> > (cdtUfEq,am2);
     }
   }
@@ -823,10 +822,8 @@ PatMatcher* mkPattern( Node pat, QuantifiersEngine* qe ){
       TestMatcher<ArithMatcher, LegalTest>
         am2(am3,LegalTest());
       /* generator */
-      uf::TheoryUF* uf = static_cast<uf::TheoryUF*>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF ));
-      uf::InstantiatorTheoryUf* ith =
-        static_cast<uf::InstantiatorTheoryUf*> (uf->getInstantiator());
-      CandidateGeneratorTheoryUfType cdtUfEq(pat.getType(),ith);
+      TermDb* tdb = qe->getTermDatabase();
+      CandidateGeneratorTheoryUfType cdtUfEq(pat.getType(),tdb);
       typedef CandidateGeneratorMatcher< CandidateGeneratorTheoryUfType,
                                           TestMatcher<ArithMatcher, LegalTest> > AuxMatcher1;
       return new PatOfMatcher<AuxMatcher1>(AuxMatcher1(cdtUfEq,am2));

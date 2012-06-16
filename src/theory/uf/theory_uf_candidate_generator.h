@@ -25,7 +25,7 @@
 
 namespace CVC4 {
 namespace theory {
-namespace uf {
+namespace eq {
 
 namespace rrinst{
 typedef CVC4::theory::rrinst::CandidateGenerator CandidateGenerator;
@@ -34,19 +34,19 @@ typedef CVC4::theory::rrinst::CandidateGenerator CandidateGenerator;
 
 // Just iterate amoung the equivalence classes
 // node::Null() must be given to reset
-class CandidateGeneratorTheoryUfClasses : public CandidateGenerator{
+class CandidateGeneratorTheoryEeClasses : public CandidateGenerator{
 private:
   //the equality classes iterator
   eq::EqClassesIterator d_eq;
-  //einstantiator pointer
-  InstantiatorTheoryUf* d_ith;
+  //equalityengine pointer
+  EqualityEngine* d_ee;
 public:
-  CandidateGeneratorTheoryUfClasses( InstantiatorTheoryUf * ith): d_ith( ith ){}
-  ~CandidateGeneratorTheoryUfClasses(){}
+  CandidateGeneratorTheoryEeClasses( EqualityEngine * ee): d_ee( ee ){}
+  ~CandidateGeneratorTheoryEeClasses(){}
   void resetInstantiationRound(){};
   void reset( TNode eqc ){
     Assert(eqc.isNull());
-    d_eq = eq::EqClassesIterator( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
+    d_eq = eq::EqClassesIterator( d_ee );
   }; //* the argument is not used
   TNode getNextCandidate(){
     if( !d_eq.isFinished() ) return (*(d_eq++));
@@ -56,24 +56,24 @@ public:
 
 // Just iterate amoung the equivalence class of the given node
 // node::Null() *can't* be given to reset
-class CandidateGeneratorTheoryUfClass : public CandidateGenerator{
+class CandidateGeneratorTheoryEeClass : public CandidateGenerator{
 private:
   //instantiator pointer
-  InstantiatorTheoryUf* d_ith;
+  EqualityEngine* d_ee;
   //the equality class iterator
   eq::EqClassIterator d_eqc;
   /* For the case where the given term doesn't exists in uf */
   Node d_retNode;
 public:
-  CandidateGeneratorTheoryUfClass( InstantiatorTheoryUf* ith): d_ith( ith ){}
-  ~CandidateGeneratorTheoryUfClass(){}
+  CandidateGeneratorTheoryEeClass( EqualityEngine* ee): d_ee( ee ){}
+  ~CandidateGeneratorTheoryEeClass(){}
   void resetInstantiationRound(){};
   void reset( TNode eqc ){
     Assert(!eqc.isNull());
-    if( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->hasTerm( eqc ) ){
+    if( d_ee->hasTerm( eqc ) ){
       /* eqc is in uf  */
-      eqc = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative( eqc );
-      d_eqc = eq::EqClassIterator( eqc, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
+      eqc = d_ee->getRepresentative( eqc );
+      d_eqc = eq::EqClassIterator( eqc, d_ee );
       d_retNode = Node::null();
     }else{
       /* If eqc if not a term known by uf, it is the only one in its
@@ -95,20 +95,29 @@ public:
   };
 };
 
+
+} /* namespace rrinst */
+} /* namespace eq */
+
+namespace uf {
+namespace rrinst {
+
+typedef CVC4::theory::rrinst::CandidateGenerator CandidateGenerator;
+
 class CandidateGeneratorTheoryUfOp : public CandidateGenerator{
 private:
   Node d_op;
   //instantiator pointer
-  InstantiatorTheoryUf* d_ith;
+  TermDb* d_tdb;
   // Since new term can appears we restrict ourself to the one that
   // exists at resetInstantiationRound
   size_t d_term_iter_limit;
   size_t d_term_iter;
 public:
-  CandidateGeneratorTheoryUfOp(Node op, InstantiatorTheoryUf* ith): d_op(op), d_ith( ith ){}
+  CandidateGeneratorTheoryUfOp(Node op, TermDb* tdb): d_op(op), d_tdb( tdb ){}
   ~CandidateGeneratorTheoryUfOp(){}
   void resetInstantiationRound(){
-    d_term_iter_limit = d_ith->getQuantifiersEngine()->getTermDatabase()->d_op_map[d_op].size();
+    d_term_iter_limit = d_tdb->d_op_map[d_op].size();
   };
   void reset( TNode eqc ){
     Assert(eqc.isNull());
@@ -116,28 +125,27 @@ public:
   }; //* the argument is not used
   TNode getNextCandidate(){
     if( d_term_iter<d_term_iter_limit ){
-      TNode n = d_ith->getQuantifiersEngine()->getTermDatabase()->d_op_map[d_op][d_term_iter];
+      TNode n = d_tdb->d_op_map[d_op][d_term_iter];
       ++d_term_iter;
       return n;
     } else return Node::null();
   };
 };
-
 
 class CandidateGeneratorTheoryUfType : public CandidateGenerator{
 private:
   TypeNode d_type;
   //instantiator pointer
-  InstantiatorTheoryUf* d_ith;
+  TermDb* d_tdb;
   // Since new term can appears we restrict ourself to the one that
   // exists at resetInstantiationRound
   size_t d_term_iter_limit;
   size_t d_term_iter;
 public:
-  CandidateGeneratorTheoryUfType(TypeNode type, InstantiatorTheoryUf* ith): d_type(type), d_ith( ith ){}
+  CandidateGeneratorTheoryUfType(TypeNode type, TermDb* tdb): d_type(type), d_tdb( tdb ){}
   ~CandidateGeneratorTheoryUfType(){}
   void resetInstantiationRound(){
-    d_term_iter_limit = d_ith->getQuantifiersEngine()->getTermDatabase()->d_type_map[d_type].size();
+    d_term_iter_limit = d_tdb->d_type_map[d_type].size();
   };
   void reset( TNode eqc ){
     Assert(eqc.isNull());
@@ -145,14 +153,14 @@ public:
   }; //* the argument is not used
   TNode getNextCandidate(){
     if( d_term_iter<d_term_iter_limit ){
-      TNode n = d_ith->getQuantifiersEngine()->getTermDatabase()->d_type_map[d_type][d_term_iter];
+      TNode n = d_tdb->d_type_map[d_type][d_term_iter];
       ++d_term_iter;
       return n;
     } else return Node::null();
   };
 };
 
-} /* namespace inst */
+} /* namespace rrinst */
 
 namespace inst{
 typedef CVC4::theory::inst::CandidateGenerator CandidateGenerator;
