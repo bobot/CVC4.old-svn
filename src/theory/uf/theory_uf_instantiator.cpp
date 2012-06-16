@@ -335,21 +335,22 @@ void InstantiatorTheoryUf::newTerms(SetNode& s){
 /** merge */
 void InstantiatorTheoryUf::merge( TNode a, TNode b ){
   if( Options::current()->efficientEMatching ){
+    //merge eqc_ops of b into a
+    EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
+    EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
+
     if( a.getKind()!=IFF && a.getKind()!=EQUAL && b.getKind()!=IFF && b.getKind()!=EQUAL ){
       Debug("efficient-e-match") << "Merging " << a << " with " << b << std::endl;
 
       //determine new candidates for instantiation
-      computeCandidatesPcPairs( a, b );
-      computeCandidatesPcPairs( b, a );
-      computeCandidatesPpPairs( a, b );
-      computeCandidatesPpPairs( b, a );
+      computeCandidatesPcPairs( a, eci_a, b, eci_b );
+      computeCandidatesPcPairs( b, eci_b, a, eci_a );
+      computeCandidatesPpPairs( a, eci_a, b, eci_b );
+      computeCandidatesPpPairs( b, eci_b, a, eci_a );
     }
-    computeCandidatesConstants( a, b);
-    computeCandidatesConstants( b, a);
+    computeCandidatesConstants( a, eci_a, b, eci_b);
+    computeCandidatesConstants( b, eci_b, a, eci_a);
 
-    //merge eqc_ops of b into a
-    EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
-    EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
     eci_a->merge( eci_b );
   }
 }
@@ -372,14 +373,12 @@ EqClassInfo* InstantiatorTheoryUf::getOrCreateEquivalenceClassInfo( Node n ){
   return d_eqc_ops[n];
 }
 
-void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
+void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, EqClassInfo* eci_a, Node b, EqClassInfo* eci_b ){
   Debug("efficient-e-match") << "Compute candidates for pc pairs..." << std::endl;
   Debug("efficient-e-match") << "  Eq class = [";
   outputEqClass( "efficient-e-match", a);
   Debug("efficient-e-match") << "]" << std::endl;
-  EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
   outputEqClassInfo("efficient-e-match",eci_a);
-  EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
   for( BoolMap::iterator it = eci_a->d_funs.begin(); it != eci_a->d_funs.end(); it++ ) {
     //the child function:  a member of eq_class( a ) has top symbol g, in other words g is in funs( a )
     Node g = (*it).first;
@@ -421,10 +420,8 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, Node b ){
   }
 }
 
-void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
+void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, EqClassInfo* eci_a, Node b, EqClassInfo* eci_b ){
   Debug("efficient-e-match") << "Compute candidates for pp pairs..." << std::endl;
-  EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
-  EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
   for( std::map< Node, std::map< Node, std::vector< triple< NodePpDispatcher*, Ips, Ips > > > >::iterator it = d_pp_pairs.begin();
        it != d_pp_pairs.end(); ++it ){
     Node f = it->first;
@@ -477,14 +474,12 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
 }
 
 
-void InstantiatorTheoryUf::computeCandidatesConstants( Node a, Node b ){
+void InstantiatorTheoryUf::computeCandidatesConstants( Node a, EqClassInfo* eci_a, Node b, EqClassInfo* eci_b ){
   Debug("efficient-e-match") << "Compute candidates constants for cc pairs..." << std::endl;
   Debug("efficient-e-match") << "  Eq class = [";
   outputEqClass( "efficient-e-match", a);
   Debug("efficient-e-match") << "]" << std::endl;
-  EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );
   outputEqClassInfo("efficient-e-match",eci_a);
-  EqClassInfo* eci_b = getOrCreateEquivalenceClassInfo( b );
   for( std::map< Node, std::map< Node, NodePcDispatcher* > >::iterator
          it = d_cc_pairs.begin(), end = d_cc_pairs.end();
        it != end; ++it ) {

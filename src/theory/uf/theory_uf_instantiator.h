@@ -468,11 +468,11 @@ private:
                             EfficientHandler& eh, size_t index2,
                             const std::vector<Node> & pats); //pats for debug
   /** compute candidates for pc pairs */
-  void computeCandidatesPcPairs( Node a, Node b );
+  void computeCandidatesPcPairs( Node a, EqClassInfo*, Node b, EqClassInfo* );
   /** compute candidates for pp pairs */
-  void computeCandidatesPpPairs( Node a, Node b );
+  void computeCandidatesPpPairs( Node a, EqClassInfo*, Node b, EqClassInfo* );
   /** compute candidates for cc pairs */
-  void computeCandidatesConstants( Node a, Node b );
+  void computeCandidatesConstants( Node a, EqClassInfo*, Node b, EqClassInfo* );
   /** collect terms based on inverted path string */
   void collectTermsIps( Ips& ips, SetNode& terms, int index);
   bool collectParentsTermsIps( Node n, Node f, int arg, SetNode& terms, bool addRep, bool modEq = true );
