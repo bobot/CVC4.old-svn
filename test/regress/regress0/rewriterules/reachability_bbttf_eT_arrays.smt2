@@ -109,11 +109,6 @@
 (declare-fun e4 () elt)
 
 
-;;Example0
-;;(assert (not (=> (and (not (= e1 e2)) (Rf e1 e2 e3)) (Rf e1 (f e1) e3))) )
-
-;;Thomas' example1 x,e1 y,e2 z,e3 y',e4
-;;(assert (not (=> (and (Rf e1 e2 e3) (not (= e2 e3)) (= e4 (f e2))) (Rf e1 e4 e3))))
 
 (declare-fun R_avoid (mem elt elt elt) Bool)
 
@@ -143,20 +138,30 @@
 (assert-propagation ((?m mem)(?x elt)(?y elt)(?z elt)) () ((R ?m ?x ?z (join ?m ?x ?y))(R ?m ?y ?z (join ?m ?x ?y))) (= ?z (join ?m ?x ?y)) () )
 
 
-;; An identity for join
 (assert-propagation ((?p elt)(?q elt)(?m mem)(?u elt)(?v elt)) () ()
                     (= (join (store ?m ?p ?q) ?u ?v)
                        (let ((jp (join ?m ?u ?v)))
                          ;; In ?m: ?u ?v have a nearest point of junction (join ?m ?u ?v)
                          (ite (and (R ?m ?u jp jp) (R ?m ?v jp jp))
                               ;; The modification is in the ?u branch
-                              (ite (R ?m ?u ?p jp) (join ?m ?q ?v)
-                              ;; The modification is in the ?v branch
-                                   (ite (R ?m ?v ?p jp) (join ?m ?u ?q)
-                              ;; The modification is not before the point of junction
-                                        (join ?m ?u ?v)
+                              (ite (R ?m ?u ?p jp)
+                                   ;; we can go by the new path and the new path doesn't cycle
+                                   (ite (and (R (store ?m ?p ?q) ?u ?p ?q) (R (store ?m ?p ?q) ?q (join ?m ?q ?v) (join ?m ?q ?v)))
+                                        (join ?m ?q ?v)
+                                   ;; we can't
+                                        null
                                    )
-                              )
+                              ;; The modification is in the ?v branch
+                              (ite (R ?m ?v ?p jp)
+                                   ;; we can go by the new path and the new path doesn't cycle
+                                   (ite (and (R (store ?m ?p ?q) ?v ?p ?q) (R (store ?m ?p ?q) ?q (join ?m ?u ?q) (join ?m ?u ?q)))
+                                        (join ?m ?u ?q)
+                                   ;; we can't
+                                        null
+                                   )
+                              ;; The modification is not before the point of junction
+                                   (join ?m ?u ?v)
+                              ))
                          ;; In ?m: ?u ?v doens't have a point of junction
                               ;;The modification is accesible from ?u
                               (ite (R ?m ?u ?p ?p) (join ?m ?q ?v)
@@ -172,6 +177,24 @@
                     )
 
 (declare-fun next2 () mem)
+
+;; === Example 0 ===
+;; (assert (not (=>
+;;               (and (not (= e1 e2))
+;;                    (R next e1 e2 e3))
+;;               (R next e1 (select next e1) e3))
+;; ))
+
+;;================
+;;Thomas' example1 x,e1 y,e2 z,e3 y',e4
+;;================
+;; (assert (not (=>
+;;               (and (R next e1 e2 e3)
+;;                    (not (= e2 e3))
+;;                    (= e4 (select next e2)))
+;;               (R next e1 e4 e3))
+;; ))
+
 
 ;;===================
 ;; ;;Thomas' example2
@@ -191,7 +214,19 @@
 ;;================
 ;;Thomas' example3
 ;;================
+(assert (not (=> (and (= (join next e1 e2) null)
+                      (R next e2 null null)
+                      (not (= e2 null))
+                      (= next2 (store next e2 e1))
+                      (= e3 e2)
+                      (= e4 (select next e2))
+                      )
+                 (= (join next2 e3 e4) null)
+                 )
+             )
+        )
 
+;; ==== for debugging example 3 ====
 ;; ;;case to consider
 ;; ;;(assert (or (not (R next e1 null null)) (R next e1 null null)))
 
@@ -230,35 +265,21 @@
 ;; ;;to prove
 ;; (assert (not (= (join next2 e3 e4) null)))
 
-;;=main
-;; (assert (not (=> (and (= (join next e1 e2) null)
-;;                       (R next e2 null null)
-;;                       (not (= e2 null))
-;;                       (= next2 (store next e2 e1))
-;;                       (= e3 e2)
-;;                       (= e4 (select next e2))
-;;                       )
-;;                  (= (join next2 e3 e4) null)
-;;                  )
-;;              )
-;;         )
-;;====================
-
 
 ;;====================
 ;; ;;Thomas' example wrong sat?
 ;;====================
 
-(assert (not (=> (and
-                  (= (join next e1 e2) null)
-                  (R next e2 null null)
-                  (not (= e2 null))
-                  (= next2 (store next e2 e1))
-                  )
-                 (= (join next2 e1 e2) null)
-                 )
-             )
-        )
+;; (assert (not (=> (and
+;;                   (= (join next e1 e2) null)
+;;                   (R next e2 null null)
+;;                   (not (= e2 null))
+;;                   (= next2 (store next e2 e1))
+;;                   )
+;;                  (= (join next2 e1 e2) null)
+;;                  )
+;;              )
+;;         )
 
 ;;====================
 ;; ;;example4 sat
@@ -297,7 +318,7 @@
 
 
 ;;====================
-;; example6 unsat
+;; example7 unsat
 ;;====================
 
 ;; (assert (R next e1 e2 (select next e1)))
