@@ -41,14 +41,9 @@ EqClassInfo::EqClassInfo( context::Context* c ) : d_funs( c ), d_pfuns( c ), d_d
 
 }
 
-bool operatorKind(TNode n){
-  return  n.getMetaKind() == kind::metakind::OPERATOR ||
-    n.getMetaKind() == kind::metakind::PARAMETERIZED;
-}
-
 //set member
 void EqClassInfo::setMember( Node n, TermDb* db ){
-  if( operatorKind(n) ){
+  if( n.hasOperator() ){
     d_funs.insertAtContextLevelZero(n.getOperator(),true);
   }
   //add parent functions
@@ -496,7 +491,7 @@ void InstantiatorTheoryUf::computeCandidatesConstants( Node a, EqClassInfo* eci_
       while( !eqc_iter.isFinished() ){
         Debug("efficient-e-match-debug") << "> look at " << (*eqc_iter)
                                          << std::endl;
-        if( operatorKind(*eqc_iter) && (*eqc_iter).getOperator() == it->first ) s.insert(*eqc_iter);
+        if( (*eqc_iter).hasOperator() && (*eqc_iter).getOperator() == it->first ) s.insert(*eqc_iter);
         eqc_iter++;
       }
 
@@ -579,7 +574,7 @@ bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, SetN
 }
 
 void InstantiatorTheoryUf::registerPatternElementPairs2( Node pat, Ips& ips, PpIpsMap & pp_ips_map, NodePcDispatcher* npc ){
-  Assert( pat.getKind()==APPLY_UF );
+  Assert( pat.hasOperator() );
   //add information for possible pp-pair
   ips.push_back( std::pair< Node, int >( pat.getOperator(), 0 ) ); //0 is just a dumb value
 
@@ -794,7 +789,7 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
     while( !eqc_iter.isFinished() ){
       Debug("efficient-e-match-debug") << "> look at " << (*eqc_iter)
                                        << std::endl;
-      if( operatorKind(*eqc_iter) && (*eqc_iter).getOperator() == op ) ele.insert(*eqc_iter);
+      if( (*eqc_iter).hasOperator() && (*eqc_iter).getOperator() == op ) ele.insert(*eqc_iter);
       eqc_iter++;
     }
     if( !ele.empty() ){

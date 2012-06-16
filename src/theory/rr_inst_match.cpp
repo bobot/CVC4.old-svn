@@ -555,7 +555,7 @@ class AllOpMatcher: public PatMatcher{
   typedef CandidateGeneratorMatcher< CandidateGeneratorTheoryUfOp, AuxMatcher2> AuxMatcher1;
   AuxMatcher1 d_cgm;
   static inline AuxMatcher1 createCgm(Node pat, QuantifiersEngine* qe){
-    Assert( pat.getKind() == kind::APPLY_UF );
+    Assert( pat.hasOperator() );
     /** In reverse order of matcher sequence */
     AuxMatcher3 am3(pat,qe);
     /** Keep only the one that have the good operator */
