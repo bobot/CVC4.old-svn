@@ -157,7 +157,8 @@ private:
   /** compute candidates for pp pairs */
   void computeCandidatesPpPairs( Node a, Node b );
   /** collect terms based on inverted path string */
-  void collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms, int index = 0 );
+  void collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms, int index);
+  void collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms);
   bool collectParentsTermsIps( Node n, Node f, int arg, std::vector< Node >& terms, bool addRep, bool modEq = true );
 public:
   /** Register candidate generator cg for pattern pat. (for use with efficient e-matching)

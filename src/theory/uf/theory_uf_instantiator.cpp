@@ -363,20 +363,23 @@ void InstantiatorTheoryUf::computeCandidatesPpPairs( Node a, Node b ){
   }
 }
 
+void InstantiatorTheoryUf::collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms ){
+  return collectTermsIps( ips, terms,  ips.size() - 1);
+}
+
 void InstantiatorTheoryUf::collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms, int index ){
-  if( index<(int)ips.size() && !terms.empty() ){
+  if( index > 0 && !terms.empty() ){
     Debug("efficient-e-match-debug") << "> Process " << index << std::endl;
     Node f = ips[index].first;
     int arg = ips[index].second;
 
     //for each term in terms, determine if any term (modulo equality) has parent "f" from position "arg"
-    bool addRep = ( index!=(int)ips.size()-1 );
+    bool addRep = ( index!=0 );
     std::vector< Node > newTerms;
     for( int t=0; t<(int)terms.size(); t++ ){
       collectParentsTermsIps( terms[t], f, arg, newTerms, addRep );
     }
-    terms.clear();
-    terms.insert( terms.begin(), newTerms.begin(), newTerms.end() );
+    terms.swap(newTerms);
 
     Debug("efficient-e-match-debug") << "> Terms are now: ";
     for( int t=0; t<(int)terms.size(); t++ ){
@@ -384,7 +387,7 @@ void InstantiatorTheoryUf::collectTermsIps( InvertedPathString& ips, std::vector
     }
     Debug("efficient-e-match-debug") << std::endl;
 
-    collectTermsIps( ips, terms, index+1 );
+    collectTermsIps( ips, terms, index-1 );
   }
 }
 
