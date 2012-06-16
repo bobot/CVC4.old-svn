@@ -191,8 +191,7 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
   //Add to direct rewrite rule
   bool directrr = false;
   if(direct_rewrite &&
-     ((guards.size() == 0 && r[2].getKind() == kind::RR_REWRITE) ||
-      (guards.size() == 1 && r[2].getKind() == kind::RR_REDUCTION))
+     guards.size() == 0 && r[2].getKind() == kind::RR_REWRITE
      && pattern.size() == 1){
     directrr = addRewritePattern(pattern[0],new_terms, inst_constants, vars);
   }
