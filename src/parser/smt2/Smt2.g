@@ -1164,9 +1164,9 @@ POP_TOK : 'pop';
 // extended commands
 DECLARE_DATATYPES_TOK : 'declare-datatypes';
 ECHO_TOK : 'echo';
-REWRITE_RULE_TOK : 'rewrite-rule';
-REDUCTION_RULE_TOK : 'reduction-rule';
-PROPAGATION_RULE_TOK : 'propagation-rule';
+REWRITE_RULE_TOK : 'assert-rewrite';
+REDUCTION_RULE_TOK : 'assert-reduction';
+PROPAGATION_RULE_TOK : 'assert-propagation';
 
 // attributes
 ATTRIBUTE_PATTERN_TOK : ':pattern';
