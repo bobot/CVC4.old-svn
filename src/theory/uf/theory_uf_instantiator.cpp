@@ -383,7 +383,7 @@ void InstantiatorTheoryUf::computeCandidatesPcPairs( Node a, EqClassInfo* eci_a,
          itf != d_pc_pairs[g].end(); ++itf ){
       //f/g is a parent/child pair
       Node f = itf->first;
-      if( eci_b->hasParent( f ) || true ){
+      if( eci_b->hasParent( f ) ){
         //DO_THIS: determine if f in pfuns( b ), only do the follow if so
         Debug("efficient-e-match") << "    Checking parent application " << f << std::endl;
         //scan through the list of inverted path strings/candidate generators

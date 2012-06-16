@@ -140,47 +140,50 @@
 
 (declare-fun next2 () mem)
 
-;;Thomas' example2
-(assert (not (=>
-              (and (R next e1 null null)
-                   (= (join next e1 e2) null)
-                   (= next2 (store next e2 e1))
-                   )
-              (R next2 e1 null null)
-              )
-             )
-        )
+;; ;;Thomas' example2
+;; (assert (not (=>
+;;               (and (R next e1 null null)
+;;                    (= (join next e1 e2) null)
+;;                    (= next2 (store next e2 e1))
+;;                    )
+;;               (R next2 e1 null null)
+;;               )
+;;              )
+;;         )
 
 ;;Thomas' example3
-;; join(next, first, e) == null &&
-;; reach(next, e, null) &&
-;; e != null &&
-;; next' == upd(next, e, first) &&
-;; first' == e &&
-;; e' == sel (next, e)
-;; ==>
-;; join(next', first', e') == null 
+;; (assert (not (=> (and (= (join next e1 e2) null)
+;;                       (R next e2 null null)
+;;                       (not (= e2 null))
+;;                       (= next2 (store next e2 e1))
+;;                       (= e3 e2)
+;;                       (= e4 (select next e2))
+;;                       )
+;;                  (= (join next2 e3 e4) null)
+;;                  )
+;;              )
+;;         )
 
 
-;; ;;Thomas' example3
-;; (assert(not
-;;         (=>
-;;          (and
-;;           ;; (= (join e1 e2) null)
-;;           (Rf e2 null null)
-;;           (not (= e2 null)))
-;;          ;; (next' == upd(next, e2, e1)
-;;          ;;join(next',e1,e2) == null
-;; (or (and (not (Rf (f e2) e2 e2)) (not (Rf e1 e2 e2) ))
-;; ;;    (and (Rf (f e2) e2 e2) (not (Rf e1 e1 e1) ))
-;;     (and (Rf e1 e2 e2) (not (Rf (f e2) e1 e1)) )
+;;Thomas' example3
+(assert(not
+        (=>
+         (and
+          ;; (= (join e1 e2) null)
+          (R next e2 null null)
+          (not (= e2 null)))
+         ;; (next' == upd(next, e2, e1)
+         ;;join(next',e1,e2) == null
+(or (and (not (R next (select next e2) e2 e2)) (not (R next e1 e2 e2) ))
+    (and (R next (select next e2) e2 e2) (not (R next e1 e1 e1) ))
+    (and (R next e1 e2 e2) (not (R next (select next e2) e1 e1)) )
+)
+;; (or
+;;  (and (not (Rf e1 e2 e2)) (not (Rf e2 e2 e2)))
+;;  (and (Rf e1 e2 e2) (not (Rf e2 e1 e1)))
+;;  (and (Rf e2 e2 e2) (not (Rf e1 e1 e1)))
 ;; )
-;; ;; (or
-;; ;;  (and (not (Rf e1 e2 e2)) (not (Rf e2 e2 e2)))
-;; ;;  (and (Rf e1 e2 e2) (not (Rf e2 e1 e1)))
-;; ;;  (and (Rf e2 e2 e2) (not (Rf e1 e1 e1)))
-;; ;; )
-;; )))
+)))
 
 
 
