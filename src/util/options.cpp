@@ -90,7 +90,7 @@ Options::Options() :
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
   simplificationModeSetByUser(false),
   decisionMode(DECISION_STRATEGY_INTERNAL),
-  decisionModeSetByUser(false),
+  decisionModeSetByUser(true),
   decisionOptions(DecisionOptions(defaultDecOpt)),
   doStaticLearning(true),
   doITESimp(false),
