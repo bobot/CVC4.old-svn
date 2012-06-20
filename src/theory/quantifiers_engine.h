@@ -160,10 +160,12 @@ public:
 
 namespace quantifiers {
   class InstantiationEngine;
+  class ModelEngine;
 }/* CVC4::theory::quantifiers */
 
 class QuantifiersEngine {
   friend class quantifiers::InstantiationEngine;
+  friend class quantifiers::ModelEngine;
   friend class InstMatch;
 private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;

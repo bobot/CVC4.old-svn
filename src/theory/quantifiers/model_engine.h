@@ -44,6 +44,8 @@ public:
     d_type_reps.clear();
     d_tmap.clear();
   }
+  /** has type */
+  bool hasType( TypeNode tn ) { return d_type_reps.find( tn )!=d_type_reps.end(); }
   /** set the representatives for type */
   void set( TypeNode t, std::vector< Node >& reps );
   /** returns index in d_type_reps for node n */
@@ -54,13 +56,16 @@ public:
 
 class ModelEngine;
 
+//representative domain
+typedef std::vector< int > RepDomain;
+
 /** this class iterates over a RepAlphabet */
 class RepAlphabetIterator {
 private:
+  //initialize the iterator
   void initialize( QuantifiersEngine* qe, Node f, ModelEngine* model );
 public:
   RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model );
-  RepAlphabetIterator( QuantifiersEngine* qe, Node f, ModelEngine* model, std::vector< int >& indexOrder );
   ~RepAlphabetIterator(){}
   //pointer to quantifier
   Node d_f;
@@ -68,6 +73,8 @@ public:
   ModelEngine* d_model;
   //index we are considering
   std::vector< int > d_index;
+  //domain we are considering
+  std::vector< RepDomain > d_domain;
   //ordering for variables we are indexing over
   //  for example, given reps = { a, b } and quantifier forall( x, y, z ) P( x, y, z ) with d_index_order = { 2, 0, 1 },
   //    then we consider instantiations in this order:
@@ -86,8 +93,12 @@ public:
   //the current terms we are considering
   std::vector< Node > d_terms;
 public:
+  /** set index order */
+  void setIndexOrder( std::vector< int >& indexOrder );
+  /** set domain */
+  void setDomain( std::vector< RepDomain >& domain );
   /** increment the iterator */
-  void increment2( QuantifiersEngine* qe, int counter ); 
+  void increment2( QuantifiersEngine* qe, int counter );
   void increment( QuantifiersEngine* qe );
   /** is the iterator finished? */
   bool isFinished();
@@ -102,9 +113,6 @@ public:
   /** debug print */
   void debugPrint( const char* c );
   void debugPrintSmall( const char* c );
-  //for debugging
-  int d_inst_tried;
-  int d_inst_tests;
 };
 
 
@@ -118,7 +126,7 @@ public:
   Node d_value;
 public:
   //is this model tree empty?
-  bool isEmpty() { return d_data.empty(); }
+  bool isEmpty() { return d_data.empty() && d_value.isNull(); }
   //clear
   void clear(){
     d_data.clear();
@@ -184,8 +192,8 @@ public:
   Node getValue( QuantifiersEngine* qe, Node n, int& depIndex ){
     return d_tree.getValue( qe, n, d_index_order, depIndex, 0 );
   }
-  Node getConstantValue( QuantifiersEngine* qe, Node n ) { 
-    return d_tree.getConstantValue( qe, n, d_index_order, 0 ); 
+  Node getConstantValue( QuantifiersEngine* qe, Node n ) {
+    return d_tree.getConstantValue( qe, n, d_index_order, 0 );
   }
   void simplify() { d_tree.simplify( d_op, Node::null(), 0 ); }
   bool isTotal() { return d_tree.isTotal( d_op, 0 ); }
@@ -211,16 +219,23 @@ private:
   std::vector< Node > d_ground_asserts_reps;
   bool d_model_constructed;
   //store for set values
-  std::map< Node, Node > d_set_values[2];
+  std::map< Node, Node > d_set_values[2][2];
   // preferences for default values
   std::vector< Node > d_values;
   std::map< Node, std::vector< Node > > d_value_pro_con[2];
+  std::map< Node, std::vector< Node > > d_term_pro_con[2];
   /** set value */
-  void setValue( Node n, Node v, bool ground = true );
+  void setValue( Node n, Node v, bool ground = true, bool isReq = true );
   /** set model */
   void setModel();
   /** clear model */
   void clearModel();
+private:
+  // defaults
+  std::vector< Node > d_defaults;
+  Node getIntersection( Node n1, Node n2, bool& isGround );
+  // compute model basis arg
+  static void computeModelBasisArgAttribute( Node n );
 public:
   UfModel(){}
   UfModel( Node op, ModelEngine* qe );
@@ -229,6 +244,8 @@ public:
   UfModelTreeOrdered d_tree;
   //quantifiers that are satisfied because of the constant definition of d_op
   bool d_reconsider_model;
+  //the domain of the arguments
+  std::map< int, RepDomain > d_active_domain;
 public:
   /** debug print */
   void debugPrint( const char* c );
@@ -265,13 +282,14 @@ private:
   std::map< Node, Node > d_model_basis_term;
   //map from instantiation terms to their model basis equivalent
   std::map< Node, Node > d_model_basis;
+  //map from quantifiers to model basis match
+  std::map< Node, InstMatch > d_quant_basis_match;
+private:
   //the model we are working with
   RepAlphabet d_ra;
   std::map< Node, UfModel > d_uf_model;
-  ////map from model basis terms to quantifiers that are pro/con their definition
-  //std::map< Node, std::vector< Node > > d_quant_pro_con[2];
-  //map from quantifiers to model basis terms that are pro the definition of
-  std::map< Node, std::vector< Node > > d_pro_con_quant[2];
+  //map from quantifiers to the instantiation literals that their model is dependent upon
+  std::map< Node, std::vector< Node > > d_quant_model_lits;
   //map from quantifiers to if are constant SAT
   std::map< Node, bool > d_quant_sat;
 private:
@@ -294,25 +312,28 @@ private:
   std::map< Node, std::vector< int > > d_eval_term_index_order;
   int getMaxVariableNum( int n );
   void makeEvalTermIndexOrder( Node n );
-public:
-  void increment( RepAlphabetIterator* rai );
 private:
   //queries about equality
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
 private:
-  bool useModel();
+  //options
+  bool optUseModel();
+  bool optOneInstPerQuantRound();
+  bool optFindExceptions();
 private:
-  //initialize quantifiers, return false if lemma needed to be added
-  bool initializeQuantifier( Node f );
+  //initialize quantifiers, return number of lemmas produced
+  int initializeQuantifier( Node f );
   //build representatives
   void buildRepresentatives();
   //initialize model
   void initializeModel();
   //analyze quantifiers
   void analyzeQuantifiers();
+  //find exceptions, return number of lemmas produced
+  int findExceptions( Node f );
   //instantiate quantifier, return number of lemmas produced
-  int instantiateQuantifier( Node f );
+  int exhaustiveInstantiate( Node f );
 private:
   //register instantiation terms with their corresponding model basis terms
   void registerModelBasis( Node n, Node gn );
@@ -320,8 +341,8 @@ private:
   void initializeUf( Node n );
   void collectUfTerms( Node n, std::vector< Node >& terms );
   void initializeUfModel( Node op );
-  //void processPredicate( Node f, Node p, bool phase );
-  //void processEquality( Node f, Node eq, bool phase );
+  //for computing relevant domain
+  void computeRelevantDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd );
 public:
   ModelEngine( TheoryQuantifiers* th );
   ~ModelEngine(){}
@@ -336,7 +357,7 @@ public:
   //get model basis term for op
   Node getModelBasisApplyUfTerm( Node op );
   //is model basis term for op
-  bool isModelBasisTerm( Node op, Node n );
+  //bool isModelBasisTerm( Node op, Node n );
 public:
   void check( Theory::Effort e );
   void registerQuantifier( Node f );
@@ -360,6 +381,8 @@ public:
     ~Statistics();
   };
   Statistics d_statistics;
+  //
+  std::map< Node, bool > d_quant_semi_sat;
 };
 
 }
