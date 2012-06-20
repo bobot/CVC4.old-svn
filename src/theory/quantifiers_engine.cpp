@@ -193,6 +193,7 @@ d_forall_asserts( c ),
 d_active( c ){
   d_eq_query = NULL;
   d_term_db = new TermDb( this );
+  d_hasAddedLemma = false;
   //options
   d_optInstCheckDuplicate = true;
   d_optInstMakeRepresentative = true;
@@ -209,6 +210,7 @@ Instantiator* QuantifiersEngine::getInstantiator( int id ){
 void QuantifiersEngine::check( Theory::Effort e ){
   CodeTimer codeTimer(d_time);
 
+  d_hasAddedLemma = false;
   if( e==Theory::EFFORT_LAST_CALL ){
     ++(d_statistics.d_instantiation_rounds_lc);
   }else if( e==Theory::EFFORT_FULL ){
@@ -511,10 +513,13 @@ bool QuantifiersEngine::addSplitEquality( Node n1, Node n2, bool reqPhase, bool 
 }
 
 void QuantifiersEngine::flushLemmas( OutputChannel* out ){
-  for( int i=0; i<(int)d_lemmas_waiting.size(); i++ ){
-    out->lemma( d_lemmas_waiting[i] );
+  if( !d_lemmas_waiting.empty() ){
+    d_hasAddedLemma = true;
+    for( int i=0; i<(int)d_lemmas_waiting.size(); i++ ){
+      out->lemma( d_lemmas_waiting[i] );
+    }
+    d_lemmas_waiting.clear();
   }
-  d_lemmas_waiting.clear();
 }
 
 Node QuantifiersEngine::getCounterexampleBody( Node f ){

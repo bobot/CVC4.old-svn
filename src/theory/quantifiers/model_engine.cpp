@@ -21,16 +21,16 @@
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
-//#define ME_PRINT_PROCESS_TIMES
+#define ME_PRINT_PROCESS_TIMES
 //#define ME_PRINT_WARNINGS
 
-//#define DISABLE_EVAL_SKIP_MULTIPLE
+#define DISABLE_EVAL_SKIP_MULTIPLE
 #define RECONSIDER_FUNC_DEFAULT_VALUE
 #define RECONSIDER_FUNC_CONSTANT
 #define USE_INDEX_ORDERING
-#define USE_PARTIAL_DEFAULT_VALUES
-#define EVAL_FAIL_SKIP_MULTIPLE
-#define USE_RELEVANT_DOMAIN
+//#define USE_PARTIAL_DEFAULT_VALUES
+//#define EVAL_FAIL_SKIP_MULTIPLE
+//#define USE_RELEVANT_DOMAIN
 
 
 using namespace std;
@@ -210,7 +210,7 @@ void UfModelTree::setValue( QuantifiersEngine* qe, Node n, Node v, std::vector< 
 //get value function
 Node UfModelTree::getValue( QuantifiersEngine* qe, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex ){
   if( !d_value.isNull() && isTotal( n.getOperator(), argIndex ) ){
-    //std::cout << "Constant, return " << d_value << ", depIndex = " << argIndex << std::endl;
+    //Notice() << "Constant, return " << d_value << ", depIndex = " << argIndex << std::endl;
     depIndex = argIndex;
     return d_value;
   }else{
@@ -236,8 +236,8 @@ Node UfModelTree::getValue( QuantifiersEngine* qe, Node n, std::vector< int >& i
     }
     //update depIndex
     depIndex = childDepIndex[0]>childDepIndex[1] ? childDepIndex[0] : childDepIndex[1];
-    //std::cout << "Return " << val << ", depIndex = " << depIndex;
-    //std::cout << " ( " << childDepIndex[0] << ", " << childDepIndex[1] << " )" << std::endl;
+    //Notice() << "Return " << val << ", depIndex = " << depIndex;
+    //Notice() << " ( " << childDepIndex[0] << ", " << childDepIndex[1] << " )" << std::endl;
     return val;
   }
 }
@@ -401,7 +401,7 @@ void UfModel::computeModelBasisArgAttribute( Node n ){
 }
 
 Node UfModel::getIntersection( Node n1, Node n2, bool& isGround ){
-  //std::cout << "Get intersection " << n1 << " " << n2 << std::endl;
+  //Notice() << "Get intersection " << n1 << " " << n2 << std::endl;
   isGround = true;
   std::vector< Node > children;
   children.push_back( n1.getOperator() );
@@ -583,7 +583,7 @@ void UfModel::buildModel(){
     Debug("fmf-model-cons") << "  Making model...";
     setModel();
     Debug("fmf-model-cons") << "  Finished constructing model for " << d_op << "." << std::endl;
-    //std::cout << "  Finished constructing model for " << d_op << "." << std::endl;
+    //Notice() << "  Finished constructing model for " << d_op << "." << std::endl;
 
     //for debugging, make sure model satisfies all ground assertions
     for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
@@ -678,7 +678,7 @@ ModelEngine::ModelEngine( TheoryQuantifiers* th ){
 }
 
 void ModelEngine::check( Theory::Effort e ){
-  if( e==Theory::EFFORT_LAST_CALL ){
+  if( e==Theory::EFFORT_LAST_CALL && !d_quantEngine->hasAddedLemma() ){
     //first, check if we can minimize the model further
     if( !d_ss->minimize() ){
       return;
@@ -695,7 +695,7 @@ void ModelEngine::check( Theory::Effort e ){
     if( addedLemmas==0 ){
       //quantifiers are initialized, we begin an instantiation round
 #ifdef ME_PRINT_PROCESS_TIMES
-      std::cout << "---Instantiation Round---" << std::endl;
+      Notice() << "---Instantiation Round---" << std::endl;
 #endif
       Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
       ++(d_statistics.d_inst_rounds);
@@ -724,9 +724,9 @@ void ModelEngine::check( Theory::Effort e ){
           }
 #ifdef ME_PRINT_PROCESS_TIMES
           if( addedLemmas>0 ){
-            std::cout << "Exceptions, added lemmas = " << addedLemmas << std::endl;
+            Notice() << "Exceptions, added lemmas = " << addedLemmas << std::endl;
           }else{
-            std::cout << "No exceptions..." << std::endl;
+            Notice() << "No exceptions..." << std::endl;
           }
 #endif
           Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << std::endl;
@@ -759,7 +759,7 @@ void ModelEngine::check( Theory::Effort e ){
         }
         Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << std::endl;
 #ifdef ME_PRINT_PROCESS_TIMES
-        std::cout << "Added Lemmas = " << addedLemmas << std::endl;
+        Notice() << "Added Lemmas = " << addedLemmas << std::endl;
 #endif
 #ifdef ME_PRINT_WARNINGS
         if( addedLemmas>10000 ){
@@ -813,7 +813,7 @@ int ModelEngine::initializeQuantifier( Node f ){
     //    it != d_quantEngine->d_phase_reqs[f].end(); ++it ){
     //  Node n = it->first;
     //  if( n.getKind()==EQUAL && n[0].getKind()==INST_CONSTANT && n[1].getKind()==INST_CONSTANT ){
-    //    std::cout << "Unhandled phase req: " << n << std::endl;
+    //    Notice() << "Unhandled phase req: " << n << std::endl;
     //  }
     //}
 
@@ -837,7 +837,7 @@ int ModelEngine::initializeQuantifier( Node f ){
       return 1;
     }else{
       //shouldn't happen usually, but will occur if x != y is a required literal for f.
-      //std::cout << "No model basis for " << f << std::endl;
+      //Notice() << "No model basis for " << f << std::endl;
       ++(d_statistics.d_num_quants_init_fail);
     }
   }
@@ -865,8 +865,8 @@ void ModelEngine::buildRepresentatives(){
     //set them in the alphabet
     d_ra.set( tn, reps );
 #ifdef ME_PRINT_PROCESS_TIMES
-    std::cout << "Cardinality( " << tn << " )" << " = " << reps.size() << std::endl;
-    //std::cout << d_quantEngine->getEqualityQuery()->getRepresentative( NodeManager::currentNM()->mkConst( true ) ) << std::endl;
+    Notice() << "Cardinality( " << tn << " )" << " = " << reps.size() << std::endl;
+    //Notice() << d_quantEngine->getEqualityQuery()->getRepresentative( NodeManager::currentNM()->mkConst( true ) ) << std::endl;
 #endif
   }
 }
@@ -927,9 +927,12 @@ void ModelEngine::analyzeQuantifiers(){
             if( n[j].hasAttribute(InstConstantAttribute()) ){
               if( n[j].getKind()==APPLY_UF ){
                 Node op = gn[j].getOperator();
-                Assert( d_uf_model.find( op )!=d_uf_model.end() );
-                uf_terms.push_back( gn[j] );
-                isConst = isConst && d_uf_model[op].isConstant();
+                if( d_uf_model.find( op )!=d_uf_model.end() ){
+                  uf_terms.push_back( gn[j] );
+                  isConst = isConst && d_uf_model[op].isConstant();
+                }else{
+                  isConst = false;
+                }
               }else{
                 isConst = false;
               }
@@ -1023,7 +1026,7 @@ int ModelEngine::findExceptions( Node f ){
     if( !tr_terms.empty() ){
       //make a trigger for these terms, add instantiations
       Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, tr_terms );
-      //std::cout << "Trigger = " << (*tr) << std::endl;
+      //Notice() << "Trigger = " << (*tr) << std::endl;
       tr->resetInstantiationRound();
       tr->reset( Node::null() );
       //d_quantEngine->d_optInstMakeRepresentative = false;
@@ -1047,7 +1050,7 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
   if( d_quant_model_lits[f].empty() ){
     Debug("inst-fmf-ei") << "WARNING: " << f << " has no model literal definitions (is f clausified?)" << std::endl;
 #ifdef ME_PRINT_WARNINGS
-    std::cout << "WARNING: " << f << " has no model literal definitions (is f clausified?)" << std::endl;
+    Notice() << "WARNING: " << f << " has no model literal definitions (is f clausified?)" << std::endl;
 #endif
   }else{
     Debug("inst-fmf-ei") << "  Model literal definitions:" << std::endl;
@@ -1078,7 +1081,8 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
       //if evaluate(...)==1, then the instantiation is already true in the model
       //  depIndex is the index of the least significant variable that this evaluation relies upon
       int depIndex = riter.getNumTerms()-1;
-      if( evaluate( &riter, d_quantEngine->getCounterexampleBody( f ), depIndex )==1 ){
+      int eval = evaluate( &riter, d_quantEngine->getCounterexampleBody( f ), depIndex );
+      if( eval==1 ){
         Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
         riter.increment2( d_quantEngine, depIndex );
       }else{
@@ -1090,7 +1094,11 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
         if( d_quantEngine->addInstantiation( f, m ) ){
           addedLemmas++;
 #ifdef EVAL_FAIL_SKIP_MULTIPLE
-          riter.increment2( d_quantEngine, depIndex );
+          if( eval==-1 ){
+            riter.increment2( d_quantEngine, depIndex );
+          }else{
+            riter.increment( d_quantEngine );
+          }
 #else
           riter.increment( d_quantEngine );
 #endif
@@ -1124,22 +1132,22 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
 ///-----------
 #ifdef ME_PRINT_WARNINGS
   if( addedLemmas>1000 ){
-    std::cout << "WARNING: many instantiations produced for " << f << ": " << std::endl;
+    Notice() << "WARNING: many instantiations produced for " << f << ": " << std::endl;
     int totalInst = 1;
     for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
       totalInst = totalInst * (int)getReps()->d_type_reps[ f[0][i].getType() ].size();
     }
-    std::cout << "   Inst Skipped: " << (totalInst-triedLemmas) << std::endl;
-    std::cout << "   Inst Tried: " << triedLemmas << std::endl;
-    std::cout << "   Inst Added: " << addedLemmas << std::endl;
-    std::cout << "   # Tests: " << tests << std::endl;
-    std::cout << std::endl;
+    Notice() << "   Inst Skipped: " << (totalInst-triedLemmas) << std::endl;
+    Notice() << "   Inst Tried: " << triedLemmas << std::endl;
+    Notice() << "   Inst Added: " << addedLemmas << std::endl;
+    Notice() << "   # Tests: " << tests << std::endl;
+    Notice() << std::endl;
     if( !d_quant_model_lits[f].empty() ){
-      std::cout << "  Model literal definitions:" << std::endl;
+      Notice() << "  Model literal definitions:" << std::endl;
       for( int i=0; i<(int)d_quant_model_lits[f].size(); i++ ){
-        std::cout << "    " << d_quant_model_lits[f][i] << std::endl;
+        Notice() << "    " << d_quant_model_lits[f][i] << std::endl;
       }
-      std::cout << std::endl;
+      Notice() << std::endl;
     }
   }
 #endif
@@ -1243,7 +1251,7 @@ void ModelEngine::computeRelevantDomain( Node n, Node parent, int arg, std::vect
     Assert( !parent.isNull() );
     if( parent.getKind()==APPLY_UF ){
       //if the child of APPLY_UF term f( ... ), only consider the active domain of f at given argument
-      Node op = parent.getOperator(); 
+      Node op = parent.getOperator();
       if( d_uf_model.find( op )!=d_uf_model.end() ){
         for( int i=0; i<(int)d_uf_model[op].d_active_domain[arg].size(); i++ ){
           int d = d_uf_model[op].d_active_domain[arg][i];
@@ -1358,7 +1366,7 @@ void ModelEngine::makeEvalTermIndexOrder( Node n ){
 int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
   ++(d_statistics.d_eval_formulas);
   //Debug("fmf-model-eval-debug") << "Evaluate " << n << " " << phaseReq << std::endl;
-  //std::cout << "Eval " << n << std::endl;
+  //Notice() << "Eval " << n << std::endl;
   if( n.getKind()==NOT ){
     int val = evaluate( rai, n[0], depIndex );
     return val==1 ? -1 : ( val==-1 ? 1 : 0 );
@@ -1471,7 +1479,7 @@ int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
 
 int ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, std::vector< Node >& fv_deps ){
   ++(d_statistics.d_eval_eqs);
-  //std::cout << "Eval eq " << n1 << " " << n2 << std::endl;
+  //Notice() << "Eval eq " << n1 << " " << n2 << std::endl;
   Debug("fmf-model-eval-debug") << "Evaluate equality: " << std::endl;
   Debug("fmf-model-eval-debug") << "   " << n1 << " = " << n2 << std::endl;
   Debug("fmf-model-eval-debug") << "   " << gn1 << " = " << gn2 << std::endl;
@@ -1488,7 +1496,7 @@ int ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, std::ve
   }else if( areDisequal( val1, val2 ) ){
     retVal = -1;
   }else{
-  //  std::cout << "Neither equal nor disequal " << val1 << " " << val2 << std::endl;
+  //  Notice() << "Neither equal nor disequal " << val1 << " " << val2 << std::endl;
   }
   if( retVal!=0 ){
     Debug("fmf-model-eval-debug") << "   ---> Success, value = " << (retVal==1) << std::endl;
@@ -1504,7 +1512,7 @@ int ModelEngine::evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, std::ve
 }
 
 Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
-  //std::cout << "Eval term " << n << std::endl;
+  //Notice() << "Eval term " << n << std::endl;
   if( n.hasAttribute(InstConstantAttribute()) ){
     if( n.getKind()==INST_CONSTANT ){
       fv_deps.push_back( n );
@@ -1515,7 +1523,7 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
     //  return d_eval_term_vals[gn];
     }else{
       //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
-      //std::cout << "e " << n << std::endl;
+      //Notice() << "e " << n << std::endl;
       //first we must evaluate the arguments
       Node val = gn;
       if( n.getKind()==APPLY_UF ){
@@ -1541,17 +1549,17 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
         }
         if( d_uf_model.find( op )!=d_uf_model.end() ){
 #ifdef USE_INDEX_ORDERING
-          //std::cout << "make eval" << std::endl;
+          //Notice() << "make eval" << std::endl;
           //make the term model specifically for n
           makeEvalTermModel( n );
-          //std::cout << "done " << d_eval_term_use_default_model[n] << std::endl;
+          //Notice() << "done " << d_eval_term_use_default_model[n] << std::endl;
           //now, consult the model
           if( d_eval_term_use_default_model[n] ){
             val = d_uf_model[op].d_tree.getValue( d_quantEngine, gnn, depIndex );
           }else{
             val = d_eval_term_model[ n ].getValue( d_quantEngine, gnn, depIndex );
           }
-          //std::cout << "done get value " << val << std::endl;
+          //Notice() << "done get value " << val << std::endl;
           //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ", " << gnn << ")" << std::endl;
           //d_eval_term_model[ n ].debugPrint("fmf-model-eval-debug", d_quantEngine );
           Assert( !val.isNull() );
@@ -1567,7 +1575,7 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
         Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = " << gn << " = " << gnn << " = ";
         printRepresentative( "fmf-model-eval-debug", d_quantEngine, val );
         Debug("fmf-model-eval-debug") << ", depIndex = " << depIndex << std::endl;
-        //std::cout << n << " = " << gn << " = " << gnn << " = " << val << std::endl;
+        //Notice() << n << " = " << gn << " = " << gnn << " = " << val << std::endl;
         if( !val.isNull() ){
 #ifdef USE_INDEX_ORDERING
           for( int i=0; i<depIndex; i++ ){

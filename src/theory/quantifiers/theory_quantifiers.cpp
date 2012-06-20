@@ -42,7 +42,7 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
-  if( !Options::current()->finiteModelFind ){  //DO_THIS: possibly use in conjunction w finite model finding
+  if( !Options::current()->finiteModelFind || Options::current()->fmfInstEngine ){
     qe->addModule( new InstantiationEngine( this ) );
   }
   if( Options::current()->finiteModelFind ){

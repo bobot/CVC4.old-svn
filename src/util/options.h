@@ -430,6 +430,11 @@ struct CVC4_PUBLIC Options {
    */
   bool fmfOneInstPerRound;
 
+  /*
+   * Whether to use instantiation engine in conjunction with finite model finding
+   */
+  bool fmfInstEngine;
+
   /**
    * Whether to use efficient E-matching
    */

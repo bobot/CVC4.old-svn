@@ -202,6 +202,8 @@ private:
   std::map< Node, bool > d_lemmas_produced;
   /** lemmas waiting */
   std::vector< Node > d_lemmas_waiting;
+  /** has added lemma this round */
+  bool d_hasAddedLemma;
   /** inst matches produced for each quantifier */
   std::map< Node, InstMatchTrie > d_inst_match_trie;
   /** free variable for instantiation constant type */
@@ -274,7 +276,7 @@ public:
   /** add split equality */
   bool addSplitEquality( Node n1, Node n2, bool reqPhase = false, bool reqPhasePol = true );
   /** has added lemma */
-  bool hasAddedLemma() { return !d_lemmas_waiting.empty(); }
+  bool hasAddedLemma() { return !d_lemmas_waiting.empty() || d_hasAddedLemma; }
   /** flush lemmas */
   void flushLemmas( OutputChannel* out );
   /** get number of waiting lemmas */

@@ -152,6 +152,7 @@ Options::Options() :
   fmfModelBasedInst(true),
   fmfFindExceptions(true),
   fmfOneInstPerRound(false),
+  fmfInstEngine(false),
   efficientEMatching(false),
   literalMatchMode(LITERAL_MATCH_NONE),
   cbqi(false),
@@ -299,6 +300,7 @@ Additional CVC4 options:\n\
    --disable-fmf-model-inst  disable model-based instantiation for finite model finding\n\
    --disable-fmf-find-exceptions   disable exception finding for finite model finding\n\
    --fmf-one-inst-per-round  only add one instantiation per quantifier per round for fmf\n\
+   --fmf-inst-engine      use instantiation engine in conjunction with finite model finding\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n\
    --threads=N            sets the number of solver threads\n\
@@ -380,6 +382,36 @@ justification-rel\n\
 justification-must\n\
 + Start deciding on literals close to root instead of those\n\
 + near leaves (don't expect it to work well) [Unimplemented]\n\
+";
+
+static const string instWhenHelp = "\
+Modes currently supported by the --inst-when option:\n\
+\n\
+full\n\
++ Run instantiation round at full effort, before theory combination.\n\
+\n\
+full-last-call (default)\n\
++ Alternate running instantiation rounds at full effort and last\n\
+  call.  In other words, interleave instantiation and theory combination.\n\
+\n\
+last-call\n\
++ Run instantiation at last call effort, after theory combination.\n\
+\n\
+";
+
+static const string literalMatchHelp = "\
+Literal match modes currently supported by the --literal-match option:\n\
+\n\
+none (default)\n\
++ Do not use literal matching.\n\
+\n\
+predicate\n\
++ Consider the phase requirements of predicate literals when applying heuristic\n\
+  quantifier instantiation.  For example, the trigger P( x ) in the quantified \n\
+  formula forall( x ). ( P( x ) V ~Q( x ) ) will only be matched with ground\n\
+  terms P( t ) where P( t ) is in the equivalence class of false, and likewise\n\
+  Q( x ) with Q( s ) where Q( s ) is in the equivalence class of true.\n\
+\n\
 ";
 
 static const string dumpHelp = "\
@@ -588,6 +620,7 @@ enum OptionValue {
   DISABLE_FMF_MODEL_BASED_INST,
   DISABLE_FMF_FIND_EXCEPTIONS,
   FMF_ONE_INST_PER_ROUND,
+  FMF_INST_ENGINE,
   EFFICIENT_E_MATCHING,
   LITERAL_MATCHING,
   ENABLE_CBQI,
@@ -719,6 +752,7 @@ static struct option cmdlineOptions[] = {
   { "disable-fmf-model-inst", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
   { "disable-fmf-find-exceptions", no_argument, NULL, DISABLE_FMF_FIND_EXCEPTIONS },
   { "fmf-one-inst-per-round", no_argument, NULL, FMF_ONE_INST_PER_ROUND },
+  { "fmf-inst-engine", no_argument, NULL, FMF_INST_ENGINE },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
@@ -1253,7 +1287,7 @@ throw(OptionException) {
       } else if(!strcmp(optarg, "last-call")) {
         instWhenMode = INST_WHEN_LAST_CALL;
       } else if(!strcmp(optarg, "help")) {
-        //puts(instWhenHelp.c_str());
+        puts(instWhenHelp.c_str());
         exit(1);
       } else {
         throw OptionException(string("unknown option for --inst-when: `") +
@@ -1278,6 +1312,9 @@ throw(OptionException) {
     case FMF_ONE_INST_PER_ROUND:
       fmfOneInstPerRound = true;
       break;
+    case FMF_INST_ENGINE:
+      fmfInstEngine = true;
+      break;
     case EFFICIENT_E_MATCHING:
       efficientEMatching = true;
       break;
@@ -1289,7 +1326,7 @@ throw(OptionException) {
       } else if(!strcmp(optarg, "equality")) {
         literalMatchMode = LITERAL_MATCH_EQUALITY;
       } else if(!strcmp(optarg, "help")) {
-        //puts(literalMatchHelp.c_str());
+        puts(literalMatchHelp.c_str());
         exit(1);
       } else {
         throw OptionException(string("unknown option for --literal-matching: `") +
