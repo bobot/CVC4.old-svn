@@ -43,5 +43,6 @@ The above is now implemented, but there are things that still bug me:
   SmtEngine/parseOptions, for library users to properly set up an Options
   before creating the ExprManager.  Essentially like the assign() and
   assignBool() interfaces.
+* need a get-handler for options without an options value (for SmtEngine::getOption())
 
--- Morgan Deters <mdeters@cs.nyu.edu>  Fri, 01 Jun 2012 13:53:10 -0400
+-- Morgan Deters <mdeters@cs.nyu.edu>  Wed, 20 Jun 2012 15:42:00 -0400

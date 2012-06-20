@@ -25,6 +25,7 @@
 #include "theory/rewriter.h"
 #include "expr/expr_stream.h"
 #include "decision/decision_engine.h"
+#include "decision/options.h"
 
 
 namespace CVC4 {
@@ -92,7 +93,7 @@ SatLiteral TheoryProxy::getNextDecisionRequest(bool &stopSearch) {
   if(stopSearch) {
     Trace("decision") << "  ***  Decision Engine stopped search *** " << std::endl;
   }
-  return ret;
+  return options::decisionStopOnly() ? undefSatLiteral : ret;
 }
 
 bool TheoryProxy::theoryNeedCheck() const {

@@ -319,13 +319,14 @@ RewriteResponse TheoryBVRewriter::RewriteMult(TNode node, bool preregister) {
 }
 
 RewriteResponse TheoryBVRewriter::RewritePlus(TNode node, bool preregister) {
-  Node resultNode = node;
-
-  resultNode = LinearRewriteStrategy
+  if (preregister) {
+    return RewriteResponse(REWRITE_DONE, node);
+  }
+  Node resultNode = LinearRewriteStrategy
     < RewriteRule<FlattenAssocCommut>, 
       RewriteRule<PlusCombineLikeTerms>
       // RewriteRule<PlusLiftConcat> 
-      >::apply(resultNode);
+      >::apply(node);
   if (resultNode == node) {
     return RewriteResponse(REWRITE_DONE, resultNode);
   } else {
@@ -516,8 +517,7 @@ RewriteResponse TheoryBVRewriter::RewriteEqual(TNode node, bool preregister) {
     Node resultNode = LinearRewriteStrategy
       < RewriteRule<FailEq>,
         RewriteRule<SimplifyEq>,
-        RewriteRule<ReflexivityEq>,
-        RewriteRule<BitwiseEq>
+        RewriteRule<ReflexivityEq>
         >::apply(node);
     return RewriteResponse(REWRITE_DONE, resultNode); 
   }
@@ -534,14 +534,6 @@ RewriteResponse TheoryBVRewriter::RewriteEqual(TNode node, bool preregister) {
         return RewriteResponse(REWRITE_AGAIN_FULL, resultNode);
       }
     }
-
-    if(RewriteRule<BitwiseEq>::applies(resultNode)) {
-      resultNode = RewriteRule<BitwiseEq>::run<false>(resultNode);
-      if (resultNode != node) {
-        return RewriteResponse(REWRITE_AGAIN_FULL, resultNode);
-      }
-    }
-
     return RewriteResponse(REWRITE_DONE, resultNode); 
   }
 }

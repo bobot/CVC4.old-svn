@@ -53,10 +53,10 @@ This decides on kind of propagation arithmetic attempts to do during the search.
 +both\n\
 ";
 
-static const std::string pivotRulesHelp = "\
+static const std::string heuristicPivotRulesHelp = "\
 This decides on the rule used by simplex during hueristic rounds\n\
 for deciding the next basic variable to select.\n\
-Pivot rules available:\n\
+Heuristic pivot rules available:\n\
 +min\n\
   The minimum abs() value of the variable's violation of its bound. (default)\n\
 +min-break-ties\n\
@@ -101,7 +101,7 @@ inline ArithPropagationMode stringToArithPropagationMode(std::string option, std
   }
 }
 
-inline ArithPivotRule stringToArithPivotRule(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
+inline ArithHeuristicPivotRule stringToArithHeuristicPivotRule(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg == "min") {
     return MINIMUM;
   } else if(optarg == "min-break-ties") {
@@ -109,11 +109,11 @@ inline ArithPivotRule stringToArithPivotRule(std::string option, std::string opt
   } else if(optarg == "max") {
     return MAXIMUM;
   } else if(optarg == "help") {
-    puts(pivotRulesHelp.c_str());
+    puts(heuristicPivotRulesHelp.c_str());
     exit(1);
   } else {
-    throw OptionException(std::string("unknown option for --pivot-rule: `") +
-                          optarg + "'.  Try --pivot-rule help.");
+    throw OptionException(std::string("unknown option for --heuristic-pivot-rule: `") +
+                          optarg + "'.  Try --heuristic-pivot-rule help.");
   }
 }
 

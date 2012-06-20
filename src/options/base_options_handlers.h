@@ -94,6 +94,7 @@ inline void setPrintSuccess(std::string option, bool value, SmtEngine* smt) {
   Chat.getStream() << Command::printsuccess(value);
   Message.getStream() << Command::printsuccess(value);
   Warning.getStream() << Command::printsuccess(value);
+  *options::out() << Command::printsuccess(value);
 }
 
 template <template <class U> class Cmp>

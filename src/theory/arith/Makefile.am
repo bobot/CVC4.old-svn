@@ -37,8 +37,8 @@ libarith_la_SOURCES = \
 	theory_arith.cpp \
 	dio_solver.h \
 	dio_solver.cpp \
-	arith_pivot_rule.h \
-	arith_pivot_rule.cpp \
+	arith_heuristic_pivot_rule.h \
+	arith_heuristic_pivot_rule.cpp \
 	arith_unate_lemma_mode.h \
 	arith_unate_lemma_mode.cpp \
 	arith_propagation_mode.h \

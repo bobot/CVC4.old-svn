@@ -50,12 +50,15 @@ options {
   */
 #pragma GCC system_header
 
+#if defined(CVC4_COMPETITION_MODE) && !defined(CVC4_SMTCOMP_APPLICATION_TRACK)
 /* This improves performance by ~10 percent on big inputs.
  * This option is only valid if we know the input is ASCII (or some 8-bit encoding).
  * If we know the input is UTF-16, we can use ANTLR3_INLINE_INPUT_UTF16.
  * Otherwise, we have to let the lexer detect the encoding at runtime.
  */
-#define ANTLR3_INLINE_INPUT_ASCII
+#  define ANTLR3_INLINE_INPUT_ASCII
+#  define ANTLR3_INLINE_INPUT_8BIT
+#endif /* CVC4_COMPETITION_MODE && !CVC4_SMTCOMP_APPLICATION_TRACK */
 
 #include "parser/antlr_tracing.h"
 }/* @lexer::includes */
@@ -222,6 +225,7 @@ annotatedFormula[CVC4::Expr& expr]
   Kind kind;
   std::string name;
   std::vector<Expr> args; /* = getExprVector(); */
+  std::vector<Expr> args2;
   Expr op; /* Operator expression FIXME: move away kill it */
 }
   : /* a built-in operator application */
@@ -252,8 +256,9 @@ annotatedFormula[CVC4::Expr& expr]
       { args.push_back(PARSER_STATE->mkVar(name, t)); }
     )+
     annotatedFormula[expr] RPAREN_TOK
-    { args.push_back(expr);
-      expr = MK_EXPR(kind, args);
+    { args2.push_back( MK_EXPR( kind::BOUND_VAR_LIST, args ) );
+      args2.push_back(expr);
+      expr = MK_EXPR(kind, args2);
       PARSER_STATE->popScope();
     }
 

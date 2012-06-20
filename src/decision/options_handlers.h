@@ -36,6 +36,9 @@ internal (default)\n\
 justification\n\
 + An ATGP-inspired justification heuristic\n\
 \n\
+justification-stoponly\n\
++ Use the justification heuristic only to stop early, not for decisions\n\
+\n\
 relevancy\n\
 + Under development may-relevancy\n\
 \n\
@@ -54,9 +57,18 @@ justification-must\n\
 ";
 
 inline DecisionMode stringToDecisionMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
+  options::decisionRelevancyLeaves.set(false);
+  options::decisionMaxRelTimeAsPermille.set(1000);
+  options::decisionComputeRelevancy.set(true);
+  options::decisionMustRelevancy.set(false);
+  options::decisionStopOnly.set(false);
+
   if(optarg == "internal") {
     return DECISION_STRATEGY_INTERNAL;
   } else if(optarg == "justification") {
+    return DECISION_STRATEGY_JUSTIFICATION;
+  } else if(optarg == "justification-stoponly") {
+    options::decisionStopOnly.set(true);
     return DECISION_STRATEGY_JUSTIFICATION;
   } else if(optarg == "relevancy") {
     options::decisionRelevancyLeaves.set(false);

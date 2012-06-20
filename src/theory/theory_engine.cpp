@@ -19,6 +19,8 @@
 #include <vector>
 #include <list>
 
+#include "decision/decision_engine.h"
+
 #include "expr/attribute.h"
 #include "expr/node.h"
 #include "expr/node_builder.h"
@@ -391,11 +393,15 @@ void TheoryEngine::combineTheories() {
 
     Debug("sharing") << "TheoryEngine::combineTheories(): checking " << carePair.a << " = " << carePair.b << " from " << carePair.theory << std::endl;
 
+    Assert(d_sharedTerms.isShared(carePair.a) || carePair.a.isConst());
+    Assert(d_sharedTerms.isShared(carePair.b) || carePair.b.isConst());
     Assert(!d_sharedTerms.areEqual(carePair.a, carePair.b), "Please don't care about stuff you were notified about");
     Assert(!d_sharedTerms.areDisequal(carePair.a, carePair.b), "Please don't care about stuff you were notified about");
 
     // The equality in question
-    Node equality = Rewriter::rewriteEquality(carePair.theory, carePair.a.eqNode(carePair.b));
+    Node equality = carePair.a < carePair.b ?
+        carePair.a.eqNode(carePair.b) :
+        carePair.b.eqNode(carePair.a);
 
     // Normalize the equality
     Node normalizedEquality = Rewriter::rewrite(equality);
@@ -716,6 +722,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
     // If this is an atom, we preprocess its terms with the theory ppRewriter
     if (Theory::theoryOf(current) != THEORY_BOOL) {
       d_ppCache[current] = ppTheoryRewrite(current);
+      Assert(Rewriter::rewrite(d_ppCache[current]) == d_ppCache[current]);
       continue;
     }
 
@@ -732,6 +739,9 @@ Node TheoryEngine::preprocess(TNode assertion) {
       }
       // Mark the substitution and continue
       Node result = builder;
+      if (result != current) {
+        result = Rewriter::rewrite(result);
+      }
       Debug("theory::internal") << "TheoryEngine::preprocess(" << assertion << "): setting " << current << " -> " << result << endl;
       d_ppCache[current] = result;
       toVisit.pop_back();
@@ -863,30 +873,42 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
     }
     return;
   }
-  
-  // We are left with internal distribution of shared literals
-  Assert(atom.getKind() == kind::EQUAL);
-  Node normalizedAtom = Rewriter::rewriteEquality(toTheoryId, atom);
-  Node normalizedAssertion = polarity ? normalizedAtom : normalizedAtom.notNode();
-  
-  // If we normalize to true or false, it's a special case
-  if (normalizedAtom.isConst()) {
-    if (polarity == normalizedAtom.getConst<bool>()) {
-      // Trivially true, just ignore
-      return;
+
+  // See if it rewrites to true or false directly
+  Node normalizedLiteral = Rewriter::rewrite(assertion);
+  if (normalizedLiteral.isConst()) {
+    if (normalizedLiteral.getConst<bool>()) {
+      // trivially true, but theories need to share even trivially true facts
+      // unless of course it is the theory that normalized it
+      if (Theory::theoryOf(atom) == toTheoryId) {
+      	return;
+      }
     } else {
       // Mark the propagation for explanations
-      if (markPropagation(normalizedAssertion, assertion, toTheoryId, fromTheoryId)) {
+      if (markPropagation(normalizedLiteral, assertion, toTheoryId, fromTheoryId)) {
         // Get the explanation (conflict will figure out where it came from)
-        conflict(normalizedAssertion, toTheoryId);
+        conflict(normalizedLiteral, toTheoryId);
       } else {
         Unreachable();
       }
       return;
     }
   }
+
+  // Normalize to lhs < rhs if not a sat literal
+  Assert(atom.getKind() == kind::EQUAL);
+  Assert(atom[0] != atom[1]);
   
-  // Try and assert
+  Node normalizedAtom = atom;
+  if (!d_propEngine->isSatLiteral(normalizedAtom)) {
+    Node reverse = atom[1].eqNode(atom[0]);
+    if (d_propEngine->isSatLiteral(reverse) || atom[0] > atom[1]) {
+      normalizedAtom = reverse;
+    }  
+  } 
+  Node normalizedAssertion = polarity ? normalizedAtom : normalizedAtom.notNode();
+
+  // Try and assert (note that we assert the non-normalized one)
   if (markPropagation(normalizedAssertion, assertion, toTheoryId, fromTheoryId)) {
     // Check if has been pre-registered with the theory
     bool preregistered = d_propEngine->isSatLiteral(normalizedAssertion) && Theory::theoryOf(normalizedAtom) == toTheoryId;
@@ -952,7 +974,7 @@ void TheoryEngine::assertFact(TNode literal)
 
 bool TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
 
-  Debug("theory") << "TheoryEngine::propagate(" << literal << ", " << theory << ")" << std::endl;
+  Debug("theory::propagate") << "TheoryEngine::propagate(" << literal << ", " << theory << ")" << std::endl;
 
   d_propEngine->checkTime();
 
@@ -1120,6 +1142,8 @@ theory::LemmaStatus TheoryEngine::lemma(TNode node, bool negated, bool removable
 
 void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
 
+  Debug("theory::conflict") << "TheoryEngine::conflict(" << conflict << ", " << theoryId << ")" << std::endl;
+
   // Mark that we are in conflict
   d_inConflict = true;
 
@@ -1138,18 +1162,18 @@ void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
     Node fullConflict = mkExplanation(explanationVector);
     Debug("theory::conflict") << "TheoryEngine::conflict(" << conflict << ", " << theoryId << "): full = " << fullConflict << std::endl;
     Assert(properConflict(fullConflict));
-    lemma(fullConflict, true, false);
+    lemma(fullConflict, true, true);
   } else {
     // When only one theory, the conflict should need no processing
     Assert(properConflict(conflict));
-    lemma(conflict, true, false);
+    lemma(conflict, true, true);
   }
 }
 
 Node TheoryEngine::ppSimpITE(TNode assertion)
 {
   Node result = d_iteSimplifier.simpITE(assertion);
-  result = d_iteSimplifier.simplifyWithCare(result);
+  result = d_iteSimplifier.simplifyWithCare(Rewriter::rewrite(result));
   result = Rewriter::rewrite(result);
   return result;
 }
