@@ -144,7 +144,7 @@ struct CVC4_PUBLIC Options {
   DecisionMode decisionMode;
   /** Whether the user set the decision strategy */
   bool decisionModeSetByUser;
-  /** 
+  /**
    * Extra settings for decision stuff, varies by strategy enabled
    * - With DECISION_STRATEGY_RELEVANCY
    *   > Least significant bit: true if one should only decide on leaves
@@ -419,6 +419,16 @@ struct CVC4_PUBLIC Options {
    * Whether to use model-based exhaustive instantiation for finite model finding
    */
   bool fmfModelBasedInst;
+
+  /**
+   * Whether to use exception finding for finite model finding
+   */
+  bool fmfFindExceptions;
+
+  /*
+   * Whether to only add only instantiation per quantifier per round for finite model finding
+   */
+  bool fmfOneInstPerRound;
 
   /**
    * Whether to use efficient E-matching

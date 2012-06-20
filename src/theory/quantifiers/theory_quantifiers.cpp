@@ -30,9 +30,6 @@
 
 #define USE_FLIP_DECISION
 
-//static bool clockSet = false;
-//double initClock;
-
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
@@ -45,10 +42,11 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
+  if( !Options::current()->finiteModelFind ){  //DO_THIS: possibly use in conjunction w finite model finding
+    qe->addModule( new InstantiationEngine( this ) );
+  }
   if( Options::current()->finiteModelFind ){
     qe->addModule( new ModelEngine( this ) );
-  }else{
-    qe->addModule( new InstantiationEngine( this ) );
   }
 }
 
@@ -65,10 +63,10 @@ void TheoryQuantifiers::addSharedTerm(TNode t) {
 void TheoryQuantifiers::notifyEq(TNode lhs, TNode rhs) {
   Debug("quantifiers-other") << "TheoryQuantifiers::notifyEq(): "
                      << lhs << " = " << rhs << endl;
-  
+
 }
 
-void TheoryQuantifiers::preRegisterTerm(TNode n) {  
+void TheoryQuantifiers::preRegisterTerm(TNode n) {
   Debug("quantifiers-prereg") << "TheoryQuantifiers::preRegisterTerm() " << n << endl;
   if( n.getKind()==FORALL && !n.hasAttribute(InstConstantAttribute()) ){
     getQuantifiersEngine()->registerQuantifier( n );
@@ -119,7 +117,7 @@ void TheoryQuantifiers::check(Effort e) {
           break;
         }
       }
-      break;  
+      break;
     default:
       Unhandled(assertion.getKind());
       break;

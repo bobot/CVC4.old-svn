@@ -804,6 +804,7 @@ void SmtEngine::defineFunction(Expr func,
   Type funcType = func.getType();
   Type rangeType = funcType.isFunction() ?
     FunctionType(funcType).getRangeType() : funcType;
+  /*
   if(formulaType != rangeType) {
     stringstream ss;
     ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
@@ -813,7 +814,7 @@ void SmtEngine::defineFunction(Expr func,
        << "The body      : " << formula << "\n"
        << "Body type     : " << formulaType;
     throw TypeCheckingException(func, ss.str());
-  }
+  }*/
   TNode funcNode = func.getTNode();
   vector<Node> formalsNodes;
   for(vector<Expr>::const_iterator i = formals.begin(),
@@ -914,7 +915,7 @@ void SmtEnginePrivate::removeITEs() {
   for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
     d_assertionsToCheck[i] = Rewriter::rewrite(d_assertionsToCheck[i]);
   }
-  
+
 }
 
 void SmtEnginePrivate::staticLearning() {
@@ -1447,7 +1448,7 @@ void SmtEnginePrivate::processAssertions() {
         expandDefinitions(d_assertionsToPreprocess[i], cache);
     }
   }
-    
+
   // Apply the substitutions we already have, and normalize
   Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                     << "applying substitutions" << endl;

@@ -174,8 +174,10 @@ private:
   /** equality query class */
   EqualityQuery* d_eq_query;
 
-  /** list of all quantifiers */
+  /** list of all quantifiers (pre-rewrite) */
   std::vector< Node > d_quants;
+  /** list of all quantifiers (post-rewrite) */
+  std::vector< Node > d_r_quants;
   /** list of quantifiers asserted in the current context */
   context::CDList<Node> d_forall_asserts;
   /** map from universal quantifiers to the list of variables */
@@ -256,13 +258,15 @@ public:
   void assertNode( Node f );
   /** propagate */
   void propagate( Theory::Effort level );
+  /** reset instantiation round */
+  void resetInstantiationRound( Theory::Effort level );
 public:
   /** add lemma lem */
   bool addLemma( Node lem );
   /** instantiate f with arguments terms */
   bool addInstantiation( Node f, std::vector< Node >& terms );
   /** do instantiation specified by m */
-  bool addInstantiation( Node f, InstMatch& m, bool addSplits = false );
+  bool addInstantiation( Node f, InstMatch& m );
   /** split on node n */
   bool addSplit( Node n, bool reqPhase = false, bool reqPhasePol = true );
   /** add split equality */
@@ -380,6 +384,14 @@ public:
     ~Statistics();
   };/* class QuantifiersEngine::Statistics */
   Statistics d_statistics;
+public:
+  /** options */
+  bool d_optInstCheckDuplicate;
+  bool d_optInstMakeRepresentative;
+  bool d_optInstAddSplits;
+  bool d_optMatchIgnoreModelBasis;
+  bool d_optInstLimitActive;
+  int d_optInstLimit;
 };/* class QuantifiersEngine */
 
 }/* CVC4::theory namespace */

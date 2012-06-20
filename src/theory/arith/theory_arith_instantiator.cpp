@@ -120,7 +120,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 //        while( d_tableaux_ce_term_trigger[x]->getNextMatch() && !addedLemma ){
 //          InstMatch* m = d_tableaux_ce_term_trigger[x]->getCurrent();
 //          if( m->isComplete( f ) ){
-//            if( d_quantEngine->addInstantiation( f, m, true ) ){
+//            if( d_quantEngine->addInstantiation( f, m ) ){
 //              ++(d_th->d_statistics.d_instantiations_match_pure);
 //              ++(d_th->d_statistics.d_instantiations);
 //              addedLemma = true;
@@ -162,7 +162,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 //                ++(d_th->d_statistics.d_instantiations_match_var);
 //              }
 //            }else{
-//              if( d_quantEngine->addInstantiation( f, m, true ) ){
+//              if( d_quantEngine->addInstantiation( f, m ) ){
 //                addedLemma = true;
 //                ++(d_th->d_statistics.d_instantiations_match_no_var);
 //                ++(d_th->d_statistics.d_instantiations);
@@ -377,7 +377,7 @@ bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, I
   //use as instantiation value for var
   m.d_map[ var ] = instVal;
   Debug("quant-arith") << "Add instantiation " << m << std::endl;
-  return d_quantEngine->addInstantiation( f, m, true );
+  return d_quantEngine->addInstantiation( f, m );
 }
 
 Node InstantiatorTheoryArith::getTableauxValue( Node n, bool minus_delta ){

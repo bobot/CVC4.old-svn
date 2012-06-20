@@ -32,6 +32,10 @@ namespace theory {
 
 struct ModelBasisAttributeId {};
 typedef expr::Attribute<ModelBasisAttributeId, bool> ModelBasisAttribute;
+//for APPLY_UF terms, 1 : term has direct child with model basis attribute,
+//                    0 : term has no direct child with model basis attribute.
+struct ModelBasisArgAttributeId {};
+typedef expr::Attribute<ModelBasisArgAttributeId, uint64_t> ModelBasisArgAttribute;
 
 namespace uf {
 

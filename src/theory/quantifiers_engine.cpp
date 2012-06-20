@@ -193,6 +193,13 @@ d_forall_asserts( c ),
 d_active( c ){
   d_eq_query = NULL;
   d_term_db = new TermDb( this );
+  //options
+  d_optInstCheckDuplicate = true;
+  d_optInstMakeRepresentative = true;
+  d_optInstAddSplits = false;
+  d_optMatchIgnoreModelBasis = false;
+  d_optInstLimitActive = false;
+  d_optInstLimit = 0;
 }
 
 Instantiator* QuantifiersEngine::getInstantiator( int id ){
@@ -246,6 +253,7 @@ void QuantifiersEngine::makeInstantiationConstantsFor( Node f ){
 
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
+    d_quants.push_back( f );
     std::vector< Node > quants;
 #ifdef REWRITE_ASSERTED_QUANTIFIERS
     //do assertion-time rewriting of quantifier
@@ -277,7 +285,7 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       ++(d_statistics.d_num_quant);
       Assert( quants[q].getKind()==FORALL );
       //register quantifier
-      d_quants.push_back( quants[q] );
+      d_r_quants.push_back( quants[q] );
       //make instantiation constants for quants[q]
       makeInstantiationConstantsFor( quants[q] );
       //compute symbols in quants[q]
@@ -335,6 +343,15 @@ void QuantifiersEngine::propagate( Theory::Effort level ){
   for( int i=0; i<(int)d_modules.size(); i++ ){
     d_modules[i]->propagate( level );
   }
+}
+
+void QuantifiersEngine::resetInstantiationRound( Theory::Effort level ){
+  for( int i=0; i<theory::THEORY_LAST; i++ ){
+    if( getInstantiator( i ) ){
+      getInstantiator( i )->resetInstantiationRound( level );
+    }
+  }
+  d_term_db->reset( level );
 }
 
 void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
@@ -426,7 +443,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
   }
 }
 
-bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits ){
+bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m ){
   m.makeComplete( f, this );
   m.makeRepresentative( this );
   Debug("quant-duplicate") << "After make rep: " << m << std::endl;
