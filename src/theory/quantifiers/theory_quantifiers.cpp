@@ -43,7 +43,8 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
   if( !Options::current()->finiteModelFind || Options::current()->fmfInstEngine ){
-    qe->addModule( new InstantiationEngine( this ) );
+    //the instantiation must set incomplete flag unless finite model finding is turned on
+    qe->addModule( new InstantiationEngine( this, !Options::current()->finiteModelFind ) );
   }
   if( Options::current()->finiteModelFind ){
     qe->addModule( new ModelEngine( this ) );

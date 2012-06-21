@@ -28,8 +28,8 @@ using namespace CVC4::theory::quantifiers;
 
 //#define IE_PRINT_PROCESS_TIMES
 
-InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th ) :
-d_th( th ){
+InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th, bool setIncomplete ) :
+d_th( th ), d_setIncomplete( setIncomplete ){
 
 }
 
@@ -142,7 +142,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   }else{
     Debug("inst-engine-ctrl") << "---Done. " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
-    Notice() << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+    Message() << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
 #endif
     //flush lemmas to output channel
     getQuantifiersEngine()->flushLemmas( &d_th->getOutputChannel() );
@@ -171,7 +171,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);
-    Notice() << "Run instantiation round " << e << " " << ierCounter << std::endl;
+    Message() << "Run instantiation round " << e << " " << ierCounter << std::endl;
 #endif
     bool quantActive = false;
     //for each quantifier currently asserted,
@@ -232,9 +232,12 @@ void InstantiationEngine::check( Theory::Effort e ){
           if( d_inst_round_status==InstStrategy::STATUS_SAT ){
             Debug("inst-engine") << "No instantiation given, returning SAT..." << std::endl;
             debugSat( SAT_INST_STRATEGY );
-          }else{
+          }else if( d_setIncomplete ){
             Debug("inst-engine") << "No instantiation given, returning unknown..." << std::endl;
             d_th->getOutputChannel().setIncomplete();
+          }else{
+            Assert( Options::current()->finiteModelFind );
+            Debug("inst-engine") << "No instantiation given, defer to another engine..." << std::endl;
           }
         }
       }
@@ -247,7 +250,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     }
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-    Notice() << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
+    Message() << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
 #endif
   }
 }

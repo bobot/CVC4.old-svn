@@ -18,7 +18,6 @@
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/equality_engine.h"
-//#include "theory/uf/inst_strategy_model_find.h"
 
 using namespace std;
 using namespace CVC4;
@@ -67,13 +66,11 @@ Instantiator( c, qe, th )
 {
   qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( this ) );
 
-  if( Options::current()->finiteModelFind ){
+  if( !Options::current()->finiteModelFind || Options::current()->fmfInstEngine ){
     //if( Options::current()->cbqi ){
     //  addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     //}
     //addInstStrategy( new InstStrategyFiniteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), qe ) );
-    qe->getTermDatabase()->setMatchingActive( false );
-  }else{
     if( Options::current()->cbqi ){
       addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     }

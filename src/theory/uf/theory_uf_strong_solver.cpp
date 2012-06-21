@@ -1011,6 +1011,7 @@ Node StrongSolverTheoryUf::ConflictFind::getCardinalityLemma(){
   if( d_cardinality_lemma.find( d_cardinality )==d_cardinality_lemma.end() ){
     if( d_cardinality_lemma_term.isNull() ){
       std::stringstream ss;
+      ss << Expr::setlanguage(Options::current()->outputLanguage);
       ss << "fmf_term_" << d_type;
       d_cardinality_lemma_term = NodeManager::currentNM()->mkVar( ss.str(), d_type );
       ModelBasisAttribute mba;

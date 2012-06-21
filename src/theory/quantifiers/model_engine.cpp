@@ -21,7 +21,7 @@
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
-#define ME_PRINT_PROCESS_TIMES
+//#define ME_PRINT_PROCESS_TIMES
 //#define ME_PRINT_WARNINGS
 
 #define DISABLE_EVAL_SKIP_MULTIPLE
@@ -695,7 +695,7 @@ void ModelEngine::check( Theory::Effort e ){
     if( addedLemmas==0 ){
       //quantifiers are initialized, we begin an instantiation round
 #ifdef ME_PRINT_PROCESS_TIMES
-      Notice() << "---Instantiation Round---" << std::endl;
+      Message() << "---Model Engine Instantiation Round---" << std::endl;
 #endif
       Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
       ++(d_statistics.d_inst_rounds);
@@ -724,9 +724,9 @@ void ModelEngine::check( Theory::Effort e ){
           }
 #ifdef ME_PRINT_PROCESS_TIMES
           if( addedLemmas>0 ){
-            Notice() << "Exceptions, added lemmas = " << addedLemmas << std::endl;
+            Message() << "Exceptions, added lemmas = " << addedLemmas << std::endl;
           }else{
-            Notice() << "No exceptions..." << std::endl;
+            Message() << "No exceptions..." << std::endl;
           }
 #endif
           Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << std::endl;
@@ -759,7 +759,7 @@ void ModelEngine::check( Theory::Effort e ){
         }
         Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << std::endl;
 #ifdef ME_PRINT_PROCESS_TIMES
-        Notice() << "Added Lemmas = " << addedLemmas << std::endl;
+        Message() << "Added Lemmas = " << addedLemmas << std::endl;
 #endif
 #ifdef ME_PRINT_WARNINGS
         if( addedLemmas>10000 ){
@@ -865,7 +865,7 @@ void ModelEngine::buildRepresentatives(){
     //set them in the alphabet
     d_ra.set( tn, reps );
 #ifdef ME_PRINT_PROCESS_TIMES
-    Notice() << "Cardinality( " << tn << " )" << " = " << reps.size() << std::endl;
+    Message() << "Cardinality( " << tn << " )" << " = " << reps.size() << std::endl;
     //Notice() << d_quantEngine->getEqualityQuery()->getRepresentative( NodeManager::currentNM()->mkConst( true ) ) << std::endl;
 #endif
   }
@@ -1050,7 +1050,7 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
   if( d_quant_model_lits[f].empty() ){
     Debug("inst-fmf-ei") << "WARNING: " << f << " has no model literal definitions (is f clausified?)" << std::endl;
 #ifdef ME_PRINT_WARNINGS
-    Notice() << "WARNING: " << f << " has no model literal definitions (is f clausified?)" << std::endl;
+    Message() << "WARNING: " << f << " has no model literal definitions (is f clausified?)" << std::endl;
 #endif
   }else{
     Debug("inst-fmf-ei") << "  Model literal definitions:" << std::endl;
