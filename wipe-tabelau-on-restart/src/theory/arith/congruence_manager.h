@@ -25,7 +25,8 @@ namespace arith {
 
 class ArithCongruenceManager {
 private:
-  context::CDMaybe<Node> d_conflict;
+  context::CDRaised d_inConflict;
+  NodeCallBack& d_raiseConflict;
 
   /**
    * The set of ArithVars equivalent to a pair of terms.
@@ -65,15 +66,20 @@ private:
       }
     }
 
-    bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
+    void eqNotifyConstantTermMerge(TNode t1, TNode t2) {
       Debug("arith::congruences") << "ArithCongruenceNotify::eqNotifyConstantTermMerge(" << t1 << ", " << t2 << std::endl;
       if (t1.getKind() == kind::CONST_BOOLEAN) {
-        return d_acm.propagate(t1.iffNode(t2));
+        d_acm.propagate(t1.iffNode(t2));
       } else {
-        return d_acm.propagate(t1.eqNode(t2));
+        d_acm.propagate(t1.eqNode(t2));
       }
     }
-   };
+
+    void eqNotifyNewClass(TNode t) { }
+    void eqNotifyPreMerge(TNode t1, TNode t2) { }
+    void eqNotifyPostMerge(TNode t1, TNode t2) { }
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { }
+  };
   ArithCongruenceNotify d_notify;
 
   context::CDList<Node> d_keepAlive;
@@ -96,16 +102,17 @@ private:
 
   eq::EqualityEngine d_ee;
 
+  void raiseConflict(Node conflict){
+    Assert(!inConflict());
+    Debug("arith::conflict") << "difference manager conflict   " << conflict << std::endl;
+    d_inConflict.raise();
+    d_raiseConflict(conflict);
+  }
 public:
 
   bool inConflict() const{
-    return d_conflict.isSet();
+    return d_inConflict.isRaised();
   };
-
-  Node conflict() const{
-    Assert(inConflict());
-    return d_conflict.get();
-  }
 
   bool hasMorePropagations() const {
     return !d_propagatations.empty();
@@ -145,6 +152,15 @@ private:
     ++(d_statistics.d_propagations);
   }
 
+  void pushBack(TNode n, TNode r, TNode w){
+    d_explanationMap.insert(w, d_propagatations.size());
+    d_explanationMap.insert(r, d_propagatations.size());
+    d_explanationMap.insert(n, d_propagatations.size());
+    d_propagatations.enqueue(n);
+
+    ++(d_statistics.d_propagations);
+  }
+
   bool propagate(TNode x);
   void explain(TNode literal, std::vector<TNode>& assumptions);
 
@@ -177,7 +193,7 @@ private:
 
 public:
 
-  ArithCongruenceManager(context::Context* satContext, ConstraintDatabase&, TNodeCallBack&, const ArithVarNodeMap&);
+  ArithCongruenceManager(context::Context* satContext, ConstraintDatabase&, TNodeCallBack& setLiteral, const ArithVarNodeMap&, NodeCallBack& raiseConflict);
 
   Node explain(TNode literal);
   void explain(TNode lit, NodeBuilder<>& out);

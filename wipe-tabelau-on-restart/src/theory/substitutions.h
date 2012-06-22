@@ -68,7 +68,7 @@ private:
   bool d_cacheInvalidated;
 
   /** Internal method that performs substitution */
-  Node internalSubstitute(TNode t, NodeCache& substitutionCache);
+  Node internalSubstitute(TNode t);
 
   /** Helper class to invalidate cache on user pop */
   class CacheInvalidator : public context::ContextNotifyObj {
@@ -91,6 +91,10 @@ private:
    */
   CacheInvalidator d_cacheInvalidator;
 
+  // Helper list and method for simplifyLHS methods
+  // std::vector<std::pair<Node, Node> > d_worklist;
+  // void processWorklist(std::vector<std::pair<Node, Node> >& equalities, bool rewrite);
+
 public:
 
   SubstitutionMap(context::Context* context) :
@@ -102,17 +106,10 @@ public:
   }
 
   /**
-   * Adds a substitution from x to t.  Typically you also want to apply this
-   * substitution to the existing set (backSub), but you do not need to
-   * apply the existing set to the new substitution (forwardSub).  However,
-   * the method allows you to do either.  Probably you should not do both,
-   * as it will be very difficult to maintain the invariant that no
-   * left-hand side appears on any right-hand side.
+   * Adds a substitution from x to t.
    */
   void addSubstitution(TNode x, TNode t,
-                       bool invalidateCache = true,
-                       bool backSub = true,
-                       bool forwardSub = false);
+                       bool invalidateCache = true);
 
   /**
    * Returns true iff x is in the substitution map
@@ -148,18 +145,41 @@ public:
     return d_substitutions.end();
   }
 
+  bool empty() const {
+    return d_substitutions.empty();
+  }
+
   // NOTE [MGD]: removed clear() and swap() from the interface
   // when this data structure became context-dependent
   // because they weren't used---and it's not clear how they
-  // should // best interact with cache invalidation on context
+  // should best interact with cache invalidation on context
   // pops.
+
+  /*
+  // Simplify right-hand sides of current map using the given substitutions
+  void simplifyRHS(const SubstitutionMap& subMap);
+
+  // Simplify right-hand sides of current map with lhs -> rhs
+  void simplifyRHS(TNode lhs, TNode rhs);
+
+  // Simplify left-hand sides of current map using the given substitutions
+  void simplifyLHS(const SubstitutionMap& subMap,
+                   std::vector<std::pair<Node,Node> >& equalities,
+                   bool rewrite = true);
+
+  // Simplify left-hand sides of current map with lhs -> rhs and then add lhs -> rhs to the substitutions set
+  void simplifyLHS(TNode lhs, TNode rhs,
+                   std::vector<std::pair<Node,Node> >& equalities,
+                   bool rewrite = true);
+  */
 
   /**
    * Print to the output stream
    */
   void print(std::ostream& out) const;
+  void debugPrint() const;
 
-};
+};/* class SubstitutionMap */
 
 inline std::ostream& operator << (std::ostream& out, const SubstitutionMap& subst) {
   subst.print(out);

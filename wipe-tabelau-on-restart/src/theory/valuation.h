@@ -24,7 +24,6 @@
 #define __CVC4__THEORY__VALUATION_H
 
 #include "expr/node.h"
-#include "theory/substitutions.h"
 
 namespace CVC4 {
 
@@ -111,6 +110,14 @@ public:
    * as well as CNF conversion
    */
   Node ensureLiteral(TNode n) CVC4_WARN_UNUSED_RESULT;
+
+  /**
+   * Returns whether the given lit (which must be a SAT literal) is a decision
+   * literal or not.  Throws an exception if lit is not a SAT literal.  "lit" may
+   * be in either phase; that is, if "lit" is a SAT literal, this function returns
+   * true both for lit and the negation of lit.
+   */
+  bool isDecision(Node lit) const;
 
 };/* class Valuation */
 

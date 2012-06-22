@@ -44,6 +44,7 @@
 #include "theory/arith/constraint.h"
 
 #include "util/stats.h"
+#include "util/result.h"
 
 #include <vector>
 #include <map>
@@ -53,6 +54,8 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
+class InstantiatorTheoryArith;
+
 /**
  * Implementation of QF_LRA.
  * Based upon:
@@ -60,6 +63,24 @@ namespace arith {
  */
 class TheoryArith : public Theory {
 private:
+  friend class InstantiatorTheoryArith;
+
+  /**
+   * The status of the partial model of whether the partial model
+   * is known to be satisfied in the previous check.
+   *
+   * check()
+   *   !done() -> d_qflraStatus = Unknown
+   *   fullEffort(e) -> simplex returns either sat or unsat
+   *   !fullEffort(e) -> simplex returns either sat, unsat or unknown
+   *                     if unknown, save the assignment
+   *                     if unknown, the simplex priority queue cannot be emptied
+   */
+  enum Result::Sat d_qflraStatus;
+
+  /** The number of check calls in a row that have resulted in unsat. */
+  int d_unknownsInARow;
+
   bool rowImplication(ArithVar v, bool upperBound, const DeltaRational& r);
 
   /**
@@ -110,6 +131,12 @@ private:
       }
     }
   } d_setupLiteralCallback;
+
+  /**
+   * A superset of all of the assertions that currently are not the literal for
+   * their constraint do not match constraint literals. Not just the witnesses.
+   */
+  context::CDHashMap<TNode, Constraint, TNodeHashFunction> d_assertionsThatDoNotMatchTheirLiterals;
 
   /**
    * (For the moment) the type hierarchy goes as:
@@ -190,6 +217,8 @@ private:
    */
   std::deque<Constraint> d_currentPropagationList;
 
+  context::CDQueue<Constraint> d_learnedBounds;
+
   /**
    * Manages information about the assignment and upper and lower bounds on
    * variables.
@@ -236,8 +265,17 @@ private:
     void operator()(Node n){
       d_list.push_back(n);
     }
-  };
-  PushCallBack d_conflictCallBack;
+  } d_raiseConflict;
+
+  /** Returns true iff a conflict has been raised. */
+  inline bool inConflict() const {
+    return !d_conflicts.empty();
+  }
+  /**
+   * Outputs the contents of d_conflicts onto d_out.
+   * Must be inConflict().
+   */
+  void outputConflicts();
 
   /** This keeps track of difference equalities. Mostly for sharing. */
   ArithCongruenceManager d_congruenceManager;
@@ -256,7 +294,7 @@ private:
   DeltaRational getDeltaValue(TNode n);
 
 public:
-  TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
+  TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   virtual ~TheoryArith();
 
   /**
@@ -370,10 +408,10 @@ private:
    * a node describing this conflict is returned.
    * If this new bound is not in conflict, Node::null() is returned.
    */
-  Node AssertLower(Constraint constraint);
-  Node AssertUpper(Constraint constraint);
-  Node AssertEquality(Constraint constraint);
-  Node AssertDisequality(Constraint constraint);
+  bool AssertLower(Constraint constraint);
+  bool AssertUpper(Constraint constraint);
+  bool AssertEquality(Constraint constraint);
+  bool AssertDisequality(Constraint constraint);
 
   /** Tracks the bounds that were updated in the current round. */
   DenseSet d_updatedBounds;
@@ -407,7 +445,8 @@ private:
    * Returns a conflict if one was found.
    * Returns Node::null if no conflict was found.
    */
-  Node assertionCases(TNode assertion);
+  Constraint constraintFromFactQueue();
+  bool assertionCases(Constraint c);
 
   /**
    * Returns the basic variable with the shorted row containg a non-basic variable.
@@ -420,6 +459,7 @@ private:
    * Returns true iff every variable is consistent in the partial model.
    */
   bool entireStateIsConsistent();
+  bool unenqueuedVariablesAreConsistent();
 
   bool isImpliedUpperBound(ArithVar var, Node exp);
   bool isImpliedLowerBound(ArithVar var, Node exp);
@@ -457,6 +497,14 @@ private:
 
     TimerStat d_boundComputationTime;
     IntStat d_boundComputations, d_boundPropagations;
+
+    IntStat d_unknownChecks;
+    IntStat d_maxUnknownsInARow;
+    AverageStat d_avgUnknownsInARow;
+
+    IntStat d_revertsOnConflicts;
+    IntStat d_commitsOnConflicts;
+    IntStat d_nontrivialSatChecks;
 
     Statistics();
     ~Statistics();

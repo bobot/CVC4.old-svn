@@ -115,7 +115,7 @@ int runCvc4(int argc, char* argv[], Options& options) {
   // If in competition mode, set output stream option to flush immediately
 #ifdef CVC4_COMPETITION_MODE
   *options.out << unitbuf;
-#endif
+#endif /* CVC4_COMPETITION_MODE */
 
   // We only accept one input file
   if(argc > firstArgIndex + 1) {
@@ -242,6 +242,9 @@ int runCvc4(int argc, char* argv[], Options& options) {
     *options.replayLog << Expr::setlanguage(options.outputLanguage) << Expr::setdepth(-1);
   }
 
+  // important even for muzzled builds (to get result output right)
+  *options.out << Expr::setlanguage(options.outputLanguage);
+
   // Parse and execute commands until we are done
   Command* cmd;
   bool status = true;
@@ -268,7 +271,11 @@ int runCvc4(int argc, char* argv[], Options& options) {
     ParserBuilder parserBuilder(&exprMgr, filename, options);
 
     if( inputFromStdin ) {
+#if defined(CVC4_COMPETITION_MODE) && !defined(CVC4_SMTCOMP_APPLICATION_TRACK)
+      parserBuilder.withStreamInput(cin);
+#else /* CVC4_COMPETITION_MODE && !CVC4_SMTCOMP_APPLICATION_TRACK */
       parserBuilder.withLineBufferedStreamInput(cin);
+#endif /* CVC4_COMPETITION_MODE && !CVC4_SMTCOMP_APPLICATION_TRACK */
     }
 
     Parser *parser = parserBuilder.build();
@@ -276,7 +283,11 @@ int runCvc4(int argc, char* argv[], Options& options) {
       // have the replay parser use the file's declarations
       replayParser->useDeclarationsFrom(parser);
     }
-    while((cmd = parser->nextCommand())) {
+    while((cmd = parser->nextCommand()) && status) {
+      if(dynamic_cast<QuitCommand*>(cmd) != NULL) {
+        delete cmd;
+        break;
+      }
       status = doCommand(smt, cmd, options) && status;
       delete cmd;
     }
@@ -311,7 +322,7 @@ int runCvc4(int argc, char* argv[], Options& options) {
   // exit, don't return
   // (don't want destructors to run)
   exit(returnValue);
-#endif
+#endif /* CVC4_COMPETITION_MODE */
 
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
   RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);

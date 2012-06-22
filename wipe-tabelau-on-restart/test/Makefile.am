@@ -41,11 +41,14 @@ subdirs_to_check = \
 	regress/regress0/arrays \
 	regress/regress0/aufbv \
 	regress/regress0/datatypes \
+	regress/regress0/quantifiers \
+	regress/regress0/rewriterules \
 	regress/regress0/lemmas \
 	regress/regress0/push-pop \
 	regress/regress0/precedence \
 	regress/regress0/preprocess \
 	regress/regress0/unconstrained \
+	regress/regress0/decision \
 	regress/regress1 \
 	regress/regress2 \
 	regress/regress3

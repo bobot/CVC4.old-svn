@@ -30,6 +30,7 @@
 #include "util/lemma_output_channel.h"
 #include "util/lemma_input_channel.h"
 #include "util/tls.h"
+#include "theory/theoryof_mode.h"
 
 #include <vector>
 
@@ -155,6 +156,7 @@ struct CVC4_PUBLIC Options {
     unsigned short maxRelTimeAsPermille;  /* permille = part per thousand */
     bool computeRelevancy;    /* if false, do justification stuff using relevancy.h */
     bool mustRelevancy;       /* use the must be relevant */
+    bool stopOnly;            /* only use decision stuff to stop early, not to decide */
   };
   DecisionOptions decisionOptions;
 
@@ -266,15 +268,41 @@ struct CVC4_PUBLIC Options {
   typedef enum { NO_PROP, UNATE_PROP, BOUND_INFERENCE_PROP, BOTH_PROP} ArithPropagationMode;
   ArithPropagationMode arithPropagationMode;
 
-  /** The pivot rule for arithmetic */
-  typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
-  ArithPivotRule arithPivotRule;
+  /**
+   * The maximum number of difference pivots to do per invokation of simplex.
+   * If this is negative, the number of pivots done is the number of variables.
+   * If this is not set by the user, different logics are free to chose different
+   * defaults.
+   */
+  int16_t arithHeuristicPivots;
+  bool arithHeuristicPivotsSetByUser;
 
   /**
-   * The number of pivots before Bland's pivot rule is used on a basic
-   * variable in arithmetic.
+   * The maximum number of variable order pivots to do per invokation of simplex.
+   * If this is negative, the number of pivots done is unlimited.
+   * If this is not set by the user, different logics are free to chose different
+   * defaults.
+   */
+  int16_t arithStandardCheckVarOrderPivots;
+  bool arithStandardCheckVarOrderPivotsSetByUser;
+
+  /** The heuristic pivot rule for arithmetic. */
+  typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithHeuristicPivotRule;
+  ArithHeuristicPivotRule arithHeuristicPivotRule;
+
+  /**
+   * The number of pivots before simplex rechecks every basic variable for a conflict.
+   */
+  uint16_t arithSimplexCheckPeriod;
+
+  /**
+   * This is the pivots per basic variable that can be done using heuristic choices
+   * before variable order must be used.
+   * If this is not set by the user, different logics are free to chose different
+   * defaults.
    */
   uint16_t arithPivotThreshold;
+  bool arithPivotThresholdSetByUser;
 
   /**
    * The maximum row length that arithmetic will use for propagation.
@@ -310,6 +338,126 @@ struct CVC4_PUBLIC Options {
    */
   bool ufSymmetryBreakerSetByUser;
 
+  /**
+   * Whether to mini-scope quantifiers.
+   * For example, forall x. ( P( x ) ^ Q( x ) ) will be rewritten to
+   * ( forall x. P( x ) ) ^ ( forall x. Q( x ) )
+   */
+  bool miniscopeQuant;
+
+  /**
+   * Whether to mini-scope quantifiers based on formulas with no free variables.
+   * For example, forall x. ( P( x ) V Q ) will be rewritten to
+   * ( forall x. P( x ) ) V Q
+   */
+  bool miniscopeQuantFreeVar;
+
+  /**
+   * Whether to prenex (nested universal) quantifiers
+   */
+  bool prenexQuant;
+
+  /**
+   * Whether to variable-eliminate quantifiers.
+   * For example, forall x y. ( P( x, y ) V x != c ) will be rewritten to
+   *   forall y. P( c, y )
+   */
+  bool varElimQuant;
+
+  /**
+   * Whether to CNF quantifier bodies
+   */
+  bool cnfQuant;
+
+  /**
+   * Whether to pre-skolemize quantifier bodies.
+   * For example, forall x. ( P( x ) => (exists y. f( y ) = x) ) will be rewritten to
+   *   forall x. P( x ) => f( S( x ) ) = x
+   */
+  bool preSkolemQuant;
+
+  /**
+   * Whether to use smart triggers
+   */
+  bool smartTriggers;
+
+  /**
+   * Whether to consider terms in the bodies of quantifiers for matching
+   */
+  bool registerQuantBodyTerms;
+
+  /** Enumeration of inst_when modes (when to instantiate). */
+  typedef enum {
+    /** Apply instantiation round before full effort (possibly at standard effort) */
+    INST_WHEN_PRE_FULL,
+    /** Apply instantiation round at full effort or above  */
+    INST_WHEN_FULL,
+    /** Apply instantiation round at full effort half the time, and last call always */
+    INST_WHEN_FULL_LAST_CALL,
+    /** Apply instantiation round at last call only */
+    INST_WHEN_LAST_CALL,
+  } InstWhenMode;
+  /** When to perform instantiation round. */
+  InstWhenMode instWhenMode;
+
+  /**
+   * Whether to eagerly instantiate quantifiers
+   */
+  bool eagerInstQuant;
+
+  /**
+   * Whether to use finite model find heuristic
+   */
+  bool finiteModelFind;
+
+  /**
+   * Whether to use region-based SAT for finite model finding
+   */
+  bool fmfRegionSat;
+
+  /**
+   * Whether to use model-based exhaustive instantiation for finite model finding
+   */
+  bool fmfModelBasedInst;
+
+  /**
+   * Whether to use efficient E-matching
+   */
+  bool efficientEMatching;
+
+  /** Enumeration of literal matching modes. */
+  typedef enum {
+    /** Do not consider polarity of patterns */
+    LITERAL_MATCH_NONE,
+    /** Consider polarity of boolean predicates only */
+    LITERAL_MATCH_PREDICATE,
+    /** Consider polarity of boolean predicates, as well as equalities */
+    LITERAL_MATCH_EQUALITY,
+  } LiteralMatchMode;
+
+  /** Which literal matching mode to use. */
+  LiteralMatchMode literalMatchMode;
+
+  /**
+   * Whether to do counterexample-based quantifier instantiation
+   */
+  bool cbqi;
+
+  /**
+   * Whether the user explicitly requested that counterexample-based
+   * quantifier instantiation be enabled or disabled.
+   */
+  bool cbqiSetByUser;
+
+  /**
+   * Whether to use user patterns for pattern-based instantiation
+   */
+  bool userPatternsQuant;
+
+  /**
+   * Whether to use flip decision (useful when cbqi=true)
+   */
+  bool flipDecision;
 
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;
@@ -344,6 +492,12 @@ struct CVC4_PUBLIC Options {
 
   /** Refine conflicts by doing another full check after a conflict */
   bool sat_refine_conflicts;
+
+  /** Was theoryOf mode set by user */
+  bool theoryOfModeSetByUser;
+
+  /** Which theoryOf mode are we using */
+  theory::TheoryOfMode theoryOfMode;
 
   Options();
 
@@ -409,7 +563,7 @@ inline std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
-std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) CVC4_PUBLIC;
+std::ostream& operator<<(std::ostream& out, Options::ArithHeuristicPivotRule rule) CVC4_PUBLIC;
 
 }/* CVC4 namespace */
 

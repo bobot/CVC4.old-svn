@@ -159,6 +159,14 @@ namespace kind {
   }/* CVC4::kind::metakind namespace */
 }/* CVC4::kind namespace */
 
+// for hash_maps, hash_sets..
+struct NodeHashFunction {
+  inline size_t operator()(Node node) const;
+};/* struct NodeHashFunction */
+struct TNodeHashFunction {
+  inline size_t operator()(TNode node) const;
+};/* struct TNodeHashFunction */
+
 /**
  * Encapsulation of an NodeValue pointer.  The reference count is
  * maintained in the NodeValue if ref_count is true.
@@ -166,17 +174,6 @@ namespace kind {
  */
 template <bool ref_count>
 class NodeTemplate {
-
-  // for hash_maps, hash_sets..
-  template <bool ref_count1>
-  struct HashFunction {
-    size_t operator()(CVC4::NodeTemplate<ref_count1> node) const {
-      return (size_t) node.getId();
-    }
-  };/* struct HashFunction */
-
-  typedef HashFunction<false> TNodeHashFunction;
-
   /**
    * The NodeValue has access to the private constructors, so that the
    * iterators can can create new nodes.
@@ -234,6 +231,8 @@ class NodeTemplate {
     }
   }
 
+public:
+
   /**
    * Cache-aware, recursive version of substitute() used by the public
    * member function with a similar signature.
@@ -257,8 +256,6 @@ class NodeTemplate {
   template <class Iterator>
   Node substitute(Iterator substitutionsBegin, Iterator substitutionsEnd,
                   std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const;
-
-public:
 
   /** Default constructor, makes a null expression. */
   NodeTemplate() : d_nv(&expr::NodeValue::s_null) { }
@@ -803,10 +800,10 @@ public:
    * (might break language compliance, but good for debugging expressions)
    * @param language the language in which to output
    */
-  inline void toStream(std::ostream& out, int toDepth = -1, bool types = false,
+  inline void toStream(std::ostream& out, int toDepth = -1, bool types = false, size_t dag = 1,
                        OutputLanguage language = language::output::LANG_AST) const {
     assertTNodeNotExpired();
-    d_nv->toStream(out, toDepth, types, language);
+    d_nv->toStream(out, toDepth, types, dag, language);
   }
 
   /**
@@ -835,6 +832,11 @@ public:
    * gives "(OR a:U b:U (AND c:U (NOT d:U)))", but
    */
   typedef expr::ExprPrintTypes printtypes;
+
+  /**
+   * IOStream manipulator to print expressions as DAGs (or not).
+   */
+  typedef expr::ExprDag dag;
 
   /**
    * IOStream manipulator to set the output language for Exprs.
@@ -885,6 +887,7 @@ inline std::ostream& operator<<(std::ostream& out, TNode n) {
   n.toStream(out,
              Node::setdepth::getDepth(out),
              Node::printtypes::getPrintTypes(out),
+             Node::dag::getDag(out),
              Node::setlanguage::getLanguage(out));
   return out;
 }
@@ -898,19 +901,12 @@ inline std::ostream& operator<<(std::ostream& out, TNode n) {
 
 namespace CVC4 {
 
-// for hash_maps, hash_sets..
-struct NodeHashFunction {
-  size_t operator()(CVC4::Node node) const {
-    return (size_t) node.getId();
-  }
-};/* struct NodeHashFunction */
-
-// for hash_maps, hash_sets..
-struct TNodeHashFunction {
-  size_t operator()(CVC4::TNode node) const {
-    return (size_t) node.getId();
-  }
-};/* struct TNodeHashFunction */
+inline size_t NodeHashFunction::operator()(Node node) const {
+  return node.getId();
+}
+inline size_t TNodeHashFunction::operator()(TNode node) const {
+  return node.getId();
+}
 
 struct TNodePairHashFunction {
   size_t operator()(const std::pair<CVC4::TNode, CVC4::TNode>& pair ) const {
@@ -1468,6 +1464,16 @@ bool NodeTemplate<ref_count>::hasSubterm(NodeTemplate<false> t, bool strict) con
  */
 static void __attribute__((used)) debugPrintNode(const NodeTemplate<true>& n) {
   Warning() << Node::setdepth(-1)
+            << Node::printtypes(false)
+            << Node::dag(true)
+            << Node::setlanguage(language::output::LANG_AST)
+            << n << std::endl;
+  Warning().flush();
+}
+static void __attribute__((used)) debugPrintNodeNoDag(const NodeTemplate<true>& n) {
+  Warning() << Node::setdepth(-1)
+            << Node::printtypes(false)
+            << Node::dag(false)
             << Node::setlanguage(language::output::LANG_AST)
             << n << std::endl;
   Warning().flush();
@@ -1479,6 +1485,16 @@ static void __attribute__((used)) debugPrintRawNode(const NodeTemplate<true>& n)
 
 static void __attribute__((used)) debugPrintTNode(const NodeTemplate<false>& n) {
   Warning() << Node::setdepth(-1)
+            << Node::printtypes(false)
+            << Node::dag(true)
+            << Node::setlanguage(language::output::LANG_AST)
+            << n << std::endl;
+  Warning().flush();
+}
+static void __attribute__((used)) debugPrintTNodeNoDag(const NodeTemplate<false>& n) {
+  Warning() << Node::setdepth(-1)
+            << Node::printtypes(false)
+            << Node::dag(false)
             << Node::setlanguage(language::output::LANG_AST)
             << n << std::endl;
   Warning().flush();

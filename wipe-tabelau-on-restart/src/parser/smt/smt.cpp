@@ -29,6 +29,10 @@ namespace parser {
 
 std::hash_map<const std::string, Smt::Logic, CVC4::StringHashFunction> Smt::newLogicMap() {
   std::hash_map<const std::string, Smt::Logic, CVC4::StringHashFunction> logicMap;
+  logicMap["AUFLIA"] = AUFLIA;
+  logicMap["AUFLIRA"] = AUFLIRA;
+  logicMap["AUFNIRA"] = AUFNIRA;
+  logicMap["LRA"] = LRA;
   logicMap["QF_AX"] = QF_AX;
   logicMap["QF_BV"] = QF_BV;
   logicMap["QF_IDL"] = QF_IDL;
@@ -54,6 +58,9 @@ std::hash_map<const std::string, Smt::Logic, CVC4::StringHashFunction> Smt::newL
   logicMap["QF_UFNIRA"] = QF_UFNIRA;
   logicMap["QF_AUFLIA"] = QF_AUFLIA;
   logicMap["QF_AUFLIRA"] = QF_AUFLIRA;
+  logicMap["UFNIA"] = UFNIA;
+  logicMap["UFNIRA"] = UFNIRA;
+  logicMap["UFLRA"] = UFLRA;
   logicMap["QF_ALL_SUPPORTED"] = QF_ALL_SUPPORTED;
   logicMap["ALL_SUPPORTED"] = ALL_SUPPORTED;
   return logicMap;
@@ -109,6 +116,22 @@ void Smt::addTheory(Theory theory) {
     break;
   }
 
+  case THEORY_BITVECTOR_ARRAYS_EX: {
+    Unimplemented("Cannot yet handle SMT-LIBv1 bitvector arrays (i.e., the BitVector_ArraysEx theory)");
+    //addOperator(kind::SELECT);
+    //addOperator(kind::STORE);
+    break;
+  }
+
+  case THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX: {
+    defineType("Array1", getExprManager()->mkArrayType(getSort("Int"), getSort("Real")));
+    defineType("Array2", getExprManager()->mkArrayType(getSort("Int"), getSort("Array1")));
+    addOperator(kind::SELECT);
+    addOperator(kind::STORE);
+    break;
+  }
+
+  case THEORY_INT_ARRAYS:
   case THEORY_INT_ARRAYS_EX: {
     defineType("Array", getExprManager()->mkArrayType(getExprManager()->integerType(), getExprManager()->integerType()));
 
@@ -140,6 +163,9 @@ void Smt::addTheory(Theory theory) {
   case THEORY_BITVECTORS:
     break;
 
+  case THEORY_QUANTIFIERS:
+    break;
+
   default:
     Unhandled(theory);
   }
@@ -147,11 +173,6 @@ void Smt::addTheory(Theory theory) {
 
 bool Smt::logicIsSet() {
   return d_logicSet;
-}
-
-inline void Smt::addUf() {
-  addTheory(Smt::THEORY_EMPTY);
-  addOperator(kind::APPLY_UF);
 }
 
 void Smt::setLogic(const std::string& name) {
@@ -183,24 +204,25 @@ void Smt::setLogic(const std::string& name) {
   case QF_UFLIA:
   case QF_UFNIA:// nonstandard logic
     addTheory(THEORY_INTS);
-    addUf();
+    addOperator(kind::APPLY_UF);
     break;
 
   case QF_UFLRA:
   case QF_UFNRA:
     addTheory(THEORY_REALS);
-    addUf();
+    addOperator(kind::APPLY_UF);
     break;
 
   case QF_UFLIRA:// nonstandard logic
   case QF_UFNIRA:// nonstandard logic
     addTheory(THEORY_INTS);
     addTheory(THEORY_REALS);
-    addUf();
+    addOperator(kind::APPLY_UF);
     break;
 
   case QF_UF:
-    addUf();
+    addTheory(THEORY_EMPTY);
+    addOperator(kind::APPLY_UF);
     break;
 
   case QF_BV:
@@ -213,25 +235,25 @@ void Smt::setLogic(const std::string& name) {
     break;
 
   case QF_UFBV:
-    addUf();
+    addOperator(kind::APPLY_UF);
     addTheory(THEORY_BITVECTORS);
     break;
 
   case QF_AUFBV:
-    addUf();
+    addOperator(kind::APPLY_UF);
     addTheory(THEORY_ARRAYS_EX);
     addTheory(THEORY_BITVECTORS);
     break;
 
   case QF_AUFBVLIA:
-    addUf();
+    addOperator(kind::APPLY_UF);
     addTheory(THEORY_ARRAYS_EX);
     addTheory(THEORY_BITVECTORS);
     addTheory(THEORY_INTS);
     break;
 
   case QF_AUFBVLRA:
-    addUf();
+    addOperator(kind::APPLY_UF);
     addTheory(THEORY_ARRAYS_EX);
     addTheory(THEORY_BITVECTORS);
     addTheory(THEORY_REALS);
@@ -239,36 +261,68 @@ void Smt::setLogic(const std::string& name) {
 
   case QF_AUFLIA:
     addTheory(THEORY_INT_ARRAYS_EX);
-    addUf();
+    addOperator(kind::APPLY_UF);
     addTheory(THEORY_INTS);
     break;
 
   case QF_AUFLIRA:
-    addTheory(THEORY_ARRAYS_EX);
-    addUf();
+    addTheory(THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX);
+    addOperator(kind::APPLY_UF);
     addTheory(THEORY_INTS);
     addTheory(THEORY_REALS);
     break;
 
   case ALL_SUPPORTED:
+    addTheory(THEORY_QUANTIFIERS);
     /* fall through */
   case QF_ALL_SUPPORTED:
     addTheory(THEORY_ARRAYS_EX);
-    addUf();
+    addOperator(kind::APPLY_UF);
     addTheory(THEORY_INTS);
     addTheory(THEORY_REALS);
     addTheory(THEORY_BITVECTORS);
     break;
 
   case AUFLIA:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_INT_ARRAYS_EX);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
+
   case AUFLIRA:
   case AUFNIRA:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_REALS);
+    addTheory(THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
+
   case LRA:
-  case UFLRA:
+    addTheory(THEORY_REALS);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
+
   case UFNIA:
-    Unhandled(name);
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
+  case UFNIRA:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_REALS);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
+
+  case UFLRA:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_REALS);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
   }
-}
+}/* Smt::setLogic() */
 
 }/* CVC4::parser namespace */
 }/* CVC4 namespace */

@@ -19,6 +19,8 @@
 #include <vector>
 #include <list>
 
+#include "decision/decision_engine.h"
+
 #include "expr/attribute.h"
 #include "expr/node.h"
 #include "expr/node_builder.h"
@@ -31,6 +33,9 @@
 
 #include "util/node_visitor.h"
 #include "util/ite_removal.h"
+
+#include "theory/quantifiers_engine.h"
+#include "theory/quantifiers/theory_quantifiers.h"
 
 using namespace std;
 
@@ -46,6 +51,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_userContext(userContext),
   d_logicInfo(logicInfo),
   d_sharedTerms(this, context),
+  d_quantEngine(NULL),
   d_ppCache(),
   d_possiblePropagations(context),
   d_hasPropagated(context),
@@ -69,6 +75,10 @@ TheoryEngine::TheoryEngine(context::Context* context,
     d_theoryTable[theoryId] = NULL;
     d_theoryOut[theoryId] = NULL;
   }
+
+  // initialize the quantifiers engine
+  d_quantEngine = new QuantifiersEngine(context, this);
+
   Rewriter::init();
   StatisticsRegistry::registerStat(&d_combineTheoriesTime);
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
@@ -84,6 +94,8 @@ TheoryEngine::~TheoryEngine() {
       delete d_theoryOut[theoryId];
     }
   }
+
+  delete d_quantEngine;
 
   StatisticsRegistry::unregisterStat(&d_combineTheoriesTime);
 }
@@ -320,6 +332,22 @@ void TheoryEngine::check(Theory::Effort effort) {
       }
     }
 
+    // Must consult quantifiers theory for last call to ensure sat, or otherwise add a lemma
+    if( effort == Theory::EFFORT_FULL &&
+        d_logicInfo.isQuantified() &&
+        ! d_inConflict &&
+        ! d_lemmasAdded ) {
+      ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->performCheck(Theory::EFFORT_LAST_CALL);
+      // if we have given up, then possibly flip decision
+      if(Options::current()->flipDecision) {
+        if(d_incomplete && !d_inConflict && !d_lemmasAdded) {
+          if( ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ) {
+            d_incomplete = false;
+          }
+        }
+      }
+    }
+
     Debug("theory") << "TheoryEngine::check(" << effort << "): done, we are " << (d_inConflict ? "unsat" : "sat") << (d_lemmasAdded ? " with new lemmas" : " with no new lemmas") << std::endl;
 
   } catch(const theory::Interrupted&) {
@@ -364,11 +392,15 @@ void TheoryEngine::combineTheories() {
 
     Debug("sharing") << "TheoryEngine::combineTheories(): checking " << carePair.a << " = " << carePair.b << " from " << carePair.theory << std::endl;
 
+    Assert(d_sharedTerms.isShared(carePair.a) || carePair.a.isConst());
+    Assert(d_sharedTerms.isShared(carePair.b) || carePair.b.isConst());
     Assert(!d_sharedTerms.areEqual(carePair.a, carePair.b), "Please don't care about stuff you were notified about");
     Assert(!d_sharedTerms.areDisequal(carePair.a, carePair.b), "Please don't care about stuff you were notified about");
 
     // The equality in question
-    Node equality = Rewriter::rewriteEquality(carePair.theory, carePair.a.eqNode(carePair.b));
+    Node equality = carePair.a < carePair.b ?
+        carePair.a.eqNode(carePair.b) :
+        carePair.b.eqNode(carePair.a);
 
     // Normalize the equality
     Node normalizedEquality = Rewriter::rewrite(equality);
@@ -444,6 +476,11 @@ bool TheoryEngine::properConflict(TNode conflict) const {
                                 << conflict[i] << endl;
         return false;
       }
+      if (conflict[i] != Rewriter::rewrite(conflict[i])) {
+        Debug("properConflict") << "Bad conflict is due to atom not in normal form: "
+                                << conflict[i] << " vs " << Rewriter::rewrite(conflict[i]) << endl;
+        return false;
+      }
     }
   } else {
     if (! getPropEngine()->hasValue(conflict, value)) {
@@ -454,6 +491,11 @@ bool TheoryEngine::properConflict(TNode conflict) const {
     if(! value) {
       Debug("properConflict") << "Bad conflict is due to false atom: "
                               << conflict << endl;
+      return false;
+    }
+    if (conflict != Rewriter::rewrite(conflict)) {
+      Debug("properConflict") << "Bad conflict is due to atom not in normal form: "
+                              << conflict << " vs " << Rewriter::rewrite(conflict) << endl;
       return false;
     }
   }
@@ -586,7 +628,7 @@ void TheoryEngine::shutdown() {
   // Shutdown all the theories
   for(TheoryId theoryId = theory::THEORY_FIRST; theoryId < theory::THEORY_LAST; ++theoryId) {
     if(d_theoryTable[theoryId]) {
-      theoryOf(static_cast<TheoryId>(theoryId))->shutdown();
+      theoryOf(theoryId)->shutdown();
     }
   }
 
@@ -614,15 +656,21 @@ Node TheoryEngine::ppTheoryRewrite(TNode term)
     return theoryOf(term)->ppRewrite(term);
   }
   Trace("theory-pp") << "ppTheoryRewrite { " << term << endl;
-  NodeBuilder<> newNode(term.getKind());
-  if (term.getMetaKind() == kind::metakind::PARAMETERIZED) {
-    newNode << term.getOperator();
+
+  Node newTerm;
+  if (theoryOf(term)->ppDontRewriteSubterm(term)) {
+    newTerm = term;
+  } else {
+    NodeBuilder<> newNode(term.getKind());
+    if (term.getMetaKind() == kind::metakind::PARAMETERIZED) {
+      newNode << term.getOperator();
+    }
+    unsigned i;
+    for (i = 0; i < nc; ++i) {
+      newNode << ppTheoryRewrite(term[i]);
+    }
+    newTerm = Rewriter::rewrite(Node(newNode));
   }
-  unsigned i;
-  for (i = 0; i < nc; ++i) {
-    newNode << ppTheoryRewrite(term[i]);
-  }
-  Node newTerm = Rewriter::rewrite(Node(newNode));
   Node newTerm2 = theoryOf(newTerm)->ppRewrite(newTerm);
   if (newTerm != newTerm2) {
     newTerm = ppTheoryRewrite(Rewriter::rewrite(newTerm2));
@@ -673,6 +721,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
     // If this is an atom, we preprocess its terms with the theory ppRewriter
     if (Theory::theoryOf(current) != THEORY_BOOL) {
       d_ppCache[current] = ppTheoryRewrite(current);
+      Assert(Rewriter::rewrite(d_ppCache[current]) == d_ppCache[current]);
       continue;
     }
 
@@ -689,6 +738,9 @@ Node TheoryEngine::preprocess(TNode assertion) {
       }
       // Mark the substitution and continue
       Node result = builder;
+      if (result != current) {
+        result = Rewriter::rewrite(result);
+      }
       Debug("theory::internal") << "TheoryEngine::preprocess(" << assertion << "): setting " << current << " -> " << result << endl;
       d_ppCache[current] = result;
       toVisit.pop_back();
@@ -763,13 +815,17 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
       d_factsAsserted = true;      
     } else {
       Assert(toTheoryId == THEORY_SAT_SOLVER);
-      // Enqueue for propagation to the SAT solver
-      d_propagatedLiterals.push_back(assertion);
       // Check for propositional conflict
       bool value;
-      if (d_propEngine->hasValue(assertion, value) && !value) {
-        d_inConflict = true;
-      }
+      if (d_propEngine->hasValue(assertion, value)) {
+        if (!value) {
+          Trace("theory::propagate") << "TheoryEngine::assertToTheory(" << assertion << ", " << toTheoryId << ", " << fromTheoryId << "): conflict" << std::endl;
+          d_inConflict = true;
+        } else {
+          return;
+        }
+      } 
+      d_propagatedLiterals.push_back(assertion);
     }
     return;
   }
@@ -816,30 +872,42 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
     }
     return;
   }
-  
-  // We are left with internal distribution of shared literals
-  Assert(atom.getKind() == kind::EQUAL);
-  Node normalizedAtom = Rewriter::rewriteEquality(toTheoryId, atom);
-  Node normalizedAssertion = polarity ? normalizedAtom : normalizedAtom.notNode();
-  
-  // If we normalize to true or false, it's a special case
-  if (normalizedAtom.isConst()) {
-    if (polarity == normalizedAtom.getConst<bool>()) {
-      // Trivially true, just ignore
-      return;
+
+  // See if it rewrites to true or false directly
+  Node normalizedLiteral = Rewriter::rewrite(assertion);
+  if (normalizedLiteral.isConst()) {
+    if (normalizedLiteral.getConst<bool>()) {
+      // trivially true, but theories need to share even trivially true facts
+      // unless of course it is the theory that normalized it
+      if (Theory::theoryOf(atom) == toTheoryId) {
+      	return;
+      }
     } else {
       // Mark the propagation for explanations
-      if (markPropagation(normalizedAssertion, assertion, toTheoryId, fromTheoryId)) {
+      if (markPropagation(normalizedLiteral, assertion, toTheoryId, fromTheoryId)) {
         // Get the explanation (conflict will figure out where it came from)
-        conflict(normalizedAssertion, toTheoryId);
+        conflict(normalizedLiteral, toTheoryId);
       } else {
         Unreachable();
       }
       return;
     }
   }
+
+  // Normalize to lhs < rhs if not a sat literal
+  Assert(atom.getKind() == kind::EQUAL);
+  Assert(atom[0] != atom[1]);
   
-  // Try and assert
+  Node normalizedAtom = atom;
+  if (!d_propEngine->isSatLiteral(normalizedAtom)) {
+    Node reverse = atom[1].eqNode(atom[0]);
+    if (d_propEngine->isSatLiteral(reverse) || atom[0] > atom[1]) {
+      normalizedAtom = reverse;
+    }  
+  } 
+  Node normalizedAssertion = polarity ? normalizedAtom : normalizedAtom.notNode();
+
+  // Try and assert (note that we assert the non-normalized one)
   if (markPropagation(normalizedAssertion, assertion, toTheoryId, fromTheoryId)) {
     // Check if has been pre-registered with the theory
     bool preregistered = d_propEngine->isSatLiteral(normalizedAssertion) && Theory::theoryOf(normalizedAtom) == toTheoryId;
@@ -905,7 +973,7 @@ void TheoryEngine::assertFact(TNode literal)
 
 bool TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
 
-  Debug("theory") << "TheoryEngine::propagate(" << literal << ", " << theory << ")" << std::endl;
+  Debug("theory::propagate") << "TheoryEngine::propagate(" << literal << ", " << theory << ")" << std::endl;
 
   d_propEngine->checkTime();
 
@@ -951,7 +1019,7 @@ void TheoryEngine::propagateAsDecision(TNode literal, theory::TheoryId theory) {
 }
 
 theory::EqualityStatus TheoryEngine::getEqualityStatus(TNode a, TNode b) {
-  Assert(a.getType() == b.getType());
+  Assert(a.getType().isComparableTo(b.getType()));
   if (d_sharedTerms.isShared(a) && d_sharedTerms.isShared(b)) {
     if (d_sharedTerms.areEqual(a,b)) {
       return EQUALITY_TRUE_AND_PROPAGATED;
@@ -994,7 +1062,7 @@ static Node mkExplanation(const std::vector<NodeTheoryPair>& explanation) {
 
 
 Node TheoryEngine::getExplanation(TNode node) {
-  Debug("theory") << "TheoryEngine::getExplanation(" << node << ")" << std::endl;
+  Debug("theory::explain") << "TheoryEngine::getExplanation(" << node << "): current proagation index = " << d_propagationMapTimestamp << std::endl;
 
   bool polarity = node.getKind() != kind::NOT;
   TNode atom = polarity ? node : node[0];
@@ -1073,6 +1141,8 @@ theory::LemmaStatus TheoryEngine::lemma(TNode node, bool negated, bool removable
 
 void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
 
+  Debug("theory::conflict") << "TheoryEngine::conflict(" << conflict << ", " << theoryId << ")" << std::endl;
+
   // Mark that we are in conflict
   d_inConflict = true;
 
@@ -1090,18 +1160,19 @@ void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
     getExplanation(explanationVector);
     Node fullConflict = mkExplanation(explanationVector);
     Debug("theory::conflict") << "TheoryEngine::conflict(" << conflict << ", " << theoryId << "): full = " << fullConflict << std::endl;
-    lemma(fullConflict, true, false);
+    Assert(properConflict(fullConflict));
+    lemma(fullConflict, true, true);
   } else {
     // When only one theory, the conflict should need no processing
     Assert(properConflict(conflict));
-    lemma(conflict, true, false);
+    lemma(conflict, true, true);
   }
 }
 
 Node TheoryEngine::ppSimpITE(TNode assertion)
 {
   Node result = d_iteSimplifier.simpITE(assertion);
-  result = d_iteSimplifier.simplifyWithCare(result);
+  result = d_iteSimplifier.simplifyWithCare(Rewriter::rewrite(result));
   result = Rewriter::rewrite(result);
   return result;
 }
@@ -1165,8 +1236,8 @@ void TheoryEngine::getExplanation(std::vector<NodeTheoryPair>& explanationVector
     } else {
       explanation = theoryOf(toExplain.theory)->explain(toExplain.node);
     }
-    Assert(explanation != toExplain.node, "wansn't sent to you, so why are you explaining it trivially");
     Debug("theory::explain") << "TheoryEngine::explain(): got explanation " << explanation << " got from " << toExplain.theory << std::endl;
+    Assert(explanation != toExplain.node, "wansn't sent to you, so why are you explaining it trivially");
     // Mark the explanation
     NodeTheoryPair newExplain(explanation, toExplain.theory, toExplain.timestamp);
     explanationVector.push_back(newExplain);

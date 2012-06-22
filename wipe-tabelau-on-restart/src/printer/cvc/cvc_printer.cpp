@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -21,6 +21,7 @@
 #include "util/language.h" // for LANG_AST
 #include "expr/node_manager.h" // for VarNameAttr
 #include "expr/command.h"
+#include "theory/substitutions.h"
 
 #include <iostream>
 #include <vector>
@@ -36,8 +37,37 @@ namespace CVC4 {
 namespace printer {
 namespace cvc {
 
-void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, bool bracket) const throw()
-{
+void CvcPrinter::toStream(std::ostream& out, TNode n, int toDepth, bool types, size_t dag) const throw() {
+  if(dag != 0) {
+    DagificationVisitor dv(dag);
+    NodeVisitor<DagificationVisitor> visitor;
+    visitor.run(dv, n);
+    const theory::SubstitutionMap& lets = dv.getLets();
+    if(!lets.empty()) {
+      out << "LET ";
+      bool first = true;
+      for(theory::SubstitutionMap::const_iterator i = lets.begin();
+          i != lets.end();
+          ++i) {
+        if(! first) {
+          out << ", ";
+        } else {
+          first = false;
+        }
+        toStream(out, (*i).second, toDepth, types, false);
+        out << " = ";
+        toStream(out, (*i).first, toDepth, types, false);
+      }
+      out << " IN ";
+    }
+    Node body = dv.getDagifiedBody();
+    toStream(out, body, toDepth, types, false);
+  } else {
+    toStream(out, n, toDepth, types, false);
+  }
+}
+
+void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, bool bracket) const throw() {
   if (depth == 0) {
     out << "(...)";
   } else {
@@ -222,6 +252,9 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
     // UF
     case kind::APPLY_UF:
       toStream(op, n.getOperator(), depth, types, false);
+      break;
+    case kind::CARDINALITY_CONSTRAINT:
+      out << "CARDINALITY_CONSTRAINT";
       break;
 
     case kind::FUNCTION_TYPE:
@@ -450,18 +483,33 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       op << "@";
       opType = INFIX;
       break;
-    case kind::BITVECTOR_PLUS:
+    case kind::BITVECTOR_PLUS: {
       //This interprets a BITVECTOR_PLUS as a bvadd in SMT-LIB
-      out << "BVPLUS(";
       Assert(n.getType().isBitVector());
+      unsigned numc = n.getNumChildren()-2;
+      unsigned child = 0;
+      while (child < numc) {
+        out << "BVPLUS(";
+        out << BitVectorType(n.getType().toType()).getSize();
+        out << ',';
+        toStream(out, n[child], depth, types, false);
+        out << ',';
+        ++child;
+      }
+      out << "BVPLUS(";
       out << BitVectorType(n.getType().toType()).getSize();
       out << ',';
-      toStream(out, n[0], depth, types, false);
-      out << ',';
-      toStream(out, n[1], depth, types, false);
+      toStream(out, n[child], depth, types, false);
+      out << ',';        
+      toStream(out, n[child+1], depth, types, false);
+      while (child > 0) {
+        out << ')';
+        --child;
+      }
       out << ')';
       return;
       break;
+    }
     case kind::BITVECTOR_SUB:
       out << "BVSUB(";
       Assert(n.getType().isBitVector());
@@ -473,17 +521,32 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << ')';
       return;
       break;
-    case kind::BITVECTOR_MULT:
-      out << "BVMULT(";
+    case kind::BITVECTOR_MULT: {
       Assert(n.getType().isBitVector());
+      unsigned numc = n.getNumChildren()-2;
+      unsigned child = 0;
+      while (child < numc) {
+        out << "BVMULT(";
+        out << BitVectorType(n.getType().toType()).getSize();
+        out << ',';
+        toStream(out, n[child], depth, types, false);
+        out << ',';
+        ++child;
+        }
+      out << "BVMULT(";
       out << BitVectorType(n.getType().toType()).getSize();
       out << ',';
-      toStream(out, n[0], depth, types, false);
-      out << ',';
-      toStream(out, n[1], depth, types, false);
+      toStream(out, n[child], depth, types, false);
+      out << ',';        
+      toStream(out, n[child+1], depth, types, false);
+      while (child > 0) {
+        out << ')';
+        --child;
+      }
       out << ')';
       return;
       break;
+    }
     case kind::BITVECTOR_EXTRACT:
       op << n.getOperator().getConst<BitVectorExtract>();
       opType = POSTFIX;
@@ -518,6 +581,44 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << ", " << n.getOperator().getConst<BitVectorRotateRight>() << ')';
       return;
       break;
+
+    // Quantifiers
+    case kind::FORALL:
+      out << "(FORALL";
+      toStream(out, n[0], depth, types, false);
+      out << " : ";
+      toStream(out, n[1], depth, types, false);
+      out << ')';
+      // TODO: user patterns?
+      return;
+    case kind::EXISTS:
+      out << "(EXISTS";
+      toStream(out, n[0], depth, types, false);
+      out << " : ";
+      toStream(out, n[1], depth, types, false);
+      out << ')';
+      // TODO: user patterns?
+      break;
+    case kind::INST_CONSTANT:
+      out << "INST_CONSTANT";
+      break;
+    case kind::BOUND_VAR_LIST:
+      out << '(';
+      for(size_t i = 0; i < n.getNumChildren(); ++i) {
+        if(i > 0) {
+          out << ", ";
+        }
+        toStream(out, n[i], -1, true, false); // ascribe types
+      }
+      out << ')';
+      return;
+    case kind::INST_PATTERN:
+      out << "INST_PATTERN";
+      break;
+    case kind::INST_PATTERN_LIST:
+      out << "INST_PATTERN_LIST";
+      break;
+
     default:
       Warning() << "Kind printing not implemented for the case of " << n.getKind() << endl;
       break;
@@ -568,9 +669,10 @@ template <class T>
 static bool tryToStream(std::ostream& out, const Command* c) throw();
 
 void CvcPrinter::toStream(std::ostream& out, const Command* c,
-                           int toDepth, bool types) const throw() {
+                           int toDepth, bool types, size_t dag) const throw() {
   expr::ExprSetDepth::Scope sdScope(out, toDepth);
   expr::ExprPrintTypes::Scope ptScope(out, types);
+  expr::ExprDag::Scope dagScope(out, dag);
 
   if(tryToStream<AssertCommand>(out, c) ||
      tryToStream<PushCommand>(out, c) ||
@@ -631,12 +733,12 @@ static void toStream(std::ostream& out, const SExpr& sexpr) throw() {
   } else if(sexpr.isString()) {
     string s = sexpr.getValue();
     // escape backslash and quote
-    for(string::iterator i = s.begin(); i != s.end(); ++i) {
-      if(*i == '"') {
-        s.replace(i, i + 1, "\\\"");
+    for(size_t i = 0; i < s.size(); ++i) {
+      if(s[i] == '"') {
+        s.replace(i, 1, "\\\"");
         ++i;
-      } else if(*i == '\\') {
-        s.replace(i, i + 1, "\\\\");
+      } else if(s[i] == '\\') {
+        s.replace(i, 1, "\\\\");
         ++i;
       }
     }

@@ -2,7 +2,7 @@
 #
 # mkrewriter
 # Morgan Deters <mdeters@cs.nyu.edu> for CVC4
-# Copyright (c) 2010-2011  The CVC4 Project
+# Copyright (c) 2010-2012  The CVC4 Project
 #
 # The purpose of this script is to create rewriter_tables.h from a template
 # and a list of theory kinds.
@@ -14,7 +14,7 @@
 # Output is to standard out.
 #
 
-copyright=2010-2011
+copyright=2010-2012
 
 cat <<EOF
 /*********************                                                        */
@@ -46,8 +46,6 @@ pre_rewrite_set_cache=
 post_rewrite_calls=
 post_rewrite_get_cache=
 post_rewrite_set_cache=
-
-rewrite_equality_calls=
 
 seen_theory=false
 seen_theory_builtin=false
@@ -81,6 +79,12 @@ function theory {
   fi
 
   theory_id="$1"
+}
+
+function instantiator {
+  # instantiator class header
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
 }
 
 function properties {
@@ -132,9 +136,6 @@ function rewriter {
   post_rewrite_get_cache="${post_rewrite_get_cache}    case ${theory_id}: return RewriteAttibute<${theory_id}>::getPostRewriteCache(node);
 "
   post_rewrite_set_cache="${post_rewrite_set_cache}    case ${theory_id}: return RewriteAttibute<${theory_id}>::setPostRewriteCache(node, cache);
-"
-
-  rewrite_equality_calls="${rewrite_equality_calls}    case ${theory_id}: return ${class}::rewriteEquality(node);
 "
 
   lineno=${BASH_LINENO[0]}
@@ -229,7 +230,6 @@ for var in \
     rewriter_includes \
     pre_rewrite_calls \
     post_rewrite_calls \
-    rewrite_equality_calls \
     pre_rewrite_get_cache \
     post_rewrite_get_cache \
     pre_rewrite_set_cache \

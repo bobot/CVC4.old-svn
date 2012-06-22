@@ -64,6 +64,7 @@ const Options::DecisionOptions defaultDecOpt = {
   1000,                         // maxRelTimeAsPermille
   true,                         // computeRelevancy
   false,                        // mustRelevancy
+  false,                        // stopOnly
 };
 
 Options::Options() :
@@ -122,14 +123,39 @@ Options::Options() :
   satRestartInc(3.0),
   arithUnateLemmaMode(ALL_PRESOLVE_LEMMAS),
   arithPropagationMode(BOTH_PROP),
-  arithPivotRule(MINIMUM),
-  arithPivotThreshold(16),
+  arithHeuristicPivots(0),
+  arithHeuristicPivotsSetByUser(false),
+  arithStandardCheckVarOrderPivots(-1),
+  arithStandardCheckVarOrderPivotsSetByUser(false),
+  arithHeuristicPivotRule(MINIMUM),
+  arithSimplexCheckPeriod(200),
+  arithPivotThreshold(2),
+  arithPivotThresholdSetByUser(false),
   arithPropagateMaxLength(16),
   arithDioSolver(true),
   arithRewriteEq(false),
   arithRewriteEqSetByUser(false),
   ufSymmetryBreaker(false),
   ufSymmetryBreakerSetByUser(false),
+  miniscopeQuant(true),
+  miniscopeQuantFreeVar(true),
+  prenexQuant(true),
+  varElimQuant(false),
+  cnfQuant(false),
+  preSkolemQuant(false),
+  smartTriggers(true),
+  registerQuantBodyTerms(false),
+  instWhenMode(INST_WHEN_FULL_LAST_CALL),
+  eagerInstQuant(false),
+  finiteModelFind(false),
+  fmfRegionSat(false),
+  fmfModelBasedInst(true),
+  efficientEMatching(false),
+  literalMatchMode(LITERAL_MATCH_NONE),
+  cbqi(false),
+  cbqiSetByUser(false),
+  userPatternsQuant(true),
+  flipDecision(false),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
   threads(2),// default should be 1 probably, but say 2 for now
@@ -140,7 +166,9 @@ Options::Options() :
   bitvectorEagerBitblast(false),
   bitvectorEagerFullcheck(false),
   bitvectorShareLemmas(false),
-  sat_refine_conflicts(false)
+  sat_refine_conflicts(false),
+  theoryOfModeSetByUser(false),
+  theoryOfMode(theory::THEORY_OF_TYPE_BASED)
 {
 }
 
@@ -194,6 +222,8 @@ Additional CVC4 options:\n\
    --show-trace-tags      show all avalable tags for tracing\n\
    --show-sat-solvers     show all available SAT solvers\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
+   --default-dag-thresh=N dagify common subexprs appearing > N times\n\
+                          (1 == default, 0 == don't dagify)\n\
    --print-expr-types     print types with variables when printing exprs\n\
    --lazy-definition-expansion expand define-funs/LAMBDAs lazily\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
@@ -209,6 +239,7 @@ Additional CVC4 options:\n\
    --no-repeat-simp       do not make multiple passes with nonclausal simplifier\n\
    --replay=file          replay decisions from file\n\
    --replay-log=file      log decisions and propagations to file\n\
+   --theoryof-mode=mode   mode for theoryof\n\
   SAT:\n\
    --random-freq=P        frequency of random decisions in the sat solver\n\
                           (P=0.0 by default)\n\
@@ -218,12 +249,17 @@ Additional CVC4 options:\n\
    --restart-int-inc=F    restart interval increase factor for the sat solver\n\
                           (F=3.0 by default)\n\
   ARITHMETIC:\n\
-   ---unate-lemmas=MODE   determines which lemmas to add before solving\n\
+   --unate-lemmas=MODE   determines which lemmas to add before solving\n\
                           (default is 'all', see --unate-lemmas=help)\n\
    --arith-prop=MODE      turns on arithmetic propagation\n\
                           (default is 'old', see --arith-prop=help)\n\
-   --pivot-rule=RULE      change the pivot rule for the basic variable\n\
-                          (default is 'min', see --pivot-rule help)\n\
+   --heuristic-pivot-rule=RULE change the pivot rule for the basic variable\n\
+                          (default is 'min', see --heuristic-pivot-rule help)\n\
+   --heuristic-pivots=N   the number of times to apply the heuristic pivot rule.\n\
+                          If N < 0, this defaults to the number of variables\n\
+                          If this is unset, this is tuned by the logic selection.\n\
+   --simplex-check-period=N The number of pivots to do in simplex before rechecking for\n\
+                          a conflict on all variables.\n\
    --pivot-threshold=N    sets the number of pivots using --pivot-rule\n\
                           per basic variable per simplex instance before\n\
                           using variable order\n\
@@ -238,6 +274,27 @@ Additional CVC4 options:\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al.,\n\
                           CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
+   --disable-miniscope-quant     disable miniscope quantifiers\n\
+   --disable-miniscope-quant-fv  disable miniscope quantifiers for ground subformulas\n\
+   --disable-prenex-quant disable prenexing of quantified formulas\n\
+   --var-elim-quant       enable variable elimination of quantified formulas\n\
+   --cnf-quant            apply CNF conversion to quantified formulas\n\
+   --pre-skolem-quant     apply skolemization eagerly to bodies of quantified formulas\n\
+   --disable-smart-triggers   disable smart triggers\n\
+   --register-quant-body-terms  consider terms within bodies of quantified formulas for matching\n\
+   --inst-when=MODE       when to apply instantiation\n\
+   --eager-inst-quant     apply quantifier instantiation eagerly\n\
+   --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
+   --use-fmf-region-sat   use region-based SAT heuristic for finite model finding\n\
+   --disable-fmf-model-inst  disable model-based instantiation for finite model finding\n\
+   --efficient-e-matching use efficient E-matching\n\
+   --literal-matching=MODE  choose literal matching mode\n\
+   --enable-cbqi          turns on counterexample-based quantifier instantiation [off by default]\n\
+   --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
+   --ignore-user-patterns ignore user-provided patterns for quantifier instantiation\n\
+   --enable-flip-decision turns on flip decision heuristic\n\
+   --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
+   --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n\
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
@@ -280,6 +337,16 @@ none\n\
 + do not perform nonclausal simplification\n\
 ";
 
+static const string theoryofHelp = "\
+TheoryOf modes currently supported by the --theoryof-mode option:\n\
+\n\
+type (default) \n\
++ type variables, constants and equalities by type\n\
+\n\
+term \n\
++ type variables as uninterpreted, equalities by the parametric theory\n\
+";
+
 static const string decisionHelp = "\
 Decision modes currently supported by the --decision option:\n\
 \n\
@@ -288,6 +355,9 @@ internal (default)\n\
 \n\
 justification\n\
 + An ATGP-inspired justification heuristic\n\
+\n\
+justification-stoponly\n\
++ Use the justification heuristic only to stop early, not for decisions\n\
 \n\
 relevancy\n\
 + Under development may-relevancy\n\
@@ -437,7 +507,7 @@ void Options::printLanguageHelp(std::ostream& out) {
  */
 enum OptionValue {
   OPTION_VALUE_BEGIN = 256, /* avoid clashing with char options */
-  SMTCOMP, 
+  SMTCOMP,
   STATS,
   SEGV_NOSPIN,
   OUTPUT_LANGUAGE,
@@ -454,6 +524,7 @@ enum OptionValue {
   SHOW_CONFIG,
   STRICT_PARSING,
   DEFAULT_EXPR_DEPTH,
+  DEFAULT_DAG_THRESH,
   PRINT_EXPR_TYPES,
   UF_THEORY,
   LAZY_DEFINITION_EXPANSION,
@@ -485,7 +556,10 @@ enum OptionValue {
   SAT_RESTART_INC,
   ARITHMETIC_UNATE_LEMMA_MODE,
   ARITHMETIC_PROPAGATION_MODE,
+  ARITHMETIC_HEURISTIC_PIVOTS,
+  ARITHMETIC_VAR_ORDER_PIVOTS,
   ARITHMETIC_PIVOT_RULE,
+  ARITHMETIC_CHECK_PERIOD,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   ARITHMETIC_DIO_SOLVER,
@@ -493,6 +567,25 @@ enum OptionValue {
   DISABLE_ARITHMETIC_REWRITE_EQUALITIES,
   ENABLE_SYMMETRY_BREAKER,
   DISABLE_SYMMETRY_BREAKER,
+  DISABLE_MINISCOPE_QUANT,
+  DISABLE_MINISCOPE_QUANT_FV,
+  DISABLE_PRENEX_QUANT,
+  VAR_ELIM_QUANT,
+  CNF_QUANT,
+  PRE_SKOLEM_QUANT,
+  DISABLE_SMART_TRIGGERS,
+  REGISTER_QUANT_BODY_TERMS,
+  INST_WHEN,
+  EAGER_INST_QUANT,
+  FINITE_MODEL_FIND,
+  FMF_REGION_SAT,
+  DISABLE_FMF_MODEL_BASED_INST,
+  EFFICIENT_E_MATCHING,
+  LITERAL_MATCHING,
+  ENABLE_CBQI,
+  DISABLE_CBQI,
+  IGNORE_USER_PATTERNS,
+  ENABLE_FLIP_DECISION,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
   PORTFOLIO_FILTER_LENGTH,
@@ -504,6 +597,7 @@ enum OptionValue {
   BITVECTOR_SHARE_LEMMAS,
   BITVECTOR_EAGER_FULLCHECK,
   SAT_REFINE_CONFLICTS,
+  THEORYOF_MODE,
   OPTION_VALUE_END
 };/* enum OptionValue */
 
@@ -557,6 +651,7 @@ static struct option cmdlineOptions[] = {
   { "mmap"       , no_argument      , NULL, USE_MMAP    },
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
   { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
+  { "default-dag-thresh", required_argument, NULL, DEFAULT_DAG_THRESH },
   { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
   { "uf"         , required_argument, NULL, UF_THEORY   },
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
@@ -590,7 +685,10 @@ static struct option cmdlineOptions[] = {
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "unate-lemmas", required_argument, NULL, ARITHMETIC_UNATE_LEMMA_MODE },
   { "arith-prop", required_argument, NULL, ARITHMETIC_PROPAGATION_MODE },
-  { "pivot-rule" , required_argument, NULL, ARITHMETIC_PIVOT_RULE  },
+  { "heuristic-pivots", required_argument, NULL, ARITHMETIC_HEURISTIC_PIVOTS },
+  { "heuristic-pivot-rule" , required_argument, NULL, ARITHMETIC_PIVOT_RULE  },
+  { "standard-effort-variable-order-pivots", required_argument, NULL, ARITHMETIC_VAR_ORDER_PIVOTS },
+  { "simplex-check-period" , required_argument, NULL, ARITHMETIC_CHECK_PERIOD  },
   { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
   { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
   { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
@@ -598,6 +696,25 @@ static struct option cmdlineOptions[] = {
   { "disable-arith-rewrite-equalities", no_argument, NULL, DISABLE_ARITHMETIC_REWRITE_EQUALITIES },
   { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
+  { "disable-miniscope-quant", no_argument, NULL, DISABLE_MINISCOPE_QUANT },
+  { "disable-miniscope-quant-fv", no_argument, NULL, DISABLE_MINISCOPE_QUANT_FV },
+  { "disable-prenex-quant", no_argument, NULL, DISABLE_PRENEX_QUANT },
+  { "var-elim-quant", no_argument, NULL, VAR_ELIM_QUANT },
+  { "cnf-quant", no_argument, NULL, CNF_QUANT },
+  { "pre-skolem-quant", no_argument, NULL, PRE_SKOLEM_QUANT },
+  { "disable-smart-triggers", no_argument, NULL, DISABLE_SMART_TRIGGERS },
+  { "register-quant-body-terms", no_argument, NULL, REGISTER_QUANT_BODY_TERMS },
+  { "inst-when", required_argument, NULL, INST_WHEN },
+  { "eager-inst-quant", no_argument, NULL, EAGER_INST_QUANT },
+  { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
+  { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
+  { "disable-fmf-model-inst", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
+  { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
+  { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
+  { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
+  { "disable-cbqi", no_argument, NULL, DISABLE_CBQI },
+  { "ignore-user-patterns", no_argument, NULL, IGNORE_USER_PATTERNS },
+  { "enable-flip-decision", no_argument, NULL, ENABLE_FLIP_DECISION },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
@@ -609,6 +726,7 @@ static struct option cmdlineOptions[] = {
   { "bitblast-share-lemmas", no_argument, NULL, BITVECTOR_SHARE_LEMMAS },
   { "bitblast-eager-fullcheck", no_argument, NULL, BITVECTOR_EAGER_FULLCHECK },
   { "refine-conflicts", no_argument, NULL, SAT_REFINE_CONFLICTS },
+  { "theoryof-mode", required_argument, NULL, THEORYOF_MODE },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -781,6 +899,7 @@ throw(OptionException) {
 
     case DUMP_TO: {
 #ifdef CVC4_DUMPING
+      size_t dagSetting = expr::ExprDag::getDag(Dump.getStream());
       if(optarg == NULL || *optarg == '\0') {
         throw OptionException(string("Bad file name for --dump-to"));
       } else if(!strcmp(optarg, "-")) {
@@ -792,6 +911,7 @@ throw(OptionException) {
         }
         Dump.setStream(*dumpTo);
       }
+      expr::ExprDag::setDag(Dump.getStream(), dagSetting);
 #else /* CVC4_DUMPING */
       throw OptionException("The dumping feature was disabled in this build of CVC4.");
 #endif /* CVC4_DUMPING */
@@ -832,6 +952,22 @@ throw(OptionException) {
       }
       break;
 
+    case DEFAULT_DAG_THRESH:
+      {
+        int dag = atoi(optarg);
+        if(dag < 0) {
+          throw OptionException("--default-dag-thresh requires a nonnegative argument.");
+        }
+        Debug.getStream() << Expr::dag(dag);
+        Trace.getStream() << Expr::dag(dag);
+        Notice.getStream() << Expr::dag(dag);
+        Chat.getStream() << Expr::dag(dag);
+        Message.getStream() << Expr::dag(dag);
+        Warning.getStream() << Expr::dag(dag);
+        Dump.getStream() << Expr::dag(dag);
+      }
+      break;
+
     case PRINT_EXPR_TYPES:
       Debug.getStream() << Expr::printtypes(true);
       Trace.getStream() << Expr::printtypes(true);
@@ -864,13 +1000,33 @@ throw(OptionException) {
       }
       break;
 
+    case THEORYOF_MODE:
+      if (!strcmp(optarg, "type")) {
+        theoryOfModeSetByUser = true;
+        theoryOfMode = theory::THEORY_OF_TYPE_BASED;
+      } else if (!strcmp(optarg, "term")) {
+        theoryOfModeSetByUser = true;
+        theoryOfMode = theory::THEORY_OF_TERM_BASED;
+      } else if (!strcmp(optarg, "help")) {
+        puts(theoryofHelp.c_str());
+        exit(1);
+      } else {
+        throw OptionException(string("unknown option for --theoryof-mode: `") +
+                              optarg + "'.  Try --theoryof-mode help.");
+      }
+      break;
     case DECISION_MODE:
+      decisionOptions = defaultDecOpt;  // reset all options
       if(!strcmp(optarg, "internal")) {
         decisionMode = DECISION_STRATEGY_INTERNAL;
         decisionModeSetByUser = true;
       } else if(!strcmp(optarg, "justification")) {
         decisionMode = DECISION_STRATEGY_JUSTIFICATION;
         decisionModeSetByUser = true;
+      } else if(!strcmp(optarg, "justification-stoponly")) {
+        decisionMode = DECISION_STRATEGY_JUSTIFICATION;
+        decisionModeSetByUser = true;
+        decisionOptions.stopOnly = true;
       } else if(!strcmp(optarg, "relevancy")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;
@@ -964,7 +1120,7 @@ throw(OptionException) {
     case 'm':
       produceModels = true;
       break;
-      
+
     case PRODUCE_ASSIGNMENTS:
       produceAssignments = true;
       break;
@@ -996,7 +1152,7 @@ throw(OptionException) {
       throw OptionException("This is not a proof-enabled build of CVC4; --proof cannot be used");
 #endif /* CVC4_PROOF */
       break;
-      
+
     case NO_TYPE_CHECKING:
       typeChecking = false;
       earlyTypeChecking = false;
@@ -1053,7 +1209,91 @@ throw(OptionException) {
       ufSymmetryBreaker = false;
       ufSymmetryBreakerSetByUser = true;
       break;
-
+    case DISABLE_MINISCOPE_QUANT:
+      miniscopeQuant = false;
+      break;
+    case DISABLE_MINISCOPE_QUANT_FV:
+      miniscopeQuantFreeVar = false;
+      break;
+    case DISABLE_PRENEX_QUANT:
+      prenexQuant = false;
+      break;
+    case VAR_ELIM_QUANT:
+      varElimQuant = true;
+      break;
+    case CNF_QUANT:
+      cnfQuant = true;
+      break;
+    case PRE_SKOLEM_QUANT:
+      preSkolemQuant = true;
+      break;
+    case DISABLE_SMART_TRIGGERS:
+      smartTriggers = false;
+      break;
+    case REGISTER_QUANT_BODY_TERMS:
+      registerQuantBodyTerms = true;
+      break;
+    case INST_WHEN:
+      if(!strcmp(optarg, "pre-full")) {
+        instWhenMode = INST_WHEN_PRE_FULL;
+      } else if(!strcmp(optarg, "full")) {
+        instWhenMode = INST_WHEN_FULL;
+      } else if(!strcmp(optarg, "full-last-call")) {
+        instWhenMode = INST_WHEN_FULL_LAST_CALL;
+      } else if(!strcmp(optarg, "last-call")) {
+        instWhenMode = INST_WHEN_LAST_CALL;
+      } else if(!strcmp(optarg, "help")) {
+        //puts(instWhenHelp.c_str());
+        exit(1);
+      } else {
+        throw OptionException(string("unknown option for --inst-when: `") +
+                              optarg + "'.  Try --inst-when help.");
+      }
+      break;
+    case EAGER_INST_QUANT:
+      eagerInstQuant = true;
+      break;
+    case FINITE_MODEL_FIND:
+      finiteModelFind = true;
+      break;
+    case FMF_REGION_SAT:
+      fmfRegionSat = true;
+      break;
+    case DISABLE_FMF_MODEL_BASED_INST:
+      fmfModelBasedInst = false;
+      break;
+    case EFFICIENT_E_MATCHING:
+      efficientEMatching = true;
+      break;
+    case LITERAL_MATCHING:
+      if(!strcmp(optarg, "none")) {
+        literalMatchMode = LITERAL_MATCH_NONE;
+      } else if(!strcmp(optarg, "predicate")) {
+        literalMatchMode = LITERAL_MATCH_PREDICATE;
+      } else if(!strcmp(optarg, "equality")) {
+        literalMatchMode = LITERAL_MATCH_EQUALITY;
+      } else if(!strcmp(optarg, "help")) {
+        //puts(literalMatchHelp.c_str());
+        exit(1);
+      } else {
+        throw OptionException(string("unknown option for --literal-matching: `") +
+                              optarg + "'.  Try --literal-matching help.");
+      }
+      break;
+    case ENABLE_CBQI:
+      cbqi = true;
+      cbqiSetByUser = true;
+      break;
+    case DISABLE_CBQI:
+      cbqi = false;
+      cbqiSetByUser = true;
+      break;
+    case IGNORE_USER_PATTERNS:
+      userPatternsQuant = false;
+      break;
+    case ENABLE_FLIP_DECISION:
+      flipDecision = true;
+      break;
     case TIME_LIMIT:
       {
         int i = atoi(optarg);
@@ -1121,7 +1361,7 @@ throw(OptionException) {
                               optarg + "' is not between 0.0 and 1.0.");
       }
       break;
-      
+
     case SAT_RESTART_FIRST:
       {
         int i = atoi(optarg);
@@ -1131,7 +1371,7 @@ throw(OptionException) {
         satRestartFirst = i;
         break;
       }
-      
+
     case SAT_RESTART_INC:
       {
         int i = atoi(optarg);
@@ -1186,27 +1426,42 @@ throw(OptionException) {
       }
       break;
 
+    case ARITHMETIC_HEURISTIC_PIVOTS:
+      arithHeuristicPivots = atoi(optarg);
+      arithHeuristicPivotsSetByUser = true;
+      break;
+
+    case ARITHMETIC_VAR_ORDER_PIVOTS:
+      arithStandardCheckVarOrderPivots = atoi(optarg);
+      arithStandardCheckVarOrderPivotsSetByUser = true;
+      break;
+
     case ARITHMETIC_PIVOT_RULE:
       if(!strcmp(optarg, "min")) {
-        arithPivotRule = MINIMUM;
+        arithHeuristicPivotRule = MINIMUM;
         break;
       } else if(!strcmp(optarg, "min-break-ties")) {
-        arithPivotRule = BREAK_TIES;
+        arithHeuristicPivotRule = BREAK_TIES;
         break;
       } else if(!strcmp(optarg, "max")) {
-        arithPivotRule = MAXIMUM;
+        arithHeuristicPivotRule = MAXIMUM;
         break;
       } else if(!strcmp(optarg, "help")) {
         puts(pivotRulesHelp.c_str());
         exit(1);
       } else {
-        throw OptionException(string("unknown option for --pivot-rule: `") +
-                              optarg + "'.  Try --pivot-rule help.");
+        throw OptionException(string("unknown option for --heuristic-pivot-rule: `") +
+                              optarg + "'.  Try --heuristic-pivot-rule help.");
       }
+      break;
+
+    case ARITHMETIC_CHECK_PERIOD:
+      arithSimplexCheckPeriod = atoi(optarg);
       break;
 
     case ARITHMETIC_PIVOT_THRESHOLD:
       arithPivotThreshold = atoi(optarg);
+      arithPivotThresholdSetByUser = true;
       break;
 
     case ARITHMETIC_PROP_MAX_LENGTH:
@@ -1321,7 +1576,7 @@ throw(OptionException) {
 
     case PORTFOLIO_FILTER_LENGTH:
       sharingFilterByLength = atoi(optarg);
-      break; 
+      break;
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.
@@ -1417,7 +1672,7 @@ void Options::setInputLanguage(const char* str) throw(OptionException) {
   languageHelp = true;
 }
 
-std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {
+std::ostream& operator<<(std::ostream& out, Options::ArithHeuristicPivotRule rule) {
   switch(rule) {
   case Options::MINIMUM:
     out << "MINIMUM";

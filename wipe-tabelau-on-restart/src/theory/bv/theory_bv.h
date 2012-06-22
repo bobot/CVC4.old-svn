@@ -49,8 +49,8 @@ class TheoryBV : public Theory {
   EqualitySolver d_equalitySolver;
 public:
 
-  TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
-  ~TheoryBV(); 
+  TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
+  ~TheoryBV();
 
   void preRegisterTerm(TNode n);
 
@@ -64,21 +64,22 @@ public:
 
   std::string identify() const { return std::string("TheoryBV"); }
 
-  PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions); 
+  PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
+  Node ppRewrite(TNode t);
 
 private:
-  
+
   class Statistics {
   public:
     AverageStat d_avgConflictSize;
     IntStat     d_solveSubstitutions;
-    TimerStat   d_solveTimer;  
+    TimerStat   d_solveTimer;
     Statistics();
-    ~Statistics(); 
-  }; 
-  
+    ~Statistics();
+  };
+
   Statistics d_statistics;
-  
+
   // Are we in conflict?
   context::CDO<bool> d_conflict;
 
@@ -90,11 +91,6 @@ private:
 
   /** Index of the next literal to propagate */
   context::CDO<unsigned> d_literalsToPropagateIndex;
-
-  enum SubTheory {
-    SUB_EQUALITY = 1,
-    SUB_BITBLAST = 2
-  };
 
   /**
    * Keeps a map from nodes to the subtheory that propagated it so that we can explain it
@@ -127,13 +123,17 @@ private:
     return indentStr;
   }
 
-  void setConflict(Node conflict) {
+  void setConflict(Node conflict = Node::null()) {
     d_conflict = true; 
-    d_conflictNode = conflict; 
+    d_conflictNode = conflict;
   }
 
-  bool inConflict() { return d_conflict == true; }
-  
+  bool inConflict() {
+    return d_conflict;
+  }
+
+  void sendConflict();
+
   friend class Bitblaster;
   friend class BitblastSolver;
   friend class EqualitySolver; 
@@ -142,6 +142,7 @@ private:
 
 }/* CVC4::theory::bv namespace */
 }/* CVC4::theory namespace */
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__THEORY__BV__THEORY_BV_H */

@@ -95,7 +95,7 @@ public:
      * Notify about a learnt clause.
      */
     virtual void notify(SatClause& clause) = 0;
-};
+  };
 
   virtual void setNotify(Notify* notify) = 0; 
   
@@ -104,6 +104,8 @@ public:
   virtual void getUnsatCore(SatClause& unsatCore) = 0; 
 
   virtual void addMarkerLiteral(SatLiteral lit) = 0; 
+
+  virtual SatValue propagate() = 0;
 
   virtual void explain(SatLiteral lit, std::vector<SatLiteral>& explanation) = 0;
 
@@ -122,6 +124,12 @@ public:
   virtual void pop() = 0;
 
   virtual bool properExplanation(SatLiteral lit, SatLiteral expl) const = 0;
+
+  virtual void requirePhase(SatLiteral lit) = 0;
+
+  virtual bool flipDecision() = 0;
+
+  virtual bool isDecision(SatVariable decn) const = 0;
 
 }; 
 
