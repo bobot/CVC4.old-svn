@@ -26,7 +26,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-//#define IE_PRINT_PROCESS_TIMES
+#define IE_PRINT_PROCESS_TIMES
 
 InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th, bool setIncomplete ) :
 d_th( th ), d_setIncomplete( setIncomplete ){
@@ -142,7 +142,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   }else{
     Debug("inst-engine-ctrl") << "---Done. " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
-    Message() << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+    Message() << "Added lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
 #endif
     //flush lemmas to output channel
     getQuantifiersEngine()->flushLemmas( &d_th->getOutputChannel() );
@@ -171,7 +171,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);
-    Message() << "Run instantiation round " << e << " " << ierCounter << std::endl;
+    Message() << "---Instantiation Engine Round, effort = " << e << "---" << std::endl;
 #endif
     bool quantActive = false;
     //for each quantifier currently asserted,

@@ -21,15 +21,15 @@
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
-//#define ME_PRINT_PROCESS_TIMES
+#define ME_PRINT_PROCESS_TIMES
 //#define ME_PRINT_WARNINGS
 
 //#define DISABLE_EVAL_SKIP_MULTIPLE
 #define RECONSIDER_FUNC_DEFAULT_VALUE
 #define RECONSIDER_FUNC_CONSTANT
 #define USE_INDEX_ORDERING
-//#define USE_PARTIAL_DEFAULT_VALUES
-//#define EVAL_FAIL_SKIP_MULTIPLE
+#define USE_PARTIAL_DEFAULT_VALUES
+#define EVAL_FAIL_SKIP_MULTIPLE
 //#define USE_RELEVANT_DOMAIN
 
 
@@ -695,7 +695,7 @@ void ModelEngine::check( Theory::Effort e ){
     if( addedLemmas==0 ){
       //quantifiers are initialized, we begin an instantiation round
 #ifdef ME_PRINT_PROCESS_TIMES
-      Message() << "---Model Engine Instantiation Round---" << std::endl;
+      Message() << "---Model Engine Round---" << std::endl;
 #endif
       Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
       ++(d_statistics.d_inst_rounds);
@@ -746,6 +746,9 @@ void ModelEngine::check( Theory::Effort e ){
       }
       if( addedLemmas==0 ){
         //verify we are SAT by trying exhaustive instantiation
+        d_triedLemmas = 0;
+        d_testLemmas = 0;
+        d_totalLemmas = 0;
         Debug("fmf-model-debug") << "Do exhaustive instantiation..." << std::endl;
         for( int i=0; i<d_quantEngine->getNumAssertedQuantifiers(); i++ ){
           Node f = d_quantEngine->getAssertedQuantifier( i );
@@ -758,9 +761,11 @@ void ModelEngine::check( Theory::Effort e ){
           }
 #endif
         }
-        Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << std::endl;
+        Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
+        Debug("fmf-model-debug") << d_testLemmas << " / " << d_totalLemmas << std::endl;
 #ifdef ME_PRINT_PROCESS_TIMES
-        Message() << "Added Lemmas = " << addedLemmas << std::endl;
+        Message() << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
+        Message() << d_testLemmas << " / " << d_totalLemmas << std::endl;
 #endif
 #ifdef ME_PRINT_WARNINGS
         if( addedLemmas>10000 ){
@@ -1073,6 +1078,7 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
   riter.setDomain( rd );
 #endif
   while( !riter.isFinished() && ( addedLemmas==0 || !optOneInstPerQuantRound() ) ){
+    d_testLemmas++;
     if( optUseModel() ){
       //see if instantiation is already true in current model
       Debug("fmf-model-eval") << "Evaluating ";
@@ -1094,6 +1100,7 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
         riter.getMatch( d_quantEngine, m );
         Debug("fmf-model-eval") << "* Add instantiation " << m << std::endl;
         triedLemmas++;
+        d_triedLemmas++;
         if( d_quantEngine->addInstantiation( f, m ) ){
           addedLemmas++;
 #ifdef EVAL_FAIL_SKIP_MULTIPLE
@@ -1111,17 +1118,19 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
       riter.getMatch( d_quantEngine, m );
       Debug("fmf-model-eval") << "* Add instantiation " << std::endl;
       triedLemmas++;
+      d_triedLemmas++;
       if( d_quantEngine->addInstantiation( f, m ) ){
         addedLemmas++;
       }
       riter.increment( d_quantEngine );
     }
   }
+  int totalInst = 1;
+  for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+    totalInst = totalInst * (int)getReps()->d_type_reps[ f[0][i].getType() ].size();
+  }
+  d_totalLemmas += totalInst;
   if( Debug.isOn("inst-fmf-ei") ){
-    int totalInst = 1;
-    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-      totalInst = totalInst * (int)getReps()->d_type_reps[ f[0][i].getType() ].size();
-    }
     Debug("inst-fmf-ei") << "Finished: " << std::endl;
     Debug("inst-fmf-ei") << "   Inst Skipped: " << (totalInst-triedLemmas) << std::endl;
     Debug("inst-fmf-ei") << "   Inst Tried: " << triedLemmas << std::endl;
@@ -1132,10 +1141,6 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
 #ifdef ME_PRINT_WARNINGS
   if( addedLemmas>1000 ){
     Notice() << "WARNING: many instantiations produced for " << f << ": " << std::endl;
-    int totalInst = 1;
-    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-      totalInst = totalInst * (int)getReps()->d_type_reps[ f[0][i].getType() ].size();
-    }
     Notice() << "   Inst Skipped: " << (totalInst-triedLemmas) << std::endl;
     Notice() << "   Inst Tried: " << triedLemmas << std::endl;
     Notice() << "   Inst Added: " << addedLemmas << std::endl;
@@ -1457,20 +1462,12 @@ int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
     }else if( n.getKind()==EQUAL ){
       //case for equality
       retVal = evaluateEquality( n[0], n[1], gn[0], gn[1], fv_deps );
+    }else{
+      depIndex = rai->getNumTerms()-1;
     }
     if( retVal!=0 ){
-      int maxIndex = -1;
-      for( int i=0; i<(int)fv_deps.size(); i++ ){
-        int index = rai->d_var_order[ fv_deps[i].getAttribute(InstVarNumAttribute()) ];
-        if( index>maxIndex ){
-          maxIndex = index;
-          if( index==rai->getNumTerms()-1 ){
-            break;
-          }
-        }
-      }
-      Debug("fmf-model-eval-debug") << "Evaluate literal: return " << retVal << ", depends = " << maxIndex << std::endl;
-      depIndex = maxIndex;
+      depIndex = getDepIndex( rai, fv_deps );
+      Debug("fmf-model-eval-debug") << "Evaluate literal: return " << retVal << ", depends = " << depIndex << std::endl;
     }
     return retVal;
   }
@@ -1594,8 +1591,10 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
         }
         ////cache the result
         //d_eval_term_vals[gn] = val;
-        //d_eval_term_fv_deps[n][gn].insert( d_eval_term_fv_deps[n][gn].end(), fv_deps.begin(), fv_deps.end() );
+        //d_eval_term_fv_deps[n][gn].insert( d_eval_term_fv_deps[n][gn].end(), fv_deps.begin(), fv_deps.end() )
       }else{
+        //DOTHIS: theories?
+        //std::cout << n.getKind() << "       " << n << std::endl;
         //must collect free variables for dependencies
         Trigger::getVarContainsNode( n.getAttribute(InstConstantAttribute()), n, fv_deps );
       }
@@ -1611,6 +1610,20 @@ void ModelEngine::clearEvalFailed( int index ){
     d_eval_failed[ d_eval_failed_lits[index][i] ] = false;
   }
   d_eval_failed_lits[index].clear();
+}
+
+int ModelEngine::getDepIndex( RepAlphabetIterator* rai, std::vector< Node >& fv_deps ){
+  int maxIndex = -1;
+  for( int i=0; i<(int)fv_deps.size(); i++ ){
+    int index = rai->d_var_order[ fv_deps[i].getAttribute(InstVarNumAttribute()) ];
+    if( index>maxIndex ){
+      maxIndex = index;
+      if( index==rai->getNumTerms()-1 ){
+        break;
+      }
+    }
+  }
+  return maxIndex;
 }
 
 bool ModelEngine::areEqual( Node a, Node b ){

@@ -303,6 +303,8 @@ private:
   ////temporary storing for values/free variable dependencies
   //std::map< Node, Node > d_eval_term_vals;
   //std::map< Node, std::map< Node, std::vector< Node > > > d_eval_term_fv_deps;
+  //convert free variable dependencies to depIndex
+  int getDepIndex( RepAlphabetIterator* rai, std::vector< Node >& fv_deps );
 private:
   //map from terms to the models used to calculate their value
   std::map< Node, UfModelTreeOrdered > d_eval_term_model;
@@ -334,6 +336,11 @@ private:
   int findExceptions( Node f );
   //instantiate quantifier, return number of lemmas produced
   int exhaustiveInstantiate( Node f );
+private:
+  //temporary statistics
+  int d_triedLemmas;
+  int d_testLemmas;
+  int d_totalLemmas;
 private:
   //register instantiation terms with their corresponding model basis terms
   void registerModelBasis( Node n, Node gn );
