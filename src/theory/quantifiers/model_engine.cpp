@@ -24,7 +24,7 @@
 //#define ME_PRINT_PROCESS_TIMES
 //#define ME_PRINT_WARNINGS
 
-#define DISABLE_EVAL_SKIP_MULTIPLE
+//#define DISABLE_EVAL_SKIP_MULTIPLE
 #define RECONSIDER_FUNC_DEFAULT_VALUE
 #define RECONSIDER_FUNC_CONSTANT
 #define USE_INDEX_ORDERING
@@ -624,15 +624,15 @@ void UfModel::makeModel( QuantifiersEngine* qe, UfModelTreeOrdered& tree ){
 }
 
 void UfModel::debugPrint( const char* c ){
-  Debug( c ) << "Function " << d_op << std::endl;
-  Debug( c ) << "   Type: " << d_op.getType() << std::endl;
-  Debug( c ) << "   Ground asserts:" << std::endl;
-  for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
-    Debug( c ) << "      " << d_ground_asserts[i] << " = ";
-    printRepresentative( c, d_me->getQuantifiersEngine(), d_ground_asserts[i] );
-    Debug( c ) << std::endl;
-  }
-  Debug( c ) << "   Model:" << std::endl;
+  //Debug( c ) << "Function " << d_op << std::endl;
+  //Debug( c ) << "   Type: " << d_op.getType() << std::endl;
+  //Debug( c ) << "   Ground asserts:" << std::endl;
+  //for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
+  //  Debug( c ) << "      " << d_ground_asserts[i] << " = ";
+  //  printRepresentative( c, d_me->getQuantifiersEngine(), d_ground_asserts[i] );
+  //  Debug( c ) << std::endl;
+  //}
+  //Debug( c ) << "   Model:" << std::endl;
 
   TypeNode t = d_op.getType();
   Debug( c ) << d_op << "( ";
@@ -740,6 +740,7 @@ void ModelEngine::check( Theory::Effort e ){
           }
           Debug("fmf-model-debug") << "Done building models." << std::endl;
           //print debug
+          Debug("fmf-model-complete") << std::endl;
           debugPrint("fmf-model-complete");
         }
       }
@@ -763,6 +764,7 @@ void ModelEngine::check( Theory::Effort e ){
 #endif
 #ifdef ME_PRINT_WARNINGS
         if( addedLemmas>10000 ){
+          Debug("fmf-exit") << std::endl;
           debugPrint("fmf-exit");
           exit( 0 );
         }
@@ -771,6 +773,7 @@ void ModelEngine::check( Theory::Effort e ){
     }
     if( addedLemmas==0 ){
       //CVC4 will answer SAT
+      Debug("fmf-consistent") << std::endl;
       debugPrint("fmf-consistent");
     }else{
       //otherwise, the search will continue
@@ -1094,11 +1097,7 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
         if( d_quantEngine->addInstantiation( f, m ) ){
           addedLemmas++;
 #ifdef EVAL_FAIL_SKIP_MULTIPLE
-          if( eval==-1 ){
-            riter.increment2( d_quantEngine, depIndex );
-          }else{
-            riter.increment( d_quantEngine );
-          }
+          riter.increment2( d_quantEngine, depIndex );
 #else
           riter.increment( d_quantEngine );
 #endif
@@ -1596,6 +1595,9 @@ Node ModelEngine::evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps ){
         ////cache the result
         //d_eval_term_vals[gn] = val;
         //d_eval_term_fv_deps[n][gn].insert( d_eval_term_fv_deps[n][gn].end(), fv_deps.begin(), fv_deps.end() );
+      }else{
+        //must collect free variables for dependencies
+        Trigger::getVarContainsNode( n.getAttribute(InstConstantAttribute()), n, fv_deps );
       }
       return val;
     }
