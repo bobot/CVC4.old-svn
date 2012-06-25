@@ -64,13 +64,7 @@ void EqClassInfo::merge( EqClassInfo* eci ){
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* qe, Theory* th) :
 Instantiator( c, qe, th )
 {
-  qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( this ) );
-
   if( !Options::current()->finiteModelFind || Options::current()->fmfInstEngine ){
-    //if( Options::current()->cbqi ){
-    //  addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
-    //}
-    //addInstStrategy( new InstStrategyFiniteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), qe ) );
     if( Options::current()->cbqi ){
       addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
     }
@@ -85,7 +79,9 @@ Instantiator( c, qe, th )
     i_ag->setGenerateAdditional( true );
     addInstStrategy( i_ag );
     //addInstStrategy( new InstStrategyAddFailSplits( this, ie ) );
-    addInstStrategy( new InstStrategyFreeVariable( this, qe ) );
+    if( !Options::current()->finiteModelFind ){
+      addInstStrategy( new InstStrategyFreeVariable( this, qe ) );
+    }
     //d_isup->setPriorityOver( i_ag );
     //d_isup->setPriorityOver( i_agm );
     //i_ag->setPriorityOver( i_agm );
@@ -122,7 +118,7 @@ void InstantiatorTheoryUf::processResetInstantiationRound( Theory::Effort effort
   d_ground_reps.clear();
 }
 
-int InstantiatorTheoryUf::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstantiatorTheoryUf::process( Node f, Theory::Effort effort, int e ){
   Debug("quant-uf") << "UF: Try to solve (" << e << ") for " << f << "... " << std::endl;
   return InstStrategy::STATUS_SAT;
 }

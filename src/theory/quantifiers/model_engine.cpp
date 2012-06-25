@@ -21,7 +21,7 @@
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
-//#define ME_PRINT_PROCESS_TIMES
+#define ME_PRINT_PROCESS_TIMES
 //#define ME_PRINT_WARNINGS
 
 //#define DISABLE_EVAL_SKIP_MULTIPLE
@@ -1492,7 +1492,9 @@ int ModelEngine::evaluateEquality( RepAlphabetIterator* rai, Node n1, Node n2, N
   }else if( areDisequal( val1, val2 ) ){
     retVal = -1;
   }else{
-    //std::cout << "Neither equal nor disequal " << val1 << " " << val2 << std::endl;
+    //std::cout << "Neither equal nor disequal " << val1.getKind() << " " << val2.getKind() << " " << val1.getType() << std::endl;
+    //std::cout << "                           " << d_quantEngine->getEqualityQuery()->hasTerm( val1 ) << " " << d_quantEngine->getEqualityQuery()->hasTerm( val2 ) << std::endl;
+    //std::cout << "                           " << val1 << " " << val2 << std::endl;
   }
   if( retVal!=0 ){
     Debug("fmf-model-eval-debug") << "   ---> Success, value = " << (retVal==1) << std::endl;
@@ -1503,29 +1505,7 @@ int ModelEngine::evaluateEquality( RepAlphabetIterator* rai, Node n1, Node n2, N
   }
   return retVal;
 }
-/*
-Node ModelEngine::evaluateTerm( RepAlphabetIterator* rai, Node n, Node gn, int& depIndex ){
-  std::vector< Node >& fv_deps;
-  Node val = evaluateTerm2( rai, n, gn, fv_deps );
-  Debug("fmf-model-eval-debug") << "       Value depends on variables: ";
-  for( int i=0; i<(int)fv_deps.size(); i++ ){
-    Debug("fmf-model-eval-debug") << fv_deps[i] << " ";
-  }
-  Debug("fmf-model-eval-debug") << std::endl;
-  int maxIndex = -1;
-  for( int i=0; i<(int)fv_deps.size(); i++ ){
-    int index = rai->d_var_order[ fv_deps[i].getAttribute(InstVarNumAttribute()) ];
-    if( index>maxIndex ){
-      maxIndex = index;
-      if( index==rai->getNumTerms()-1 ){
-        break;
-      }
-    }
-  }
-  depIndex = maxIndex;
-  return val;
-}
-*/
+
 Node ModelEngine::evaluateTerm( RepAlphabetIterator* rai, Node n, Node gn, int& depIndex ){
   //Notice() << "Eval term " << n << std::endl;
   if( n.hasAttribute(InstConstantAttribute()) ){
@@ -1612,11 +1592,14 @@ Node ModelEngine::evaluateTerm( RepAlphabetIterator* rai, Node n, Node gn, int& 
         val = evaluateTerm( rai, n[index], gn[index], valDepIndex );
         depIndex = condDepIndex>valDepIndex ? condDepIndex : valDepIndex;
       }
+    }else if( n.getKind()==PLUS ){
+      //DO_THIS?
     }
     if( val.isNull() ){
       val = gn;
       //DOTHIS: theories?
-      //std::cout << n.getKind() << "       " << n << std::endl;
+      //std::cout << "Unevaluated term " << n.getKind() << " " << n.getType() << " " << d_quantEngine->getEqualityQuery()->hasTerm( gn ) << std::endl;
+      //std::cout << "                 " << n << std::endl;
       //must collect free variables for dependencies
       std::vector< Node > fv_deps;
       Trigger::getVarContainsNode( n.getAttribute(InstConstantAttribute()), n, fv_deps );

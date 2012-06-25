@@ -95,7 +95,7 @@ private:
   /** reset instantiation */
   void processResetInstantiationRound( Theory::Effort effort );
   /** calculate matches for quantifier f at effort */
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
+  int process( Node f, Theory::Effort effort, int e );
 public:
   /** statistics class */
   class Statistics {

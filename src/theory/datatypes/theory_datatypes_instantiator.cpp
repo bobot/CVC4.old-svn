@@ -47,7 +47,7 @@ void InstantiatorTheoryDatatypes::processResetInstantiationRound( Theory::Effort
 }
 
 
-int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e, int limitInst ){
+int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e ){
   Debug("quant-datatypes") << "Datatypes: Try to solve (" << e << ") for " << f << "... " << std::endl;
   if( Options::current()->cbqi ){
     if( e<2 ){

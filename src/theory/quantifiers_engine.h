@@ -66,7 +66,7 @@ protected:
   /** reset instantiation */
   virtual void processResetInstantiationRound( Theory::Effort effort ) = 0;
   /** process method */
-  virtual int process( Node f, Theory::Effort effort, int e, int limitInst = 0 ) = 0;
+  virtual int process( Node f, Theory::Effort effort, int e ) = 0;
 public:
   InstStrategy( QuantifiersEngine* ie ) : d_quantEngine( ie ){}
   virtual ~InstStrategy(){}
@@ -74,7 +74,7 @@ public:
   /** reset instantiation */
   void resetInstantiationRound( Theory::Effort effort );
   /** do instantiation round method */
-  int doInstantiation( Node f, Theory::Effort effort, int e, int limitInst = 0 );
+  int doInstantiation( Node f, Theory::Effort effort, int e );
   /** update status */
   static void updateStatus( int& currStatus, int addStatus ){
     if( addStatus==STATUS_UNFINISHED ){
@@ -247,8 +247,6 @@ public:
   TheoryEngine* getTheoryEngine() { return d_te; }
   /** get equality query object */
   EqualityQuery* getEqualityQuery() { return d_eq_query; }
-  /** set equality query object */
-  void setEqualityQuery( EqualityQuery* eq ) { d_eq_query = eq; }
 public:
   /** add module */
   void addModule( QuantifiersModule* qm ) { d_modules.push_back( qm ); }
@@ -397,6 +395,27 @@ public:
   bool d_optInstLimitActive;
   int d_optInstLimit;
 };/* class QuantifiersEngine */
+
+
+
+/** equality query object using theory engine */
+class EqualityQueryQuantifiersEngine : public EqualityQuery
+{
+private:
+  /** pointer to theory engine */
+  QuantifiersEngine* d_qe;
+  /** get equality engines*/
+  eq::EqualityEngine* getEqualityEngine( int id );
+public:
+  EqualityQueryQuantifiersEngine( QuantifiersEngine* qe ) : d_qe( qe ){}
+  ~EqualityQueryQuantifiersEngine(){}
+  /** general queries about equality */
+  bool hasTerm( Node a );
+  Node getRepresentative( Node a );
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
+  Node getInternalRepresentative( Node a );
+}; /* EqualityQueryQuantifiersEngine */
 
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

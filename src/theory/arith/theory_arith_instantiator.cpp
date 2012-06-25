@@ -40,7 +40,7 @@ void InstStrategySimplex::processResetInstantiationRound( Theory::Effort effort 
   d_counter++;
 }
 
-int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstStrategySimplex::process( Node f, Theory::Effort effort, int e ){
   if( e<2 ){
     return STATUS_UNFINISHED;
   }else if( e==2 ){
@@ -99,7 +99,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 //
 //}
 //
-//int InstStrategySimplexUfMatch::process( Node f, int effort, int instLimit ){
+//int InstStrategySimplexUfMatch::process( Node f, int effort ){
 //  if( effort<2 ){
 //    return STATUS_UNFINISHED;
 //  }else if( effort==2 ){
@@ -242,7 +242,7 @@ void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort eff
   }
 }
 
-int InstantiatorTheoryArith::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstantiatorTheoryArith::process( Node f, Theory::Effort effort, int e ){
   Debug("quant-arith") << "Arith: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   return InstStrategy::STATUS_UNKNOWN;
 }

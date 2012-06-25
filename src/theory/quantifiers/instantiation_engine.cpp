@@ -111,8 +111,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
           for( int i=0; i<theory::THEORY_LAST; i++ ){
             if( getQuantifiersEngine()->getInstantiator( i ) ){
               Debug("inst-engine-debug") << "Do " << getQuantifiersEngine()->getInstantiator( i )->identify() << " " << e_use << std::endl;
-              int limitInst = 0;
-              int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e_use, limitInst );
+              int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e_use );
               Debug("inst-engine-debug") << " -> status is " << quantStatus << std::endl;
               InstStrategy::updateStatus( d_inst_round_status, quantStatus );
             }

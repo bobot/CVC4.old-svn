@@ -51,6 +51,6 @@ void InstantiatorTheoryArrays::processResetInstantiationRound( Theory::Effort ef
 
 }
 
-int InstantiatorTheoryArrays::process( Node f, Theory::Effort effort, int e, int limitInst ){
+int InstantiatorTheoryArrays::process( Node f, Theory::Effort effort, int e ){
   return InstStrategy::STATUS_SAT;
 }

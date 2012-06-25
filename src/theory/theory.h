@@ -330,12 +330,12 @@ public:
   static inline TheoryId theoryOf(TNode node) {
     return theoryOf(s_theoryOfMode, node);
   }
-  
+
   /** Set the theoryOf mode */
   static void setTheoryOfMode(TheoryOfMode mode) {
     s_theoryOfMode = mode;
   }
-  
+
   /**
    * Set the owner of the uninterpreted sort.
    */
@@ -824,7 +824,7 @@ protected:
   /** reset instantiation round */
   virtual void processResetInstantiationRound( Theory::Effort effort ) = 0;
   /** process quantifier */
-  virtual int process( Node f, Theory::Effort effort, int e, int limitInst = 0 ) = 0;
+  virtual int process( Node f, Theory::Effort effort, int e ) = 0;
 public:
   /** set has constraints from quantifier f */
   void setHasConstraintsFrom( Node f );
@@ -847,7 +847,7 @@ public:
   /** reset instantiation round */
   void resetInstantiationRound( Theory::Effort effort );
   /** do instantiation method*/
-  int doInstantiation( Node f, Theory::Effort effort, int e, int limitInst = 0 );
+  int doInstantiation( Node f, Theory::Effort effort, int e );
   /** identify */
   virtual std::string identify() const { return std::string("Unknown"); }
   /** print debug information */

@@ -33,7 +33,7 @@ void InstantiatorDefault::assertNode( Node assertion ){
 void InstantiatorDefault::processResetInstantiationRound( Theory::Effort effort ){
 }
 
-int InstantiatorDefault::process( Node f, Theory::Effort effort, int e, int limitInst ){
+int InstantiatorDefault::process( Node f, Theory::Effort effort, int e ){
   if( e < 4 ){
     return InstStrategy::STATUS_UNFINISHED;
   }else if( e == 4 ){

@@ -54,7 +54,7 @@ void InstStrategyCheckCESolved::processResetInstantiationRound( Theory::Effort e
   }
 }
 
-int InstStrategyCheckCESolved::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstStrategyCheckCESolved::process( Node f, Theory::Effort effort, int e ){
   if( e==0 ){
     //calc solved if not done so already
     if( d_solved.find( f )==d_solved.end() ){
@@ -99,7 +99,7 @@ void InstStrategyUserPatterns::processResetInstantiationRound( Theory::Effort ef
   }
 }
 
-int InstStrategyUserPatterns::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstStrategyUserPatterns::process( Node f, Theory::Effort effort, int e ){
   if( e==0 ){
     return STATUS_UNFINISHED;
   }else if( e==1 ){
@@ -158,7 +158,7 @@ void InstStrategyAutoGenTriggers::processResetInstantiationRound( Theory::Effort
   }
 }
 
-int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e ){
   int peffort = f.getNumChildren()==3 ? 2 : 1;
   //int peffort = f.getNumChildren()==3 ? 2 : 1;
   //int peffort = 1;
@@ -368,7 +368,7 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
 void InstStrategyAddFailSplits::processResetInstantiationRound( Theory::Effort effort ){
 }
 
-int InstStrategyAddFailSplits::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstStrategyAddFailSplits::process( Node f, Theory::Effort effort, int e ){
   if( e<4 ){
     return STATUS_UNFINISHED;
   }else{
@@ -394,7 +394,7 @@ int InstStrategyAddFailSplits::process( Node f, Theory::Effort effort, int e, in
 void InstStrategyFreeVariable::processResetInstantiationRound( Theory::Effort effort ){
 }
 
-int InstStrategyFreeVariable::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstStrategyFreeVariable::process( Node f, Theory::Effort effort, int e ){
   if( e<5 ){
     return STATUS_UNFINISHED;
   }else{

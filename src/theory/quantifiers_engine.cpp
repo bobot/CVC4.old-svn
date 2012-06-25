@@ -19,6 +19,7 @@
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/equality_engine.h"
+#include "theory/arrays/theory_arrays.h"
 #include "theory/quantifiers/quantifiers_rewriter.h"
 
 using namespace std;
@@ -37,10 +38,10 @@ void InstStrategy::resetInstantiationRound( Theory::Effort effort ){
   processResetInstantiationRound( effort );
 }
 /** do instantiation round method */
-int InstStrategy::doInstantiation( Node f, Theory::Effort effort, int e, int limitInst ){
+int InstStrategy::doInstantiation( Node f, Theory::Effort effort, int e ){
   if( shouldInstantiate( f ) ){
     int origLemmas = d_quantEngine->getNumLemmasWaiting();
-    int retVal = process( f, effort, e, limitInst );
+    int retVal = process( f, effort, e );
     if( d_quantEngine->getNumLemmasWaiting()!=origLemmas ){
       for( int i=0; i<(int)d_priority_over.size(); i++ ){
         d_priority_over[i]->d_no_instantiate_temp.push_back( f );
@@ -191,7 +192,7 @@ QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_forall_asserts( c ),
 d_active( c ){
-  d_eq_query = NULL;
+  d_eq_query = new EqualityQueryQuantifiersEngine( this );
   d_term_db = new TermDb( this );
   d_hasAddedLemma = false;
   //options
@@ -806,5 +807,64 @@ void QuantifiersEngine::setRelevance( Node s, int r ){
         setRelevance( d_syms_quants[s][i], r+1 );
       }
     }
+  }
+}
+
+
+
+eq::EqualityEngine* EqualityQueryQuantifiersEngine::getEqualityEngine( int id ){
+  if( id==THEORY_UF ){
+    return ((uf::TheoryUF*)d_qe->getTheoryEngine()->getTheory( THEORY_UF ) )->getEqualityEngine();
+  }else if( id==THEORY_ARRAY ){
+    return ((arrays::TheoryArrays*)d_qe->getTheoryEngine()->getTheory( THEORY_ARRAY ) )->getEqualityEngine();
+  }else{
+    return NULL;
+  }
+}
+
+bool EqualityQueryQuantifiersEngine::hasTerm( Node a ){
+  if( getEqualityEngine( THEORY_UF )->hasTerm( a ) ){
+    return true;
+  }else{
+    return false;
+  }
+}
+
+Node EqualityQueryQuantifiersEngine::getRepresentative( Node a ){
+  eq::EqualityEngine* ee_uf = getEqualityEngine( THEORY_UF );
+  if( ee_uf->hasTerm( a ) ){
+    return ee_uf->getRepresentative( a );
+  }else{
+    return a;
+  }
+}
+
+bool EqualityQueryQuantifiersEngine::areEqual( Node a, Node b ){
+  if( a==b ){
+    return true;
+  }else{
+    eq::EqualityEngine* ee_uf = getEqualityEngine( THEORY_UF );
+    if( ee_uf->hasTerm( a ) && ee_uf->hasTerm( b ) ){
+      return ee_uf->areEqual( a, b );
+    }else{
+      return false;
+    }
+  }
+}
+
+bool EqualityQueryQuantifiersEngine::areDisequal( Node a, Node b ){
+  eq::EqualityEngine* ee_uf = getEqualityEngine( THEORY_UF );
+  if( ee_uf->hasTerm( a ) && ee_uf->hasTerm( b ) ){
+    return ee_uf->areDisequal( a, b, false );
+  }else{
+    return false;
+  }
+}
+
+Node EqualityQueryQuantifiersEngine::getInternalRepresentative( Node a ){
+  if( getEqualityEngine( THEORY_UF )->hasTerm( a ) ){
+    return ((uf::InstantiatorTheoryUf*)d_qe->getInstantiator( THEORY_UF ))->getInternalRepresentative( a );
+  }else{
+    return a;
   }
 }
