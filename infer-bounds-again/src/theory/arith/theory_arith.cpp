@@ -71,9 +71,9 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
   d_conflicts(c),
-  d_conflictCallBack(d_conflicts),
+  d_pushConflict(d_conflicts),
   d_congruenceManager(c, d_constraintDatabase, d_setupLiteralCallback, d_arithvarNodeMap),
-  d_simplex(d_linEq, d_conflictCallBack),
+  d_simplex(d_linEq, d_pushConflict),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_congruenceManager),
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
@@ -157,6 +157,7 @@ void TheoryArith::revertOutOfConflict(){
   d_partialModel.revertAssignmentChanges();
   clearUpdates();
   d_currentPropagationList.clear();
+  d_currentToAssertList.clear();
 }
 
 void TheoryArith::clearUpdates(){
@@ -181,7 +182,7 @@ void TheoryArith::zeroDifferenceDetected(ArithVar x){
 }
 
 /* procedure AssertLower( x_i >= c_i ) */
-Node TheoryArith::AssertLower(Constraint constraint){
+bool TheoryArith::AssertLower(Constraint constraint){
   Assert(constraint != NullConstraint);
   Assert(constraint->isLowerBound());
 
@@ -194,7 +195,7 @@ Node TheoryArith::AssertLower(Constraint constraint){
 
   //TODO Relax to less than?
   if(d_partialModel.lessThanLowerBound(x_i, c_i)){
-    return Node::null();
+    return false;
   }
 
   int cmpToUB = d_partialModel.cmpToUpperBound(x_i, c_i);
@@ -203,7 +204,8 @@ Node TheoryArith::AssertLower(Constraint constraint){
     Node conflict = ConstraintValue::explainConflict(ubc, constraint);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     ++(d_statistics.d_statAssertLowerConflicts);
-    return conflict;
+    d_pushConflict(conflict);
+    return true;
   }else if(cmpToUB == 0){
     if(isInteger(x_i)){
       d_constantIntegerVariables.push_back(x_i);
@@ -228,7 +230,8 @@ Node TheoryArith::AssertLower(Constraint constraint){
 
         ++(d_statistics.d_statDisequalityConflicts);
         Debug("eq") << " assert lower conflict " << conflict << endl;
-        return conflict;
+        d_pushConflict(conflict);
+        return true;
       }else if(!eq->isTrue()){
         Debug("eq") << "lb == ub, propagate eq" << eq << endl;
         eq->impliedBy(constraint, d_partialModel.getUpperBoundConstraint(x_i));
@@ -262,11 +265,11 @@ Node TheoryArith::AssertLower(Constraint constraint){
 
   if(Debug.isOn("model")) { d_partialModel.printModel(x_i); }
 
-  return Node::null();
+  return false;
 }
 
 /* procedure AssertUpper( x_i <= c_i) */
-Node TheoryArith::AssertUpper(Constraint constraint){
+bool TheoryArith::AssertUpper(Constraint constraint){
   ArithVar x_i = constraint->getVariable();
   const DeltaRational& c_i = constraint->getValue();
 
@@ -282,7 +285,7 @@ Node TheoryArith::AssertUpper(Constraint constraint){
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
 
   if(d_partialModel.greaterThanUpperBound(x_i, c_i) ){ // \upperbound(x_i) <= c_i
-    return Node::null(); //sat
+    return false; //sat
   }
 
   // cmpToLb =  \lowerbound(x_i).cmp(c_i)
@@ -292,7 +295,8 @@ Node TheoryArith::AssertUpper(Constraint constraint){
     Node conflict =  ConstraintValue::explainConflict(lbc, constraint);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     ++(d_statistics.d_statAssertUpperConflicts);
-    return conflict;
+    d_pushConflict(conflict);
+    return true;
   }else if(cmpToLB == 0){ // \lowerBound(x_i) == \upperbound(x_i)
     if(isInteger(x_i)){
       d_constantIntegerVariables.push_back(x_i);
@@ -313,7 +317,8 @@ Node TheoryArith::AssertUpper(Constraint constraint){
       if(diseq->isTrue()){
         Node conflict = ConstraintValue::explainConflict(diseq, lb, constraint);
         Debug("eq") << " assert upper conflict " << conflict << endl;
-        return conflict;
+        d_pushConflict(conflict);
+        return true;
       }else if(!eq->isTrue()){
         Debug("eq") << "lb == ub, propagate eq" << eq << endl;
         eq->impliedBy(constraint, d_partialModel.getLowerBoundConstraint(x_i));
@@ -349,12 +354,12 @@ Node TheoryArith::AssertUpper(Constraint constraint){
 
   if(Debug.isOn("model")) { d_partialModel.printModel(x_i); }
 
-  return Node::null();
+  return false;
 }
 
 
 /* procedure AssertEquality( x_i == c_i ) */
-Node TheoryArith::AssertEquality(Constraint constraint){
+bool TheoryArith::AssertEquality(Constraint constraint){
   AssertArgument(constraint != NullConstraint,
                  "AssertUpper() called on a NullConstraint.");
 
@@ -372,21 +377,23 @@ Node TheoryArith::AssertEquality(Constraint constraint){
   // u_i <= c_i <= l_i
   // This can happen if both c_i <= x_i and x_i <= c_i are in the system.
   if(cmpToUB >= 0 && cmpToLB <= 0){
-    return Node::null(); //sat
+    return false; //sat
   }
 
   if(cmpToUB > 0){
     Constraint ubc = d_partialModel.getUpperBoundConstraint(x_i);
     Node conflict = ConstraintValue::explainConflict(ubc, constraint);
     Debug("arith") << "AssertEquality conflicts with upper bound " << conflict << endl;
-    return conflict;
+    d_pushConflict(conflict);
+    return true;
   }
 
   if(cmpToLB < 0){
     Constraint lbc = d_partialModel.getLowerBoundConstraint(x_i);
     Node conflict = ConstraintValue::explainConflict(lbc, constraint);
     Debug("arith") << "AssertEquality conflicts with lower bound" << conflict << endl;
-    return conflict;
+    d_pushConflict(conflict);
+    return true;
   }
 
   Assert(cmpToUB <= 0);
@@ -428,12 +435,12 @@ Node TheoryArith::AssertEquality(Constraint constraint){
   }else{
     d_simplex.updateBasic(x_i);
   }
-  return Node::null();
+  return false;
 }
 
 
 /* procedure AssertDisequality( x_i != c_i ) */
-Node TheoryArith::AssertDisequality(Constraint constraint){
+bool TheoryArith::AssertDisequality(Constraint constraint){
 
   AssertArgument(constraint != NullConstraint,
                  "AssertUpper() called on a NullConstraint.");
@@ -454,7 +461,7 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
 
   if(constraint->isSplit()){
     Debug("eq") << "skipping already split " << constraint << endl;
-    return Node::null();
+    return false; // sat
   }
 
   const ValueCollection& vc = constraint->getValueCollection();
@@ -465,7 +472,8 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
       //in conflict
       Debug("eq") << "explaining" << endl;
       ++(d_statistics.d_statDisequalityConflicts);
-      return ConstraintValue::explainConflict(constraint, lb, ub);
+      d_pushConflict( ConstraintValue::explainConflict(constraint, lb, ub));
+      return true;
     }else if(lb->isTrue()){
       Debug("eq") << "propagate UpperBound " << constraint << lb << ub << endl;
       const Constraint negUb = ub->getNegation();
@@ -485,7 +493,7 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
   if(c_i == d_partialModel.getAssignment(x_i)){
     Debug("eq") << "lemma now! " << constraint << endl;
     d_out->lemma(constraint->split());
-    return Node::null();
+    return false;
   }else if(d_partialModel.strictlyLessThanLowerBound(x_i, c_i)){
     Debug("eq") << "can drop as less than lb" << constraint << endl;
   }else if(d_partialModel.strictlyGreaterThanUpperBound(x_i, c_i)){
@@ -494,8 +502,7 @@ Node TheoryArith::AssertDisequality(Constraint constraint){
     Debug("eq") << "push back" << constraint << endl;
     d_diseqQueue.push(constraint);
   }
-  return Node::null();
-
+  return false;
 }
 
 void TheoryArith::addSharedTerm(TNode n){
@@ -1001,7 +1008,7 @@ Node TheoryArith::callDioSolver(){
   return d_diosolver.processEquationsForConflict();
 }
 
-Node TheoryArith::assertionCases(TNode assertion){
+Constraint TheoryArith::getConstraintFromLiteral(TNode assertion){
   Constraint constraint = d_constraintDatabase.lookup(assertion);
 
   Kind simpleKind = Comparison::comparisonKind(assertion);
@@ -1019,59 +1026,7 @@ Node TheoryArith::assertionCases(TNode assertion){
     }
   }
   Assert(constraint != NullConstraint);
-
-  if(constraint->negationHasProof()){
-    Constraint negation = constraint->getNegation();
-    if(negation->isSelfExplaining()){
-      if(Debug.isOn("whytheoryenginewhy")){
-        debugPrintFacts();
-      }
-//      Warning() << "arith: Theory engine is sending me both a literal and its negation?"
-//                << "BOOOOOOOOOOOOOOOOOOOOOO!!!!"<< endl;
-    }
-    Debug("arith::eq") << constraint << endl;
-    Debug("arith::eq") << negation << endl;
-
-    NodeBuilder<> nb(kind::AND);
-    nb << assertion;
-    negation->explainForConflict(nb);
-    Node conflict = nb;
-    Debug("arith::eq") << "conflict" << conflict << endl;
-    return conflict;
-  }
-  Assert(!constraint->negationHasProof());
-
-  if(constraint->assertedToTheTheory()){
-    //Do nothing
-    return Node::null();
-  }
-  Assert(!constraint->assertedToTheTheory());
-  constraint->setAssertedToTheTheory();
-
   ArithVar x_i = constraint->getVariable();
-  //DeltaRational c_i = determineRightConstant(assertion, simpleKind);
-
-  //Assert(constraint->getVariable() == determineLeftVariable(assertion, simpleKind));
-  //Assert(constraint->getValue() == determineRightConstant(assertion, simpleKind));
-  Assert(!constraint->hasLiteral() || constraint->getLiteral() == assertion);
-
-  Debug("arith::assertions")  << "arith assertion @" << getSatContext()->getLevel()
-                              <<"(" << assertion
-                              << " \\-> "
-    //<< determineLeftVariable(assertion, simpleKind)
-                              <<" "<< simpleKind <<" "
-    //<< determineRightConstant(assertion, simpleKind)
-                              << ")" << std::endl;
-
-
-  Debug("arith::constraint") << "arith constraint " << constraint << std::endl;
-
-  if(!constraint->hasProof()){
-    Debug("arith::constraint") << "marking as constraint as self explaining " << endl;
-    constraint->selfExplaining();
-  }else{
-    Debug("arith::constraint") << "already has proof: " << constraint->explainForConflict() << endl;
-  }
 
   Assert(!isInteger(x_i) ||
          simpleKind == EQUAL ||
@@ -1079,50 +1034,78 @@ Node TheoryArith::assertionCases(TNode assertion){
          simpleKind == GEQ ||
          simpleKind == LT);
 
+  if(constraint->negationHasProof()){
+    Constraint negation = constraint->getNegation();
+    if(negation->isSelfExplaining()){
+      if(Debug.isOn("whytheoryenginewhy")){
+        debugPrintFacts();
+      }
+      Warning() << "arith: Theory engine is sending me both a literal and its negation?"
+                << "BOOOOOOOOOOOOOOOOOOOOOO!!!!"<< endl;
+    }
+    Debug("arith::eq") << constraint << endl;
+    Debug("arith::eq") << negation << endl;
+    NodeBuilder<> nb(kind::AND);
+    nb << assertion;
+    negation->explainForConflict(nb);
+    Node conflict = nb;
+    Debug("arith::eq") << "conflict" << conflict << endl;
+    d_pushConflict(conflict);
+    return NullConstraint;
+  }
+  Assert(!constraint->hasLiteral() || constraint->getLiteral() == assertion);
+  return constraint;
+}
+
+bool TheoryArith::assertConstraint(Constraint constraint){
+  ArithVar x_i = constraint->getVariable();
+
+  Debug("arith::assertions")  << "arith assertion @" << (getSatContext())->getLevel()
+                              <<"(" << constraint << ")" << std::endl;
+
+
+  Debug("arith::constraint") << "arith constraint " << constraint << std::endl;
+
   switch(constraint->getType()){
   case UpperBound:
-    if(simpleKind == LT && isInteger(x_i)){
+    if(isInteger(x_i) && constraint->isStrictUpperBound() ){
       Constraint floorConstraint = constraint->getFloor();
       if(!floorConstraint->isTrue()){
         if(floorConstraint->negationHasProof()){
-          return ConstraintValue::explainConflict(constraint, floorConstraint->getNegation());
+          Constraint negFloor = floorConstraint->getNegation();
+          Node conflict = ConstraintValue::explainConflict(constraint, negFloor);
+          d_pushConflict(conflict);
+          return true;
         }else{
           floorConstraint->impliedBy(constraint);
         }
       }
-      //c_i = DeltaRational(c_i.floor());
-      //return AssertUpper(x_i, c_i, assertion, floorConstraint);
       return AssertUpper(floorConstraint);
     }else{
       return AssertUpper(constraint);
     }
-    //return AssertUpper(x_i, c_i, assertion, constraint);
   case LowerBound:
-    if(simpleKind == LT && isInteger(x_i)){
+    if(isInteger(x_i) && constraint->isStrictLowerBound()){
       Constraint ceilingConstraint = constraint->getCeiling();
       if(!ceilingConstraint->isTrue()){
         if(ceilingConstraint->negationHasProof()){
-
-          return ConstraintValue::explainConflict(constraint, ceilingConstraint->getNegation());
+          Constraint negCeil = ceilingConstraint->getNegation();
+          Node conflict = ConstraintValue::explainConflict(constraint, negCeil);
+          d_pushConflict(conflict);
+          return true;
         }
         ceilingConstraint->impliedBy(constraint);
       }
-      //c_i = DeltaRational(c_i.ceiling());
-      //return AssertLower(x_i, c_i, assertion, ceilingConstraint);
       return AssertLower(ceilingConstraint);
     }else{
       return AssertLower(constraint);
     }
-    //return AssertLower(x_i, c_i, assertion, constraint);
   case Equality:
     return AssertEquality(constraint);
-    //return AssertEquality(x_i, c_i, assertion, constraint);
   case Disequality:
     return AssertDisequality(constraint);
-    //return AssertDisequality(x_i, c_i, assertion, constraint);
   default:
     Unreachable();
-    return Node::null();
   }
 }
 
@@ -1150,54 +1133,80 @@ bool TheoryArith::hasIntegerModel(){
 }
 
 
+bool TheoryArith::checkAndInfer(){
+  while(!d_currentToAssertList.empty()){
+    Constraint asConstraint = d_currentToAssertList.front();
+    d_currentToAssertList.pop_front();
+    bool foundConflict = assertConstraint(asConstraint);
+
+    if(foundConflict){
+      Debug("arith::conflict") << "assertionCases conflict " << endl;
+      return true;
+    }else if(d_congruenceManager.inConflict()){
+      Node c = d_congruenceManager.conflict();
+      Debug("arith::conflict") << "difference manager conflict   " << c << endl;
+      d_pushConflict(c);
+      return true;
+    }
+  }
+  return false;
+}
+
+void TheoryArith::outputConflicts(){
+  Assert(!d_conflicts.empty());
+  for(size_t i = 0, i_end = d_conflicts.size(); i < i_end; ++i){
+    Node conflict = d_conflicts[i];
+    Debug("arith::conflict") << "d_conflicts[" << i << "] " << conflict << endl;
+    d_out->conflict(conflict);
+  }
+}
+
 void TheoryArith::check(Effort effortLevel){
   Assert(d_currentPropagationList.empty());
+  Assert(d_currentToAssertList.empty());
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
   d_hasDoneWorkSinceCut = d_hasDoneWorkSinceCut || !done();
   while(!done()){
 
     Node assertion = get();
-    Node possibleConflict = assertionCases(assertion);
-
-    if(!possibleConflict.isNull()){
+    Constraint asConstraint = getConstraintFromLiteral(assertion);
+    if(asConstraint == NullConstraint){
+      outputConflicts();
       revertOutOfConflict();
+      return;
+    }else{
+      asConstraint->setAssertedToTheTheory();
 
-      Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
-      d_out->conflict(possibleConflict);
-      return;
-    }
-    if(d_congruenceManager.inConflict()){
-      Node c = d_congruenceManager.conflict();
-      revertOutOfConflict();
-      Debug("arith::conflict") << "difference manager conflict   " << c << endl;
-      d_out->conflict(c);
-      return;
+      if(!asConstraint->hasProof()){
+        Debug("arith::constraint") << "marking as constraint as self explaining " << endl;
+        asConstraint->selfExplaining();
+      }else{
+        Debug("arith::constraint") << "already has proof: " << asConstraint->explainForConflict() << endl;
+      }
+
+      d_currentToAssertList.push_back(asConstraint);
     }
   }
-
 
   if(Debug.isOn("arith::print_assertions")) {
     debugPrintAssertions();
   }
 
   bool emmittedConflictOrSplit = false;
-  Assert(d_conflicts.empty());
-  bool foundConflict = d_simplex.findModel();
-  if(foundConflict){
-    revertOutOfConflict();
 
-    Assert(!d_conflicts.empty());
-    for(size_t i = 0, i_end = d_conflicts.size(); i < i_end; ++i){
-      Node conflict = d_conflicts[i];
-      Debug("arith::conflict") << "d_conflicts[" << i << "] " << conflict << endl;
-      d_out->conflict(conflict);
-    }
+  bool foundConflict = checkAndInfer() || d_simplex.findModel();
+
+  if(foundConflict){
+    outputConflicts();
+    revertOutOfConflict();
     emmittedConflictOrSplit = true;
+    return;
   }else{
     d_partialModel.commitAssignmentChanges();
   }
 
+  Assert(d_conflicts.empty());
   if(!emmittedConflictOrSplit &&
      (Options::current()->arithPropagationMode == Options::UNATE_PROP ||
       Options::current()->arithPropagationMode == Options::BOTH_PROP)){

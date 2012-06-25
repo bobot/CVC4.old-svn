@@ -166,6 +166,13 @@ private:
   context::CDQueue<Constraint> d_diseqQueue;
 
   /**
+   * Constraints that have yet to be asserted by proagation work list.
+   * All of the elements have type of LowerBound, UpperBound, or
+   * Equality.
+   */
+  std::deque<Constraint> d_currentToAssertList;
+
+  /**
    * Constraints that have yet to be processed by proagation work list.
    * All of the elements have type of LowerBound, UpperBound, or
    * Equality.
@@ -242,8 +249,7 @@ private:
     void operator()(Node n){
       d_list.push_back(n);
     }
-  };
-  PushCallBack d_conflictCallBack;
+  } d_pushConflict;
 
 
   /**
@@ -383,10 +389,10 @@ private:
    * a node describing this conflict is returned.
    * If this new bound is not in conflict, Node::null() is returned.
    */
-  Node AssertLower(Constraint constraint);
-  Node AssertUpper(Constraint constraint);
-  Node AssertEquality(Constraint constraint);
-  Node AssertDisequality(Constraint constraint);
+  bool AssertLower(Constraint constraint);
+  bool AssertUpper(Constraint constraint);
+  bool AssertEquality(Constraint constraint);
+  bool AssertDisequality(Constraint constraint);
 
   /** Tracks the bounds that were updated in the current round. */
   DenseSet d_updatedBounds;
@@ -397,6 +403,8 @@ private:
   bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
   void clearUpdates();
 
+  /** Outputs the conflicts on d_conflicts to d_out. */
+  void outputConflicts();
   void revertOutOfConflict();
 
   void propagateCandidates();
@@ -416,11 +424,22 @@ private:
   bool canSafelyAvoidEqualitySetup(TNode equality);
 
   /**
-   * Handles the case splitting for check() for a new assertion.
-   * Returns a conflict if one was found.
-   * Returns Node::null if no conflict was found.
+   * Converts an assertion (from the fact queue!) into a constraint.
+   * Returns NullConstraint if it outputs a conflict.
    */
-  Node assertionCases(TNode assertion);
+  Constraint getConstraintFromLiteral(TNode assertion);
+
+  /**
+   * Case splitting for an arbitrary constraint.
+   * This also handles rounding for integer constraints.
+   * Returns true if it outputs a conflict.
+   */
+  bool assertConstraint(Constraint constraint);
+
+#warning "currently this just processes the d_currentToAssertList queue."
+  /** Returns true if it finds a conflict. */
+  bool checkAndInfer();
+
 
   /**
    * Returns the basic variable with the shorted row containg a non-basic variable.
