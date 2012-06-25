@@ -26,7 +26,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-#define IE_PRINT_PROCESS_TIMES
+//#define IE_PRINT_PROCESS_TIMES
 
 InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th, bool setIncomplete ) :
 d_th( th ), d_setIncomplete( setIncomplete ){

@@ -294,17 +294,12 @@ private:
   std::map< Node, bool > d_quant_sat;
 private:
   int evaluate( RepAlphabetIterator* rai, Node n, int& depIndex );
-  int evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, std::vector< Node >& fv_deps );
-  Node evaluateTerm( Node n, Node gn, std::vector< Node >& fv_deps );
+  int evaluateEquality( RepAlphabetIterator* rai, Node n1, Node n2, Node gn1, Node gn2, int& depIndex );
+  Node evaluateTerm( RepAlphabetIterator* rai, Node n, Node gn, int& depIndex );
   //temporary storing which literals have failed
   void clearEvalFailed( int index );
   std::map< Node, bool > d_eval_failed;
   std::map< int, std::vector< Node > > d_eval_failed_lits;
-  ////temporary storing for values/free variable dependencies
-  //std::map< Node, Node > d_eval_term_vals;
-  //std::map< Node, std::map< Node, std::vector< Node > > > d_eval_term_fv_deps;
-  //convert free variable dependencies to depIndex
-  int getDepIndex( RepAlphabetIterator* rai, std::vector< Node >& fv_deps );
 private:
   //map from terms to the models used to calculate their value
   std::map< Node, UfModelTreeOrdered > d_eval_term_model;
