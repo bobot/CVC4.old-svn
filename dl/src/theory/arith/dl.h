@@ -19,176 +19,12 @@
 #include "cvc4_private.h"
 #pragma once
 
-#include "src/context/cdlist.h"
-#include "src/util/index.h"
-#include <vector>
-
-
-namespace CVC4 {
-namespace context {
-
-typedef Index EdgeId;
-typedef Index VertexId;
-
-class Edge {
-private:
-  EdgeId d_id;
-  VertexId d_start;
-  VertexId d_end;
-
-public:
-  Edge(EdgeId eid, VertexId start, VertexId end) :
-    d_id(eid), d_start(start), d_end(end)
-  {}
-
-  EdgeId getId() const {
-    return d_id;
-  }
-  VertexId getStart() const{
-    return d_start;
-  }
-  VertexId getEnd() const{
-    return d_end;
-  }
-
-  bool operator==(const Edge& e) const {
-    return
-      this->getStart() == e.getStart() &&
-      this->getEnd() == e.getEnd();
-  }
-}; /* class CVC4::context::Edge */
-
-typedef std::vector<EdgeId> EdgeIdVector;
-
-class Vertex {
-private:
-  VertexId d_id;
-
-  EdgeIdVector d_incomingEdges;
-  EdgeIdVector d_outgoingEdges;
-
-public:
-  Vertex(VertexId vid) : d_id(vid) {}
-
-  VertexId getId() const {
-    return d_id
-  }
-
-  const EdgeIdVector& getIncomingEdges() const {
-    return d_incomingEdges;
-  }
-  const EdgeIdVector& getOutgoingEdges() const{
-    return d_outgoingEdges;
-  }
-
-  bool noEdges() const {
-    return d_incomingEdges.empty() && d_outgoingEdges.empty();
-  }
-}; /* class CVC4::context::Vertex */
-
-template <class EdgeAnnotation>
-class CDGraph {
-private:
-  typename std::vector<Vertex> VertexVector;
-  VertexVector d_vertices;
-
-  size_t d_permanentlyAllocatedNodes;
-
-  /** Ensures that the VertexId v can is valid. */
-  void extendVeriticesToInclude(VertexId v){
-    while(d_vertices.size() <= v){
-      VertexId vid = d_nodes.size();
-      d_vertices.push_back(Vertex(vid));
-    }
-  }
-
-  /** Garbage collects all of the nodes. */
-  static void garbageCollectVectices(VertexVector& vertices){
-    while(vertices.size() > d_permanentlyAllocatedNodes){
-      if(vertices.back().noEdges()){
-        vertices.pop_back();
-      }else{
-        break;
-      }
-    }
-  }
-
-  class EdgeCleanup{
-    VertexVector& d_vertices;
-    EdgeCleanup(VertexVector& vertices) :
-      d_vertices(vertices)
-    {}
-
-    void operator()(Edge* e){
-      Assert(d_vertices[e->getEnd()].d_incomingEdges.back() == *e);
-      d_vertices[e->getEnd()].d_incomingEdges.pop_back();
-
-      Assert(d_vertices[e->getStart()].d_outgoingEdges.back() == *e);
-      d_vertices[e->getStart()].d_outgoingEdges.pop_back();
-
-      garbageCollectVectices(d_vertices);
-    }
-  };
-
-  /**
-   * The list of edges in the current context.
-   * This functions as a map from EdgeId to Edges.
-   */
-  CDList< EdgeClass, EdgeCleanup > d_edges;
-
-  /**
-   * The list of annotations to edges in the current context.
-   *
-   * This functions as a map from EdgeId to Edges.
-   * This is kept in sync with d_edges.
-   */
-  CDList< EdgeAnnotation > d_annotations; //edge ids to annotation
-
-public:
-  CDGraph(Context* c, size_t permantentlyAllocatedNodes = 0) :
-    d_vertices(),
-    d_permantentlyAllocatedNodes(permantentlyAllocatedNodes),
-    d_edges(c, callDestructor, EdgeCleanup(d_vertices))
-  {
-    Assert(d_vertices.size() == d_vertexSentinel);
-    if(d_permantentlyAllocatedNodes > 0){
-      extendVeriticesToInclude(d_permantentlyAllocatedNodes - 1);
-    }
-  }
-
-  EdgeId addEdge(VertexId start, VertexId end, const EdgeAnnotation& annotation = EdgeAnnotation()){
-    EdgeId eid = d_edges.size();
-    d_edges.push_back(Edge(id, start, end));
-    d_annotations.push_back(annotation);
-
-    extendVeriticesToInclude( std::max(start,end) );
-    Assert(d_vertices.size() > start);
-    Assert(d_vertices.size() > end);
-
-    d_nodes[start].d_outgoingEdges.push_back(eid);
-    d_nodes[end].d_incomingEdges.push_back(eid);
-    return eid;
-  }
-
-  const Vertex& getVertex(VertexId vid) const {
-    Assert(vid < d_vertices.size());
-    return d_vertices[vid];
-  }
-
-  const EdgeClass& getEdge(EdgeId eid) const{
-    Assert(eid < d_edges.size());
-    return d_edges[eid];
-  }
-
-  const EdgeAnnotation& getEdgeAnnotation(EdgeId eid) const{
-    Assert(eid < d_annotations.size());
-    return d_annotations[eid];
-  }
-}; /* class CVC4::context::CDGraph<EdgeAnnotation> */
-
-}/* CVC4::context namespace */
-}/* CVC4 namespace */
-
+#include "context/cdgraph.h"
+#include "context/cdmaybe.h"
+#include "context/cdqueue.h"
+#include "util/dense_map.h"
+#include "theory/arith/partial_model.h"
+#include "theory/arith/constraint.h"
 #include <boost/heap/pairing_heap.hpp>
 
 namespace CVC4 {
@@ -199,6 +35,12 @@ namespace arith {
 class DifferenceLogicDecisionProcedure {
 private:
 
+  typedef context::EdgeId EdgeId;
+  typedef context::VertexId VertexId;
+  typedef context::Edge Edge;
+  typedef context::Vertex Vertex;
+  typedef context::EdgeIdVector EdgeIdVector;
+
   /** Source of the current model. */
   const ArithPartialModel& d_pm;
 
@@ -206,26 +48,41 @@ private:
   NodeCallBack& d_raiseConflict;
 
   /** A Boolean flag for raising whether a conflict has been detected.*/
-  CDRaise d_inConflict;
+  context::CDRaised d_inConflict;
+
+  bool inConflict() const {
+    return d_inConflict.isRaised();
+  }
+
+  void raiseConflict(Node conflict){
+    Assert(!inConflict());
+    d_raiseConflict(conflict);
+    d_inConflict.raise();
+  }
 
   /** The difference graph. */
-  context::CDGraph<Constraint> d_graph;
+  context::CDGraph<ArithVar, Constraint> d_graph;
 
-  /**
-   * The special zero node in the graph.
-   * This is a permanent node in the graph.
-   */
-  VertexId d_zeroVertex;
+  context::CDMaybe<VertexId> d_zeroVertex;
+
+  context::CDQueue<Constraint> d_queue;
+
+  VertexId getZeroVertex(){
+    if(!d_zeroVertex.isSet()){
+      d_zeroVertex.set(d_graph.addVertex(ARITHVAR_SENTINEL));
+    }
+    return d_zeroVertex.get();
+  }
 
 
   /** VertexId |-> ... */
   DenseMap<DeltaRational> d_piSummary;
   DenseMap<DeltaRational> d_piPrime;
-  DenseMap<DeltaRational> d_gamma;
-  DenseMap<EdgeID> d_gammaEdge;
+  //GammaMap d_gamma;
 
   ArithVar vertexIdToArithVar(VertexId vid) const;
   VertexId arithVarToVertexId(ArithVar var) const;
+
 
   DeltaRational getPi(VertexId vid) const {
     if(d_piSummary.isKey(vid)){
@@ -237,132 +94,169 @@ private:
     }
   }
 
-  class GammaHeap {
+  class Gamma {
   private:
-    struct GammaGreaterThan{
-      const DenseMap<DeltaRational>& d_gamma;
-      GammaGreaterThan(const DenseMap<DeltaRational>& gamma) :
-        d_gamma(gamma)
-      {}
-      inline int cmp(VertexId v, VertexId u) const{
-        Assert(d_gamma.isKey(v));
-        Assert(d_gamma.isKey(u));
-        const DeltaRational& gamma_v = d_gamma[v];
-        const DeltaRational& gamma_u = d_gamma[u];
-        return gamma_u.cmp(gamma_v);
-      }
-    } d_gammaGT;
+    struct GammaElement;
+    struct GammaGreaterThan {
+      int operator()(const GammaElement* a, const GammaElement* b) const;
+    };
 
-    typedef pairing_heap<VertexId, > GammaHeapInternal;
+    typedef boost::heap::pairing_heap<GammaElement*, boost::heap::compare<GammaGreaterThan> > GammaHeapInternal;
+
+    struct GammaElement {
+      VertexId d_id;
+
+      DeltaRational d_value;
+      EdgeId d_edge;
+
+      bool d_inHeap;
+      GammaHeapInternal::handle_type d_heapHandle;
+
+
+      GammaElement(){}
+
+      GammaElement(VertexId vid, const DeltaRational& v, EdgeId eid):
+        d_id(vid),
+        d_value(v),
+        d_edge(eid),
+        d_inHeap(false)
+      {}
+
+      bool operator<(const GammaElement& other) const{
+        return this->d_value < other.d_value;
+      }
+    };
+
+    typedef DenseMap<GammaElement> GammaMap;
+    GammaMap d_map;
+
+    // struct GammaGreaterThan{
+    //   const GammaMap& d_gamma;
+    //   GammaGreaterThan(const GammaMap& gamma) :
+    //     d_gamma(gamma)
+    //   {}
+    //   inline int operator()(VertexId v, VertexId u) const{
+    //     Assert(d_map.isKey(v));
+    //     Assert(d_map.isKey(u));
+    //     const DeltaRational& gamma_v = d_map[v].d_value;
+    //     const DeltaRational& gamma_u = d_map[u].d_value;
+    //     return gamma_u.cmp(gamma_v);
+    //   }
+    // } d_gammaGT;
     GammaHeapInternal d_heapInternal;
-    DenseMap<GammaHeap::handle_type> reverseHeap;
+
+    DeltaRational d_zeroDelta;
+
+    bool inMap(VertexId vid) const{
+      return d_map.isKey(vid);
+    }
+
+    bool inHeap(VertexId vid) const{
+      Assert(inMap(vid));
+      return d_map[vid].d_inHeap;
+    }
 
   public:
-    VertexId minimum() const;
-    void remove_minimum();
-    void decrease_key(VertexId v);
-    void insert(VertexId v);
-    bool isInHeap(VertexId v) const;
+    Gamma() :
+      d_map(),
+      d_heapInternal()
+    {}
 
-    bool isEmpty();
-  } d_minGammaHeap;
+    bool heapEmpty() const {
+      return d_heapInternal.empty();
+    }
 
-  DifferenceLogicDecisionProcedure(Context* c, ArithVar zeroVariable):
+    VertexId heapMinimum() const {
+      Assert(!heapEmpty());
+      GammaElement* e = d_heapInternal.top();
+      return e->d_id;
+    }
+
+    void heapPop() {
+      Assert(!heapEmpty());
+      GammaElement* e = d_heapInternal.top();
+      e->d_inHeap = false;
+      d_heapInternal.pop();
+    }
+
+    void update(VertexId v, const DeltaRational& value, EdgeId eid) {
+      if(!inMap(v)){
+        d_map.set(v, GammaElement(v, value, eid));
+        GammaElement& ge = d_map.get(v);
+        ge.d_heapHandle = d_heapInternal.push(&ge);
+        ge.d_inHeap = true;
+      }else{
+        GammaElement& ge = d_map.get(v);
+        Assert(v == ge.d_id);
+        ge.d_value = value;
+        ge.d_edge = eid;
+        if(inHeap(v)){
+          d_heapInternal.update(ge.d_heapHandle);
+        }else{
+          ge.d_heapHandle = d_heapInternal.push(&ge);
+        }
+        ge.d_inHeap = true;
+      }
+    }
+    void updateIfMin(VertexId t, const DeltaRational& theta, EdgeId eid){
+      if(inMap(t)){
+        const DeltaRational& curr = d_map[t].d_value;
+        if(theta < curr){
+          update(t, theta, eid);
+        }
+      }else if(theta.sgn() < 0){
+        update(t, theta, eid);
+      }
+    }
+
+    bool purge();
+
+    bool completelyEmpty() const {
+      Assert(!d_map.empty() || heapEmpty());
+      return d_map.empty();
+    }
+
+    const DeltaRational& getValue(VertexId vid) const{
+      if(inMap(vid)){
+        return d_map[vid].d_value;
+      }else{
+        return d_zeroDelta;
+      }
+    }
+
+    EdgeId getEdgeId(VertexId vid) const{
+      Assert(inMap(vid));
+      return d_map[vid].d_edge;
+    }
+
+    void clearValue(VertexId vid){
+      Assert(inMap(vid));
+      Assert(!inHeap(vid));
+      d_map.get(vid).d_value = d_zeroDelta;
+    }
+
+  } d_gamma;
+
+  DifferenceLogicDecisionProcedure(context::Context* c, const ArithPartialModel& pm, NodeCallBack& raiseConflict):
     d_pm(pm),
-    d_graph(c, 1),
     d_raiseConflict(raiseConflict),
-    d_minGammaHeap(d_gamma){
+    d_inConflict(c),
+    d_graph(c),
+    d_zeroVertex(c),
+    d_queue(c),
+    d_gamma()
+  {
   }
 
   /** Returns Sat::Result */
+  bool setTrue(EdgeId eid);
 
-  bool setTrue(EdgeId eid){
-    Edge e = getEdge(eid);
-    VertexId u_id = e.getStart();
-    VertexId v_id = e.getEnd();
-    DeltaRational d = constraintValue(d_graph.getAnnotation(eid));
+  void explainCycle(VertexId first, NodeBuilder<>& out);
 
-    d_gamma.set(v_id, getPi(u_id) + d - getPi(v_id));
-    d_gammaProof[v_id] = e.getId();
+  DenseMap<Edge> d_differenceVariables;
 
-    // everything else is implicitly 0
-    d_gammaHeap.insert(v_id);
-
-    while(true){
-      if(d_gamma.isKey(u_iv) && d_gamma[u].sgn() != 0){
-        return false;
-      }else if(d_gammaHeap.empty()){
-        return true;
-      }
-
-      VertexId s = d_gammaHeap.top();
-      Assert(d_gamma.isKey(s));
-      Assert(d_gamma[s].sgn() < 0);
-
-      d_gammaHeap.pop();
-
-      d_piPrime[s] = getPi(s) + d_gamma[s];
-      d_gamma.remove(s); // set to 0
-
-      const Node& s_node = d_graph.getNode(s);
-
-      const EdgeIdVector& s_outgoing = s_node.getOutgoingEdges();
-      EdgeIdVector::const_iterator s_iter = s_outgoing.begin(), s_end = s_outgoing.end();
-      for(; s_iter != s_end; ++s_iter){
-        EdgeId eid = *s_iter;
-        const Edge& e = d_graph.getEdge(eid);
-        Assert(eid.getStart() == s);
-        NodeId t = e.getOutgoing();
-        if(!d_piPrime.isKey(t)){
-          Constraint constraint = d_graph.getAnnotation(eid);
-          DeltaRational c = constraintValue(constraint);
-          DeltaRational theta = d_piPrime[s] + c - getPi(t);
-
-          if(d_gamma.isKey(t)){
-            const DeltaRational& curr = d_gamma[t];
-            if(theta < curr){
-              d_gamma.set(t, theta);
-              d_gammaProof.set(t, eid);
-              if(d_gammaHeap.isMember(t)){
-                d_gammaHeap.decrease_key(t);
-              }else{
-                d_gammaHeap.insert(t);
-              }
-            }
-          }else if(theta.sgn() < 0){
-            d_gamma[t] = theta;
-            d_gammaProof[t] = eid;
-
-            Assert(!d_gammaHeap.isMember(t));
-            d_gammaHeap.insert(t);
-          }
-        }
-      }
-    }
-  }
-
-  void explainCycle(NodeId first, vector<Constraint>& out){
-
-    NodeId current = first;
-    do{
-      EdgeId currEdge = d_gammaProof(current);
-
-      out.push_back(d_graph.getExplanation(currEdge));
-      const Edge& e = d_graph.getEdge(currEdge);
-
-      NodeId next = e.getStart();
-
-      current = next;
-    }while(currStart != first);
-  }
-
-  struct DifferenceArithVar{
-  private:
-    ArithVar d_first;
-    ArithVar d_second;
-  };
-
-  DeltaRational constraintValue(const Constraint c) const {
+  DeltaRational constraintValue(EdgeId eid) const {
+    const Constraint c = d_graph.getEdgeAnnotation(eid);
     if(c->isLowerBound()){
       return - c->getValue();
     } else {
@@ -373,81 +267,11 @@ private:
   void initializeInputVariable(ArithVar v);
   void initializeSlack(ArithVar slack, ArithVar pos, ArithVar neg);
 
-  EdgeId setupEdge(Constraint c){
-    ArithVar v = c->getVariable();
-    VertexId start, end;
-    if(d_differenceVariables.isKey(v)){
-      Edge e = d_differenceVariables[v];
-      if(c->isUpperBound()){
-        // e.start - e.end <= c
-        start = e.getStart();
-        end = e.getEnd();
-      }else{
-        // e.start - e.end >= c
-        // e.end - e.start <= -c
-        start = e.getEnd();
-        end = e.getStart();
-      }
-    }else{
-      if(c->isUpperBound()){
-        // x <= c
-        // x - ZeroVar <= c
-        start = arithVarToVertexId(s);
-        end = d_zeroVariable;
-      } else {
-        // x >= c
-        // ZeroVar - x <= -c
-        start = d_zeroVariable;
-        end = arithVarToVertexId(s);
-      }
-    }
-    EdgeId eid = d_graph.addEdge(start, end, c);
-    return eid;
-  }
-
-  bool check(){
-
-    while(!d_queue.empty()){
-      Assert(!inConflict());
-
-      Constraint c = d_queue.front();
-      d_queue.pop();
-
-      EdgeId eid = setupEdge(c);
-
-      bool incrementalResIsSat = setTrue(eid);
-
-      if(incrementalResIsSat){
-        summarizePiPrimeIntoPi();
-        Assert(d_gammaHeap.empty());
-        d_gamma.purge();
-        d_gammaEdge.purge();
-      }else{
-        vector<Constraint> cycle;
-        VertexId start = d_graph.getEdge(eid).getStart();
-        explainCycle(start);
-        Node conflict = Constraint::explainConflict(cycle);
-
-        Debug("dl::conflict") << conflict << endl;
-
-        d_inConflict.raise();
-        d_raiseConflict(conflict);
-
-        d_pi.purge();
-        d_piPrime.purge();
-        d_gamma.purge();
-        d_gammaEdge.purge();
-        d_gammaHeap.clear();
-
-        return false;
-      }
-    }
-    return true;
-  }
-
+  EdgeId setupEdge(Constraint c);
+  bool check();
 
   void enqueueConstraint(Constraint c) {
-    Debug("dl::enqueue") << c << endl;
+    Debug("dl::enqueue") << c << std::endl;
     d_queue.push_back(c);
   }
 
@@ -460,7 +284,12 @@ private:
 
     Assert(d_piPrime.empty());
   }
-};
+}; /* class CVC4::theory::arith::DifferenceLogicDecisionProcedure */
+
+
+inline int DifferenceLogicDecisionProcedure::Gamma::GammaGreaterThan::operator()(const GammaElement* a, const GammaElement* b) const{
+  return b->d_value < a->d_value;
+}
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

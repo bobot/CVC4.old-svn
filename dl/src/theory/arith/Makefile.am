@@ -37,6 +37,8 @@ libarith_la_SOURCES = \
 	theory_arith.cpp \
 	dio_solver.h \
 	dio_solver.cpp \
+	dl.h \
+	dl.cpp \
 	theory_arith_instantiator.h \
 	theory_arith_instantiator.cpp
 
