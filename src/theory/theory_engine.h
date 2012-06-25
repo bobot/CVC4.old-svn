@@ -46,9 +46,9 @@
 namespace CVC4 {
 
 /**
- * A pair of a theory and a node. This is used to mark the flow of 
+ * A pair of a theory and a node. This is used to mark the flow of
  * propagations between theories.
- */ 
+ */
 struct NodeTheoryPair {
   Node node;
   theory::TheoryId theory;
@@ -57,7 +57,7 @@ struct NodeTheoryPair {
   : node(node), theory(theory), timestamp(timestamp) {}
   NodeTheoryPair()
   : theory(theory::THEORY_LAST) {}
-  // Comparison doesn't take into account the timestamp  
+  // Comparison doesn't take into account the timestamp
   bool operator == (const NodeTheoryPair& pair) const {
     return node == pair.node && theory == pair.theory;
   }
@@ -84,7 +84,7 @@ class DecisionEngine;
  * CVC4.
  */
 class TheoryEngine {
-  
+
   /** Shared terms database can use the internals notify the theories */
   friend class SharedTermsDatabase;
 
@@ -389,7 +389,7 @@ class TheoryEngine {
    * Adds a new lemma, returning its status.
    */
   theory::LemmaStatus lemma(TNode node, bool negated, bool removable);
-  
+
   /** Time spent in theory combination */
   TimerStat d_combineTheoriesTime;
 
@@ -472,12 +472,12 @@ private:
   void assertToTheory(TNode assertion, theory::TheoryId toTheoryId, theory::TheoryId fromTheoryId);
 
   /**
-   * Marks a theory propagation from a theory to a theory where a 
+   * Marks a theory propagation from a theory to a theory where a
    * theory could be the THEORY_SAT_SOLVER for literals coming from
    * or being propagated to the SAT solver. If the receiving theory
    * already recieved the literal, the method returns false, otherwise
    * it returns true.
-   * 
+   *
    * @param assertion the normalized assertion being sent
    * @param originalAssertion the actual assertion that was sent
    * @param toTheoryId the theory that is on the receiving end
@@ -488,7 +488,7 @@ private:
 
   /**
    * Computes the explanation by travarsing the propagation graph and
-   * asking relevant theories to explain the propagations. Initially 
+   * asking relevant theories to explain the propagations. Initially
    * the explanation vector should contain only the element (node, theory)
    * where the node is the one to be explained, and the theory is the
    * theory that sent the literal.
@@ -684,6 +684,8 @@ public:
 
   Node ppSimpITE(TNode assertion);
   void ppUnconstrainedSimp(std::vector<Node>& assertions);
+
+  SharedTermsDatabase* getSharedTermsDatabase() { return &d_sharedTerms; }
 
 };/* class TheoryEngine */
 

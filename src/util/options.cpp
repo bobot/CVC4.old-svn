@@ -159,6 +159,8 @@ Options::Options() :
   cbqiSetByUser(false),
   userPatternsQuant(true),
   flipDecision(false),
+  printModelEngine(false),
+  printInstEngine(false),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
   threads(2),// default should be 1 probably, but say 2 for now
@@ -627,6 +629,8 @@ enum OptionValue {
   DISABLE_CBQI,
   IGNORE_USER_PATTERNS,
   ENABLE_FLIP_DECISION,
+  PRINT_MODEL_ENGINE,
+  PRINT_INST_ENGINE,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
   PORTFOLIO_FILTER_LENGTH,
@@ -759,6 +763,8 @@ static struct option cmdlineOptions[] = {
   { "disable-cbqi", no_argument, NULL, DISABLE_CBQI },
   { "ignore-user-patterns", no_argument, NULL, IGNORE_USER_PATTERNS },
   { "enable-flip-decision", no_argument, NULL, ENABLE_FLIP_DECISION },
+  { "print-model-engine", no_argument, NULL, PRINT_MODEL_ENGINE },
+  { "print-inst-engine", no_argument, NULL, PRINT_INST_ENGINE },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
@@ -1346,6 +1352,12 @@ throw(OptionException) {
       break;
     case ENABLE_FLIP_DECISION:
       flipDecision = true;
+      break;
+    case PRINT_MODEL_ENGINE:
+      printModelEngine = true;
+      break;
+    case PRINT_INST_ENGINE:
+      printInstEngine = true;
       break;
     case TIME_LIMIT:
       {

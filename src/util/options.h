@@ -474,6 +474,12 @@ struct CVC4_PUBLIC Options {
    */
   bool flipDecision;
 
+  /**
+   * print details for instantiation/model engine
+   */
+  bool printInstEngine;
+  bool printModelEngine;
+
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;
   LemmaInputChannel* lemmaInputChannel;

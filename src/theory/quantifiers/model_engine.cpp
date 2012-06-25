@@ -21,7 +21,6 @@
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
-#define ME_PRINT_PROCESS_TIMES
 //#define ME_PRINT_WARNINGS
 
 //#define DISABLE_EVAL_SKIP_MULTIPLE
@@ -693,9 +692,9 @@ void ModelEngine::check( Theory::Effort e ){
     }
     if( addedLemmas==0 ){
       //quantifiers are initialized, we begin an instantiation round
-#ifdef ME_PRINT_PROCESS_TIMES
-      Message() << "---Model Engine Round---" << std::endl;
-#endif
+      if( Options::current()->printModelEngine ){
+        Message() << "---Model Engine Round---" << std::endl;
+      }
       Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
       ++(d_statistics.d_inst_rounds);
       //reset the quantifiers engine
@@ -721,13 +720,13 @@ void ModelEngine::check( Theory::Effort e ){
               addedLemmas += findExceptions( f );
             }
           }
-#ifdef ME_PRINT_PROCESS_TIMES
-          if( addedLemmas>0 ){
-            Message() << "Exceptions, added lemmas = " << addedLemmas << std::endl;
-          }else{
-            Message() << "No exceptions..." << std::endl;
+          if( Options::current()->printModelEngine ){
+            if( addedLemmas>0 ){
+              Message() << "Exceptions, added lemmas = " << addedLemmas << std::endl;
+            }else{
+              Message() << "No exceptions..." << std::endl;
+            }
           }
-#endif
           Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << std::endl;
         }
         if( addedLemmas==0 ){
@@ -762,10 +761,10 @@ void ModelEngine::check( Theory::Effort e ){
         }
         Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
         Debug("fmf-model-debug") << d_testLemmas << " / " << d_totalLemmas << std::endl;
-#ifdef ME_PRINT_PROCESS_TIMES
-        Message() << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
-        Message() << d_testLemmas << " / " << d_totalLemmas << std::endl;
-#endif
+        if( Options::current()->printModelEngine ){
+          Message() << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
+          Message() << d_testLemmas << " / " << d_totalLemmas << std::endl;
+        }
 #ifdef ME_PRINT_WARNINGS
         if( addedLemmas>10000 ){
           Debug("fmf-exit") << std::endl;
@@ -871,10 +870,10 @@ void ModelEngine::buildRepresentatives(){
     Debug("fmf-model-debug") << std::endl;
     //set them in the alphabet
     d_ra.set( tn, reps );
-#ifdef ME_PRINT_PROCESS_TIMES
-    Message() << "Cardinality( " << tn << " )" << " = " << reps.size() << std::endl;
-    //Notice() << d_quantEngine->getEqualityQuery()->getRepresentative( NodeManager::currentNM()->mkConst( true ) ) << std::endl;
-#endif
+    if( Options::current()->printModelEngine ){
+      Message() << "Cardinality( " << tn << " )" << " = " << reps.size() << std::endl;
+      //Message() << d_quantEngine->getEqualityQuery()->getRepresentative( NodeManager::currentNM()->mkConst( true ) ) << std::endl;
+    }
   }
 }
 
@@ -1209,19 +1208,6 @@ Node ModelEngine::getModelBasisApplyUfTerm( Node op ){
   return d_model_basis_term[op];
 }
 
-//bool ModelEngine::isModelBasisTerm( Node op, Node n ){
-//  if( n.getOperator()==op ){
-//    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-//      if( !n[i].getAttribute(ModelBasisAttribute()) ){
-//        return false;
-//      }
-//    }
-//    return true;
-//  }else{
-//    return false;
-//  }
-//}
-
 void ModelEngine::initializeUf( Node n ){
   std::vector< Node > terms;
   collectUfTerms( n, terms );
@@ -1449,6 +1435,7 @@ int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
     Node gn = n.substitute( rai->d_ic.begin(), rai->d_ic.end(), rai->d_terms.begin(), rai->d_terms.end() );
     //Debug("fmf-model-eval-debug") << "  Ground version = " << gn << std::endl;
     int retVal = 0;
+    depIndex = rai->getNumTerms()-1;
     if( n.getKind()==APPLY_UF ){
       //case for boolean predicates
       Node val = evaluateTerm( rai, n, gn, depIndex );
@@ -1462,8 +1449,8 @@ int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
     }else if( n.getKind()==EQUAL ){
       //case for equality
       retVal = evaluateEquality( rai, n[0], n[1], gn[0], gn[1], depIndex );
-    }else{
-      depIndex = rai->getNumTerms()-1;
+    }else if( n.getKind()==APPLY_TESTER ){
+      //case for datatype tester predicate
     }
     if( retVal!=0 ){
       Debug("fmf-model-eval-debug") << "Evaluate literal: return " << retVal << ", depends = " << depIndex << std::endl;
@@ -1492,7 +1479,7 @@ int ModelEngine::evaluateEquality( RepAlphabetIterator* rai, Node n1, Node n2, N
   }else if( areDisequal( val1, val2 ) ){
     retVal = -1;
   }else{
-    //std::cout << "Neither equal nor disequal " << val1.getKind() << " " << val2.getKind() << " " << val1.getType() << std::endl;
+    //std::cout << "Neither equal nor disequal " << val1.getKind() << " " << val2.getKind() << " : " << val1.getType() << std::endl;
     //std::cout << "                           " << d_quantEngine->getEqualityQuery()->hasTerm( val1 ) << " " << d_quantEngine->getEqualityQuery()->hasTerm( val2 ) << std::endl;
     //std::cout << "                           " << val1 << " " << val2 << std::endl;
   }
@@ -1515,6 +1502,17 @@ Node ModelEngine::evaluateTerm( RepAlphabetIterator* rai, Node n, Node gn, int& 
     if( n.getKind()==INST_CONSTANT ){
       depIndex = rai->d_var_order[ n.getAttribute(InstVarNumAttribute()) ];
       val = gn;
+    }else if( n.getKind()==ITE ){
+      int condDepIndex = -1;
+      int eval = evaluate( rai, n[0], condDepIndex );
+      if( eval==0 ){
+        //DO_THIS: evaluate children to see if they are the same?
+      }else{
+        int index = eval==1 ? 1 : 2;
+        int valDepIndex = -1;
+        val = evaluateTerm( rai, n[index], gn[index], valDepIndex );
+        depIndex = condDepIndex>valDepIndex ? condDepIndex : valDepIndex;
+      }
     }else if( n.getKind()==APPLY_UF ){
       //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
       //Notice() << "e " << n << std::endl;
@@ -1581,24 +1579,19 @@ Node ModelEngine::evaluateTerm( RepAlphabetIterator* rai, Node n, Node gn, int& 
       ////cache the result
       //d_eval_term_vals[gn] = val;
       //d_eval_term_fv_deps[n][gn].insert( d_eval_term_fv_deps[n][gn].end(), fv_deps.begin(), fv_deps.end() )
-    }else if( n.getKind()==ITE ){
-      int condDepIndex = -1;
-      int eval = evaluate( rai, n[0], condDepIndex );
-      if( eval==0 ){
-        //DO_THIS: evaluate children to see if they are the same?
-      }else{
-        int index = eval==1 ? 1 : 2;
-        int valDepIndex = -1;
-        val = evaluateTerm( rai, n[index], gn[index], valDepIndex );
-        depIndex = condDepIndex>valDepIndex ? condDepIndex : valDepIndex;
-      }
+    }else if( n.getKind()==SELECT ){
+      //DO_THIS?
+    }else if( n.getKind()==STORE ){
+      //DO_THIS?
     }else if( n.getKind()==PLUS ){
       //DO_THIS?
+    }else if( n.getKind()==APPLY_SELECTOR ){
+
     }
     if( val.isNull() ){
       val = gn;
       //DOTHIS: theories?
-      //std::cout << "Unevaluated term " << n.getKind() << " " << n.getType() << " " << d_quantEngine->getEqualityQuery()->hasTerm( gn ) << std::endl;
+      //std::cout << "Unevaluated term " << n.getKind() << " : " << n.getType() << " (" << d_quantEngine->getEqualityQuery()->hasTerm( gn ) << ")" << std::endl;
       //std::cout << "                 " << n << std::endl;
       //must collect free variables for dependencies
       std::vector< Node > fv_deps;
@@ -1626,7 +1619,7 @@ void ModelEngine::clearEvalFailed( int index ){
 }
 
 bool ModelEngine::areEqual( Node a, Node b ){
-  return a==b || d_quantEngine->getEqualityQuery()->areEqual( a, b );
+  return d_quantEngine->getEqualityQuery()->areEqual( a, b );
 }
 
 bool ModelEngine::areDisequal( Node a, Node b ){

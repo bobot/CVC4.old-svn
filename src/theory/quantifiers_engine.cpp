@@ -825,6 +825,8 @@ eq::EqualityEngine* EqualityQueryQuantifiersEngine::getEqualityEngine( int id ){
 bool EqualityQueryQuantifiersEngine::hasTerm( Node a ){
   if( getEqualityEngine( THEORY_UF )->hasTerm( a ) ){
     return true;
+  }else if( getEqualityEngine( THEORY_ARRAY )->hasTerm( a ) ){
+    return true;
   }else{
     return false;
   }
@@ -834,31 +836,48 @@ Node EqualityQueryQuantifiersEngine::getRepresentative( Node a ){
   eq::EqualityEngine* ee_uf = getEqualityEngine( THEORY_UF );
   if( ee_uf->hasTerm( a ) ){
     return ee_uf->getRepresentative( a );
-  }else{
-    return a;
   }
+  eq::EqualityEngine* ee_a = getEqualityEngine( THEORY_ARRAY );
+  if( ee_a->hasTerm( a ) ){
+    return ee_a->getRepresentative( a );
+  }
+  return a;
 }
 
 bool EqualityQueryQuantifiersEngine::areEqual( Node a, Node b ){
   if( a==b ){
     return true;
   }else{
+    if( d_qe->getTheoryEngine()->getSharedTermsDatabase()->areEqual( a, b ) ){
+      return true;
+    }
     eq::EqualityEngine* ee_uf = getEqualityEngine( THEORY_UF );
     if( ee_uf->hasTerm( a ) && ee_uf->hasTerm( b ) ){
       return ee_uf->areEqual( a, b );
-    }else{
-      return false;
     }
+    eq::EqualityEngine* ee_a = getEqualityEngine( THEORY_ARRAY );
+    if( ee_a->hasTerm( a ) && ee_a->hasTerm( b ) ){
+      return ee_a->areEqual( a, b );
+    }
+
+    return false;
   }
 }
 
 bool EqualityQueryQuantifiersEngine::areDisequal( Node a, Node b ){
+  if( d_qe->getTheoryEngine()->getSharedTermsDatabase()->areDisequal( a, b ) ){
+    return true;
+  }
   eq::EqualityEngine* ee_uf = getEqualityEngine( THEORY_UF );
   if( ee_uf->hasTerm( a ) && ee_uf->hasTerm( b ) ){
     return ee_uf->areDisequal( a, b, false );
-  }else{
-    return false;
   }
+  eq::EqualityEngine* ee_a = getEqualityEngine( THEORY_ARRAY );
+  if( ee_a->hasTerm( a ) && ee_a->hasTerm( b ) ){
+    return ee_a->areDisequal( a, b, false );
+  }
+
+  return false;
 }
 
 Node EqualityQueryQuantifiersEngine::getInternalRepresentative( Node a ){

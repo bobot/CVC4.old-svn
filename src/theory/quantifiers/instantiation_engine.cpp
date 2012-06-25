@@ -26,8 +26,6 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-//#define IE_PRINT_PROCESS_TIMES
-
 InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th, bool setIncomplete ) :
 d_th( th ), d_setIncomplete( setIncomplete ){
 
@@ -140,9 +138,9 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
     return false;
   }else{
     Debug("inst-engine-ctrl") << "---Done. " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
-#ifdef IE_PRINT_PROCESS_TIMES
-    Message() << "Added lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
-#endif
+    if( Options::current()->printInstEngine ){
+      Message() << "Added lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+    }
     //flush lemmas to output channel
     getQuantifiersEngine()->flushLemmas( &d_th->getOutputChannel() );
     return true;
@@ -168,10 +166,11 @@ void InstantiationEngine::check( Theory::Effort e ){
   }
   if( performCheck ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
-#ifdef IE_PRINT_PROCESS_TIMES
-    double clSet = double(clock())/double(CLOCKS_PER_SEC);
-    Message() << "---Instantiation Engine Round, effort = " << e << "---" << std::endl;
-#endif
+    double clSet;
+    if( Options::current()->printInstEngine ){
+      clSet = double(clock())/double(CLOCKS_PER_SEC);
+      Message() << "---Instantiation Engine Round, effort = " << e << "---" << std::endl;
+    }
     bool quantActive = false;
     //for each quantifier currently asserted,
     // such that the counterexample literal is not in positive in d_counterexample_asserts
@@ -247,10 +246,10 @@ void InstantiationEngine::check( Theory::Effort e ){
         }
       }
     }
-#ifdef IE_PRINT_PROCESS_TIMES
-    double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-    Message() << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
-#endif
+    if( Options::current()->printInstEngine ){
+      double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
+      Message() << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
+    }
   }
 }
 
