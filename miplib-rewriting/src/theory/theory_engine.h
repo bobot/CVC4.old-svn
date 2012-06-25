@@ -742,6 +742,7 @@ private:
 
 public:
   Node ppSimpITE(TNode assertion);
+  Node liftITEs(TNode assertion);
 
 };/* class TheoryEngine */
 

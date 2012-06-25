@@ -70,11 +70,13 @@ class ITESimplifier {
   Node createSimpContext(TNode c, Node& iteNode, Node& simpVar);
 
   Node simpITEAtom(TNode atom);
+  Node simpITEAtomForceLift(TNode atom);
 
   NodeMap d_simpITECache;
 
 public:
   Node simpITE(TNode assertion);
+  Node liftITEs(TNode assertion);
 
 private:
 

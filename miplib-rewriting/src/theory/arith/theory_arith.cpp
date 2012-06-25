@@ -586,6 +586,8 @@ Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubst
       }
     }
 
+    minVar = Node::null(); // Disable for miplib
+
     // Solve for variable
     if (!minVar.isNull()) {
       Polynomial right = cmp.getRight();

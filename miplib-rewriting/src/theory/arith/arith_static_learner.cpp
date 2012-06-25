@@ -288,6 +288,8 @@ void ArithStaticLearner::iteConstant(TNode n, NodeBuilder<>& learned){
 
 void ArithStaticLearner::postProcess(NodeBuilder<>& learned){
   // == 3-FINITE VALUE SET ==
+
+  d_miplibTrickKeys.clear();
   list<TNode>::iterator keyIter = d_miplibTrickKeys.begin();
   list<TNode>::iterator endKeys = d_miplibTrickKeys.end();
   while(keyIter != endKeys) {

@@ -364,8 +364,14 @@ void TheoryEngine::propagate(Theory::Effort effort) {
       if (d_propEngine->hasValue(atom, value)) continue;
       // Doesn't have a value, check it (and the negation)
       if(d_hasPropagated.find(atom) == d_hasPropagated.end()) {
+        static int i = 0;
+        ++i;
+        stringstream ss;
+        ss << i;
+        string si = ss.str();
         Dump("missed-t-propagations")
           << CommentCommand("Completeness check for T-propagations; expect invalid")
+          << CommentCommand(si)
           << QueryCommand(atom.toExpr())
           << QueryCommand(atom.notNode().toExpr());
       }
@@ -1006,6 +1012,14 @@ void TheoryEngine::sharedConflict(TNode conflict) {
 Node TheoryEngine::ppSimpITE(TNode assertion)
 {
   Node result = d_iteSimplifier.simpITE(assertion);
+  result = d_iteSimplifier.simplifyWithCare(result);
+  result = Rewriter::rewrite(result);
+  return result;
+}
+
+Node TheoryEngine::liftITEs(TNode assertion)
+{
+  Node result = d_iteSimplifier.liftITEs(assertion);
   result = d_iteSimplifier.simplifyWithCare(result);
   result = Rewriter::rewrite(result);
   return result;

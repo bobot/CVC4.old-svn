@@ -229,6 +229,26 @@ Node ITESimplifier::simpITEAtom(TNode atom)
   return atom;
 }
 
+Node ITESimplifier::simpITEAtomForceLift(TNode atom)
+{
+  Node iteNode;
+  Node simpVar;
+  d_simpConstCache.clear();
+  Node simpContext = createSimpContext(atom, iteNode, simpVar);
+  if (!simpContext.isNull()) {
+    if (iteNode.isNull()) {
+      Assert(!containsTermITE(simpContext));
+      return Rewriter::rewrite(simpContext);
+    }
+    d_simpConstCache.clear();
+    Node n = simpConstants(simpContext, iteNode, simpVar);
+    if (!n.isNull()) {
+      return n;
+    }
+  }
+  return atom;
+}
+
 
 struct preprocess_stack_element {
   TNode node;
@@ -513,3 +533,74 @@ Node ITESimplifier::simplifyWithCare(TNode e)
   return substitute(e, substTable, cache);
 }
 
+
+Node ITESimplifier::liftITEs(TNode assertion)
+{
+  // Do a topological sort of the subexpressions and substitute them
+  vector<preprocess_stack_element> toVisit;
+  toVisit.push_back(assertion);
+
+  while (!toVisit.empty())
+  {
+    // The current node we are processing
+    preprocess_stack_element& stackHead = toVisit.back();
+    TNode current = stackHead.node;
+
+    // If node has no ITE's or already in the cache we're done, pop from the stack
+    if (current.getNumChildren() == 0 ||
+        (Theory::theoryOf(current) != THEORY_BOOL && !containsTermITE(current))) {
+       d_simpITECache[current] = current;
+       toVisit.pop_back();
+       continue;
+    }
+
+    NodeMap::iterator find = d_simpITECache.find(current);
+    if (find != d_simpITECache.end()) {
+      toVisit.pop_back();
+      continue;
+    }
+
+    // Not yet substituted, so process
+    if (stackHead.children_added) {
+      // Children have been processed, so substitute
+      NodeBuilder<> builder(current.getKind());
+      if (current.getMetaKind() == kind::metakind::PARAMETERIZED) {
+        builder << current.getOperator();
+      }
+      for (unsigned i = 0; i < current.getNumChildren(); ++ i) {
+        Assert(d_simpITECache.find(current[i]) != d_simpITECache.end());
+        builder << d_simpITECache[current[i]];
+      }
+      // Mark the substitution and continue
+      Node result = builder;
+
+      // If this is an atom, we process it
+      if (Theory::theoryOf(result) != THEORY_BOOL &&
+          result.getType().isBoolean()) {
+        result = simpITEAtomForceLift(result);
+      }
+
+      result = Rewriter::rewrite(result);
+      d_simpITECache[current] = result;
+      toVisit.pop_back();
+    } else {
+      // Mark that we have added the children if any
+      if (current.getNumChildren() > 0) {
+        stackHead.children_added = true;
+        // We need to add the children
+        for(TNode::iterator child_it = current.begin(); child_it != current.end(); ++ child_it) {
+          TNode childNode = *child_it;
+          NodeMap::iterator childFind = d_simpITECache.find(childNode);
+          if (childFind == d_simpITECache.end()) {
+            toVisit.push_back(childNode);
+          }
+        }
+      } else {
+        // No children, so we're done
+        d_simpITECache[current] = current;
+        toVisit.pop_back();
+      }
+    }
+  }
+  return d_simpITECache[assertion];
+}

@@ -47,6 +47,9 @@
 #include "util/options.h"
 #include "util/output.h"
 #include "util/hash.h"
+
+#include "util/propositional_query.h"
+
 #include "theory/substitutions.h"
 #include "theory/builtin/theory_builtin.h"
 #include "theory/booleans/theory_bool.h"
@@ -173,6 +176,15 @@ class SmtEnginePrivate {
    * any way.
    */
   void simplifyAssertions() throw(NoSuchFunctionException, AssertionException);
+
+  /**
+   * Perform non-clausal simplification of a Node.  This involves
+   * Theory implementations, but does NOT involve the SAT solver in
+   * any way.
+   */
+  void miplibHacks() throw(NoSuchFunctionException, AssertionException);
+  void flattenTopAnds(vector<Node>& out, Node curr);
+  void flattenTopAnds();
 
 public:
 
@@ -952,12 +964,161 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
     }
   } while(! worklist.empty());
 }
+void SmtEnginePrivate::flattenTopAnds(vector<Node>& out, Node curr){
+  Assert(curr.getKind() == kind::AND);
+  for (Node::iterator i = curr.begin(), i_end = curr.end(); i != i_end; ++ i) {
+    Node child = *i;
+    if(child.getKind() == kind::AND){
+      flattenTopAnds(out, child);
+    }else{
+      out.push_back(child);
+    }
+  }
+}
+
+void SmtEnginePrivate::flattenTopAnds(){
+  vector<Node> output;
+  for (unsigned i = 0; i < d_assertionsToPreprocess.size(); ++ i) {
+    Node curr = d_assertionsToPreprocess[i];
+    if(curr.getKind() == kind::AND){
+      flattenTopAnds(output, curr);
+    }else{
+      output.push_back(curr);
+    }
+  }
+  d_assertionsToPreprocess.swap(output);
+}
+
+typedef std::hash_set<Node, NodeHashFunction> NodeSet;
+
+void mark(NodeSet& s, Node c){
+  for(Node::iterator i = c.begin(), c_end = c.end(); i != c_end; ++i){
+    Node child = *i;
+    if(child.getMetaKind() == kind::metakind::VARIABLE){
+      s.insert(child);
+    }
+    mark(s, child);
+  }
+}
+
+void SmtEnginePrivate::miplibHacks()
+  throw(NoSuchFunctionException, AssertionException) {
+  cerr << "miplibHacks() begin" << endl;
+
+  cerr << d_assertionsToPreprocess.size() << endl;
+
+  NodeSet dontBlast;
+  for(int read = 0, N = d_assertionsToPreprocess.size(); read < N; ++read){
+    Node n = d_assertionsToPreprocess[read];
+    if(n.getKind() == kind::EQUAL){
+      mark(dontBlast, n);
+    }
+    if(n.getKind() == kind::LEQ || n.getKind() == kind::GEQ){
+      NodeSet local;
+      mark(local, n);
+      if(local.size() > 3){
+        mark(dontBlast,n);
+      }
+    }
+  }
+
+  int write = 0;
+  for(int read = 0, N = d_assertionsToPreprocess.size(); read < N; ++read){
+    Node sub = d_assertionsToPreprocess[read];
+    if(sub.getKind() == kind::IMPLIES){
+      vector<Node> constants;
+      vector<Node> antes;
+
+      Node firstConseq = sub[1];
+      Assert(firstConseq.getKind() == kind::EQUALS);
+      Node var = firstConseq[0];
+
+
+      bool skipThisBlock = dontBlast.find(var) != dontBlast.end();
+
+      while(read < N){
+        Node imp = d_assertionsToPreprocess[read];
+        if(imp.getKind() != kind::IMPLIES){
+          Warning() << "This should nto happen on miplib examples" << endl;
+          --read;
+          break;
+        }
+        Node ante = imp[0];
+        Node conseq = imp[1];
+
+
+        cerr << skipThisBlock << " " << imp << endl;
+        Assert(conseq.getKind() == kind::EQUALS);
+        Node currVar = conseq[0];
+        if(currVar == var){
+          if(skipThisBlock){
+            d_assertionsToPreprocess[write] = imp;
+            ++write;
+            ++read;
+          }else{
+            antes.push_back(ante);
+            constants.push_back(conseq[1]);
+            ++read;
+          }
+        }else{
+          --read;
+          break;
+        }
+      }
+      if(skipThisBlock){ continue; }
+
+      Node orAntes = NodeManager::currentNM()->mkNode(kind::OR, antes);
+      Result r = PropositionalQuery::isTautology(orAntes);
+      Assert(r.isValid());
+
+      Node iteChain = constants.back();
+      constants.pop_back();
+      antes.pop_back();
+      while(!constants.empty()){
+        iteChain = NodeManager::currentNM()->mkNode(kind::ITE, antes.back(), constants.back(), iteChain);
+        constants.pop_back();
+        antes.pop_back();
+      }
+
+      Node varEqualsIteChain = var.eqNode(iteChain);
+      if(false){
+        cerr << varEqualsIteChain << endl;
+      }
+      d_topLevelSubstitutions.addSubstitution(var, iteChain);
+    }else{
+       d_assertionsToPreprocess[write] = sub;
+      ++write;
+    }
+  }
+  d_assertionsToPreprocess.resize(write);
+
+  for(int i = 0, N = d_assertionsToPreprocess.size(); i < N; ++i){
+    Node curr = d_assertionsToPreprocess[i];
+
+    Node apply = d_topLevelSubstitutions.apply(curr);
+    if(curr != apply){
+      cerr << curr << " " << apply << endl;
+
+      Node lifted = d_smt.d_theoryEngine->liftITEs(apply);
+
+      cerr << endl << lifted << endl;
+      d_assertionsToPreprocess[i] = lifted;
+    }
+  }
+
+  cerr << d_assertionsToPreprocess.size() << endl;
+  cerr << "miplibHacks() end" << endl;
+}
 
 void SmtEnginePrivate::simplifyAssertions()
   throw(NoSuchFunctionException, AssertionException) {
   try {
 
     Trace("simplify") << "SmtEnginePrivate::simplify()" << endl;
+
+    flattenTopAnds();
+    miplibHacks();
+
 
     if(!Options::current()->lazyDefinitionExpansion) {
       Trace("simplify") << "SmtEnginePrivate::simplify(): expanding definitions" << endl;
@@ -1093,7 +1254,7 @@ void SmtEnginePrivate::processAssertions() {
     // Remove ITEs
     d_smt.d_numAssertionsPre += d_assertionsToCheck.size();
     // Remove ITEs, updating d_iteSkolemMap
-    removeITEs();
+    //removeITEs();
     d_smt.d_numAssertionsPost += d_assertionsToCheck.size();
     // This may need to be in a try-catch
     // block. make regress is passing, so
