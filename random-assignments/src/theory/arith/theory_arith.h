@@ -63,8 +63,14 @@ class TheoryArith : public Theory {
 private:
 
   gmp_randclass d_random;
+  unsigned long fromRange(unsigned long z);
+  unsigned long fromRange(unsigned long l, unsigned long u);
+
   Integer fromRange(const Integer& z);
   Integer fromRange(const Integer& l, const Integer& u);
+  Integer randomIntegerAssignment(ArithVar x);
+  Constraint randomIntegerConstraint(ArithVar x);
+
   bool randomAssignment();
   bool coinFlip(double d);
   uint32_t d_integerAssignmentAttemptCounter;

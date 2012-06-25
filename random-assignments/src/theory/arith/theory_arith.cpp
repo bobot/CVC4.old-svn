@@ -170,12 +170,24 @@ void TheoryArith::zeroDifferenceDetected(ArithVar x){
   }
 }
 
+unsigned long TheoryArith::fromRange(unsigned long z){
+  mpz_class n(z);
+  mpz_class res = d_random.get_z_range(n);
+  return res.get_ui();
+}
+
 Integer TheoryArith::fromRange(const Integer& z){
   return Integer(d_random.get_z_range(z.get_mpz()));
 }
 Integer TheoryArith::fromRange(const Integer& l, const Integer& u){
   Assert(l < u);
   Integer diff = u - l;
+  return fromRange(diff) + l;
+}
+
+unsigned long TheoryArith::fromRange(unsigned long l, unsigned long u){
+  Assert(l < u);
+  size_t diff = u - l;
   return fromRange(diff) + l;
 }
 
@@ -754,7 +766,7 @@ void TheoryArith::setupAtom(TNode atom) {
   Assert(isRelationOperator(atom.getKind()));
   Assert(Comparison::isNormalAtom(atom));
   Assert(!isSetup(atom));
-  Assert(!d_constraintDatabase.hasLiteral(atom));
+  //Assert(!d_constraintDatabase.hasLiteral(atom));
 
   Comparison cmp = Comparison::parseNormalForm(atom);
   Polynomial nvp = cmp.normalizedVariablePart();
@@ -764,7 +776,9 @@ void TheoryArith::setupAtom(TNode atom) {
     setupPolynomial(nvp);
   }
 
-  d_constraintDatabase.addLiteral(atom);
+  if(!d_constraintDatabase.hasLiteral(atom)){
+    d_constraintDatabase.addLiteral(atom);
+  }
 
   markSetup(atom);
 }
@@ -1138,14 +1152,56 @@ bool TheoryArith::hasIntegerModel(){
   return true;
 }
 
+Integer TheoryArith::randomIntegerAssignment(ArithVar x){
+  static const uint32_t RANGE = 100;
+  Assert(d_partialModel.assignmentIsConsistent(x));
 
+  Integer ub = d_partialModel.getAssignment(x).floor() + 1 + (RANGE/2);
+  Integer lb = d_partialModel.getAssignment(x).ceiling() - (RANGE/2);
+
+  if(d_partialModel.hasUpperBound(x)){
+    ub = Integer::min(ub, d_partialModel.getUpperBound(x).floor()+1);
+  }
+  if(d_partialModel.hasLowerBound(x)){
+    lb = Integer::max(lb, d_partialModel.getLowerBound(x).ceiling());
+  }
+
+  Assert(lb < ub);
+  Integer random = fromRange(lb, ub);
+  Trace("random") << "randomIntegerAssignment(" << x
+                  <<": "<< lb << " <= " << random << "<" << ub << ")" << endl;
+  return random;
+}
+
+Constraint TheoryArith::randomIntegerConstraint(ArithVar x){
+  Integer r = randomIntegerAssignment(x);
+  DeltaRational dr(r);
+  Constraint eqRandom = d_constraintDatabase.getConstraint(x, Equality, dr);
+
+  Trace("random") << "eqRandom " << eqRandom << endl;
+  Trace("random") << eqRandom->hasProof() << " " << eqRandom->negationHasProof() << endl;
+
+  if(eqRandom->truthIsUnknown()){
+    if(!eqRandom->hasLiteral()){
+      TNode var = d_arithvarNodeMap.asNode(x);
+      Polynomial varAsPolynomial = Polynomial::parsePolynomial(var);
+      Constant randomC = Constant::mkConstant(Rational(r));
+      Polynomial randomP = Polynomial::mkPolynomial(randomC);
+      Comparison cmp = Comparison::mkComparison(EQUAL, varAsPolynomial, randomP);
+      Node literal = cmp.getNode();
+      eqRandom->setLiteral(literal);
+    }
+  }
+  return eqRandom;
+}
 bool TheoryArith::randomAssignment(){
   Assert(!hasIntegerModel());
   Assert(d_variables.size() > 0);
 #warning "should be QF_LRA sat and QF_LIA equality sat. Add assertions"
 
   Trace("random") << "randomAssignment" << endl;
-  PermissiveBackArithVarSet d_currentlyUnset;
+  PermissiveBackArithVarSet currentlyUnset;
+  PermissiveBackArithVarSet involved;
 
   unsigned setArithVars = 0;
   unsigned equalSlacks = 0;
@@ -1159,90 +1215,125 @@ bool TheoryArith::randomAssignment(){
         if(d_partialModel.boundsAreEqual(x)){
           ++setArithVars;
         }else{
-          d_currentlyUnset.add(x);
+          currentlyUnset.add(x);
         }
       }
     }
   }
 
-  Trace("random") << "there are " << d_currentlyUnset.size() << "variables in play, "<< endl;
+  Trace("random") << "there are " << currentlyUnset.size() << "variables in play, "<< endl;
   Trace("random") << "" << setArithVars << " set variables, and " << endl;
   Trace("random") << "there are " << equalSlacks << " equal slack variables."<< endl;
 
-  double odds = double(setArithVars + d_currentlyUnset.size() - equalSlacks -1)/d_currentlyUnset.size();
+  uint32_t k_unset = currentlyUnset.size();
+  double odds = double(setArithVars + k_unset - equalSlacks)/k_unset;
 
   Trace("random") << "odds are " << odds << endl;
 
-  for(int round = 0; round < 50; ++round){
+  hash_map<ArithVar, Constraint> candidateAssignments;
+  PermissiveBackArithVarSet::const_iterator i =  currentlyUnset.begin();
+  PermissiveBackArithVarSet::const_iterator i_end =  currentlyUnset.end();
+  for(; i != i_end; ++i){
+    ArithVar x = *i;
+    Constraint eqRandom = randomIntegerConstraint(x);
+    candidateAssignments[x] = eqRandom;
+  }
+
+  static int overall = 0;
+  vector<ArithVar> toRelax;
+  bool inConflict;
+  for(int round = 0, Nrounds = 50; round < Nrounds; ++round, ++overall){
     context::Context::ScopedPush speculativePush(getContext());
-    //DO NOT TOUCH THE OUTPUTSTREAM
 
-    Trace("random") << "start round " << round << endl;
+    inConflict = false;
+    Trace("random") << "starting round " << round  << "("<< overall << ")"<< endl;
 
-    Node possibleConflict = Node::null();
-    PermissiveBackArithVarSet::const_iterator i =  d_currentlyUnset.begin();
-    PermissiveBackArithVarSet::const_iterator i_end =  d_currentlyUnset.end();
-    for(; i != i_end && possibleConflict.isNull(); ++i){
+    while(!toRelax.empty()){
+      ArithVar back = toRelax.back();
+      Constraint eqRandom = randomIntegerConstraint(back);
+
+      Trace("random") << "relax constraint " << round << " " << eqRandom << endl;
+      candidateAssignments[back] = eqRandom;
+      toRelax.pop_back();
+    }
+
+    i =  currentlyUnset.begin();
+    i_end =  currentlyUnset.end();
+    for(; i != i_end && toRelax.empty(); ++i){
       ArithVar x = *i;
-      if(coinFlip(odds)){
-        Integer ub;
-        if(d_partialModel.hasUpperBound(x)){
-          ub = d_partialModel.getUpperBound(x).floor()+1;
-        }else{
-          ub = d_partialModel.getSafeAssignment(x).ceiling() + 101;
-        }
-        Integer lb;
-        if(d_partialModel.hasLowerBound(x)){
-          lb = d_partialModel.getLowerBound(x).ceiling();
-        }else{
-          lb = d_partialModel.getSafeAssignment(x).floor() - 100;
-        }
-        Trace("random") << lb << " " << ub << endl;
-
-        Integer random = fromRange(lb, ub);
-
-        Constraint eqRandom = d_constraintDatabase.getConstraint(x, Equality, DeltaRational(random));
-        Trace("random") << "eqRandom " << eqRandom << endl;
-        Trace("random") << eqRandom->hasProof() << " " << eqRandom->negationHasProof() << endl;
-        if(eqRandom->truthIsUnknown()){
-          Assert(!eqRandom->assertedToTheTheory());
-          if(!eqRandom->hasLiteral()){
-            TNode var = d_arithvarNodeMap.asNode(x);
-            Polynomial varAsPolynomial = Polynomial::parsePolynomial(var);
-            Constant randomC = Constant::mkConstant(Rational(random));
-            Polynomial randomP = Polynomial::mkPolynomial(randomC);
-            Comparison cmp = Comparison::mkComparison(EQUAL, varAsPolynomial, randomP);
-            Node literal = cmp.getNode();
-            eqRandom->setLiteral(literal);
-          }
-
+      Constraint eqRandom = candidateAssignments[x];
+      if(!coinFlip(odds)){
+        Trace("random") << "eqRandom ignored " << eqRandom << " by coin flip" << endl;
+      }else{
+        if(!eqRandom->hasProof()){
           eqRandom->setAssertedToTheTheory();
           eqRandom->selfExplaining();
           Trace("random") << "eqRandom now " << eqRandom << endl;
-          possibleConflict = AssertEquality(eqRandom);
-        }else{
-          Trace("random") << "skipping" << endl;
+          Node possibleConflict = AssertEquality(eqRandom);
+          if(!possibleConflict.isNull()){
+            toRelax.push_back(x);
+            inConflict = true;
+            Trace("random") << "failed " << round << " because of  AssertEqual conflict" << possibleConflict << endl;
+          }
+        } else {
+          Trace("random") << "dropping  " << eqRandom << " " << endl;
+          Trace("random") << "negation has proof " << eqRandom->negationHasProof() << endl;
+          toRelax.push_back(x);
         }
       }
     }
-    if(!possibleConflict.isNull()){
-      d_partialModel.revertAssignmentChanges();
-      clearUpdates();
-      Trace("random") << "failed " << round << " because of  AssertEqual conflict" << possibleConflict << endl;
-    }else{
-      bool foundConflict = d_simplex.findModel();
-      if(foundConflict){
+    if(!inConflict){
+      inConflict = d_simplex.findModel();
+      if(inConflict){
         d_partialModel.revertAssignmentChanges();
         clearUpdates();
+        Node conflict =  d_conflicts[0];
         Trace("random") << "failed " << round << " because of simplex conflict "
-             <<  d_conflicts[0] << endl;
+                        <<  conflict << endl;
+
+        Node::const_iterator ci = conflict.begin();
+        Node::const_iterator ci_end = conflict.end();
+        for(; ci != ci_end; ++ci){
+          Node curr = *ci;
+          i =  currentlyUnset.begin();
+          i_end =  currentlyUnset.end();
+          for(; i != i_end ; ++i){
+            ArithVar x = *i;
+            Constraint eq = candidateAssignments[x];
+            if(eq->getLiteral() == curr){
+              involved.add(x);
+              Trace("random") << "involved " << x << " " << eq << endl;
+            }
+          }
+        }
+        size_t numToRelax = fromRange(1, involved.size()+1);
+        while(numToRelax > 0){
+          size_t randomRelax = fromRange(0, involved.size());
+          ArithVar x = *(involved.begin() + randomRelax);
+          involved.remove(x);
+          toRelax.push_back(x);
+          --numToRelax;
+        }
+        involved.purge();
       }else{
-        debugPrintModel();
         if(hasIntegerModel()){
           Assert(hasIntegerModel(), "YRNOT TOTAL?");
           d_partialModel.commitAssignmentChanges();
           return true;
+        }else{
+          size_t randomRelax = fromRange(0, currentlyUnset.size());
+          ArithVar x = *(currentlyUnset.begin() + randomRelax);
+          toRelax.push_back(x);
+          Trace("random") << endl << endl;
+          Trace("random") << "non-Integer model ? try again" << endl;
+          debugPrintModel();
+          Trace("random") << "non-Integer model end" << endl;
         }
+      }
+
+      if(inConflict){
+        d_partialModel.revertAssignmentChanges();
+        clearUpdates();
       }
     }
   }
@@ -1374,13 +1465,14 @@ Node TheoryArith::roundRobinBranch(){
 
     TNode var = d_arithvarNodeMap.asNode(v);
     Integer floor_d = d.floor();
-    Integer ceil_d = d.ceiling();
 
-    Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, mkIntegerNode(floor_d)));
-    Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, mkIntegerNode(ceil_d)));
+    Node floor_dNode = mkIntegerNode(floor_d);
 
+    Node lt = NodeManager::currentNM()->mkNode(kind::LT, var, floor_dNode);
+    Node gt = NodeManager::currentNM()->mkNode(kind::GT, var, floor_dNode);
+    Node eq = NodeManager::currentNM()->mkNode(kind::EQUAL, var, floor_dNode);
 
-    Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
+    Node lem = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::OR, eq, lt, gt));
     Trace("integers") << "integers: branch & bound: " << lem << endl;
     if(d_valuation.isSatLiteral(lem[0])) {
       Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;

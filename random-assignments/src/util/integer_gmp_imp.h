@@ -32,6 +32,8 @@ namespace CVC4 {
 
 class Rational;
 
+namespace theory { namespace arith { class TheoryArith; }}
+
 class CVC4_PUBLIC Integer {
 private:
   /**
@@ -405,7 +407,16 @@ public:
   }
 
 
+  static const Integer& min(const Integer& a, const Integer& b){
+    return a <= b ? a : b;
+  }
+
+  static const Integer& max(const Integer& a, const Integer& b){
+    return a >= b ? a : b;
+  }
+
   friend class CVC4::Rational;
+  friend class CVC4::theory::arith::TheoryArith;
 };/* class Integer */
 
 struct IntegerHashStrategy {
