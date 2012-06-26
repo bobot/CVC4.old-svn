@@ -205,13 +205,6 @@ public:
 
 class UfModel
 {
-//public:
-  //std::map< Node, std::vector< Node > > d_reqs[2];
-  //std::map< Node, std::map< Node, std::vector< Node > > > d_eq_reqs[2];
-  ///** add requirement */
-  //void addRequirement( Node f, Node p, bool phase ) { d_reqs[ phase ? 1 : 0 ][ f ].push_back( p ); }
-  ///** add equality requirement */
-  //void addEqRequirement( Node f, Node t, Node te, bool phase ) { d_eq_reqs[ phase ? 1 : 0 ][ f ][ t ].push_back( te ); }
 private:
   Node d_op;
   ModelEngine* d_me;

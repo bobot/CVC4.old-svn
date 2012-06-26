@@ -878,12 +878,13 @@ bool EqualityQueryQuantifiersEngine::areDisequal( Node a, Node b ){
 }
 
 Node EqualityQueryQuantifiersEngine::getInternalRepresentative( Node a ){
-  for( int i=0; i<theory::THEORY_LAST; i++ ){
-    if( d_qe->getInstantiator( i ) ){
-      if( d_qe->getInstantiator( i )->hasTerm( a ) ){
-        return d_qe->getInstantiator( i )->getInternalRepresentative( a );
-      }
-    }
-  }
-  return a;
+  //for( int i=0; i<theory::THEORY_LAST; i++ ){
+  //  if( d_qe->getInstantiator( i ) ){
+  //    if( d_qe->getInstantiator( i )->hasTerm( a ) ){
+  //      return d_qe->getInstantiator( i )->getInternalRepresentative( a );
+  //    }
+  //  }
+  //}
+  //return a;
+  return d_qe->getInstantiator( THEORY_UF )->getInternalRepresentative( a );
 }

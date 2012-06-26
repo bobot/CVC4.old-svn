@@ -159,8 +159,8 @@ Options::Options() :
   cbqiSetByUser(false),
   userPatternsQuant(true),
   flipDecision(false),
-  printModelEngine(false),
   printInstEngine(false),
+  printModelEngine(false),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
   threads(2),// default should be 1 probably, but say 2 for now
@@ -299,7 +299,7 @@ Additional CVC4 options:\n\
  FINITE_MODEL_FINDING:\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --use-fmf-region-sat   use region-based SAT heuristic for finite model finding\n\
-   --disable-fmf-model-inst  disable model-based instantiation for finite model finding\n\
+   --disable-fmf-mbqi     disable model-based quantifier instantiation for finite model finding\n\
    --disable-fmf-exceptions  disable exception finding for finite model finding\n\
    --fmf-one-inst-per-round  only add one instantiation per quantifier per round for fmf\n\
    --fmf-inst-engine      use instantiation engine in conjunction with finite model finding\n\
@@ -753,7 +753,7 @@ static struct option cmdlineOptions[] = {
   { "eager-inst-quant", no_argument, NULL, EAGER_INST_QUANT },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
-  { "disable-fmf-model-inst", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
+  { "disable-fmf-mbqi", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
   { "disable-fmf-exceptions", no_argument, NULL, DISABLE_FMF_FIND_EXCEPTIONS },
   { "fmf-one-inst-per-round", no_argument, NULL, FMF_ONE_INST_PER_ROUND },
   { "fmf-inst-engine", no_argument, NULL, FMF_INST_ENGINE },
