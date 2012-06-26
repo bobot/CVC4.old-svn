@@ -180,6 +180,12 @@ private:
   bool searchForCycle( Node n, Node on,
                        std::map< Node, bool >& visited,
                        NodeBuilder<>& explanation );
+public:
+  //equality queries
+  bool hasTerm( Node a );
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
+  Node getRepresentative( Node a );
 };/* class TheoryDatatypes */
 
 inline bool TheoryDatatypes::hasConflict() {

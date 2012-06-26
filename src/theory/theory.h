@@ -852,8 +852,13 @@ public:
   virtual std::string identify() const { return std::string("Unknown"); }
   /** print debug information */
   virtual void debugPrint( const char* c ) {}
-  /** get status */
-  //int getStatus() { return d_status; }
+public:
+  /** general queries about equality */
+  virtual bool hasTerm( Node a ) { return false; }
+  virtual bool areEqual( Node a, Node b ) { return false; }
+  virtual bool areDisequal( Node a, Node b ) { return false; }
+  virtual Node getRepresentative( Node a ) { return a; }
+  virtual Node getInternalRepresentative( Node a ) { return getRepresentative( a ); }
 };/* class Instantiator */
 
 inline Assertion Theory::get() {

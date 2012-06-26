@@ -404,8 +404,6 @@ class EqualityQueryQuantifiersEngine : public EqualityQuery
 private:
   /** pointer to theory engine */
   QuantifiersEngine* d_qe;
-  /** get equality engines*/
-  eq::EqualityEngine* getEqualityEngine( int id );
 public:
   EqualityQueryQuantifiersEngine( QuantifiersEngine* qe ) : d_qe( qe ){}
   ~EqualityQueryQuantifiersEngine(){}

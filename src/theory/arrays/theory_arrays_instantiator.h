@@ -42,6 +42,12 @@ public:
   void assertNode( Node assertion );
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryArrays"); }
+public:
+  /** general queries about equality */
+  bool hasTerm( Node a );
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
+  Node getRepresentative( Node a );
 };/* class Instantiatior */
 
 }

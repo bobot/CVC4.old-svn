@@ -1054,3 +1054,64 @@ bool TheoryDatatypes::searchForCycle( Node n, Node on,
   }
   return false;
 }
+
+bool TheoryDatatypes::hasTerm( Node a ){
+  return false;
+}
+
+bool TheoryDatatypes::areEqual( Node a, Node b ){
+  Node ar = find( a );
+  Node br = find( b );
+  if( ar==br ){
+    return true;
+  }else if( ar.getKind()==APPLY_CONSTRUCTOR && br.getKind()==APPLY_CONSTRUCTOR &&
+            ar.getOperator()==br.getOperator() ){
+    //for( int i=0; i<(int)ar.getNumChildren(); i++ ){
+    //  if( !areEqual( ar[0], br[0] ) ){
+    //    return false;
+    //  }
+    //}
+    //return true;
+    return false;
+  }else{
+    return false;
+  }
+}
+
+bool TheoryDatatypes::areDisequal( Node a, Node b ){
+  Node ar = find( a );
+  Node br = find( b );
+  if( ar==br ){
+    return false;
+  }else if( ar.getKind()==APPLY_CONSTRUCTOR && br.getKind()==APPLY_CONSTRUCTOR &&
+            ar.getOperator()!=br.getOperator() ){
+    return true;
+  }else{
+    EqLists::iterator deq_ia = d_disequalities.find( ar );
+    EqLists::iterator deq_ib = d_disequalities.find( br );
+    if( deq_ia!=d_disequalities.end() && deq_ib!=d_disequalities.end() ){
+      EqList* deq;
+      if( (*deq_ib).second->size()<(*deq_ia).second->size() ){
+        deq = (*deq_ib).second;
+      }else{
+        deq = (*deq_ia).second;
+      }
+      for(EqList::const_iterator i = deq->begin(); i != deq->end(); i++) {
+        TNode deqn = (*i);
+        TNode sp = find(deqn[0]);
+        TNode tp = find(deqn[1]);
+        if( sp==a && tp==b ){
+          return true;
+        }else if( sp==b && tp==a ){
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+}
+
+Node TheoryDatatypes::getRepresentative( Node a ){
+  return find( a );
+}
+

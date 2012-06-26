@@ -673,6 +673,8 @@ ModelEngine::ModelEngine( TheoryQuantifiers* th ){
   d_th = th;
   d_quantEngine = th->getQuantifiersEngine();
   d_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
+  d_true = NodeManager::currentNM()->mkConst( true );
+  d_false = NodeManager::currentNM()->mkConst( false );
 }
 
 void ModelEngine::check( Theory::Effort e ){
@@ -1007,7 +1009,7 @@ int ModelEngine::findExceptions( Node f ){
     std::vector< Node > tr_terms;
     if( lit.getKind()==APPLY_UF ){
       //only match predicates that are contrary to this one, use literal matching
-      Node eq = NodeManager::currentNM()->mkNode( IFF, lit, NodeManager::currentNM()->mkConst( !phase ) );
+      Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? d_true : d_false );
       d_quantEngine->setInstantiationConstantAttr( eq, f );
       tr_terms.push_back( eq );
     }else if( lit.getKind()==EQUAL ){
@@ -1172,9 +1174,9 @@ Node ModelEngine::getArbitraryElement( TypeNode tn, std::vector< Node >& exclude
   Node retVal;
   if( tn==NodeManager::currentNM()->booleanType() ){
     if( exclude.empty() ){
-      retVal = NodeManager::currentNM()->mkConst( false );
+      retVal = d_false;
     }else if( exclude.size()==1 ){
-      retVal = NodeManager::currentNM()->mkConst( areEqual( exclude[0], NodeManager::currentNM()->mkConst( false ) ) );
+      retVal = NodeManager::currentNM()->mkConst( areEqual( exclude[0], d_false ) );
     }
   }else if( d_ra.d_type_reps.find( tn )!=d_ra.d_type_reps.end() ){
     for( int i=0; i<(int)d_ra.d_type_reps[tn].size(); i++ ){
@@ -1440,7 +1442,7 @@ int ModelEngine::evaluate( RepAlphabetIterator* rai, Node n, int& depIndex ){
       //case for boolean predicates
       Node val = evaluateTerm( rai, n, gn, depIndex );
       if( d_quantEngine->getEqualityQuery()->hasTerm( val ) ){
-        if( areEqual( val, NodeManager::currentNM()->mkConst( true ) ) ){
+        if( areEqual( val, d_true ) ){
           retVal = 1;
         }else{
           retVal = -1;

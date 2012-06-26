@@ -276,6 +276,9 @@ private:
   TheoryQuantifiers* d_th;
   QuantifiersEngine* d_quantEngine;
   uf::StrongSolverTheoryUf* d_ss;
+  //true/false nodes
+  Node d_true;
+  Node d_false;
   //which quantifiers have been initialized
   std::map< Node, bool > d_quant_init;
   //map from ops to model basis terms

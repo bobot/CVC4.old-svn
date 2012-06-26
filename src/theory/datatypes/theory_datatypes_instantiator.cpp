@@ -142,10 +142,6 @@ Node InstantiatorTheoryDatatypes::getValueFor( Node n ){
   }
 }
 
-Node InstantiatorTheoryDatatypes::getRepresentative( Node n ){
-  return ((TheoryDatatypes*)d_th)->find( n );
-}
-
 InstantiatorTheoryDatatypes::Statistics::Statistics():
   d_instantiations("InstantiatorTheoryDatatypes::Instantiations_Total", 0)
 {
@@ -156,3 +152,18 @@ InstantiatorTheoryDatatypes::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_instantiations);
 }
 
+bool InstantiatorTheoryDatatypes::hasTerm( Node a ){
+  return ((TheoryDatatypes*)d_th)->hasTerm( a );
+}
+
+bool InstantiatorTheoryDatatypes::areEqual( Node a, Node b ){
+  return ((TheoryDatatypes*)d_th)->areEqual( a, b );
+}
+
+bool InstantiatorTheoryDatatypes::areDisequal( Node a, Node b ){
+  return ((TheoryDatatypes*)d_th)->areDisequal( a, b );
+}
+
+Node InstantiatorTheoryDatatypes::getRepresentative( Node a ){
+  return ((TheoryDatatypes*)d_th)->getRepresentative( a );
+}

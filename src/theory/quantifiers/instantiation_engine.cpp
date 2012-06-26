@@ -166,7 +166,7 @@ void InstantiationEngine::check( Theory::Effort e ){
   }
   if( performCheck ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
-    double clSet;
+    double clSet = 0;
     if( Options::current()->printInstEngine ){
       clSet = double(clock())/double(CLOCKS_PER_SEC);
       Message() << "---Instantiation Engine Round, effort = " << e << "---" << std::endl;
