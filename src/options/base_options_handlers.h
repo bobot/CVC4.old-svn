@@ -25,6 +25,8 @@ inline OutputLanguage stringToOutputLanguage(std::string option, std::string opt
     return language::output::LANG_SMTLIB;
   } else if(optarg == "smtlib2" || optarg == "smt2") {
     return language::output::LANG_SMTLIB_V2;
+  } else if(optarg == "tptp") {
+    return language::output::LANG_TPTP;
   } else if(optarg == "ast") {
     return language::output::LANG_AST;
   } else if(optarg == "auto") {
@@ -47,6 +49,8 @@ inline InputLanguage stringToInputLanguage(std::string option, std::string optar
     return language::input::LANG_SMTLIB;
   } else if(optarg == "smtlib2" || optarg == "smt2") {
     return language::input::LANG_SMTLIB_V2;
+  } else if(optarg == "tptp") {
+    return language::input::LANG_TPTP;
   } else if(optarg == "auto") {
     return language::input::LANG_AUTO;
   }
