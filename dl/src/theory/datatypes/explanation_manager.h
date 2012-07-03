@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file explanation_manager.h
+/** \file explanation_manager.h
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -18,8 +18,7 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__THEORY__DATATYPES__EXPLANATION_MANAGER_H
-#define __CVC4__THEORY__DATATYPES__EXPLANATION_MANAGER_H
+#pragma once
 
 #include "theory/theory.h"
 #include "util/congruence_closure.h"
@@ -63,7 +62,7 @@ public:
     idt_collapse,
     idt_collapse2,
 
-    input,
+    input
   };
 public:
   Reason() : d_e( NULL ), d_isInput( true ){}
@@ -92,7 +91,8 @@ public:
   ProofManager( Effort effort = STANDARD ) : d_effort( effort ){}
   ~ProofManager(){}
   void setExplanation( Node n, Node jn, unsigned r = 0 );
-  bool hasExplained( Node n ) { return d_exp.find( n )!=d_exp.end(); }
+  //bool hasExplained( Node n ) { return d_exp.find( n )!=d_exp.end(); }
+  bool hasExplained( Node n );
   Effort getEffort() { return d_effort; }
   void clear() { d_exp.clear(); }
   /** for debugging */
@@ -104,7 +104,7 @@ class Explainer
 {
 public:
   /** assert that n is true */
-  virtual void assert( Node n ) = 0;
+  virtual void assert_foo( Node n ) = 0;
   /** get the explanation for n.  
       This should call pm->setExplanation( n1, jn1, r1 ) ... pm->setExplanation( nk, jnk, rk )
         for some set of Nodes n1...nk.
@@ -134,7 +134,7 @@ public:
    }
   ~CongruenceClosureExplainer(){}
   /** assert that n is true */
-  void assert( Node n ){
+  void assert_foo( Node n ){
     Assert( n.getKind() == kind::EQUAL || n.getKind() == kind::IFF );
     d_cc->addEquality( n );
   }
@@ -170,7 +170,7 @@ public:
   ~ExplanationManager(){}
 
   /** assert that n is true (n is an input) */
-  void assert( Node n ) { 
+  void assert_foo( Node n ) { 
     //TODO: this can be optimized: 
     //  if the previous explanation for n was empty (n is a tautology), 
     //  then we should not claim it to be an input.
@@ -218,5 +218,3 @@ public:
 }
 }
 }
-
-#endif

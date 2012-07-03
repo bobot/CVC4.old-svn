@@ -124,7 +124,7 @@ void TheoryDatatypes::check(Effort e) {
     if( !hasConflict() ){
       if( d_em.hasNode( assertion ) ){
         Debug("datatypes") << "Assertion has already been derived" << endl;
-        d_em.assert( assertion );
+        d_em.assert_foo( assertion );
       } else {
         switch(assertion.getKind()) {
         case kind::EQUAL:
@@ -949,7 +949,7 @@ void TheoryDatatypes::addEquality(TNode eq) {
     //setup merge pending list
     d_merge_pending.push_back( vector< pair< Node, Node > >() );
 
-    d_cce.assert(eq);
+    d_cce.assert_foo(eq);
     d_cc.addTerm(eq[0]);
     d_cc.addTerm(eq[1]);
 

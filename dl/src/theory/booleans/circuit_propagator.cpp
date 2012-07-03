@@ -29,11 +29,11 @@ namespace CVC4 {
 namespace theory {
 namespace booleans {
 
-void CircuitPropagator::assert(TNode assertion)
+void CircuitPropagator::assert_foo(TNode assertion)
 {
   if (assertion.getKind() == kind::AND) {
     for (unsigned i = 0; i < assertion.getNumChildren(); ++ i) {
-      assert(assertion[i]);
+      assert_foo(assertion[i]);
     }
   } else {
     // Analyze the assertion for back-edges and all that
