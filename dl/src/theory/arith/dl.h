@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file cdgraph.h
+/*! \file dl.h
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
@@ -11,9 +11,11 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Context-dependent directed graph.
+ ** \brief Decision procedure for difference logic.
  **
- ** Context dependent direct graph.
+ ** Implementation of incremental Bellman-Ford potential moving decision
+ ** procedure for difference logic.
+ ** See Cotton and Maler.
  **/
 
 #include "cvc4_private.h"
@@ -31,7 +33,6 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-/** A preliminary implementation of Cotton and Maler. */
 class DifferenceLogicDecisionProcedure {
 private:
 
@@ -80,9 +81,31 @@ private:
   DenseMap<DeltaRational> d_piPrime;
   //GammaMap d_gamma;
 
-  ArithVar vertexIdToArithVar(VertexId vid) const;
-  VertexId arithVarToVertexId(ArithVar var) const;
+  //ArithVar |-> VertexId
+  context::CDHashMap<ArithVar, VertexId> d_av2vid;
+  void setupArithVarIfNeeded(ArithVar v);
 
+  ArithVar vertexIdToArithVar(VertexId vid) const{
+    return d_graph.getVertexAnnotation(vid);
+  }
+  VertexId arithVarToVertexId(ArithVar var) const {
+    return (*(d_av2vid.find(var))).second;
+  }
+
+  //ArithVar s |-> (x -> y) where s = x - y
+  DenseMap<std::pair<ArithVar, ArithVar> > d_differenceVariables;
+
+ public:
+  void addDifference(ArithVar s, ArithVar x, ArithVar y){
+    d_differenceVariables.set(s, std::make_pair(x,y));
+  }
+ private:
+  ArithVar getPositive(ArithVar s) const{
+    return d_differenceVariables[s].first;
+  }
+  ArithVar getNegative(ArithVar s) const{
+    return d_differenceVariables[s].second;
+  }
 
   DeltaRational getPi(VertexId vid) const {
     if(d_piSummary.isKey(vid)){
@@ -130,19 +153,6 @@ private:
     typedef DenseMap<GammaElement> GammaMap;
     GammaMap d_map;
 
-    // struct GammaGreaterThan{
-    //   const GammaMap& d_gamma;
-    //   GammaGreaterThan(const GammaMap& gamma) :
-    //     d_gamma(gamma)
-    //   {}
-    //   inline int operator()(VertexId v, VertexId u) const{
-    //     Assert(d_map.isKey(v));
-    //     Assert(d_map.isKey(u));
-    //     const DeltaRational& gamma_v = d_map[v].d_value;
-    //     const DeltaRational& gamma_u = d_map[u].d_value;
-    //     return gamma_u.cmp(gamma_v);
-    //   }
-    // } d_gammaGT;
     GammaHeapInternal d_heapInternal;
 
     DeltaRational d_zeroDelta;
@@ -237,23 +247,15 @@ private:
 
   } d_gamma;
 
-  DifferenceLogicDecisionProcedure(context::Context* c, const ArithPartialModel& pm, NodeCallBack& raiseConflict):
-    d_pm(pm),
-    d_raiseConflict(raiseConflict),
-    d_inConflict(c),
-    d_graph(c),
-    d_zeroVertex(c),
-    d_queue(c),
-    d_gamma()
-  {
-  }
+ public:
+  DifferenceLogicDecisionProcedure(context::Context* c, const ArithPartialModel& pm, NodeCallBack& raiseConflict);
 
   /** Returns Sat::Result */
   bool setTrue(EdgeId eid);
 
   void explainCycle(VertexId first, NodeBuilder<>& out);
 
-  DenseMap<Edge> d_differenceVariables;
+  //DenseMap<Edge> d_differenceVariables;
 
   DeltaRational constraintValue(EdgeId eid) const {
     const Constraint c = d_graph.getEdgeAnnotation(eid);
@@ -269,7 +271,7 @@ private:
 
   EdgeId setupEdge(Constraint c);
   bool check();
-
+#warning "support equalities"
   void enqueueConstraint(Constraint c) {
     Debug("dl::enqueue") << c << std::endl;
     d_queue.push_back(c);
@@ -283,6 +285,13 @@ private:
     }
 
     Assert(d_piPrime.empty());
+  }
+
+  void printPi() const {
+    for(DenseMap<DeltaRational>::const_iterator iter = d_piSummary.begin(), end = d_piSummary.end(); iter != end; ++iter){
+      VertexId vid = *iter;
+      std::cout << "pi[" << vid << "] -> " << d_piSummary[vid] << std::endl;
+    }
   }
 }; /* class CVC4::theory::arith::DifferenceLogicDecisionProcedure */
 

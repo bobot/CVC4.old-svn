@@ -79,6 +79,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_raiseConflict(d_conflicts),
   d_congruenceManager(c, d_constraintDatabase, d_setupLiteralCallback, d_arithvarNodeMap, d_raiseConflict),
   d_simplex(d_linEq, d_raiseConflict),
+  d_dl(c, d_partialModel, d_raiseConflict),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_congruenceManager, d_raiseConflict),
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
@@ -291,6 +292,8 @@ bool TheoryArith::AssertLower(Constraint constraint){
 
   d_partialModel.setLowerBoundConstraint(constraint);
 
+  d_dl.enqueueConstraint(constraint);
+
   if(d_congruenceManager.isWatchedVariable(x_i)){
     int sgn = c_i.sgn();
     if(sgn > 0){
@@ -400,6 +403,7 @@ bool TheoryArith::AssertUpper(Constraint constraint){
   //It is fine if this is NullConstraint
 
   d_partialModel.setUpperBoundConstraint(constraint);
+  d_dl.enqueueConstraint(constraint);
 
   if(d_congruenceManager.isWatchedVariable(x_i)){
     int sgn = c_i.sgn();
@@ -829,7 +833,12 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
             VarList vl0 = first.getVarList();
             VarList vl1 = second.getVarList();
             if(vl0.singleton() && vl1.singleton()){
-              d_congruenceManager.addWatchedPair(varSlack, vl0.getNode(), vl1.getNode());
+              Node posDiff= vl0.getNode();
+              Node negDiff= vl1.getNode();
+              ArithVar posDiffVar = d_arithvarNodeMap.asArithVar(posDiff);
+              ArithVar negDiffVar = d_arithvarNodeMap.asArithVar(negDiff);
+              d_congruenceManager.addWatchedPair(varSlack, posDiff, negDiff);
+              d_dl.addDifference(varSlack, posDiffVar, negDiffVar);
             }
           }
         }
@@ -1426,6 +1435,16 @@ void TheoryArith::check(Effort effortLevel){
       if(inConflict()){ break; }
     }
   }
+
+  if(!inConflict()){
+    bool dlRes = d_dl.check();
+    cout << dlRes << endl;
+
+    if(dlRes){
+      d_dl.printPi();
+    }
+  }
+
 
   if(inConflict()){
     d_qflraStatus = Result::UNSAT;

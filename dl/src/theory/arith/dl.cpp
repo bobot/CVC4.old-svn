@@ -109,18 +109,26 @@ DifferenceLogicDecisionProcedure::EdgeId DifferenceLogicDecisionProcedure::setup
   ArithVar v = c->getVariable();
   VertexId start, end;
   if(d_differenceVariables.isKey(v)){
-    Edge e = d_differenceVariables[v];
+    ArithVar x, y;
+    std::pair<ArithVar, ArithVar> p = d_differenceVariables[v];
     if(c->isUpperBound()){
       // e.start - e.end <= c
-      start = e.getStart();
-      end = e.getEnd();
+      x = p.first;
+      y = p.second;
     }else{
       // e.start - e.end >= c
       // e.end - e.start <= -c
-      start = e.getEnd();
-      end = e.getStart();
+      x = p.second;
+      y = p.first;
     }
+    setupArithVarIfNeeded(x);
+    setupArithVarIfNeeded(y);
+
+    start = arithVarToVertexId(x);
+    end = arithVarToVertexId(y);
   }else{
+    setupArithVarIfNeeded(v);
+
     if(c->isUpperBound()){
       // x <= c
       // x - ZeroVar <= c
@@ -136,6 +144,13 @@ DifferenceLogicDecisionProcedure::EdgeId DifferenceLogicDecisionProcedure::setup
   EdgeId eid = d_graph.addEdge(start, end, c);
   return eid;
 }
+
+  void DifferenceLogicDecisionProcedure::setupArithVarIfNeeded(ArithVar v){
+    if(d_av2vid.find(v) == d_av2vid.end()){
+      VertexId vid = d_graph.addVertex(v);
+      d_av2vid[v] = vid;
+    }
+  }
 
 bool DifferenceLogicDecisionProcedure::check(){
 
@@ -172,6 +187,18 @@ bool DifferenceLogicDecisionProcedure::check(){
   }
   return true;
 }
+
+DifferenceLogicDecisionProcedure::DifferenceLogicDecisionProcedure(context::Context* c, const ArithPartialModel& pm, NodeCallBack& raiseConflict):
+    d_pm(pm),
+    d_raiseConflict(raiseConflict),
+    d_inConflict(c),
+    d_graph(c),
+    d_zeroVertex(c),
+    d_queue(c),
+    d_av2vid(c),
+    d_gamma()
+  {
+  }
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

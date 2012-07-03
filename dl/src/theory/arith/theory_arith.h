@@ -40,6 +40,7 @@
 #include "theory/arith/arithvar_node_map.h"
 #include "theory/arith/dio_solver.h"
 #include "theory/arith/congruence_manager.h"
+#include "theory/arith/dl.h"
 
 #include "theory/arith/constraint.h"
 
@@ -72,6 +73,8 @@ private:
   //                     if unknown, save the assignment
   //                     if unknown, the simplex priority queue cannot be emptied
   int d_unknownsInARow;
+
+
 
   bool rowImplication(ArithVar v, bool upperBound, const DeltaRational& r);
 
@@ -288,6 +291,8 @@ private:
   /** This implements the Simplex decision procedure. */
   SimplexDecisionProcedure d_simplex;
 
+  /** This implements incremental negative cycle detection. */
+  DifferenceLogicDecisionProcedure d_dl;
 
   /** The constraint database associated with the theory. */
   ConstraintDatabase d_constraintDatabase;
