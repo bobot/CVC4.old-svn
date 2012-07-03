@@ -239,6 +239,8 @@ public:
   bool d_reconsider_model;
   //the domain of the arguments
   std::map< int, RepDomain > d_active_domain;
+  //the range of the function
+  RepDomain d_active_range;
 public:
   /** debug print */
   void debugPrint( const char* c );
@@ -253,6 +255,8 @@ public:
   void buildModel();
   /** make model */
   void makeModel( QuantifiersEngine* qe, UfModelTreeOrdered& tree );
+  /** compute relevant domain */
+  void computeRelevantDomain();
 public:
   /** set value preference */
   void setValuePreference( Node f, Node n, bool isPro );
@@ -288,6 +292,10 @@ private:
   std::map< Node, std::vector< Node > > d_quant_model_lits;
   //map from quantifiers to if are constant SAT
   std::map< Node, bool > d_quant_sat;
+  //map from quantifiers to uf terms they contain
+  std::map< Node, std::vector< Node > > d_quant_uf_terms;
+  //relevant instantiation domain for each quantifier
+  std::map< Node, std::vector< RepDomain > > d_quant_inst_domain;
 private:
   int evaluate( RepAlphabetIterator* rai, Node n, int& depIndex );
   int evaluateEquality( RepAlphabetIterator* rai, Node n1, Node n2, Node gn1, Node gn2, int& depIndex );
@@ -313,7 +321,10 @@ private:
   //options
   bool optUseModel();
   bool optOneInstPerQuantRound();
-  bool optFindExceptions();
+  bool optInstGen();
+  bool optUseRelevantDomain();
+  bool optOneQuantPerRoundInstGen();
+  bool optOneQuantPerRound();
 private:
   //initialize quantifiers, return number of lemmas produced
   int initializeQuantifier( Node f );
@@ -323,10 +334,10 @@ private:
   void initializeModel();
   //analyze quantifiers
   void analyzeQuantifiers();
-  //find exceptions, return number of lemmas produced
-  int findExceptions( Node f );
-  //instantiate quantifier, return number of lemmas produced
-  int exhaustiveInstantiate( Node f );
+  //do InstGen techniques for quantifier, return number of lemmas produced
+  int doInstGen( Node f );
+  //exhaustively instantiate quantifier (possibly using mbqi), return number of lemmas produced
+  int exhaustiveInstantiate( Node f, bool useRelInstDomain = false );
 private:
   //temporary statistics
   int d_triedLemmas;
@@ -336,11 +347,12 @@ private:
   //register instantiation terms with their corresponding model basis terms
   void registerModelBasis( Node n, Node gn );
   //for building UF model
-  void initializeUf( Node n );
   void collectUfTerms( Node n, std::vector< Node >& terms );
   void initializeUfModel( Node op );
-  //for computing relevant domain
-  void computeRelevantDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd );
+  //for computing relevant instantiation domain, return true if changed
+  bool computeRelevantInstantiationDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd );
+  //for computing extended
+  bool extendFunctionDomains( Node n, RepDomain& range );
 public:
   ModelEngine( TheoryQuantifiers* th );
   ~ModelEngine(){}

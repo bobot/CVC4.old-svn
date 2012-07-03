@@ -24,13 +24,14 @@
 //#define ME_PRINT_WARNINGS
 
 //#define DISABLE_EVAL_SKIP_MULTIPLE
+
 #define RECONSIDER_FUNC_DEFAULT_VALUE
 #define RECONSIDER_FUNC_CONSTANT
 #define USE_INDEX_ORDERING
 #define USE_PARTIAL_DEFAULT_VALUES
 #define EVAL_FAIL_SKIP_MULTIPLE
 //#define USE_RELEVANT_DOMAIN
-
+//#define USE_QUANT_PER_ROUND
 
 using namespace std;
 using namespace CVC4;
@@ -345,19 +346,6 @@ UfModel::UfModel( Node op, ModelEngine* me ) : d_op( op ), d_me( me ),
       Node r = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n );
       d_ground_asserts_reps.push_back( r );
       d_ground_asserts.push_back( n );
-#ifdef USE_RELEVANT_DOMAIN
-      //add arguments to domain
-      for( int j=0; j<(int)n.getNumChildren(); j++ ){
-        if( d_me->getReps()->hasType( n[j].getType() ) ){
-          Node ra = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n[j] );
-          int raIndex = d_me->getReps()->getIndexFor( ra );
-          Assert( raIndex!=-1 );
-          if( std::find( d_active_domain[j].begin(), d_active_domain[j].end(), raIndex )==d_active_domain[j].end() ){
-            d_active_domain[j].push_back( raIndex );
-          }
-        }
-      }
-#endif
     }
   }
   //determine if it is constant
@@ -452,6 +440,13 @@ void UfModel::setValue( Node n, Node v, bool ground, bool isReq ){
     d_set_values[0][ ground ? 1 : 0 ].erase( n );
   }
 #endif
+  if( d_me->optUseRelevantDomain() ){
+    int raIndex = d_me->getReps()->getIndexFor( v );
+    Assert( raIndex!=-1 );
+    if( std::find( d_active_range.begin(), d_active_range.end(), raIndex )==d_active_range.end() ){
+      d_active_range.push_back( raIndex );
+    }
+  }
 }
 
 void UfModel::setModel(){
@@ -467,6 +462,7 @@ void UfModel::clearModel(){
   }
   d_tree.clear();
   d_model_constructed = false;
+  d_active_range.clear();
 }
 
 Node UfModel::getConstantValue( QuantifiersEngine* qe, Node n ){
@@ -621,6 +617,23 @@ void UfModel::makeModel( QuantifiersEngine* qe, UfModelTreeOrdered& tree ){
   tree.simplify();
 }
 
+void UfModel::computeRelevantDomain(){
+  for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
+    Node n = d_ground_asserts[i];
+    //add arguments to domain
+    for( int j=0; j<(int)n.getNumChildren(); j++ ){
+      if( d_me->getReps()->hasType( n[j].getType() ) ){
+        Node ra = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n[j] );
+        int raIndex = d_me->getReps()->getIndexFor( ra );
+        Assert( raIndex!=-1 );
+        if( std::find( d_active_domain[j].begin(), d_active_domain[j].end(), raIndex )==d_active_domain[j].end() ){
+          d_active_domain[j].push_back( raIndex );
+        }
+      }
+    }
+  }
+}
+
 void UfModel::debugPrint( const char* c ){
   //Debug( c ) << "Function " << d_op << std::endl;
   //Debug( c ) << "   Type: " << d_op.getType() << std::endl;
@@ -694,7 +707,9 @@ void ModelEngine::check( Theory::Effort e ){
     }
     if( addedLemmas==0 ){
       //quantifiers are initialized, we begin an instantiation round
+      double clSet = 0;
       if( Options::current()->printModelEngine ){
+        clSet = double(clock())/double(CLOCKS_PER_SEC);
         Message() << "---Model Engine Round---" << std::endl;
       }
       Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
@@ -713,20 +728,23 @@ void ModelEngine::check( Theory::Effort e ){
         Debug("fmf-model-debug") << "Analyzing quantifiers..." << std::endl;
         analyzeQuantifiers();
         //if applicable, find exceptions
-        if( optFindExceptions() ){
-          //now, see if we know that any exceptions exist
-          Debug("fmf-model-debug") << "Find exceptions for quantifiers..." << std::endl;
+        if( optInstGen() ){
+          //now, see if we know that any exceptions via InstGen exist
+          Debug("fmf-model-debug") << "Perform InstGen techniques for quantifiers..." << std::endl;
           for( int i=0; i<d_quantEngine->getNumAssertedQuantifiers(); i++ ){
             Node f = d_quantEngine->getAssertedQuantifier( i );
             if( d_quant_sat.find( f )==d_quant_sat.end() ){
-              addedLemmas += findExceptions( f );
+              addedLemmas += doInstGen( f );
+              if( optOneQuantPerRoundInstGen() && addedLemmas>0 ){
+                break;
+              }
             }
           }
           if( Options::current()->printModelEngine ){
             if( addedLemmas>0 ){
-              Message() << "Exceptions, added lemmas = " << addedLemmas << std::endl;
+              Message() << "InstGen, added lemmas = " << addedLemmas << std::endl;
             }else{
-              Message() << "No exceptions..." << std::endl;
+              Message() << "No InstGen lemmas..." << std::endl;
             }
           }
           Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << std::endl;
@@ -754,6 +772,9 @@ void ModelEngine::check( Theory::Effort e ){
           Node f = d_quantEngine->getAssertedQuantifier( i );
           if( d_quant_sat.find( f )==d_quant_sat.end() ){
             addedLemmas += exhaustiveInstantiate( f );
+            if( optOneQuantPerRound() && addedLemmas>0 ){
+              break;
+            }
           }
 #ifdef ME_PRINT_WARNINGS
           if( addedLemmas>10000 ){
@@ -766,6 +787,8 @@ void ModelEngine::check( Theory::Effort e ){
         if( Options::current()->printModelEngine ){
           Message() << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
           Message() << d_testLemmas << " / " << d_totalLemmas << std::endl;
+          double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
+          Message() << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
         }
 #ifdef ME_PRINT_WARNINGS
         if( addedLemmas>10000 ){
@@ -803,9 +826,34 @@ bool ModelEngine::optOneInstPerQuantRound(){
   return Options::current()->fmfOneInstPerRound;
 }
 
-bool ModelEngine::optFindExceptions(){
-  return Options::current()->fmfFindExceptions;
+bool ModelEngine::optInstGen(){
+  return Options::current()->fmfInstGen;
 }
+
+bool ModelEngine::optUseRelevantDomain(){
+#ifdef USE_RELEVANT_DOMAIN
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool ModelEngine::optOneQuantPerRoundInstGen(){
+#ifdef ONE_QUANT_PER_ROUND_INST_GEN
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool ModelEngine::optOneQuantPerRound(){
+#ifdef ONE_QUANT_PER_ROUND 
+  return true; 
+#else
+  return false;
+#endif 
+} 
+
 
 int ModelEngine::initializeQuantifier( Node f ){
   if( d_quant_init.find( f )==d_quant_init.end() ){
@@ -883,10 +931,40 @@ void ModelEngine::initializeModel(){
   d_uf_model.clear();
   d_quant_model_lits.clear();
   d_quant_sat.clear();
+  d_quant_uf_terms.clear();
+  d_quant_inst_domain.clear();
 
   for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
     Node f = d_quantEngine->getAssertedQuantifier( i );
-    initializeUf( f[1] );
+    //collect uf terms and initialize uf models
+    collectUfTerms( f[1], d_quant_uf_terms[f] );
+    for( int j=0; j<(int)d_quant_uf_terms[f].size(); j++ ){
+      initializeUfModel( d_quant_uf_terms[f][j].getOperator() );
+    }
+    d_quant_inst_domain[f].resize( f[0].getNumChildren() );
+  }
+  if( optUseRelevantDomain() ){
+    //add ground terms to domain (rule 1 of complete instantiation essentially uf fragment)
+    for( std::map< Node, UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
+      it->second.computeRelevantDomain();
+    }
+    //find fixed point for relevant domain computation
+    bool success;
+    do{
+      success = true;
+      for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
+        Node f = d_quantEngine->getAssertedQuantifier( i );
+        //compute the domain of relevant instantiations (rule 3 of complete instantiation, essentially uf fragment)
+        if( computeRelevantInstantiationDomain( d_quantEngine->getCounterexampleBody( f ), Node::null(), -1, d_quant_inst_domain[f] ) ){
+          success = false;
+        }
+        //extend the possible domain for functions (rule 2 of complete instantiation, essentially uf fragment)
+        RepDomain range;
+        if( extendFunctionDomains( d_quantEngine->getCounterexampleBody( f ), range ) ){
+          success = false;
+        }
+      }
+    }while( !success );
   }
 }
 
@@ -996,7 +1074,7 @@ void ModelEngine::analyzeQuantifiers(){
   Debug("fmf-model-prefs") << "Pre-Model Completion: Quantifiers SAT: " << quantSatInit << " / " << (quantSatInit+nquantSatInit) << std::endl;
 }
 
-int ModelEngine::findExceptions( Node f ){
+int ModelEngine::doInstGen( Node f ){
   //we wish to add all known exceptions to our model basis literal(s)
   //  this will help to refine our current model.
   //This step is advantageous over exhaustive instantiation, since we are adding instantiations that involve model basis terms,
@@ -1045,7 +1123,7 @@ int ModelEngine::findExceptions( Node f ){
   return addedLemmas;
 }
 
-int ModelEngine::exhaustiveInstantiate( Node f ){
+int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
   int tests = 0;
   int addedLemmas = 0;
   int triedLemmas = 0;
@@ -1070,13 +1148,10 @@ int ModelEngine::exhaustiveInstantiate( Node f ){
   d_eval_failed.clear();
   d_eval_term_model.clear();
   RepAlphabetIterator riter( d_quantEngine, f, this );
-  //compute the domain for the iterator
-#ifdef USE_RELEVANT_DOMAIN
-  std::vector< RepDomain > rd;
-  rd.resize( f[0].getNumChildren() );
-  computeRelevantDomain( d_quantEngine->getCounterexampleBody( f ), Node::null(), -1, rd );
-  riter.setDomain( rd );
-#endif
+  //set the domain for the iterator (the sufficient set of instantiations to try)
+  if( useRelInstDomain ){
+    riter.setDomain( d_quant_inst_domain[f] );
+  }
   while( !riter.isFinished() && ( addedLemmas==0 || !optOneInstPerQuantRound() ) ){
     d_testLemmas++;
     if( optUseModel() ){
@@ -1210,14 +1285,6 @@ Node ModelEngine::getModelBasisApplyUfTerm( Node op ){
   return d_model_basis_term[op];
 }
 
-void ModelEngine::initializeUf( Node n ){
-  std::vector< Node > terms;
-  collectUfTerms( n, terms );
-  for( int i=0; i<(int)terms.size(); i++ ){
-    initializeUfModel( terms[i].getOperator() );
-  }
-}
-
 void ModelEngine::collectUfTerms( Node n, std::vector< Node >& terms ){
   if( n.getKind()==APPLY_UF ){
     terms.push_back( n );
@@ -1237,7 +1304,8 @@ void ModelEngine::initializeUfModel( Node op ){
   }
 }
 
-void ModelEngine::computeRelevantDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd ){
+bool ModelEngine::computeRelevantInstantiationDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd ){
+  bool domainChanged = false;
   if( n.getKind()==INST_CONSTANT ){
     bool domainSet = false;
     int vi = n.getAttribute(InstVarNumAttribute());
@@ -1250,6 +1318,7 @@ void ModelEngine::computeRelevantDomain( Node n, Node parent, int arg, std::vect
           int d = d_uf_model[op].d_active_domain[arg][i];
           if( std::find( rd[vi].begin(), rd[vi].end(), d )==rd[vi].end() ){
             rd[vi].push_back( d );
+            domainChanged = true;
           }
         }
         domainSet = true;
@@ -1263,13 +1332,58 @@ void ModelEngine::computeRelevantDomain( Node n, Node parent, int arg, std::vect
         rd[vi].clear();
         for( int i=0; i<(int)d_ra.d_type_reps[tn].size(); i++ ){
           rd[vi].push_back( i );
+          domainChanged = true;
         }
       }
     }
   }else{
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      computeRelevantDomain( n[i], n, i, rd );
+      if( computeRelevantInstantiationDomain( n[i], n, i, rd ) ){
+        domainChanged = true;
+      }
     }
+  }
+  return domainChanged;
+}
+
+bool ModelEngine::extendFunctionDomains( Node n, RepDomain& range ){
+  if( n.getKind()==INST_CONSTANT ){
+    Node f = n.getAttribute(InstConstantAttribute());
+    int index = n.getAttribute(InstVarNumAttribute());
+    range.insert( range.begin(), d_quant_inst_domain[f][index].begin(), d_quant_inst_domain[f][index].end() );
+    return false;
+  }else{
+    Node op;
+    if( n.getKind()==APPLY_UF ){
+      op = n.getOperator();
+    }
+    bool domainChanged = false;
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      RepDomain childRange;
+      if( extendFunctionDomains( n[i], childRange ) ){
+        domainChanged = true;
+      }
+      if( n.getKind()==APPLY_UF ){
+        for( int j=0; j<(int)childRange.size(); j++ ){
+          int v = childRange[j];
+          if( std::find( d_uf_model[op].d_active_domain[i].begin(), d_uf_model[op].d_active_domain[i].end(), v )==
+              d_uf_model[op].d_active_domain[i].end() ){
+            d_uf_model[op].d_active_domain[i].push_back( v );
+            domainChanged = true;
+          }
+        }
+      }
+    }
+    //get the range
+    if( n.hasAttribute(InstConstantAttribute()) ){
+      if( n.getKind()==APPLY_UF ){
+        range.insert( range.end(), d_uf_model[op].d_active_range.begin(), d_uf_model[op].d_active_range.end() );
+      }
+    }else{
+      Node r = d_quantEngine->getEqualityQuery()->getRepresentative( n );
+      range.push_back( getReps()->getIndexFor( r ) );
+    }
+    return domainChanged;
   }
 }
 
@@ -1319,6 +1433,7 @@ struct sortGetMaxVariableNum {
 
 void ModelEngine::makeEvalTermIndexOrder( Node n ){
   if( d_eval_term_index_order.find( n )==d_eval_term_index_order.end() ){
+#ifdef USE_INDEX_ORDERING
     //sort arguments in order of least significant vs. most significant variable in default ordering
     std::map< Node, std::vector< int > > argIndex;
     std::vector< Node > args;
@@ -1348,6 +1463,9 @@ void ModelEngine::makeEvalTermIndexOrder( Node n ){
       Debug("fmf-model-index-order") << d_eval_term_index_order[n][i] << " ";
     }
     Debug("fmf-model-index-order") << std::endl;
+#else
+    d_eval_term_use_default_model[n] = true;
+#endif
   }
 }
 
@@ -1541,7 +1659,6 @@ Node ModelEngine::evaluateTerm( RepAlphabetIterator* rai, Node n, Node gn, int& 
       }
       int argDepIndex = 0;
       if( d_uf_model.find( op )!=d_uf_model.end() ){
-#ifdef USE_INDEX_ORDERING
         //Notice() << "make eval" << std::endl;
         //make the term model specifically for n
         makeEvalTermModel( n );
@@ -1556,11 +1673,6 @@ Node ModelEngine::evaluateTerm( RepAlphabetIterator* rai, Node n, Node gn, int& 
         //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ", " << gnn << ")" << std::endl;
         //d_eval_term_model[ n ].debugPrint("fmf-model-eval-debug", d_quantEngine );
         Assert( !val.isNull() );
-#else
-        d_eval_term_use_default_model[n] = true;
-        //now, consult the model
-        val = d_uf_model[op].d_tree.getValue( d_quantEngine, gnn, argDepIndex );
-#endif
       }else{
         d_eval_term_use_default_model[n] = true;
         val = gnn;

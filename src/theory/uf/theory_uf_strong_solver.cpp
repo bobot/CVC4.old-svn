@@ -217,7 +217,7 @@ struct sortInternalDegree {
 
 bool StrongSolverTheoryUf::ConflictFind::Region::check( Theory::Effort level, int cardinality, std::vector< Node >& clique ){
   if( d_reps_size>long(cardinality) ){
-    if( d_reps_size>long(cardinality) && d_total_diseq_internal==d_reps_size*( d_reps_size - 1 ) ){
+    if( d_total_diseq_internal==d_reps_size*( d_reps_size - 1 ) ){
       //quick clique check, all reps form a clique
       for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
         if( it->second->d_valid ){
@@ -853,10 +853,11 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
           }
         }
       }
+      bool addedLemma = false;
+      //do splitting on demand
       if( level==Theory::EFFORT_FULL ){
         Debug("uf-ss-debug") << "Add splits?" << std::endl;
         //see if we have any recommended splits
-        bool addedLemma = false;
         for( int i=0; i<(int)d_regions_index; i++ ){
           if( d_regions[i]->d_valid ){
             if( d_regions[i]->hasSplits() ){
@@ -866,6 +867,9 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
             }
           }
         }
+      }
+      //force continuation via term disambiguation or region combination
+      if( level==Theory::EFFORT_FULL ){
         if( !addedLemma ){
           Debug("uf-ss") << "No splits added." << std::endl;
           if( Options::current()->fmfRegionSat ){

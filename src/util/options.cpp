@@ -150,7 +150,7 @@ Options::Options() :
   finiteModelFind(false),
   fmfRegionSat(false),
   fmfModelBasedInst(true),
-  fmfFindExceptions(true),
+  fmfInstGen(true),
   fmfOneInstPerRound(false),
   fmfInstEngine(false),
   efficientEMatching(false),
@@ -287,7 +287,7 @@ Additional CVC4 options:\n\
    --cnf-quant            apply CNF conversion to quantified formulas\n\
    --pre-skolem-quant     apply skolemization eagerly to bodies of quantified formulas\n\
    --disable-smart-triggers   disable smart triggers\n\
-   --register-quant-body-terms  consider terms within bodies of quantified formulas for matching\n\
+   --register-quant-body-terms  consider ground terms within bodies of quantified formulas for matching\n\
    --inst-when=MODE       when to apply instantiation\n\
    --eager-inst-quant     apply quantifier instantiation eagerly\n\
    --efficient-e-matching use efficient E-matching\n\
@@ -300,7 +300,7 @@ Additional CVC4 options:\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --use-fmf-region-sat   use region-based SAT heuristic for finite model finding\n\
    --disable-fmf-mbqi     disable model-based quantifier instantiation for finite model finding\n\
-   --disable-fmf-exceptions  disable exception finding for finite model finding\n\
+   --disable-fmf-inst-gen  disable Inst-Gen instantiation techniques for finite model finding\n\
    --fmf-one-inst-per-round  only add one instantiation per quantifier per round for fmf\n\
    --fmf-inst-engine      use instantiation engine in conjunction with finite model finding\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
@@ -620,7 +620,7 @@ enum OptionValue {
   FINITE_MODEL_FIND,
   FMF_REGION_SAT,
   DISABLE_FMF_MODEL_BASED_INST,
-  DISABLE_FMF_FIND_EXCEPTIONS,
+  DISABLE_FMF_INST_GEN,
   FMF_ONE_INST_PER_ROUND,
   FMF_INST_ENGINE,
   EFFICIENT_E_MATCHING,
@@ -754,7 +754,7 @@ static struct option cmdlineOptions[] = {
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
   { "disable-fmf-mbqi", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
-  { "disable-fmf-exceptions", no_argument, NULL, DISABLE_FMF_FIND_EXCEPTIONS },
+  { "disable-fmf-inst-gen", no_argument, NULL, DISABLE_FMF_INST_GEN },
   { "fmf-one-inst-per-round", no_argument, NULL, FMF_ONE_INST_PER_ROUND },
   { "fmf-inst-engine", no_argument, NULL, FMF_INST_ENGINE },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
@@ -1312,8 +1312,8 @@ throw(OptionException) {
     case DISABLE_FMF_MODEL_BASED_INST:
       fmfModelBasedInst = false;
       break;
-    case DISABLE_FMF_FIND_EXCEPTIONS:
-      fmfFindExceptions = false;
+    case DISABLE_FMF_INST_GEN:
+      fmfInstGen = false;
       break;
     case FMF_ONE_INST_PER_ROUND:
       fmfOneInstPerRound = true;

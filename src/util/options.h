@@ -421,9 +421,9 @@ struct CVC4_PUBLIC Options {
   bool fmfModelBasedInst;
 
   /**
-   * Whether to use exception finding for finite model finding
+   * Whether to use Inst-Gen techniques for finite model finding
    */
-  bool fmfFindExceptions;
+  bool fmfInstGen;
 
   /*
    * Whether to only add only instantiation per quantifier per round for finite model finding

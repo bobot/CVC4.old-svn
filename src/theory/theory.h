@@ -50,6 +50,7 @@ namespace theory {
 class Instantiator;
 class InstStrategy;
 class QuantifiersEngine;
+class Model;
 
 /**
  * Information about an assertion for the theories.
@@ -579,6 +580,16 @@ public:
     Unimplemented("Theory %s doesn't support Theory::getValue interface",
                   identify().c_str());
     return Node::null();
+  }
+
+  /**
+   * Get all relevant information in this theory regarding the current
+   * model.  This should be called after a call to check( FULL_EFFORT )
+   * for all theories with no conflicts and no lemmas added.
+   */
+  virtual void getModel( Model& m ){
+    Unimplemented("Theory %s doesn't support Theory::getModel interface",
+                  identify().c_str());
   }
 
   /**

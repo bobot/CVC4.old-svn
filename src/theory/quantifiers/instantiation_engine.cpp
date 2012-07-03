@@ -248,7 +248,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     }
     if( Options::current()->printInstEngine ){
       double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-      Message() << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
+      Message() << "Finished instantiation engine, time = " << (clSet2-clSet) << std::endl;
     }
   }
 }
