@@ -148,7 +148,9 @@ Options::Options() :
   instWhenMode(INST_WHEN_FULL_LAST_CALL),
   eagerInstQuant(false),
   finiteModelFind(false),
-  fmfRegionSat(false),
+  ufssRegions(true),
+  ufssEagerSplits(false),
+  ufssColoringSat(false),
   fmfModelBasedInst(true),
   fmfInstGen(true),
   fmfOneInstPerRound(false),
@@ -298,7 +300,9 @@ Additional CVC4 options:\n\
    --enable-flip-decision turns on flip decision heuristic\n\
  FINITE_MODEL_FINDING:\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
-   --use-fmf-region-sat   use region-based SAT heuristic for finite model finding\n\
+   --disable-uf-ss-regions  disable region-based method for discovering cliques and splits in uf strong solver\n\
+   --uf-ss-eager-split    add splits eagerly for uf strong solver\n\
+   --uf-ss-coloring-sat   use coloring-based SAT heuristic for uf strong solver\n\
    --disable-fmf-mbqi     disable model-based quantifier instantiation for finite model finding\n\
    --disable-fmf-inst-gen  disable Inst-Gen instantiation techniques for finite model finding\n\
    --fmf-one-inst-per-round  only add one instantiation per quantifier per round for fmf\n\
@@ -618,7 +622,9 @@ enum OptionValue {
   INST_WHEN,
   EAGER_INST_QUANT,
   FINITE_MODEL_FIND,
-  FMF_REGION_SAT,
+  DISABLE_UF_SS_REGIONS,
+  UF_SS_EAGER_SPLIT,
+  UF_SS_COLORING_SAT,
   DISABLE_FMF_MODEL_BASED_INST,
   DISABLE_FMF_INST_GEN,
   FMF_ONE_INST_PER_ROUND,
@@ -752,7 +758,9 @@ static struct option cmdlineOptions[] = {
   { "inst-when", required_argument, NULL, INST_WHEN },
   { "eager-inst-quant", no_argument, NULL, EAGER_INST_QUANT },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
-  { "use-fmf-region-sat", no_argument, NULL, FMF_REGION_SAT },
+  { "disable-uf-ss-regions", no_argument, NULL, DISABLE_UF_SS_REGIONS },
+  { "uf-ss-eager-split", no_argument, NULL, UF_SS_EAGER_SPLIT },
+  { "uf-ss-coloring-sat", no_argument, NULL, UF_SS_COLORING_SAT },
   { "disable-fmf-mbqi", no_argument, NULL, DISABLE_FMF_MODEL_BASED_INST },
   { "disable-fmf-inst-gen", no_argument, NULL, DISABLE_FMF_INST_GEN },
   { "fmf-one-inst-per-round", no_argument, NULL, FMF_ONE_INST_PER_ROUND },
@@ -1306,8 +1314,14 @@ throw(OptionException) {
     case FINITE_MODEL_FIND:
       finiteModelFind = true;
       break;
-    case FMF_REGION_SAT:
-      fmfRegionSat = true;
+    case DISABLE_UF_SS_REGIONS:
+      ufssRegions = false;
+      break;
+    case UF_SS_EAGER_SPLIT:
+      ufssEagerSplits = true;
+      break;
+    case UF_SS_COLORING_SAT:
+      ufssColoringSat = true;
       break;
     case DISABLE_FMF_MODEL_BASED_INST:
       fmfModelBasedInst = false;

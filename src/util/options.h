@@ -411,9 +411,20 @@ struct CVC4_PUBLIC Options {
   bool finiteModelFind;
 
   /**
-   * Whether to use region-based SAT for finite model finding
+   * Whether to use eager splitting on demand for finite model finding
    */
-  bool fmfRegionSat;
+  bool ufssEagerSplits;
+
+  /**
+   * Whether to use region-based approach for finite model finding
+   */
+  bool ufssRegions;
+
+  /**
+   * Whether to use coloring-based methods for determining whether a model of
+   * currently cardinality exists.
+   */
+  bool ufssColoringSat;
 
   /**
    * Whether to use model-based exhaustive instantiation for finite model finding

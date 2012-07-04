@@ -21,6 +21,8 @@
 #include "theory/theory_engine.h"
 
 //#define USE_SMART_SPLITS
+//#define ONE_SPLIT_REGION
+//#define DISABLE_QUICK_CLIQUE_CHECKS
 
 using namespace std;
 using namespace CVC4;
@@ -64,7 +66,6 @@ void StrongSolverTheoryUf::ConflictFind::Region::takeNode( StrongSolverTheoryUf:
   }
   //remove representative
   r->setRep( n, false );
-  //Debug("uf-ss") << "done takeNode " << r << " " << n << std::endl;
 }
 
 void StrongSolverTheoryUf::ConflictFind::Region::combine( StrongSolverTheoryUf::ConflictFind::Region* r ){
@@ -100,11 +101,12 @@ void StrongSolverTheoryUf::ConflictFind::Region::combine( StrongSolverTheoryUf::
 
 void StrongSolverTheoryUf::ConflictFind::Region::setRep( Node n, bool valid ){
   Assert( hasRep( n )!=valid );
-  if( d_nodes.find( n )==d_nodes.end() && valid ){
+  if( valid && d_nodes.find( n )==d_nodes.end() ){
     d_nodes[n] = new RegionNodeInfo( d_cf->d_th->getSatContext() );
   }
   d_nodes[n]->d_valid = valid;
   d_reps_size = d_reps_size + ( valid ? 1 : -1 );
+  //removing a member of the test clique from this region
   if( d_testClique.find( n )!=d_testClique.end() && d_testClique[n] ){
     Assert( !valid );
     d_testClique[n] = false;
@@ -176,7 +178,12 @@ bool StrongSolverTheoryUf::ConflictFind::Region::isDisequal( Node n1, Node n2, i
 }
 
 bool StrongSolverTheoryUf::ConflictFind::Region::getMustCombine( int cardinality ){
-  if( d_total_diseq_external>=long(cardinality) ){
+  if( Options::current()->ufssRegions && d_total_diseq_external>=long(cardinality) ){
+    //static int gmcCount = 0;
+    //gmcCount++;
+    //if( gmcCount%100==0 ){
+    //  std::cout << gmcCount << " " << cardinality << std::endl;
+    //}
     //The number of external disequalities is greater than or equal to cardinality.
     //Thus, a clique of size cardinality+1 may exist between nodes in d_regions[i] and other regions
     //Check if this is actually the case:  must have n nodes with outgoing degree (cardinality+1-n) for some n>0
@@ -189,7 +196,7 @@ bool StrongSolverTheoryUf::ConflictFind::Region::getMustCombine( int cardinality
           if( outDeg>=cardinality ){
             //we have 1 node of degree greater than (cardinality)
             return true;
-          }else if( outDeg>0 ){
+          }else{
             degrees.push_back( outDeg );
             if( (int)degrees.size()>=cardinality ){
               //we have (cardinality) nodes of degree 1
@@ -225,7 +232,7 @@ bool StrongSolverTheoryUf::ConflictFind::Region::check( Theory::Effort level, in
         }
       }
       return true;
-    }else{
+    }else if( Options::current()->ufssRegions || Options::current()->ufssEagerSplits || level==Theory::EFFORT_FULL ){
       //build test clique, up to size cardinality+1
       if( d_testCliqueSize<=long(cardinality) ){
         std::vector< Node > newClique;
@@ -233,7 +240,9 @@ bool StrongSolverTheoryUf::ConflictFind::Region::check( Theory::Effort level, in
           for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
             //if not in the test clique, add it to the set of new members
             if( it->second->d_valid && ( d_testClique.find( it->first )==d_testClique.end() || !d_testClique[ it->first ] ) ){
+              //if( it->second->getNumInternalDisequalities()>cardinality || level==Theory::EFFORT_FULL ){
               newClique.push_back( it->first );
+              //}
             }
           }
           //choose remaining nodes with the highest degrees
@@ -282,8 +291,8 @@ bool StrongSolverTheoryUf::ConflictFind::Region::check( Theory::Effort level, in
           d_testCliqueSize = d_testCliqueSize + 1;
         }
       }
-      Assert( d_testCliqueSize==long(cardinality+1) );
-      if( d_splitsSize==0 ){
+      //check if test clique has larger size than cardinality, and forms a clique
+      if( d_testCliqueSize>=long(cardinality+1) && d_splitsSize==0 ){
         //test clique is a clique
         for( NodeBoolMap::iterator it = d_testClique.begin(); it != d_testClique.end(); ++it ){
           if( (*it).second ){
@@ -453,35 +462,6 @@ void StrongSolverTheoryUf::ConflictFind::Region::debugPrint( const char* c, bool
   }
 }
 
-void StrongSolverTheoryUf::ConflictFind::combineRegions( int ai, int bi ){
-  Debug("uf-ss-region") << "uf-ss: Combine Region #" << bi << " with Region #" << ai << std::endl;
-  Assert( isValid( ai ) && isValid( bi ) );
-  for( std::map< Node, Region::RegionNodeInfo* >::iterator it = d_regions[bi]->d_nodes.begin(); it != d_regions[bi]->d_nodes.end(); ++it ){
-    Region::RegionNodeInfo* rni = it->second;
-    if( rni->d_valid ){
-      d_regions_map[ it->first ] = ai;
-    }
-  }
-  //update regions disequal DO_THIS?
-  d_regions[ai]->combine( d_regions[bi] );
-  d_regions[bi]->d_valid = false;
-}
-
-void StrongSolverTheoryUf::ConflictFind::moveNode( Node n, int ri ){
-  Debug("uf-ss-region") << "uf-ss: Move node " << n << " to Region #" << ri << std::endl;
-  Assert( isValid( d_regions_map[ n ] ) );
-  Assert( isValid( ri ) );
-  ////update regions disequal DO_THIS?
-  //Region::RegionNodeInfo::DiseqList* del = d_regions[ d_regions_map[n] ]->d_nodes[n]->d_disequalities[0];
-  //for( NodeBoolMap::iterator it = del->d_disequalities.begin(); it != del->d_disequalities.end(); ++it ){
-  //  if( (*it).second ){
-  //  }
-  //}
-  //move node to region ri
-  d_regions[ri]->takeNode( d_regions[ d_regions_map[n] ], n );
-  d_regions_map[n] = ri;
-}
-
 int StrongSolverTheoryUf::ConflictFind::getNumDisequalitiesToRegion( Node n, int ri ){
   int ni = d_regions_map[n];
   int counter = 0;
@@ -503,10 +483,6 @@ void StrongSolverTheoryUf::ConflictFind::getDisequalitiesToRegions( int ri, std:
       Region::RegionNodeInfo::DiseqList* del = it->second->d_disequalities[0];
       for( NodeBoolMap::iterator it2 = del->d_disequalities.begin(); it2 != del->d_disequalities.end(); ++it2 ){
         if( (*it2).second ){
-          //if( !isValid( d_regions_map[ (*it2).first ] ) ){
-          //  Debug( "uf-ss-temp" ) << "^^^" << ri << " " << d_regions_map[ (*it2).first ].get() << std::endl;
-          //  debugPrint( "uf-ss-temp" );
-          //}
           Assert( isValid( d_regions_map[ (*it2).first ] ) );
           //Notice() << "Found disequality with " << (*it2).first << ", region = " << d_regions_map[ (*it2).first ] << std::endl;
           regions_diseq[ d_regions_map[ (*it2).first ] ]++;
@@ -597,14 +573,17 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
 /** new node */
 void StrongSolverTheoryUf::ConflictFind::newEqClass( Node n ){
   if( d_regions_map.find( n )==d_regions_map.end() ){
+    if( !Options::current()->ufssRegions ){
+      //if not using regions, always add new equivalence classes to region index = 0
+      d_regions_index = 0;
+    }
     d_regions_map[n] = d_regions_index;
     Debug("uf-ss") << "StrongSolverTheoryUf: New Eq Class " << n << std::endl;
     Debug("uf-ss-debug") << d_regions_index << " " << (int)d_regions.size() << std::endl;
     if( d_regions_index<d_regions.size() ){
       d_regions[ d_regions_index ]->debugPrint("uf-ss-debug",true);
       d_regions[ d_regions_index ]->d_valid = true;
-      //Assert( d_regions[ d_regions_index ]->d_valid );
-      Assert( d_regions[ d_regions_index ]->getNumReps()==0 );
+      Assert( !Options::current()->ufssRegions || d_regions[ d_regions_index ]->getNumReps()==0 );
     }else{
       d_regions.push_back( new Region( this, d_th->getSatContext() ) );
     }
@@ -717,9 +696,6 @@ bool StrongSolverTheoryUf::ConflictFind::checkRegion( int ri, bool rec ){
       explainClique( clique, &d_th->getOutputChannel() );
       return false;
     }else if( d_regions[ri]->getMustCombine( d_cardinality ) ){
-      //this region must merge with another
-      Debug("uf-ss-check-region") << "We must combine Region #" << ri << ". " << std::endl;
-      d_regions[ri]->debugPrint("uf-ss-check-region");
       ////alternatively, check if we can reduce the number of external disequalities by moving single nodes
       //for( std::map< Node, bool >::iterator it = d_regions[i]->d_reps.begin(); it != d_regions[i]->d_reps.end(); ++it ){
       //  if( it->second ){
@@ -729,40 +705,78 @@ bool StrongSolverTheoryUf::ConflictFind::checkRegion( int ri, bool rec ){
       //    }
       //  }
       //}
-      //take region with maximum disequality density
-      double maxScore = 0;
-      int maxRegion = -1;
-      std::map< int, int > regions_diseq;
-      getDisequalitiesToRegions( ri, regions_diseq );
-      for( std::map< int, int >::iterator it = regions_diseq.begin(); it != regions_diseq.end(); ++it ){
-        Debug("uf-ss-check-region") << it->first << " : " << it->second << std::endl;
-      }
-      for( std::map< int, int >::iterator it = regions_diseq.begin(); it != regions_diseq.end(); ++it ){
-        Assert( it->first!=ri );
-        Assert( isValid( it->first ) );
-        Assert( d_regions[ it->first ]->getNumReps()>0 );
-        double tempScore = double(it->second)/double(d_regions[it->first]->getNumReps() );
-        if( tempScore>maxScore ){
-          maxRegion = it->first;
-          maxScore = tempScore;
-        }
-      }
-      Assert( maxRegion!=-1 );
-      Debug("uf-ss-check-region") << "Combine with region #" << maxRegion << ":" << std::endl;
-      d_regions[maxRegion]->debugPrint("uf-ss-check-region");
-      combineRegions( ri, maxRegion );
-      if( rec ){
+      if( forceCombineRegion( ri ) && rec ){
         checkRegion( ri, rec );
       }
-      //std::vector< Node > clique;
-      //if( d_regions[ri]->check( Theory::EFFORT_STANDARD, cardinality, clique ) ){
-      //  //explain clique
-      //  Notice() << "found clique " << std::endl;
-      //}
       return true;
     }
   }
   return false;
+}
+
+bool StrongSolverTheoryUf::ConflictFind::forceCombineRegion( int ri, bool useDensity ){
+  if( !useDensity ){
+    for( int i=0; i<(int)d_regions_index; i++ ){
+      if( ri!=i && d_regions[i]->d_valid ){
+        combineRegions( ri, i );
+        return true;
+      }
+    }
+    return false;
+  }else{
+    //this region must merge with another
+    Debug("uf-ss-check-region") << "We must combine Region #" << ri << ". " << std::endl;
+    d_regions[ri]->debugPrint("uf-ss-check-region");
+    //take region with maximum disequality density
+    double maxScore = 0;
+    int maxRegion = -1;
+    std::map< int, int > regions_diseq;
+    getDisequalitiesToRegions( ri, regions_diseq );
+    for( std::map< int, int >::iterator it = regions_diseq.begin(); it != regions_diseq.end(); ++it ){
+      Debug("uf-ss-check-region") << it->first << " : " << it->second << std::endl;
+    }
+    for( std::map< int, int >::iterator it = regions_diseq.begin(); it != regions_diseq.end(); ++it ){
+      Assert( it->first!=ri );
+      Assert( isValid( it->first ) );
+      Assert( d_regions[ it->first ]->getNumReps()>0 );
+      double tempScore = double(it->second)/double(d_regions[it->first]->getNumReps() );
+      if( tempScore>maxScore ){
+        maxRegion = it->first;
+        maxScore = tempScore;
+      }
+    }
+    if( maxRegion!=-1 ){
+      Debug("uf-ss-check-region") << "Combine with region #" << maxRegion << ":" << std::endl;
+      d_regions[maxRegion]->debugPrint("uf-ss-check-region");
+      combineRegions( ri, maxRegion );
+      return true;
+    }
+    return false;
+  }
+}
+
+
+void StrongSolverTheoryUf::ConflictFind::combineRegions( int ai, int bi ){
+  Debug("uf-ss-region") << "uf-ss: Combine Region #" << bi << " with Region #" << ai << std::endl;
+  Assert( isValid( ai ) && isValid( bi ) );
+  for( std::map< Node, Region::RegionNodeInfo* >::iterator it = d_regions[bi]->d_nodes.begin(); it != d_regions[bi]->d_nodes.end(); ++it ){
+    Region::RegionNodeInfo* rni = it->second;
+    if( rni->d_valid ){
+      d_regions_map[ it->first ] = ai;
+    }
+  }
+  //update regions disequal DO_THIS?
+  d_regions[ai]->combine( d_regions[bi] );
+  d_regions[bi]->d_valid = false;
+}
+
+void StrongSolverTheoryUf::ConflictFind::moveNode( Node n, int ri ){
+  Debug("uf-ss-region") << "uf-ss: Move node " << n << " to Region #" << ri << std::endl;
+  Assert( isValid( d_regions_map[ n ] ) );
+  Assert( isValid( ri ) );
+  //move node to region ri
+  d_regions[ri]->takeNode( d_regions[ d_regions_map[n] ], n );
+  d_regions_map[n] = ri;
 }
 
 bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out ){
@@ -855,24 +869,27 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
       }
       bool addedLemma = false;
       //do splitting on demand
-      if( level==Theory::EFFORT_FULL ){
+      if( level==Theory::EFFORT_FULL || Options::current()->ufssEagerSplits ){
         Debug("uf-ss-debug") << "Add splits?" << std::endl;
-        //see if we have any recommended splits
+        //see if we have any recommended splits from large regions
         for( int i=0; i<(int)d_regions_index; i++ ){
-          if( d_regions[i]->d_valid ){
+          if( d_regions[i]->d_valid && d_regions[i]->getNumReps()>d_cardinality ){
             if( d_regions[i]->hasSplits() ){
               d_regions[i]->addSplit( out );
               addedLemma = true;
               ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
+#ifdef ONE_SPLIT_REGION
+              break;
+#endif
             }
           }
         }
       }
-      //force continuation via term disambiguation or region combination
+      //force continuation via term disambiguation or combination of regions
       if( level==Theory::EFFORT_FULL ){
         if( !addedLemma ){
           Debug("uf-ss") << "No splits added." << std::endl;
-          if( Options::current()->fmfRegionSat ){
+          if( Options::current()->ufssColoringSat ){
             //otherwise, try to disambiguate individual terms
             if( !disambiguateTerms( out ) ){
               //no disequalities can be propagated
@@ -884,16 +901,12 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
               debugPrint("uf-ss-sat");
             }
           }else{
-            //naive strategy. combine the first two valid regions
-            int regIndex = -1;
+            //naive strategy, force region combination involving the first valid region
             for( int i=0; i<(int)d_regions_index; i++ ){
               if( d_regions[i]->d_valid ){
-                if( regIndex==-1 ){
-                  regIndex = i;
-                }else{
-                  combineRegions( regIndex, i );
-                  check( level, out );
-                }
+                forceCombineRegion( i, false );
+                check( level, out );
+                //break;
               }
             }
           }
@@ -905,8 +918,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
 
 void StrongSolverTheoryUf::ConflictFind::propagate( Theory::Effort level, OutputChannel* out ){
   Assert( d_cardinality>0 );
-
-  //propagate the current cardinality as a decision literal
+  //propagate the current cardinality as a decision literal, if not already asserted
   Node cn = d_cardinality_literal[ d_cardinality ];
   Debug("uf-ss-prop-as-dec") << "Propagate as decision " << d_type << ", cardinality = " << d_cardinality << std::endl;
   Assert( !cn.isNull() );
@@ -915,7 +927,6 @@ void StrongSolverTheoryUf::ConflictFind::propagate( Theory::Effort level, Output
     Debug("uf-ss-prop-as-dec") << "Propagate as decision " << d_cardinality_literal[ d_cardinality ];
     Debug("uf-ss-prop-as-dec") << " " << d_cardinality_literal[ d_cardinality ][0].getType() << std::endl;
   }
-
 }
 
 void StrongSolverTheoryUf::ConflictFind::debugPrint( const char* c ){
@@ -972,7 +983,7 @@ void StrongSolverTheoryUf::ConflictFind::setCardinality( int c, OutputChannel* o
 }
 
 void StrongSolverTheoryUf::ConflictFind::getRepresentatives( std::vector< Node >& reps ){
-  if( !Options::current()->fmfRegionSat ){
+  if( !Options::current()->ufssColoringSat ){
     bool foundRegion = false;
     for( int i=0; i<(int)d_regions_index; i++ ){
       //should not have multiple regions at this point
@@ -991,6 +1002,8 @@ void StrongSolverTheoryUf::ConflictFind::getRepresentatives( std::vector< Node >
 }
 
 bool StrongSolverTheoryUf::ConflictFind::minimize( OutputChannel* out ){
+  //ensure that model forms a clique:
+  // if two equivalence classes are neither equal nor disequal, add a split
   int validRegionIndex = -1;
   for( int i=0; i<(int)d_regions_index; i++ ){
     if( d_regions[i]->d_valid ){
@@ -1061,8 +1074,6 @@ void StrongSolverTheoryUf::merge( Node a, Node b ){
     Debug("uf-ss-solver") << "StrongSolverTheoryUf: Merge " << a << " " << b << " " << tn << std::endl;
     c->merge( a, b );
   }
-  //else if( isRelevantType( tn ) ){
-  //}
 }
 
 /** assert terms are disequal */
@@ -1075,8 +1086,6 @@ void StrongSolverTheoryUf::assertDisequal( Node a, Node b, Node reason ){
     //Assert( d_th->d_equalityEngine.getRepresentative( b )==b );
     c->assertDisequal( a, b, reason );
   }
-  //else if( isRelevantType( tn ) ){
-  //}
 }
 
 /** assert a node */

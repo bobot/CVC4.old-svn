@@ -47,6 +47,7 @@ protected:
   typedef context::CDHashMap<Node, int, NodeHashFunction> NodeIntMap;
   typedef context::CDChunkList<Node> NodeList;
   typedef context::CDList<bool> BoolList;
+  typedef context::CDList<bool> IntList;
   typedef context::CDHashMap<TypeNode, bool, TypeNodeHashFunction> TypeNodeBoolMap;
 public:
   /** information for incremental conflict/clique finding for a particular sort */
@@ -107,11 +108,15 @@ public:
       context::CDO< unsigned > d_total_diseq_external;
       //total disequality size (internal)
       context::CDO< unsigned > d_total_diseq_internal;
+      //sorted external degree list, for computing get must combine
+      IntList d_externalDegrees;
+      //must combine flag
+      context::CDO< bool > d_mustCombine;
     public:
       //constructor
       Region( ConflictFind* cf, context::Context* c ) : d_cf( cf ), d_testClique( c ), d_testCliqueSize( c, 0 ),
         d_splits( c ), d_splitsSize( c, 0 ), d_reps_size( c, 0 ), d_total_diseq_external( c, 0 ),
-        d_total_diseq_internal( c, 0 ), d_valid( c, true ) {
+        d_total_diseq_internal( c, 0 ), d_externalDegrees( c ), d_mustCombine( c, false ), d_valid( c, true ) {
       }
       ~Region(){}
       //region node infomation
@@ -121,6 +126,8 @@ public:
     public:
       //get num reps
       int getNumReps() { return d_reps_size; }
+      //get test clique size
+      int getTestCliqueSize() { return d_testCliqueSize; }
       // has representative
       bool hasRep( Node n ) { return d_nodes.find( n )!=d_nodes.end() && d_nodes[n]->d_valid; }
       //take node from region
@@ -171,22 +178,25 @@ public:
     /** whether two terms are ambiguous (indexed by equalities) */
     NodeBoolMap d_term_amb;
   private:
-    /** merge regions */
-    void combineRegions( int ai, int bi );
-    /** move node n to region ri */
-    void moveNode( Node n, int ri );
     /** get number of disequalities from node n to region ri */
     int getNumDisequalitiesToRegion( Node n, int ri );
     /** get number of disequalities from Region r to other regions */
     void getDisequalitiesToRegions( int ri, std::map< int, int >& regions_diseq );
-    /** check if we need to combine region ri */
-    bool checkRegion( int ri, bool rec = true );
     /** explain clique */
     void explainClique( std::vector< Node >& clique, OutputChannel* out );
     /** is valid */
     bool isValid( int ri ) { return ri>=0 && ri<(int)d_regions_index && d_regions[ ri ]->d_valid; }
     /** check ambiguous terms */
     bool disambiguateTerms( OutputChannel* out );
+  private:
+    /** check if we need to combine region ri */
+    bool checkRegion( int ri, bool rec = true );
+    /** force combine region */
+    bool forceCombineRegion( int ri, bool useDensity = true );
+    /** merge regions */
+    void combineRegions( int ai, int bi );
+    /** move node n to region ri */
+    void moveNode( Node n, int ri );
   private:
     /** cardinality operating with */
     context::CDO< int > d_cardinality;
