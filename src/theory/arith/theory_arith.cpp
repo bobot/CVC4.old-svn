@@ -1953,6 +1953,10 @@ Node TheoryArith::getValue(TNode n) {
   }
 }
 
+void TheoryArith::getModel( Model& m ){
+
+}
+
 void TheoryArith::notifyRestart(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_restartTimer);
 

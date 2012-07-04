@@ -57,10 +57,11 @@ public:
   void check(Effort e);
 
   void propagate(Effort e);
-  
+
   Node explain(TNode n);
 
   Node getValue(TNode n);
+  void getModel( Model& m );
 
   std::string identify() const { return std::string("TheoryBV"); }
 
@@ -124,7 +125,7 @@ private:
   }
 
   void setConflict(Node conflict = Node::null()) {
-    d_conflict = true; 
+    d_conflict = true;
     d_conflictNode = conflict;
   }
 
@@ -136,8 +137,8 @@ private:
 
   friend class Bitblaster;
   friend class BitblastSolver;
-  friend class EqualitySolver; 
-  
+  friend class EqualitySolver;
+
 };/* class TheoryBV */
 
 }/* CVC4::theory::bv namespace */

@@ -24,20 +24,29 @@
 namespace CVC4 {
 namespace theory {
 
-class FunctionTermModel
-{
-private:
-  /** the operator we are considering */
-  Node d_op
+class QuantifiersEngine;
+
+/** this class stores a representative set */
+class RepSet {
 public:
-  FunctionTermModel( Node op ) : d_op( op ){}
-  ~FunctionTermModel(){}
-public:
-  /** evaluate the term, where n.getOperator() is d_op */
-  virtual void evaluate( Node n ) = 0;
-  /** print */
-  //virtual void print() = 0;
+  RepSet(){}
+  ~RepSet(){}
+  std::map< TypeNode, std::vector< Node > > d_type_reps;
+  std::map< Node, int > d_tmap;
+  /** clear the set */
+  void clear();
+  /** has type */
+  bool hasType( TypeNode tn ) { return d_type_reps.find( tn )!=d_type_reps.end(); }
+  /** set the representatives for type */
+  void set( TypeNode t, std::vector< Node >& reps );
+  /** returns index in d_type_reps for node n */
+  int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
+  /** debug print */
+  void debugPrint( const char* c, QuantifiersEngine* qe );
 };
+
+//representative domain
+typedef std::vector< int > RepDomain;
 
 class Model
 {
@@ -46,22 +55,31 @@ public:
   eq::EqualityEngine d_equalityEngine;
   /** list of all terms for each operator */
   std::map< Node, std::vector< Node > > d_terms;
-  /** representatives for each type */
-  std::map< TypeNode, std::vector< Node > > d_reps;
-  /** models for each function */
-  std::map< Node, FunctionTermModel > d_func_models;
+  /** representative alphabet */
+  RepSet d_ra;
 public:
-  Model(){}
-  ~Model(){}
+  Model( context::Context* c );
+  virtual ~Model(){}
   /** get value */
-  Node getValue( TNode n );
+  virtual Node getValue( TNode n ) = 0;
 public:
-  /** add equality */
-  void addEquality( Node a, Node b );
-  /** add predicate */
-  void addPredicate( Node a, bool polarity );
-  /** add equality engine */
-  void addEqualityEngine( eq::EqualityEngine& ee );
+  /** assert equality */
+  void assertEquality( Node a, Node b, bool polarity );
+  /** assert predicate */
+  void assertPredicate( Node a, bool polarity );
+  /** assert equality engine */
+  void assertEqualityEngine( eq::EqualityEngine* ee );
+public:
+  /** print representative function */
+  static void printRepresentative( const char* c, QuantifiersEngine* qe, Node r );
+};
+
+class ModelBuilder
+{
+public:
+  ModelBuilder(){}
+  virtual ~ModelBuilder(){}
+  virtual void buildModel( Model& m ) = 0;
 };
 
 }

@@ -29,14 +29,6 @@
 
 namespace CVC4 {
 namespace theory {
-
-struct ModelBasisAttributeId {};
-typedef expr::Attribute<ModelBasisAttributeId, bool> ModelBasisAttribute;
-//for APPLY_UF terms, 1 : term has direct child with model basis attribute,
-//                    0 : term has no direct child with model basis attribute.
-struct ModelBasisArgAttributeId {};
-typedef expr::Attribute<ModelBasisArgAttributeId, uint64_t> ModelBasisArgAttribute;
-
 namespace uf {
 
 class TheoryUF;
@@ -240,7 +232,7 @@ public:
     /** get representatives */
     void getRepresentatives( std::vector< Node >& reps );
     /** get model basis term */
-    Node getCardinalityTerm() { return d_cardinality_lemma_term; }
+    //Node getCardinalityTerm() { return d_cardinality_lemma_term; }
     /** minimize */
     bool minimize( OutputChannel* out );
     /** get cardinality lemma */
@@ -307,7 +299,7 @@ public:
   /** get representatives */
   void getRepresentatives( TypeNode t, std::vector< Node >& reps );
   /** get cardinality term */
-  Node getCardinalityTerm( TypeNode t );
+  //Node getCardinalityTerm( TypeNode t );
   /** minimize */
   bool minimize();
 

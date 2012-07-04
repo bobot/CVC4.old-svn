@@ -60,6 +60,10 @@ Node TheoryBuiltin::getValue(TNode n) {
   }
 }
 
+void TheoryBuiltin::getModel( Model& m ){
+
+}
+
 }/* CVC4::theory::builtin namespace */
 }/* CVC4::theory */
 }/* CVC4 namespace */

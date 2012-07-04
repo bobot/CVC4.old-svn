@@ -131,8 +131,8 @@ private:
   Node d_conflictNode;
 
   /**
-   * Should be called to propagate the literal. We use a node here 
-   * since some of the propagated literals are not kept anywhere. 
+   * Should be called to propagate the literal. We use a node here
+   * since some of the propagated literals are not kept anywhere.
    */
   bool propagate(TNode literal);
 
@@ -191,6 +191,8 @@ public:
   void check(Effort);
   void preRegisterTerm(TNode term);
   Node explain(TNode n);
+
+  void getModel( Model& m );
 
   void ppStaticLearn(TNode in, NodeBuilder<>& learned);
   void presolve();

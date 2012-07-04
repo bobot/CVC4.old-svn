@@ -509,6 +509,10 @@ Node TheoryRewriteRules::explain(TNode n){
   return substGuards(&i, TCache ());
 }
 
+void TheoryRewriteRules::getModel( Model& m ){
+
+}
+
 Theory::PPAssertStatus TheoryRewriteRules::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
   addRewriteRule(in);
   return PP_ASSERT_STATUS_UNSOLVED;

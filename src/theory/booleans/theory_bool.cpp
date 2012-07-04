@@ -134,6 +134,10 @@ Node TheoryBool::getValue(TNode n) {
   }
 }
 
+void TheoryBool::getModel( Model& m ){
+
+}
+
 Theory::PPAssertStatus TheoryBool::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
 
   if (in.getKind() == kind::CONST_BOOLEAN && !in.getConst<bool>()) {

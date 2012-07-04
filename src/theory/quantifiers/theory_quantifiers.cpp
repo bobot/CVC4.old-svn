@@ -96,6 +96,10 @@ Node TheoryQuantifiers::getValue(TNode n) {
   }
 }
 
+void TheoryQuantifiers::getModel( Model& m ){
+
+}
+
 void TheoryQuantifiers::check(Effort e) {
   CodeTimer codeTimer(d_theoryTime);
 

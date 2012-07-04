@@ -59,6 +59,7 @@ public:
   void check(Effort e);
   void propagate(Effort level);
   Node getValue(TNode n);
+  void getModel( Model& m );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
   bool flipDecision();

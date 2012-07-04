@@ -629,6 +629,10 @@ Node TheoryDatatypes::getValue(TNode n) {
   }
 }
 
+void TheoryDatatypes::getModel( Model& m ){
+
+}
+
 void TheoryDatatypes::merge(TNode a, TNode b) {
   if( !d_merge_pending.empty() ) {
     //Debug("datatypes") << "Append to merge pending list " << d_merge_pending.size() << endl;

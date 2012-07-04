@@ -152,6 +152,15 @@ public:
     Unimplemented("TheoryUFTim doesn't support model generation");
   }
 
+  /**
+   * Get model
+   *
+   * See theory/theory.h for more information about this method.
+   */
+  void getModel( Model& m ){
+    Unimplemented("TheoryUFTim doesn't support model generation");
+  }
+
   std::string identify() const { return std::string("TheoryUFTim"); }
 
 private:

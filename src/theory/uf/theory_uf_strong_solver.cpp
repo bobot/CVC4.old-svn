@@ -1029,10 +1029,8 @@ Node StrongSolverTheoryUf::ConflictFind::getCardinalityLemma(){
     if( d_cardinality_lemma_term.isNull() ){
       std::stringstream ss;
       ss << Expr::setlanguage(Options::current()->outputLanguage);
-      ss << "fmf_term_" << d_type;
+      ss << "t_" << d_type;
       d_cardinality_lemma_term = NodeManager::currentNM()->mkVar( ss.str(), d_type );
-      ModelBasisAttribute mba;
-      d_cardinality_lemma_term.setAttribute(mba,true);
     }
     Node lem = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_lemma_term,
                                   NodeManager::currentNM()->mkConst( Rational( d_cardinality ) ) );
@@ -1256,14 +1254,14 @@ void StrongSolverTheoryUf::getRepresentatives( TypeNode t, std::vector< Node >& 
   }
 }
 
-Node StrongSolverTheoryUf::getCardinalityTerm( TypeNode t ){
-  ConflictFind* c = getConflictFind( t );
-  if( c ){
-    return c->getCardinalityTerm();
-  }else{
-    return Node::null();
-  }
-}
+//Node StrongSolverTheoryUf::getCardinalityTerm( TypeNode t ){
+//  ConflictFind* c = getConflictFind( t );
+//  if( c ){
+//    return c->getCardinalityTerm();
+//  }else{
+//    return Node::null();
+//  }
+//}
 
 bool StrongSolverTheoryUf::minimize(){
   for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){

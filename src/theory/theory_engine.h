@@ -73,6 +73,8 @@ struct NodeTheoryPairHashFunction {
 
 namespace theory {
   class Instantiator;
+  class Model;
+  class ModelBuilder;
 }/* CVC4::theory namespace */
 
 class DecisionEngine;
@@ -124,6 +126,11 @@ class TheoryEngine {
    * The quantifiers engine
    */
   theory::QuantifiersEngine* d_quantEngine;
+
+  /**
+   * The model builder
+   */
+  theory::ModelBuilder* d_model_builder;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
   typedef std::hash_map<TNode, Node, TNodeHashFunction> TNodeMap;
@@ -626,6 +633,11 @@ public:
    * Returns the value of the given node.
    */
   Node getValue(TNode node);
+
+  /**
+   * Get the current model
+   */
+  void getModel( theory::Model& m );
 
   /**
    * Get the theory associated to a given Node.

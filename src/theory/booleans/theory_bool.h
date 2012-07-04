@@ -35,6 +35,7 @@ public:
   }
 
   Node getValue(TNode n);
+  void getModel( Model& m );
 
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
 
