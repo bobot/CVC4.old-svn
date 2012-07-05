@@ -180,18 +180,18 @@ void UfModelTree::debugPrint( const char* c, QuantifiersEngine* qe, std::vector<
   }
 }
 
-UfModel::UfModel( Node op, quantifiers::ModelEngine* me ) : d_op( op ), d_me( me ),
+UfModel::UfModel( Node op, quantifiers::ExtendedModel* m, QuantifiersEngine* qe ) : d_op( op ), d_model( m ), d_qe( qe ),
   d_model_constructed( false ), d_reconsider_model( false ){
   d_tree = UfModelTreeOrdered( op );
   TypeNode tn = d_op.getType();
   tn = tn[(int)tn.getNumChildren()-1];
   Assert( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) );
   //look at ground assertions
-  for( int i=0; i<(int)d_me->getQuantifiersEngine()->getTermDatabase()->d_op_map[ d_op ].size(); i++ ){
-    Node n = d_me->getQuantifiersEngine()->getTermDatabase()->d_op_map[ d_op ][i];
+  for( int i=0; i<(int)d_qe->getTermDatabase()->d_op_map[ d_op ].size(); i++ ){
+    Node n = d_qe->getTermDatabase()->d_op_map[ d_op ][i];
     computeModelBasisArgAttribute( n );
     if( !n.getAttribute(NoMatchAttribute()) || n.getAttribute(ModelBasisArgAttribute())==1 ){
-      Node r = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n );
+      Node r = d_qe->getEqualityQuery()->getRepresentative( n );
       d_ground_asserts_reps.push_back( r );
       d_ground_asserts.push_back( n );
     }
@@ -207,13 +207,13 @@ UfModel::UfModel( Node op, quantifiers::ModelEngine* me ) : d_op( op ), d_me( me
     }
     if( isConstant ){
       //set constant value
-      Node t = d_me->getModelBasisOpTerm( d_op );
+      Node t = d_qe->getModelEngine()->getModelBasisOpTerm( d_op );
       Node r = d_ground_asserts_reps[0];
       setValue( t, r, false );
       setModel();
       d_reconsider_model = true;
       Debug("fmf-model-cons") << "Function " << d_op << " is the constant function ";
-      Model::printRepresentative( "fmf-model-cons", d_me->getQuantifiersEngine(), r );
+      Model::printRepresentative( "fmf-model-cons", d_qe, r );
       Debug("fmf-model-cons") << std::endl;
     }
   }
@@ -249,7 +249,7 @@ Node UfModel::getIntersection( Node n1, Node n2, bool& isGround ){
       children.push_back( n2[i] );
     }else if( n2[i].getAttribute(ModelBasisAttribute()) ){
       children.push_back( n1[i] );
-    }else if( d_me->areEqual( n1[i], n2[i] ) ){
+    }else if( d_model->areEqual( n1[i], n2[i] ) ){
       children.push_back( n1[i] );
     }else{
       return Node::null();
@@ -288,8 +288,8 @@ void UfModel::setValue( Node n, Node v, bool ground, bool isReq ){
     d_set_values[0][ ground ? 1 : 0 ].erase( n );
   }
 #endif
-  if( d_me->optUseRelevantDomain() ){
-    int raIndex = d_me->getReps()->getIndexFor( v );
+  if( d_qe->getModelEngine()->optUseRelevantDomain() ){
+    int raIndex = d_model->d_ra.getIndexFor( v );
     Assert( raIndex!=-1 );
     if( std::find( d_active_range.begin(), d_active_range.end(), raIndex )==d_active_range.end() ){
       d_active_range.push_back( raIndex );
@@ -298,7 +298,7 @@ void UfModel::setValue( Node n, Node v, bool ground, bool isReq ){
 }
 
 void UfModel::setModel(){
-  makeModel( d_me->getQuantifiersEngine(), d_tree );
+  makeModel( d_qe, d_tree );
   d_model_constructed = true;
 }
 
@@ -322,8 +322,8 @@ Node UfModel::getConstantValue( QuantifiersEngine* qe, Node n ){
 }
 
 bool UfModel::isConstant(){
-  Node gn = d_me->getModelBasisOpTerm( d_op );
-  Node n = getConstantValue( d_me->getQuantifiersEngine(), gn );
+  Node gn = d_qe->getModelEngine()->getModelBasisOpTerm( d_op );
+  Node n = getConstantValue( d_qe, gn );
   return !n.isNull();
 }
 
@@ -332,7 +332,7 @@ void UfModel::buildModel(){
   if( d_model_constructed ){
     if( d_reconsider_model ){
       //if we are allowed to reconsider default value, then see if the default value can be improved
-      Node t = d_me->getModelBasisOpTerm( d_op );
+      Node t = d_qe->getModelEngine()->getModelBasisOpTerm( d_op );
       Node v = d_set_values[1][0][t];
       if( d_value_pro_con[0][v].empty() ){
         Debug("fmf-model-cons-debug") << "Consider changing the default value for " << d_op << std::endl;
@@ -344,7 +344,7 @@ void UfModel::buildModel(){
   if( !d_model_constructed ){
     //construct the model for the uninterpretted function/predicate
     bool setDefaultVal = true;
-    Node defaultTerm = d_me->getModelBasisOpTerm( d_op );
+    Node defaultTerm = d_qe->getModelEngine()->getModelBasisOpTerm( d_op );
     Debug("fmf-model-cons") << "Construct model for " << d_op << "..." << std::endl;
     //set the values in the model
     for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
@@ -353,7 +353,7 @@ void UfModel::buildModel(){
       //if this assertion did not help the model, just consider it ground
       //set n = v in the model tree
       Debug("fmf-model-cons") << "  Set " << n << " = ";
-      Model::printRepresentative( "fmf-model-cons", d_me->getQuantifiersEngine(), v );
+      Model::printRepresentative( "fmf-model-cons", d_qe, v );
       Debug("fmf-model-cons") << std::endl;
       //set it as ground value
       setValue( n, v );
@@ -385,7 +385,7 @@ void UfModel::buildModel(){
         Node v = d_values[i];
         double score = ( 1.0 + (double)d_value_pro_con[0][v].size() )/( 1.0 + (double)d_value_pro_con[1][v].size() );
         Debug("fmf-model-cons") << "  - score( ";
-        Model::printRepresentative( "fmf-model-cons", d_me->getQuantifiersEngine(), v );
+        Model::printRepresentative( "fmf-model-cons", d_qe, v );
         Debug("fmf-model-cons") << " ) = " << score << std::endl;
         if( score>maxScore ){
           defaultVal = v;
@@ -397,11 +397,11 @@ void UfModel::buildModel(){
         //consider finding another value, if possible
         Debug("fmf-model-cons-debug") << "Poor choice for default value, score = " << maxScore << std::endl;
         TypeNode tn = d_op.getType();
-        Node newDefaultVal = d_me->getArbitraryElement( tn[(int)tn.getNumChildren()-1], d_values );
+        Node newDefaultVal = d_qe->getModelEngine()->getArbitraryElement( tn[(int)tn.getNumChildren()-1], d_values );
         if( !newDefaultVal.isNull() ){
           defaultVal = newDefaultVal;
           Debug("fmf-model-cons-debug") << "-> Change default value to ";
-          Model::printRepresentative( "fmf-model-cons-debug", d_me->getQuantifiersEngine(), defaultVal );
+          Model::printRepresentative( "fmf-model-cons-debug", d_qe, defaultVal );
           Debug("fmf-model-cons-debug") << std::endl;
         }else{
           Debug("fmf-model-cons-debug") << "-> Could not find arbitrary element of type " << tn[(int)tn.getNumChildren()-1] << std::endl;
@@ -416,7 +416,7 @@ void UfModel::buildModel(){
       Assert( !defaultVal.isNull() );
       //get the default term (this term must be defined non-ground in model)
       Debug("fmf-model-cons") << "  Choose ";
-      Model::printRepresentative("fmf-model-cons", d_me->getQuantifiersEngine(), defaultVal );
+      Model::printRepresentative("fmf-model-cons", d_qe, defaultVal );
       Debug("fmf-model-cons") << " as default value (" << defaultTerm << ")" << std::endl;
       Debug("fmf-model-cons") << "     # quantifiers pro = " << d_value_pro_con[0][defaultVal].size() << std::endl;
       Debug("fmf-model-cons") << "     # quantifiers con = " << d_value_pro_con[1][defaultVal].size() << std::endl;
@@ -430,12 +430,12 @@ void UfModel::buildModel(){
     //for debugging, make sure model satisfies all ground assertions
     for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
       int depIndex;
-      Node n = d_tree.getValue( d_me->getQuantifiersEngine(), d_ground_asserts[i], depIndex );
+      Node n = d_tree.getValue( d_qe, d_ground_asserts[i], depIndex );
       if( n!=d_ground_asserts_reps[i] ){
         Debug("fmf-bad") << "Bad model : " << d_ground_asserts[i] << " := ";
-        Model::printRepresentative("fmf-bad", d_me->getQuantifiersEngine(), n );
+        Model::printRepresentative("fmf-bad", d_qe, n );
         Debug("fmf-bad") << " != ";
-        Model::printRepresentative("fmf-bad", d_me->getQuantifiersEngine(), d_ground_asserts_reps[i] );
+        Model::printRepresentative("fmf-bad", d_qe, d_ground_asserts_reps[i] );
         Debug("fmf-bad") << std::endl;
       }
     }
@@ -443,7 +443,7 @@ void UfModel::buildModel(){
 }
 
 void UfModel::setValuePreference( Node f, Node n, bool isPro ){
-  Node v = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n );
+  Node v = d_qe->getEqualityQuery()->getRepresentative( n );
   if( std::find( d_values.begin(), d_values.end(), v )==d_values.end() ){
     d_values.push_back( v );
   }
@@ -470,9 +470,9 @@ void UfModel::computeRelevantDomain(){
     Node n = d_ground_asserts[i];
     //add arguments to domain
     for( int j=0; j<(int)n.getNumChildren(); j++ ){
-      if( d_me->getReps()->hasType( n[j].getType() ) ){
-        Node ra = d_me->getQuantifiersEngine()->getEqualityQuery()->getRepresentative( n[j] );
-        int raIndex = d_me->getReps()->getIndexFor( ra );
+      if( d_model->d_ra.hasType( n[j].getType() ) ){
+        Node ra = d_qe->getEqualityQuery()->getRepresentative( n[j] );
+        int raIndex = d_model->d_ra.getIndexFor( ra );
         Assert( raIndex!=-1 );
         if( std::find( d_active_domain[j].begin(), d_active_domain[j].end(), raIndex )==d_active_domain[j].end() ){
           d_active_domain[j].push_back( raIndex );
@@ -488,7 +488,7 @@ void UfModel::debugPrint( const char* c ){
   //Debug( c ) << "   Ground asserts:" << std::endl;
   //for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
   //  Debug( c ) << "      " << d_ground_asserts[i] << " = ";
-  //  printRepresentative( c, d_me->getQuantifiersEngine(), d_ground_asserts[i] );
+  //  printRepresentative( c, d_qe, d_ground_asserts[i] );
   //  Debug( c ) << std::endl;
   //}
   //Debug( c ) << "   Model:" << std::endl;
@@ -505,7 +505,7 @@ void UfModel::debugPrint( const char* c ){
   if( d_tree.isEmpty() ){
     Debug( c ) << "   [undefined]" << std::endl;
   }else{
-    d_tree.debugPrint( c, d_me->getQuantifiersEngine(), 3 );
+    d_tree.debugPrint( c, d_qe, 3 );
     Debug( c ) << std::endl;
   }
   //Debug( c ) << "   Phase reqs:" << std::endl;  //for( int i=0; i<2; i++ ){

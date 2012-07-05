@@ -16,6 +16,12 @@ libquantifiers_la_SOURCES = \
 	instantiation_engine.h \
 	instantiation_engine.cpp \
 	model_engine.h \
-	model_engine.cpp
+	model_engine.cpp \
+	model_engine_model.h \
+	model_engine_model.cpp \
+	relevant_domain.h \
+	relevant_domain.cpp \
+	rep_set_iterator.h \
+	rep_set_iterator.cpp
 
 EXTRA_DIST = kinds

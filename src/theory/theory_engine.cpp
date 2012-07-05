@@ -37,6 +37,7 @@
 #include "theory/model.h"
 #include "theory/quantifiers_engine.h"
 #include "theory/quantifiers/theory_quantifiers.h"
+#include "theory/quantifiers/model_engine.h"
 
 using namespace std;
 
@@ -99,6 +100,19 @@ TheoryEngine::~TheoryEngine() {
   delete d_quantEngine;
 
   StatisticsRegistry::unregisterStat(&d_combineTheoriesTime);
+}
+
+void TheoryEngine::addComponents(){
+  //add components for the quantifiers engine
+  if( d_quantEngine ){
+    d_quantEngine->addComponents();
+  }
+  // set the model builder
+  if( d_quantEngine && d_quantEngine->getModelEngine() ){
+    d_model_builder = d_quantEngine->getModelEngine()->getModelBuilder();
+  }else{
+    d_model_builder = new DefaultModelBuilder( d_context, this );
+  }
 }
 
 void TheoryEngine::preRegister(TNode preprocessed) {
@@ -546,17 +560,21 @@ Node TheoryEngine::getValue(TNode node) {
 
 }/* TheoryEngine::getValue(TNode node) */
 
-/* get model */
-void TheoryEngine::getModel( theory::Model& m ){
+void TheoryEngine::collectModelInfo( theory::Model* m ){
   //consult each theory to get all relevant information concerning the model
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_theoryTable[i] ){
-      d_theoryTable[i]->getModel( m );
+      d_theoryTable[i]->collectModelInfo( m );
     }
   }
-  //now, complete the model
+}
+
+/* get model */
+Model* TheoryEngine::getModel(){
   if( d_model_builder ){
-    d_model_builder->buildModel( m );
+    return d_model_builder->getModel();
+  }else{
+    return NULL;
   }
 }
 

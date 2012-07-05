@@ -61,7 +61,7 @@ public:
   Node explain(TNode n);
 
   Node getValue(TNode n);
-  void getModel( Model& m );
+  void collectModelInfo( Model* m );
 
   std::string identify() const { return std::string("TheoryBV"); }
 

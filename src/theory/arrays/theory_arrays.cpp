@@ -644,8 +644,8 @@ Node TheoryArrays::getValue(TNode n)
   }
 }
 
-void TheoryArrays::getModel( Model& m ){
-  m.assertEqualityEngine( &d_equalityEngine );
+void TheoryArrays::collectModelInfo( Model* m ){
+  m->assertEqualityEngine( &d_equalityEngine );
 }
 
 /////////////////////////////////////////////////////////////////////////////

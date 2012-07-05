@@ -100,15 +100,13 @@ public:
       context::CDO< unsigned > d_total_diseq_external;
       //total disequality size (internal)
       context::CDO< unsigned > d_total_diseq_internal;
-      //sorted external degree list, for computing get must combine
-      IntList d_externalDegrees;
-      //must combine flag
-      context::CDO< bool > d_mustCombine;
+      /** set rep */
+      void setRep( Node n, bool valid );
     public:
       //constructor
       Region( ConflictFind* cf, context::Context* c ) : d_cf( cf ), d_testClique( c ), d_testCliqueSize( c, 0 ),
         d_splits( c ), d_splitsSize( c, 0 ), d_reps_size( c, 0 ), d_total_diseq_external( c, 0 ),
-        d_total_diseq_internal( c, 0 ), d_externalDegrees( c ), d_mustCombine( c, false ), d_valid( c, true ) {
+        d_total_diseq_internal( c, 0 ), d_valid( c, true ) {
       }
       ~Region(){}
       //region node infomation
@@ -116,39 +114,40 @@ public:
       //whether region is valid
       context::CDO< bool > d_valid;
     public:
+      /** add rep */
+      void addRep( Node n );
+      //take node from region
+      void takeNode( Region* r, Node n );
+      //merge with other region
+      void combine( Region* r );
+      /** merge */
+      void setEqual( Node a, Node b );
+      //set n1 != n2 to value 'valid', type is whether it is internal/external
+      void setDisequal( Node n1, Node n2, int type, bool valid );
+    public:
       //get num reps
       int getNumReps() { return d_reps_size; }
       //get test clique size
       int getTestCliqueSize() { return d_testCliqueSize; }
       // has representative
       bool hasRep( Node n ) { return d_nodes.find( n )!=d_nodes.end() && d_nodes[n]->d_valid; }
-      //take node from region
-      void takeNode( Region* r, Node n );
-      //merge with other region
-      void combine( Region* r );
-      /** set rep */
-      void setRep( Node n, bool valid );
-      /** merge */
-      void setEqual( Node a, Node b );
-      //set n1 != n2 to value 'valid', type is whether it is internal/external
-      void setDisequal( Node n1, Node n2, int type, bool valid );
       // is disequal
       bool isDisequal( Node n1, Node n2, int type );
-    public:
       /** get must merge */
       bool getMustCombine( int cardinality );
-      /** check for cliques */
-      bool check( Theory::Effort level, int cardinality, std::vector< Node >& clique );
       /** has splits */
       bool hasSplits() { return d_splitsSize>0; }
-      /** add split */
-      void addSplit( OutputChannel* out );
       /** get representatives */
       void getRepresentatives( std::vector< Node >& reps );
-      /** minimize */
-      bool minimize( OutputChannel* out );
       /** get external disequalities */
       void getNumExternalDisequalities( std::map< Node, int >& num_ext_disequalities );
+    public:
+      /** check for cliques */
+      bool check( Theory::Effort level, int cardinality, std::vector< Node >& clique );
+      /** add split */
+      void addSplit( OutputChannel* out );
+      /** minimize */
+      bool minimize( OutputChannel* out );
       //print debug
       void debugPrint( const char* c, bool incClique = false );
     };

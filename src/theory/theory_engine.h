@@ -422,6 +422,11 @@ public:
     d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo, getQuantifiersEngine());
   }
 
+  /**
+   * addComponents, called after all theories have been created
+   */
+  void addComponents();
+
   inline void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
     d_propEngine = propEngine;
@@ -635,9 +640,14 @@ public:
   Node getValue(TNode node);
 
   /**
+   * collect model info
+   */
+  void collectModelInfo( theory::Model* m );
+
+  /**
    * Get the current model
    */
-  void getModel( theory::Model& m );
+  theory::Model* getModel();
 
   /**
    * Get the theory associated to a given Node.

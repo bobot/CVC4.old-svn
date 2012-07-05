@@ -192,7 +192,7 @@ public:
   void preRegisterTerm(TNode term);
   Node explain(TNode n);
 
-  void getModel( Model& m );
+  void collectModelInfo( Model* m );
 
   void ppStaticLearn(TNode in, NodeBuilder<>& learned);
   void presolve();

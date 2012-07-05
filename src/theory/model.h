@@ -37,6 +37,8 @@ public:
   void clear();
   /** has type */
   bool hasType( TypeNode tn ) { return d_type_reps.find( tn )!=d_type_reps.end(); }
+  /** add representative for type */
+  void add( Node n );
   /** set the representatives for type */
   void set( TypeNode t, std::vector< Node >& reps );
   /** returns index in d_type_reps for node n */
@@ -48,18 +50,35 @@ public:
 //representative domain
 typedef std::vector< int > RepDomain;
 
+/** Model class
+ *     Should be used in the following way, for Model m:
+ *       m.clear();
+ *       getTheoryEngine()->collectModelInfo( m );
+ *       m.initialize();
+ *       ....
+ */
 class Model
 {
 public:
   /** equality engine containing all known equalities/disequalities */
   eq::EqualityEngine d_equalityEngine;
+  /** map of representatives to an equivalent constant */
+  std::map< Node, Node > d_constants;
   /** list of all terms for each operator */
-  std::map< Node, std::vector< Node > > d_terms;
+  std::map< Node, std::vector< Node > > d_op_terms;
   /** representative alphabet */
   RepSet d_ra;
+  /** process clear */
+  virtual void processClear() {}
+  /** process initialize */
+  virtual void processInitialize() {}
 public:
   Model( context::Context* c );
   virtual ~Model(){}
+  /** clear */
+  void clear();
+  /** initialize */
+  void initialize();
   /** get value */
   virtual Node getValue( TNode n ) = 0;
 public:
@@ -74,12 +93,34 @@ public:
   static void printRepresentative( const char* c, QuantifiersEngine* qe, Node r );
 };
 
+//default model class: extends model arbitrarily
+class DefaultModel : public Model
+{
+public:
+  DefaultModel( context::Context* c ) : Model( c ){}
+  virtual ~DefaultModel(){}
+public:
+  Node getValue( TNode n );
+};
+
+//model builder class
 class ModelBuilder
 {
 public:
   ModelBuilder(){}
   virtual ~ModelBuilder(){}
-  virtual void buildModel( Model& m ) = 0;
+  virtual Model* getModel() = 0;
+};
+
+class DefaultModelBuilder : public ModelBuilder
+{
+private:
+  DefaultModel d_model;
+  TheoryEngine* d_te;
+public:
+  DefaultModelBuilder( context::Context* c, TheoryEngine* te ) : ModelBuilder(), d_model( c ), d_te( te ){}
+  virtual ~DefaultModelBuilder(){}
+  Model* getModel();
 };
 
 }

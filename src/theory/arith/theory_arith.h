@@ -312,7 +312,7 @@ public:
   Node explain(TNode n);
 
   Node getValue(TNode n);
-  void getModel( Model& m );
+  void collectModelInfo( Model* m );
 
   void shutdown(){ }
 

@@ -16,6 +16,7 @@
 
 #include "theory/model.h"
 #include "theory/quantifiers_engine.h"
+#include "theory/theory_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
 using namespace std;
@@ -29,11 +30,17 @@ void RepSet::clear(){
   d_tmap.clear();
 }
 
+void RepSet::add( Node n ){
+  TypeNode t = n.getType();
+  d_tmap[ n ] = (int)d_type_reps[t].size();
+  d_type_reps[t].push_back( n );
+}
+
 void RepSet::set( TypeNode t, std::vector< Node >& reps ){
-  d_type_reps[t].insert( d_type_reps[t].begin(), reps.begin(), reps.end() );
-  for( int i=0; i<(int)reps.size(); i++ ){
+  for( size_t i=0; i<reps.size(); i++ ){
     d_tmap[ reps[i] ] = i;
   }
+  d_type_reps[t].insert( d_type_reps[t].begin(), reps.begin(), reps.end() );
 }
 
 void RepSet::debugPrint( const char* c, QuantifiersEngine* qe ){
@@ -51,6 +58,36 @@ void RepSet::debugPrint( const char* c, QuantifiersEngine* qe ){
 Model::Model( context::Context* c ) :
 d_equalityEngine( c, "Model" ){
 
+}
+
+void Model::clear(){
+  //reset
+  d_ra.clear();
+  d_op_terms.clear();
+}
+
+void Model::initialize(){
+  //populate term database, store representatives
+  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+  while( !eqcs_i.isFinished() ){
+    Node eqc = (*eqcs_i);
+    d_ra.add( eqc );
+    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
+    while( !eqc_i.isFinished() ){
+      if( (*eqc_i).hasOperator() ){
+        d_op_terms[ (*eqc_i).getOperator() ].push_back( *eqc_i );
+      }
+      if( (*eqc_i).getMetaKind()==kind::metakind::CONSTANT ){
+        d_constants[ eqc ] = *eqc_i;
+      }
+      ++eqc_i;
+    }
+    if( d_constants[ eqc ].isNull() ){
+      //DO_THIS: ensure constant is in the equivalence class of eqc
+      d_constants[ eqc ] = eqc;  //temporary
+    }
+    ++eqcs_i;
+  }
 }
 
 /** add equality */
@@ -101,4 +138,24 @@ void Model::printRepresentative( const char* c, QuantifiersEngine* qe, Node r ){
   }else{
     Debug( c ) << qe->getEqualityQuery()->getRepresentative( r );
   }
+}
+
+Node DefaultModel::getValue( TNode n ){
+  if( d_equalityEngine.hasTerm( n ) ){
+    return d_constants[ d_equalityEngine.getRepresentative( n ) ];
+  }else{
+    TypeNode t = n.getType();
+    if( d_ra.hasType( t ) ){
+      return getValue( d_ra.d_type_reps[t][0] );
+    }else{
+      return n;
+    }
+  }
+}
+
+Model* DefaultModelBuilder::getModel(){
+  d_model.clear();
+  d_te->collectModelInfo( &d_model );
+  d_model.initialize();
+  return &d_model;
 }

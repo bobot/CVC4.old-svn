@@ -1953,7 +1953,7 @@ Node TheoryArith::getValue(TNode n) {
   }
 }
 
-void TheoryArith::getModel( Model& m ){
+void TheoryArith::collectModelInfo( Model* m ){
 
 }
 

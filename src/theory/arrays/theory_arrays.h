@@ -220,7 +220,7 @@ class TheoryArrays : public Theory {
   public:
 
   Node getValue(TNode n);
-  void getModel( Model& m );
+  void collectModelInfo( Model* m );
 
   /////////////////////////////////////////////////////////////////////////////
   // NOTIFICATIONS

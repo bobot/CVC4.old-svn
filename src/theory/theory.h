@@ -587,7 +587,7 @@ public:
    * model.  This should be called after a call to check( FULL_EFFORT )
    * for all theories with no conflicts and no lemmas added.
    */
-  virtual void getModel( Model& m ){
+  virtual void collectModelInfo( Model* m ){
     Unimplemented("Theory %s doesn't support Theory::getModel interface",
                   identify().c_str());
   }
@@ -855,14 +855,15 @@ public:
   virtual void preRegisterTerm( Node t ) { }
   /** assertNode function, assertion was asserted to theory */
   virtual void assertNode( Node assertion ){}
-  /** reset instantiation round */
-  void resetInstantiationRound( Theory::Effort effort );
-  /** do instantiation method*/
-  int doInstantiation( Node f, Theory::Effort effort, int e );
   /** identify */
   virtual std::string identify() const { return std::string("Unknown"); }
   /** print debug information */
   virtual void debugPrint( const char* c ) {}
+public:
+  /** reset instantiation round */
+  void resetInstantiationRound( Theory::Effort effort );
+  /** do instantiation method*/
+  int doInstantiation( Node f, Theory::Effort effort, int e );
 public:
   /** general queries about equality */
   virtual bool hasTerm( Node a ) { return false; }

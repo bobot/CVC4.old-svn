@@ -134,7 +134,7 @@ Node TheoryBool::getValue(TNode n) {
   }
 }
 
-void TheoryBool::getModel( Model& m ){
+void TheoryBool::collectModelInfo( Model* m ){
 
 }
 

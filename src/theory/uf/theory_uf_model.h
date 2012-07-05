@@ -27,7 +27,7 @@ namespace theory {
 class QuantifiersEngine;
 
 namespace quantifiers{
-  class ModelEngine;
+  class ExtendedModel;
 }
 
 namespace uf {
@@ -120,7 +120,8 @@ class UfModel
 {
 private:
   Node d_op;
-  quantifiers::ModelEngine* d_me;
+  quantifiers::ExtendedModel* d_model;
+  QuantifiersEngine* d_qe;
   std::vector< Node > d_ground_asserts;
   std::vector< Node > d_ground_asserts_reps;
   bool d_model_constructed;
@@ -144,7 +145,7 @@ private:
   static void computeModelBasisArgAttribute( Node n );
 public:
   UfModel(){}
-  UfModel( Node op, quantifiers::ModelEngine* qe );
+  UfModel( Node op, quantifiers::ExtendedModel* m, QuantifiersEngine* qe );
   ~UfModel(){}
   //data structure that stores the model
   UfModelTreeOrdered d_tree;

@@ -34,6 +34,8 @@ namespace theory {
 namespace quantifiers {
 
 class TheoryEngine;
+class ModelEngine;
+class InstantiationEngine;
 
 class TheoryQuantifiers : public Theory {
 private:
@@ -59,7 +61,7 @@ public:
   void check(Effort e);
   void propagate(Effort level);
   Node getValue(TNode n);
-  void getModel( Model& m );
+  void collectModelInfo( Model* m );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
   bool flipDecision();

@@ -29,9 +29,6 @@ namespace quantifiers {
 class InstantiationEngine : public QuantifiersModule
 {
 private:
-  TheoryQuantifiers* d_th;
-  QuantifiersEngine* getQuantifiersEngine();
-private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
   /** status of instantiation round (one of InstStrategy::STATUS_*) */
   int d_inst_round_status;
@@ -61,7 +58,7 @@ private:
   /** debug sat */
   void debugSat( int reason );
 public:
-  InstantiationEngine( TheoryQuantifiers* th, bool setIncomplete = true );
+  InstantiationEngine( QuantifiersEngine* qe, bool setIncomplete = true );
   ~InstantiationEngine(){}
 
   void check( Theory::Effort e );

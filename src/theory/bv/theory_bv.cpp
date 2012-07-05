@@ -141,7 +141,7 @@ Node TheoryBV::getValue(TNode n) {
   }
 }
 
-void TheoryBV::getModel( Model& m ){
+void TheoryBV::collectModelInfo( Model* m ){
 
 }
 

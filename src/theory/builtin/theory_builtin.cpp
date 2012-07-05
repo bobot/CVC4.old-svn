@@ -60,7 +60,7 @@ Node TheoryBuiltin::getValue(TNode n) {
   }
 }
 
-void TheoryBuiltin::getModel( Model& m ){
+void TheoryBuiltin::collectModelInfo( Model* m ){
 
 }
 

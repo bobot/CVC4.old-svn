@@ -99,8 +99,10 @@ public:
 };/* class InstStrategy */
 
 class QuantifiersModule {
+protected:
+  QuantifiersEngine* d_quantEngine;
 public:
-  QuantifiersModule(){}
+  QuantifiersModule( QuantifiersEngine* qe ) : d_quantEngine( qe ){}
   ~QuantifiersModule(){}
   /* Call during check registerQuantifier has already been called */
   virtual void check( Theory::Effort e ) = 0;
@@ -173,6 +175,10 @@ private:
   TheoryEngine* d_te;
   /** vector of modules for quantifiers */
   std::vector< QuantifiersModule* > d_modules;
+  /** instantiation engine */
+  quantifiers::InstantiationEngine* d_inst_engine;
+  /** model engine */
+  quantifiers::ModelEngine* d_model_engine;
   /** equality query class */
   EqualityQuery* d_eq_query;
 
@@ -247,9 +253,19 @@ public:
   TheoryEngine* getTheoryEngine() { return d_te; }
   /** get equality query object */
   EqualityQuery* getEqualityQuery() { return d_eq_query; }
+  /** get instantiation engine */
+  quantifiers::InstantiationEngine* getInstantiationEngine() { return d_inst_engine; }
+  /** get model engine */
+  quantifiers::ModelEngine* getModelEngine() { return d_model_engine; }
+  /** get default sat context for quantifiers engine */
+  context::Context* getSatContext();
+  /** get default output channel for the quantifiers engine */
+  OutputChannel& getOutputChannel();
+  /** get default valuation for the quantifiers engine */
+  Valuation& getValuation();
 public:
-  /** add module */
-  void addModule( QuantifiersModule* qm ) { d_modules.push_back( qm ); }
+  /** addComponents, called after all theories have been created */
+  void addComponents();
   /** check at level */
   void check( Theory::Effort e );
   /** register (non-rewritten) quantifier */

@@ -22,6 +22,8 @@
 #include "theory/arrays/theory_arrays.h"
 #include "theory/datatypes/theory_datatypes.h"
 #include "theory/quantifiers/quantifiers_rewriter.h"
+#include "theory/quantifiers/model_engine.h"
+#include "theory/quantifiers/instantiation_engine.h"
 
 using namespace std;
 using namespace CVC4;
@@ -207,6 +209,35 @@ d_active( c ){
 
 Instantiator* QuantifiersEngine::getInstantiator( int id ){
   return d_te->getTheory( id )->getInstantiator();
+}
+
+context::Context* QuantifiersEngine::getSatContext(){
+  return d_te->getTheory( THEORY_QUANTIFIERS )->getSatContext();
+}
+
+OutputChannel& QuantifiersEngine::getOutputChannel(){
+  return d_te->getTheory( THEORY_QUANTIFIERS )->getOutputChannel();
+}
+/** get default valuation for the quantifiers engine */
+Valuation& QuantifiersEngine::getValuation(){
+  return d_te->getTheory( THEORY_QUANTIFIERS )->getValuation();
+}
+
+void QuantifiersEngine::addComponents(){
+  //add quantifiers modules
+  if( !Options::current()->finiteModelFind || Options::current()->fmfInstEngine ){
+    //the instantiation must set incomplete flag unless finite model finding is turned on
+    d_inst_engine = new quantifiers::InstantiationEngine( this, !Options::current()->finiteModelFind );
+    d_modules.push_back(  d_inst_engine );
+  }else{
+    d_inst_engine = NULL;
+  }
+  if( Options::current()->finiteModelFind ){
+    d_model_engine = new quantifiers::ModelEngine( this );
+    d_modules.push_back( d_model_engine );
+  }else{
+    d_model_engine = NULL;
+  }
 }
 
 void QuantifiersEngine::check( Theory::Effort e ){
@@ -516,9 +547,12 @@ bool QuantifiersEngine::addSplitEquality( Node n1, Node n2, bool reqPhase, bool 
 
 void QuantifiersEngine::flushLemmas( OutputChannel* out ){
   if( !d_lemmas_waiting.empty() ){
+    //take default output channel if none is provided
     d_hasAddedLemma = true;
     for( int i=0; i<(int)d_lemmas_waiting.size(); i++ ){
-      out->lemma( d_lemmas_waiting[i] );
+      if( out ){
+        out->lemma( d_lemmas_waiting[i] );
+      }
     }
     d_lemmas_waiting.clear();
   }

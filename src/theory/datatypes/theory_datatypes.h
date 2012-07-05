@@ -151,7 +151,7 @@ public:
   void addSharedTerm(TNode t);
   void check(Effort e);
   Node getValue(TNode n);
-  void getModel( Model& m );
+  void collectModelInfo( Model* m );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }
 

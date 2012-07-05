@@ -629,7 +629,7 @@ Node TheoryDatatypes::getValue(TNode n) {
   }
 }
 
-void TheoryDatatypes::getModel( Model& m ){
+void TheoryDatatypes::collectModelInfo( Model* m ){
 
 }
 
