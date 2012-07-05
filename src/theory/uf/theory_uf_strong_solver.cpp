@@ -1323,7 +1323,8 @@ bool StrongSolverTheoryUf::isRelevantType( TypeNode t ){
          t!=NodeManager::currentNM()->realType() &&
          t!=NodeManager::currentNM()->builtinOperatorType() &&
          !t.isFunction() &&
-         !t.isDatatype();
+         !t.isDatatype() &&
+         !t.isArray();
 }
 
 bool StrongSolverTheoryUf::involvesRelevantType( Node n ){

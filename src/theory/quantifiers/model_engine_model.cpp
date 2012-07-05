@@ -39,9 +39,10 @@ void ExtendedModel::buildModel(){
   debugPrint("fmf-model-complete");
 }
 
-Node ExtendedModel::getValue( TNode n ){
+Node ExtendedModel::getInterpretedValue( TNode n ){
   if( n.getKind()==APPLY_UF ){
-
+    int depIndex;
+    return d_uf_model[ n.getOperator() ].getValue( n, depIndex );
   }
   return n;
 }
@@ -55,14 +56,4 @@ void ExtendedModel::debugPrint( const char* c ){
     it->second.debugPrint( c );
     Debug( c ) << std::endl;
   }
-}
-
-bool ExtendedModel::areEqual( Node a, Node b ){
-  return d_qe->getEqualityQuery()->areEqual( a, b );
-  //return d_equalityEngine.areEqual( a, b );
-}
-
-bool ExtendedModel::areDisequal( Node a, Node b ){
-  return d_qe->getEqualityQuery()->areDisequal( a, b );
-  //return d_equalityEnginee.areDisequal( a, b );
 }

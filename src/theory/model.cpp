@@ -57,7 +57,8 @@ void RepSet::debugPrint( const char* c, QuantifiersEngine* qe ){
 
 Model::Model( context::Context* c ) :
 d_equalityEngine( c, "Model" ){
-
+  d_true = NodeManager::currentNM()->mkConst( true );
+  d_false = NodeManager::currentNM()->mkConst( false );
 }
 
 void Model::clear(){
@@ -87,6 +88,38 @@ void Model::initialize(){
       d_constants[ eqc ] = eqc;  //temporary
     }
     ++eqcs_i;
+  }
+}
+
+Node Model::getValue( TNode n ){
+  //DO_THIS
+  if( d_equalityEngine.hasTerm( n ) ){
+    return d_constants[ d_equalityEngine.getRepresentative( n ) ];
+  }else{
+    return getInterpretedValue( n );
+  }
+}
+
+Node Model::getArbitraryValue( TypeNode tn, std::vector< Node >& exclude ){
+  Node retVal;
+  if( tn==NodeManager::currentNM()->booleanType() ){
+    if( exclude.empty() ){
+      retVal = d_false;
+    }else if( exclude.size()==1 ){
+      retVal = NodeManager::currentNM()->mkConst( areEqual( exclude[0], d_false ) );
+    }
+  }else if( d_ra.d_type_reps.find( tn )!=d_ra.d_type_reps.end() ){
+    for( size_t i=0; i<d_ra.d_type_reps[tn].size(); i++ ){
+      if( std::find( exclude.begin(), exclude.end(), d_ra.d_type_reps[tn][i] )==exclude.end() ){
+        retVal = d_ra.d_type_reps[tn][i];
+        break;
+      }
+    }
+  }
+  if( !retVal.isNull() ){
+    return getRepresentative( retVal );
+  }else{
+    return Node::null();
   }
 }
 
@@ -124,6 +157,18 @@ void Model::assertEqualityEngine( eq::EqualityEngine* ee ){
   }
 }
 
+Node Model::getRepresentative( Node a ){
+  return d_equalityEngine.getRepresentative( a );
+}
+
+bool Model::areEqual( Node a, Node b ){
+  return d_equalityEngine.areEqual( a, b );
+}
+
+bool Model::areDisequal( Node a, Node b ){
+  return d_equalityEngine.areDisequal( a, b, false );
+}
+
 //for debugging
 void Model::printRepresentative( const char* c, QuantifiersEngine* qe, Node r ){
   Assert( !r.isNull() );
@@ -140,16 +185,14 @@ void Model::printRepresentative( const char* c, QuantifiersEngine* qe, Node r ){
   }
 }
 
-Node DefaultModel::getValue( TNode n ){
-  if( d_equalityEngine.hasTerm( n ) ){
-    return d_constants[ d_equalityEngine.getRepresentative( n ) ];
+Node DefaultModel::getInterpretedValue( TNode n ){
+  TypeNode t = n.getType();
+  std::vector< Node > v_emp;
+  Node n2 = getArbitraryValue( t, v_emp );
+  if( !n2.isNull() ){
+    return d_constants[ d_equalityEngine.getRepresentative( n2 ) ];
   }else{
-    TypeNode t = n.getType();
-    if( d_ra.hasType( t ) ){
-      return getValue( d_ra.d_type_reps[t][0] );
-    }else{
-      return n;
-    }
+    return n;
   }
 }
 

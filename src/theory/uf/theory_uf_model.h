@@ -158,8 +158,10 @@ public:
 public:
   /** debug print */
   void debugPrint( const char* c );
+  /** get value */
+  Node getValue( Node n, int& depIndex );
   /** get constant value */
-  Node getConstantValue( QuantifiersEngine* qe, Node n );
+  Node getConstantValue( Node n );
   /** is empty */
   bool isEmpty() { return d_ground_asserts.empty(); }
   /** is constant */
@@ -168,7 +170,7 @@ public:
   /** build model */
   void buildModel();
   /** make model */
-  void makeModel( QuantifiersEngine* qe, UfModelTreeOrdered& tree );
+  void makeModel( UfModelTreeOrdered& tree );
   /** compute relevant domain */
   void computeRelevantDomain();
 public:

@@ -298,7 +298,7 @@ void UfModel::setValue( Node n, Node v, bool ground, bool isReq ){
 }
 
 void UfModel::setModel(){
-  makeModel( d_qe, d_tree );
+  makeModel( d_tree );
   d_model_constructed = true;
 }
 
@@ -313,9 +313,13 @@ void UfModel::clearModel(){
   d_active_range.clear();
 }
 
-Node UfModel::getConstantValue( QuantifiersEngine* qe, Node n ){
+Node UfModel::getValue( Node n, int& depIndex ){
+  return d_tree.getValue( d_qe, n, depIndex );
+}
+
+Node UfModel::getConstantValue( Node n ){
   if( d_model_constructed ){
-    return d_tree.getConstantValue( qe, n );
+    return d_tree.getConstantValue( d_qe, n );
   }else{
     return Node::null();
   }
@@ -323,7 +327,7 @@ Node UfModel::getConstantValue( QuantifiersEngine* qe, Node n ){
 
 bool UfModel::isConstant(){
   Node gn = d_qe->getModelEngine()->getModelBasisOpTerm( d_op );
-  Node n = getConstantValue( d_qe, gn );
+  Node n = getConstantValue( gn );
   return !n.isNull();
 }
 
@@ -397,7 +401,7 @@ void UfModel::buildModel(){
         //consider finding another value, if possible
         Debug("fmf-model-cons-debug") << "Poor choice for default value, score = " << maxScore << std::endl;
         TypeNode tn = d_op.getType();
-        Node newDefaultVal = d_qe->getModelEngine()->getArbitraryElement( tn[(int)tn.getNumChildren()-1], d_values );
+        Node newDefaultVal = d_model->getArbitraryValue( tn[(int)tn.getNumChildren()-1], d_values );
         if( !newDefaultVal.isNull() ){
           defaultVal = newDefaultVal;
           Debug("fmf-model-cons-debug") << "-> Change default value to ";
@@ -454,11 +458,11 @@ void UfModel::setValuePreference( Node f, Node n, bool isPro ){
   d_term_pro_con[index][n].push_back( f );
 }
 
-void UfModel::makeModel( QuantifiersEngine* qe, UfModelTreeOrdered& tree ){
+void UfModel::makeModel( UfModelTreeOrdered& tree ){
   for( int j=0; j<2; j++ ){
     for( int k=0; k<2; k++ ){
       for( std::map< Node, Node >::iterator it = d_set_values[j][k].begin(); it != d_set_values[j][k].end(); ++it ){
-        tree.setValue( qe, it->first, it->second, k==1 );
+        tree.setValue( d_qe, it->first, it->second, k==1 );
       }
     }
   }

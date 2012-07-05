@@ -62,12 +62,8 @@ public:
   virtual ~ExtendedModel(){}
   /** build model */
   void buildModel();
-  /** get value */
-  Node getValue( TNode n );
-public:
-  //queries about equality
-  bool areEqual( Node a, Node b );
-  bool areDisequal( Node a, Node b );
+  /** get interpreted value */
+  Node getInterpretedValue( TNode n );
 public:
   void debugPrint( const char* c );
 };

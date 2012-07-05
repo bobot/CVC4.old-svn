@@ -45,8 +45,7 @@ QuantifiersModule( qe ),
 d_builder(*this),
 d_model( qe, qe->getSatContext() ),
 d_rel_domain( qe, &d_model ){
-  d_true = NodeManager::currentNM()->mkConst( true );
-  d_false = NodeManager::currentNM()->mkConst( false );
+
 }
 
 void ModelEngine::check( Theory::Effort e ){
@@ -257,9 +256,17 @@ int ModelEngine::initializeQuantifier( Node f ){
 
 void ModelEngine::buildRepresentatives(){
   //initialize the model
-  //d_model.clear();
-  //d_quantEngine->getTheoryEngine()->collectModelInfo( &d_model );
-  //d_model.initialize();
+  d_model.clear();
+  d_quantEngine->getTheoryEngine()->collectModelInfo( &d_model );
+  d_model.initialize();
+  if( Options::current()->printModelEngine ){
+    for( std::map< TypeNode, std::vector< Node > >::iterator it = d_model.d_ra.d_type_reps.begin(); it != d_model.d_ra.d_type_reps.end(); ++it ){
+      if( uf::StrongSolverTheoryUf::isRelevantType( it->first ) ){
+        Message() << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
+      }
+    }
+  }
+/*
   //old method
   d_model.d_ra.clear();
   uf::StrongSolverTheoryUf* ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
@@ -289,6 +296,7 @@ void ModelEngine::buildRepresentatives(){
     //  std::cout << reps.size() << " " << d_model.d_ra.d_type_reps[tn].size() << std::endl;
     //}
   }
+*/
 }
 
 void ModelEngine::initializeModel(){
@@ -296,7 +304,7 @@ void ModelEngine::initializeModel(){
   d_quant_sat.clear();
   d_model.d_uf_model.clear();
 
-  for( size_t i=0; i<d_quantEngine->getNumAssertedQuantifiers(); i++ ){
+  for( int i=0; i<d_quantEngine->getNumAssertedQuantifiers(); i++ ){
     Node f = d_quantEngine->getAssertedQuantifier( i );
     //collect uf terms and initialize uf models
     std::vector< Node > terms;
@@ -429,7 +437,7 @@ int ModelEngine::doInstGen( Node f ){
     std::vector< Node > tr_terms;
     if( lit.getKind()==APPLY_UF ){
       //only match predicates that are contrary to this one, use literal matching
-      Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? d_true : d_false );
+      Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? d_model.d_true : d_model.d_false );
       d_quantEngine->setInstantiationConstantAttr( eq, f );
       tr_terms.push_back( eq );
     }else if( lit.getKind()==EQUAL ){
@@ -582,29 +590,6 @@ void ModelEngine::registerModelBasis( Node n, Node gn ){
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
       registerModelBasis( n[i], gn[i] );
     }
-  }
-}
-
-Node ModelEngine::getArbitraryElement( TypeNode tn, std::vector< Node >& exclude ){
-  Node retVal;
-  if( tn==NodeManager::currentNM()->booleanType() ){
-    if( exclude.empty() ){
-      retVal = d_false;
-    }else if( exclude.size()==1 ){
-      retVal = NodeManager::currentNM()->mkConst( d_model.areEqual( exclude[0], d_false ) );
-    }
-  }else if( d_model.d_ra.d_type_reps.find( tn )!=d_model.d_ra.d_type_reps.end() ){
-    for( size_t i=0; i<d_model.d_ra.d_type_reps[tn].size(); i++ ){
-      if( std::find( exclude.begin(), exclude.end(), d_model.d_ra.d_type_reps[tn][i] )==exclude.end() ){
-        retVal = d_model.d_ra.d_type_reps[tn][i];
-        break;
-      }
-    }
-  }
-  if( !retVal.isNull() ){
-    return d_quantEngine->getEqualityQuery()->getRepresentative( retVal );
-  }else{
-    return Node::null();
   }
 }
 

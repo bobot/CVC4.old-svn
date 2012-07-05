@@ -107,8 +107,8 @@ public:
   virtual ~RepSetEvaluator(){}
   /** evaluate functions */
   int evaluate( Node n, int& depIndex );
-  int evaluateEquality( Node n1, Node n2, Node gn1, Node gn2, int& depIndex );
-  Node evaluateTerm( Node n, Node gn, int& depIndex );
+  int evaluateEquality( Node n1, Node n2, int& depIndex );
+  Node evaluateTerm( Node n, int& depIndex );
 };
 
 

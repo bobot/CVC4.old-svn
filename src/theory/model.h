@@ -59,6 +59,11 @@ typedef std::vector< int > RepDomain;
  */
 class Model
 {
+protected:
+  /** process clear */
+  virtual void processClear() {}
+  /** process initialize */
+  virtual void processInitialize() {}
 public:
   /** equality engine containing all known equalities/disequalities */
   eq::EqualityEngine d_equalityEngine;
@@ -68,10 +73,9 @@ public:
   std::map< Node, std::vector< Node > > d_op_terms;
   /** representative alphabet */
   RepSet d_ra;
-  /** process clear */
-  virtual void processClear() {}
-  /** process initialize */
-  virtual void processInitialize() {}
+  //true/false nodes
+  Node d_true;
+  Node d_false;
 public:
   Model( context::Context* c );
   virtual ~Model(){}
@@ -80,7 +84,11 @@ public:
   /** initialize */
   void initialize();
   /** get value */
-  virtual Node getValue( TNode n ) = 0;
+  Node getValue( TNode n );
+  /** get value */
+  virtual Node getInterpretedValue( TNode n ) = 0;
+  /** get arbitrary value */
+  Node getArbitraryValue( TypeNode tn, std::vector< Node >& exclude );
 public:
   /** assert equality */
   void assertEquality( Node a, Node b, bool polarity );
@@ -88,6 +96,11 @@ public:
   void assertPredicate( Node a, bool polarity );
   /** assert equality engine */
   void assertEqualityEngine( eq::EqualityEngine* ee );
+public:
+  //queries about equality
+  Node getRepresentative( Node a );
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
 public:
   /** print representative function */
   static void printRepresentative( const char* c, QuantifiersEngine* qe, Node r );
@@ -100,7 +113,7 @@ public:
   DefaultModel( context::Context* c ) : Model( c ){}
   virtual ~DefaultModel(){}
 public:
-  Node getValue( TNode n );
+  Node getInterpretedValue( TNode n );
 };
 
 //model builder class

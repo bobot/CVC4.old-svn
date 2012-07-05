@@ -51,9 +51,6 @@ private:
 private:
   //the model builder
   ModelEngineModelBuilder d_builder;
-  //true/false nodes
-  Node d_true;
-  Node d_false;
   //which quantifiers have been initialized
   std::map< Node, bool > d_quant_init;
   //map from quantifiers to if are constant SAT
@@ -117,8 +114,6 @@ public:
   Model* getModel();
   //get representatives
   RepSet* getReps() { return &d_model.d_ra; }
-  //get arbitrary element
-  Node getArbitraryElement( TypeNode tn, std::vector< Node >& exclude );
   //get model basis term
   Node getModelBasisTerm( TypeNode tn, int i = 0 );
   //get model basis term for op
