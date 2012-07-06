@@ -55,7 +55,7 @@ void RepSet::debugPrint( const char* c ){
   }
 }
 
-Model::Model( TheoryEngine* te, std::string& name ) :
+Model::Model( TheoryEngine* te, std::string name ) :
 d_te( te ),
 d_equalityEngine( te->getSatContext(), name ){
   d_useConstantReps = true;
@@ -229,7 +229,7 @@ void Model::printRepresentative( const char* c, Node r ){
   }
 }
 
-DefaultModel::DefaultModel( TheoryEngine* te, std::string& name ) : Model( te, name ){
+DefaultModel::DefaultModel( TheoryEngine* te, std::string name ) : Model( te, name ){
 
 }
 

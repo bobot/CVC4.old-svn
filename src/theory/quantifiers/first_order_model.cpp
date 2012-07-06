@@ -26,7 +26,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string& name ) : Model( qe->getTheoryEngine(), name ),
+FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : Model( qe->getTheoryEngine(), name ),
 d_qe( qe ), d_forall_asserts( c ){
 
 }

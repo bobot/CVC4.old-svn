@@ -60,7 +60,7 @@ public: //for Theory Quantifiers:
   /** get asserted quantifier */
   Node getAssertedQuantifier( int i ) { return d_forall_asserts[i]; }
 public:
-  FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string& name );
+  FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name );
   virtual ~FirstOrderModel(){}
   /** build model */
   void buildModel();

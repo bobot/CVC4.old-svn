@@ -75,7 +75,7 @@ public:
   Node d_true;
   Node d_false;
 public:
-  Model( TheoryEngine* te, std::string& name );
+  Model( TheoryEngine* te, std::string name );
   virtual ~Model(){}
   /** initialize */
   void initialize();
@@ -107,7 +107,7 @@ public:
 class DefaultModel : public Model
 {
 public:
-  DefaultModel( TheoryEngine* te, std::string& name );
+  DefaultModel( TheoryEngine* te, std::string name );
   virtual ~DefaultModel(){}
 public:
   Node getInterpretedValue( TNode n );
@@ -117,7 +117,7 @@ public:
 class IncompleteModel : public Model
 {
 public:
-  IncompleteModel( TheoryEngine* te, std::string& name ) : Model( te, name ){}
+  IncompleteModel( TheoryEngine* te, std::string name ) : Model( te, name ){}
   virtual ~IncompleteModel(){}
 public:
   Node getInterpretedValue( TNode n ) { return Node::null(); }

@@ -67,7 +67,7 @@ d_active( c ){
   d_hasAddedLemma = false;
 
   //the model object
-  d_model = new ExtendedModel( this, c, "FirstOrderModel );
+  d_model = new ExtendedModel( this, c, "FirstOrderModel" );
   d_model->d_useConstantReps = false;
 
   //options
