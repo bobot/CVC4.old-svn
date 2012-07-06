@@ -32,8 +32,6 @@
 #define EVAL_FAIL_SKIP_MULTIPLE
 //#define ONE_QUANT_PER_ROUND_INST_GEN
 //#define ONE_QUANT_PER_ROUND
-//#define USE_RELEVANT_DOMAIN
-//#define USE_EXTENDED_MODEL
 
 using namespace std;
 using namespace CVC4;
@@ -119,12 +117,13 @@ void ModelEngine::check( Theory::Effort e ){
         }
         d_triedLemmas = 0;
         d_testLemmas = 0;
+        d_relevantLemmas = 0;
         d_totalLemmas = 0;
         Debug("fmf-model-debug") << "Do exhaustive instantiation..." << std::endl;
         for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
           Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
           if( d_quant_sat.find( f )==d_quant_sat.end() ){
-            addedLemmas += exhaustiveInstantiate( f );
+            addedLemmas += exhaustiveInstantiate( f, optUseRelevantDomain() );
             if( optOneQuantPerRound() && addedLemmas>0 ){
               break;
             }
@@ -136,10 +135,10 @@ void ModelEngine::check( Theory::Effort e ){
 #endif
         }
         Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
-        Debug("fmf-model-debug") << d_testLemmas << " / " << d_totalLemmas << std::endl;
+        Debug("fmf-model-debug") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
         if( Options::current()->printModelEngine ){
           Message() << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
-          Message() << d_testLemmas << " / " << d_totalLemmas << std::endl;
+          Message() << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
           double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
           Message() << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
         }
@@ -184,11 +183,7 @@ bool ModelEngine::optInstGen(){
 }
 
 bool ModelEngine::optUseRelevantDomain(){
-#ifdef USE_RELEVANT_DOMAIN
-  return true;
-#else
-  return false;
-#endif
+  return Options::current()->fmfRelevantDomain;
 }
 
 bool ModelEngine::optOneQuantPerRoundInstGen(){
@@ -565,12 +560,16 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
   d_statistics.d_eval_eqs += reval.d_eval_eqs;
   d_statistics.d_eval_uf_terms += reval.d_eval_uf_terms;
   int totalInst = 1;
+  int relevantInst = 1;
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
     totalInst = totalInst * (int)d_quantEngine->getModel()->d_ra.d_type_reps[ f[0][i].getType() ].size();
+    relevantInst = relevantInst * (int)riter.d_domain[i].size();
   }
   d_totalLemmas += totalInst;
+  d_relevantLemmas += relevantInst;
   Debug("inst-fmf-ei") << "Finished: " << std::endl;
-  Debug("inst-fmf-ei") << "   Inst Skipped: " << (totalInst-triedLemmas) << std::endl;
+  Debug("inst-fmf-ei") << "   Inst Total: " << totalInst << std::endl;
+  Debug("inst-fmf-ei") << "   Inst Relevant: " << relevantInst << std::endl;
   Debug("inst-fmf-ei") << "   Inst Tried: " << triedLemmas << std::endl;
   Debug("inst-fmf-ei") << "   Inst Added: " << addedLemmas << std::endl;
   Debug("inst-fmf-ei") << "   # Tests: " << tests << std::endl;
@@ -578,7 +577,8 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
 #ifdef ME_PRINT_WARNINGS
   if( addedLemmas>1000 ){
     Notice() << "WARNING: many instantiations produced for " << f << ": " << std::endl;
-    Notice() << "   Inst Skipped: " << (totalInst-triedLemmas) << std::endl;
+    Notice() << "   Inst Total: " << totalInst << std::endl;
+    Notice() << "   Inst Relevant: " << totalRelevant << std::endl;
     Notice() << "   Inst Tried: " << triedLemmas << std::endl;
     Notice() << "   Inst Added: " << addedLemmas << std::endl;
     Notice() << "   # Tests: " << tests << std::endl;

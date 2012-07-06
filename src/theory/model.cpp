@@ -225,7 +225,11 @@ bool Model::hasTerm( Node a ){
 }
 
 Node Model::getRepresentative( Node a ){
-  return d_reps[ d_equalityEngine.getRepresentative( a ) ];
+  if( d_equalityEngine.hasTerm( a ) ){
+    return d_reps[ d_equalityEngine.getRepresentative( a ) ];
+  }else{
+    return a;
+  }
 }
 
 bool Model::areEqual( Node a, Node b ){

@@ -90,7 +90,7 @@ bool RelevantDomain::computeRelevantInstantiationDomain( Node n, Node parent, in
     if( parent.getKind()==APPLY_UF ){
       //if the child of APPLY_UF term f( ... ), only consider the active domain of f at given argument
       Node op = parent.getOperator();
-      if( d_model->d_uf_model.find( op )!=d_model->d_uf_model.end() ){
+      if( d_active_domain.find( op )!=d_active_domain.end() ){
         for( size_t i=0; i<d_active_domain[op][arg].size(); i++ ){
           int d = d_active_domain[op][arg][i];
           if( std::find( rd[vi].begin(), rd[vi].end(), d )==rd[vi].end() ){
@@ -104,13 +104,16 @@ bool RelevantDomain::computeRelevantInstantiationDomain( Node n, Node parent, in
     if( !domainSet ){
       //otherwise, we must consider the entire domain
       TypeNode tn = n.getType();
-      Assert( d_model->d_ra.hasType( tn ) );
-      if( rd[vi].size()!=d_model->d_ra.d_type_reps[tn].size() ){
-        rd[vi].clear();
-        for( size_t i=0; i<d_model->d_ra.d_type_reps[tn].size(); i++ ){
-          rd[vi].push_back( i );
-          domainChanged = true;
+      if( d_model->d_ra.hasType( tn ) ){
+        if( rd[vi].size()!=d_model->d_ra.d_type_reps[tn].size() ){
+          rd[vi].clear();
+          for( size_t i=0; i<d_model->d_ra.d_type_reps[tn].size(); i++ ){
+            rd[vi].push_back( i );
+            domainChanged = true;
+          }
         }
+      }else{
+        //infinite domain?
       }
     }
   }else{
@@ -126,8 +129,8 @@ bool RelevantDomain::computeRelevantInstantiationDomain( Node n, Node parent, in
 bool RelevantDomain::extendFunctionDomains( Node n, RepDomain& range ){
   if( n.getKind()==INST_CONSTANT ){
     Node f = n.getAttribute(InstConstantAttribute());
-    int index = n.getAttribute(InstVarNumAttribute());
-    range.insert( range.begin(), d_quant_inst_domain[f][index].begin(), d_quant_inst_domain[f][index].end() );
+    int var = n.getAttribute(InstVarNumAttribute());
+    range.insert( range.begin(), d_quant_inst_domain[f][var].begin(), d_quant_inst_domain[f][var].end() );
     return false;
   }else{
     Node op;
@@ -141,19 +144,25 @@ bool RelevantDomain::extendFunctionDomains( Node n, RepDomain& range ){
         domainChanged = true;
       }
       if( n.getKind()==APPLY_UF ){
-        for( int j=0; j<(int)childRange.size(); j++ ){
-          int v = childRange[j];
-          if( std::find( d_active_domain[op][i].begin(), d_active_domain[op][i].end(), v )==d_active_domain[op][i].end() ){
-            d_active_domain[op][i].push_back( v );
-            domainChanged = true;
+        if( d_active_domain.find( op )!=d_active_domain.end() ){
+          for( int j=0; j<(int)childRange.size(); j++ ){
+            int v = childRange[j];
+            if( std::find( d_active_domain[op][i].begin(), d_active_domain[op][i].end(), v )==d_active_domain[op][i].end() ){
+              d_active_domain[op][i].push_back( v );
+              domainChanged = true;
+            }
           }
+        }else{
+          //do this?
         }
       }
     }
     //get the range
     if( n.hasAttribute(InstConstantAttribute()) ){
-      if( n.getKind()==APPLY_UF ){
+      if( n.getKind()==APPLY_UF && d_active_range.find( op )!=d_active_range.end() ){
         range.insert( range.end(), d_active_range[op].begin(), d_active_range[op].end() );
+      }else{
+        //infinite range?
       }
     }else{
       Node r = d_model->getRepresentative( n );

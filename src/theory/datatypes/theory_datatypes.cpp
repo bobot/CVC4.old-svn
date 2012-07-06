@@ -95,6 +95,9 @@ void TheoryDatatypes::notifyCongruent(TNode lhs, TNode rhs) {
 
 void TheoryDatatypes::preRegisterTerm(TNode n) {
   Debug("datatypes-prereg") << "TheoryDatatypes::preRegisterTerm() " << n << endl;
+  if( n.getType().isDatatype() ){
+    d_preRegTerms.push_back( n );
+  }
 }
 
 
@@ -618,7 +621,11 @@ void TheoryDatatypes::updateSelectors( Node a ) {
 }
 
 void TheoryDatatypes::collectModelInfo( Model* m ){
-
+  //temporary
+  for( int i=0; i<(int)d_preRegTerms.size(); i++ ){
+    Node n = find( d_preRegTerms[i] );
+    m->assertEquality( n, d_preRegTerms[i], true );
+  }
 }
 
 bool TheoryDatatypes::hasInterpretedValue( TNode n ){

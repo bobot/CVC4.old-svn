@@ -181,11 +181,11 @@ public:
     bool disambiguateTerms( OutputChannel* out );
   private:
     /** check if we need to combine region ri */
-    bool checkRegion( int ri, bool rec = true );
+    void checkRegion( int ri, bool rec = true );
     /** force combine region */
-    bool forceCombineRegion( int ri, bool useDensity = true );
+    int forceCombineRegion( int ri, bool useDensity = true );
     /** merge regions */
-    void combineRegions( int ai, int bi );
+    int combineRegions( int ai, int bi );
     /** move node n to region ri */
     void moveNode( Node n, int ri );
   private:

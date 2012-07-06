@@ -155,6 +155,7 @@ Options::Options() :
   fmfInstGen(true),
   fmfOneInstPerRound(false),
   fmfInstEngine(false),
+  fmfRelevantDomain(false),
   efficientEMatching(false),
   literalMatchMode(LITERAL_MATCH_NONE),
   cbqi(false),
@@ -299,14 +300,16 @@ Additional CVC4 options:\n\
    --ignore-user-patterns ignore user-provided patterns for quantifier instantiation\n\
    --enable-flip-decision turns on flip decision heuristic\n\
  FINITE_MODEL_FINDING:\n\
-   --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
+   --finite-model-find      use finite model finding heuristic for quantifier instantiation\n\
    --disable-uf-ss-regions  disable region-based method for discovering cliques and splits in uf strong solver\n\
-   --uf-ss-eager-split    add splits eagerly for uf strong solver\n\
-   --uf-ss-coloring-sat   use coloring-based SAT heuristic for uf strong solver\n\
-   --disable-fmf-mbqi     disable model-based quantifier instantiation for finite model finding\n\
-   --disable-fmf-inst-gen  disable Inst-Gen instantiation techniques for finite model finding\n\
+   --uf-ss-eager-split      add splits eagerly for uf strong solver\n\
+   --uf-ss-coloring-sat     use coloring-based SAT heuristic for uf strong solver\n\
+   --disable-fmf-mbqi       disable model-based quantifier instantiation for finite model finding\n\
+   --disable-fmf-inst-gen   disable Inst-Gen instantiation techniques for finite model finding\n\
    --fmf-one-inst-per-round  only add one instantiation per quantifier per round for fmf\n\
-   --fmf-inst-engine      use instantiation engine in conjunction with finite model finding\n\
+   --fmf-inst-engine        use instantiation engine in conjunction with finite model finding\n\
+   --fmf-relevant-domain    use relevant domain computation, similar to complete instantiation (Ge, deMoura 09)\n\
+ OTHER:\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --disable-arith-rewrite-equalities   turns off the preprocessing rewrite turning equalities into a conjunction of inequalities.\n\
    --threads=N            sets the number of solver threads\n\
@@ -629,6 +632,7 @@ enum OptionValue {
   DISABLE_FMF_INST_GEN,
   FMF_ONE_INST_PER_ROUND,
   FMF_INST_ENGINE,
+  FMF_RELEVANT_DOMAIN,
   EFFICIENT_E_MATCHING,
   LITERAL_MATCHING,
   ENABLE_CBQI,
@@ -765,6 +769,7 @@ static struct option cmdlineOptions[] = {
   { "disable-fmf-inst-gen", no_argument, NULL, DISABLE_FMF_INST_GEN },
   { "fmf-one-inst-per-round", no_argument, NULL, FMF_ONE_INST_PER_ROUND },
   { "fmf-inst-engine", no_argument, NULL, FMF_INST_ENGINE },
+  { "fmf-relevant-domain", no_argument, NULL, FMF_RELEVANT_DOMAIN },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
@@ -1334,6 +1339,9 @@ throw(OptionException) {
       break;
     case FMF_INST_ENGINE:
       fmfInstEngine = true;
+      break;
+    case FMF_RELEVANT_DOMAIN:
+      fmfRelevantDomain = true;
       break;
     case EFFICIENT_E_MATCHING:
       efficientEMatching = true;

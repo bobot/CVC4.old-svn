@@ -78,6 +78,7 @@ private:
   int d_triedLemmas;
   int d_testLemmas;
   int d_totalLemmas;
+  int d_relevantLemmas;
 public:
   ModelEngine( QuantifiersEngine* qe );
   ~ModelEngine(){}

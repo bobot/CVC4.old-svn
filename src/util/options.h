@@ -446,6 +446,11 @@ struct CVC4_PUBLIC Options {
    */
   bool fmfInstEngine;
 
+  /*
+   * Whether to compute relevant domains, in the manner of Complete Instantiation for Quantified Formulas [Ge, deMoura 09]
+   */
+  bool fmfRelevantDomain;
+
   /**
    * Whether to use efficient E-matching
    */
