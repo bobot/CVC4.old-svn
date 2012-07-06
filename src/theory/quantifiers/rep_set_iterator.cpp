@@ -186,17 +186,24 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
     }
     return 0;
   }else if( n.getKind()==ITE ){
-    int depIndex1;
+    int depIndex1, depIndex2;
     int eVal = evaluate( n[0], depIndex1 );
     if( eVal==0 ){
-      //DO_THIS: evaluate children to see if they are the same value?
-      return 0;
+      //evaluate children to see if they are the same value
+      int eval1 = evaluate( n[1], depIndex1 );
+      if( eval1!=0 ){
+        int eval2 = evaluate( n[1], depIndex2 );
+        if( eval1==eval2 ){
+          depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
+          return eval1;
+        }
+      }
     }else{
-      int depIndex2;
       int eValT = evaluate( n[eVal==1 ? 1 : 2], depIndex2 );
       depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
       return eValT;
     }
+    return 0;
   }else if( n.getKind()==FORALL ){
     return 0;
   }else{
@@ -251,11 +258,15 @@ int RepSetEvaluator::evaluateEquality( Node n1, Node n2, int& depIndex ){
   int retVal = 0;
   if( d_model->areEqual( val1, val2 ) ){
     retVal = 1;
-  }else{
+  }else if( d_model->areDisequal( val1, val2 ) ){
     retVal = -1;
+  }else{
+    depIndex = d_riter->getNumTerms()-1;
   }
-  depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
-  Debug("fmf-model-eval-debug") << "   value = " << (retVal==1) << ", depIndex = " << depIndex << std::endl;
+  if( retVal!=0 ){
+    depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
+    Debug("fmf-model-eval-debug") << "   value = " << (retVal==1) << ", depIndex = " << depIndex << std::endl;
+  }
   return retVal;
 }
 
@@ -270,15 +281,21 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
       depIndex = d_riter->d_var_order[ v ];
       val = d_riter->getTerm( v );
     }else if( n.getKind()==ITE ){
-      int condDepIndex = -1;
-      int eval = evaluate( n[0], condDepIndex );
+      int depIndex1, depIndex2;
+      int eval = evaluate( n[0], depIndex1 );
       if( eval==0 ){
-        //DO_THIS: evaluate children to see if they are the same?
+        //evaluate children to see if they are the same
+        Node val1 = evaluateTerm( n[ 1 ], depIndex1 );
+        Node val2 = evaluateTerm( n[ 1 ], depIndex1 );
+        if( val1==val2 ){
+          val = val1;
+          depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
+        }else{
+          return Node::null();
+        }
       }else{
-        int index = eval==1 ? 1 : 2;
-        int valDepIndex = -1;
-        val = evaluateTerm( n[index], valDepIndex );
-        depIndex = condDepIndex>valDepIndex ? condDepIndex : valDepIndex;
+        val = evaluateTerm( n[ eval==1 ? 1 : 2 ], depIndex2 );
+        depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
       }
     }else{
       //first we must evaluate the arguments
@@ -292,9 +309,14 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
         children_depIndex.push_back( -1 );
         Node nn = evaluateTerm( n[i], children_depIndex[i] );
-        children.push_back( nn );
-        if( children_depIndex[i]>depIndex ){
-          depIndex = children_depIndex[i];
+        if( nn.isNull() ){
+          depIndex = d_riter->getNumTerms()-1;
+          return nn;
+        }else{
+          children.push_back( nn );
+          if( children_depIndex[i]>depIndex ){
+            depIndex = children_depIndex[i];
+          }
         }
       }
       //recreate the value

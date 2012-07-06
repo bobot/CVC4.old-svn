@@ -193,7 +193,7 @@ UfModel::UfModel( Node op, QuantifiersEngine* qe ) : d_op( op ), d_qe( qe ),
     Node n = d_qe->getTermDatabase()->d_op_map[ d_op ][i];
     d_qe->getModelEngine()->computeModelBasisArgAttribute( n );
     if( !n.getAttribute(NoMatchAttribute()) || n.getAttribute(ModelBasisArgAttribute())==1 ){
-      Node r = d_qe->getEqualityQuery()->getRepresentative( n );
+      Node r = d_qe->getModel()->getRepresentative( n );
       d_ground_asserts_reps.push_back( r );
       d_ground_asserts.push_back( n );
     }
