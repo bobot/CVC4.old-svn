@@ -21,6 +21,8 @@
 
 #include "theory/theory.h"
 
+#include <map>
+
 namespace CVC4 {
 namespace theory {
 

@@ -860,7 +860,7 @@ int InstMatchGeneratorSimple::addInstantiations( Node f, InstMatch& baseMatch, Q
   return addedLemmas;
 }
 
-void InstMatchGeneratorSimple::addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, int argIndex, TermArgTrie* tat ){
+void InstMatchGeneratorSimple::addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, int argIndex, quantifiers::TermArgTrie* tat ){
   if( argIndex==(int)d_match_pattern.getNumChildren() ){
     //m is an instantiation
     if( qe->addInstantiation( d_f, m ) ){
@@ -870,7 +870,7 @@ void InstMatchGeneratorSimple::addInstantiations( InstMatch& m, QuantifiersEngin
   }else{
     if( d_match_pattern[argIndex].getKind()==INST_CONSTANT ){
       Node ic = d_match_pattern[argIndex];
-      for( std::map< Node, TermArgTrie >::iterator it = tat->d_data.begin(); it != tat->d_data.end(); ++it ){
+      for( std::map< Node, quantifiers::TermArgTrie >::iterator it = tat->d_data.begin(); it != tat->d_data.end(); ++it ){
         Node t = it->first;
         if( m.d_map[ ic ].isNull() || m.d_map[ ic ]==t ){
           Node prev = m.d_map[ ic ];
@@ -881,7 +881,7 @@ void InstMatchGeneratorSimple::addInstantiations( InstMatch& m, QuantifiersEngin
       }
     }else{
       Node r = qe->getEqualityQuery()->getRepresentative( d_match_pattern[argIndex] );
-      std::map< Node, TermArgTrie >::iterator it = tat->d_data.find( r );
+      std::map< Node, quantifiers::TermArgTrie >::iterator it = tat->d_data.find( r );
       if( it!=tat->d_data.end() ){
         addInstantiations( m, qe, addedLemmas, argIndex+1, &(it->second) );
       }

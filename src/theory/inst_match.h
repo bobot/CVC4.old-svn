@@ -405,7 +405,9 @@ public:
   int addTerm( Node f, Node t, QuantifiersEngine* qe );
 };/* class InstMatchGeneratorMulti */
 
-class TermArgTrie;
+namespace quantifiers{
+  class TermArgTrie;
+}
 
 /** smart (single)-trigger implementation */
 class InstMatchGeneratorSimple : public IMGenerator {
@@ -415,7 +417,7 @@ private:
   /** match term */
   Node d_match_pattern;
   /** add instantiations */
-  void addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, int argIndex, TermArgTrie* tat );
+  void addInstantiations( InstMatch& m, QuantifiersEngine* qe, int& addedLemmas, int argIndex, quantifiers::TermArgTrie* tat );
 public:
   /** constructors */
   InstMatchGeneratorSimple( Node f, Node pat ) : d_f( f ), d_match_pattern( pat ){}
