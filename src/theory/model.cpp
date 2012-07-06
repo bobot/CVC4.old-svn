@@ -43,61 +43,91 @@ void RepSet::set( TypeNode t, std::vector< Node >& reps ){
   d_type_reps[t].insert( d_type_reps[t].begin(), reps.begin(), reps.end() );
 }
 
-void RepSet::debugPrint( const char* c, QuantifiersEngine* qe ){
+void RepSet::debugPrint( const char* c ){
   for( std::map< TypeNode, std::vector< Node > >::iterator it = d_type_reps.begin(); it != d_type_reps.end(); ++it ){
     Debug( c ) << it->first << " : " << std::endl;
     for( int i=0; i<(int)it->second.size(); i++ ){
       Debug( c ) << "   " << i << ": " << it->second[i] << std::endl;
-      Debug( c ) << "         eq_class( " << it->second[i] << " ) : ";
-      ((uf::InstantiatorTheoryUf*)qe->getInstantiator( THEORY_UF ))->outputEqClass( c, it->second[i] );
-      Debug( c ) << std::endl;
+      //Debug( c ) << "         eq_class( " << it->second[i] << " ) : ";
+      //((uf::InstantiatorTheoryUf*)qe->getInstantiator( THEORY_UF ))->outputEqClass( c, it->second[i] );
+      //Debug( c ) << std::endl;
     }
   }
 }
 
-Model::Model( context::Context* c ) :
-d_equalityEngine( c, "Model" ){
+Model::Model( TheoryEngine* te ) :
+d_te( te ),
+d_equalityEngine( te->getSatContext(), "Model" ){
+  d_useConstantReps = true;
   d_true = NodeManager::currentNM()->mkConst( true );
   d_false = NodeManager::currentNM()->mkConst( false );
 }
 
-void Model::clear(){
-  //reset
-  d_ra.clear();
-  d_op_terms.clear();
-}
-
 void Model::initialize(){
+  //reset
+  d_reps.clear();
+  d_ra.clear();
+  //collect model info from the theory engine
+  d_te->collectModelInfo( this );
   //populate term database, store representatives
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
     d_ra.add( eqc );
+    if( !d_useConstantReps ){
+      d_reps[ eqc ] = eqc;
+    }
     eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
     while( !eqc_i.isFinished() ){
-      if( (*eqc_i).hasOperator() ){
-        d_op_terms[ (*eqc_i).getOperator() ].push_back( *eqc_i );
-      }
-      if( (*eqc_i).getMetaKind()==kind::metakind::CONSTANT ){
-        d_constants[ eqc ] = *eqc_i;
+      //addTerm( *eqc_i );
+      if( d_useConstantReps && (*eqc_i).getMetaKind()==kind::metakind::CONSTANT ){
+        d_reps[ eqc ] = *eqc_i;
       }
       ++eqc_i;
     }
-    if( d_constants[ eqc ].isNull() ){
+    if( d_useConstantReps && d_reps.find( eqc )==d_reps.end() ){
       //DO_THIS: ensure constant is in the equivalence class of eqc
-      d_constants[ eqc ] = eqc;  //temporary
+      d_reps[ eqc ] = eqc;  //temporary
     }
     ++eqcs_i;
   }
+  //do model-specific initialization
+  processInitialize();
 }
 
 Node Model::getValue( TNode n ){
-  //DO_THIS
-  if( d_equalityEngine.hasTerm( n ) ){
-    return d_constants[ d_equalityEngine.getRepresentative( n ) ];
-  }else{
-    return getInterpretedValue( n );
+  kind::MetaKind metakind = n.getMetaKind();
+
+  // special case: prop engine handles boolean vars
+  if(metakind == kind::metakind::VARIABLE && n.getType().isBoolean()) {
+    return d_te->getPropEngine()->getValue( n );
   }
+
+  // special case: value of a constant == itself
+  if(metakind == kind::metakind::CONSTANT) {
+    return n;
+  }
+
+  // see if the theory has a built-in interpretation
+  Theory* th = d_te->theoryOf( n );
+  if( th->hasInterpretedValue( n, this ) ){
+    return th->getInterpretedValue( n, this );
+  }
+
+  //case for equality
+  if( n.getKind()==EQUAL ){
+    Node n1 = getValue( n[0] );
+    Node n2 = getValue( n[1] );
+    return NodeManager::currentNM()->mkConst( areEqual( n1, n2 ) );
+  }
+
+  // see if the value is explicitly set in the model
+  if( d_equalityEngine.hasTerm( n ) ){
+    return getRepresentative( n );
+  }
+
+  //otherwise, get the interpreted value in the model
+  return getInterpretedValue( n );
 }
 
 Node Model::getArbitraryValue( TypeNode tn, std::vector< Node >& exclude ){
@@ -142,7 +172,7 @@ void Model::assertEqualityEngine( eq::EqualityEngine* ee ){
     bool predPolarity = false;
     if( eqc.getType()==NodeManager::currentNM()->booleanType() ){
       predicate = true;
-      predPolarity = ee->areEqual( eqc, NodeManager::currentNM()->mkConst( true ) );
+      predPolarity = ee->areEqual( eqc, d_true );
     }
     eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, ee );
     while( !eqc_i.isFinished() ){
@@ -157,32 +187,50 @@ void Model::assertEqualityEngine( eq::EqualityEngine* ee ){
   }
 }
 
+bool Model::hasTerm( Node a ){
+  return d_equalityEngine.hasTerm( a );
+}
+
 Node Model::getRepresentative( Node a ){
-  return d_equalityEngine.getRepresentative( a );
+  return d_reps[ d_equalityEngine.getRepresentative( a ) ];
 }
 
 bool Model::areEqual( Node a, Node b ){
-  return d_equalityEngine.areEqual( a, b );
+  if( a==b ){
+    return true;
+  }else if( d_equalityEngine.hasTerm( a ) && d_equalityEngine.hasTerm( b ) ){
+    return d_equalityEngine.areEqual( a, b );
+  }else{
+    return false;
+  }
 }
 
 bool Model::areDisequal( Node a, Node b ){
-  return d_equalityEngine.areDisequal( a, b, false );
+  if( d_equalityEngine.hasTerm( a ) && d_equalityEngine.hasTerm( b ) ){
+    return d_equalityEngine.areDisequal( a, b, false );
+  }else{
+    return false;
+  }
 }
 
 //for debugging
-void Model::printRepresentative( const char* c, QuantifiersEngine* qe, Node r ){
+void Model::printRepresentative( const char* c, Node r ){
   Assert( !r.isNull() );
   if( r.isNull() ){
     Debug( c ) << "null";
   }else if( r.getType()==NodeManager::currentNM()->booleanType() ){
-    if( qe->getEqualityQuery()->areEqual( r, NodeManager::currentNM()->mkConst( true ) ) ){
+    if( areEqual( r, NodeManager::currentNM()->mkConst( true ) ) ){
       Debug( c ) << "true";
     }else{
       Debug( c ) << "false";
     }
   }else{
-    Debug( c ) << qe->getEqualityQuery()->getRepresentative( r );
+    Debug( c ) << getRepresentative( r );
   }
+}
+
+DefaultModel::DefaultModel( TheoryEngine* te ) : Model( te ){
+
 }
 
 Node DefaultModel::getInterpretedValue( TNode n ){
@@ -190,15 +238,13 @@ Node DefaultModel::getInterpretedValue( TNode n ){
   std::vector< Node > v_emp;
   Node n2 = getArbitraryValue( t, v_emp );
   if( !n2.isNull() ){
-    return d_constants[ d_equalityEngine.getRepresentative( n2 ) ];
+    return getRepresentative( n2 );
   }else{
     return n;
   }
 }
 
 Model* DefaultModelBuilder::getModel(){
-  d_model.clear();
-  d_te->collectModelInfo( &d_model );
   d_model.initialize();
   return &d_model;
 }

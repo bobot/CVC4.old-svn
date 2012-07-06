@@ -21,6 +21,7 @@
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/extended_model.h"
 
 //#define ME_PRINT_WARNINGS
 
@@ -42,9 +43,7 @@ using namespace CVC4::theory::quantifiers;
 //Model Engine constructor
 ModelEngine::ModelEngine( QuantifiersEngine* qe ) :
 QuantifiersModule( qe ),
-d_builder(*this),
-d_model( qe, qe->getSatContext() ),
-d_rel_domain( qe, &d_model ){
+d_rel_domain( qe ){
 
 }
 
@@ -58,8 +57,8 @@ void ModelEngine::check( Theory::Effort e ){
     int addedLemmas = 0;
     if( optUseModel() ){
       //check if any quantifiers are un-initialized
-      for( int i=0; i<d_quantEngine->getNumAssertedQuantifiers(); i++ ){
-        Node f = d_quantEngine->getAssertedQuantifier( i );
+      for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
+        Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
         addedLemmas += initializeQuantifier( f );
       }
     }
@@ -74,14 +73,11 @@ void ModelEngine::check( Theory::Effort e ){
       ++(d_statistics.d_inst_rounds);
       //reset the quantifiers engine
       d_quantEngine->resetInstantiationRound( e );
-      //build the representatives
-      Debug("fmf-model-debug") << "Building representatives..." << std::endl;
-      buildRepresentatives();
+      //initialize the model
+      Debug("fmf-model-debug") << "Initializing model..." << std::endl;
+      d_quantEngine->getModel()->initialize();
       //construct model if optUseModel() is true
       if( optUseModel() ){
-        //initialize the model
-        Debug("fmf-model-debug") << "Initializing model..." << std::endl;
-        initializeModel();
         //analyze the quantifiers
         Debug("fmf-model-debug") << "Analyzing quantifiers..." << std::endl;
         analyzeQuantifiers();
@@ -89,8 +85,8 @@ void ModelEngine::check( Theory::Effort e ){
         if( optInstGen() ){
           //now, see if we know that any exceptions via InstGen exist
           Debug("fmf-model-debug") << "Perform InstGen techniques for quantifiers..." << std::endl;
-          for( int i=0; i<d_quantEngine->getNumAssertedQuantifiers(); i++ ){
-            Node f = d_quantEngine->getAssertedQuantifier( i );
+          for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
+            Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
             if( d_quant_sat.find( f )==d_quant_sat.end() ){
               addedLemmas += doInstGen( f );
               if( optOneQuantPerRoundInstGen() && addedLemmas>0 ){
@@ -111,17 +107,20 @@ void ModelEngine::check( Theory::Effort e ){
           //if no immediate exceptions, build the model
           //  this model will be an approximation that will need to be tested via exhaustive instantiation
           Debug("fmf-model-debug") << "Building model..." << std::endl;
-          d_model.buildModel();
+          d_quantEngine->getModel()->buildModel();
         }
       }
       if( addedLemmas==0 ){
         //verify we are SAT by trying exhaustive instantiation
+        if( optUseRelevantDomain() ){
+          d_rel_domain.compute();
+        }
         d_triedLemmas = 0;
         d_testLemmas = 0;
         d_totalLemmas = 0;
         Debug("fmf-model-debug") << "Do exhaustive instantiation..." << std::endl;
-        for( int i=0; i<d_quantEngine->getNumAssertedQuantifiers(); i++ ){
-          Node f = d_quantEngine->getAssertedQuantifier( i );
+        for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
+          Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
           if( d_quant_sat.find( f )==d_quant_sat.end() ){
             addedLemmas += exhaustiveInstantiate( f );
             if( optOneQuantPerRound() && addedLemmas>0 ){
@@ -206,10 +205,6 @@ bool ModelEngine::optOneQuantPerRound(){
 #endif
 }
 
-Model* ModelEngine::getModel(){
-  return NULL;
-}
-
 int ModelEngine::initializeQuantifier( Node f ){
   if( d_quant_init.find( f )==d_quant_init.end() ){
     d_quant_init[f] = true;
@@ -254,76 +249,14 @@ int ModelEngine::initializeQuantifier( Node f ){
   return 0;
 }
 
-void ModelEngine::buildRepresentatives(){
-  //initialize the model
-  d_model.clear();
-  d_quantEngine->getTheoryEngine()->collectModelInfo( &d_model );
-  d_model.initialize();
-  if( Options::current()->printModelEngine ){
-    for( std::map< TypeNode, std::vector< Node > >::iterator it = d_model.d_ra.d_type_reps.begin(); it != d_model.d_ra.d_type_reps.end(); ++it ){
-      if( uf::StrongSolverTheoryUf::isRelevantType( it->first ) ){
-        Message() << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
-      }
-    }
-  }
-/*
-  //old method
-  d_model.d_ra.clear();
-  uf::StrongSolverTheoryUf* ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
-  //collect all representatives for all types and store as representative alphabet
-  for( int i=0; i<ss->getNumCardinalityTypes(); i++ ){
-    TypeNode tn = ss->getCardinalityType( i );
-    std::vector< Node > reps;
-    ss->getRepresentatives( tn, reps );
-    Assert( !reps.empty() );
-    Debug("fmf-model-debug") << "   " << tn << " -> " << reps.size() << std::endl;
-    Debug("fmf-model-debug") << "      ";
-    for( int i=0; i<(int)reps.size(); i++ ){
-      //if( reps[i].getAttribute(ModelBasisAttribute()) ){
-      //  reps[i] = d_quantEngine->getEqualityQuery()->getInternalRepresentative( reps[i] );
-      //}
-      //Assert( !reps[i].getAttribute(ModelBasisAttribute()) );
-      Debug("fmf-model-debug") << reps[i] << " ";
-    }
-    Debug("fmf-model-debug") << std::endl;
-    //set them in the alphabet
-    d_model.d_ra.set( tn, reps );
-    if( Options::current()->printModelEngine ){
-      Message() << "Cardinality( " << tn << " )" << " = " << reps.size() << std::endl;
-      //Message() << d_quantEngine->getEqualityQuery()->getRepresentative( NodeManager::currentNM()->mkConst( true ) ) << std::endl;
-    }
-    //if( reps.size()!=d_model.d_ra.d_type_reps[tn].size() ){
-    //  std::cout << reps.size() << " " << d_model.d_ra.d_type_reps[tn].size() << std::endl;
-    //}
-  }
-*/
-}
-
-void ModelEngine::initializeModel(){
-  d_quant_model_lits.clear();
-  d_quant_sat.clear();
-  d_model.d_uf_model.clear();
-
-  for( int i=0; i<d_quantEngine->getNumAssertedQuantifiers(); i++ ){
-    Node f = d_quantEngine->getAssertedQuantifier( i );
-    //collect uf terms and initialize uf models
-    std::vector< Node > terms;
-    collectUfTerms( f[1], terms );
-    for( size_t j=0; j<terms.size(); j++ ){
-      initializeUfModel( terms[j].getOperator() );
-    }
-  }
-  if( optUseRelevantDomain() ){
-    d_rel_domain.compute();
-  }
-}
-
 void ModelEngine::analyzeQuantifiers(){
+  d_quant_selection_lits.clear();
+  d_quant_sat.clear();
   int quantSatInit = 0;
   int nquantSatInit = 0;
   //analyze the preferences of each quantifier
-  for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
-    Node f = d_quantEngine->getAssertedQuantifier( i );
+  for( int i=0; i<(int)d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
+    Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
     Debug("fmf-model-prefs") << "Analyze quantifier " << f << std::endl;
     std::vector< Node > pro_con[2];
     std::vector< Node > constantSatOps;
@@ -344,7 +277,7 @@ void ModelEngine::analyzeQuantifiers(){
           //store this literal as a model basis literal
           //  this literal will force a default values in model that (modulo exceptions) shows
           //  that f is satisfied by the model
-          d_quant_model_lits[f].push_back( value ? n : n.notNode() );
+          d_quant_selection_lits[f].push_back( value ? n : n.notNode() );
           pref = 1;
         }else{
           pref = -1;
@@ -356,16 +289,16 @@ void ModelEngine::analyzeQuantifiers(){
         std::vector< Node > uf_terms;
         if( gn.getKind()==APPLY_UF ){
           uf_terms.push_back( gn );
-          isConst = d_model.d_uf_model[gn.getOperator()].isConstant();
+          isConst = d_quantEngine->getModel()->d_uf_model[gn.getOperator()].isConstant();
         }else if( gn.getKind()==EQUAL ){
           isConst = true;
           for( int j=0; j<2; j++ ){
             if( n[j].hasAttribute(InstConstantAttribute()) ){
               if( n[j].getKind()==APPLY_UF ){
                 Node op = gn[j].getOperator();
-                if( d_model.d_uf_model.find( op )!=d_model.d_uf_model.end() ){
+                if( d_quantEngine->getModel()->d_uf_model.find( op )!=d_quantEngine->getModel()->d_uf_model.end() ){
                   uf_terms.push_back( gn[j] );
-                  isConst = isConst && d_model.d_uf_model[op].isConstant();
+                  isConst = isConst && d_quantEngine->getModel()->d_uf_model[op].isConstant();
                 }else{
                   isConst = false;
                 }
@@ -385,7 +318,7 @@ void ModelEngine::analyzeQuantifiers(){
           for( int j=0; j<(int)uf_terms.size(); j++ ){
             Node op = uf_terms[j].getOperator();
             constantSatOps.push_back( op );
-            if( d_model.d_uf_model[op].d_reconsider_model ){
+            if( d_quantEngine->getModel()->d_uf_model[op].d_reconsider_model ){
               constantSatReconsider = true;
             }
           }
@@ -404,7 +337,7 @@ void ModelEngine::analyzeQuantifiers(){
       Debug("fmf-model-prefs") << "  * Constant SAT due to definition of ops: ";
       for( int i=0; i<(int)constantSatOps.size(); i++ ){
         Debug("fmf-model-prefs") << constantSatOps[i] << " ";
-        d_model.d_uf_model[constantSatOps[i]].d_reconsider_model = false;
+        d_quantEngine->getModel()->d_uf_model[constantSatOps[i]].d_reconsider_model = false;
       }
       Debug("fmf-model-prefs") << std::endl;
       quantSatInit++;
@@ -416,7 +349,7 @@ void ModelEngine::analyzeQuantifiers(){
       for( int k=0; k<2; k++ ){
         for( int j=0; j<(int)pro_con[k].size(); j++ ){
           Node op = pro_con[k][j].getOperator();
-          d_model.d_uf_model[op].setValuePreference( f, pro_con[k][j], k==0 );
+          d_quantEngine->getModel()->d_uf_model[op].setValuePreference( f, pro_con[k][j], k==0 );
         }
       }
     }
@@ -430,14 +363,14 @@ int ModelEngine::doInstGen( Node f ){
   //This step is advantageous over exhaustive instantiation, since we are adding instantiations that involve model basis terms,
   //  effectively acting as partial instantiations instead of pointwise instantiations.
   int addedLemmas = 0;
-  for( int i=0; i<(int)d_quant_model_lits[f].size(); i++ ){
-    bool phase = d_quant_model_lits[f][i].getKind()!=NOT;
-    Node lit = d_quant_model_lits[f][i].getKind()==NOT ? d_quant_model_lits[f][i][0] : d_quant_model_lits[f][i];
+  for( int i=0; i<(int)d_quant_selection_lits[f].size(); i++ ){
+    bool phase = d_quant_selection_lits[f][i].getKind()!=NOT;
+    Node lit = d_quant_selection_lits[f][i].getKind()==NOT ? d_quant_selection_lits[f][i][0] : d_quant_selection_lits[f][i];
     Assert( lit.hasAttribute(InstConstantAttribute()) );
     std::vector< Node > tr_terms;
     if( lit.getKind()==APPLY_UF ){
       //only match predicates that are contrary to this one, use literal matching
-      Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? d_model.d_true : d_model.d_false );
+      Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? d_quantEngine->getModel()->d_true : d_quantEngine->getModel()->d_false );
       d_quantEngine->setInstantiationConstantAttr( eq, f );
       tr_terms.push_back( eq );
     }else if( lit.getKind()==EQUAL ){
@@ -483,31 +416,29 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
     Debug("inst-fmf-ei") << d_quantEngine->getInstantiationConstant( f, i ) << " ";
   }
   Debug("inst-fmf-ei") << std::endl;
-  if( d_quant_model_lits[f].empty() ){
+  if( d_quant_selection_lits[f].empty() ){
     Debug("inst-fmf-ei") << "WARNING: " << f << " has no model literal definitions (is f clausified?)" << std::endl;
 #ifdef ME_PRINT_WARNINGS
     Message() << "WARNING: " << f << " has no model literal definitions (is f clausified?)" << std::endl;
 #endif
   }else{
     Debug("inst-fmf-ei") << "  Model literal definitions:" << std::endl;
-    for( size_t i=0; i<d_quant_model_lits[f].size(); i++ ){
-      Debug("inst-fmf-ei") << "    " << d_quant_model_lits[f][i] << std::endl;
+    for( size_t i=0; i<d_quant_selection_lits[f].size(); i++ ){
+      Debug("inst-fmf-ei") << "    " << d_quant_selection_lits[f][i] << std::endl;
     }
   }
-  RepSetIterator riter( d_quantEngine, f, &d_model );
+  RepSetIterator riter( f, d_quantEngine->getModel() );
   //set the domain for the iterator (the sufficient set of instantiations to try)
   if( useRelInstDomain ){
     riter.setDomain( d_rel_domain.d_quant_inst_domain[f] );
   }
-  RepSetEvaluator reval( d_quantEngine, &riter );
+  RepSetEvaluator reval( d_quantEngine->getModel(), &riter );
   while( !riter.isFinished() && ( addedLemmas==0 || !optOneInstPerQuantRound() ) ){
     d_testLemmas++;
     if( optUseModel() ){
       //see if instantiation is already true in current model
       Debug("fmf-model-eval") << "Evaluating ";
       riter.debugPrintSmall("fmf-model-eval");
-      //calculate represenative terms we are currently considering
-      riter.calculateTerms( d_quantEngine );
       Debug("fmf-model-eval") << "Done calculating terms." << std::endl;
       tests++;
       //if evaluate(...)==1, then the instantiation is already true in the model
@@ -516,7 +447,7 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
       int eval = reval.evaluate( d_quantEngine->getCounterexampleBody( f ), depIndex );
       if( eval==1 ){
         Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
-        riter.increment2( d_quantEngine, depIndex );
+        riter.increment2( depIndex );
       }else{
         Debug("fmf-model-eval") << "  Returned " << (eval==-1 ? "failure" : "unknown") << ", depIndex = " << depIndex << std::endl;
         InstMatch m;
@@ -528,16 +459,16 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
           addedLemmas++;
 #ifdef EVAL_FAIL_SKIP_MULTIPLE
           if( eval==-1 ){
-            riter.increment2( d_quantEngine, depIndex );
+            riter.increment2( depIndex );
           }else{
-            riter.increment( d_quantEngine );
+            riter.increment();
           }
 #else
-          riter.increment( d_quantEngine );
+          riter.increment();
 #endif
         }else{
           Debug("ajr-temp") << "* Failed Add instantiation " << m << std::endl;
-          riter.increment( d_quantEngine );
+          riter.increment();
         }
       }
     }else{
@@ -549,12 +480,12 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
       if( d_quantEngine->addInstantiation( f, m ) ){
         addedLemmas++;
       }
-      riter.increment( d_quantEngine );
+      riter.increment();
     }
   }
   int totalInst = 1;
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
-    totalInst = totalInst * (int)getReps()->d_type_reps[ f[0][i].getType() ].size();
+    totalInst = totalInst * (int)d_quantEngine->getModel()->d_ra.d_type_reps[ f[0][i].getType() ].size();
   }
   d_totalLemmas += totalInst;
   Debug("inst-fmf-ei") << "Finished: " << std::endl;
@@ -571,10 +502,10 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
     Notice() << "   Inst Added: " << addedLemmas << std::endl;
     Notice() << "   # Tests: " << tests << std::endl;
     Notice() << std::endl;
-    if( !d_quant_model_lits[f].empty() ){
+    if( !d_quant_selection_lits[f].empty() ){
       Notice() << "  Model literal definitions:" << std::endl;
-      for( size_t i=0; i<d_quant_model_lits[f].size(); i++ ){
-        Notice() << "    " << d_quant_model_lits[f][i] << std::endl;
+      for( size_t i=0; i<d_quant_selection_lits[f].size(); i++ ){
+        Notice() << "    " << d_quant_selection_lits[f][i] << std::endl;
       }
       Notice() << std::endl;
     }
@@ -618,29 +549,25 @@ Node ModelEngine::getModelBasisOpTerm( Node op ){
   return d_model_basis_op_term[op];
 }
 
-void ModelEngine::collectUfTerms( Node n, std::vector< Node >& terms ){
-  if( n.getKind()==APPLY_UF ){
-    terms.push_back( n );
-  }
-  for( int i=0; i<(int)n.getNumChildren(); i++ ){
-    collectUfTerms( n[i], terms );
-  }
-}
-
-void ModelEngine::initializeUfModel( Node op ){
-  if( d_model.d_uf_model.find( op )==d_model.d_uf_model.end() ){
-    TypeNode tn = op.getType();
-    tn = tn[ (int)tn.getNumChildren()-1 ];
-    if( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) ){
-      d_model.d_uf_model[ op ] = uf::UfModel( op, &d_model, d_quantEngine );
+void ModelEngine::computeModelBasisArgAttribute( Node n ){
+  if( !n.hasAttribute(ModelBasisArgAttribute()) ){
+    uint64_t val = 0;
+    //determine if it has model basis attribute
+    for( int j=0; j<(int)n.getNumChildren(); j++ ){
+      if( n[j].getAttribute(ModelBasisAttribute()) ){
+        val = 1;
+        break;
+      }
     }
+    ModelBasisArgAttribute mbaa;
+    n.setAttribute( mbaa, val );
   }
 }
 
 void ModelEngine::debugPrint( const char* c ){
   Debug( c ) << "Quantifiers: " << std::endl;
-  for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
-    Node f = d_quantEngine->getAssertedQuantifier( i );
+  for( int i=0; i<(int)d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
+    Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
     Debug( c ) << "   ";
     if( d_quant_sat.find( f )!=d_quant_sat.end() ){
       Debug( c ) << "*SAT* ";
@@ -649,25 +576,19 @@ void ModelEngine::debugPrint( const char* c ){
     }
     Debug( c ) << f << std::endl;
   }
-  d_model.debugPrint( c );
+  d_quantEngine->getModel()->debugPrint( c );
 }
 
 ModelEngine::Statistics::Statistics():
   d_inst_rounds("ModelEngine::Inst_Rounds", 0),
   d_pre_sat_quant("ModelEngine::Status_quant_pre_sat", 0),
   d_pre_nsat_quant("ModelEngine::Status_quant_pre_non_sat", 0),
-  d_eval_formulas("ModelEngine::Eval_Formulas", 0 ),
-  d_eval_eqs("ModelEngine::Eval_Equalities", 0 ),
-  d_eval_uf_terms("ModelEngine::Eval_Uf_Terms", 0 ),
   d_num_quants_init("ModelEngine::Num_Quants", 0 ),
   d_num_quants_init_fail("ModelEngine::Num_Quants_No_Basis", 0 )
 {
   StatisticsRegistry::registerStat(&d_inst_rounds);
   StatisticsRegistry::registerStat(&d_pre_sat_quant);
   StatisticsRegistry::registerStat(&d_pre_nsat_quant);
-  StatisticsRegistry::registerStat(&d_eval_formulas);
-  StatisticsRegistry::registerStat(&d_eval_eqs);
-  StatisticsRegistry::registerStat(&d_eval_uf_terms);
   StatisticsRegistry::registerStat(&d_num_quants_init);
   StatisticsRegistry::registerStat(&d_num_quants_init_fail);
 }
@@ -676,9 +597,6 @@ ModelEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_inst_rounds);
   StatisticsRegistry::unregisterStat(&d_pre_sat_quant);
   StatisticsRegistry::unregisterStat(&d_pre_nsat_quant);
-  StatisticsRegistry::unregisterStat(&d_eval_formulas);
-  StatisticsRegistry::unregisterStat(&d_eval_eqs);
-  StatisticsRegistry::unregisterStat(&d_eval_uf_terms);
   StatisticsRegistry::unregisterStat(&d_num_quants_init);
   StatisticsRegistry::unregisterStat(&d_num_quants_init_fail);
 }

@@ -24,6 +24,7 @@
 #include "theory/quantifiers/quantifiers_rewriter.h"
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/instantiation_engine.h"
+#include "theory/extended_model.h"
 
 using namespace std;
 using namespace CVC4;
@@ -189,15 +190,17 @@ void TermDb::reset( Theory::Effort effort ){
   Debug("term-db-cong") << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
 }
 
-
-
 QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
-d_forall_asserts( c ),
 d_active( c ){
   d_eq_query = new EqualityQueryQuantifiersEngine( this );
   d_term_db = new TermDb( this );
   d_hasAddedLemma = false;
+
+  //the model object
+  d_model = new ExtendedModel( this, c );
+  d_model->d_useConstantReps = false;
+
   //options
   d_optInstCheckDuplicate = true;
   d_optInstMakeRepresentative = true;
@@ -358,14 +361,14 @@ void QuantifiersEngine::registerQuantifier( Node f ){
 void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
   for(std::vector<Node>::iterator p = pattern.begin(); p != pattern.end(); ++p){
     std::vector< Node > added;
-    d_term_db->addTerm(*p,added);
+    getTermDatabase()->addTerm(*p,added);
   }
 }
 
 void QuantifiersEngine::assertNode( Node f ){
   Assert( f.getKind()==FORALL );
   for( int j=0; j<(int)d_quant_rewritten[f].size(); j++ ){
-    d_forall_asserts.push_back( d_quant_rewritten[f][j] );
+    d_model->d_forall_asserts.push_back( d_quant_rewritten[f][j] );
     for( int i=0; i<(int)d_modules.size(); i++ ){
       d_modules[i]->assertNode( d_quant_rewritten[f][j] );
     }
@@ -386,23 +389,24 @@ void QuantifiersEngine::resetInstantiationRound( Theory::Effort level ){
       getInstantiator( i )->resetInstantiationRound( level );
     }
   }
-  d_term_db->reset( level );
+  getTermDatabase()->reset( level );
+}
+
+TermDb* QuantifiersEngine::getTermDatabase() {
+  return d_term_db;
 }
 
 void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
-  if( d_term_db ){
-    std::vector< Node > added;
-    d_term_db->addTerm( n, added, withinQuant );
+  std::vector< Node > added;
+  getTermDatabase()->addTerm( n, added, withinQuant );
 #ifdef COMPUTE_RELEVANCE
-    for( int i=0; i<(int)added.size(); i++ ){
-      if( !withinQuant ){
-        setRelevance( added[i].getOperator(), 0 );
-      }
+  for( int i=0; i<(int)added.size(); i++ ){
+    if( !withinQuant ){
+      setRelevance( added[i].getOperator(), 0 );
     }
-#endif
-  }else{
-    Notice() << "Warning: no term database for quantifier engine." << std::endl;
   }
+#endif
+
 }
 
 bool QuantifiersEngine::addLemma( Node lem ){
@@ -803,10 +807,10 @@ Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){
       Rational z(0);
       d_free_vars[tn] = NodeManager::currentNM()->mkConst( z );
     }else{
-      if( d_term_db->d_type_map[ tn ].empty() ){
+      if( getTermDatabase()->d_type_map[ tn ].empty() ){
         d_free_vars[tn] = NodeManager::currentNM()->mkVar( tn );
       }else{
-        d_free_vars[tn] =d_term_db->d_type_map[ tn ][ 0 ];
+        d_free_vars[tn] = getTermDatabase()->d_type_map[ tn ][ 0 ];
       }
     }
   }
@@ -881,8 +885,11 @@ bool EqualityQueryQuantifiersEngine::areEqual( Node a, Node b ){
   if( a==b ){
     return true;
   }else{
-    if( d_qe->getTheoryEngine()->getSharedTermsDatabase()->areEqual( a, b ) ){
-      return true;
+    eq::EqualityEngine* ee = d_qe->getTheoryEngine()->getSharedTermsDatabase()->getEqualityEngine();
+    if( ee->hasTerm( a ) && ee->hasTerm( b ) ){
+      if( ee->areEqual( a, b ) ){
+        return true;
+      }
     }
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_qe->getInstantiator( i ) ){
@@ -897,8 +904,11 @@ bool EqualityQueryQuantifiersEngine::areEqual( Node a, Node b ){
 }
 
 bool EqualityQueryQuantifiersEngine::areDisequal( Node a, Node b ){
-  if( d_qe->getTheoryEngine()->getSharedTermsDatabase()->areDisequal( a, b ) ){
-    return true;
+  eq::EqualityEngine* ee = d_qe->getTheoryEngine()->getSharedTermsDatabase()->getEqualityEngine();
+  if( ee->hasTerm( a ) && ee->hasTerm( b ) ){
+    if( ee->areDisequal( a, b, false ) ){
+      return true;
+    }
   }
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_qe->getInstantiator( i ) ){

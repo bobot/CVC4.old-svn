@@ -113,6 +113,11 @@ public:
   virtual Node explain(TNode n) = 0;
 };/* class QuantifiersModule */
 
+namespace quantifiers {
+  class InstantiationEngine;
+  class ModelEngine;
+}/* CVC4::theory::quantifiers */
+
 class TermArgTrie {
 private:
   bool addTerm2( QuantifiersEngine* qe, Node n, int argIndex );
@@ -160,10 +165,7 @@ public:
   std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
 };/* class TermDb */
 
-namespace quantifiers {
-  class InstantiationEngine;
-  class ModelEngine;
-}/* CVC4::theory::quantifiers */
+class ExtendedModel;
 
 class QuantifiersEngine {
   friend class quantifiers::InstantiationEngine;
@@ -186,8 +188,6 @@ private:
   std::vector< Node > d_quants;
   /** list of all quantifiers (post-rewrite) */
   std::vector< Node > d_r_quants;
-  /** list of quantifiers asserted in the current context */
-  context::CDList<Node> d_forall_asserts;
   /** map from universal quantifiers to the list of variables */
   std::map< Node, std::vector< Node > > d_vars;
   /** map from universal quantifiers to the list of skolem constants */
@@ -218,6 +218,8 @@ private:
   std::map< Node, Theory* > d_owner;
   /** term database */
   TermDb* d_term_db;
+  /** extended model object */
+  ExtendedModel* d_model;
   /** universal quantifiers that have been rewritten */
   std::map< Node, std::vector< Node > > d_quant_rewritten;
   /** map from rewritten universal quantifiers to the quantifier they are the consequence of */
@@ -300,10 +302,6 @@ public:
   int getNumQuantifiers() { return (int)d_quants.size(); }
   /** get quantifier */
   Node getQuantifier( int i ) { return d_quants[i]; }
-  /** get number of asserted quantifiers */
-  int getNumAssertedQuantifiers() { return (int)d_forall_asserts.size(); }
-  /** get asserted quantifier */
-  Node getAssertedQuantifier( int i ) { return d_forall_asserts[i]; }
   /** get instantiation constants */
   void getInstantiationConstantsFor( Node f, std::vector< Node >& ics ) {
     ics.insert( ics.begin(), d_inst_constants[f].begin(), d_inst_constants[f].end() );
@@ -366,8 +364,10 @@ public:
   /** set owner */
   void setOwner( Node f, Theory* t ) { d_owner[f] = t; }
 public:
+  /** get model */
+  ExtendedModel* getModel() { return d_model; }
   /** get term database */
-  TermDb* getTermDatabase() { return d_term_db; }
+  TermDb* getTermDatabase();
   /** add term to database */
   void addTermToDatabase( Node n, bool withinQuant = false );
 private:

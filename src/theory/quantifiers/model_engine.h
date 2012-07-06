@@ -23,7 +23,7 @@
 #include "theory/quantifiers/theory_quantifiers.h"
 #include "theory/model.h"
 #include "theory/uf/theory_uf_model.h"
-#include "theory/quantifiers/model_engine_model.h"
+#include "theory/extended_model.h"
 #include "theory/quantifiers/relevant_domain.h"
 
 namespace CVC4 {
@@ -40,17 +40,6 @@ class ModelEngine : public QuantifiersModule
   friend class uf::UfModel;
   friend class RepSetIterator;
 private:
-  //model builder object
-  class ModelEngineModelBuilder : public theory::ModelBuilder{
-    ModelEngine& d_me;
-  public:
-    ModelEngineModelBuilder( ModelEngine& me ) : d_me( me ){}
-    virtual ~ModelEngineModelBuilder(){}
-    Model* getModel() { return d_me.getModel(); }
-  };
-private:
-  //the model builder
-  ModelEngineModelBuilder d_builder;
   //which quantifiers have been initialized
   std::map< Node, bool > d_quant_init;
   //map from quantifiers to if are constant SAT
@@ -65,10 +54,15 @@ private:
   //map from quantifiers to model basis match
   std::map< Node, InstMatch > d_quant_basis_match;
   //map from quantifiers to the instantiation literals that their model is dependent upon
-  std::map< Node, std::vector< Node > > d_quant_model_lits;
+  std::map< Node, std::vector< Node > > d_quant_selection_lits;
+public:
+  //get model basis term
+  Node getModelBasisTerm( TypeNode tn, int i = 0 );
+  //get model basis term for op
+  Node getModelBasisOpTerm( Node op );
+  // compute model basis arg
+  void computeModelBasisArgAttribute( Node n );
 private:
-  //the model we are working with
-  ExtendedModel d_model;
   //relevant domain
   RelevantDomain d_rel_domain;
 private:
@@ -82,10 +76,6 @@ private:
 private:
   //initialize quantifiers, return number of lemmas produced
   int initializeQuantifier( Node f );
-  //build representatives
-  void buildRepresentatives();
-  //initialize model
-  void initializeModel();
   //analyze quantifiers
   void analyzeQuantifiers();
   //do InstGen techniques for quantifier, return number of lemmas produced
@@ -100,26 +90,11 @@ private:
 private:
   //register instantiation terms with their corresponding model basis terms
   void registerModelBasis( Node n, Node gn );
-  //for building UF model
-  void collectUfTerms( Node n, std::vector< Node >& terms );
-  void initializeUfModel( Node op );
 public:
   ModelEngine( QuantifiersEngine* qe );
   ~ModelEngine(){}
   //get quantifiers engine
   QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }
-  //get model builder
-  ModelBuilder* getModelBuilder() { return &d_builder; }
-  //get model
-  Model* getModel();
-  //get representatives
-  RepSet* getReps() { return &d_model.d_ra; }
-  //get model basis term
-  Node getModelBasisTerm( TypeNode tn, int i = 0 );
-  //get model basis term for op
-  Node getModelBasisOpTerm( Node op );
-  //is model basis term for op
-  //bool isModelBasisTerm( Node op, Node n );
 public:
   void check( Theory::Effort e );
   void registerQuantifier( Node f );
@@ -134,9 +109,6 @@ public:
     IntStat d_inst_rounds;
     IntStat d_pre_sat_quant;
     IntStat d_pre_nsat_quant;
-    IntStat d_eval_formulas;
-    IntStat d_eval_eqs;
-    IntStat d_eval_uf_terms;
     IntStat d_num_quants_init;
     IntStat d_num_quants_init_fail;
     Statistics();

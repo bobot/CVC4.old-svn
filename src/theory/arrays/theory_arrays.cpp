@@ -624,28 +624,26 @@ void TheoryArrays::computeCareGraph()
 // MODEL GENERATION
 /////////////////////////////////////////////////////////////////////////////
 
-
-Node TheoryArrays::getValue(TNode n)
-{
-  // TODO: Implement this
-  NodeManager* nodeManager = NodeManager::currentNM();
-
-  switch(n.getKind()) {
-
-  case kind::VARIABLE:
-    Unhandled(kind::VARIABLE);
-
-  case kind::EQUAL: // 2 args
-    return nodeManager->
-      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
-
-  default:
-    Unhandled(n.getKind());
-  }
-}
-
 void TheoryArrays::collectModelInfo( Model* m ){
   m->assertEqualityEngine( &d_equalityEngine );
+}
+
+bool TheoryArrays::hasInterpretedValue( TNode n, Model* m ){
+  return n.getKind()==kind::SELECT && n[0].getKind()==kind::STORE;
+}
+
+Node TheoryArrays::getInterpretedValue( TNode n, Model* m ){
+  if( n.getKind()==kind::SELECT && n[0].getKind()==kind::STORE ){
+    Node i1 = m->getValue( n[1] );
+    Node i2 = m->getValue( n[0][1] );
+    if( m->areEqual( i1, i2 ) ){
+      return m->getValue( n[0][2] );
+    }else{
+      return m->getValue( NodeManager::currentNM()->mkNode( kind::SELECT, n[0][0], n[1] ) );
+    }
+  }else{
+    Unhandled(n.getKind());
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////

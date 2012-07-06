@@ -64,6 +64,7 @@ public:
     d_engine(engine) {
   }
 
+  //get value
   Node getValue(TNode n) const;
 
   /*

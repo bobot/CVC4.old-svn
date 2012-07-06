@@ -54,6 +54,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_logicInfo(logicInfo),
   d_sharedTerms(this, context),
   d_quantEngine(NULL),
+  d_curr_model(this),
   d_ppCache(),
   d_possiblePropagations(context),
   d_hasPropagated(context),
@@ -106,12 +107,6 @@ void TheoryEngine::addComponents(){
   //add components for the quantifiers engine
   if( d_quantEngine ){
     d_quantEngine->addComponents();
-  }
-  // set the model builder
-  if( d_quantEngine && d_quantEngine->getModelEngine() ){
-    d_model_builder = d_quantEngine->getModelEngine()->getModelBuilder();
-  }else{
-    d_model_builder = new DefaultModelBuilder( d_context, this );
   }
 }
 
@@ -542,23 +537,10 @@ bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
   return true;
 }
 
+
 Node TheoryEngine::getValue(TNode node) {
-  kind::MetaKind metakind = node.getMetaKind();
-
-  // special case: prop engine handles boolean vars
-  if(metakind == kind::metakind::VARIABLE && node.getType().isBoolean()) {
-    return d_propEngine->getValue(node);
-  }
-
-  // special case: value of a constant == itself
-  if(metakind == kind::metakind::CONSTANT) {
-    return node;
-  }
-
-  // otherwise ask the theory-in-charge
-  return theoryOf(node)->getValue(node);
-
-}/* TheoryEngine::getValue(TNode node) */
+  return d_curr_model.getValue(node);
+}
 
 void TheoryEngine::collectModelInfo( theory::Model* m ){
   //consult each theory to get all relevant information concerning the model
@@ -571,10 +553,11 @@ void TheoryEngine::collectModelInfo( theory::Model* m ){
 
 /* get model */
 Model* TheoryEngine::getModel(){
-  if( d_model_builder ){
-    return d_model_builder->getModel();
+  if( d_quantEngine && Options::current()->finiteModelFind ){
+    return d_quantEngine->getModel();
   }else{
-    return NULL;
+    d_curr_model.initialize();
+    return &d_curr_model;
   }
 }
 

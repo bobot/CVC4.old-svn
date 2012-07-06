@@ -40,6 +40,7 @@
 #include "theory/arith/constraint.h"
 #include "theory/arith/theory_arith.h"
 #include "theory/arith/normal_form.h"
+#include "theory/model.h"
 
 #include <stdint.h>
 
@@ -1877,84 +1878,59 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
   }
 }
 
-Node TheoryArith::getValue(TNode n) {
+void TheoryArith::collectModelInfo( Model* m ){
+
+}
+
+bool TheoryArith::hasInterpretedValue( TNode n, Model* m ){
+  return n.getKind()==kind::PLUS || n.getKind()==kind::MULT ||
+         n.getKind()==kind::DIVISION || n.getKind()==kind::LT ||
+         n.getKind()==kind::LEQ || n.getKind()==GT ||
+         n.getKind()==kind::GEQ;
+}
+
+Node TheoryArith::getInterpretedValue( TNode n, Model* m ){
   NodeManager* nodeManager = NodeManager::currentNM();
-
   Assert(d_qflraStatus == Result::SAT);
-
   switch(n.getKind()) {
-  case kind::VARIABLE: {
-    ArithVar var = d_arithvarNodeMap.asArithVar(n);
-
-    DeltaRational drat = d_partialModel.getAssignment(var);
-    const Rational& delta = d_partialModel.getDelta();
-    Debug("getValue") << n << " " << drat << " " << delta << endl;
-    return nodeManager->
-      mkConst( drat.getNoninfinitesimalPart() +
-               drat.getInfinitesimalPart() * delta );
-  }
-
-  case kind::EQUAL: // 2 args
-    return nodeManager->
-      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
-
   case kind::PLUS: { // 2+ args
     Rational value(0);
     for(TNode::iterator i = n.begin(),
             iend = n.end();
           i != iend;
           ++i) {
-      value += d_valuation.getValue(*i).getConst<Rational>();
+      value += m->getValue(*i).getConst<Rational>();
     }
     return nodeManager->mkConst(value);
   }
-
   case kind::MULT: { // 2+ args
     Rational value(1);
     for(TNode::iterator i = n.begin(),
             iend = n.end();
           i != iend;
           ++i) {
-      value *= d_valuation.getValue(*i).getConst<Rational>();
+      value *= m->getValue(*i).getConst<Rational>();
     }
     return nodeManager->mkConst(value);
   }
-
-  case kind::MINUS: // 2 args
-    // should have been rewritten
-    Unreachable();
-
-  case kind::UMINUS: // 1 arg
-    // should have been rewritten
-    Unreachable();
-
   case kind::DIVISION: // 2 args
-    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() /
-                                 d_valuation.getValue(n[1]).getConst<Rational>() );
-
+    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() /
+                                 m->getValue(n[1]).getConst<Rational>() );
   case kind::LT: // 2 args
-    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() <
-                                 d_valuation.getValue(n[1]).getConst<Rational>() );
-
+    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() <
+                                 m->getValue(n[1]).getConst<Rational>() );
   case kind::LEQ: // 2 args
-    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() <=
-                                 d_valuation.getValue(n[1]).getConst<Rational>() );
-
+    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() <=
+                                 m->getValue(n[1]).getConst<Rational>() );
   case kind::GT: // 2 args
-    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() >
-                                 d_valuation.getValue(n[1]).getConst<Rational>() );
-
+    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() >
+                                 m->getValue(n[1]).getConst<Rational>() );
   case kind::GEQ: // 2 args
-    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() >=
-                                 d_valuation.getValue(n[1]).getConst<Rational>() );
-
+    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() >=
+                                 m->getValue(n[1]).getConst<Rational>() );
   default:
     Unhandled(n.getKind());
   }
-}
-
-void TheoryArith::collectModelInfo( Model* m ){
-
 }
 
 void TheoryArith::notifyRestart(){

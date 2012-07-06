@@ -18,6 +18,7 @@
 
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/extended_model.h"
 
 using namespace std;
 using namespace CVC4;
@@ -66,8 +67,8 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   if( Options::current()->cbqi ){
     //check if any cbqi lemma has not been added yet
     bool addedLemma = false;
-    for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
-      Node f = d_quantEngine->getAssertedQuantifier( i );
+    for( int i=0; i<(int)d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
+      Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
       if( doCbqi( f ) && !hasAddedCbqiLemma( f ) ){
         //add cbqi lemma
         addCbqiLemma( f );
@@ -93,8 +94,8 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
     Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
     d_inst_round_status = InstStrategy::STATUS_SAT;
     //instantiate each quantifier
-    for( int q=0; q<d_quantEngine->getNumAssertedQuantifiers(); q++ ){
-      Node f = d_quantEngine->getAssertedQuantifier( q );
+    for( int q=0; q<d_quantEngine->getModel()->getNumAssertedQuantifiers(); q++ ){
+      Node f = d_quantEngine->getModel()->getAssertedQuantifier( q );
       Debug("inst-engine-debug") << "IE: Instantiate " << f << "..." << std::endl;
       //if this quantifier is active
       if( d_quantEngine->getActive( f ) ){
@@ -173,9 +174,9 @@ void InstantiationEngine::check( Theory::Effort e ){
    // for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
     //  if( (*i).second ) {
     Debug("quantifiers") << "quantifiers:  check:  asserted quantifiers size"
-                         << d_quantEngine->getNumAssertedQuantifiers() << std::endl;
-    for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
-      Node n = d_quantEngine->getAssertedQuantifier( i );
+                         << d_quantEngine->getModel()->getNumAssertedQuantifiers() << std::endl;
+    for( int i=0; i<(int)d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
+      Node n = d_quantEngine->getModel()->getAssertedQuantifier( i );
       if( Options::current()->cbqi && hasAddedCbqiLemma( n ) ){
         Node cel = d_ce_lit[ n ];
         bool active, value;
@@ -348,8 +349,8 @@ void InstantiationEngine::debugSat( int reason ){
     //}
     //for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
     //  if( (*i).second ) {
-    for( int i=0; i<(int)d_quantEngine->getNumAssertedQuantifiers(); i++ ){
-      Node f = d_quantEngine->getAssertedQuantifier( i );
+    for( int i=0; i<(int)d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
+      Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
       Node cel = d_ce_lit[ f ];
       Assert( !cel.isNull() );
       bool value;

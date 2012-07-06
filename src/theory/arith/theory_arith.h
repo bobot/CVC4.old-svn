@@ -311,8 +311,9 @@ public:
   void propagate(Effort e);
   Node explain(TNode n);
 
-  Node getValue(TNode n);
   void collectModelInfo( Model* m );
+  bool hasInterpretedValue( TNode n, Model* m );
+  Node getInterpretedValue( TNode n, Model* m );
 
   void shutdown(){ }
 

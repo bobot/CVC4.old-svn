@@ -14,19 +14,55 @@
  ** \brief Implementation of model engine model class
  **/
 
-#include "theory/quantifiers/model_engine_model.h"
+#include "theory/extended_model.h"
 #include "theory/quantifiers/rep_set_iterator.h"
 #include "theory/quantifiers/model_engine.h"
+#include "theory/uf/theory_uf_strong_solver.h"
 
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
-using namespace CVC4::theory::quantifiers;
 
-ExtendedModel::ExtendedModel( QuantifiersEngine* qe, context::Context* c ) : Model( c ), d_qe( qe ){
+ExtendedModel::ExtendedModel( QuantifiersEngine* qe, context::Context* c ) : Model( qe->getTheoryEngine() ),
+d_qe( qe ), d_forall_asserts( c ){
 
+}
+
+void ExtendedModel::processInitialize(){
+  //rebuild models
+  d_uf_model.clear();
+  //for each quantifier, collect all operators we care about
+  for( int i=0; i<getNumAssertedQuantifiers(); i++ ){
+    Node f = getAssertedQuantifier( i );
+    //initialize model for term
+    initializeModelForTerm( f[1] );
+  }
+
+  if( Options::current()->printModelEngine ){
+    for( std::map< TypeNode, std::vector< Node > >::iterator it = d_ra.d_type_reps.begin(); it != d_ra.d_type_reps.end(); ++it ){
+      if( uf::StrongSolverTheoryUf::isRelevantType( it->first ) ){
+        Message() << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
+      }
+    }
+  }
+}
+
+void ExtendedModel::initializeModelForTerm( Node n ){
+  if( n.getKind()==APPLY_UF ){
+    Node op = n.getOperator();
+    if( d_uf_model.find( op )==d_uf_model.end() ){
+      TypeNode tn = op.getType();
+      tn = tn[ (int)tn.getNumChildren()-1 ];
+      if( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) ){
+        d_uf_model[ op ] = uf::UfModel( op, d_qe );
+      }
+    }
+  }
+  for( int i=0; i<(int)n.getNumChildren(); i++ ){
+    initializeModelForTerm( n[i] );
+  }
 }
 
 void ExtendedModel::buildModel(){
@@ -50,7 +86,7 @@ Node ExtendedModel::getInterpretedValue( TNode n ){
 void ExtendedModel::debugPrint( const char* c ){
   Debug( c ) << "---Current Model---" << std::endl;
   Debug( c ) << "Representatives: " << std::endl;
-  d_ra.debugPrint( c, d_qe );
+  d_ra.debugPrint( c );
   Debug( c ) << "Functions: " << std::endl;
   for( std::map< Node, uf::UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
     it->second.debugPrint( c );

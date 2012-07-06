@@ -20,7 +20,7 @@
 #define __CVC4__REP_SET_ITERATOR_H
 
 #include "theory/quantifiers_engine.h"
-#include "theory/quantifiers/model_engine_model.h"
+#include "theory/extended_model.h"
 
 namespace CVC4 {
 namespace theory {
@@ -28,11 +28,8 @@ namespace quantifiers {
 
 /** this class iterates over a RepSet */
 class RepSetIterator {
-private:
-  //initialize the iterator
-  void initialize( QuantifiersEngine* qe, Node f, ExtendedModel* model );
 public:
-  RepSetIterator( QuantifiersEngine* qe, Node f, ExtendedModel* model );
+  RepSetIterator( Node f, ExtendedModel* model );
   ~RepSetIterator(){}
   //pointer to quantifier
   Node d_f;
@@ -65,8 +62,8 @@ public:
   /** set domain */
   void setDomain( std::vector< RepDomain >& domain );
   /** increment the iterator */
-  void increment2( QuantifiersEngine* qe, int counter );
-  void increment( QuantifiersEngine* qe );
+  void increment2( int counter );
+  void increment();
   /** is the iterator finished? */
   bool isFinished();
   /** produce the match that this iterator represents */
@@ -75,8 +72,6 @@ public:
   Node getTerm( int i );
   /** get the number of terms we are considering */
   int getNumTerms() { return d_f[0].getNumChildren(); }
-  /** refresh d_term to be current with d_index */
-  void calculateTerms( QuantifiersEngine* qe );
   /** debug print */
   void debugPrint( const char* c );
   void debugPrintSmall( const char* c );
@@ -85,7 +80,7 @@ public:
 class RepSetEvaluator
 {
 private:
-  QuantifiersEngine* d_qe;
+  ExtendedModel* d_model;
   RepSetIterator* d_riter;
 private: //for Theory UF:
   //map from terms to the models used to calculate their value
@@ -103,12 +98,23 @@ private:
   std::map< Node, bool > d_eval_failed;
   std::map< int, std::vector< Node > > d_eval_failed_lits;
 public:
-  RepSetEvaluator( QuantifiersEngine* qe, RepSetIterator* ri );
+  RepSetEvaluator( ExtendedModel* m, RepSetIterator* ri );
   virtual ~RepSetEvaluator(){}
   /** evaluate functions */
   int evaluate( Node n, int& depIndex );
   int evaluateEquality( Node n1, Node n2, int& depIndex );
   Node evaluateTerm( Node n, int& depIndex );
+public:
+  /** statistics class */
+  //class Statistics {
+  //public:
+  //  IntStat d_eval_formulas;
+  //  IntStat d_eval_eqs;
+  //  IntStat d_eval_uf_terms;
+  //  Statistics();
+  //  ~Statistics();
+  //};
+  //static Statistics d_statistics;
 };
 
 

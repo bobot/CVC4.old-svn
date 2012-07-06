@@ -20,7 +20,7 @@
 #define __CVC4__RELEVANT_DOMAIN_H
 
 #include "theory/quantifiers_engine.h"
-#include "theory/quantifiers/model_engine_model.h"
+#include "theory/extended_model.h"
 
 namespace CVC4 {
 namespace theory {
@@ -30,13 +30,15 @@ class RelevantDomain
 {
 private:
   QuantifiersEngine* d_quantEngine;
-  ExtendedModel* d_model;
+
+  //the domain of the arguments
+  std::map< Node, std::map< int, RepDomain > > d_active_domain;
   //for computing relevant instantiation domain, return true if changed
   bool computeRelevantInstantiationDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd );
   //for computing extended
   bool extendFunctionDomains( Node n, RepDomain& range );
 public:
-  RelevantDomain( QuantifiersEngine* qe, ExtendedModel* m );
+  RelevantDomain( QuantifiersEngine* qe );
   virtual ~RelevantDomain(){}
   //compute the relevant domain
   void compute();

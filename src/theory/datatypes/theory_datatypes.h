@@ -150,8 +150,9 @@ public:
 
   void addSharedTerm(TNode t);
   void check(Effort e);
-  Node getValue(TNode n);
   void collectModelInfo( Model* m );
+  bool hasInterpretedValue( TNode n, Model* m );
+  Node getInterpretedValue( TNode n, Model* m );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }
 

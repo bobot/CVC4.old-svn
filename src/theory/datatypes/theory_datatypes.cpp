@@ -23,6 +23,7 @@
 #include "util/datatype.h"
 #include "util/Assert.h"
 #include "theory/datatypes/theory_datatypes_instantiator.h"
+#include "theory/model.h"
 
 #include <map>
 
@@ -616,21 +617,16 @@ void TheoryDatatypes::updateSelectors( Node a ) {
   }
 }
 
-Node TheoryDatatypes::getValue(TNode n) {
-  NodeManager* nodeManager = NodeManager::currentNM();
-  switch(n.getKind()) {
-  case kind::VARIABLE:
-    Unhandled(kind::VARIABLE);
-  case kind::EQUAL: // 2 args
-    return nodeManager->
-      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
-  default:
-    Unhandled(n.getKind());
-  }
-}
-
 void TheoryDatatypes::collectModelInfo( Model* m ){
 
+}
+
+bool TheoryDatatypes::hasInterpretedValue( TNode n, Model* m ){
+  return false;
+}
+
+Node TheoryDatatypes::getInterpretedValue( TNode n, Model* m ){
+  Unhandled(n.getKind());
 }
 
 void TheoryDatatypes::merge(TNode a, TNode b) {

@@ -26,10 +26,9 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-RepSetIterator::RepSetIterator( QuantifiersEngine* qe, Node f, ExtendedModel* model ) : d_f( f ), d_model( model ){
+RepSetIterator::RepSetIterator( Node f, ExtendedModel* model ) : d_f( f ), d_model( model ){
   //store instantiation constants
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
-    d_ic.push_back( qe->getInstantiationConstant( d_f, i ) );
     d_index.push_back( 0 );
   }
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
@@ -64,7 +63,7 @@ void RepSetIterator::setDomain( std::vector< RepDomain >& domain ){
   }
 }
 
-void RepSetIterator::increment2( QuantifiersEngine* qe, int counter ){
+void RepSetIterator::increment2( int counter ){
   Assert( !isFinished() );
 #ifdef DISABLE_EVAL_SKIP_MULTIPLE
   counter = (int)d_index.size()-1;
@@ -85,9 +84,9 @@ void RepSetIterator::increment2( QuantifiersEngine* qe, int counter ){
   }
 }
 
-void RepSetIterator::increment( QuantifiersEngine* qe ){
+void RepSetIterator::increment(){
   if( !isFinished() ){
-    increment2( qe, (int)d_index.size()-1 );
+    increment2( (int)d_index.size()-1 );
   }
 }
 
@@ -95,9 +94,9 @@ bool RepSetIterator::isFinished(){
   return d_index.empty();
 }
 
-void RepSetIterator::getMatch( QuantifiersEngine* ie, InstMatch& m ){
+void RepSetIterator::getMatch( QuantifiersEngine* qe, InstMatch& m ){
   for( int i=0; i<(int)d_index.size(); i++ ){
-    m.d_map[ ie->getInstantiationConstant( d_f, d_index_order[i] ) ] = getTerm( i );
+    m.d_map[ qe->getInstantiationConstant( d_f, d_index_order[i] ) ] = getTerm( i );
   }
 }
 
@@ -108,16 +107,9 @@ Node RepSetIterator::getTerm( int i ){
   return d_model->d_ra.d_type_reps[tn][d_domain[index][d_index[index]]];
 }
 
-void RepSetIterator::calculateTerms( QuantifiersEngine* qe ){
-  d_terms.clear();
-  for( int i=0; i<qe->getNumInstantiationConstants( d_f ); i++ ){
-    d_terms.push_back( getTerm( i ) );
-  }
-}
-
 void RepSetIterator::debugPrint( const char* c ){
   for( int i=0; i<(int)d_index.size(); i++ ){
-    Debug( c ) << i << ": " << d_index[i] << ", (" << getTerm( i ) << " / " << d_ic[ i ] << std::endl;
+    Debug( c ) << i << " : " << d_index[i] << " : " << getTerm( i ) << std::endl;
   }
 }
 
@@ -129,7 +121,7 @@ void RepSetIterator::debugPrintSmall( const char* c ){
   Debug( c ) << std::endl;
 }
 
-RepSetEvaluator::RepSetEvaluator( QuantifiersEngine* qe, RepSetIterator* ri ) : d_qe( qe ), d_riter( ri ){
+RepSetEvaluator::RepSetEvaluator( ExtendedModel* m, RepSetIterator* ri ) : d_model( m ), d_riter( ri ){
 
 }
 
@@ -139,7 +131,7 @@ RepSetEvaluator::RepSetEvaluator( QuantifiersEngine* qe, RepSetIterator* ri ) : 
 // otherwise,
 //   each n{d_riter->d_index[0]/x_0...d_riter->d_index[eVal]/x_eVal, */x_(eVal+1) ... */x_n } is equal to phaseReq in the current model
 int RepSetEvaluator::evaluate( Node n, int& depIndex ){
-  ++(d_qe->getModelEngine()->d_statistics.d_eval_formulas);
+  //++(d_statistics.d_eval_formulas);
   //Debug("fmf-model-eval-debug") << "Evaluate " << n << " " << phaseReq << std::endl;
   //Notice() << "Eval " << n << std::endl;
   if( n.getKind()==NOT ){
@@ -223,8 +215,8 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
     if( n.getKind()==APPLY_UF ){
       //case for boolean predicates
       Node val = evaluateTerm( n, depIndex );
-      if( d_qe->getEqualityQuery()->hasTerm( val ) ){
-        if( d_riter->d_model->areEqual( val, NodeManager::currentNM()->mkConst( true ) ) ){
+      if( d_model->hasTerm( val ) ){
+        if( d_model->areEqual( val, NodeManager::currentNM()->mkConst( true ) ) ){
           retVal = 1;
         }else{
           retVal = -1;
@@ -244,7 +236,7 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
 }
 
 int RepSetEvaluator::evaluateEquality( Node n1, Node n2, int& depIndex ){
-  ++(d_qe->getModelEngine()->d_statistics.d_eval_eqs);
+  //++(d_statistics.d_eval_eqs);
   //Notice() << "Eval eq " << n1 << " " << n2 << std::endl;
   Debug("fmf-model-eval-debug") << "Evaluate equality: " << std::endl;
   Debug("fmf-model-eval-debug") << "   " << n1 << " = " << n2 << std::endl;
@@ -252,27 +244,18 @@ int RepSetEvaluator::evaluateEquality( Node n1, Node n2, int& depIndex ){
   Node val1 = evaluateTerm( n1, depIndex1 );
   Node val2 = evaluateTerm( n2, depIndex2 );
   Debug("fmf-model-eval-debug") << "   Values :  ";
-  Model::printRepresentative( "fmf-model-eval-debug", d_qe, val1 );
+  d_model->printRepresentative( "fmf-model-eval-debug", val1 );
   Debug("fmf-model-eval-debug") <<  " = ";
-  Model::printRepresentative( "fmf-model-eval-debug", d_qe, val2 );
+  d_model->printRepresentative( "fmf-model-eval-debug", val2 );
   Debug("fmf-model-eval-debug") << std::endl;
   int retVal = 0;
-  if( d_riter->d_model->areEqual( val1, val2 ) ){
+  if( d_model->areEqual( val1, val2 ) ){
     retVal = 1;
-  }else if( d_riter->d_model->areDisequal( val1, val2 ) ){
+  }else{
     retVal = -1;
-  }else{
-    //std::cout << "Neither equal nor disequal " << val1.getKind() << " " << val2.getKind() << " : " << val1.getType() << std::endl;
-    //std::cout << "                           " << d_qe->getEqualityQuery()->hasTerm( val1 ) << " " << d_qe->getEqualityQuery()->hasTerm( val2 ) << std::endl;
-    //std::cout << "                           " << val1 << " " << val2 << std::endl;
   }
-  if( retVal!=0 ){
-    Debug("fmf-model-eval-debug") << "   ---> Success, value = " << (retVal==1) << std::endl;
-    depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
-  }else{
-    Debug("fmf-model-eval-debug") << "   ---> Failed" << std::endl;
-    depIndex = d_riter->getNumTerms()-1;
-  }
+  depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
+  Debug("fmf-model-eval-debug") << "   value = " << (retVal==1) << ", depIndex = " << depIndex << std::endl;
   return retVal;
 }
 
@@ -321,16 +304,16 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
         Node op = n.getOperator();
         //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
         //if it is a defined UF, then consult the interpretation
-        ++(d_qe->getModelEngine()->d_statistics.d_eval_uf_terms);
+        //++(d_statistics.d_eval_uf_terms);
         int argDepIndex = 0;
-        if( d_riter->d_model->d_uf_model.find( op )!=d_riter->d_model->d_uf_model.end() ){
+        if( d_model->d_uf_model.find( op )!=d_model->d_uf_model.end() ){
           //make the term model specifically for n
           makeEvalUfModel( n );
           //now, consult the model
           if( d_eval_uf_use_default[n] ){
-            val = d_riter->d_model->d_uf_model[op].d_tree.getValue( d_qe, val, argDepIndex );
+            val = d_model->d_uf_model[op].d_tree.getValue( d_model, val, argDepIndex );
           }else{
-            val = d_eval_uf_model[ n ].getValue( d_qe, val, argDepIndex );
+            val = d_eval_uf_model[ n ].getValue( d_model, val, argDepIndex );
           }
           //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
           //d_eval_uf_model[ n ].debugPrint("fmf-model-eval-debug", d_qe );
@@ -340,7 +323,7 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
           argDepIndex = (int)n.getNumChildren();
         }
         Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = ";
-        Model::printRepresentative( "fmf-model-eval-debug", d_qe, val );
+        d_model->printRepresentative( "fmf-model-eval-debug", val );
         //recalculate the depIndex
         depIndex = -1;
         for( int i=0; i<argDepIndex; i++ ){
@@ -381,7 +364,7 @@ void RepSetEvaluator::makeEvalUfModel( Node n ){
     if( !d_eval_uf_use_default[n] ){
       Node op = n.getOperator();
       d_eval_uf_model[n] = uf::UfModelTreeOrdered( op, d_eval_term_index_order[n] );
-      d_riter->d_model->d_uf_model[op].makeModel( d_eval_uf_model[n] );
+      d_model->d_uf_model[op].makeModel( d_eval_uf_model[n] );
       //Debug("fmf-model-index-order") << "Make model for " << n << " : " << std::endl;
       //d_eval_uf_model[n].debugPrint( "fmf-model-index-order", d_qe, 2 );
     }
@@ -456,3 +439,22 @@ void RepSetEvaluator::makeEvalUfIndexOrder( Node n ){
 #endif
   }
 }
+/*
+
+RepSetEvaluator::Statistics::Statistics():
+  d_eval_formulas("ModelEngine::Eval_Formulas", 0 ),
+  d_eval_eqs("ModelEngine::Eval_Equalities", 0 ),
+  d_eval_uf_terms("ModelEngine::Eval_Uf_Terms", 0 )
+{
+  StatisticsRegistry::registerStat(&d_eval_formulas);
+  StatisticsRegistry::registerStat(&d_eval_eqs);
+  StatisticsRegistry::registerStat(&d_eval_uf_terms);
+}
+
+RepSetEvaluator::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_eval_formulas);
+  StatisticsRegistry::unregisterStat(&d_eval_eqs);
+  StatisticsRegistry::unregisterStat(&d_eval_uf_terms);
+}
+*/
+

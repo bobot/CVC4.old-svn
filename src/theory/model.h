@@ -44,43 +44,39 @@ public:
   /** returns index in d_type_reps for node n */
   int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
   /** debug print */
-  void debugPrint( const char* c, QuantifiersEngine* qe );
+  void debugPrint( const char* c );
 };
 
 //representative domain
 typedef std::vector< int > RepDomain;
 
 /** Model class
- *     Should be used in the following way, for Model m:
- *       m.clear();
- *       getTheoryEngine()->collectModelInfo( m );
- *       m.initialize();
- *       ....
+ *    For Model m, should call m.initialize() before using
  */
 class Model
 {
 protected:
-  /** process clear */
-  virtual void processClear() {}
+  /** pointer to theory engine */
+  TheoryEngine* d_te;
   /** process initialize */
   virtual void processInitialize() {}
+  /** add term */
+  virtual void addTerm() {}
 public:
   /** equality engine containing all known equalities/disequalities */
   eq::EqualityEngine d_equalityEngine;
-  /** map of representatives to an equivalent constant */
-  std::map< Node, Node > d_constants;
-  /** list of all terms for each operator */
-  std::map< Node, std::vector< Node > > d_op_terms;
+  /** use constants for representatives */
+  bool d_useConstantReps;
+  /** map of representatives of equality engine to used representatives */
+  std::map< Node, Node > d_reps;
   /** representative alphabet */
   RepSet d_ra;
   //true/false nodes
   Node d_true;
   Node d_false;
 public:
-  Model( context::Context* c );
+  Model( TheoryEngine* te );
   virtual ~Model(){}
-  /** clear */
-  void clear();
   /** initialize */
   void initialize();
   /** get value */
@@ -98,22 +94,33 @@ public:
   void assertEqualityEngine( eq::EqualityEngine* ee );
 public:
   //queries about equality
+  bool hasTerm( Node a );
   Node getRepresentative( Node a );
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
 public:
   /** print representative function */
-  static void printRepresentative( const char* c, QuantifiersEngine* qe, Node r );
+  void printRepresentative( const char* c, Node r );
 };
 
 //default model class: extends model arbitrarily
 class DefaultModel : public Model
 {
 public:
-  DefaultModel( context::Context* c ) : Model( c ){}
+  DefaultModel( TheoryEngine* te );
   virtual ~DefaultModel(){}
 public:
   Node getInterpretedValue( TNode n );
+};
+
+//incomplete model class: does not extend model
+class IncompleteModel : public Model
+{
+public:
+  IncompleteModel( TheoryEngine* te ) : Model( te ){}
+  virtual ~IncompleteModel(){}
+public:
+  Node getInterpretedValue( TNode n ) { return Node::null(); }
 };
 
 //model builder class
@@ -129,9 +136,8 @@ class DefaultModelBuilder : public ModelBuilder
 {
 private:
   DefaultModel d_model;
-  TheoryEngine* d_te;
 public:
-  DefaultModelBuilder( context::Context* c, TheoryEngine* te ) : ModelBuilder(), d_model( c ), d_te( te ){}
+  DefaultModelBuilder( TheoryEngine* te ) : ModelBuilder(), d_model( te ){}
   virtual ~DefaultModelBuilder(){}
   Model* getModel();
 };

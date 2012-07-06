@@ -546,43 +546,6 @@ public:
   }
 
   /**
-   * Return the value of a node (typically used after a ).  If the
-   * theory supports model generation but has no value for this node,
-   * it should return Node::null().  If the theory doesn't support
-   * model generation at all, or usually would but doesn't in its
-   * current state, it should throw an exception saying so.
-   *
-   * The TheoryEngine is passed in so that you can recursively request
-   * values for the Node's children.  This is important because the
-   * TheoryEngine takes care of simple cases (metakind CONSTANT,
-   * Boolean-valued VARIABLES, ...) and can dispatch to other theories
-   * if that's necessary.  Only call your own getValue() recursively
-   * if you *know* that you are responsible handle the Node you're
-   * asking for; other theories can use your types, so be careful
-   * here!  To be safe, it's best to delegate back to the
-   * TheoryEngine (by way of the Valuation proxy object, which avoids
-   * direct dependence on TheoryEngine).
-   *
-   * Usually, you need to handle at least the two cases of EQUAL and
-   * VARIABLE---EQUAL in case a value of yours is on the LHS of an
-   * EQUAL, and VARIABLE for variables of your types.  You also need
-   * to support any operators that can survive your rewriter.  You
-   * don't need to handle constants, as they are handled by the
-   * TheoryEngine.
-   *
-   * There are some gotchas here.  The user may be requesting the
-   * value of an expression that wasn't part of the satisfiable
-   * assertion, or has been declared since.  If you don't have a value
-   * and suspect this situation is the case, return Node::null()
-   * rather than throwing an exception.
-   */
-  virtual Node getValue(TNode n) {
-    Unimplemented("Theory %s doesn't support Theory::getValue interface",
-                  identify().c_str());
-    return Node::null();
-  }
-
-  /**
    * Get all relevant information in this theory regarding the current
    * model.  This should be called after a call to check( FULL_EFFORT )
    * for all theories with no conflicts and no lemmas added.
@@ -590,6 +553,34 @@ public:
   virtual void collectModelInfo( Model* m ){
     Unimplemented("Theory %s doesn't support Theory::getModel interface",
                   identify().c_str());
+  }
+
+  /**
+   * Return whether the value of this node should be interpreted by
+   * the theory.
+   */
+  virtual bool hasInterpretedValue( TNode n, Model* m ){
+    return false;
+  }
+
+  /**
+   * Return the value of a node whose operator has a set interpretation
+   * according to the theory, such as PLUS, LT, AND, BVMULT, etc.
+   *
+   * The Model is passed in so that you can recursively request
+   * values for the Node's children.  This is important because the
+   * Model takes care of all other cases (metakind CONSTANT,
+   * Boolean-valued VARIABLES, ...) and can dispatch to other theories
+   * if that's necessary.  Only call your own getValue() recursively
+   * if you *know* that you are responsible handle the Node you're
+   * asking for; other theories can use your types, so be careful
+   * here!  To be safe, it's best to delegate back to the Model.
+   *
+   */
+  virtual Node getInterpretedValue( TNode n, Model* m ) {
+    Unimplemented("Theory %s doesn't support Theory::getInterpretedValue interface",
+                  identify().c_str());
+    return Node::null();
   }
 
   /**

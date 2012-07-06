@@ -31,8 +31,9 @@ class TheoryBuiltin : public Theory {
 public:
   TheoryBuiltin(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
     Theory(THEORY_BUILTIN, c, u, out, valuation, logicInfo, qe) {}
-  Node getValue(TNode n);
   void collectModelInfo( Model* m );
+  bool hasInterpretedValue( TNode n, Model* m );
+  Node getInterpretedValue( TNode n, Model* m );
   std::string identify() const { return std::string("TheoryBuiltin"); }
 };/* class TheoryBuiltin */
 

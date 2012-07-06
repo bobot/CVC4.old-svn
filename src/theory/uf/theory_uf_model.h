@@ -24,11 +24,10 @@
 namespace CVC4 {
 namespace theory {
 
-class QuantifiersEngine;
-
 namespace quantifiers{
-  class ExtendedModel;
+  class RelevantDomain;
 }
+class QuantifiersEngine;
 
 namespace uf {
 
@@ -50,7 +49,7 @@ public:
     * For each argument of n with ModelBasisAttribute() set to true will be considered default arguments if ground=false
     *
     */
-  void setValue( QuantifiersEngine* qe, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex );
+  void setValue( Model* m, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex );
   /**  getValue function
     *
     *  returns $val, the value of ground term n
@@ -61,7 +60,7 @@ public:
     *  If ground = true, we are asking whether the term n is constant (assumes that all non-model basis arguments are ground)
     *
     */
-  Node getValue( QuantifiersEngine* qe, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex );
+  Node getValue( Model* m, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex );
   ///** getConstant Value function
   //  *
   //  * given term n, where n may contain model basis arguments
@@ -71,13 +70,13 @@ public:
   //  *   then f( a, e ) would return b, while f( e, a ) would return null
   //  *
   //  */
-  Node getConstantValue( QuantifiersEngine* qe, Node n, std::vector< int >& indexOrder, int argIndex );
+  Node getConstantValue( Model* m, Node n, std::vector< int >& indexOrder, int argIndex );
   /** simplify function */
   void simplify( Node op, Node defaultVal, int argIndex );
   // is total ?
   bool isTotal( Node op, int argIndex );
 public:
-  void debugPrint( const char* c, QuantifiersEngine* qe, std::vector< int >& indexOrder, int ind = 0, int arg = 0 );
+  void debugPrint( const char* c, Model* m, std::vector< int >& indexOrder, int ind = 0, int arg = 0 );
 };
 
 class UfModelTreeOrdered
@@ -99,28 +98,28 @@ public:
   }
   bool isEmpty() { return d_tree.isEmpty(); }
   void clear() { d_tree.clear(); }
-  void setValue( QuantifiersEngine* qe, Node n, Node v, bool ground = true ){
-    d_tree.setValue( qe, n, v, d_index_order, ground, 0 );
+  void setValue( Model* m, Node n, Node v, bool ground = true ){
+    d_tree.setValue( m, n, v, d_index_order, ground, 0 );
   }
-  Node getValue( QuantifiersEngine* qe, Node n, int& depIndex ){
-    return d_tree.getValue( qe, n, d_index_order, depIndex, 0 );
+  Node getValue( Model* m, Node n, int& depIndex ){
+    return d_tree.getValue( m, n, d_index_order, depIndex, 0 );
   }
-  Node getConstantValue( QuantifiersEngine* qe, Node n ) {
-    return d_tree.getConstantValue( qe, n, d_index_order, 0 );
+  Node getConstantValue( Model* m, Node n ) {
+    return d_tree.getConstantValue( m, n, d_index_order, 0 );
   }
   void simplify() { d_tree.simplify( d_op, Node::null(), 0 ); }
   bool isTotal() { return d_tree.isTotal( d_op, 0 ); }
 public:
-  void debugPrint( const char* c, QuantifiersEngine* qe, int ind = 0 ){
-    d_tree.debugPrint( c, qe, d_index_order, ind );
+  void debugPrint( const char* c, Model* m, int ind = 0 ){
+    d_tree.debugPrint( c, m, d_index_order, ind );
   }
 };
 
 class UfModel
 {
+  friend class quantifiers::RelevantDomain;
 private:
   Node d_op;
-  quantifiers::ExtendedModel* d_model;
   QuantifiersEngine* d_qe;
   std::vector< Node > d_ground_asserts;
   std::vector< Node > d_ground_asserts_reps;
@@ -141,18 +140,14 @@ private:
   // defaults
   std::vector< Node > d_defaults;
   Node getIntersection( Node n1, Node n2, bool& isGround );
-  // compute model basis arg
-  static void computeModelBasisArgAttribute( Node n );
 public:
   UfModel(){}
-  UfModel( Node op, quantifiers::ExtendedModel* m, QuantifiersEngine* qe );
+  UfModel( Node op, QuantifiersEngine* qe );
   ~UfModel(){}
   //data structure that stores the model
   UfModelTreeOrdered d_tree;
   //quantifiers that are satisfied because of the constant definition of d_op
   bool d_reconsider_model;
-  //the domain of the arguments
-  std::map< int, RepDomain > d_active_domain;
   //the range of the function
   RepDomain d_active_range;
 public:
@@ -171,8 +166,6 @@ public:
   void buildModel();
   /** make model */
   void makeModel( UfModelTreeOrdered& tree );
-  /** compute relevant domain */
-  void computeRelevantDomain();
 public:
   /** set value preference */
   void setValuePreference( Node f, Node n, bool isPro );

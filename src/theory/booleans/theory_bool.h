@@ -23,6 +23,7 @@
 
 #include "theory/theory.h"
 #include "context/context.h"
+#include "theory/model.h"
 
 namespace CVC4 {
 namespace theory {
@@ -34,8 +35,9 @@ public:
     Theory(THEORY_BOOL, c, u, out, valuation, logicInfo, qe) {
   }
 
-  Node getValue(TNode n);
   void collectModelInfo( Model* m );
+  bool hasInterpretedValue( TNode n, Model* m );
+  Node getInterpretedValue( TNode n, Model* m );
 
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
 

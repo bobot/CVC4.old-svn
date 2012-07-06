@@ -59,6 +59,7 @@
 #include "theory/theory_traits.h"
 #include "theory/logic_info.h"
 #include "util/ite_removal.h"
+#include "theory/model.h"
 
 using namespace std;
 using namespace CVC4;
@@ -1770,8 +1771,11 @@ Expr SmtEngine::getValue(const Expr& e)
   n = Rewriter::rewrite(n);
 
   Trace("smt") << "--- getting value of " << n << endl;
-  Node resultNode = d_theoryEngine->getValue(n);
-
+  Model* m = d_theoryEngine->getModel();
+  Node resultNode;
+  if( m ){
+    resultNode = m->getValue( n );
+  }
   // type-check the result we got
   Assert(resultNode.isNull() || resultNode.getType() == n.getType());
   return Expr(d_exprManager, new Node(resultNode));
@@ -1843,7 +1847,11 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
     Node n = Rewriter::rewrite(*i);
 
     Trace("smt") << "--- getting value of " << n << endl;
-    Node resultNode = d_theoryEngine->getValue(n);
+    Model* m = d_theoryEngine->getModel();
+    Node resultNode;
+    if( m ){
+      resultNode = m->getValue( n );
+    }
 
     // type-check the result we got
     Assert(resultNode.isNull() || resultNode.getType() == boolType);

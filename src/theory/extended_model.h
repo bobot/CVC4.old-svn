@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file model_engine_model.h
+/*! \file extended_model.h
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -11,15 +11,14 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Model Engine model classes
+ ** \brief Model extended classes
  **/
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__MODEL_ENGINE_MODEL_H
-#define __CVC4__MODEL_ENGINE_MODEL_H
+#ifndef __CVC4__EXTENDED_MODEL_H
+#define __CVC4__EXTENDED_MODEL_H
 
-#include "theory/quantifiers_engine.h"
 #include "theory/model.h"
 #include "theory/uf/theory_uf_model.h"
 
@@ -33,30 +32,32 @@ typedef expr::Attribute<ModelBasisAttributeId, bool> ModelBasisAttribute;
 struct ModelBasisArgAttributeId {};
 typedef expr::Attribute<ModelBasisArgAttributeId, uint64_t> ModelBasisArgAttribute;
 
-namespace quantifiers {
-
-/*
-class ExtendedModelComponent
-{
-public:
-  ExtendedModelComponent(){}
-  virtual ~ExtendedModelComponent(){}
-};
-*/
-
-class ModelEngine;
-class RepSetIterator;
+namespace quantifiers{
+  class ModelEngine;
+  class RepSetIterator;
+}
+class QuantifiersEngine;
 
 class ExtendedModel : public Model
 {
-  friend class ModelEngine;
-  friend class RepSetIterator;
+  friend class quantifiers::ModelEngine;
+  friend class quantifiers::RepSetIterator;
 private:
-  //quantifiers engine
   QuantifiersEngine* d_qe;
+  //process initialize
+  void processInitialize();
+  //for initialize model
+  void initializeModelForTerm( Node n );
 public: //for Theory UF:
   //models for each UF operator
   std::map< Node, uf::UfModel > d_uf_model;
+public: //for Theory Quantifiers:
+  /** list of quantifiers asserted in the current context */
+  context::CDList<Node> d_forall_asserts;
+  /** get number of asserted quantifiers */
+  int getNumAssertedQuantifiers() { return (int)d_forall_asserts.size(); }
+  /** get asserted quantifier */
+  Node getAssertedQuantifier( int i ) { return d_forall_asserts[i]; }
 public:
   ExtendedModel( QuantifiersEngine* qe, context::Context* c );
   virtual ~ExtendedModel(){}
@@ -68,7 +69,6 @@ public:
   void debugPrint( const char* c );
 };
 
-}
 }
 }
 

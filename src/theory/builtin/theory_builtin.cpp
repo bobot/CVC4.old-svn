@@ -19,6 +19,7 @@
 #include "theory/builtin/theory_builtin.h"
 #include "theory/valuation.h"
 #include "expr/kind.h"
+#include "theory/model.h"
 
 using namespace std;
 
@@ -26,42 +27,31 @@ namespace CVC4 {
 namespace theory {
 namespace builtin {
 
-Node TheoryBuiltin::getValue(TNode n) {
+void TheoryBuiltin::collectModelInfo( Model* m ){
+
+}
+
+bool TheoryBuiltin::hasInterpretedValue( TNode n, Model* m ){
+  return n.getKind()==kind::TUPLE;
+}
+
+Node TheoryBuiltin::getInterpretedValue( TNode n, Model* m ){
   switch(n.getKind()) {
-
-  case kind::VARIABLE:
-    // no variables that the builtin theory is responsible for
-    Unreachable();
-
-  case kind::EQUAL: { // 2 args
-    // has to be an EQUAL over tuples, since all others should be
-    // handled elsewhere
-    Assert(n[0].getKind() == kind::TUPLE &&
-           n[1].getKind() == kind::TUPLE);
-    return NodeManager::currentNM()->
-      mkConst( getValue(n[0]) == getValue(n[1]) );
-  }
-
   case kind::TUPLE: { // 2+ args
     NodeBuilder<> nb(kind::TUPLE);
     for(TNode::iterator i = n.begin(),
           iend = n.end();
         i != iend;
         ++i) {
-      nb << d_valuation.getValue(*i);
+      nb << m->getValue(*i);
     }
     return Node(nb);
   }
-
   default:
     // all other "builtins" should have been rewritten away or handled
     // by the valuation, or handled elsewhere.
     Unhandled(n.getKind());
   }
-}
-
-void TheoryBuiltin::collectModelInfo( Model* m ){
-
 }
 
 }/* CVC4::theory::builtin namespace */

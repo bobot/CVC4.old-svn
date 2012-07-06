@@ -42,6 +42,7 @@
 #include "util/cache.h"
 #include "theory/ite_simplifier.h"
 #include "theory/unconstrained_simplifier.h"
+#include "theory/model.h"
 
 namespace CVC4 {
 
@@ -73,8 +74,6 @@ struct NodeTheoryPairHashFunction {
 
 namespace theory {
   class Instantiator;
-  class Model;
-  class ModelBuilder;
 }/* CVC4::theory namespace */
 
 class DecisionEngine;
@@ -128,9 +127,9 @@ class TheoryEngine {
   theory::QuantifiersEngine* d_quantEngine;
 
   /**
-   * The model builder
+   * Default model object
    */
-  theory::ModelBuilder* d_model_builder;
+  theory::DefaultModel d_curr_model;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
   typedef std::hash_map<TNode, Node, TNodeHashFunction> TNodeMap;
@@ -442,6 +441,13 @@ public:
    */
   inline prop::PropEngine* getPropEngine() const {
     return d_propEngine;
+  }
+
+  /**
+   * Get a pointer to the underlying sat context.
+   */
+  inline context::Context* getSatContext() const {
+    return d_context;
   }
 
   /**
