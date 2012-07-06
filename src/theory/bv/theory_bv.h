@@ -60,8 +60,8 @@ public:
 
   Node explain(TNode n);
 
-  Node getValue(TNode n);
   void collectModelInfo( Model* m );
+  bool hasInterpretedValue(TNode n);
 
   std::string identify() const { return std::string("TheoryBV"); }
 

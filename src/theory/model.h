@@ -61,7 +61,7 @@ protected:
   /** process initialize */
   virtual void processInitialize() {}
   /** add term */
-  virtual void addTerm() {}
+  virtual void addTerm( Node n ) {}
 public:
   /** equality engine containing all known equalities/disequalities */
   eq::EqualityEngine d_equalityEngine;
@@ -81,7 +81,7 @@ public:
   void initialize();
   /** get value */
   Node getValue( TNode n );
-  /** get value */
+  /** get interpreted value, should be a representative in d_reps */
   virtual Node getInterpretedValue( TNode n ) = 0;
   /** get arbitrary value */
   Node getArbitraryValue( TypeNode tn, std::vector< Node >& exclude );

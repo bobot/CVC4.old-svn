@@ -621,12 +621,8 @@ void TheoryDatatypes::collectModelInfo( Model* m ){
 
 }
 
-bool TheoryDatatypes::hasInterpretedValue( TNode n, Model* m ){
-  return false;
-}
-
-Node TheoryDatatypes::getInterpretedValue( TNode n, Model* m ){
-  Unhandled(n.getKind());
+bool TheoryDatatypes::hasInterpretedValue( TNode n ){
+  return n.getKind()==APPLY_TESTER || n.getKind()==APPLY_SELECTOR;
 }
 
 void TheoryDatatypes::merge(TNode a, TNode b) {

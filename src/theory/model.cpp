@@ -70,32 +70,50 @@ void Model::initialize(){
   //collect model info from the theory engine
   d_te->collectModelInfo( this );
   //populate term database, store representatives
+  std::vector< Node > unresolvedReps;
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
-    d_ra.add( eqc );
+    Node rep;
     if( !d_useConstantReps ){
-      d_reps[ eqc ] = eqc;
+      rep = eqc;
     }
     eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
     while( !eqc_i.isFinished() ){
-      //addTerm( *eqc_i );
+      //model-specific add term
+      addTerm( *eqc_i );
+      //if constant, use this as representative
       if( d_useConstantReps && (*eqc_i).getMetaKind()==kind::metakind::CONSTANT ){
-        d_reps[ eqc ] = *eqc_i;
+        rep = *eqc_i;
       }
       ++eqc_i;
     }
-    if( d_useConstantReps && d_reps.find( eqc )==d_reps.end() ){
-      //DO_THIS: ensure constant is in the equivalence class of eqc
-      d_reps[ eqc ] = eqc;  //temporary
+    //store representative in representative set
+    if( !rep.isNull() ){
+      d_reps[ eqc ] = rep;
+      d_ra.add( rep );
+    }else{
+      unresolvedReps.push_back( eqc );
     }
     ++eqcs_i;
+  }
+  if( d_useConstantReps ){
+    //now, create constants for all unresolved equivalence classes
+    for( size_t i = 0; i<unresolvedReps.size(); i++ ){
+      Node n = unresolvedReps[i];
+      TypeNode tn = n.getType();
+      Node rep = getArbitraryValue( tn, d_ra.d_type_reps[tn] );
+      d_reps[ n ] = rep;
+      d_ra.add( rep );
+    }
   }
   //do model-specific initialization
   processInitialize();
 }
 
 Node Model::getValue( TNode n ){
+  //must be using constant representatives option
+  Assert( d_useConstantReps );
   kind::MetaKind metakind = n.getMetaKind();
 
   // special case: prop engine handles boolean vars
@@ -110,15 +128,25 @@ Node Model::getValue( TNode n ){
 
   // see if the theory has a built-in interpretation
   Theory* th = d_te->theoryOf( n );
-  if( th->hasInterpretedValue( n, this ) ){
-    return th->getInterpretedValue( n, this );
+  if( th->hasInterpretedValue( n ) ){
+    std::vector< Node > children;
+    if( n.hasOperator() ){
+      children.push_back( n.getOperator() );
+    }
+    //first, evaluate the children
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      children.push_back( getValue( n ) );
+    }
+    //interpretation is the rewritten form
+    Node nn = NodeManager::currentNM()->mkNode( n.getKind(), children );
+    return Rewriter::rewrite( nn );
   }
 
   //case for equality
   if( n.getKind()==EQUAL ){
     Node n1 = getValue( n[0] );
     Node n2 = getValue( n[1] );
-    return NodeManager::currentNM()->mkConst( areEqual( n1, n2 ) );
+    return NodeManager::currentNM()->mkConst( n1==n2 );
   }
 
   // see if the value is explicitly set in the model
@@ -131,39 +159,44 @@ Node Model::getValue( TNode n ){
 }
 
 Node Model::getArbitraryValue( TypeNode tn, std::vector< Node >& exclude ){
-  Node retVal;
   if( tn==NodeManager::currentNM()->booleanType() ){
     if( exclude.empty() ){
-      retVal = d_false;
+      return d_false;
     }else if( exclude.size()==1 ){
-      retVal = NodeManager::currentNM()->mkConst( areEqual( exclude[0], d_false ) );
+      return NodeManager::currentNM()->mkConst( areEqual( exclude[0], d_false ) );
     }
+  }else if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
+    int val = 0;
+    do{
+      Node r = NodeManager::currentNM()->mkConst( Rational(val) );
+      if( std::find( exclude.begin(), exclude.end(), r )==exclude.end() ){
+        return r;
+      }
+      val++;
+    }while( true );
   }else if( d_ra.d_type_reps.find( tn )!=d_ra.d_type_reps.end() ){
+    //finite domain, find an arbitrary element
     for( size_t i=0; i<d_ra.d_type_reps[tn].size(); i++ ){
       if( std::find( exclude.begin(), exclude.end(), d_ra.d_type_reps[tn][i] )==exclude.end() ){
-        retVal = d_ra.d_type_reps[tn][i];
-        break;
+        return d_ra.d_type_reps[tn][i];
       }
     }
+    //otherwise must make a constant DO_THIS
   }
-  if( !retVal.isNull() ){
-    return getRepresentative( retVal );
-  }else{
-    return Node::null();
-  }
+  return Node::null();
 }
 
-/** add equality */
+/** assert equality */
 void Model::assertEquality( Node a, Node b, bool polarity ){
   d_equalityEngine.assertEquality( a.eqNode(b), polarity, Node::null() );
 }
 
-/** add predicate */
+/** assert predicate */
 void Model::assertPredicate( Node a, bool polarity ){
   d_equalityEngine.assertPredicate( a, polarity, Node::null() );
 }
 
-/** add equality engine */
+/** assert equality engine */
 void Model::assertEqualityEngine( eq::EqualityEngine* ee ){
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( ee );
   while( !eqcs_i.isFinished() ){

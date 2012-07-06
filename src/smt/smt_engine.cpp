@@ -807,7 +807,8 @@ void SmtEngine::defineFunction(Expr func,
   Type funcType = func.getType();
   Type rangeType = funcType.isFunction() ?
     FunctionType(funcType).getRangeType() : funcType;
-  /*
+  //AJR: this gives spurious type checking errors
+#if 0
   if(formulaType != rangeType) {
     stringstream ss;
     ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
@@ -817,7 +818,8 @@ void SmtEngine::defineFunction(Expr func,
        << "The body      : " << formula << "\n"
        << "Body type     : " << formulaType;
     throw TypeCheckingException(func, ss.str());
-  }*/
+  }
+#endif
   TNode funcNode = func.getTNode();
   vector<Node> formalsNodes;
   for(vector<Expr>::const_iterator i = formals.begin(),

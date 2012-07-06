@@ -31,27 +31,8 @@ void TheoryBuiltin::collectModelInfo( Model* m ){
 
 }
 
-bool TheoryBuiltin::hasInterpretedValue( TNode n, Model* m ){
+bool TheoryBuiltin::hasInterpretedValue( TNode n ){
   return n.getKind()==kind::TUPLE;
-}
-
-Node TheoryBuiltin::getInterpretedValue( TNode n, Model* m ){
-  switch(n.getKind()) {
-  case kind::TUPLE: { // 2+ args
-    NodeBuilder<> nb(kind::TUPLE);
-    for(TNode::iterator i = n.begin(),
-          iend = n.end();
-        i != iend;
-        ++i) {
-      nb << m->getValue(*i);
-    }
-    return Node(nb);
-  }
-  default:
-    // all other "builtins" should have been rewritten away or handled
-    // by the valuation, or handled elsewhere.
-    Unhandled(n.getKind());
-  }
 }
 
 }/* CVC4::theory::builtin namespace */

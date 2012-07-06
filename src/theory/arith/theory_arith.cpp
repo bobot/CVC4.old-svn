@@ -1882,55 +1882,11 @@ void TheoryArith::collectModelInfo( Model* m ){
 
 }
 
-bool TheoryArith::hasInterpretedValue( TNode n, Model* m ){
+bool TheoryArith::hasInterpretedValue( TNode n ){
   return n.getKind()==kind::PLUS || n.getKind()==kind::MULT ||
          n.getKind()==kind::DIVISION || n.getKind()==kind::LT ||
          n.getKind()==kind::LEQ || n.getKind()==GT ||
          n.getKind()==kind::GEQ;
-}
-
-Node TheoryArith::getInterpretedValue( TNode n, Model* m ){
-  NodeManager* nodeManager = NodeManager::currentNM();
-  Assert(d_qflraStatus == Result::SAT);
-  switch(n.getKind()) {
-  case kind::PLUS: { // 2+ args
-    Rational value(0);
-    for(TNode::iterator i = n.begin(),
-            iend = n.end();
-          i != iend;
-          ++i) {
-      value += m->getValue(*i).getConst<Rational>();
-    }
-    return nodeManager->mkConst(value);
-  }
-  case kind::MULT: { // 2+ args
-    Rational value(1);
-    for(TNode::iterator i = n.begin(),
-            iend = n.end();
-          i != iend;
-          ++i) {
-      value *= m->getValue(*i).getConst<Rational>();
-    }
-    return nodeManager->mkConst(value);
-  }
-  case kind::DIVISION: // 2 args
-    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() /
-                                 m->getValue(n[1]).getConst<Rational>() );
-  case kind::LT: // 2 args
-    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() <
-                                 m->getValue(n[1]).getConst<Rational>() );
-  case kind::LEQ: // 2 args
-    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() <=
-                                 m->getValue(n[1]).getConst<Rational>() );
-  case kind::GT: // 2 args
-    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() >
-                                 m->getValue(n[1]).getConst<Rational>() );
-  case kind::GEQ: // 2 args
-    return nodeManager->mkConst( m->getValue(n[0]).getConst<Rational>() >=
-                                 m->getValue(n[1]).getConst<Rational>() );
-  default:
-    Unhandled(n.getKind());
-  }
 }
 
 void TheoryArith::notifyRestart(){

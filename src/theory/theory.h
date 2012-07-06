@@ -557,30 +557,11 @@ public:
 
   /**
    * Return whether the value of this node should be interpreted by
-   * the theory.
+   * the theory.  Returning true for n ensures that if all of n's children
+   * are constant, then this theory's rewriter will rewrite n to a constant.
    */
-  virtual bool hasInterpretedValue( TNode n, Model* m ){
+  virtual bool hasInterpretedValue( TNode n ){
     return false;
-  }
-
-  /**
-   * Return the value of a node whose operator has a set interpretation
-   * according to the theory, such as PLUS, LT, AND, BVMULT, etc.
-   *
-   * The Model is passed in so that you can recursively request
-   * values for the Node's children.  This is important because the
-   * Model takes care of all other cases (metakind CONSTANT,
-   * Boolean-valued VARIABLES, ...) and can dispatch to other theories
-   * if that's necessary.  Only call your own getValue() recursively
-   * if you *know* that you are responsible handle the Node you're
-   * asking for; other theories can use your types, so be careful
-   * here!  To be safe, it's best to delegate back to the Model.
-   *
-   */
-  virtual Node getInterpretedValue( TNode n, Model* m ) {
-    Unimplemented("Theory %s doesn't support Theory::getInterpretedValue interface",
-                  identify().c_str());
-    return Node::null();
   }
 
   /**

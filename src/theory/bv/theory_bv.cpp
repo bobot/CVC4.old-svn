@@ -124,25 +124,12 @@ void TheoryBV::check(Effort e)
   }
 }
 
-
-Node TheoryBV::getValue(TNode n) {
-  //NodeManager* nodeManager = NodeManager::currentNM();
-
-  switch(n.getKind()) {
-
-  case kind::VARIABLE:
-    Unhandled(kind::VARIABLE);
-
-  case kind::EQUAL: // 2 args
-    Unhandled(kind::VARIABLE);
-
-  default:
-    Unhandled(n.getKind());
-  }
-}
-
 void TheoryBV::collectModelInfo( Model* m ){
 
+}
+
+bool TheoryBV::hasInterpretedValue(TNode n) {
+  return false;
 }
 
 void TheoryBV::propagate(Effort e) {
