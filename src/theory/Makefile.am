@@ -45,9 +45,7 @@ libtheory_la_SOURCES = \
 	trigger.h \
 	trigger.cpp \
 	model.h \
-	model.cpp \
-	extended_model.h \
-	extended_model.cpp
+	model.cpp 
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \

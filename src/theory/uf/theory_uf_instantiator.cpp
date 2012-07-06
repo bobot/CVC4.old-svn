@@ -18,6 +18,7 @@
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/equality_engine.h"
+#include "theory/quantifiers/term_database.h"
 
 using namespace std;
 using namespace CVC4;
@@ -31,7 +32,7 @@ EqClassInfo::EqClassInfo( context::Context* c ) : d_funs( c ), d_pfuns( c ), d_d
 }
 
 //set member
-void EqClassInfo::setMember( Node n, TermDb* db ){
+void EqClassInfo::setMember( Node n, quantifiers::TermDb* db ){
   if( n.getKind()==APPLY_UF ){
     d_funs[n.getOperator()] = true;
   }
@@ -398,7 +399,7 @@ bool InstantiatorTheoryUf::collectParentsTermsIps( Node n, Node f, int arg, std:
       eqc_iter++;
     }
   }else{
-    TermDb* db = d_quantEngine->getTermDatabase();
+    quantifiers::TermDb* db = d_quantEngine->getTermDatabase();
     //see if parent f exists from argument arg
     if( db->d_parents.find( n )!=db->d_parents.end() ){
       if( db->d_parents[n].find( f )!=db->d_parents[n].end() ){
@@ -474,7 +475,7 @@ void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, N
 
   //take all terms from the uf term db and add to candidate generator
   Node op = pat.getOperator();
-  TermDb* db = d_quantEngine->getTermDatabase();
+  quantifiers::TermDb* db = d_quantEngine->getTermDatabase();
   for( int i=0; i<(int)db->d_op_map[op].size(); i++ ){
     cg->addCandidate( db->d_op_map[op][i] );
   }

@@ -20,7 +20,7 @@
 #define __CVC4__RELEVANT_DOMAIN_H
 
 #include "theory/quantifiers_engine.h"
-#include "theory/extended_model.h"
+#include "theory/model.h"
 
 namespace CVC4 {
 namespace theory {

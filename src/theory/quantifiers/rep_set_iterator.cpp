@@ -26,7 +26,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-RepSetIterator::RepSetIterator( Node f, ExtendedModel* model ) : d_f( f ), d_model( model ){
+RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_model( model ){
   //store instantiation constants
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
     d_index.push_back( 0 );
@@ -121,7 +121,7 @@ void RepSetIterator::debugPrintSmall( const char* c ){
   Debug( c ) << std::endl;
 }
 
-RepSetEvaluator::RepSetEvaluator( ExtendedModel* m, RepSetIterator* ri ) : d_model( m ), d_riter( ri ){
+RepSetEvaluator::RepSetEvaluator( FirstOrderModel* m, RepSetIterator* ri ) : d_model( m ), d_riter( ri ){
 
 }
 
@@ -131,7 +131,7 @@ RepSetEvaluator::RepSetEvaluator( ExtendedModel* m, RepSetIterator* ri ) : d_mod
 // otherwise,
 //   each n{d_riter->d_index[0]/x_0...d_riter->d_index[eVal]/x_eVal, */x_(eVal+1) ... */x_n } is equal to phaseReq in the current model
 int RepSetEvaluator::evaluate( Node n, int& depIndex ){
-  //++(d_statistics.d_eval_formulas);
+  ++d_eval_formulas;
   //Debug("fmf-model-eval-debug") << "Evaluate " << n << " " << phaseReq << std::endl;
   //Notice() << "Eval " << n << std::endl;
   if( n.getKind()==NOT ){
@@ -236,7 +236,7 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
 }
 
 int RepSetEvaluator::evaluateEquality( Node n1, Node n2, int& depIndex ){
-  //++(d_statistics.d_eval_eqs);
+  ++d_eval_eqs;
   //Notice() << "Eval eq " << n1 << " " << n2 << std::endl;
   Debug("fmf-model-eval-debug") << "Evaluate equality: " << std::endl;
   Debug("fmf-model-eval-debug") << "   " << n1 << " = " << n2 << std::endl;
@@ -304,7 +304,7 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
         Node op = n.getOperator();
         //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
         //if it is a defined UF, then consult the interpretation
-        //++(d_statistics.d_eval_uf_terms);
+        ++d_eval_uf_terms;
         int argDepIndex = 0;
         if( d_model->d_uf_model.find( op )!=d_model->d_uf_model.end() ){
           //make the term model specifically for n
@@ -439,22 +439,5 @@ void RepSetEvaluator::makeEvalUfIndexOrder( Node n ){
 #endif
   }
 }
-/*
 
-RepSetEvaluator::Statistics::Statistics():
-  d_eval_formulas("ModelEngine::Eval_Formulas", 0 ),
-  d_eval_eqs("ModelEngine::Eval_Equalities", 0 ),
-  d_eval_uf_terms("ModelEngine::Eval_Uf_Terms", 0 )
-{
-  StatisticsRegistry::registerStat(&d_eval_formulas);
-  StatisticsRegistry::registerStat(&d_eval_eqs);
-  StatisticsRegistry::registerStat(&d_eval_uf_terms);
-}
-
-RepSetEvaluator::Statistics::~Statistics(){
-  StatisticsRegistry::unregisterStat(&d_eval_formulas);
-  StatisticsRegistry::unregisterStat(&d_eval_eqs);
-  StatisticsRegistry::unregisterStat(&d_eval_uf_terms);
-}
-*/
 

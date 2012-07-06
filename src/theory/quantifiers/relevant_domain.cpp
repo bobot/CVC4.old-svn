@@ -15,6 +15,7 @@
  **/
 
 #include "theory/quantifiers/relevant_domain.h"
+#include "theory/quantifiers/first_order_model.h"
 
 using namespace std;
 using namespace CVC4;

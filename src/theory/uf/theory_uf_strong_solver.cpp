@@ -19,6 +19,7 @@
 #include "theory/uf/equality_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers/term_database.h"
 
 //#define USE_SMART_SPLITS
 //#define ONE_SPLIT_REGION
@@ -787,7 +788,7 @@ bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out )
   Debug("uf-ss-disamb") << "Disambiguate terms." << std::endl;
   bool lemmaAdded = false;
   //otherwise, determine ambiguous pairs of ground terms for relevant sorts
-  TermDb* db = d_th->getQuantifiersEngine()->getTermDatabase();
+  quantifiers::TermDb* db = d_th->getQuantifiersEngine()->getTermDatabase();
   for( std::map< Node, std::vector< Node > >::iterator it = db->d_op_map.begin(); it != db->d_op_map.end(); ++it ){
     Debug("uf-ss-disamb") << "Check " << it->first << std::endl;
     if( it->second.size()>1 ){

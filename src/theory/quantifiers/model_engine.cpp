@@ -21,7 +21,7 @@
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
-#include "theory/extended_model.h"
+#include "theory/quantifiers/first_order_model.h"
 
 //#define ME_PRINT_WARNINGS
 
@@ -483,6 +483,9 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
       riter.increment();
     }
   }
+  d_statistics.d_eval_formulas += reval.d_eval_formulas;
+  d_statistics.d_eval_eqs += reval.d_eval_eqs;
+  d_statistics.d_eval_uf_terms += reval.d_eval_uf_terms;
   int totalInst = 1;
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
     totalInst = totalInst * (int)d_quantEngine->getModel()->d_ra.d_type_reps[ f[0][i].getType() ].size();
@@ -583,12 +586,18 @@ ModelEngine::Statistics::Statistics():
   d_inst_rounds("ModelEngine::Inst_Rounds", 0),
   d_pre_sat_quant("ModelEngine::Status_quant_pre_sat", 0),
   d_pre_nsat_quant("ModelEngine::Status_quant_pre_non_sat", 0),
+  d_eval_formulas("ModelEngine::Eval_Formulas", 0 ),
+  d_eval_eqs("ModelEngine::Eval_Equalities", 0 ),
+  d_eval_uf_terms("ModelEngine::Eval_Uf_Terms", 0 ),
   d_num_quants_init("ModelEngine::Num_Quants", 0 ),
   d_num_quants_init_fail("ModelEngine::Num_Quants_No_Basis", 0 )
 {
   StatisticsRegistry::registerStat(&d_inst_rounds);
   StatisticsRegistry::registerStat(&d_pre_sat_quant);
   StatisticsRegistry::registerStat(&d_pre_nsat_quant);
+  StatisticsRegistry::registerStat(&d_eval_formulas);
+  StatisticsRegistry::registerStat(&d_eval_eqs);
+  StatisticsRegistry::registerStat(&d_eval_uf_terms);
   StatisticsRegistry::registerStat(&d_num_quants_init);
   StatisticsRegistry::registerStat(&d_num_quants_init_fail);
 }
@@ -597,6 +606,9 @@ ModelEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_inst_rounds);
   StatisticsRegistry::unregisterStat(&d_pre_sat_quant);
   StatisticsRegistry::unregisterStat(&d_pre_nsat_quant);
+  StatisticsRegistry::unregisterStat(&d_eval_formulas);
+  StatisticsRegistry::unregisterStat(&d_eval_eqs);
+  StatisticsRegistry::unregisterStat(&d_eval_uf_terms);
   StatisticsRegistry::unregisterStat(&d_num_quants_init);
   StatisticsRegistry::unregisterStat(&d_num_quants_init_fail);
 }

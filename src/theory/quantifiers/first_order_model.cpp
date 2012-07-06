@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file model_engine_model.cpp
+/*! \file first_order_model.cpp
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -14,7 +14,7 @@
  ** \brief Implementation of model engine model class
  **/
 
-#include "theory/extended_model.h"
+#include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/rep_set_iterator.h"
 #include "theory/quantifiers/model_engine.h"
 #include "theory/uf/theory_uf_strong_solver.h"
@@ -24,13 +24,14 @@ using namespace CVC4;
 using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
+using namespace CVC4::theory::quantifiers;
 
-ExtendedModel::ExtendedModel( QuantifiersEngine* qe, context::Context* c ) : Model( qe->getTheoryEngine() ),
+FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string& name ) : Model( qe->getTheoryEngine(), name ),
 d_qe( qe ), d_forall_asserts( c ){
 
 }
 
-void ExtendedModel::processInitialize(){
+void FirstOrderModel::processInitialize(){
   //rebuild models
   d_uf_model.clear();
   //for each quantifier, collect all operators we care about
@@ -49,7 +50,7 @@ void ExtendedModel::processInitialize(){
   }
 }
 
-void ExtendedModel::initializeModelForTerm( Node n ){
+void FirstOrderModel::initializeModelForTerm( Node n ){
   if( n.getKind()==APPLY_UF ){
     Node op = n.getOperator();
     if( d_uf_model.find( op )==d_uf_model.end() ){
@@ -65,7 +66,7 @@ void ExtendedModel::initializeModelForTerm( Node n ){
   }
 }
 
-void ExtendedModel::buildModel(){
+void FirstOrderModel::buildModel(){
   for( std::map< Node, uf::UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
     it->second.buildModel();
   }
@@ -75,7 +76,7 @@ void ExtendedModel::buildModel(){
   debugPrint("fmf-model-complete");
 }
 
-Node ExtendedModel::getInterpretedValue( TNode n ){
+Node FirstOrderModel::getInterpretedValue( TNode n ){
   if( n.getKind()==APPLY_UF ){
     int depIndex;
     return d_uf_model[ n.getOperator() ].getValue( n, depIndex );
@@ -83,7 +84,7 @@ Node ExtendedModel::getInterpretedValue( TNode n ){
   return n;
 }
 
-void ExtendedModel::debugPrint( const char* c ){
+void FirstOrderModel::debugPrint( const char* c ){
   Debug( c ) << "---Current Model---" << std::endl;
   Debug( c ) << "Representatives: " << std::endl;
   d_ra.debugPrint( c );

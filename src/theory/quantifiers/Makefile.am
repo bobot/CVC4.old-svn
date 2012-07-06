@@ -20,6 +20,10 @@ libquantifiers_la_SOURCES = \
 	relevant_domain.h \
 	relevant_domain.cpp \
 	rep_set_iterator.h \
-	rep_set_iterator.cpp
+	rep_set_iterator.cpp \
+	term_database.h \
+	term_database.cpp \
+	first_order_model.h \
+	first_order_model.cpp
 
 EXTRA_DIST = kinds

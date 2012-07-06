@@ -55,9 +55,9 @@ void RepSet::debugPrint( const char* c ){
   }
 }
 
-Model::Model( TheoryEngine* te ) :
+Model::Model( TheoryEngine* te, std::string& name ) :
 d_te( te ),
-d_equalityEngine( te->getSatContext(), "Model" ){
+d_equalityEngine( te->getSatContext(), name ){
   d_useConstantReps = true;
   d_true = NodeManager::currentNM()->mkConst( true );
   d_false = NodeManager::currentNM()->mkConst( false );
@@ -229,7 +229,7 @@ void Model::printRepresentative( const char* c, Node r ){
   }
 }
 
-DefaultModel::DefaultModel( TheoryEngine* te ) : Model( te ){
+DefaultModel::DefaultModel( TheoryEngine* te, std::string& name ) : Model( te, name ){
 
 }
 
@@ -242,9 +242,4 @@ Node DefaultModel::getInterpretedValue( TNode n ){
   }else{
     return n;
   }
-}
-
-Model* DefaultModelBuilder::getModel(){
-  d_model.initialize();
-  return &d_model;
 }

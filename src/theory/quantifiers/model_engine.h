@@ -23,7 +23,6 @@
 #include "theory/quantifiers/theory_quantifiers.h"
 #include "theory/model.h"
 #include "theory/uf/theory_uf_model.h"
-#include "theory/extended_model.h"
 #include "theory/quantifiers/relevant_domain.h"
 
 namespace CVC4 {
@@ -109,6 +108,9 @@ public:
     IntStat d_inst_rounds;
     IntStat d_pre_sat_quant;
     IntStat d_pre_nsat_quant;
+    IntStat d_eval_formulas;
+    IntStat d_eval_eqs;
+    IntStat d_eval_uf_terms;
     IntStat d_num_quants_init;
     IntStat d_num_quants_init_fail;
     Statistics();

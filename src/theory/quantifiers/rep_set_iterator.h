@@ -20,7 +20,7 @@
 #define __CVC4__REP_SET_ITERATOR_H
 
 #include "theory/quantifiers_engine.h"
-#include "theory/extended_model.h"
+#include "theory/quantifiers/first_order_model.h"
 
 namespace CVC4 {
 namespace theory {
@@ -29,12 +29,12 @@ namespace quantifiers {
 /** this class iterates over a RepSet */
 class RepSetIterator {
 public:
-  RepSetIterator( Node f, ExtendedModel* model );
+  RepSetIterator( Node f, FirstOrderModel* model );
   ~RepSetIterator(){}
   //pointer to quantifier
   Node d_f;
   //pointer to model
-  ExtendedModel* d_model;
+  FirstOrderModel* d_model;
   //index we are considering
   std::vector< int > d_index;
   //domain we are considering
@@ -80,7 +80,7 @@ public:
 class RepSetEvaluator
 {
 private:
-  ExtendedModel* d_model;
+  FirstOrderModel* d_model;
   RepSetIterator* d_riter;
 private: //for Theory UF:
   //map from terms to the models used to calculate their value
@@ -98,23 +98,17 @@ private:
   std::map< Node, bool > d_eval_failed;
   std::map< int, std::vector< Node > > d_eval_failed_lits;
 public:
-  RepSetEvaluator( ExtendedModel* m, RepSetIterator* ri );
+  RepSetEvaluator( FirstOrderModel* m, RepSetIterator* ri );
   virtual ~RepSetEvaluator(){}
   /** evaluate functions */
   int evaluate( Node n, int& depIndex );
   int evaluateEquality( Node n1, Node n2, int& depIndex );
   Node evaluateTerm( Node n, int& depIndex );
 public:
-  /** statistics class */
-  //class Statistics {
-  //public:
-  //  IntStat d_eval_formulas;
-  //  IntStat d_eval_eqs;
-  //  IntStat d_eval_uf_terms;
-  //  Statistics();
-  //  ~Statistics();
-  //};
-  //static Statistics d_statistics;
+  //statistics
+  int d_eval_formulas;
+  int d_eval_eqs;
+  int d_eval_uf_terms;
 };
 
 

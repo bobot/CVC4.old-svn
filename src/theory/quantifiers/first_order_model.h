@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file extended_model.h
+/*! \file first_order_model.h
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -16,8 +16,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__EXTENDED_MODEL_H
-#define __CVC4__EXTENDED_MODEL_H
+#ifndef __CVC4__FIRST_ORDER_MODEL_H
+#define __CVC4__FIRST_ORDER_MODEL_H
 
 #include "theory/model.h"
 #include "theory/uf/theory_uf_model.h"
@@ -32,13 +32,14 @@ typedef expr::Attribute<ModelBasisAttributeId, bool> ModelBasisAttribute;
 struct ModelBasisArgAttributeId {};
 typedef expr::Attribute<ModelBasisArgAttributeId, uint64_t> ModelBasisArgAttribute;
 
-namespace quantifiers{
-  class ModelEngine;
-  class RepSetIterator;
-}
 class QuantifiersEngine;
 
-class ExtendedModel : public Model
+namespace quantifiers{
+
+class ModelEngine;
+class RepSetIterator;
+
+class FirstOrderModel : public Model
 {
   friend class quantifiers::ModelEngine;
   friend class quantifiers::RepSetIterator;
@@ -59,8 +60,8 @@ public: //for Theory Quantifiers:
   /** get asserted quantifier */
   Node getAssertedQuantifier( int i ) { return d_forall_asserts[i]; }
 public:
-  ExtendedModel( QuantifiersEngine* qe, context::Context* c );
-  virtual ~ExtendedModel(){}
+  FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string& name );
+  virtual ~FirstOrderModel(){}
   /** build model */
   void buildModel();
   /** get interpreted value */
@@ -69,6 +70,7 @@ public:
   void debugPrint( const char* c );
 };
 
+}
 }
 }
 
