@@ -21,6 +21,8 @@
 #include "theory/uf/theory_uf_candidate_generator.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/quantifiers/model_engine.h"
+#include "theory/quantifiers/term_database.h"
+#include "theory/quantifiers/first_order_model.h"
 
 using namespace std;
 using namespace CVC4;

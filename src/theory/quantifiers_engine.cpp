@@ -24,7 +24,7 @@
 #include "theory/quantifiers/quantifiers_rewriter.h"
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/instantiation_engine.h"
-#include "theory/extended_model.h"
+#include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/term_database.h"
 
 using namespace std;
@@ -63,11 +63,11 @@ QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_active( c ){
   d_eq_query = new EqualityQueryQuantifiersEngine( this );
-  d_term_db = new TermDb( this );
+  d_term_db = new quantifiers::TermDb( this );
   d_hasAddedLemma = false;
 
   //the model object
-  d_model = new ExtendedModel( this, c, "FirstOrderModel" );
+  d_model = new quantifiers::FirstOrderModel( this, c, "FirstOrderModel" );
   d_model->d_useConstantReps = false;
 
   //options
@@ -261,7 +261,7 @@ void QuantifiersEngine::resetInstantiationRound( Theory::Effort level ){
   getTermDatabase()->reset( level );
 }
 
-TermDb* QuantifiersEngine::getTermDatabase() {
+quantifiers::TermDb* QuantifiersEngine::getTermDatabase() {
   return d_term_db;
 }
 
