@@ -27,8 +27,7 @@
 #include <map>
 #include <time.h>
 #include "theory/quantifiers/theory_quantifiers_instantiator.h"
-
-#define USE_FLIP_DECISION
+#include "theory/quantifiers/term_database.h"
 
 using namespace std;
 using namespace CVC4;
@@ -143,7 +142,7 @@ void TheoryQuantifiers::assertExistential( Node n ){
   Assert( n.getKind()== NOT && n[0].getKind()==FORALL );
   if( !n[0].hasAttribute(InstConstantAttribute()) ){
     if( d_skolemized.find( n )==d_skolemized.end() ){
-      Node body = getQuantifiersEngine()->getSkolemizedBody( n[0] );
+      Node body = getQuantifiersEngine()->getTermDatabase()->getSkolemizedBody( n[0] );
       NodeBuilder<> nb(kind::OR);
       nb << n[0] << body.notNode();
       Node lem = nb;
@@ -155,9 +154,6 @@ void TheoryQuantifiers::assertExistential( Node n ){
 }
 
 bool TheoryQuantifiers::flipDecision(){
-#ifndef USE_FLIP_DECISION
-  return false;
-#else
   //Debug("quantifiers-flip") << "No instantiation given, flip decision, level = " << d_valuation.getDecisionLevel() << std::endl;
   //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
   //  Debug("quantifiers-flip") << "   " << d_valuation.getDecision( i ) << std::endl;
@@ -175,7 +171,6 @@ bool TheoryQuantifiers::flipDecision(){
     return restart();
   }
   return true;
-#endif
 }
 
 bool TheoryQuantifiers::restart(){

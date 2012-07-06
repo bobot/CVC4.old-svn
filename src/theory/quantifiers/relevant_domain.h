@@ -19,8 +19,7 @@
 #ifndef __CVC4__RELEVANT_DOMAIN_H
 #define __CVC4__RELEVANT_DOMAIN_H
 
-#include "theory/quantifiers_engine.h"
-#include "theory/model.h"
+#include "theory/quantifiers/first_order_model.h"
 
 namespace CVC4 {
 namespace theory {
@@ -29,16 +28,18 @@ namespace quantifiers {
 class RelevantDomain
 {
 private:
-  QuantifiersEngine* d_quantEngine;
+  FirstOrderModel* d_model;
 
-  //the domain of the arguments
+  //the domain of the arguments for each operator
   std::map< Node, std::map< int, RepDomain > > d_active_domain;
+  //the range for each operator
+  std::map< Node, RepDomain > d_active_range;
   //for computing relevant instantiation domain, return true if changed
   bool computeRelevantInstantiationDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd );
   //for computing extended
   bool extendFunctionDomains( Node n, RepDomain& range );
 public:
-  RelevantDomain( QuantifiersEngine* qe );
+  RelevantDomain( FirstOrderModel* m );
   virtual ~RelevantDomain(){}
   //compute the relevant domain
   void compute();

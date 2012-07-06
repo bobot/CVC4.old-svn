@@ -36,15 +36,13 @@ class QuantifiersEngine;
 
 namespace quantifiers{
 
-class ModelEngine;
-class RepSetIterator;
+class TermDb;
 
 class FirstOrderModel : public Model
 {
-  friend class quantifiers::ModelEngine;
-  friend class quantifiers::RepSetIterator;
 private:
-  QuantifiersEngine* d_qe;
+  //pointer to term database
+  TermDb* d_term_db;
   //process initialize
   void processInitialize();
   //for initialize model
@@ -62,11 +60,12 @@ public: //for Theory Quantifiers:
 public:
   FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name );
   virtual ~FirstOrderModel(){}
-  /** build model */
-  void buildModel();
   /** get interpreted value */
   Node getInterpretedValue( TNode n );
 public:
+  /** get term database */
+  TermDb* getTermDatabase();
+  /** debug print */
   void debugPrint( const char* c );
 };
 

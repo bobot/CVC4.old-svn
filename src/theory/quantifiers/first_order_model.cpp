@@ -27,7 +27,7 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
 FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : Model( qe->getTheoryEngine(), name ),
-d_qe( qe ), d_forall_asserts( c ){
+d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 
 }
 
@@ -57,7 +57,7 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
       TypeNode tn = op.getType();
       tn = tn[ (int)tn.getNumChildren()-1 ];
       if( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) ){
-        d_uf_model[ op ] = uf::UfModel( op, d_qe );
+        d_uf_model[ op ] = uf::UfModel( op, this );
       }
     }
   }
@@ -66,15 +66,6 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
   }
 }
 
-void FirstOrderModel::buildModel(){
-  for( std::map< Node, uf::UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
-    it->second.buildModel();
-  }
-  Debug("fmf-model-debug") << "Done building models." << std::endl;
-  //print debug
-  Debug("fmf-model-complete") << std::endl;
-  debugPrint("fmf-model-complete");
-}
 
 Node FirstOrderModel::getInterpretedValue( TNode n ){
   if( n.getKind()==APPLY_UF ){
@@ -82,6 +73,10 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
     return d_uf_model[ n.getOperator() ].getValue( n, depIndex );
   }
   return n;
+}
+
+TermDb* FirstOrderModel::getTermDatabase(){
+  return d_term_db;
 }
 
 void FirstOrderModel::debugPrint( const char* c ){

@@ -18,6 +18,7 @@
 
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/quantifiers/term_database.h"
 #include "theory/quantifiers/first_order_model.h"
 
 using namespace std;
@@ -45,10 +46,10 @@ void InstantiationEngine::addCbqiLemma( Node f ){
   //                              d_quantEngine->d_inst_constants[f].begin(),
   //                              d_quantEngine->d_inst_constants[f].end() );
   //get the counterexample literal
-  Node ceBody = d_quantEngine->getCounterexampleBody( f );
+  Node ceBody = d_quantEngine->getTermDatabase()->getCounterexampleBody( f );
   Node ceLit = d_quantEngine->getValuation().ensureLiteral( ceBody.notNode() );
   d_ce_lit[ f ] = ceLit;
-  d_quantEngine->setInstantiationConstantAttr( ceLit, f );
+  d_quantEngine->getTermDatabase()->setInstantiationConstantAttr( ceLit, f );
   // set attributes, mark all literals in the body of n as dependent on cel
   //registerLiterals( ceLit, f );
   //require any decision on cel to be phase=true
@@ -252,7 +253,7 @@ void InstantiationEngine::check( Theory::Effort e ){
 
 void InstantiationEngine::registerQuantifier( Node f ){
   //Notice() << "do cbqi " << f << " ? " << std::endl;
-  Node ceBody = d_quantEngine->getCounterexampleBody( f );
+  Node ceBody = d_quantEngine->getTermDatabase()->getCounterexampleBody( f );
   if( !doCbqi( f ) ){
     d_quantEngine->addTermToDatabase( ceBody, true );
     //need to tell which instantiators will be responsible
@@ -262,7 +263,7 @@ void InstantiationEngine::registerQuantifier( Node f ){
 
   //take into account user patterns
   if( f.getNumChildren()==3 ){
-    Node subsPat = d_quantEngine->getSubstitutedNode( f[2], f );
+    Node subsPat = d_quantEngine->getTermDatabase()->getSubstitutedNode( f[2], f );
     //add patterns
     for( int i=0; i<(int)subsPat.getNumChildren(); i++ ){
       //Notice() << "Add pattern " << subsPat[i] << " for " << f << std::endl;

@@ -17,6 +17,7 @@
 #include "theory/arith/theory_arith_instantiator.h"
 #include "theory/arith/theory_arith.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers/term_database.h"
 
 using namespace std;
 using namespace CVC4;
@@ -133,8 +134,8 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e ){
 //            //Debug("quant-arith") << std::endl;
 //            std::vector< Node > vars;
 //            std::vector< Node > matches;
-//            for( int i=0; i<d_quantEngine->getNumInstantiationConstants( f ); i++ ){
-//              Node ic = d_quantEngine->getInstantiationConstant( f, i );
+//            for( int i=0; i<d_quantEngine->getTermDatabase()->getNumInstantiationConstants( f ); i++ ){
+//              Node ic = d_quantEngine->getTermDatabase()->getInstantiationConstant( f, i );
 //              if( m->d_map[ ic ]!=Node::null() ){
 //                vars.push_back( ic );
 //                matches.push_back( m->d_map[ ic ] );
@@ -316,11 +317,11 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
     Node f = d_quantEngine->getQuantifier( q );
     Debug(c) << f << std::endl;
     Debug(c) << "   Inst constants: ";
-    for( int i=0; i<(int)d_quantEngine->getNumInstantiationConstants( f ); i++ ){
+    for( int i=0; i<(int)d_quantEngine->getTermDatabase()->getNumInstantiationConstants( f ); i++ ){
       if( i>0 ){
         Debug( c ) << ", ";
       }
-      Debug( c ) << d_quantEngine->getInstantiationConstant( f, i );
+      Debug( c ) << d_quantEngine->getTermDatabase()->getInstantiationConstant( f, i );
     }
     Debug(c) << std::endl;
     Debug(c) << "   Instantiation rows: ";

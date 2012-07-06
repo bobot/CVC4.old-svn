@@ -23,6 +23,7 @@
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/term_database.h"
 #include "theory/quantifiers/first_order_model.h"
+#include "theory/quantifiers/term_database.h"
 
 using namespace std;
 using namespace CVC4;
@@ -119,9 +120,9 @@ void InstMatch::debugPrint( const char* c ){
 }
 
 void InstMatch::makeComplete( Node f, QuantifiersEngine* qe ){
-  for( int i=0; i<(int)qe->d_inst_constants[f].size(); i++ ){
-    if( d_map.find( qe->d_inst_constants[f][i] )==d_map.end() ){
-      d_map[ qe->d_inst_constants[f][i] ] = qe->getFreeVariableForInstConstant( qe->d_inst_constants[f][i] );
+  for( int i=0; i<(int)qe->getTermDatabase()->d_inst_constants[f].size(); i++ ){
+    if( d_map.find( qe->getTermDatabase()->d_inst_constants[f][i] )==d_map.end() ){
+      d_map[ qe->getTermDatabase()->d_inst_constants[f][i] ] = qe->getTermDatabase()->getFreeVariableForInstConstant( qe->getTermDatabase()->d_inst_constants[f][i] );
     }
   }
 }
@@ -131,7 +132,7 @@ void InstMatch::makeInternal( QuantifiersEngine* qe ){
     if( Options::current()->cbqi && it->second.hasAttribute(InstConstantAttribute()) ){
       d_map[ it->first ] = qe->getEqualityQuery()->getInternalRepresentative( it->second );
       if( Options::current()->cbqi && it->second.hasAttribute(InstConstantAttribute()) ){
-        d_map[ it->first ] = qe->getFreeVariableForInstConstant( it->first );
+        d_map[ it->first ] = qe->getTermDatabase()->getFreeVariableForInstConstant( it->first );
       }
     }
   }
@@ -141,7 +142,7 @@ void InstMatch::makeRepresentative( QuantifiersEngine* qe ){
   for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
     d_map[ it->first ] = qe->getEqualityQuery()->getInternalRepresentative( it->second );
     if( Options::current()->cbqi && it->second.hasAttribute(InstConstantAttribute()) ){
-      d_map[ it->first ] = qe->getFreeVariableForInstConstant( it->first );
+      d_map[ it->first ] = qe->getTermDatabase()->getFreeVariableForInstConstant( it->first );
     }
   }
 }
@@ -158,7 +159,7 @@ void InstMatch::computeTermVec( QuantifiersEngine* qe, const std::vector< Node >
     if( it!=d_map.end() && !it->second.isNull() ){
       match.push_back( it->second );
     }else{
-      match.push_back( qe->getFreeVariableForInstConstant( vars[i] ) );
+      match.push_back( qe->getTermDatabase()->getFreeVariableForInstConstant( vars[i] ) );
     }
   }
 }
@@ -173,7 +174,7 @@ void InstMatch::computeTermVec( const std::vector< Node >& vars, std::vector< No
 void InstMatchTrie::addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index, ImtIndexOrder* imtio ){
   if( long(index)<long(f[0].getNumChildren()) && ( !imtio || long(index)<long(imtio->d_order.size()) ) ){
     int i_index = imtio ? imtio->d_order[index] : index;
-    Node n = m.d_map[ qe->getInstantiationConstant( f, i_index ) ];
+    Node n = m.d_map[ qe->getTermDatabase()->getInstantiationConstant( f, i_index ) ];
     d_data[n].addInstMatch2( qe, f, m, index+1, imtio );
   }
 }
@@ -184,7 +185,7 @@ bool InstMatchTrie::existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m
     return true;
   }else{
     int i_index = imtio ? imtio->d_order[index] : index;
-    Node n = m.d_map[ qe->getInstantiationConstant( f, i_index ) ];
+    Node n = m.d_map[ qe->getTermDatabase()->getInstantiationConstant( f, i_index ) ];
     std::map< Node, InstMatchTrie >::iterator it = d_data.find( n );
     if( it!=d_data.end() ){
       if( it->second.existsInstMatch( qe, f, m, modEq, index+1, imtio ) ){
@@ -752,7 +753,7 @@ void InstMatchGeneratorMulti::processNewInstantiations( QuantifiersEngine* qe, I
     processNewInstantiations2( qe, m, addedLemmas, unique_var_tries, 0 );
   }else if( trieIndex<(int)d_children_trie[childIndex].getOrdering()->d_order.size() ){
     int curr_index = d_children_trie[childIndex].getOrdering()->d_order[trieIndex];
-    Node curr_ic = qe->getInstantiationConstant( d_f, curr_index );
+    Node curr_ic = qe->getTermDatabase()->getInstantiationConstant( d_f, curr_index );
     if( m.d_map.find( curr_ic )==m.d_map.end() ){
       //if( d_var_to_node[ curr_index ].size()==1 ){    //FIXME
       //  //unique variable(s), defer calculation
@@ -814,7 +815,7 @@ void InstMatchGeneratorMulti::processNewInstantiations2( QuantifiersEngine* qe, 
     }
     if( trieIndex<(int)d_children_trie[childIndex].getOrdering()->d_order.size() ){
       int curr_index = d_children_trie[childIndex].getOrdering()->d_order[trieIndex];
-      Node curr_ic = qe->getInstantiationConstant( d_f, curr_index );
+      Node curr_ic = qe->getTermDatabase()->getInstantiationConstant( d_f, curr_index );
       //unique non-set variable, add to InstMatch
       for( std::map< Node, InstMatchTrie >::iterator it = tr->d_data.begin(); it != tr->d_data.end(); ++it ){
         InstMatch mn( &m );

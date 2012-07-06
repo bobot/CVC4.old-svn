@@ -16,6 +16,7 @@
 
 #include "theory/quantifiers/rep_set_iterator.h"
 #include "theory/quantifiers/model_engine.h"
+#include "theory/quantifiers/term_database.h"
 
 #define USE_INDEX_ORDERING
 
@@ -96,7 +97,7 @@ bool RepSetIterator::isFinished(){
 
 void RepSetIterator::getMatch( QuantifiersEngine* qe, InstMatch& m ){
   for( int i=0; i<(int)d_index.size(); i++ ){
-    m.d_map[ qe->getInstantiationConstant( d_f, d_index_order[i] ) ] = getTerm( i );
+    m.d_map[ qe->getTermDatabase()->getInstantiationConstant( d_f, d_index_order[i] ) ] = getTerm( i );
   }
 }
 

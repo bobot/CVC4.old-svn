@@ -25,9 +25,8 @@ namespace CVC4 {
 namespace theory {
 
 namespace quantifiers{
-  class RelevantDomain;
+  class FirstOrderModel;
 }
-class QuantifiersEngine;
 
 namespace uf {
 
@@ -117,58 +116,74 @@ public:
 
 class UfModel
 {
-  friend class quantifiers::RelevantDomain;
 private:
+  quantifiers::FirstOrderModel* d_model;
+  //the operator this model is for
   Node d_op;
-  QuantifiersEngine* d_qe;
-  std::vector< Node > d_ground_asserts;
-  std::vector< Node > d_ground_asserts_reps;
+  //is model constructed
   bool d_model_constructed;
   //store for set values
   std::map< Node, Node > d_set_values[2][2];
-  // preferences for default values
-  std::vector< Node > d_values;
-  std::map< Node, std::vector< Node > > d_value_pro_con[2];
-  std::map< Node, std::vector< Node > > d_term_pro_con[2];
-  /** set value */
-  void setValue( Node n, Node v, bool ground = true, bool isReq = true );
-  /** set model */
-  void setModel();
-  /** clear model */
-  void clearModel();
 private:
   // defaults
   std::vector< Node > d_defaults;
   Node getIntersection( Node n1, Node n2, bool& isGround );
 public:
   UfModel(){}
-  UfModel( Node op, QuantifiersEngine* qe );
+  UfModel( Node op, quantifiers::FirstOrderModel* m );
   ~UfModel(){}
+  //ground terms for this operator
+  std::vector< Node > d_ground_asserts;
+  //the representatives they are equal to
+  std::vector< Node > d_ground_asserts_reps;
   //data structure that stores the model
   UfModelTreeOrdered d_tree;
-  //quantifiers that are satisfied because of the constant definition of d_op
-  bool d_reconsider_model;
-  //the range of the function
-  RepDomain d_active_range;
 public:
+  /** get operator */
+  Node getOperator() { return d_op; }
   /** debug print */
   void debugPrint( const char* c );
+  /** set value */
+  void setValue( Node n, Node v, bool ground = true, bool isReq = true );
   /** get value */
   Node getValue( Node n, int& depIndex );
   /** get constant value */
   Node getConstantValue( Node n );
+  /** is model constructed */
+  bool isModelConstructed() { return d_model_constructed; }
   /** is empty */
   bool isEmpty() { return d_ground_asserts.empty(); }
   /** is constant */
   bool isConstant();
+  /** uses partial default values */
+  bool optUsePartialDefaults();
 public:
-  /** build model */
-  void buildModel();
+  /** set model */
+  void setModel();
+  /** clear model */
+  void clearModel();
   /** make model */
   void makeModel( UfModelTreeOrdered& tree );
 public:
   /** set value preference */
   void setValuePreference( Node f, Node n, bool isPro );
+};
+
+//this class stores temporary information useful to model engine for constructing model
+class UfModelPreferenceData
+{
+public:
+  UfModelPreferenceData() : d_reconsiderModel( false ){}
+  virtual ~UfModelPreferenceData(){}
+  // preferences for default values
+  std::vector< Node > d_values;
+  std::map< Node, std::vector< Node > > d_value_pro_con[2];
+  std::map< Node, std::vector< Node > > d_term_pro_con[2];
+  bool d_reconsiderModel;
+  /** set value preference */
+  void setValuePreference( Node f, Node n, Node r, bool isPro );
+  /** get best default value */
+  Node getBestDefaultValue( Node defaultTerm, Model* m );
 };
 
 

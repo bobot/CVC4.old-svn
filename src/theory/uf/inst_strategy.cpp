@@ -20,6 +20,7 @@
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/equality_engine.h"
+#include "theory/quantifiers/term_database.h"
 
 using namespace std;
 using namespace CVC4;
@@ -78,8 +79,8 @@ void InstStrategyCheckCESolved::calcSolved( Node f ){
   d_th->d_baseMatch[f].clear();
   d_solved[ f ]= true;
   //check if instantiation constants are solved for
-  for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
-    Node i = d_quantEngine->getInstantiationConstant( f, j );
+  for( int j = 0; j<d_quantEngine->getTermDatabase()->getNumInstantiationConstants( f ); j++ ){
+    Node i = d_quantEngine->getTermDatabase()->getInstantiationConstant( f, j );
     Node rep = d_th->getInternalRepresentative( i );
     if( !rep.hasAttribute(InstConstantAttribute()) ){
       d_th->d_baseMatch[f].d_map[ i ] = rep;
@@ -222,8 +223,8 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
     d_patTerms[0][f].clear();
     d_patTerms[1][f].clear();
     std::vector< Node > patTermsF;
-    Trigger::collectPatTerms( d_quantEngine, f, d_quantEngine->getCounterexampleBody( f ), patTermsF, d_tr_strategy, true );
-    Debug("auto-gen-trigger") << "Collected pat terms for " << d_quantEngine->getCounterexampleBody( f ) << std::endl;
+    Trigger::collectPatTerms( d_quantEngine, f, d_quantEngine->getTermDatabase()->getCounterexampleBody( f ), patTermsF, d_tr_strategy, true );
+    Debug("auto-gen-trigger") << "Collected pat terms for " << d_quantEngine->getTermDatabase()->getCounterexampleBody( f ) << std::endl;
     Debug("auto-gen-trigger") << "   ";
     for( int i=0; i<(int)patTermsF.size(); i++ ){
       Debug("auto-gen-trigger") << patTermsF[i] << " ";

@@ -141,23 +141,6 @@ std::vector<Node> QuantifiersEngine::createInstVariable( std::vector<Node> & var
   return inst_constant;
 }
 
-void QuantifiersEngine::makeInstantiationConstantsFor( Node f ){
-  if( d_inst_constants.find( f )==d_inst_constants.end() ){
-    Debug("quantifiers-engine") << "Instantiation constants for " << f << " : " << std::endl;
-    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-      d_vars[f].push_back( f[0][i] );
-      //make instantiation constants
-      Node ic = NodeManager::currentNM()->mkInstConstant( f[0][i].getType() );
-      d_inst_constants_map[ic] = f;
-      d_inst_constants[ f ].push_back( ic );
-      Debug("quantifiers-engine") << "  " << ic << std::endl;
-      //set the var number attribute
-      InstVarNumAttribute ivna;
-      ic.setAttribute(ivna,i);
-    }
-  }
-}
-
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
     d_quants.push_back( f );
@@ -194,7 +177,7 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       //register quantifier
       d_r_quants.push_back( quants[q] );
       //make instantiation constants for quants[q]
-      makeInstantiationConstantsFor( quants[q] );
+      d_term_db->makeInstantiationConstantsFor( quants[q] );
       //compute symbols in quants[q]
       std::vector< Node > syms;
       computeSymbols( quants[q][1], syms );
@@ -217,7 +200,7 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       for( int i=0; i<(int)d_modules.size(); i++ ){
         d_modules[i]->registerQuantifier( quants[q] );
       }
-      Node ceBody = getCounterexampleBody( quants[q] );
+      Node ceBody = d_term_db->getCounterexampleBody( quants[q] );
       generatePhaseReqs( quants[q], ceBody );
       //also register it with the strong solver
       if( Options::current()->finiteModelFind ){
@@ -261,10 +244,6 @@ void QuantifiersEngine::resetInstantiationRound( Theory::Effort level ){
   getTermDatabase()->reset( level );
 }
 
-quantifiers::TermDb* QuantifiersEngine::getTermDatabase() {
-  return d_term_db;
-}
-
 void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
   std::vector< Node > added;
   getTermDatabase()->addTerm( n, added, withinQuant );
@@ -302,8 +281,8 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
     //}
   Assert( f.getKind()==FORALL );
   Assert( !f.hasAttribute(InstConstantAttribute()) );
-  Assert( d_vars[f].size()==terms.size() && d_vars[f].size()==f[0].getNumChildren() );
-  Node body = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(),
+  Assert( d_term_db->d_vars[f].size()==terms.size() && d_term_db->d_vars[f].size()==f[0].getNumChildren() );
+  Node body = f[ 1 ].substitute( d_term_db->d_vars[f].begin(), d_term_db->d_vars[f].end(),
                                  terms.begin(), terms.end() );
   NodeBuilder<> nb(kind::OR);
   nb << d_rewritten_quant[f].notNode() << body;
@@ -336,11 +315,11 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
             maxInstLevel = terms[i].getAttribute(InstLevelAttribute());
           }
         }else{
-          setInstantiationLevelAttr( terms[i], 0 );
+          d_term_db->setInstantiationLevelAttr( terms[i], 0 );
         }
       }
     }
-    setInstantiationLevelAttr( body, maxInstLevel+1 );
+    d_term_db->setInstantiationLevelAttr( body, maxInstLevel+1 );
     ++(d_statistics.d_instantiations);
     d_statistics.d_total_inst_var += (int)terms.size();
     d_statistics.d_max_instantiation_level.maxAssign( maxInstLevel+1 );
@@ -362,7 +341,7 @@ bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m ){
   }
   Debug("quant-duplicate") << " -> Does not exist." << std::endl;
   std::vector< Node > match;
-  m.computeTermVec( d_inst_constants[f], match );
+  m.computeTermVec( d_term_db->d_inst_constants[f], match );
 
   //old....
   //m.makeRepresentative( d_eq_query );
@@ -431,36 +410,6 @@ void QuantifiersEngine::flushLemmas( OutputChannel* out ){
   }
 }
 
-Node QuantifiersEngine::getCounterexampleBody( Node f ){
-  std::map< Node, Node >::iterator it = d_counterexample_body.find( f );
-  if( it==d_counterexample_body.end() ){
-    makeInstantiationConstantsFor( f );
-    Node n = getSubstitutedNode( f[1], f );
-    d_counterexample_body[ f ] = n;
-    return n;
-  }else{
-    return it->second;
-  }
-}
-
-Node QuantifiersEngine::getSkolemizedBody( Node f ){
-  Assert( f.getKind()==FORALL );
-  if( d_skolem_body.find( f )==d_skolem_body.end() ){
-    std::vector< Node > vars;
-    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-      Node skv = NodeManager::currentNM()->mkSkolem( f[0][i].getType() );
-      d_skolem_constants[ f ].push_back( skv );
-      vars.push_back( f[0][i] );
-    }
-    d_skolem_body[ f ] = f[ 1 ].substitute( vars.begin(), vars.end(),
-                                            d_skolem_constants[ f ].begin(), d_skolem_constants[ f ].end() );
-    if( f.hasAttribute(InstLevelAttribute()) ){
-      setInstantiationLevelAttr( d_skolem_body[ f ], f.getAttribute(InstLevelAttribute()) );
-    }
-  }
-  return d_skolem_body[ f ];
-}
-
 void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
   if( Options::current()->literalMatchMode!=Options::LITERAL_MATCH_NONE ){
     bool printed = false;
@@ -484,7 +433,7 @@ void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
         }
         Debug("literal-matching") << "  Make " << prev << " -> " << nodes[i] << std::endl;
         Assert( prev.hasAttribute(InstConstantAttribute()) );
-        setInstantiationConstantAttr( nodes[i], prev.getAttribute(InstConstantAttribute()) );
+        d_term_db->setInstantiationConstantAttr( nodes[i], prev.getAttribute(InstConstantAttribute()) );
         ++(d_statistics.d_lit_phase_req);
       }else{
         ++(d_statistics.d_lit_phase_nreq);
@@ -565,54 +514,6 @@ void QuantifiersEngine::generatePhaseReqs( Node f, Node n ){
 
 }
 
-Node QuantifiersEngine::getSubstitutedNode( Node n, Node f ){
-  return convertNodeToPattern(n,f,d_vars[f],d_inst_constants[ f ]);
-}
-
-Node QuantifiersEngine::convertNodeToPattern( Node n, Node f, const std::vector<Node> & vars,
-                                              const std::vector<Node> & inst_constants){
-  Node n2 = n.substitute( vars.begin(), vars.end(),
-                          inst_constants.begin(),
-                          inst_constants.end() );
-  setInstantiationConstantAttr( n2, f );
-  return n2;
-}
-
-
-void QuantifiersEngine::setInstantiationLevelAttr( Node n, uint64_t level ){
-  if( !n.hasAttribute(InstLevelAttribute()) ){
-    InstLevelAttribute ila;
-    n.setAttribute(ila,level);
-  }
-  for( int i=0; i<(int)n.getNumChildren(); i++ ){
-    setInstantiationLevelAttr( n[i], level );
-  }
-}
-
-
-void QuantifiersEngine::setInstantiationConstantAttr( Node n, Node f ){
-  if( !n.hasAttribute(InstConstantAttribute()) ){
-    bool setAttr = false;
-    if( n.getKind()==INST_CONSTANT ){
-      setAttr = true;
-    }else{
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        setInstantiationConstantAttr( n[i], f );
-        if( n[i].hasAttribute(InstConstantAttribute()) ){
-          setAttr = true;
-        }
-      }
-    }
-    if( setAttr ){
-      InstConstantAttribute ica;
-      n.setAttribute(ica,f);
-      //also set the no-match attribute
-      NoMatchAttribute nma;
-      n.setAttribute(nma,true);
-    }
-  }
-}
-
 QuantifiersEngine::Statistics::Statistics():
   d_num_quant("QuantifiersEngine::Num_Quantifiers", 0),
   d_instantiation_rounds("QuantifiersEngine::Rounds_Instantiation_Full", 0),
@@ -666,24 +567,6 @@ QuantifiersEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_simple_triggers);
   StatisticsRegistry::unregisterStat(&d_multi_triggers);
   StatisticsRegistry::unregisterStat(&d_multi_trigger_instantiations);
-}
-
-Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){
-  TypeNode tn = n.getType();
-  if( d_free_vars.find( tn )==d_free_vars.end() ){
-    //if integer or real, make zero
-    if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
-      Rational z(0);
-      d_free_vars[tn] = NodeManager::currentNM()->mkConst( z );
-    }else{
-      if( getTermDatabase()->d_type_map[ tn ].empty() ){
-        d_free_vars[tn] = NodeManager::currentNM()->mkVar( tn );
-      }else{
-        d_free_vars[tn] = getTermDatabase()->d_type_map[ tn ][ 0 ];
-      }
-    }
-  }
-  return d_free_vars[tn];
 }
 
 /** compute symbols */

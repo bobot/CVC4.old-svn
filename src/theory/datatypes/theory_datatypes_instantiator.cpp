@@ -17,6 +17,7 @@
 #include "theory/datatypes/theory_datatypes_instantiator.h"
 #include "theory/datatypes/theory_datatypes.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers/term_database.h"
 
 using namespace std;
 using namespace CVC4;
@@ -54,8 +55,8 @@ int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e )
       return InstStrategy::STATUS_UNFINISHED;
     }else if( e==2 ){
       InstMatch m;
-      for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
-        Node i = d_quantEngine->getInstantiationConstant( f, j );
+      for( int j = 0; j<(int)d_quantEngine->getTermDatabase()->getNumInstantiationConstants( f ); j++ ){
+        Node i = d_quantEngine->getTermDatabase()->getInstantiationConstant( f, j );
         if( i.getType().isDatatype() ){
           Node n = getValueFor( i );
           Debug("quant-datatypes-debug") << "Value for " << i << " is " << n << std::endl;

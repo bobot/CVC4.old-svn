@@ -41,6 +41,7 @@ public:
 };/* class TermArgTrie */
 
 class TermDb {
+  friend class ::CVC4::theory::QuantifiersEngine;
 private:
   /** reference to the quantifiers engine */
   QuantifiersEngine* d_quantEngine;
@@ -75,6 +76,72 @@ public:
       for example, d_parents[n][f][1] = { f( t1, n ), f( t2, n ), ... }
   */
   std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
+private:
+  //map from types to model basis terms
+  std::map< TypeNode, Node > d_model_basis_term;
+  //map from ops to model basis terms
+  std::map< Node, Node > d_model_basis_op_term;
+  //map from instantiation terms to their model basis equivalent
+  std::map< Node, Node > d_model_basis;
+public:
+  //get model basis term
+  Node getModelBasisTerm( TypeNode tn, int i = 0 );
+  //get model basis term for op
+  Node getModelBasisOpTerm( Node op );
+  // compute model basis arg
+  void computeModelBasisArgAttribute( Node n );
+  //register instantiation terms with their corresponding model basis terms
+  void registerModelBasis( Node n, Node gn );
+  //get model basis
+  Node getModelBasis( Node n ) { return d_model_basis[n]; }
+private:
+  /** map from universal quantifiers to the list of variables */
+  std::map< Node, std::vector< Node > > d_vars;
+  /** map from universal quantifiers to the list of skolem constants */
+  std::map< Node, std::vector< Node > > d_skolem_constants;
+  /** map from universal quantifiers to their skolemized body */
+  std::map< Node, Node > d_skolem_body;
+  /** instantiation constants to universal quantifiers */
+  std::map< Node, Node > d_inst_constants_map;
+  /** map from universal quantifiers to their counterexample body */
+  std::map< Node, Node > d_counterexample_body;
+  /** free variable for instantiation constant type */
+  std::map< TypeNode, Node > d_free_vars;
+private:
+  /** make instantiation constants for */
+  void makeInstantiationConstantsFor( Node f );
+public:
+  /** map from universal quantifiers to the list of instantiation constants */
+  std::map< Node, std::vector< Node > > d_inst_constants;
+  /** set instantiation level attr */
+  void setInstantiationLevelAttr( Node n, uint64_t level );
+  /** set instantiation constant attr */
+  void setInstantiationConstantAttr( Node n, Node f );
+  /** get the i^th instantiation constant of f */
+  Node getInstantiationConstant( Node f, int i ) { return d_inst_constants[f][i]; }
+  /** get number of instantiation constants for f */
+  int getNumInstantiationConstants( Node f ) { return (int)d_inst_constants[f].size(); }
+  /** get the ce body f[e/x] */
+  Node getCounterexampleBody( Node f );
+  /** get the skolemized body f[e/x] */
+  Node getSkolemizedBody( Node f );
+  /** returns node n with bound vars of f replaced by instantiation constants of f
+      node n : is the futur pattern
+      node f : is the quantifier containing which bind the variable
+      return a pattern where the variable are replaced by variable for
+      instantiation.
+   */
+  Node getSubstitutedNode( Node n, Node f );
+  /** same as before but node f is just linked to the new pattern by the
+      applied attribute
+      vars the bind variable
+      nvars the same variable but with an attribute
+  */
+  Node convertNodeToPattern( Node n, Node f,
+                             const std::vector<Node> & vars,
+                             const std::vector<Node> & nvars);
+  /** get free variable for instantiation constant */
+  Node getFreeVariableForInstConstant( Node n );
 };/* class TermDb */
 
 }

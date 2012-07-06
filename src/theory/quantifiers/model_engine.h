@@ -38,30 +38,18 @@ class ModelEngine : public QuantifiersModule
 {
   friend class uf::UfModel;
   friend class RepSetIterator;
-private:
+private:    //data maintained globally:
   //which quantifiers have been initialized
   std::map< Node, bool > d_quant_init;
-  //map from quantifiers to if are constant SAT
-  std::map< Node, bool > d_quant_sat;
-private:
-  //map from types to model basis terms
-  std::map< TypeNode, Node > d_model_basis_term;
-  //map from ops to model basis terms
-  std::map< Node, Node > d_model_basis_op_term;
-  //map from instantiation terms to their model basis equivalent
-  std::map< Node, Node > d_model_basis;
   //map from quantifiers to model basis match
   std::map< Node, InstMatch > d_quant_basis_match;
+private:    //analysis of current model:
+  //map from quantifiers to if are constant SAT
+  std::map< Node, bool > d_quant_sat;
   //map from quantifiers to the instantiation literals that their model is dependent upon
   std::map< Node, std::vector< Node > > d_quant_selection_lits;
-public:
-  //get model basis term
-  Node getModelBasisTerm( TypeNode tn, int i = 0 );
-  //get model basis term for op
-  Node getModelBasisOpTerm( Node op );
-  // compute model basis arg
-  void computeModelBasisArgAttribute( Node n );
-private:
+  //map from operators to model preference data
+  std::map< Node, uf::UfModelPreferenceData > d_uf_prefs;
   //relevant domain
   RelevantDomain d_rel_domain;
 private:
@@ -77,6 +65,10 @@ private:
   int initializeQuantifier( Node f );
   //analyze quantifiers
   void analyzeQuantifiers();
+  //build model
+  void buildModel();
+  //theory-specific build models
+  void buildModelUf( uf::UfModel& model );
   //do InstGen techniques for quantifier, return number of lemmas produced
   int doInstGen( Node f );
   //exhaustively instantiate quantifier (possibly using mbqi), return number of lemmas produced
@@ -86,9 +78,6 @@ private:
   int d_triedLemmas;
   int d_testLemmas;
   int d_totalLemmas;
-private:
-  //register instantiation terms with their corresponding model basis terms
-  void registerModelBasis( Node n, Node gn );
 public:
   ModelEngine( QuantifiersEngine* qe );
   ~ModelEngine(){}

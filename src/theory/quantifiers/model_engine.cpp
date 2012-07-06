@@ -22,11 +22,13 @@
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/quantifiers/first_order_model.h"
+#include "theory/quantifiers/term_database.h"
 
 //#define ME_PRINT_WARNINGS
 
 //#define DISABLE_EVAL_SKIP_MULTIPLE
 
+#define RECONSIDER_FUNC_CONSTANT
 #define EVAL_FAIL_SKIP_MULTIPLE
 //#define ONE_QUANT_PER_ROUND_INST_GEN
 //#define ONE_QUANT_PER_ROUND
@@ -43,7 +45,7 @@ using namespace CVC4::theory::quantifiers;
 //Model Engine constructor
 ModelEngine::ModelEngine( QuantifiersEngine* qe ) :
 QuantifiersModule( qe ),
-d_rel_domain( qe ){
+d_rel_domain( qe->getModel() ){
 
 }
 
@@ -107,7 +109,7 @@ void ModelEngine::check( Theory::Effort e ){
           //if no immediate exceptions, build the model
           //  this model will be an approximation that will need to be tested via exhaustive instantiation
           Debug("fmf-model-debug") << "Building model..." << std::endl;
-          d_quantEngine->getModel()->buildModel();
+          buildModel();
         }
       }
       if( addedLemmas==0 ){
@@ -225,8 +227,8 @@ int ModelEngine::initializeQuantifier( Node f ){
     std::vector< Node > ics;
     std::vector< Node > terms;
     for( int j=0; j<(int)f[0].getNumChildren(); j++ ){
-      Node ic = d_quantEngine->getInstantiationConstant( f, j );
-      Node t = getModelBasisTerm( ic.getType() );
+      Node ic = d_quantEngine->getTermDatabase()->getInstantiationConstant( f, j );
+      Node t = d_quantEngine->getTermDatabase()->getModelBasisTerm( ic.getType() );
       ics.push_back( ic );
       terms.push_back( t );
       //calculate the basis match for f
@@ -234,9 +236,9 @@ int ModelEngine::initializeQuantifier( Node f ){
     }
     ++(d_statistics.d_num_quants_init);
     //register model basis body
-    Node n = d_quantEngine->getCounterexampleBody( f );
+    Node n = d_quantEngine->getTermDatabase()->getCounterexampleBody( f );
     Node gn = n.substitute( ics.begin(), ics.end(), terms.begin(), terms.end() );
-    registerModelBasis( n, gn );
+    d_quantEngine->getTermDatabase()->registerModelBasis( n, gn );
     //add model basis instantiation
     if( d_quantEngine->addInstantiation( f, terms ) ){
       return 1;
@@ -252,6 +254,7 @@ int ModelEngine::initializeQuantifier( Node f ){
 void ModelEngine::analyzeQuantifiers(){
   d_quant_selection_lits.clear();
   d_quant_sat.clear();
+  d_uf_prefs.clear();
   int quantSatInit = 0;
   int nquantSatInit = 0;
   //analyze the preferences of each quantifier
@@ -267,7 +270,7 @@ void ModelEngine::analyzeQuantifiers(){
     for( std::map< Node, bool >::iterator it = d_quantEngine->d_phase_reqs[f].begin();
          it != d_quantEngine->d_phase_reqs[f].end(); ++it ){
       Node n = it->first;
-      Node gn = d_model_basis[n];
+      Node gn = d_quantEngine->getTermDatabase()->getModelBasis( n );
       Debug("fmf-model-req") << "   Req: " << n << " -> " << it->second << std::endl;
       //calculate preference
       int pref = 0;
@@ -318,7 +321,7 @@ void ModelEngine::analyzeQuantifiers(){
           for( int j=0; j<(int)uf_terms.size(); j++ ){
             Node op = uf_terms[j].getOperator();
             constantSatOps.push_back( op );
-            if( d_quantEngine->getModel()->d_uf_model[op].d_reconsider_model ){
+            if( d_uf_prefs[op].d_reconsiderModel ){
               constantSatReconsider = true;
             }
           }
@@ -337,7 +340,7 @@ void ModelEngine::analyzeQuantifiers(){
       Debug("fmf-model-prefs") << "  * Constant SAT due to definition of ops: ";
       for( int i=0; i<(int)constantSatOps.size(); i++ ){
         Debug("fmf-model-prefs") << constantSatOps[i] << " ";
-        d_quantEngine->getModel()->d_uf_model[constantSatOps[i]].d_reconsider_model = false;
+        d_uf_prefs[constantSatOps[i]].d_reconsiderModel = false;
       }
       Debug("fmf-model-prefs") << std::endl;
       quantSatInit++;
@@ -349,7 +352,8 @@ void ModelEngine::analyzeQuantifiers(){
       for( int k=0; k<2; k++ ){
         for( int j=0; j<(int)pro_con[k].size(); j++ ){
           Node op = pro_con[k][j].getOperator();
-          d_quantEngine->getModel()->d_uf_model[op].setValuePreference( f, pro_con[k][j], k==0 );
+          Node r = d_quantEngine->getModel()->getRepresentative( pro_con[k][j] );
+          d_uf_prefs[op].setValuePreference( f, pro_con[k][j], r, k==0 );
         }
       }
     }
@@ -371,7 +375,7 @@ int ModelEngine::doInstGen( Node f ){
     if( lit.getKind()==APPLY_UF ){
       //only match predicates that are contrary to this one, use literal matching
       Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? d_quantEngine->getModel()->d_true : d_quantEngine->getModel()->d_false );
-      d_quantEngine->setInstantiationConstantAttr( eq, f );
+      d_quantEngine->getTermDatabase()->setInstantiationConstantAttr( eq, f );
       tr_terms.push_back( eq );
     }else if( lit.getKind()==EQUAL ){
       //collect trigger terms
@@ -406,6 +410,80 @@ int ModelEngine::doInstGen( Node f ){
   return addedLemmas;
 }
 
+void ModelEngine::buildModel(){
+  FirstOrderModel* m = d_quantEngine->getModel();
+  for( std::map< Node, uf::UfModel >::iterator it = m->d_uf_model.begin(); it != m->d_uf_model.end(); ++it ){
+    buildModelUf( it->second );
+  }
+  Debug("fmf-model-debug") << "Done building models." << std::endl;
+  //print debug
+  Debug("fmf-model-complete") << std::endl;
+  debugPrint("fmf-model-complete");
+}
+
+void ModelEngine::buildModelUf( uf::UfModel& model ){
+  Node op = model.getOperator();
+#ifdef RECONSIDER_FUNC_CONSTANT
+  if( model.isModelConstructed() && model.isConstant() ){
+    if( d_uf_prefs[op].d_reconsiderModel ){
+      //if we are allowed to reconsider default value, then see if the default value can be improved
+      Node t = d_quantEngine->getTermDatabase()->getModelBasisOpTerm( op );
+      Node v = model.getConstantValue( t );
+      if( d_uf_prefs[op].d_value_pro_con[0][v].empty() ){
+        Debug("fmf-model-cons-debug") << "Consider changing the default value for " << op << std::endl;
+        model.clearModel();
+      }
+    }
+  }
+#endif
+  if( !model.isModelConstructed() ){
+    //construct the model for the uninterpretted function/predicate
+    bool setDefaultVal = true;
+    Node defaultTerm = d_quantEngine->getTermDatabase()->getModelBasisOpTerm( op );
+    Debug("fmf-model-cons") << "Construct model for " << op << "..." << std::endl;
+    //set the values in the model
+    for( size_t i=0; i<model.d_ground_asserts.size(); i++ ){
+      Node n = model.d_ground_asserts[i];
+      Node v = model.d_ground_asserts_reps[i];
+      //if this assertion did not help the model, just consider it ground
+      //set n = v in the model tree
+      Debug("fmf-model-cons") << "  Set " << n << " = ";
+      d_quantEngine->getModel()->printRepresentative( "fmf-model-cons", v );
+      Debug("fmf-model-cons") << std::endl;
+      //set it as ground value
+      model.setValue( n, v );
+      if( model.optUsePartialDefaults() ){
+        //also set as default value if necessary
+        //if( n.getAttribute(ModelBasisArgAttribute())==1 && !d_term_pro_con[0][n].empty() ){
+        if( n.hasAttribute(ModelBasisArgAttribute()) && n.getAttribute(ModelBasisArgAttribute())==1 ){
+          model.setValue( n, v, false );
+          if( n==defaultTerm ){
+            //incidentally already set, we will not need to find a default value
+            setDefaultVal = false;
+          }
+        }
+      }else{
+        if( n==defaultTerm ){
+          model.setValue( n, v, false );
+          //incidentally already set, we will not need to find a default value
+          setDefaultVal = false;
+        }
+      }
+    }
+    //set the overall default value if not set already  (is this necessary??)
+    if( setDefaultVal ){
+      Debug("fmf-model-cons") << "  Choose default value..." << std::endl;
+      //chose defaultVal based on heuristic, currently the best ratio of "pro" responses
+      Node defaultVal = d_uf_prefs[op].getBestDefaultValue( defaultTerm, d_quantEngine->getModel() );
+      Assert( !defaultVal.isNull() );
+      model.setValue( defaultTerm, defaultVal, false );
+    }
+    Debug("fmf-model-cons") << "  Making model...";
+    model.setModel();
+    Debug("fmf-model-cons") << "  Finished constructing model for " << op << "." << std::endl;
+  }
+}
+
 int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
   int tests = 0;
   int addedLemmas = 0;
@@ -413,7 +491,7 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
   Debug("inst-fmf-ei") << "Add matches for " << f << "..." << std::endl;
   Debug("inst-fmf-ei") << "   Instantiation Constants: ";
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
-    Debug("inst-fmf-ei") << d_quantEngine->getInstantiationConstant( f, i ) << " ";
+    Debug("inst-fmf-ei") << d_quantEngine->getTermDatabase()->getInstantiationConstant( f, i ) << " ";
   }
   Debug("inst-fmf-ei") << std::endl;
   if( d_quant_selection_lits[f].empty() ){
@@ -444,7 +522,7 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
       //if evaluate(...)==1, then the instantiation is already true in the model
       //  depIndex is the index of the least significant variable that this evaluation relies upon
       int depIndex = riter.getNumTerms()-1;
-      int eval = reval.evaluate( d_quantEngine->getCounterexampleBody( f ), depIndex );
+      int eval = reval.evaluate( d_quantEngine->getTermDatabase()->getCounterexampleBody( f ), depIndex );
       if( eval==1 ){
         Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
         riter.increment2( depIndex );
@@ -516,55 +594,6 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
 #endif
 ///-----------
   return addedLemmas;
-}
-
-void ModelEngine::registerModelBasis( Node n, Node gn ){
-  if( d_model_basis.find( n )==d_model_basis.end() ){
-    d_model_basis[n] = gn;
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      registerModelBasis( n[i], gn[i] );
-    }
-  }
-}
-
-Node ModelEngine::getModelBasisTerm( TypeNode tn, int i ){
-  if( d_model_basis_term.find( tn )==d_model_basis_term.end() ){
-    std::stringstream ss;
-    ss << Expr::setlanguage(Options::current()->outputLanguage);
-    ss << "e_" << tn;
-    d_model_basis_term[tn] = NodeManager::currentNM()->mkVar( ss.str(), tn );
-    ModelBasisAttribute mba;
-    d_model_basis_term[tn].setAttribute(mba,true);
-  }
-  return d_model_basis_term[tn];
-}
-
-Node ModelEngine::getModelBasisOpTerm( Node op ){
-  if( d_model_basis_op_term.find( op )==d_model_basis_op_term.end() ){
-    TypeNode t = op.getType();
-    std::vector< Node > children;
-    children.push_back( op );
-    for( size_t i=0; i<t.getNumChildren()-1; i++ ){
-      children.push_back( getModelBasisTerm( t[i] ) );
-    }
-    d_model_basis_op_term[op] = NodeManager::currentNM()->mkNode( APPLY_UF, children );
-  }
-  return d_model_basis_op_term[op];
-}
-
-void ModelEngine::computeModelBasisArgAttribute( Node n ){
-  if( !n.hasAttribute(ModelBasisArgAttribute()) ){
-    uint64_t val = 0;
-    //determine if it has model basis attribute
-    for( int j=0; j<(int)n.getNumChildren(); j++ ){
-      if( n[j].getAttribute(ModelBasisAttribute()) ){
-        val = 1;
-        break;
-      }
-    }
-    ModelBasisArgAttribute mbaa;
-    n.setAttribute( mbaa, val );
-  }
 }
 
 void ModelEngine::debugPrint( const char* c ){

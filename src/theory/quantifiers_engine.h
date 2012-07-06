@@ -142,20 +142,6 @@ private:
   std::vector< Node > d_quants;
   /** list of all quantifiers (post-rewrite) */
   std::vector< Node > d_r_quants;
-  /** map from universal quantifiers to the list of variables */
-  std::map< Node, std::vector< Node > > d_vars;
-  /** map from universal quantifiers to the list of skolem constants */
-  std::map< Node, std::vector< Node > > d_skolem_constants;
-  /** map from universal quantifiers to their skolemized body */
-  std::map< Node, Node > d_skolem_body;
-  /** map from universal quantifiers to their bound body */
-  std::map< Node, Node > d_bound_body;
-  /** instantiation constants to universal quantifiers */
-  std::map< Node, Node > d_inst_constants_map;
-  /** map from universal quantifiers to their counterexample body */
-  std::map< Node, Node > d_counterexample_body;
-  /** map from universal quantifiers to the list of instantiation constants */
-  std::map< Node, std::vector< Node > > d_inst_constants;
   /** map from quantifiers to whether they are active */
   BoolMap d_active;
   /** lemmas produced */
@@ -166,8 +152,6 @@ private:
   bool d_hasAddedLemma;
   /** inst matches produced for each quantifier */
   std::map< Node, InstMatchTrie > d_inst_match_trie;
-  /** free variable for instantiation constant type */
-  std::map< TypeNode, Node > d_free_vars;
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
   /** term database */
@@ -191,12 +175,6 @@ private:
 private:
   /** helper functions compute phase requirements */
   static void computePhaseReqs2( Node n, bool polarity, std::map< Node, int >& phaseReqs );
-  /** set instantiation level attr */
-  void setInstantiationLevelAttr( Node n, uint64_t level );
-  /** set instantiation constant attr */
-  void setInstantiationConstantAttr( Node n, Node f );
-  /** make instantiation constants for */
-  void makeInstantiationConstantsFor( Node f );
 
   KEEP_STATISTIC(TimerStat, d_time, "theory::QuantifiersEngine::time");
 
@@ -234,6 +212,9 @@ public:
   void propagate( Theory::Effort level );
   /** reset instantiation round */
   void resetInstantiationRound( Theory::Effort level );
+
+  //create inst variable
+  std::vector<Node> createInstVariable( std::vector<Node> & vars );
 public:
   /** add lemma lem */
   bool addLemma( Node lem );
@@ -256,20 +237,6 @@ public:
   int getNumQuantifiers() { return (int)d_quants.size(); }
   /** get quantifier */
   Node getQuantifier( int i ) { return d_quants[i]; }
-  /** get instantiation constants */
-  void getInstantiationConstantsFor( Node f, std::vector< Node >& ics ) {
-    ics.insert( ics.begin(), d_inst_constants[f].begin(), d_inst_constants[f].end() );
-  }
-  /** get the i^th instantiation constant of f */
-  Node getInstantiationConstant( Node f, int i ) { return d_inst_constants[f][i]; }
-  /** get number of instantiation constants for f */
-  int getNumInstantiationConstants( Node f ) { return (int)d_inst_constants[f].size(); }
-  std::vector<Node> createInstVariable( std::vector<Node> & vars );
-public:
-  /** get the ce body f[e/x] */
-  Node getCounterexampleBody( Node f );
-  /** get the skolemized body f[e/x] */
-  Node getSkolemizedBody( Node f );
   /** set active */
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */
@@ -291,26 +258,6 @@ public:
   /** compute phase requirements */
   void generatePhaseReqs( Node f, Node n );
 public:
-  /** returns node n with bound vars of f replaced by instantiation constants of f
-      node n : is the futur pattern
-      node f : is the quantifier containing which bind the variable
-      return a pattern where the variable are replaced by variable for
-      instantiation.
-   */
-  Node getSubstitutedNode( Node n, Node f );
-  /** same as before but node f is just linked to the new pattern by the
-      applied attribute
-      vars the bind variable
-      nvars the same variable but with an attribute
-  */
-  Node convertNodeToPattern( Node n, Node f,
-                             const std::vector<Node> & vars,
-                             const std::vector<Node> & nvars);
-  /** get free variable for instantiation constant */
-  Node getFreeVariableForInstConstant( Node n );
-  /** get bound variable for variable */
-  Node getBoundVariableForVariable( Node n );
-public:
   /** has owner */
   bool hasOwner( Node f ) { return d_owner.find( f )!=d_owner.end(); }
   /** get owner */
@@ -321,7 +268,7 @@ public:
   /** get model */
   quantifiers::FirstOrderModel* getModel() { return d_model; }
   /** get term database */
-  quantifiers::TermDb* getTermDatabase();
+  quantifiers::TermDb* getTermDatabase() { return d_term_db; }
   /** add term to database */
   void addTermToDatabase( Node n, bool withinQuant = false );
 private:
