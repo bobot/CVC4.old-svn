@@ -31,8 +31,13 @@ bool DifferenceLogicDecisionProcedure::setTrue(EdgeId eid){
   VertexId v_id = e.getEnd();
   DeltaRational d = constraintValue(eid);
 
-  d_gamma.update(v_id, getPi(u_id) + d - getPi(v_id), eid );
-  // everything else is implicitly 0
+  Debug("dl") << "setTrue(" << eid << ") : " << u_id << " -> " << v_id
+              << " [" << d << "]" << std::endl; 
+
+  d_gamma.updateIfMin(v_id, getPi(u_id) + d - getPi(v_id), eid );
+  // If this is >= 0, do nothing
+  // If this is < 0, then gamma(v_id) needs to be updated
+  // and everything else is implicitly 0
 
   while(true){
     if(d_gamma.getValue(u_id).sgn() != 0){
@@ -42,6 +47,7 @@ bool DifferenceLogicDecisionProcedure::setTrue(EdgeId eid){
     }
 
     VertexId s = d_gamma.heapMinimum();
+    Debug("dl") << "gamma[" << s<<"] = " << d_gamma.getValue(s) << std::endl;
     Assert(d_gamma.getValue(s).sgn() < 0);
 
     d_gamma.heapPop();
@@ -65,25 +71,6 @@ bool DifferenceLogicDecisionProcedure::setTrue(EdgeId eid){
         DeltaRational theta = d_piPrime[s] + c - getPi(t);
 
         d_gamma.updateIfMin(t, theta, currentEdgeId);
-
-        // if(d_gamma.isKey(t)){
-        //   const DeltaRational& curr = d_gamma[t];
-        //   if(theta < curr){
-        //     d_gamma.set(t, theta);
-        //     d_gammaProof.set(t, eid);
-        //     if(d_gammaHeap.isMember(t)){
-        //       d_gammaHeap.decrease_key(t);
-        //     }else{
-        //       d_gammaHeap.insert(t);
-        //     }
-        //   }
-        // }else if(theta.sgn() < 0){
-        //   d_gamma[t] = theta;
-        //   d_gammaProof[t] = eid;
-
-        //   Assert(!d_gammaHeap.isMember(t));
-        //   d_gammaHeap.insert(t);
-        // }
       }
     }
   }
@@ -153,7 +140,7 @@ DifferenceLogicDecisionProcedure::EdgeId DifferenceLogicDecisionProcedure::setup
   }
 
 bool DifferenceLogicDecisionProcedure::check(){
-
+  TimerStat::CodeTimer codeTimer(d_statistics.d_dlCheckTimer);
   while(!d_queue.empty()){
     Assert(!inConflict());
 
@@ -174,7 +161,7 @@ bool DifferenceLogicDecisionProcedure::check(){
       explainCycle(start, nb);
       Node conflict = nb;
 
-      Debug("dl::conflict") << conflict << std::endl;
+      Debug("dl::conflict") << "DL conflict: " << conflict << std::endl;
 
       raiseConflict(conflict);
 
@@ -199,6 +186,30 @@ DifferenceLogicDecisionProcedure::DifferenceLogicDecisionProcedure(context::Cont
     d_gamma()
   {
   }
+
+  DifferenceLogicDecisionProcedure::Statistics::Statistics():
+    d_dlConflicts("theory::arith::dl::conflicts", 0),
+    d_dlCheckTimer("theory::arith::dl::checkTimer")
+  {
+    StatisticsRegistry::registerStat(&d_dlConflicts);
+    StatisticsRegistry::registerStat(&d_dlCheckTimer);
+  }
+
+  DifferenceLogicDecisionProcedure::Statistics::~Statistics(){
+    StatisticsRegistry::unregisterStat(&d_dlConflicts);
+    StatisticsRegistry::unregisterStat(&d_dlCheckTimer);
+  }
+
+ void DifferenceLogicDecisionProcedure:: raiseConflict(Node conflict){
+   Assert(!inConflict());
+   ++d_statistics.d_dlConflicts;
+   d_raiseConflict(conflict);
+   d_inConflict.raise();
+ }
+
+
+
+  
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

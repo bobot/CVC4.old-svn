@@ -1438,10 +1438,10 @@ void TheoryArith::check(Effort effortLevel){
 
   if(!inConflict()){
     bool dlRes = d_dl.check();
-    cout << dlRes << endl;
+    //cout << dlRes << endl;
 
     if(dlRes){
-      d_dl.printPi();
+      //d_dl.printPi();
     }
   }
 
@@ -1458,6 +1458,7 @@ void TheoryArith::check(Effort effortLevel){
       d_partialModel.commitAssignmentChanges();
       revertOutOfConflict();
     }
+    //cout << "not the conflict is here!" << endl;
     outputConflicts();
     return;
   }
@@ -1490,6 +1491,7 @@ void TheoryArith::check(Effort effortLevel){
     d_statistics.d_maxUnknownsInARow.maxAssign(d_unknownsInARow);
     break;
   case Result::UNSAT:
+    cout << "unsat here" << endl;
     d_unknownsInARow = 0;
     if(previous == Result::SAT){
       ++d_statistics.d_revertsOnConflicts;

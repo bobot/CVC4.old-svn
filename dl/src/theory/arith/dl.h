@@ -55,11 +55,7 @@ private:
     return d_inConflict.isRaised();
   }
 
-  void raiseConflict(Node conflict){
-    Assert(!inConflict());
-    d_raiseConflict(conflict);
-    d_inConflict.raise();
-  }
+  void raiseConflict(Node conflict);
 
   /** The difference graph. */
   context::CDGraph<ArithVar, Constraint> d_graph;
@@ -112,7 +108,7 @@ private:
       return d_piSummary[vid];
     }else{
       ArithVar var = vertexIdToArithVar(vid);
-      const DeltaRational& model = d_pm.getAssignment(var);
+      const DeltaRational& model = d_pm.getSafeAssignment(var);
       return (-model);
     }
   }
@@ -219,7 +215,10 @@ private:
       }
     }
 
-    bool purge();
+    void purge(){
+      d_map.purge();
+      d_heapInternal.clear();
+    }
 
     bool completelyEmpty() const {
       Assert(!d_map.empty() || heapEmpty());
@@ -293,6 +292,16 @@ private:
       std::cout << "pi[" << vid << "] -> " << d_piSummary[vid] << std::endl;
     }
   }
+
+  class Statistics {
+  public:
+    IntStat d_dlConflicts;
+
+    TimerStat d_dlCheckTimer;
+
+    Statistics();
+    ~Statistics();
+  } d_statistics;
 }; /* class CVC4::theory::arith::DifferenceLogicDecisionProcedure */
 
 
