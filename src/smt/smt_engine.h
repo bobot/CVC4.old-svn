@@ -29,6 +29,7 @@
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "util/proof.h"
+#include "util/model.h"
 #include "smt/bad_option_exception.h"
 #include "smt/modal_exception.h"
 #include "smt/no_such_function_exception.h"

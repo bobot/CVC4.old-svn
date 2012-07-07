@@ -91,5 +91,5 @@ void FirstOrderModel::debugPrint( const char* c ){
 }
 
 void FirstOrderModel::toStream(std::ostream& out){
-
+  out << "this is the first order model." << std::endl;
 }
