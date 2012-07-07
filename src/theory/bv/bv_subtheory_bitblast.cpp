@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file bv_subtheory_eq_bitblast.cpp
+/*! \file bv_subtheory_bitblast.cpp
  ** \verbatim
- ** Original author: lianah
- ** Major contributors: dejan
+ ** Original author: dejan
+ ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -90,6 +90,17 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
         d_bv->setConflict(mkConjunction(conflictAtoms));
         return false;
       }
+    }
+  }
+
+  // We need to ensure we are fully propagated, so propagate now
+  if (d_useSatPropagation) {
+    bool ok = d_bitblaster->propagate();
+    if (!ok) {
+      std::vector<TNode> conflictAtoms;
+      d_bitblaster->getConflict(conflictAtoms);
+      d_bv->setConflict(mkConjunction(conflictAtoms));
+      return false;
     }
   }
 

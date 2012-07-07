@@ -30,6 +30,7 @@
 #include "util/lemma_output_channel.h"
 #include "util/lemma_input_channel.h"
 #include "util/tls.h"
+#include "theory/theoryof_mode.h"
 
 #include <vector>
 
@@ -158,6 +159,7 @@ struct CVC4_PUBLIC Options {
     bool computeRelevancy;    /* if false, do justification stuff using relevancy.h */
     bool mustRelevancy;       /* use the must be relevant */
     bool randomChild;         /* pick a random child when recursing and/or nodes*/
+    bool stopOnly;            /* only use decision stuff to stop early, not to decide */
   };
   DecisionOptions decisionOptions;
 
@@ -269,15 +271,41 @@ struct CVC4_PUBLIC Options {
   typedef enum { NO_PROP, UNATE_PROP, BOUND_INFERENCE_PROP, BOTH_PROP} ArithPropagationMode;
   ArithPropagationMode arithPropagationMode;
 
-  /** The pivot rule for arithmetic */
-  typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
-  ArithPivotRule arithPivotRule;
+  /**
+   * The maximum number of difference pivots to do per invocation of simplex.
+   * If this is negative, the number of pivots done is the number of variables.
+   * If this is not set by the user, different logics are free to chose different
+   * defaults.
+   */
+  int16_t arithHeuristicPivots;
+  bool arithHeuristicPivotsSetByUser;
 
   /**
-   * The number of pivots before Bland's pivot rule is used on a basic
-   * variable in arithmetic.
+   * The maximum number of variable order pivots to do per invocation of simplex.
+   * If this is negative, the number of pivots done is unlimited.
+   * If this is not set by the user, different logics are free to chose different
+   * defaults.
+   */
+  int16_t arithStandardCheckVarOrderPivots;
+  bool arithStandardCheckVarOrderPivotsSetByUser;
+
+  /** The heuristic pivot rule for arithmetic. */
+  typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithHeuristicPivotRule;
+  ArithHeuristicPivotRule arithHeuristicPivotRule;
+
+  /**
+   * The number of pivots before simplex rechecks every basic variable for a conflict.
+   */
+  uint16_t arithSimplexCheckPeriod;
+
+  /**
+   * This is the pivots per basic variable that can be done using heuristic choices
+   * before variable order must be used.
+   * If this is not set by the user, different logics are free to chose different
+   * defaults.
    */
   uint16_t arithPivotThreshold;
+  bool arithPivotThresholdSetByUser;
 
   /**
    * The maximum row length that arithmetic will use for propagation.
@@ -468,6 +496,12 @@ struct CVC4_PUBLIC Options {
   /** Refine conflicts by doing another full check after a conflict */
   bool sat_refine_conflicts;
 
+  /** Was theoryOf mode set by user */
+  bool theoryOfModeSetByUser;
+
+  /** Which theoryOf mode are we using */
+  theory::TheoryOfMode theoryOfMode;
+
   Options();
 
   /**
@@ -532,7 +566,7 @@ inline std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
-std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) CVC4_PUBLIC;
+std::ostream& operator<<(std::ostream& out, Options::ArithHeuristicPivotRule rule) CVC4_PUBLIC;
 
 }/* CVC4 namespace */
 

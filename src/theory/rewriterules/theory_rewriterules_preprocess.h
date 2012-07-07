@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file rewriterules.h
+/*! \file theory_rewriterules_preprocess.h
  ** \verbatim
  ** Original author: bobot
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -20,8 +20,8 @@
 #define __CVC4__REWRITERULES_H
 
 #include <vector>
-#include <hash_set>
-#include <hash_map>
+#include <ext/hash_set>
+#include <ext/hash_map>
 #include "expr/expr.h"
 #include "expr/node.h"
 #include "theory/rewriterules/theory_rewriterules_params.h"

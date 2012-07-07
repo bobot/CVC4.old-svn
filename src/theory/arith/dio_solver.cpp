@@ -213,7 +213,10 @@ Node DioSolver::proveIndex(TrailIndex i){
     Node input = proofVariableToReason(v);
     Assert(acceptableOriginalNodes(input));
     if(input.getKind() == kind::AND){
-      nb << input[0] << input[1];
+      for(Node::iterator input_iter = input.begin(), input_end = input.end(); input_iter != input_end; ++input_iter){
+	Node inputChild = *input_iter;
+	nb << inputChild;
+      }
     }else{
       nb << input;
     }
@@ -276,7 +279,7 @@ void DioSolver::enqueueInputConstraints(){
 
 /*TODO Currently linear in the size of the Queue
  *It is not clear if am O(log n) strategy would be better.
- *Right before this in the algorithm is a substition which could potentially
+ *Right before this in the algorithm is a substitution which could potentially
  *effect the key values of everything in the queue.
  */
 void DioSolver::moveMinimumByAbsToQueueFront(){
@@ -505,7 +508,7 @@ SumPair DioSolver::processEquationsForCut(){
 
 
 SumPair DioSolver::purifyIndex(TrailIndex i){
-  // TODO: "This uses the substition trail to reverse the substitions from the sum term. Using the proof term should be more efficient."
+  // TODO: "This uses the substitution trail to reverse the substitutions from the sum term. Using the proof term should be more efficient."
 
   SumPair curr = d_trail[i].d_eq;
 
@@ -776,8 +779,8 @@ void DioSolver::debugPrintTrail(DioSolver::TrailIndex i) const{
   const SumPair& eq = d_trail[i].d_eq;
   const Polynomial& proof = d_trail[i].d_proof;
 
-  cout << "d_trail["<<i<<"].d_eq = " << eq.getNode() << endl;
-  cout << "d_trail["<<i<<"].d_proof = " << proof.getNode() << endl;
+  Message() << "d_trail["<<i<<"].d_eq = " << eq.getNode() << endl;
+  Message() << "d_trail["<<i<<"].d_proof = " << proof.getNode() << endl;
 }
 
 void DioSolver::subAndReduceCurrentFByIndex(DioSolver::SubIndex subIndex){

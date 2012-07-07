@@ -1,4 +1,21 @@
-
+/*********************                                                        */
+/*! \file congruence_manager.h
+ ** \verbatim
+ ** Original author: taking
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief [[ Add one-line brief description here ]]
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
+ **/
 
 #include "cvc4_private.h"
 
@@ -25,7 +42,8 @@ namespace arith {
 
 class ArithCongruenceManager {
 private:
-  context::CDMaybe<Node> d_conflict;
+  context::CDRaised d_inConflict;
+  NodeCallBack& d_raiseConflict;
 
   /**
    * The set of ArithVars equivalent to a pair of terms.
@@ -101,16 +119,17 @@ private:
 
   eq::EqualityEngine d_ee;
 
+  void raiseConflict(Node conflict){
+    Assert(!inConflict());
+    Debug("arith::conflict") << "difference manager conflict   " << conflict << std::endl;
+    d_inConflict.raise();
+    d_raiseConflict(conflict);
+  }
 public:
 
   bool inConflict() const{
-    return d_conflict.isSet();
+    return d_inConflict.isRaised();
   };
-
-  Node conflict() const{
-    Assert(inConflict());
-    return d_conflict.get();
-  }
 
   bool hasMorePropagations() const {
     return !d_propagatations.empty();
@@ -150,6 +169,15 @@ private:
     ++(d_statistics.d_propagations);
   }
 
+  void pushBack(TNode n, TNode r, TNode w){
+    d_explanationMap.insert(w, d_propagatations.size());
+    d_explanationMap.insert(r, d_propagatations.size());
+    d_explanationMap.insert(n, d_propagatations.size());
+    d_propagatations.enqueue(n);
+
+    ++(d_statistics.d_propagations);
+  }
+
   bool propagate(TNode x);
   void explain(TNode literal, std::vector<TNode>& assumptions);
 
@@ -168,7 +196,7 @@ private:
    */
   //void assertLiteral(bool eq, ArithVar s, TNode reason);
 
-  /** This sends a shared term to the uninterpretted equality engine. */
+  /** This sends a shared term to the uninterpreted equality engine. */
   //void addAssertionToEqualityEngine(bool eq, ArithVar s, TNode reason);
   void assertionToEqualityEngine(bool eq, ArithVar s, TNode reason);
 
@@ -182,7 +210,7 @@ private:
 
 public:
 
-  ArithCongruenceManager(context::Context* satContext, ConstraintDatabase&, TNodeCallBack&, const ArithVarNodeMap&);
+  ArithCongruenceManager(context::Context* satContext, ConstraintDatabase&, TNodeCallBack& setLiteral, const ArithVarNodeMap&, NodeCallBack& raiseConflict);
 
   Node explain(TNode literal);
   void explain(TNode lit, NodeBuilder<>& out);
@@ -230,10 +258,8 @@ private:
     ~Statistics();
   } d_statistics;
 
-};/* class CongruenceManager */
+};/* class ArithCongruenceManager */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
-
-

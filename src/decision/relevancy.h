@@ -46,8 +46,6 @@ namespace CVC4 {
 
 namespace decision {
 
-typedef std::vector<TNode> IteList;
-
 class RelGiveUpException : public Exception {
 public:
   RelGiveUpException() : 
@@ -56,6 +54,7 @@ public:
 };/* class GiveUpException */
 
 class Relevancy : public RelevancyStrategy {
+  typedef std::vector<TNode> IteList;
   typedef hash_map<TNode,IteList,TNodeHashFunction> IteCache;
   typedef hash_map<TNode,TNode,TNodeHashFunction> SkolemMap;
   typedef hash_map<TNode,SatValue,TNodeHashFunction> PolarityCache;
@@ -139,6 +138,10 @@ public:
     d_maxTimeAsPercentageOfTotalTime(decOpt.maxRelTimeAsPermille*1.0/10.0),
     d_curDecision(NULL)
   {
+    Warning() << "There are known bugs in this Relevancy code which we know"
+              << "how to fix (but haven't yet)." << std::endl
+              << "Please bug kshitij if you wish to use." << std::endl;
+
     StatisticsRegistry::registerStat(&d_helfulness);
     StatisticsRegistry::registerStat(&d_polqueries);
     StatisticsRegistry::registerStat(&d_polhelp);
@@ -257,9 +260,7 @@ public:
         // we are becuase of not getting information about literals
         // created using newLiteral command... need to figure how to
         // handle that
-        Warning() << "isRelevant: WARNING: didn't find node when we should had" << std::endl;
-        // Warning() doesn't work for some reason
-        cout << "isRelevant: WARNING: didn't find node when we should had" << std::endl;
+        Message() << "isRelevant: WARNING: didn't find node when we should had" << std::endl;
       }      
     }
 
@@ -354,7 +355,7 @@ private:
   SatValue tryGetSatValue(Node n);
 
   /* Get list of all term-ITEs for the atomic formula v */
-  const IteList& getITEs(TNode n);
+  const Relevancy::IteList& getITEs(TNode n);
 
   /* Compute all term-ITEs in a node recursively */
   void computeITEs(TNode n, IteList &l);

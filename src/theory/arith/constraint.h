@@ -243,7 +243,7 @@ private:
    *
    * This is not context dependent, but may be set once.
    *
-   * This must be set if the constraint canbePropgated().
+   * This must be set if the constraint canBePropagated().
    * This must be set if the constraint assertedToTheTheory().
    * Otherwise, this may be null().
    */
@@ -273,7 +273,12 @@ private:
    * Sat Context Dependent.
    * This is initially AssertionOrderSentinel.
    */
-  AssertionOrder d_assertionOrder;
+  AssertionOrder _d_assertionOrder;
+  /**
+   * This is guarenteed to be on the fact queue.
+   * For example if x + y = x + 1 is on the fact queue, then use this 
+   */
+  TNode d_witness;
 
   /**
    * This points at the proof for the constraint in the current context.
@@ -285,7 +290,7 @@ private:
 
   /**
    * True if the equality has been split.
-   * Only meaningful if ContraintType == Equality.
+   * Only meaningful if ConstraintType == Equality.
    *
    * User Context Dependent.
    * This is initially false.
@@ -347,7 +352,8 @@ private:
     inline void operator()(Constraint* p){
       Constraint constraint = *p;
       Assert(constraint->assertedToTheTheory());
-      constraint->d_assertionOrder = AssertionOrderSentinel;
+      constraint->_d_assertionOrder = AssertionOrderSentinel;
+      constraint->d_witness = TNode::null();
       Assert(!constraint->assertedToTheTheory());
     }
   };
@@ -439,15 +445,20 @@ public:
   }
 
   bool assertedToTheTheory() const {
-    return d_assertionOrder < AssertionOrderSentinel;
+    Assert((_d_assertionOrder < AssertionOrderSentinel) != d_witness.isNull());
+    return _d_assertionOrder < AssertionOrderSentinel;
+  }
+  TNode getWitness() const {
+    Assert(assertedToTheTheory());
+    return d_witness;
   }
 
   bool assertedBefore(AssertionOrder time) const {
-    return d_assertionOrder < time;
+    return _d_assertionOrder < time;
   }
 
 
-  void setAssertedToTheTheory();
+  void setAssertedToTheTheory(TNode witness);
 
 
   bool hasLiteral() const {
@@ -479,7 +490,7 @@ public:
   /**
    * Returns a explanation of the constraint that is appropriate for conflicts.
    *
-   * This is not appropraite for propagation!
+   * This is not appropriate for propagation!
    *
    * This is the minimum fringe of the implication tree s.t.
    * every constraint is assertedToTheTheory() or hasEqualityEngineProof().
@@ -496,7 +507,7 @@ public:
    * This is the minimum fringe of the implication tree s.t.
    * every constraint is assertedToTheTheory() or hasEqualityEngineProof().
    *
-   * This is not appropraite for propagation!
+   * This is not appropriate for propagation!
    * Use explainForPropagation() instead.
    */
   void explainForConflict(NodeBuilder<>& nb) const{
@@ -518,7 +529,7 @@ public:
   Node explainForPropagation() const {
     Assert(hasProof());
     Assert(!isSelfExplaining());
-    return explainBefore(d_assertionOrder);
+    return explainBefore(_d_assertionOrder);
   }
 
 private:
@@ -576,7 +587,7 @@ public:
   void propagate(const std::vector<Constraint>& b);
   /**
    * The only restriction is that this is not known be true.
-   * This propgates if there is a node.
+   * This propagates if there is a node.
    */
   void impliedBy(Constraint a);
   void impliedBy(Constraint a, Constraint b);
@@ -733,9 +744,10 @@ private:
     d_watches->d_canBePropagatedWatches.push_back(c);
   }
 
-  void pushAssertionOrderWatch(Constraint c){
+  void pushAssertionOrderWatch(Constraint c, TNode witness){
     Assert(!c->assertedToTheTheory());
-    c->d_assertionOrder = d_watches->d_assertionOrderWatches.size();
+    c->_d_assertionOrder = d_watches->d_assertionOrderWatches.size();
+    c->d_witness = witness;
     d_watches->d_assertionOrderWatches.push_back(c);
   }
 
@@ -762,6 +774,8 @@ private:
   const context::Context * const d_satContext;
   const int d_satAllocationLevel;
 
+  NodeCallBack& d_raiseConflict;
+
   friend class ConstraintValue;
 
 public:
@@ -769,12 +783,13 @@ public:
   ConstraintDatabase( context::Context* satContext,
                       context::Context* userContext,
                       const ArithVarNodeMap& av2nodeMap,
-                      ArithCongruenceManager& dm);
+                      ArithCongruenceManager& dm,
+                      NodeCallBack& conflictCallBack);
 
   ~ConstraintDatabase();
 
+  /** Adds a literal to the database. */
   Constraint addLiteral(TNode lit);
-  //Constraint addAtom(TNode atom);
 
   /**
    * If hasLiteral() is true, returns the constraint.
@@ -814,7 +829,7 @@ public:
    * If no such constraint exists, NullConstraint is returned.
    *
    * t must be either UpperBound or LowerBound.
-   * The returned value v is dominatated:
+   * The returned value v is dominated:
    *  If t is UpperBound, r <= v
    *  If t is LowerBound, r >= v
    */
@@ -852,6 +867,8 @@ public:
   void unatePropEquality(Constraint curr, Constraint prevLB, Constraint prevUB);
 
 private:
+  void raiseUnateConflict(Constraint ant, Constraint cons);
+
   class Statistics {
   public:
     IntStat d_unatePropagateCalls;

@@ -25,7 +25,6 @@
 #include <vector>
 #include <utility>
 
-#include "decision/decision_engine.h"
 #include "expr/node.h"
 #include "expr/command.h"
 #include "prop/prop_engine.h"
@@ -75,6 +74,8 @@ struct NodeTheoryPairHashFunction {
 namespace theory {
   class Instantiator;
 }/* CVC4::theory namespace */
+
+class DecisionEngine;
 
 /**
  * This is essentially an abstraction for a collection of theories.  A
@@ -265,6 +266,7 @@ class TheoryEngine {
     }
 
     void setIncomplete() throw(AssertionException) {
+      Trace("theory") << "TheoryEngine::setIncomplete()" << std::endl;
       d_engine->setIncomplete(d_theory);
     }
 
@@ -501,7 +503,7 @@ public:
   void preprocessStart();
 
   /**
-   * Runs theory specific preprocesssing on the non-Boolean parts of
+   * Runs theory specific preprocessing on the non-Boolean parts of
    * the formula.  This is only called on input assertions, after ITEs
    * have been removed.
    */

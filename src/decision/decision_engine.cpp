@@ -28,7 +28,7 @@ using namespace std;
 
 namespace CVC4 {
 
-  DecisionEngine::DecisionEngine(context::Context *sc,
+DecisionEngine::DecisionEngine(context::Context *sc,
                                  context::Context *uc) :
   d_enabledStrategies(),
   d_needIteSkolemMap(),
@@ -38,12 +38,25 @@ namespace CVC4 {
   d_satSolver(NULL),
   d_satContext(sc),
   d_userContext(uc),
-  d_result(SAT_VALUE_UNKNOWN)
+  d_result(sc, SAT_VALUE_UNKNOWN),
+  d_engineState(0)
 {
-  const Options* options = Options::current();
   Trace("decision") << "Creating decision engine" << std::endl;
+}
 
+void DecisionEngine::init()
+{
+  Assert(d_engineState == 0);
+  d_engineState = 1;
+
+  Trace("decision-init") << "DecisionEngine::init()" << std::endl;
+  const Options* options = Options::current();
   if(options->incrementalSolving) return;
+
+  Trace("decision-init") << " * options->decisionMode: " 
+                         << options->decisionMode << std:: endl;
+  Trace("decision-init") << " * options->decisionOptions.stopOnly: "
+                         << ((options->decisionOptions).stopOnly) << std::endl;
 
   if(options->decisionMode == Options::DECISION_STRATEGY_INTERNAL) { }
   if(options->decisionMode == Options::DECISION_STRATEGY_JUSTIFICATION) {
@@ -61,6 +74,7 @@ namespace CVC4 {
     d_relevancyStrategy = ds;
   }
 }
+
 
 void DecisionEngine::enableStrategy(DecisionStrategy* ds)
 {

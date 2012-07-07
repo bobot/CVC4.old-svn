@@ -65,6 +65,8 @@ enum MergeReasonType {
   MERGED_THROUGH_CONGRUENCE,
   /** Terms were merged due to application of pure equality */
   MERGED_THROUGH_EQUALITY,
+  /** Equality was merged to true, due to both sides of equality being in the same class */
+  MERGED_THROUGH_REFLEXIVITY,
   /** Equality was merged to false, due to both sides of equality being a constant */
   MERGED_THROUGH_CONSTANTS,
 };
@@ -76,6 +78,9 @@ inline std::ostream& operator << (std::ostream& out, MergeReasonType reason) {
     break;
   case MERGED_THROUGH_EQUALITY:
     out << "pure equality";
+    break;
+  case MERGED_THROUGH_REFLEXIVITY:
+    out << "reflexivity";
     break;
   case MERGED_THROUGH_CONSTANTS:
     out << "constants disequal";
@@ -110,7 +115,7 @@ struct DisequalityReasonRef {
 };
 
 /** 
- * We mantaint uselist where a node appears in, and this is the node
+ * We maintain uselist where a node appears in, and this is the node
  * of such a list. 
  */
 class UseListNode {
@@ -150,7 +155,7 @@ public:
  * Main class for representing nodes in the equivalence class. The 
  * nodes are a circular list, with the representative carrying the
  * size. Each individual node carries with itself the uselist of
- * functino applications it appears in and the list of asserted 
+ * function applications it appears in and the list of asserted 
  * disequalities it belongs to. In order to get these lists one must
  * traverse the entire class and pick up all the individual lists. 
  */

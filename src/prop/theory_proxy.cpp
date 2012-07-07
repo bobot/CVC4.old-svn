@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file sat.cpp
+/*! \file theory_proxy.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: dejan, taking, mdeters
- ** Minor contributors (to current version): kshitij
+ ** Major contributors: lianah, dejan, kshitij, mdeters
+ ** Minor contributors (to current version): barrett, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -186,7 +186,7 @@ SatLiteral TheoryProxy::getNextDecisionEngineRequest(bool &stopSearch) {
   if(stopSearch) {
     Trace("decision") << "  ***  Decision Engine stopped search *** " << std::endl;
   }
-  return ret;
+  return Options::current()->decisionOptions.stopOnly ? undefSatLiteral : ret;
 }
 
 bool TheoryProxy::isDecisionRelevant(SatVariable var) {

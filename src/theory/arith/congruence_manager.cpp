@@ -1,3 +1,22 @@
+/*********************                                                        */
+/*! \file congruence_manager.cpp
+ ** \verbatim
+ ** Original author: taking
+ ** Major contributors: none
+ ** Minor contributors (to current version): dejan
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief [[ Add one-line brief description here ]]
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
+ **/
+
 #include "theory/arith/congruence_manager.h"
 
 #include "theory/arith/constraint.h"
@@ -7,8 +26,9 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-ArithCongruenceManager::ArithCongruenceManager(context::Context* c, ConstraintDatabase& cd, TNodeCallBack& setup, const ArithVarNodeMap& av2Node)
-  : d_conflict(c),
+ArithCongruenceManager::ArithCongruenceManager(context::Context* c, ConstraintDatabase& cd, TNodeCallBack& setup, const ArithVarNodeMap& av2Node, NodeCallBack& raiseConflict)
+  : d_inConflict(c),
+    d_raiseConflict(raiseConflict),
     d_notify(*this),
     d_keepAlive(c),
     d_propagatations(c),
@@ -112,7 +132,7 @@ bool ArithCongruenceManager::propagate(TNode x){
       ++(d_statistics.d_conflicts);
 
       Node conf = flattenAnd(explainInternal(x));
-      d_conflict.set(conf);
+      raiseConflict(conf);
       Debug("arith::congruenceManager") << "rewritten to false "<<x<<" with explanation "<< conf << std::endl;
       return false;
     }
@@ -141,7 +161,7 @@ bool ArithCongruenceManager::propagate(TNode x){
     Node final = flattenAnd(conf);
 
     ++(d_statistics.d_conflicts);
-    d_conflict.set(final);
+    raiseConflict(final);
     Debug("arith::congruenceManager") << "congruenceManager found a conflict " << final << std::endl;
     return false;
   }
@@ -159,7 +179,11 @@ bool ArithCongruenceManager::propagate(TNode x){
   // 11* : drop the constraint, do not propagate x or c
 
   if(!c->hasProof() && x != rewritten){
-    pushBack(x, rewritten);
+    if(c->assertedToTheTheory()){
+      pushBack(x, rewritten, c->getWitness());
+    }else{
+      pushBack(x, rewritten);
+    }
 
     c->setEqualityEngineProof();
     if(c->canBePropagated() && !c->assertedToTheTheory()){
@@ -168,10 +192,18 @@ bool ArithCongruenceManager::propagate(TNode x){
       c->propagate();
     }
   }else if(!c->hasProof() && x == rewritten){
-    pushBack(x, rewritten);
+    if(c->assertedToTheTheory()){
+      pushBack(x, c->getWitness());
+    }else{
+      pushBack(x);
+    }
     c->setEqualityEngineProof();
   }else if(c->hasProof() && x != rewritten){
-    pushBack(x, rewritten);
+    if(c->assertedToTheTheory()){
+      pushBack(x, rewritten, c->getWitness());
+    }else{
+      pushBack(x, rewritten);
+    }
   }else{
     Assert(c->hasProof() && x == rewritten);
   }

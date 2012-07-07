@@ -11,9 +11,9 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Driver for (sequential) CVC4 executable
+ ** \brief Driver for (sequential) CVC4 executable (cvc4)
  **
- ** Driver for (sequential) CVC4 executable.
+ ** Driver for (sequential) CVC4 executable (cvc4).
  **/
 
 #include <cstdlib>
@@ -115,7 +115,7 @@ int runCvc4(int argc, char* argv[], Options& options) {
   // If in competition mode, set output stream option to flush immediately
 #ifdef CVC4_COMPETITION_MODE
   *options.out << unitbuf;
-#endif
+#endif /* CVC4_COMPETITION_MODE */
 
   // We only accept one input file
   if(argc > firstArgIndex + 1) {
@@ -182,6 +182,9 @@ int runCvc4(int argc, char* argv[], Options& options) {
         options.inputLanguage = language::input::LANG_SMTLIB_V2;
       } else if(len >= 4 && !strcmp(".smt", filename + len - 4)) {
         options.inputLanguage = language::input::LANG_SMTLIB;
+      } else if((len >= 2 && !strcmp(".p", filename + len - 2))
+                || (len >= 5 && !strcmp(".tptp", filename + len - 5))) {
+        options.inputLanguage = language::input::LANG_TPTP;
       } else if(( len >= 4 && !strcmp(".cvc", filename + len - 4) )
                 || ( len >= 5 && !strcmp(".cvc4", filename + len - 5) )) {
         options.inputLanguage = language::input::LANG_CVC4;
@@ -242,6 +245,9 @@ int runCvc4(int argc, char* argv[], Options& options) {
     *options.replayLog << Expr::setlanguage(options.outputLanguage) << Expr::setdepth(-1);
   }
 
+  // important even for muzzled builds (to get result output right)
+  *options.out << Expr::setlanguage(options.outputLanguage);
+
   // Parse and execute commands until we are done
   Command* cmd;
   bool status = true;
@@ -268,7 +274,11 @@ int runCvc4(int argc, char* argv[], Options& options) {
     ParserBuilder parserBuilder(&exprMgr, filename, options);
 
     if( inputFromStdin ) {
+#if defined(CVC4_COMPETITION_MODE) && !defined(CVC4_SMTCOMP_APPLICATION_TRACK)
+      parserBuilder.withStreamInput(cin);
+#else /* CVC4_COMPETITION_MODE && !CVC4_SMTCOMP_APPLICATION_TRACK */
       parserBuilder.withLineBufferedStreamInput(cin);
+#endif /* CVC4_COMPETITION_MODE && !CVC4_SMTCOMP_APPLICATION_TRACK */
     }
 
     Parser *parser = parserBuilder.build();
@@ -276,7 +286,11 @@ int runCvc4(int argc, char* argv[], Options& options) {
       // have the replay parser use the file's declarations
       replayParser->useDeclarationsFrom(parser);
     }
-    while((cmd = parser->nextCommand())) {
+    while((cmd = parser->nextCommand()) && status) {
+      if(dynamic_cast<QuitCommand*>(cmd) != NULL) {
+        delete cmd;
+        break;
+      }
       status = doCommand(smt, cmd, options) && status;
       delete cmd;
     }
@@ -311,7 +325,7 @@ int runCvc4(int argc, char* argv[], Options& options) {
   // exit, don't return
   // (don't want destructors to run)
   exit(returnValue);
-#endif
+#endif /* CVC4_COMPETITION_MODE */
 
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
   RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);

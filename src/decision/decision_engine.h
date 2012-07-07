@@ -50,14 +50,19 @@ class DecisionEngine {
 
   context::Context* d_satContext;
   context::Context* d_userContext;
-  SatValue d_result;
+
+  // Does decision engine know the answer?
+  context::CDO<SatValue> d_result;
 
   // Disable creating decision engine without required parameters
-  DecisionEngine() {}
+  DecisionEngine() : d_result(NULL) {}
+
+  // init/shutdown state
+  unsigned d_engineState;    // 0=pre-init; 1=init,pre-shutdown; 2=shutdown
 public:
   // Necessary functions
 
-  /** Constructor, enables decision stragies based on options */
+  /** Constructor */
   DecisionEngine(context::Context *sc, context::Context *uc);
 
   /** Destructor, currently does nothing */
@@ -88,6 +93,21 @@ public:
     d_cnfStream = cs;
   }
 
+  /* enables decision stragies based on options */
+  void init();
+
+  /**
+   * This is called by SmtEngine, at shutdown time, just before
+   * destruction.  It is important because there are destruction
+   * ordering issues between some parts of the system.  For now,
+   * there's nothing to do here in the DecisionEngine.
+   */
+  void shutdown() {
+    Assert(d_engineState == 1);
+    d_engineState = 2;
+
+    Trace("decision") << "Shutting down decision engine" << std::endl;
+  }
 
   // Interface for External World to use our services
 
@@ -128,7 +148,7 @@ public:
 
   /** */
   Result getResult() {
-    switch(d_result) {
+    switch(d_result.get()) {
     case SAT_VALUE_TRUE: return Result(Result::SAT);
     case SAT_VALUE_FALSE: return Result(Result::UNSAT);
     case SAT_VALUE_UNKNOWN: return Result(Result::SAT_UNKNOWN, Result::UNKNOWN_REASON);
@@ -141,17 +161,6 @@ public:
   void setResult(SatValue val) {
     d_result = val;
   }
-
-  /**
-   * This is called by SmtEngine, at shutdown time, just before
-   * destruction.  It is important because there are destruction
-   * ordering issues between some parts of the system.  For now,
-   * there's nothing to do here in the DecisionEngine.
-   */
-  void shutdown() {
-    Trace("decision") << "Shutting down decision engine" << std::endl;
-  }
-
 
   // External World helping us help the Strategies
 

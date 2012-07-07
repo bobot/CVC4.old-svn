@@ -1,4 +1,5 @@
-SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers rewriterules lemmas push-pop preprocess unconstrained
+SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers lemmas push-pop preprocess unconstrained decision
+DIST_SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers rewriterules lemmas push-pop preprocess unconstrained decision
 
 BINARY = cvc4
 if PROOF_REGRESSIONS
@@ -84,6 +85,19 @@ CVC_TESTS = \
 	wiki.21.cvc \
 	simplification_bug3.cvc
 
+# Regression tests for TPTP inputs
+TPTP_TESTS = \
+	tptp_parser.p \
+	tptp_parser2.p \
+	tptp_parser3.p \
+	tptp_parser4.p \
+	tptp_parser5.p \
+	tptp_parser6.p \
+	tptp_parser7.p \
+	tptp_parser8.p \
+	tptp_parser9.p \
+	tptp_parser10.p
+
 # Regression tests derived from bug reports
 BUG_TESTS = \
 	bug32.cvc \
@@ -95,19 +109,17 @@ BUG_TESTS = \
 	bug187.smt2 \
 	bug220.smt2 \
 	bug239.smt \
+	bug288.smt \
+	bug288b.smt \
+	bug288c.smt \
 	buggy-ite.smt2 \
 	bug303.smt2 \
 	bug310.cvc \
 	bug339.smt2
 
-TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
+TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(TPTP_TESTS) $(BUG_TESTS)
 
 EXTRA_DIST = $(TESTS) \
-	bug216.smt2 \
-	bug216.smt2.expect \
-	bug288b.smt \
-	bug288c.smt \
-	bug288.smt \
 	simplification_bug4.smt2.expect
 
 if CVC4_BUILD_PROFILE_COMPETITION

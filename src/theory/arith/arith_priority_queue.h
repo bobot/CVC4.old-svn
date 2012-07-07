@@ -50,7 +50,7 @@ namespace arith {
  *   to determine which to dequeue first.
  *
  * - Variable Order Queue
- *   This mode uses the variable order to determine which ArithVar is deuqued first.
+ *   This mode uses the variable order to determine which ArithVar is dequeued first.
  *
  * The transitions between the modes of operation are:
  *  Collection => Difference Queue
@@ -119,7 +119,7 @@ private:
   /**
    * Priority Queue of the basic variables that may be inconsistent.
    * Variables are ordered according to which violates its bound the most.
-   * This is a heuristic and makes no guarentees to terminate!
+   * This is a heuristic and makes no guarantees to terminate!
    * This heuristic comes from Alberto Griggio's thesis.
    */
   DifferenceArray d_diffQueue;
@@ -136,6 +136,11 @@ private:
    */
   ArithVarArray d_varOrderQueue;
 
+  /**
+   * A superset of the basic variables that may be inconsistent.
+   * This is empty during DiffOrderMode, and otherwise it is the same set as candidates
+   * or varOrderQueue.
+   */
   DenseSet d_varSet;
 
   /**
@@ -211,6 +216,18 @@ public:
   /** Clears the queue. */
   void clear();
 
+
+  /**
+   * Reduces the queue to only contain the subset that is still basic
+   * and inconsistent.
+   *Currently, O(n log n) for an easy obviously correct implementation in all modes..
+   */
+  void reduce();
+
+  bool collectionModeContains(ArithVar v) const {
+    Assert(inCollectionMode());
+    return d_varSet.isMember(v);
+  }
 
   class const_iterator {
   private:

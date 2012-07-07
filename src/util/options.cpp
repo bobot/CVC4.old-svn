@@ -65,6 +65,7 @@ const Options::DecisionOptions defaultDecOpt = {
   true,                         // computeRelevancy
   false,                        // mustRelevancy
   false,                        // pick a random child
+  false,                        // stopOnly
 };
 
 Options::Options() :
@@ -124,8 +125,14 @@ Options::Options() :
   satRestartInc(3.0),
   arithUnateLemmaMode(ALL_PRESOLVE_LEMMAS),
   arithPropagationMode(BOTH_PROP),
-  arithPivotRule(MINIMUM),
-  arithPivotThreshold(16),
+  arithHeuristicPivots(0),
+  arithHeuristicPivotsSetByUser(false),
+  arithStandardCheckVarOrderPivots(-1),
+  arithStandardCheckVarOrderPivotsSetByUser(false),
+  arithHeuristicPivotRule(MINIMUM),
+  arithSimplexCheckPeriod(200),
+  arithPivotThreshold(2),
+  arithPivotThresholdSetByUser(false),
   arithPropagateMaxLength(16),
   arithDioSolver(true),
   arithRewriteEq(false),
@@ -161,7 +168,9 @@ Options::Options() :
   bitvectorEagerBitblast(false),
   bitvectorEagerFullcheck(false),
   bitvectorShareLemmas(false),
-  sat_refine_conflicts(false)
+  sat_refine_conflicts(false),
+  theoryOfModeSetByUser(false),
+  theoryOfMode(theory::THEORY_OF_TYPE_BASED)
 {
 }
 
@@ -211,8 +220,8 @@ Additional CVC4 options:\n\
    --print-winner         enable printing the winning thread (pcvc4 only)\n\
    --trace | -t           trace something (e.g. -t pushpop), can repeat\n\
    --debug | -d           debug something (e.g. -d arith), can repeat\n\
-   --show-debug-tags      show all avalable tags for debugging\n\
-   --show-trace-tags      show all avalable tags for tracing\n\
+   --show-debug-tags      show all available tags for debugging\n\
+   --show-trace-tags      show all available tags for tracing\n\
    --show-sat-solvers     show all available SAT solvers\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
    --default-dag-thresh=N dagify common subexprs appearing > N times\n\
@@ -221,7 +230,7 @@ Additional CVC4 options:\n\
    --lazy-definition-expansion expand define-funs/LAMBDAs lazily\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
    --decision=MODE        choose decision mode, see --decision=help\n\
-   --decision-budget=N    impose a budget for relevancy hueristic which increases linearly with\n\
+   --decision-budget=N    impose a budget for relevancy heuristic which increases linearly with\n\
                           each decision. N between 0 and 1000. (default: 1000, no budget)\n\
    --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
    --ite-simp             turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
@@ -232,6 +241,7 @@ Additional CVC4 options:\n\
    --no-repeat-simp       do not make multiple passes with nonclausal simplifier\n\
    --replay=file          replay decisions from file\n\
    --replay-log=file      log decisions and propagations to file\n\
+   --theoryof-mode=mode   mode for theoryof\n\
   SAT:\n\
    --random-freq=P        frequency of random decisions in the sat solver\n\
                           (P=0.0 by default)\n\
@@ -241,12 +251,17 @@ Additional CVC4 options:\n\
    --restart-int-inc=F    restart interval increase factor for the sat solver\n\
                           (F=3.0 by default)\n\
   ARITHMETIC:\n\
-   ---unate-lemmas=MODE   determines which lemmas to add before solving\n\
+   --unate-lemmas=MODE   determines which lemmas to add before solving\n\
                           (default is 'all', see --unate-lemmas=help)\n\
    --arith-prop=MODE      turns on arithmetic propagation\n\
                           (default is 'old', see --arith-prop=help)\n\
-   --pivot-rule=RULE      change the pivot rule for the basic variable\n\
-                          (default is 'min', see --pivot-rule help)\n\
+   --heuristic-pivot-rule=RULE change the pivot rule for the basic variable\n\
+                          (default is 'min', see --heuristic-pivot-rule help)\n\
+   --heuristic-pivots=N   the number of times to apply the heuristic pivot rule.\n\
+                          If N < 0, this defaults to the number of variables\n\
+                          If this is unset, this is tuned by the logic selection.\n\
+   --simplex-check-period=N The number of pivots to do in simplex before rechecking for\n\
+                          a conflict on all variables.\n\
    --pivot-threshold=N    sets the number of pivots using --pivot-rule\n\
                           per basic variable per simplex instance before\n\
                           using variable order\n\
@@ -286,7 +301,7 @@ Additional CVC4 options:\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
    --bitblast-eager       eagerly bitblast the bitvectors to the main SAT solver\n\
-   --bitblast-share-lemmas share lemmas from the bitblsting solver with the main solver\n\
+   --bitblast-share-lemmas share lemmas from the bitblasting solver with the main solver\n\
    --bitblast-eager-fullcheck check the bitblasting eagerly\n\
    --refine-conflicts     refine theory conflict clauses\n\
 ";
@@ -299,12 +314,14 @@ Languages currently supported as arguments to the -L / --lang option:\n\
   pl | cvc4      CVC4 presentation language\n\
   smt | smtlib   SMT-LIB format 1.2\n\
   smt2 | smtlib2 SMT-LIB format 2.0\n\
+  tptp           TPTP format (cnf and fof)\n\
 \n\
 Languages currently supported as arguments to the --output-lang option:\n\
   auto           match the output language to the input language\n\
   pl | cvc4      CVC4 presentation language\n\
   smt | smtlib   SMT-LIB format 1.2\n\
   smt2 | smtlib2 SMT-LIB format 2.0\n\
+  tptp           TPTP format\n\
   ast            internal format (simple syntax-tree language)\n\
 ";
 
@@ -324,11 +341,21 @@ none\n\
 + do not perform nonclausal simplification\n\
 ";
 
+static const string theoryofHelp = "\
+TheoryOf modes currently supported by the --theoryof-mode option:\n\
+\n\
+type (default) \n\
++ type variables, constants and equalities by type\n\
+\n\
+term \n\
++ type variables as uninterpreted, equalities by the parametric theory\n\
+";
+
 static const string decisionHelp = "\
 Decision modes currently supported by the --decision option:\n\
 \n\
 internal (default)\n\
-+ Use the internal decision hueristics of the SAT solver\n\
++ Use the internal decision heuristics of the SAT solver\n\
 \n\
 justification\n\
 + An ATGP-inspired justification heuristic\n\
@@ -339,6 +366,9 @@ justification-lookahead\n\
 \n\
 justification-rand\n\
 + justification, pick a random child when recursively exporing formula\n\
+\n\
+justification-stoponly\n\
++ Use the justification heuristic only to stop early, not for decisions\n\
 \n\
 relevancy\n\
 + may-relevancy\n\
@@ -415,7 +445,7 @@ t-explanations [non-stateful]\n\
 + Output correctness queries for all theory explanations\n\
 \n\
 Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
-one from the assertions category (either asertions, learned, or clauses), and\n\
+one from the assertions category (either assertions, learned, or clauses), and\n\
 perhaps one or more stateful or non-stateful modes for checking correctness\n\
 and completeness of decision procedure implementations.  Stateful modes dump\n\
 the contextual assertions made by the core solver (all decisions and\n\
@@ -456,7 +486,7 @@ This decides on kind of propagation arithmetic attempts to do during the search.
 ";
 
 static const string pivotRulesHelp = "\
-This decides on the rule used by simplex during hueristic rounds\n\
+This decides on the rule used by simplex during heuristic rounds\n\
 for deciding the next basic variable to select.\n\
 Pivot rules available:\n\
 +min\n\
@@ -543,7 +573,10 @@ enum OptionValue {
   SAT_RESTART_INC,
   ARITHMETIC_UNATE_LEMMA_MODE,
   ARITHMETIC_PROPAGATION_MODE,
+  ARITHMETIC_HEURISTIC_PIVOTS,
+  ARITHMETIC_VAR_ORDER_PIVOTS,
   ARITHMETIC_PIVOT_RULE,
+  ARITHMETIC_CHECK_PERIOD,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   ARITHMETIC_DIO_SOLVER,
@@ -581,6 +614,7 @@ enum OptionValue {
   BITVECTOR_SHARE_LEMMAS,
   BITVECTOR_EAGER_FULLCHECK,
   SAT_REFINE_CONFLICTS,
+  THEORYOF_MODE,
   OPTION_VALUE_END
 };/* enum OptionValue */
 
@@ -668,7 +702,10 @@ static struct option cmdlineOptions[] = {
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "unate-lemmas", required_argument, NULL, ARITHMETIC_UNATE_LEMMA_MODE },
   { "arith-prop", required_argument, NULL, ARITHMETIC_PROPAGATION_MODE },
-  { "pivot-rule" , required_argument, NULL, ARITHMETIC_PIVOT_RULE  },
+  { "heuristic-pivots", required_argument, NULL, ARITHMETIC_HEURISTIC_PIVOTS },
+  { "heuristic-pivot-rule" , required_argument, NULL, ARITHMETIC_PIVOT_RULE  },
+  { "standard-effort-variable-order-pivots", required_argument, NULL, ARITHMETIC_VAR_ORDER_PIVOTS },
+  { "simplex-check-period" , required_argument, NULL, ARITHMETIC_CHECK_PERIOD  },
   { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
   { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
   { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
@@ -706,6 +743,7 @@ static struct option cmdlineOptions[] = {
   { "bitblast-share-lemmas", no_argument, NULL, BITVECTOR_SHARE_LEMMAS },
   { "bitblast-eager-fullcheck", no_argument, NULL, BITVECTOR_EAGER_FULLCHECK },
   { "refine-conflicts", no_argument, NULL, SAT_REFINE_CONFLICTS },
+  { "theoryof-mode", required_argument, NULL, THEORYOF_MODE },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -979,7 +1017,23 @@ throw(OptionException) {
       }
       break;
 
+    case THEORYOF_MODE:
+      if (!strcmp(optarg, "type")) {
+        theoryOfModeSetByUser = true;
+        theoryOfMode = theory::THEORY_OF_TYPE_BASED;
+      } else if (!strcmp(optarg, "term")) {
+        theoryOfModeSetByUser = true;
+        theoryOfMode = theory::THEORY_OF_TERM_BASED;
+      } else if (!strcmp(optarg, "help")) {
+        puts(theoryofHelp.c_str());
+        exit(1);
+      } else {
+        throw OptionException(string("unknown option for --theoryof-mode: `") +
+                              optarg + "'.  Try --theoryof-mode help.");
+      }
+      break;
     case DECISION_MODE:
+      decisionOptions = defaultDecOpt;  // reset all options
       if(!strcmp(optarg, "internal")) {
         decisionMode = DECISION_STRATEGY_INTERNAL;
         decisionModeSetByUser = true;
@@ -996,6 +1050,10 @@ throw(OptionException) {
         decisionModeSetByUser = true;
         decisionLookahead = false;
         decisionOptions.randomChild = true;
+      } else if(!strcmp(optarg, "justification-stoponly")) {
+        decisionMode = DECISION_STRATEGY_JUSTIFICATION;
+        decisionModeSetByUser = true;
+        decisionOptions.stopOnly = true;
       } else if(!strcmp(optarg, "relevancy")) {
         decisionMode = DECISION_STRATEGY_RELEVANCY;
         decisionModeSetByUser = true;
@@ -1042,7 +1100,7 @@ throw(OptionException) {
                               optarg + "'. Must be between 0 and 1000.");
       }
       if(i == 0) {
-        Warning() << "Decision budget is 0. Consider using internal decision hueristic and "
+        Warning() << "Decision budget is 0. Consider using internal decision heuristic and "
                   << std::endl << " removing this option." << std::endl;
                   
       }
@@ -1403,27 +1461,42 @@ throw(OptionException) {
       }
       break;
 
+    case ARITHMETIC_HEURISTIC_PIVOTS:
+      arithHeuristicPivots = atoi(optarg);
+      arithHeuristicPivotsSetByUser = true;
+      break;
+
+    case ARITHMETIC_VAR_ORDER_PIVOTS:
+      arithStandardCheckVarOrderPivots = atoi(optarg);
+      arithStandardCheckVarOrderPivotsSetByUser = true;
+      break;
+
     case ARITHMETIC_PIVOT_RULE:
       if(!strcmp(optarg, "min")) {
-        arithPivotRule = MINIMUM;
+        arithHeuristicPivotRule = MINIMUM;
         break;
       } else if(!strcmp(optarg, "min-break-ties")) {
-        arithPivotRule = BREAK_TIES;
+        arithHeuristicPivotRule = BREAK_TIES;
         break;
       } else if(!strcmp(optarg, "max")) {
-        arithPivotRule = MAXIMUM;
+        arithHeuristicPivotRule = MAXIMUM;
         break;
       } else if(!strcmp(optarg, "help")) {
         puts(pivotRulesHelp.c_str());
         exit(1);
       } else {
-        throw OptionException(string("unknown option for --pivot-rule: `") +
-                              optarg + "'.  Try --pivot-rule help.");
+        throw OptionException(string("unknown option for --heuristic-pivot-rule: `") +
+                              optarg + "'.  Try --heuristic-pivot-rule help.");
       }
+      break;
+
+    case ARITHMETIC_CHECK_PERIOD:
+      arithSimplexCheckPeriod = atoi(optarg);
       break;
 
     case ARITHMETIC_PIVOT_THRESHOLD:
       arithPivotThreshold = atoi(optarg);
+      arithPivotThresholdSetByUser = true;
       break;
 
     case ARITHMETIC_PROP_MAX_LENGTH:
@@ -1595,6 +1668,9 @@ void Options::setOutputLanguage(const char* str) throw(OptionException) {
   } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
     outputLanguage = language::output::LANG_SMTLIB_V2;
     return;
+  } else if(!strcmp(str, "tptp")) {
+    outputLanguage = language::output::LANG_TPTP;
+    return;
   } else if(!strcmp(str, "ast")) {
     outputLanguage = language::output::LANG_AST;
     return;
@@ -1621,6 +1697,9 @@ void Options::setInputLanguage(const char* str) throw(OptionException) {
   } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
     inputLanguage = language::input::LANG_SMTLIB_V2;
     return;
+  } else if(!strcmp(str, "tptp")) {
+    inputLanguage = language::input::LANG_TPTP;
+    return;
   } else if(!strcmp(str, "auto")) {
     inputLanguage = language::input::LANG_AUTO;
     return;
@@ -1634,7 +1713,7 @@ void Options::setInputLanguage(const char* str) throw(OptionException) {
   languageHelp = true;
 }
 
-std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {
+std::ostream& operator<<(std::ostream& out, Options::ArithHeuristicPivotRule rule) {
   switch(rule) {
   case Options::MINIMUM:
     out << "MINIMUM";
