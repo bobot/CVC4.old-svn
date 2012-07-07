@@ -37,6 +37,7 @@
 #include "util/sexpr.h"
 #include "util/datatype.h"
 #include "util/proof.h"
+#include "util/model.h"
 
 namespace CVC4 {
 
@@ -461,6 +462,19 @@ public:
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
 };/* class GetAssignmentCommand */
+
+class CVC4_PUBLIC GetModelCommand : public Command {
+protected:
+  Model* d_result;
+public:
+  GetModelCommand() throw();
+  ~GetModelCommand() throw() {}
+  void invoke(SmtEngine* smtEngine) throw();
+  Model* getResult() const throw();
+  void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class GetModelCommand */
 
 class CVC4_PUBLIC GetProofCommand : public Command {
 protected:

@@ -509,7 +509,7 @@ Node TheoryRewriteRules::explain(TNode n){
   return substGuards(&i, TCache ());
 }
 
-void TheoryRewriteRules::collectModelInfo( Model* m ){
+void TheoryRewriteRules::collectModelInfo( TheoryModel* m ){
 
 }
 

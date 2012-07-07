@@ -386,6 +386,13 @@ public:
   SExpr getAssignment() throw(ModalException, AssertionException);
 
   /**
+   * Get the model (only if immediately preceded by a SAT
+   * or INVALID query).  Only permitted if CVC4 was built with model
+   * support and produce-models is on.
+   */
+  Model* getModel() throw(ModalException, AssertionException);
+
+  /**
    * Get the last proof (only if immediately preceded by an UNSAT
    * or VALID query).  Only permitted if CVC4 was built with proof
    * support and produce-proofs is on.

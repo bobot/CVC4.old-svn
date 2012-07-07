@@ -291,6 +291,9 @@ command returns [CVC4::Command* cmd = NULL]
   | /* get-assignment */
     GET_ASSIGNMENT_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { cmd = new GetAssignmentCommand; }
+  | /* get model */
+    GET_MODEL_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    { cmd = new GetModelCommand; }
   | /* assertion */
     ASSERT_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     term[expr, expr2]
@@ -1024,6 +1027,7 @@ DEFINE_SORT_TOK : 'define-sort';
 GET_VALUE_TOK : 'get-value';
 GET_ASSIGNMENT_TOK : 'get-assignment';
 GET_ASSERTIONS_TOK : 'get-assertions';
+GET_MODEL_TOK : 'get-model';
 GET_PROOF_TOK : 'get-proof';
 GET_UNSAT_CORE_TOK : 'get-unsat-core';
 EXIT_TOK : 'exit';

@@ -620,7 +620,7 @@ void TheoryDatatypes::updateSelectors( Node a ) {
   }
 }
 
-void TheoryDatatypes::collectModelInfo( Model* m ){
+void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
   //temporary
   for( int i=0; i<(int)d_preRegTerms.size(); i++ ){
     Node n = find( d_preRegTerms[i] );

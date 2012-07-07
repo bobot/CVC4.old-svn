@@ -48,7 +48,7 @@ public:
     * For each argument of n with ModelBasisAttribute() set to true will be considered default arguments if ground=false
     *
     */
-  void setValue( Model* m, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex );
+  void setValue( TheoryModel* m, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex );
   /**  getValue function
     *
     *  returns $val, the value of ground term n
@@ -59,7 +59,7 @@ public:
     *  If ground = true, we are asking whether the term n is constant (assumes that all non-model basis arguments are ground)
     *
     */
-  Node getValue( Model* m, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex );
+  Node getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex );
   ///** getConstant Value function
   //  *
   //  * given term n, where n may contain model basis arguments
@@ -69,13 +69,13 @@ public:
   //  *   then f( a, e ) would return b, while f( e, a ) would return null
   //  *
   //  */
-  Node getConstantValue( Model* m, Node n, std::vector< int >& indexOrder, int argIndex );
+  Node getConstantValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int argIndex );
   /** simplify function */
   void simplify( Node op, Node defaultVal, int argIndex );
   // is total ?
   bool isTotal( Node op, int argIndex );
 public:
-  void debugPrint( const char* c, Model* m, std::vector< int >& indexOrder, int ind = 0, int arg = 0 );
+  void debugPrint( const char* c, TheoryModel* m, std::vector< int >& indexOrder, int ind = 0, int arg = 0 );
 };
 
 class UfModelTreeOrdered
@@ -97,19 +97,19 @@ public:
   }
   bool isEmpty() { return d_tree.isEmpty(); }
   void clear() { d_tree.clear(); }
-  void setValue( Model* m, Node n, Node v, bool ground = true ){
+  void setValue( TheoryModel* m, Node n, Node v, bool ground = true ){
     d_tree.setValue( m, n, v, d_index_order, ground, 0 );
   }
-  Node getValue( Model* m, Node n, int& depIndex ){
+  Node getValue( TheoryModel* m, Node n, int& depIndex ){
     return d_tree.getValue( m, n, d_index_order, depIndex, 0 );
   }
-  Node getConstantValue( Model* m, Node n ) {
+  Node getConstantValue( TheoryModel* m, Node n ) {
     return d_tree.getConstantValue( m, n, d_index_order, 0 );
   }
   void simplify() { d_tree.simplify( d_op, Node::null(), 0 ); }
   bool isTotal() { return d_tree.isTotal( d_op, 0 ); }
 public:
-  void debugPrint( const char* c, Model* m, int ind = 0 ){
+  void debugPrint( const char* c, TheoryModel* m, int ind = 0 ){
     d_tree.debugPrint( c, m, d_index_order, ind );
   }
 };
@@ -183,7 +183,7 @@ public:
   /** set value preference */
   void setValuePreference( Node f, Node n, Node r, bool isPro );
   /** get best default value */
-  Node getBestDefaultValue( Node defaultTerm, Model* m );
+  Node getBestDefaultValue( Node defaultTerm, TheoryModel* m );
 };
 
 

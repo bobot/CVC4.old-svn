@@ -38,7 +38,7 @@ namespace quantifiers{
 
 class TermDb;
 
-class FirstOrderModel : public Model
+class FirstOrderModel : public TheoryModel
 {
 private:
   //pointer to term database
@@ -67,6 +67,8 @@ public:
   TermDb* getTermDatabase();
   /** debug print */
   void debugPrint( const char* c );
+  /** to stream function */
+  void toStream(std::ostream& out);
 };
 
 }

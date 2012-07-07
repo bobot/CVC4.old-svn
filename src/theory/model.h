@@ -16,9 +16,10 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__MODEL_H
-#define __CVC4__MODEL_H
+#ifndef __CVC4__THEORY_MODEL_H
+#define __CVC4__THEORY_MODEL_H
 
+#include "util/model.h"
 #include "theory/uf/equality_engine.h"
 
 namespace CVC4 {
@@ -50,10 +51,10 @@ public:
 //representative domain
 typedef std::vector< int > RepDomain;
 
-/** Model class
+/** Theory Model class
  *    For Model m, should call m.initialize() before using
  */
-class Model
+class TheoryModel : public Model
 {
 protected:
   /** pointer to theory engine */
@@ -75,8 +76,8 @@ public:
   Node d_true;
   Node d_false;
 public:
-  Model( TheoryEngine* te, std::string name );
-  virtual ~Model(){}
+  TheoryModel( TheoryEngine* te, std::string name );
+  virtual ~TheoryModel(){}
   /** initialize */
   void initialize();
   /** get value */
@@ -101,26 +102,32 @@ public:
 public:
   /** print representative function */
   void printRepresentative( const char* c, Node r );
+  /** to stream function */
+  void toStream(std::ostream& out);
 };
 
 //default model class: extends model arbitrarily
-class DefaultModel : public Model
+class DefaultModel : public TheoryModel
 {
 public:
   DefaultModel( TheoryEngine* te, std::string name );
   virtual ~DefaultModel(){}
 public:
   Node getInterpretedValue( TNode n );
+  /** to stream function */
+  void toStream(std::ostream& out);
 };
 
 //incomplete model class: does not extend model
-class IncompleteModel : public Model
+class IncompleteModel : public TheoryModel
 {
 public:
-  IncompleteModel( TheoryEngine* te, std::string name ) : Model( te, name ){}
+  IncompleteModel( TheoryEngine* te, std::string name ) : TheoryModel( te, name ){}
   virtual ~IncompleteModel(){}
 public:
   Node getInterpretedValue( TNode n ) { return Node::null(); }
+  /** to stream function */
+  void toStream(std::ostream& out);
 };
 
 }

@@ -624,7 +624,7 @@ void TheoryArrays::computeCareGraph()
 // MODEL GENERATION
 /////////////////////////////////////////////////////////////////////////////
 
-void TheoryArrays::collectModelInfo( Model* m ){
+void TheoryArrays::collectModelInfo( TheoryModel* m ){
   m->assertEqualityEngine( &d_equalityEngine );
 }
 

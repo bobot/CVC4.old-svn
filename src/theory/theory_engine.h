@@ -648,12 +648,12 @@ public:
   /**
    * collect model info
    */
-  void collectModelInfo( theory::Model* m );
+  void collectModelInfo( theory::TheoryModel* m );
 
   /**
    * Get the current model
    */
-  theory::Model* getModel();
+  theory::TheoryModel* getModel();
 
   /**
    * Get the theory associated to a given Node.

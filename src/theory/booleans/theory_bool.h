@@ -35,7 +35,7 @@ public:
     Theory(THEORY_BOOL, c, u, out, valuation, logicInfo, qe) {
   }
 
-  void collectModelInfo( Model* m );
+  void collectModelInfo( TheoryModel* m );
   bool hasInterpretedValue( TNode n );
 
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);

@@ -40,7 +40,7 @@ void UfModelTree::clear(){
 }
 
 //set value function
-void UfModelTree::setValue( Model* m, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex ){
+void UfModelTree::setValue( TheoryModel* m, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex ){
   if( d_data.empty() ){
     d_value = v;
   }else if( !d_value.isNull() && d_value!=v ){
@@ -57,7 +57,7 @@ void UfModelTree::setValue( Model* m, Node n, Node v, std::vector< int >& indexO
 }
 
 //get value function
-Node UfModelTree::getValue( Model* m, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex ){
+Node UfModelTree::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex ){
   if( !d_value.isNull() && isTotal( n.getOperator(), argIndex ) ){
     //Notice() << "Constant, return " << d_value << ", depIndex = " << argIndex << std::endl;
     depIndex = argIndex;
@@ -146,7 +146,7 @@ bool UfModelTree::isTotal( Node op, int argIndex ){
   }
 }
 
-Node UfModelTree::getConstantValue( Model* m, Node n, std::vector< int >& indexOrder, int argIndex ){
+Node UfModelTree::getConstantValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int argIndex ){
   return d_value;
 }
 
@@ -156,7 +156,7 @@ void indent( const char* c, int ind ){
   }
 }
 
-void UfModelTree::debugPrint( const char* c, Model* m, std::vector< int >& indexOrder, int ind, int arg ){
+void UfModelTree::debugPrint( const char* c, TheoryModel* m, std::vector< int >& indexOrder, int ind, int arg ){
   if( !d_data.empty() ){
     for( std::map< Node, UfModelTree >::iterator it = d_data.begin(); it != d_data.end(); ++it ){
       if( !it->first.isNull() ){
@@ -399,7 +399,7 @@ void UfModelPreferenceData::setValuePreference( Node f, Node n, Node r, bool isP
   d_term_pro_con[index][n].push_back( f );
 }
 
-Node UfModelPreferenceData::getBestDefaultValue( Node defaultTerm, Model* m ){
+Node UfModelPreferenceData::getBestDefaultValue( Node defaultTerm, TheoryModel* m ){
   Node defaultVal;
   double maxScore = -1;
   for( size_t i=0; i<d_values.size(); i++ ){

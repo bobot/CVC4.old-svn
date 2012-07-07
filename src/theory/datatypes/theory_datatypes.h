@@ -152,7 +152,7 @@ public:
 
   void addSharedTerm(TNode t);
   void check(Effort e);
-  void collectModelInfo( Model* m );
+  void collectModelInfo( TheoryModel* m );
   bool hasInterpretedValue( TNode n );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }

@@ -740,7 +740,7 @@ void SmtEngine::setOption(const std::string& key, const SExpr& value)
     } else if(key == ":produce-unsat-cores") {
       throw BadOptionException();
     } else if(key == ":produce-models") {
-      throw BadOptionException();
+
     } else if(key == ":produce-assignments") {
       throw BadOptionException();
     } else {
@@ -1773,7 +1773,7 @@ Expr SmtEngine::getValue(const Expr& e)
   n = Rewriter::rewrite(n);
 
   Trace("smt") << "--- getting value of " << n << endl;
-  Model* m = d_theoryEngine->getModel();
+  theory::TheoryModel* m = d_theoryEngine->getModel();
   Node resultNode;
   if( m ){
     resultNode = m->getValue( n );
@@ -1849,7 +1849,7 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
     Node n = Rewriter::rewrite(*i);
 
     Trace("smt") << "--- getting value of " << n << endl;
-    Model* m = d_theoryEngine->getModel();
+    theory::TheoryModel* m = d_theoryEngine->getModel();
     Node resultNode;
     if( m ){
       resultNode = m->getValue( n );
@@ -1870,6 +1870,10 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
     sexprs.push_back(v);
   }
   return SExpr(sexprs);
+}
+
+Model* SmtEngine::getModel() throw(ModalException, AssertionException){
+  return d_theoryEngine->getModel();
 }
 
 Proof* SmtEngine::getProof() throw(ModalException, AssertionException) {

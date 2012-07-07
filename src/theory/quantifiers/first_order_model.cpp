@@ -26,7 +26,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : Model( qe->getTheoryEngine(), name ),
+FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : TheoryModel( qe->getTheoryEngine(), name ),
 d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 
 }
@@ -88,4 +88,8 @@ void FirstOrderModel::debugPrint( const char* c ){
     it->second.debugPrint( c );
     Debug( c ) << std::endl;
   }
+}
+
+void FirstOrderModel::toStream(std::ostream& out){
+
 }

@@ -124,7 +124,7 @@ void TheoryBV::check(Effort e)
   }
 }
 
-void TheoryBV::collectModelInfo( Model* m ){
+void TheoryBV::collectModelInfo( TheoryModel* m ){
 
 }
 

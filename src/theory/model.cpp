@@ -55,7 +55,7 @@ void RepSet::debugPrint( const char* c ){
   }
 }
 
-Model::Model( TheoryEngine* te, std::string name ) :
+TheoryModel::TheoryModel( TheoryEngine* te, std::string name ) :
 d_te( te ),
 d_equalityEngine( te->getSatContext(), name ){
   d_useConstantReps = true;
@@ -63,7 +63,7 @@ d_equalityEngine( te->getSatContext(), name ){
   d_false = NodeManager::currentNM()->mkConst( false );
 }
 
-void Model::initialize(){
+void TheoryModel::initialize(){
   //reset
   d_reps.clear();
   d_ra.clear();
@@ -111,7 +111,7 @@ void Model::initialize(){
   processInitialize();
 }
 
-Node Model::getValue( TNode n ){
+Node TheoryModel::getValue( TNode n ){
   //must be using constant representatives option
   Assert( d_useConstantReps );
   kind::MetaKind metakind = n.getMetaKind();
@@ -158,7 +158,7 @@ Node Model::getValue( TNode n ){
   return getInterpretedValue( n );
 }
 
-Node Model::getArbitraryValue( TypeNode tn, std::vector< Node >& exclude ){
+Node TheoryModel::getArbitraryValue( TypeNode tn, std::vector< Node >& exclude ){
   if( tn==NodeManager::currentNM()->booleanType() ){
     if( exclude.empty() ){
       return d_false;
@@ -187,17 +187,17 @@ Node Model::getArbitraryValue( TypeNode tn, std::vector< Node >& exclude ){
 }
 
 /** assert equality */
-void Model::assertEquality( Node a, Node b, bool polarity ){
+void TheoryModel::assertEquality( Node a, Node b, bool polarity ){
   d_equalityEngine.assertEquality( a.eqNode(b), polarity, Node::null() );
 }
 
 /** assert predicate */
-void Model::assertPredicate( Node a, bool polarity ){
+void TheoryModel::assertPredicate( Node a, bool polarity ){
   d_equalityEngine.assertPredicate( a, polarity, Node::null() );
 }
 
 /** assert equality engine */
-void Model::assertEqualityEngine( eq::EqualityEngine* ee ){
+void TheoryModel::assertEqualityEngine( eq::EqualityEngine* ee ){
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( ee );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
@@ -220,11 +220,11 @@ void Model::assertEqualityEngine( eq::EqualityEngine* ee ){
   }
 }
 
-bool Model::hasTerm( Node a ){
+bool TheoryModel::hasTerm( Node a ){
   return d_equalityEngine.hasTerm( a );
 }
 
-Node Model::getRepresentative( Node a ){
+Node TheoryModel::getRepresentative( Node a ){
   if( d_equalityEngine.hasTerm( a ) ){
     return d_reps[ d_equalityEngine.getRepresentative( a ) ];
   }else{
@@ -232,7 +232,7 @@ Node Model::getRepresentative( Node a ){
   }
 }
 
-bool Model::areEqual( Node a, Node b ){
+bool TheoryModel::areEqual( Node a, Node b ){
   if( a==b ){
     return true;
   }else if( d_equalityEngine.hasTerm( a ) && d_equalityEngine.hasTerm( b ) ){
@@ -242,7 +242,7 @@ bool Model::areEqual( Node a, Node b ){
   }
 }
 
-bool Model::areDisequal( Node a, Node b ){
+bool TheoryModel::areDisequal( Node a, Node b ){
   if( d_equalityEngine.hasTerm( a ) && d_equalityEngine.hasTerm( b ) ){
     return d_equalityEngine.areDisequal( a, b, false );
   }else{
@@ -251,7 +251,7 @@ bool Model::areDisequal( Node a, Node b ){
 }
 
 //for debugging
-void Model::printRepresentative( const char* c, Node r ){
+void TheoryModel::printRepresentative( const char* c, Node r ){
   Assert( !r.isNull() );
   if( r.isNull() ){
     Debug( c ) << "null";
@@ -266,7 +266,11 @@ void Model::printRepresentative( const char* c, Node r ){
   }
 }
 
-DefaultModel::DefaultModel( TheoryEngine* te, std::string name ) : Model( te, name ){
+void TheoryModel::toStream(std::ostream& out){
+
+}
+
+DefaultModel::DefaultModel( TheoryEngine* te, std::string name ) : TheoryModel( te, name ){
 
 }
 
@@ -279,4 +283,12 @@ Node DefaultModel::getInterpretedValue( TNode n ){
   }else{
     return n;
   }
+}
+
+void DefaultModel::toStream(std::ostream& out){
+
+}
+
+void IncompleteModel::toStream(std::ostream& out){
+
 }

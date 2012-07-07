@@ -32,7 +32,7 @@ namespace CVC4 {
 namespace theory {
 namespace booleans {
 
-void TheoryBool::collectModelInfo( Model* m ){
+void TheoryBool::collectModelInfo( TheoryModel* m ){
 
 }
 

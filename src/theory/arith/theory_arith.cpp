@@ -1878,7 +1878,7 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
   }
 }
 
-void TheoryArith::collectModelInfo( Model* m ){
+void TheoryArith::collectModelInfo( TheoryModel* m ){
 
 }
 

@@ -202,7 +202,7 @@ private:
   /** Usual function for theories */
   void check(Theory::Effort e);
   Node explain(TNode n);
-  void collectModelInfo( Model* m );
+  void collectModelInfo( TheoryModel* m );
   void notifyEq(TNode lhs, TNode rhs);
   std::string identify() const {
     return "THEORY_REWRITERULES";

@@ -50,7 +50,7 @@ namespace theory {
 class Instantiator;
 class InstStrategy;
 class QuantifiersEngine;
-class Model;
+class TheoryModel;
 
 /**
  * Information about an assertion for the theories.
@@ -550,7 +550,7 @@ public:
    * model.  This should be called after a call to check( FULL_EFFORT )
    * for all theories with no conflicts and no lemmas added.
    */
-  virtual void collectModelInfo( Model* m ){
+  virtual void collectModelInfo( TheoryModel* m ){
     Unimplemented("Theory %s doesn't support Theory::getModel interface",
                   identify().c_str());
   }

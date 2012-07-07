@@ -543,7 +543,7 @@ Node TheoryEngine::getValue(TNode node) {
   return d_curr_model.getValue(node);
 }
 
-void TheoryEngine::collectModelInfo( theory::Model* m ){
+void TheoryEngine::collectModelInfo( theory::TheoryModel* m ){
   //consult each theory to get all relevant information concerning the model
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_theoryTable[i] ){
@@ -553,7 +553,7 @@ void TheoryEngine::collectModelInfo( theory::Model* m ){
 }
 
 /* get model */
-Model* TheoryEngine::getModel(){
+TheoryModel* TheoryEngine::getModel(){
   if( d_quantEngine && Options::current()->finiteModelFind ){
     return d_quantEngine->getModel();
   }else{

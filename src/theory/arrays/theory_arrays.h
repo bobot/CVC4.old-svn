@@ -219,7 +219,7 @@ class TheoryArrays : public Theory {
   private:
   public:
 
-  void collectModelInfo( Model* m );
+  void collectModelInfo( TheoryModel* m );
   bool hasInterpretedValue( TNode n );
 
   /////////////////////////////////////////////////////////////////////////////

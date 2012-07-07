@@ -88,7 +88,7 @@ Node TheoryQuantifiers::getValue(TNode n) {
   }
 }
 
-void TheoryQuantifiers::collectModelInfo( Model* m ){
+void TheoryQuantifiers::collectModelInfo( TheoryModel* m ){
 
 }
 

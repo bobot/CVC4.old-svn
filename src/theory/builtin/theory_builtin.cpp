@@ -27,7 +27,7 @@ namespace CVC4 {
 namespace theory {
 namespace builtin {
 
-void TheoryBuiltin::collectModelInfo( Model* m ){
+void TheoryBuiltin::collectModelInfo( TheoryModel* m ){
 
 }
 

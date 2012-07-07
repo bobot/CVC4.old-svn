@@ -762,6 +762,44 @@ Command* GetAssignmentCommand::clone() const {
   return c;
 }
 
+/* class GetModelCommand */
+
+GetModelCommand::GetModelCommand() throw() {
+}
+
+void GetModelCommand::invoke(SmtEngine* smtEngine) throw() {
+  try {
+    d_result = smtEngine->getModel();
+    d_commandStatus = CommandSuccess::instance();
+  } catch(exception& e) {
+    d_commandStatus = new CommandFailure(e.what());
+  }
+}
+
+Model* GetModelCommand::getResult() const throw() {
+  return d_result;
+}
+
+void GetModelCommand::printResult(std::ostream& out) const throw() {
+  if(! ok()) {
+    this->Command::printResult(out);
+  } else {
+    d_result->toStream( out );
+  }
+}
+
+Command* GetModelCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetModelCommand* c = new GetModelCommand();
+  c->d_result = d_result;
+  return c;
+}
+
+Command* GetModelCommand::clone() const {
+  GetModelCommand* c = new GetModelCommand();
+  c->d_result = d_result;
+  return c;
+}
+
 /* class GetProofCommand */
 
 GetProofCommand::GetProofCommand() throw() {
