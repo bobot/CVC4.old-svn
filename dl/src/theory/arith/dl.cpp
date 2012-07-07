@@ -1,19 +1,21 @@
 /*********************                                                        */
-/*! \file cdgraph.cpp
+/*! \file dl.cpp
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011, 2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Context-dependent directed graph.
+ ** \brief Decision procedure for difference logic.
  **
- ** Context dependent direct graph.
+ ** Implementation of incremental Bellman-Ford potential moving decision
+ ** procedure for difference logic.
+ ** See Cotton and Maler.
  **/
 
 #include "theory/arith/dl.h"

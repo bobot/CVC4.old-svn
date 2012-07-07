@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011, 2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -13,7 +13,7 @@
  **
  ** \brief Context-dependent directed graph implemented via adjacency lists.
  **
- ** Context dependent direct graph implemented via adjacency lists.
+ ** Context-dependent direct graph implemented via adjacency lists.
  **
  ** The graph is technically a multigraph as multiple edges between the
  ** same ordered pairs of vertices can be added.
@@ -108,19 +108,19 @@ private:
   typedef std::pair<Vertex, VertexAnnotation> ExtendedVertex;
   typedef std::vector< ExtendedVertex > VertexVector;
   VertexVector d_vertices;
-  
+
   class VertexCleanup {
   private:
     VertexVector& d_vertices;
   public:
-  VertexCleanup(VertexVector& vertices) : d_vertices(vertices){}
+    VertexCleanup(VertexVector& vertices) : d_vertices(vertices){}
 
     void operator()(VertexId* vp){
       Assert( (*vp) + 1 == d_vertices.size());
       Assert(d_vertices.back().first.getId() == *vp);
       d_vertices.pop_back();
     }
-  };
+  };/* class CDGraph<>::VertexCleanup */
   typedef context::CDList<VertexId, VertexCleanup> VertexCleanupVector;
   VertexCleanupVector d_vertexCleanupVector;
 
@@ -175,14 +175,14 @@ private:
       }
       d_edges.pop_back();
     }
-  };
+  };/* class CDGraph<>::EdgeCleanup */
 
   /** A vector for backtracking the changes made to d_edges.*/
   CDList< EdgeId, EdgeCleanup > d_edgeCleanupVector;
 
 
 public:
- CDGraph(context::Context* c) :
+  CDGraph(context::Context* c) :
     d_vertices(),
     d_vertexCleanupVector(c, true, VertexCleanup(d_vertices)),
     d_edges(),
