@@ -1,3 +1,21 @@
+/*********************                                                        */
+/*! \file driver_portfolio.cpp
+ ** \verbatim
+ ** Original author: kshitij
+ ** Major contributors: taking, mdeters
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief Driver for portfolio CVC4 executable (pcvc4)
+ **
+ ** Driver for portfolio CVC4 executable (pcvc4).
+ **/
+
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -793,10 +811,10 @@ void sharingManager(unsigned numThreads,
     }
   } /* end of infinite while */
 
-  Trace("interrupt") << "sharing thread interuppted, interrupting all smtEngines" << endl;
+  Trace("interrupt") << "sharing thread interrupted, interrupting all smtEngines" << endl;
 
   for(int t = 0; t < numThreads; ++t) {
-    Trace("interrupt") << "Interuppting thread #" << t << endl;
+    Trace("interrupt") << "Interrupting thread #" << t << endl;
     try{
       smts[t]->interrupt();
     }catch(ModalException &e){
@@ -805,5 +823,5 @@ void sharingManager(unsigned numThreads,
     }
   }
 
-  Trace("sharing") << "sharing: Interuppted, exiting." << endl;
+  Trace("sharing") << "sharing: Interrupted, exiting." << endl;
 }
