@@ -43,24 +43,24 @@ public:
   }
 
   void testCDGraphSimple() {
-    CDGraph<string, string> g;
+    CDGraph<string, string> g(d_context);
     VertexId foo_id = g.addVertex("foo");
-    const Vertex& foo = getVertex(foo_id);
-    TS_ASSERT_EQUALS("foo", getVertexAnnotation(foo_id));
+    const Vertex& foo = g.getVertex(foo_id);
+    TS_ASSERT_EQUALS("foo", g.getVertexAnnotation(foo_id));
     TS_ASSERT(foo.noEdges());
     TS_ASSERT(foo.getIncomingEdges().empty());
     TS_ASSERT(foo.getOutgoingEdges().empty());
 
     d_context->push();
     g.addEdge(foo_id, foo_id);
-    TS_ASSERT_EQUALS("foo", getVertexAnnotation(foo_id));
+    TS_ASSERT_EQUALS("foo", g.getVertexAnnotation(foo_id));
     TS_ASSERT(!foo.noEdges());
     TS_ASSERT(foo.getIncomingEdges().size() == 1);
     TS_ASSERT(foo.getIncomingEdges()[0] == foo_id);
     TS_ASSERT(foo.getOutgoingEdges()[0] == foo_id);
     d_context->pop();
 
-    TS_ASSERT_EQUALS("foo", getVertexAnnotation(foo_id));
+    TS_ASSERT_EQUALS("foo", g.getVertexAnnotation(foo_id));
     TS_ASSERT(foo.noEdges());
     TS_ASSERT(foo.getIncomingEdges().empty());
     TS_ASSERT(foo.getOutgoingEdges().empty());
