@@ -62,9 +62,8 @@ d_equalityEngine( te->getSatContext(), name ){
 Node TheoryModel::getValue( TNode n ){
   Debug("model") << "TheoryModel::getValue " << n << std::endl;
   TypeNode type = n.getType();
-  if(type.isFunction() || type.isPredicate() ||
-     type.isKind() || type.isSortConstructor()) {
-    //DO_THIS?
+  if(type.isFunction() || type.isPredicate() ) {
+    //return getFunctionValue( n );
     return Node::null();
   }else{
     //must be using constant representatives option
@@ -96,6 +95,7 @@ Node TheoryModel::getValue( TNode n ){
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
         Node val = getValue( n[i] );
         Debug("model-debug") << i << " : " << n[i] << " -> " << val << std::endl;
+        Assert( !val.isNull() );
         children.push_back( val );
       }
       Debug("model-debug") << "Done eval children" << std::endl;
@@ -289,8 +289,10 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
   //reset representative information
   tm->d_reps.clear();
   tm->d_ra.clear();
+  Debug( "model-builder" ) << "TheoryEngineModelBuilder: Collect model info..." << std::endl;
   //collect model info from the theory engine
   d_te->collectModelInfo( tm );
+    Debug( "model-builder" ) << "TheoryEngineModelBuilder: Build representatives..." << std::endl;
   //populate term database, store representatives
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &tm->d_equalityEngine );
   while( !eqcs_i.isFinished() ){
@@ -318,6 +320,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
     }
     ++eqcs_i;
   }
+  Debug( "model-builder" ) << "TheoryEngineModelBuilder: Complete model..." << std::endl;
   //do model-specific initialization
   processBuildModel( tm );
 }
@@ -328,9 +331,14 @@ void TheoryEngineModelBuilder::processBuildModel( TheoryModel* m ){
     Node n = d_unresolvedReps[i];
     TypeNode tn = n.getType();
     Node rep = m->getArbitraryValue( tn, m->d_ra.d_type_reps[tn], true );
-    m->assertEquality( n, rep, true );
-    m->d_reps[ n ] = rep;
-    m->d_ra.add( rep );
+    if( !rep.isNull() ){
+      m->assertEquality( n, rep, true );
+      m->d_reps[ n ] = rep;
+      m->d_ra.add( rep );
+    }else{
+      m->d_reps[ n ] = n;
+      m->d_ra.add( n );
+    }
   }
   d_unresolvedReps.clear();
 }

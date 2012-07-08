@@ -64,9 +64,6 @@ public:
     d_engine(engine) {
   }
 
-  //get value
-  Node getValue(TNode n) const;
-
   /*
    * Return true if n has an associated SAT literal
    */

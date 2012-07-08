@@ -645,11 +645,6 @@ public:
   Node getExplanation(TNode node);
 
   /**
-   * Returns the value of the given node.
-   */
-  Node getValue(TNode node);
-
-  /**
    * collect model info
    */
   void collectModelInfo( theory::TheoryModel* m );
@@ -658,6 +653,11 @@ public:
    * Get the current model
    */
   theory::TheoryModel* getModel();
+
+  /**
+   * Get the model builder
+   */
+  theory::TheoryEngineModelBuilder* getModelBuilder() { return &d_curr_model_builder; }
 
   /**
    * Get the theory associated to a given Node.

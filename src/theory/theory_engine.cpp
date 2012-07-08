@@ -358,8 +358,8 @@ void TheoryEngine::check(Theory::Effort effort) {
             }
           }
         }
-        //if not incomplete/returning SAT, we have ensured that the model in the quantifiers engine has been built and checked
-      }else if( !d_incomplete && Options::current()->produceModels ){
+        //if returning incomplete or SAT, we have ensured that the model in the quantifiers engine has been built
+      }else if( Options::current()->produceModels ){
         //must build model at this point
         d_curr_model_builder.buildModel( &d_curr_model );
       }
@@ -542,11 +542,6 @@ bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
     return d_propEngine->hasValue(expl, value) && value;
   }
   return true;
-}
-
-
-Node TheoryEngine::getValue(TNode node) {
-  return d_curr_model.getValue(node);
 }
 
 void TheoryEngine::collectModelInfo( theory::TheoryModel* m ){

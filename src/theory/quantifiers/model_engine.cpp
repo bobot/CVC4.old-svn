@@ -382,6 +382,7 @@ void ModelEngine::check( Theory::Effort e ){
       //initialize the model
       Debug("fmf-model-debug") << "Build model..." << std::endl;
       d_builder.buildModel( d_quantEngine->getModel() );
+      d_quantEngine->d_model_set = true;
       //if builder has lemmas, add and return
       if( d_builder.d_addedLemmas>0 ){
         addedLemmas += (int)d_builder.d_addedLemmas;

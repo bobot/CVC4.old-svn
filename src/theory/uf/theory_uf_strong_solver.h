@@ -71,7 +71,8 @@ public:
         DiseqList d_external;
       public:
         /** constructor */
-        RegionNodeInfo( context::Context* c ) : d_internal( c ), d_external( c ), d_valid( c, true ){
+        RegionNodeInfo( context::Context* c ) :
+          d_internal( c ), d_external( c ), d_valid( c, true ){
           d_disequalities[0] = &d_internal;
           d_disequalities[1] = &d_external;
         }
@@ -100,6 +101,7 @@ public:
       context::CDO< unsigned > d_total_diseq_external;
       //total disequality size (internal)
       context::CDO< unsigned > d_total_diseq_internal;
+    private:
       /** set rep */
       void setRep( Node n, bool valid );
     public:

@@ -183,13 +183,18 @@ bool StrongSolverTheoryUf::ConflictFind::Region::isDisequal( Node n1, Node n2, i
   return del->d_disequalities.find( n2 )!=del->d_disequalities.end() && del->d_disequalities[n2];
 }
 
+struct sortInternalDegree {
+  StrongSolverTheoryUf::ConflictFind::Region* r;
+  bool operator() (Node i,Node j) { return (r->d_nodes[i]->getNumInternalDisequalities()>r->d_nodes[j]->getNumInternalDisequalities());}
+};
+
+struct sortExternalDegree {
+  StrongSolverTheoryUf::ConflictFind::Region* r;
+  bool operator() (Node i,Node j) { return (r->d_nodes[i]->getNumExternalDisequalities()>r->d_nodes[j]->getNumExternalDisequalities());}
+};
+
 bool StrongSolverTheoryUf::ConflictFind::Region::getMustCombine( int cardinality ){
   if( Options::current()->ufssRegions && d_total_diseq_external>=long(cardinality) ){
-    //static int gmcCount = 0;
-    //gmcCount++;
-    //if( gmcCount%100==0 ){
-    //  std::cout << gmcCount << " " << cardinality << std::endl;
-    //}
     //The number of external disequalities is greater than or equal to cardinality.
     //Thus, a clique of size cardinality+1 may exist between nodes in d_regions[i] and other regions
     //Check if this is actually the case:  must have n nodes with outgoing degree (cardinality+1-n) for some n>0
@@ -202,7 +207,7 @@ bool StrongSolverTheoryUf::ConflictFind::Region::getMustCombine( int cardinality
           if( outDeg>=cardinality ){
             //we have 1 node of degree greater than (cardinality)
             return true;
-          }else{
+          }else if( outDeg>=1 ){
             degrees.push_back( outDeg );
             if( (int)degrees.size()>=cardinality ){
               //we have (cardinality) nodes of degree 1
@@ -212,6 +217,12 @@ bool StrongSolverTheoryUf::ConflictFind::Region::getMustCombine( int cardinality
         }
       }
     }
+    //static int gmcCount = 0;
+    //gmcCount++;
+    //if( gmcCount%100==0 ){
+    //  std::cout << gmcCount << " " << cardinality << std::endl;
+    //}
+    //this should happen relatively infrequently....
     std::sort( degrees.begin(), degrees.end() );
     for( int i=0; i<(int)degrees.size(); i++ ){
       if( degrees[i]>=cardinality+1-((int)degrees.size()-i) ){
@@ -221,12 +232,6 @@ bool StrongSolverTheoryUf::ConflictFind::Region::getMustCombine( int cardinality
   }
   return false;
 }
-
-struct sortInternalDegree {
-  StrongSolverTheoryUf::ConflictFind::Region* r;
-  bool operator() (Node i,Node j) { return (r->d_nodes[i]->getNumInternalDisequalities()>r->d_nodes[j]->getNumInternalDisequalities());}
-};
-
 
 bool StrongSolverTheoryUf::ConflictFind::Region::check( Theory::Effort level, int cardinality, std::vector< Node >& clique ){
   if( d_reps_size>long(cardinality) ){
@@ -909,13 +914,17 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
               debugPrint("uf-ss-sat");
             }
           }else{
+            bool recheck = false;
             //naive strategy, force region combination involving the first valid region
             for( int i=0; i<(int)d_regions_index; i++ ){
               if( d_regions[i]->d_valid ){
                 forceCombineRegion( i, false );
-                check( level, out );
-                //break;
+                recheck = true;
+                break;
               }
+            }
+            if( recheck ){
+              check( level, out );
             }
           }
         }

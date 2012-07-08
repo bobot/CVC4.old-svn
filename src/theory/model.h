@@ -79,7 +79,10 @@ public:
 public:
   TheoryModel( TheoryEngine* te, std::string name );
   virtual ~TheoryModel(){}
-  /** get value */
+  /**
+   * Get value function.  This should be called only after a ModelBuilder has called buildModel(...)
+   * on this model.
+   */
   Node getValue( TNode n );
   /** get interpreted value, should be a representative in d_reps */
   virtual Node getInterpretedValue( TNode n ) = 0;
@@ -144,6 +147,9 @@ protected:
 public:
   TheoryEngineModelBuilder( TheoryEngine* te );
   virtual ~TheoryEngineModelBuilder(){}
+  /**
+   *  Build model function.
+   */
   void buildModel( Model* m );
 };
 

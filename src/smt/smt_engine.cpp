@@ -1754,16 +1754,15 @@ Expr SmtEngine::getValue(const Expr& e)
     throw ModalException(msg);
   }
   if(d_status.isNull() ||
-     d_status.asSatisfiabilityResult() != Result::SAT ||
+     d_status.asSatisfiabilityResult() == Result::UNSAT ||
      d_problemExtended) {
     const char* msg =
-      "Cannot get value unless immediately preceded by SAT/INVALID response.";
+      "Cannot get value unless immediately preceded by SAT/INVALID or UNKNOWN response.";
     throw ModalException(msg);
   }
-  if(type.isFunction() || type.isPredicate() ||
-     type.isKind() || type.isSortConstructor()) {
+  if(type.isKind() || type.isSortConstructor()) {
     const char* msg =
-      "Cannot get value of a function, predicate, or sort.";
+      "Cannot get value of a sort.";
     throw ModalException(msg);
   }
 
@@ -1779,8 +1778,9 @@ Expr SmtEngine::getValue(const Expr& e)
   if( m ){
     resultNode = m->getValue( n );
   }
+  Trace("smt") << "--- got value " << n << " = " << resultNode << endl;
   // type-check the result we got
-  Assert(resultNode.isNull() || resultNode.getType() == n.getType());
+  Assert(resultNode.isNull() || resultNode.getType().isSubtypeOf( n.getType() ));
   return Expr(d_exprManager, new Node(resultNode));
 }
 
@@ -1826,11 +1826,11 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
     throw ModalException(msg);
   }
   if(d_status.isNull() ||
-     d_status.asSatisfiabilityResult() != Result::SAT ||
+     d_status.asSatisfiabilityResult() == Result::UNSAT  ||
      d_problemExtended) {
     const char* msg =
       "Cannot get the current assignment unless immediately "
-      "preceded by SAT/INVALID response.";
+      "preceded by SAT/INVALID or UNKNOWN response.";
     throw ModalException(msg);
   }
 
@@ -1883,11 +1883,11 @@ Model* SmtEngine::getModel() throw(ModalException, AssertionException){
     throw ModalException(msg);
   }
   if(d_status.isNull() ||
-     d_status.asSatisfiabilityResult() != Result::SAT ||
+     d_status.asSatisfiabilityResult() == Result::UNSAT  ||
      d_problemExtended) {
     const char* msg =
       "Cannot get the current model unless immediately "
-      "preceded by SAT/INVALID response.";
+      "preceded by SAT/INVALID or UNKNOWN response.";
     throw ModalException(msg);
   }
 

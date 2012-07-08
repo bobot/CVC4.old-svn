@@ -160,6 +160,8 @@ private:
   quantifiers::TermDb* d_term_db;
   /** extended model object */
   quantifiers::FirstOrderModel* d_model;
+  /** has the model been set? */
+  bool d_model_set;
   /** universal quantifiers that have been rewritten */
   std::map< Node, std::vector< Node > > d_quant_rewritten;
   /** map from rewritten universal quantifiers to the quantifier they are the consequence of */

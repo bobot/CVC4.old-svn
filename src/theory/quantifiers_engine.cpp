@@ -115,6 +115,7 @@ void QuantifiersEngine::check( Theory::Effort e ){
   CodeTimer codeTimer(d_time);
 
   d_hasAddedLemma = false;
+  d_model_set = false;
   if( e==Theory::EFFORT_LAST_CALL ){
     ++(d_statistics.d_instantiation_rounds_lc);
   }else if( e==Theory::EFFORT_FULL ){
@@ -123,9 +124,11 @@ void QuantifiersEngine::check( Theory::Effort e ){
   for( int i=0; i<(int)d_modules.size(); i++ ){
     d_modules[i]->check( e );
   }
-  //if( e==Theory::EFFORT_FULL ){
-  //  Notice() << "Done instantiation Round" << std::endl;
-  //}
+  //build the model if not done so already
+  //  this happens if no quantifiers are currently asserted and no model-building module is enabled
+  if( Options::current()->produceModels && e==Theory::EFFORT_LAST_CALL && !d_hasAddedLemma && !d_model_set ){
+    d_te->getModelBuilder()->buildModel( d_model );
+  }
 }
 
 std::vector<Node> QuantifiersEngine::createInstVariable( std::vector<Node> & vars ){
