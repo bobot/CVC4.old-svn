@@ -71,7 +71,6 @@ ${type_cardinalities}
 #line 72 "${template}"
   default: {
     std::stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(options::inputLanguage()));
     ss << "A theory kinds file did not provide a cardinality "
        << "or cardinality computer for type:\n" << typeNode
        << "\nof kind " << k;
@@ -83,7 +82,7 @@ ${type_cardinalities}
 inline bool isWellFounded(TypeConstant tc) {
   switch(tc) {
 ${type_constant_wellfoundednesses}
-#line 87 "${template}"
+#line 86 "${template}"
   default: {
     std::stringstream ss;
     ss << "No well-foundedness status known for type constant: " << tc;
@@ -98,10 +97,9 @@ inline bool isWellFounded(TypeNode typeNode) {
   case TYPE_CONSTANT:
     return isWellFounded(typeNode.getConst<TypeConstant>());
 ${type_wellfoundednesses}
-#line 102 "${template}"
+#line 101 "${template}"
   default: {
     std::stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(options::inputLanguage()));
     ss << "A theory kinds file did not provide a well-foundedness "
        << "or well-foundedness computer for type:\n" << typeNode
        << "\nof kind " << k;
@@ -113,7 +111,7 @@ ${type_wellfoundednesses}
 inline Node mkGroundTerm(TypeConstant tc) {
   switch(tc) {
 ${type_constant_groundterms}
-#line 117 "${template}"
+#line 115 "${template}"
   default: {
     std::stringstream ss;
     ss << "No ground term known for type constant: " << tc;
@@ -128,10 +126,9 @@ inline Node mkGroundTerm(TypeNode typeNode) {
   case TYPE_CONSTANT:
     return mkGroundTerm(typeNode.getConst<TypeConstant>());
 ${type_groundterms}
-#line 132 "${template}"
+#line 130 "${template}"
   default: {
     std::stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(options::inputLanguage()));
     ss << "A theory kinds file did not provide a ground term "
        << "or ground term computer for type:\n" << typeNode
        << "\nof kind " << k;

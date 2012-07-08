@@ -27,8 +27,10 @@
 namespace CVC4 {
 namespace expr {
 
-inline void setDefaultExprDepth(std::string option, std::string optarg, SmtEngine* smt) {
-  int depth = atoi(optarg.c_str());
+inline void setDefaultExprDepth(std::string option, int depth, SmtEngine* smt) {
+  if(depth < -1) {
+    throw OptionException("--default-expr-depth requires a positive argument, or -1.");
+  }
 
   Debug.getStream() << Expr::setdepth(depth);
   Trace.getStream() << Expr::setdepth(depth);

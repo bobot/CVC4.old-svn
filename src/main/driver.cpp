@@ -156,24 +156,8 @@ int runCvc4(int argc, char* argv[], Options& opts) {
     }
   }
 
-  // Create the expression manager
-  ExprManager exprMgr(opts);
-
-  // Create the SmtEngine
-  SmtEngine smt(&exprMgr);
-
-  // signal handlers need access
-  pStatistics = smt.getStatisticsRegistry();
-
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
-
-  // Timer statistic
-  RegisterStatistic statTotalTime(exprMgr, &s_totalTime);
-
-  // Filename statistics
-  ReferenceStat< const char* > s_statFilename("filename", filename);
-  RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
 
   if(opts[options::inputLanguage] == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
@@ -231,6 +215,15 @@ int runCvc4(int argc, char* argv[], Options& opts) {
                      << Expr::printtypes(false);
   }
 
+  // important even for muzzled builds (to get result output right)
+  *opts[options::out] << Expr::setlanguage(opts[options::outputLanguage]);
+
+  // Create the expression manager
+  ExprManager exprMgr(opts);
+
+  // Create the SmtEngine
+  SmtEngine smt(&exprMgr);
+
   Parser* replayParser = NULL;
   if( opts[options::replayFilename] != "" ) {
     ParserBuilder replayParserBuilder(&exprMgr, opts[options::replayFilename], opts);
@@ -248,8 +241,15 @@ int runCvc4(int argc, char* argv[], Options& opts) {
     *opts[options::replayLog] << Expr::setlanguage(opts[options::outputLanguage]) << Expr::setdepth(-1);
   }
 
-  // important even for muzzled builds (to get result output right)
-  *opts[options::out] << Expr::setlanguage(opts[options::outputLanguage]);
+  // signal handlers need access
+  pStatistics = smt.getStatisticsRegistry();
+
+  // Timer statistic
+  RegisterStatistic statTotalTime(exprMgr, &s_totalTime);
+
+  // Filename statistics
+  ReferenceStat< const char* > s_statFilename("filename", filename);
+  RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
 
   // Parse and execute commands until we are done
   Command* cmd;

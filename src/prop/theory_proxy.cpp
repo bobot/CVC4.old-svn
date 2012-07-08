@@ -26,7 +26,8 @@
 #include "expr/expr_stream.h"
 #include "decision/decision_engine.h"
 #include "decision/options.h"
-
+#include "util/lemma_input_channel.h"
+#include "util/lemma_output_channel.h"
 
 namespace CVC4 {
 namespace prop {

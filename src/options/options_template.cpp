@@ -287,7 +287,7 @@ static struct option cmdlineOptions[] = {${all_modules_long_options}
   { NULL, no_argument, NULL, '\0' }
 };/* cmdlineOptions */
 
-#line 289 "${template}"
+#line 291 "${template}"
 
 static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
@@ -410,7 +410,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 412 "${template}"
+#line 414 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the
