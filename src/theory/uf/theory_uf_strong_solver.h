@@ -316,9 +316,9 @@ public:
   /** statistics class */
   Statistics d_statistics;
 
-  /** is relavant type */
+  /** is relevant type */
   static bool isRelevantType( TypeNode t );
-  /** involves relavant type */
+  /** involves relevant type */
   static bool involvesRelevantType( Node n );
 };/* class StrongSolverTheoryUf */
 

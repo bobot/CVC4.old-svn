@@ -87,6 +87,7 @@ Options::Options() :
   strictParsing(false),
   lazyDefinitionExpansion(false),
   printWinner(false),
+  defaultExprDepth(0),
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
   simplificationModeSetByUser(false),
   decisionMode(DECISION_STRATEGY_INTERNAL),
@@ -226,8 +227,8 @@ Additional CVC4 options:\n\
    --print-winner         enable printing the winning thread (pcvc4 only)\n\
    --trace | -t           trace something (e.g. -t pushpop), can repeat\n\
    --debug | -d           debug something (e.g. -d arith), can repeat\n\
-   --show-debug-tags      show all avalable tags for debugging\n\
-   --show-trace-tags      show all avalable tags for tracing\n\
+   --show-debug-tags      show all available tags for debugging\n\
+   --show-trace-tags      show all available tags for tracing\n\
    --show-sat-solvers     show all available SAT solvers\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
    --default-dag-thresh=N dagify common subexprs appearing > N times\n\
@@ -236,7 +237,7 @@ Additional CVC4 options:\n\
    --lazy-definition-expansion expand define-funs/LAMBDAs lazily\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
    --decision=MODE        choose decision mode, see --decision=help\n\
-   --decision-budget=N    impose a budget for relevancy hueristic which increases linearly with\n\
+   --decision-budget=N    impose a budget for relevancy heuristic which increases linearly with\n\
                           each decision. N between 0 and 1000. (default: 1000, no budget)\n\
    --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
    --ite-simp             turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)\n\
@@ -316,7 +317,7 @@ Additional CVC4 options:\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
    --bitblast-eager       eagerly bitblast the bitvectors to the main SAT solver\n\
-   --bitblast-share-lemmas share lemmas from the bitblsting solver with the main solver\n\
+   --bitblast-share-lemmas share lemmas from the bitblasting solver with the main solver\n\
    --bitblast-eager-fullcheck check the bitblasting eagerly\n\
    --refine-conflicts     refine theory conflict clauses\n\
 ";
@@ -329,12 +330,14 @@ Languages currently supported as arguments to the -L / --lang option:\n\
   pl | cvc4      CVC4 presentation language\n\
   smt | smtlib   SMT-LIB format 1.2\n\
   smt2 | smtlib2 SMT-LIB format 2.0\n\
+  tptp           TPTP format (cnf and fof)\n\
 \n\
 Languages currently supported as arguments to the --output-lang option:\n\
   auto           match the output language to the input language\n\
   pl | cvc4      CVC4 presentation language\n\
   smt | smtlib   SMT-LIB format 1.2\n\
   smt2 | smtlib2 SMT-LIB format 2.0\n\
+  tptp           TPTP format\n\
   ast            internal format (simple syntax-tree language)\n\
 ";
 
@@ -368,7 +371,7 @@ static const string decisionHelp = "\
 Decision modes currently supported by the --decision option:\n\
 \n\
 internal (default)\n\
-+ Use the internal decision hueristics of the SAT solver\n\
++ Use the internal decision heuristics of the SAT solver\n\
 \n\
 justification\n\
 + An ATGP-inspired justification heuristic\n\
@@ -475,7 +478,7 @@ t-explanations [non-stateful]\n\
 + Output correctness queries for all theory explanations\n\
 \n\
 Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
-one from the assertions category (either asertions, learned, or clauses), and\n\
+one from the assertions category (either assertions, learned, or clauses), and\n\
 perhaps one or more stateful or non-stateful modes for checking correctness\n\
 and completeness of decision procedure implementations.  Stateful modes dump\n\
 the contextual assertions made by the core solver (all decisions and\n\
@@ -516,7 +519,7 @@ This decides on kind of propagation arithmetic attempts to do during the search.
 ";
 
 static const string pivotRulesHelp = "\
-This decides on the rule used by simplex during hueristic rounds\n\
+This decides on the rule used by simplex during heuristic rounds\n\
 for deciding the next basic variable to select.\n\
 Pivot rules available:\n\
 +min\n\
@@ -1012,6 +1015,7 @@ throw(OptionException) {
         Chat.getStream() << Expr::setdepth(depth);
         Message.getStream() << Expr::setdepth(depth);
         Warning.getStream() << Expr::setdepth(depth);
+        defaultExprDepth = depth;
       }
       break;
 
@@ -1128,7 +1132,7 @@ throw(OptionException) {
                               optarg + "'. Must be between 0 and 1000.");
       }
       if(i == 0) {
-        Warning() << "Decision budget is 0. Consider using internal decision hueristic and "
+        Warning() << "Decision budget is 0. Consider using internal decision heuristic and "
                   << std::endl << " removing this option." << std::endl;
 
       }
@@ -1720,6 +1724,9 @@ void Options::setOutputLanguage(const char* str) throw(OptionException) {
   } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
     outputLanguage = language::output::LANG_SMTLIB_V2;
     return;
+  } else if(!strcmp(str, "tptp")) {
+    outputLanguage = language::output::LANG_TPTP;
+    return;
   } else if(!strcmp(str, "ast")) {
     outputLanguage = language::output::LANG_AST;
     return;
@@ -1745,6 +1752,9 @@ void Options::setInputLanguage(const char* str) throw(OptionException) {
     return;
   } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
     inputLanguage = language::input::LANG_SMTLIB_V2;
+    return;
+  } else if(!strcmp(str, "tptp")) {
+    inputLanguage = language::input::LANG_TPTP;
     return;
   } else if(!strcmp(str, "auto")) {
     inputLanguage = language::input::LANG_AUTO;

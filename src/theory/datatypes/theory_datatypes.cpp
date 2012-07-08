@@ -128,7 +128,7 @@ void TheoryDatatypes::check(Effort e) {
     if( !hasConflict() ){
       if( d_em.hasNode( assertion ) ){
         Debug("datatypes") << "Assertion has already been derived" << endl;
-        d_em.assert( assertion );
+        d_em.assertTrue( assertion );
       } else {
         switch(assertion.getKind()) {
         case kind::EQUAL:
@@ -952,7 +952,7 @@ void TheoryDatatypes::addEquality(TNode eq) {
     //setup merge pending list
     d_merge_pending.push_back( vector< pair< Node, Node > >() );
 
-    d_cce.assert(eq);
+    d_cce.assertTrue(eq);
     d_cc.addTerm(eq[0]);
     d_cc.addTerm(eq[1]);
 
@@ -982,7 +982,7 @@ void TheoryDatatypes::addEquality(TNode eq) {
     Debug("datatypes-ae") << "   Find is " << find( eq[0] ) << " = " << find( eq[1] ) << std::endl;
     //merge original nodes
     merge( eq[0], eq[1] );
-    d_cce.assert(eq);
+    d_cce.assertTrue(eq);
     d_cc.addTerm(eq[0]);
     d_cc.addTerm(eq[1]);
 #else
@@ -990,7 +990,7 @@ void TheoryDatatypes::addEquality(TNode eq) {
     Debug("datatypes-ae") << "   Find is " << find( eq[0] ) << " = " << find( eq[1] ) << std::endl;
     merge( eq[0], eq[1] );
     if( !hasConflict() ){
-      d_cce.assert(eq);
+      d_cce.assertTrue(eq);
       d_cc.addTerm(eq[0]);
       d_cc.addTerm(eq[1]);
     }

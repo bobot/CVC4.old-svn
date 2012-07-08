@@ -27,8 +27,6 @@
 
 #include "util/exception.h"
 #include "util/language.h"
-#include "util/lemma_output_channel.h"
-#include "util/lemma_input_channel.h"
 #include "util/tls.h"
 #include "theory/theoryof_mode.h"
 
@@ -37,6 +35,8 @@
 namespace CVC4 {
 
 class ExprStream;
+class LemmaInputChannel;
+class LemmaOutputChannel;
 
 /** Class representing an option-parsing exception. */
 class CVC4_PUBLIC OptionException : public CVC4::Exception {
@@ -111,6 +111,9 @@ struct CVC4_PUBLIC Options {
 
   /** Parallel Only: Whether the winner is printed at the end or not. */
   bool printWinner;
+
+  /** The default expression depth to print on ostreams. */
+  int defaultExprDepth;
 
   /** Enumeration of simplification modes (when to simplify). */
   typedef enum {
@@ -269,7 +272,7 @@ struct CVC4_PUBLIC Options {
   ArithPropagationMode arithPropagationMode;
 
   /**
-   * The maximum number of difference pivots to do per invokation of simplex.
+   * The maximum number of difference pivots to do per invocation of simplex.
    * If this is negative, the number of pivots done is the number of variables.
    * If this is not set by the user, different logics are free to chose different
    * defaults.
@@ -278,7 +281,7 @@ struct CVC4_PUBLIC Options {
   bool arithHeuristicPivotsSetByUser;
 
   /**
-   * The maximum number of variable order pivots to do per invokation of simplex.
+   * The maximum number of variable order pivots to do per invocation of simplex.
    * If this is negative, the number of pivots done is unlimited.
    * If this is not set by the user, different logics are free to chose different
    * defaults.

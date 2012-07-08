@@ -34,6 +34,7 @@
 #include "parser/cvc/cvc_input.h"
 #include "parser/smt/smt_input.h"
 #include "parser/smt2/smt2_input.h"
+#include "parser/tptp/tptp_input.h"
 #include "util/output.h"
 #include "util/Assert.h"
 
@@ -201,6 +202,10 @@ AntlrInput* AntlrInput::newInput(InputLanguage lang, AntlrInputStream& inputStre
     input = new Smt2Input(inputStream);
     break;
 
+  case LANG_TPTP:
+    input = new TptpInput(inputStream);
+    break;
+
   default:
     Unhandled(lang);
   }
@@ -312,7 +317,7 @@ void AntlrInput::setAntlr3Lexer(pANTLR3_LEXER pLexer) {
   // Override default lexer error reporting
   d_lexer->rec->reportError = &lexerError;
   // Override default nextToken function, just to prevent exceptions escaping.
-  d_lexer->rec->state->tokSource->nextToken = &nextTokenStr;
+  d_lexer->rec->state->tokSource->nextToken = &nextToken;
 }
 
 void AntlrInput::setParser(Parser& parser) {
