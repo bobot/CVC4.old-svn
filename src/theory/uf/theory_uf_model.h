@@ -75,7 +75,7 @@ public:
   // is total ?
   bool isTotal( Node op, int argIndex );
 public:
-  void debugPrint( const char* c, TheoryModel* m, std::vector< int >& indexOrder, int ind = 0, int arg = 0 );
+  void debugPrint( std::ostream& out, TheoryModel* m, std::vector< int >& indexOrder, int ind = 0, int arg = 0 );
 };
 
 class UfModelTreeOrdered
@@ -109,8 +109,8 @@ public:
   void simplify() { d_tree.simplify( d_op, Node::null(), 0 ); }
   bool isTotal() { return d_tree.isTotal( d_op, 0 ); }
 public:
-  void debugPrint( const char* c, TheoryModel* m, int ind = 0 ){
-    d_tree.debugPrint( c, m, d_index_order, ind );
+  void debugPrint( std::ostream& out, TheoryModel* m, int ind = 0 ){
+    d_tree.debugPrint( out, m, d_index_order, ind );
   }
 };
 
@@ -142,7 +142,7 @@ public:
   /** get operator */
   Node getOperator() { return d_op; }
   /** debug print */
-  void debugPrint( const char* c );
+  void toStream( std::ostream& out );
   /** set value */
   void setValue( Node n, Node v, bool ground = true, bool isReq = true );
   /** get value */

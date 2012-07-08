@@ -252,9 +252,9 @@ int RepSetEvaluator::evaluateEquality( Node n1, Node n2, int& depIndex ){
   Node val1 = evaluateTerm( n1, depIndex1 );
   Node val2 = evaluateTerm( n2, depIndex2 );
   Debug("fmf-model-eval-debug") << "   Values :  ";
-  d_model->printRepresentative( "fmf-model-eval-debug", val1 );
+  d_model->printRepresentativeDebug( "fmf-model-eval-debug", val1 );
   Debug("fmf-model-eval-debug") <<  " = ";
-  d_model->printRepresentative( "fmf-model-eval-debug", val2 );
+  d_model->printRepresentativeDebug( "fmf-model-eval-debug", val2 );
   Debug("fmf-model-eval-debug") << std::endl;
   int retVal = 0;
   if( d_model->areEqual( val1, val2 ) ){
@@ -346,7 +346,7 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
           argDepIndex = (int)n.getNumChildren();
         }
         Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = ";
-        d_model->printRepresentative( "fmf-model-eval-debug", val );
+        d_model->printRepresentativeDebug( "fmf-model-eval-debug", val );
         //recalculate the depIndex
         depIndex = -1;
         for( int i=0; i<argDepIndex; i++ ){

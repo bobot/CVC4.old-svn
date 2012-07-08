@@ -34,43 +34,74 @@ namespace uf{
 
 namespace quantifiers {
 
-class ModelEngine : public QuantifiersModule
+
+//the model builder
+class ModelEngineBuilder : public TheoryEngineModelBuilder
 {
-  friend class uf::UfModel;
-  friend class RepSetIterator;
-private:    //data maintained globally:
-  //which quantifiers have been initialized
-  std::map< Node, bool > d_quant_init;
-  //map from quantifiers to model basis match
-  std::map< Node, InstMatch > d_quant_basis_match;
-private:    //analysis of current model:
+protected:
+  //quantifiers engine
+  QuantifiersEngine* d_qe;
+  //map from operators to model preference data
+  std::map< Node, uf::UfModelPreferenceData > d_uf_prefs;
+  /** use constants for representatives */
+  void processBuildModel( TheoryModel* m );
+  //analyze quantifiers
+  void analyzeQuantifiers( FirstOrderModel* fm );
+  //build model
+  void finishBuildModel( FirstOrderModel* fm );
+  //theory-specific build models
+  void finishBuildModelUf( FirstOrderModel* fm, uf::UfModel& model );
+  //do InstGen techniques for quantifier, return number of lemmas produced
+  int doInstGen( FirstOrderModel* fm, Node f );
+public:
+  ModelEngineBuilder( QuantifiersEngine* qe );
+  virtual ~ModelEngineBuilder(){}
+public:
+  /** number of lemmas generated while building model */
+  int d_addedLemmas;
   //map from quantifiers to if are constant SAT
   std::map< Node, bool > d_quant_sat;
   //map from quantifiers to the instantiation literals that their model is dependent upon
   std::map< Node, std::vector< Node > > d_quant_selection_lits;
-  //map from operators to model preference data
-  std::map< Node, uf::UfModelPreferenceData > d_uf_prefs;
+public:
+  //map from quantifiers to model basis match
+  std::map< Node, InstMatch > d_quant_basis_match;
+  //options
+  bool optUseModel();
+  bool optInstGen();
+  bool optOneQuantPerRoundInstGen();
+  /** statistics class */
+  class Statistics {
+  public:
+    IntStat d_pre_sat_quant;
+    IntStat d_pre_nsat_quant;
+    Statistics();
+    ~Statistics();
+  };
+  Statistics d_statistics;
+};
+
+class ModelEngine : public QuantifiersModule
+{
+  friend class uf::UfModel;
+  friend class RepSetIterator;
+private:
+  /** builder class */
+  ModelEngineBuilder d_builder;
+private:    //data maintained globally:
+  //which quantifiers have been initialized
+  std::map< Node, bool > d_quant_init;
+private:    //analysis of current model:
   //relevant domain
   RelevantDomain d_rel_domain;
 private:
   //options
-  bool optUseModel();
   bool optOneInstPerQuantRound();
-  bool optInstGen();
   bool optUseRelevantDomain();
-  bool optOneQuantPerRoundInstGen();
   bool optOneQuantPerRound();
 private:
   //initialize quantifiers, return number of lemmas produced
   int initializeQuantifier( Node f );
-  //analyze quantifiers
-  void analyzeQuantifiers();
-  //build model
-  void buildModel();
-  //theory-specific build models
-  void buildModelUf( uf::UfModel& model );
-  //do InstGen techniques for quantifier, return number of lemmas produced
-  int doInstGen( Node f );
   //exhaustively instantiate quantifier (possibly using mbqi), return number of lemmas produced
   int exhaustiveInstantiate( Node f, bool useRelInstDomain = false );
 private:
@@ -82,8 +113,6 @@ private:
 public:
   ModelEngine( QuantifiersEngine* qe );
   ~ModelEngine(){}
-  //get quantifiers engine
-  QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }
 public:
   void check( Theory::Effort e );
   void registerQuantifier( Node f );
@@ -96,8 +125,6 @@ public:
   class Statistics {
   public:
     IntStat d_inst_rounds;
-    IntStat d_pre_sat_quant;
-    IntStat d_pre_nsat_quant;
     IntStat d_eval_formulas;
     IntStat d_eval_eqs;
     IntStat d_eval_uf_terms;

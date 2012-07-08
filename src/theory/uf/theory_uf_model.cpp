@@ -150,34 +150,34 @@ Node UfModelTree::getConstantValue( TheoryModel* m, Node n, std::vector< int >& 
   return d_value;
 }
 
-void indent( const char* c, int ind ){
+void indent( std::ostream& out, int ind ){
   for( int i=0; i<ind; i++ ){
-    Debug( c ) << " ";
+    out << " ";
   }
 }
 
-void UfModelTree::debugPrint( const char* c, TheoryModel* m, std::vector< int >& indexOrder, int ind, int arg ){
+void UfModelTree::debugPrint( std::ostream& out, TheoryModel* m, std::vector< int >& indexOrder, int ind, int arg ){
   if( !d_data.empty() ){
     for( std::map< Node, UfModelTree >::iterator it = d_data.begin(); it != d_data.end(); ++it ){
       if( !it->first.isNull() ){
-        indent( c, ind );
-        Debug( c ) << "if x_" << indexOrder[arg] << " == " << it->first << std::endl;
-        it->second.debugPrint( c, m, indexOrder, ind+2, arg+1 );
+        indent( out, ind );
+        out << "if x_" << indexOrder[arg] << " == " << it->first << std::endl;
+        it->second.debugPrint( out, m, indexOrder, ind+2, arg+1 );
       }
     }
     if( d_data.find( Node::null() )!=d_data.end() ){
-      d_data[ Node::null() ].debugPrint( c, m, indexOrder, ind, arg+1 );
+      d_data[ Node::null() ].debugPrint( out, m, indexOrder, ind, arg+1 );
     }
   }else{
-    indent( c, ind );
-    Debug( c ) << "return ";
-    m->printRepresentative( c, d_value );
-    //Debug( c ) << " { ";
+    indent( out, ind );
+    out << "return ";
+    m->printRepresentative( out, d_value );
+    //out << " { ";
     //for( int i=0; i<(int)d_explicit.size(); i++ ){
-    //  Debug( c ) << d_explicit[i] << " ";
+    //  out << d_explicit[i] << " ";
     //}
-    //Debug( c ) << "}";
-    Debug( c ) << std::endl;
+    //out << "}";
+    out << std::endl;
   }
 }
 
@@ -213,7 +213,7 @@ d_model_constructed( false ){
       setValue( t, r, false );
       setModel();
       Debug("fmf-model-cons") << "Function " << d_op << " is the constant function ";
-      d_model->printRepresentative( "fmf-model-cons", r );
+      d_model->printRepresentativeDebug( "fmf-model-cons", r );
       Debug("fmf-model-cons") << std::endl;
     }
   }
@@ -311,9 +311,9 @@ void UfModel::setModel(){
     Node n = d_tree.getValue( d_model, d_ground_asserts[i], depIndex );
     if( n!=d_ground_asserts_reps[i] ){
       Debug("fmf-bad") << "Bad model : " << d_ground_asserts[i] << " := ";
-      d_model->printRepresentative("fmf-bad", n );
+      d_model->printRepresentativeDebug("fmf-bad", n );
       Debug("fmf-bad") << " != ";
-      d_model->printRepresentative("fmf-bad", d_ground_asserts_reps[i] );
+      d_model->printRepresentativeDebug("fmf-bad", d_ground_asserts_reps[i] );
       Debug("fmf-bad") << std::endl;
     }
   }
@@ -340,47 +340,47 @@ void UfModel::makeModel( UfModelTreeOrdered& tree ){
   tree.simplify();
 }
 
-void UfModel::debugPrint( const char* c ){
-  //Debug( c ) << "Function " << d_op << std::endl;
-  //Debug( c ) << "   Type: " << d_op.getType() << std::endl;
-  //Debug( c ) << "   Ground asserts:" << std::endl;
+void UfModel::toStream(std::ostream& out){
+  //out << "Function " << d_op << std::endl;
+  //out << "   Type: " << d_op.getType() << std::endl;
+  //out << "   Ground asserts:" << std::endl;
   //for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
-  //  Debug( c ) << "      " << d_ground_asserts[i] << " = ";
-  //  d_model->printRepresentative( c, d_ground_asserts[i] );
-  //  Debug( c ) << std::endl;
+  //  out << "      " << d_ground_asserts[i] << " = ";
+  //  d_model->printRepresentative( out, d_ground_asserts[i] );
+  //  out << std::endl;
   //}
-  //Debug( c ) << "   Model:" << std::endl;
+  //out << "   Model:" << std::endl;
 
   TypeNode t = d_op.getType();
-  Debug( c ) << d_op << "( ";
+  out << d_op << "( ";
   for( int i=0; i<(int)(t.getNumChildren()-1); i++ ){
-    Debug( c ) << "x_" << i << " : " << t[i];
+    out << "x_" << i << " : " << t[i];
     if( i<(int)(t.getNumChildren()-2) ){
-      Debug( c ) << ", ";
+      out << ", ";
     }
   }
-  Debug( c ) << " ) : " << t[(int)t.getNumChildren()-1] << std::endl;
+  out << " ) : " << t[(int)t.getNumChildren()-1] << std::endl;
   if( d_tree.isEmpty() ){
-    Debug( c ) << "   [undefined]" << std::endl;
+    out << "   [undefined]" << std::endl;
   }else{
-    d_tree.debugPrint( c, d_model, 3 );
-    Debug( c ) << std::endl;
+    d_tree.debugPrint( out, d_model, 3 );
+    out << std::endl;
   }
-  //Debug( c ) << "   Phase reqs:" << std::endl;  //for( int i=0; i<2; i++ ){
+  //out << "   Phase reqs:" << std::endl;  //for( int i=0; i<2; i++ ){
   //  for( std::map< Node, std::vector< Node > >::iterator it = d_reqs[i].begin(); it != d_reqs[i].end(); ++it ){
-  //    Debug( c ) << "      " << it->first << std::endl;
+  //    out << "      " << it->first << std::endl;
   //    for( int j=0; j<(int)it->second.size(); j++ ){
-  //      Debug( c ) << "         " << it->second[j] << " -> " << (i==1) << std::endl;
+  //      out << "         " << it->second[j] << " -> " << (i==1) << std::endl;
   //    }
   //  }
   //}
-  //Debug( c ) << std::endl;
+  //out << std::endl;
   //for( int i=0; i<2; i++ ){
   //  for( std::map< Node, std::map< Node, std::vector< Node > > >::iterator it = d_eq_reqs[i].begin(); it != d_eq_reqs[i].end(); ++it ){
-  //    Debug( c ) << "      " << "For " << it->first << ":" << std::endl;
+  //    out << "      " << "For " << it->first << ":" << std::endl;
   //    for( std::map< Node, std::vector< Node > >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
   //      for( int j=0; j<(int)it2->second.size(); j++ ){
-  //        Debug( c ) << "         " << it2->first << ( i==1 ? "==" : "!=" ) << it2->second[j] << std::endl;
+  //        out << "         " << it2->first << ( i==1 ? "==" : "!=" ) << it2->second[j] << std::endl;
   //      }
   //    }
   //  }
@@ -406,7 +406,7 @@ Node UfModelPreferenceData::getBestDefaultValue( Node defaultTerm, TheoryModel* 
     Node v = d_values[i];
     double score = ( 1.0 + (double)d_value_pro_con[0][v].size() )/( 1.0 + (double)d_value_pro_con[1][v].size() );
     Debug("fmf-model-cons") << "  - score( ";
-    m->printRepresentative( "fmf-model-cons", v );
+    m->printRepresentativeDebug( "fmf-model-cons", v );
     Debug("fmf-model-cons") << " ) = " << score << std::endl;
     if( score>maxScore ){
       defaultVal = v;
@@ -422,7 +422,7 @@ Node UfModelPreferenceData::getBestDefaultValue( Node defaultTerm, TheoryModel* 
     if( !newDefaultVal.isNull() ){
       defaultVal = newDefaultVal;
       Debug("fmf-model-cons-debug") << "-> Change default value to ";
-      m->printRepresentative( "fmf-model-cons-debug", defaultVal );
+      m->printRepresentativeDebug( "fmf-model-cons-debug", defaultVal );
       Debug("fmf-model-cons-debug") << std::endl;
     }else{
       Debug("fmf-model-cons-debug") << "-> Could not find arbitrary element of type " << tn[(int)tn.getNumChildren()-1] << std::endl;
@@ -436,7 +436,7 @@ Node UfModelPreferenceData::getBestDefaultValue( Node defaultTerm, TheoryModel* 
 #endif
   //get the default term (this term must be defined non-ground in model)
   Debug("fmf-model-cons") << "  Choose ";
-  m->printRepresentative("fmf-model-cons", defaultVal );
+  m->printRepresentativeDebug("fmf-model-cons", defaultVal );
   Debug("fmf-model-cons") << " as default value (" << defaultTerm << ")" << std::endl;
   Debug("fmf-model-cons") << "     # quantifiers pro = " << d_value_pro_con[0][defaultVal].size() << std::endl;
   Debug("fmf-model-cons") << "     # quantifiers con = " << d_value_pro_con[1][defaultVal].size() << std::endl;

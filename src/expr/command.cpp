@@ -770,6 +770,7 @@ GetModelCommand::GetModelCommand() throw() {
 void GetModelCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
     d_result = smtEngine->getModel();
+    d_smtEngine = smtEngine;
     d_commandStatus = CommandSuccess::instance();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -784,19 +785,21 @@ void GetModelCommand::printResult(std::ostream& out) const throw() {
   if(! ok()) {
     this->Command::printResult(out);
   } else {
-    d_result->toStream( out );
+    d_smtEngine->printModel( out, d_result );
   }
 }
 
 Command* GetModelCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   GetModelCommand* c = new GetModelCommand();
   c->d_result = d_result;
+  c->d_smtEngine = d_smtEngine;
   return c;
 }
 
 Command* GetModelCommand::clone() const {
   GetModelCommand* c = new GetModelCommand();
   c->d_result = d_result;
+  c->d_smtEngine = d_smtEngine;
   return c;
 }
 

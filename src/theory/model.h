@@ -45,17 +45,20 @@ public:
   /** returns index in d_type_reps for node n */
   int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
   /** debug print */
-  void debugPrint( const char* c );
+  void toStream(std::ostream& out);
 };
 
 //representative domain
 typedef std::vector< int > RepDomain;
+
+class TheoryEngineModelBuilder;
 
 /** Theory Model class
  *    For Model m, should call m.initialize() before using
  */
 class TheoryModel : public Model
 {
+  friend class TheoryEngineModelBuilder;
 protected:
   /** pointer to theory engine */
   TheoryEngine* d_te;
@@ -66,9 +69,7 @@ protected:
 public:
   /** equality engine containing all known equalities/disequalities */
   eq::EqualityEngine d_equalityEngine;
-  /** use constants for representatives */
-  bool d_useConstantReps;
-  /** map of representatives of equality engine to used representatives */
+  /** map of representatives of equality engine to used representatives in representative set */
   std::map< Node, Node > d_reps;
   /** representative alphabet */
   RepSet d_ra;
@@ -78,14 +79,12 @@ public:
 public:
   TheoryModel( TheoryEngine* te, std::string name );
   virtual ~TheoryModel(){}
-  /** initialize */
-  void initialize();
   /** get value */
   Node getValue( TNode n );
   /** get interpreted value, should be a representative in d_reps */
   virtual Node getInterpretedValue( TNode n ) = 0;
   /** get arbitrary value */
-  Node getArbitraryValue( TypeNode tn, std::vector< Node >& exclude );
+  Node getArbitraryValue( TypeNode tn, std::vector< Node >& exclude, bool mkConst = false );
 public:
   /** assert equality */
   void assertEquality( Node a, Node b, bool polarity );
@@ -101,9 +100,10 @@ public:
   bool areDisequal( Node a, Node b );
 public:
   /** print representative function */
-  void printRepresentative( const char* c, Node r );
+  void printRepresentativeDebug( const char* c, Node r );
+  void printRepresentative( std::ostream& out, Node r );
   /** to stream function */
-  void toStream(std::ostream& out);
+  void toStream( std::ostream& out );
 };
 
 //default model class: extends model arbitrarily
@@ -115,7 +115,7 @@ public:
 public:
   Node getInterpretedValue( TNode n );
   /** to stream function */
-  void toStream(std::ostream& out);
+  void toStream( std::ostream& out );
 };
 
 //incomplete model class: does not extend model
@@ -127,7 +127,24 @@ public:
 public:
   Node getInterpretedValue( TNode n ) { return Node::null(); }
   /** to stream function */
-  void toStream(std::ostream& out);
+  void toStream( std::ostream& out );
+};
+
+
+class TheoryEngineModelBuilder : public ModelBuilder
+{
+protected:
+  /** pointer to theory engine */
+  TheoryEngine* d_te;
+  /** use constants for representatives */
+  bool d_useConstantReps;
+  /** representatives that are current not set */
+  std::vector< Node > d_unresolvedReps;
+  virtual void processBuildModel( TheoryModel* m );
+public:
+  TheoryEngineModelBuilder( TheoryEngine* te );
+  virtual ~TheoryEngineModelBuilder(){}
+  void buildModel( Model* m );
 };
 
 }

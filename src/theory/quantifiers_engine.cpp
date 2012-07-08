@@ -68,7 +68,6 @@ d_active( c ){
 
   //the model object
   d_model = new quantifiers::FirstOrderModel( this, c, "FirstOrderModel" );
-  d_model->d_useConstantReps = false;
 
   //options
   d_optInstCheckDuplicate = true;

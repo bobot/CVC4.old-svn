@@ -29,6 +29,14 @@ public:
   virtual void toStream(std::ostream& out) = 0;
 };/* class Model */
 
+class ModelBuilder
+{
+public:
+  ModelBuilder(){}
+  virtual ~ModelBuilder(){}
+  virtual void buildModel( Model* m ) = 0;
+};
+
 }/* CVC4 namespace */
 
 #endif  /* __CVC4__MODEL_H */

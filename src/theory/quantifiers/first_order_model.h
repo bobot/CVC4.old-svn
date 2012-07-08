@@ -43,8 +43,6 @@ class FirstOrderModel : public TheoryModel
 private:
   //pointer to term database
   TermDb* d_term_db;
-  //process initialize
-  void processInitialize();
   //for initialize model
   void initializeModelForTerm( Node n );
 public: //for Theory UF:
@@ -60,15 +58,15 @@ public: //for Theory Quantifiers:
 public:
   FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name );
   virtual ~FirstOrderModel(){}
+  // initialize the model
+  void initialize();
   /** get interpreted value */
   Node getInterpretedValue( TNode n );
 public:
   /** get term database */
   TermDb* getTermDatabase();
-  /** debug print */
-  void debugPrint( const char* c );
   /** to stream function */
-  void toStream(std::ostream& out);
+  void toStream( std::ostream& out );
 };
 
 }

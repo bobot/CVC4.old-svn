@@ -56,6 +56,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_sharedTerms(this, context),
   d_quantEngine(NULL),
   d_curr_model( this, "DefaultModel" ),
+  d_curr_model_builder( this ),
   d_ppCache(),
   d_possiblePropagations(context),
   d_hasPropagated(context),
@@ -345,17 +346,22 @@ void TheoryEngine::check(Theory::Effort effort) {
 
     // Must consult quantifiers theory for last call to ensure sat, or otherwise add a lemma
     if( effort == Theory::EFFORT_FULL &&
-        d_logicInfo.isQuantified() &&
         ! d_inConflict &&
         ! d_lemmasAdded ) {
-      ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->performCheck(Theory::EFFORT_LAST_CALL);
-      // if we have given up, then possibly flip decision
-      if(Options::current()->flipDecision) {
-        if(d_incomplete && !d_inConflict && !d_lemmasAdded) {
-          if( ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ) {
-            d_incomplete = false;
+      if( d_logicInfo.isQuantified() ){
+        ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->performCheck(Theory::EFFORT_LAST_CALL);
+        // if we have given up, then possibly flip decision
+        if(Options::current()->flipDecision) {
+          if(d_incomplete && !d_inConflict && !d_lemmasAdded) {
+            if( ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ) {
+              d_incomplete = false;
+            }
           }
         }
+        //if not incomplete/returning SAT, we have ensured that the model in the quantifiers engine has been built and checked
+      }else if( !d_incomplete && Options::current()->produceModels ){
+        //must build model at this point
+        d_curr_model_builder.buildModel( &d_curr_model );
       }
     }
 
@@ -554,10 +560,12 @@ void TheoryEngine::collectModelInfo( theory::TheoryModel* m ){
 
 /* get model */
 TheoryModel* TheoryEngine::getModel(){
-  if( d_quantEngine && Options::current()->finiteModelFind ){
+  Debug("model") << "TheoryEngine::getModel()" << std::endl;
+  if( d_logicInfo.isQuantified() ){
+    Debug("model") << "Get model from quantifiers engine." << std::endl;
     return d_quantEngine->getModel();
   }else{
-    d_curr_model.initialize();
+    Debug("model") << "Get default model." << std::endl;
     return &d_curr_model;
   }
 }

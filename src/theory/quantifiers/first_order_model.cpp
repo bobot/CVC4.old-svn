@@ -31,7 +31,7 @@ d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 
 }
 
-void FirstOrderModel::processInitialize(){
+void FirstOrderModel::initialize(){
   //rebuild models
   d_uf_model.clear();
   //for each quantifier, collect all operators we care about
@@ -68,6 +68,7 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
 
 
 Node FirstOrderModel::getInterpretedValue( TNode n ){
+  Debug("fo-model") << "get interpreted value " << n << std::endl;
   if( n.getKind()==APPLY_UF ){
     int depIndex;
     return d_uf_model[ n.getOperator() ].getValue( n, depIndex );
@@ -79,17 +80,13 @@ TermDb* FirstOrderModel::getTermDatabase(){
   return d_term_db;
 }
 
-void FirstOrderModel::debugPrint( const char* c ){
-  Debug( c ) << "---Current Model---" << std::endl;
-  Debug( c ) << "Representatives: " << std::endl;
-  d_ra.debugPrint( c );
-  Debug( c ) << "Functions: " << std::endl;
-  for( std::map< Node, uf::UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
-    it->second.debugPrint( c );
-    Debug( c ) << std::endl;
-  }
-}
-
 void FirstOrderModel::toStream(std::ostream& out){
-  out << "this is the first order model." << std::endl;
+  out << "---Current Model---" << std::endl;
+  out << "Representatives: " << std::endl;
+  d_ra.toStream( out );
+  out << "Functions: " << std::endl;
+  for( std::map< Node, uf::UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
+    it->second.toStream( out );
+    out << std::endl;
+  }
 }

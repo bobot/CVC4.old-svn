@@ -466,6 +466,7 @@ public:
 class CVC4_PUBLIC GetModelCommand : public Command {
 protected:
   Model* d_result;
+  SmtEngine* d_smtEngine;
 public:
   GetModelCommand() throw();
   ~GetModelCommand() throw() {}

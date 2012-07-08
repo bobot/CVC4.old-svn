@@ -740,7 +740,8 @@ void SmtEngine::setOption(const std::string& key, const SExpr& value)
     } else if(key == ":produce-unsat-cores") {
       throw BadOptionException();
     } else if(key == ":produce-models") {
-
+      //throw BadOptionException();
+      const_cast<Options*>( Options::s_current )->produceModels = true;
     } else if(key == ":produce-assignments") {
       throw BadOptionException();
     } else {
@@ -1873,6 +1874,23 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
 }
 
 Model* SmtEngine::getModel() throw(ModalException, AssertionException){
+  Trace("smt") << "SMT getModel()" << endl;
+  NodeManagerScope nms(d_nodeManager);
+
+  if(!Options::current()->produceModels) {
+    const char* msg =
+      "Cannot get value when produce-models options is off.";
+    throw ModalException(msg);
+  }
+  if(d_status.isNull() ||
+     d_status.asSatisfiabilityResult() != Result::SAT ||
+     d_problemExtended) {
+    const char* msg =
+      "Cannot get the current model unless immediately "
+      "preceded by SAT/INVALID response.";
+    throw ModalException(msg);
+  }
+
   return d_theoryEngine->getModel();
 }
 
@@ -2059,6 +2077,11 @@ unsigned long SmtEngine::getTimeRemaining() const throw(ModalException) {
 
 StatisticsRegistry* SmtEngine::getStatisticsRegistry() const {
   return d_exprManager->d_nodeManager->getStatisticsRegistry();
+}
+
+void SmtEngine::printModel( std::ostream& out, Model* m ){
+  NodeManagerScope nms(d_nodeManager);
+  m->toStream(out);
 }
 
 }/* CVC4 namespace */

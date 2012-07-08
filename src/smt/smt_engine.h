@@ -528,6 +528,11 @@ public:
     return d_status;
   }
 
+  /**
+   * print model function (need this?)
+   */
+  void printModel( std::ostream& out, Model* m );
+
 };/* class SmtEngine */
 
 }/* CVC4 namespace */
