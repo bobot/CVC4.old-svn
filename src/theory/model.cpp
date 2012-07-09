@@ -63,71 +63,66 @@ bool TheoryModel::hasInterpretedValue( Node n ) {
 
 Node TheoryModel::getValue( TNode n ){
   Debug("model") << "TheoryModel::getValue " << n << std::endl;
+
+  kind::MetaKind metakind = n.getMetaKind();
+
+  //// special case: prop engine handles boolean vars
+  //if(metakind == kind::metakind::VARIABLE && n.getType().isBoolean()) {
+  //  Debug("model") << "-> Propositional variable." << std::endl;
+  //  return d_te->getPropEngine()->getValue( n );
+  //}
+
+  // special case: value of a constant == itself
+  if(metakind == kind::metakind::CONSTANT) {
+    Debug("model") << "-> Constant." << std::endl;
+    return n;
+  }
+
+  // see if the value is explicitly set in the model
+  if( d_equalityEngine.hasTerm( n ) ){
+    Debug("model") << "-> Defined term." << std::endl;
+    return getRepresentative( n );
+  }
+
+  // see if the model has an interpretation for this node
   TypeNode type = n.getType();
-  if(type.isFunction() || type.isPredicate() ) {
-    //return getFunctionValue( n );
+  if( n.getKind()==VARIABLE || hasInterpretedValue( n ) ){
+    Debug("model") << "-> Undefined term." << std::endl;
+    //otherwise, get the interpreted value in the model
+    return getInterpretedValue( n );
   }else{
-    //must be using constant representatives option
-    //Assert( d_useConstantReps );
-    kind::MetaKind metakind = n.getMetaKind();
-
-    //// special case: prop engine handles boolean vars
-    //if(metakind == kind::metakind::VARIABLE && n.getType().isBoolean()) {
-    //  Debug("model") << "-> Propositional variable." << std::endl;
-    //  return d_te->getPropEngine()->getValue( n );
-    //}
-
-    // special case: value of a constant == itself
-    if(metakind == kind::metakind::CONSTANT) {
-      Debug("model") << "-> Constant." << std::endl;
-      return n;
-    }
-
-    // see if the value is explicitly set in the model
-    if( d_equalityEngine.hasTerm( n ) ){
-      Debug("model") << "-> Defined term." << std::endl;
-      return getRepresentative( n );
-    }
-
-    // see if the theory has a built-in interpretation
-    if( n.getKind()==VARIABLE || hasInterpretedValue( n ) ){
-      Debug("model") << "-> Undefined term." << std::endl;
-      //otherwise, get the interpreted value in the model
-      return getInterpretedValue( n );
-    }else{
-      Debug("model") << "-> Theory-interpreted symbol." << std::endl;
+    Debug("model") << "-> Theory-interpreted symbol." << std::endl;
+    Node nn;
+    if( n.getNumChildren()>0 ){
       std::vector< Node > children;
       if( metakind == kind::metakind::PARAMETERIZED ){
         Debug("model-debug") << "get operator: " << n.getOperator() << std::endl;
         children.push_back( n.getOperator() );
       }
-      Node nn;
-      if( n.getNumChildren()>0 ){
-        //first, evaluate the children
-        for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          Node val = getValue( n[i] );
-          Debug("model-debug") << i << " : " << n[i] << " -> " << val << std::endl;
-          Assert( !val.isNull() );
-          children.push_back( val );
-        }
-        Debug("model-debug") << "Done eval children" << std::endl;
-        //interpretation is the rewritten form
-        nn = NodeManager::currentNM()->mkNode( n.getKind(), children );
-      }else{
-        nn = n;
+      //first, evaluate the children
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        Node val = getValue( n[i] );
+        Debug("model-debug") << i << " : " << n[i] << " -> " << val << std::endl;
+        Assert( !val.isNull() );
+        children.push_back( val );
       }
-      Debug("model-debug") << "Interpreted symbol value: " << nn << std::endl;
-      return Rewriter::rewrite( nn );
+      Debug("model-debug") << "Done eval children" << std::endl;
+      //interpretation is the rewritten form
+      nn = NodeManager::currentNM()->mkNode( n.getKind(), children );
+    }else{
+      nn = n;
     }
-
-    ////case for equality
-    //if( n.getKind()==EQUAL ){
-    //  Debug("model") << "-> Equality." << std::endl;
-    //  Node n1 = getValue( n[0] );
-    //  Node n2 = getValue( n[1] );
-    //  return NodeManager::currentNM()->mkConst( n1==n2 );
-    //}
+    Debug("model-debug") << "Interpreted symbol value: " << nn << std::endl;
+    return Rewriter::rewrite( nn );
   }
+
+  ////case for equality
+  //if( n.getKind()==EQUAL ){
+  //  Debug("model") << "-> Equality." << std::endl;
+  //  Node n1 = getValue( n[0] );
+  //  Node n2 = getValue( n[1] );
+  //  return NodeManager::currentNM()->mkConst( n1==n2 );
+  //}
 }
 
 Node TheoryModel::getArbitraryValue( TypeNode tn, std::vector< Node >& exclude, bool mkConst ){
@@ -268,13 +263,18 @@ DefaultModel::DefaultModel( context::Context* c, std::string name ) : TheoryMode
 }
 
 Node DefaultModel::getInterpretedValue( TNode n ){
-  TypeNode t = n.getType();
-  std::vector< Node > v_emp;
-  Node n2 = getArbitraryValue( t, v_emp );
-  if( !n2.isNull() ){
-    return getRepresentative( n2 );
-  }else{
+  TypeNode type = n.getType();
+  if( type.isFunction() || type.isPredicate() ){
+    //DO_THIS
     return n;
+  }else{
+    std::vector< Node > v_emp;
+    Node n2 = getArbitraryValue( type, v_emp );
+    if( !n2.isNull() ){
+      return getRepresentative( n2 );
+    }else{
+      return n;
+    }
   }
 }
 

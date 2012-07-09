@@ -67,12 +67,17 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
 }
 
 bool FirstOrderModel::hasInterpretedValue( Node n ){
-  return n.getKind()==APPLY_UF;
+  TypeNode type = n.getType();
+  return n.getKind()==APPLY_UF || type.isFunction() || type.isPredicate();
 }
 
 Node FirstOrderModel::getInterpretedValue( TNode n ){
   Debug("fo-model") << "get interpreted value " << n << std::endl;
-  if( n.getKind()==APPLY_UF ){
+  TypeNode type = n.getType();
+  if( type.isFunction() || type.isPredicate() ){
+    //DO_THIS
+    return n;
+  }else if( n.getKind()==APPLY_UF ){
     int depIndex;
     return d_uf_model[ n.getOperator() ].getValue( n, depIndex );
   }
