@@ -84,8 +84,10 @@ public:
   Node getValue( TNode n );
   /** get interpreted value, should be a representative in d_reps */
   virtual Node getInterpretedValue( TNode n ) = 0;
-  /** get arbitrary value */
-  Node getArbitraryValue( TypeNode tn, std::vector< Node >& exclude, bool mkConst = false );
+  /** get existing domain value, with possible exclusions */
+  Node getDomainValue( TypeNode tn, std::vector< Node >& exclude );
+  /** get new domain value */
+  Node getNewDomainValue( TypeNode tn, bool mkConst = false );
 public:
   /** assert equality */
   void assertEquality( Node a, Node b, bool polarity );

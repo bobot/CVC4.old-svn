@@ -39,6 +39,17 @@ void UfModelTree::clear(){
   d_value = Node::null();
 }
 
+bool UfModelTree::hasConcreteArgumentDefinition(){
+  if( d_data.size()>1 ){
+    return true;
+  }else if( d_data.empty() ){
+    return false;
+  }else{
+    Node r;
+    return d_data.find( r )==d_data.end();
+  }
+}
+
 //set value function
 void UfModelTree::setValue( TheoryModel* m, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex ){
   if( d_data.empty() ){
@@ -87,6 +98,70 @@ Node UfModelTree::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrd
     //Notice() << "Return " << val << ", depIndex = " << depIndex;
     //Notice() << " ( " << childDepIndex[0] << ", " << childDepIndex[1] << " )" << std::endl;
     return val;
+  }
+}
+
+Node UfModelTree::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, std::vector< int >& depIndex, int argIndex ){
+  if( argIndex==(int)indexOrder.size() ){
+    return d_value;
+  }else{
+    Node val;
+    bool depArg = false;
+    //will try concrete value first, then default
+    for( int i=0; i<2; i++ ){
+      Node r;
+      if( i==0 ){
+        r = m->getRepresentative( n[ indexOrder[argIndex] ] );
+      }
+      std::map< Node, UfModelTree >::iterator it = d_data.find( r );
+      if( it!=d_data.end() ){
+        val = it->second.getValue( m, n, indexOrder, depIndex, argIndex+1 );
+        //we have found a value
+        if( !val.isNull() ){
+          if( i==0 ){
+            depArg = true;
+          }
+          break;
+        }
+      }
+    }
+    //it depends on this argument if we found it via concrete argument value,
+    // or if found by default/disequal from some concrete argument value(s).
+    if( depArg || hasConcreteArgumentDefinition() ){
+      if( std::find( depIndex.begin(), depIndex.end(), indexOrder[argIndex] )==depIndex.end() ){
+        depIndex.push_back( indexOrder[argIndex] );
+      }
+    }
+    return val;
+  }
+}
+
+Node UfModelTree::getFunctionValue(){
+  if( !d_data.empty() ){
+    Node defaultValue;
+    std::vector< Node > caseValues;
+    for( std::map< Node, UfModelTree >::iterator it = d_data.begin(); it != d_data.end(); ++it ){
+      if( it->first.isNull() ){
+        defaultValue = it->second.getFunctionValue();
+      }else{
+        caseValues.push_back( NodeManager::currentNM()->mkNode( FUNCTION_CASE, it->first, it->second.getFunctionValue() ) );
+      }
+    }
+    if( caseValues.empty() && defaultValue.getKind()!=FUNCTION_CASE_SPLIT && defaultValue.getKind()!=FUNCTION_MODEL ){
+      return defaultValue;
+    }else{
+      std::vector< Node > children;
+      if( !caseValues.empty() ){
+        children.push_back( NodeManager::currentNM()->mkNode( FUNCTION_CASE_SPLIT, caseValues ) );
+      }
+      if( !defaultValue.isNull() ){
+        children.push_back( defaultValue );
+      }
+      return NodeManager::currentNM()->mkNode( FUNCTION_MODEL, children );
+    }
+  }else{
+    Assert( !d_value.isNull() );
+    return d_value;
   }
 }
 
@@ -279,12 +354,23 @@ Node UfModel::getValue( Node n, int& depIndex ){
   return d_tree.getValue( d_model, n, depIndex );
 }
 
+Node UfModel::getValue( Node n, std::vector< int >& depIndex ){
+  return d_tree.getValue( d_model, n, depIndex );
+}
+
 Node UfModel::getConstantValue( Node n ){
   if( d_model_constructed ){
     return d_tree.getConstantValue( d_model, n );
   }else{
     return Node::null();
   }
+}
+
+Node UfModel::getFunctionValue(){
+  if( d_func_value.isNull() && d_model_constructed ){
+    d_func_value = d_tree.getFunctionValue();
+  }
+  return d_func_value;
 }
 
 bool UfModel::isConstant(){
@@ -304,6 +390,7 @@ bool UfModel::optUsePartialDefaults(){
 void UfModel::setModel(){
   makeModel( d_tree );
   d_model_constructed = true;
+  d_func_value = Node::null();
 
   //for debugging, make sure model satisfies all ground assertions
   for( size_t i=0; i<d_ground_asserts.size(); i++ ){
@@ -418,7 +505,7 @@ Node UfModelPreferenceData::getBestDefaultValue( Node defaultTerm, TheoryModel* 
     //consider finding another value, if possible
     Debug("fmf-model-cons-debug") << "Poor choice for default value, score = " << maxScore << std::endl;
     TypeNode tn = defaultTerm.getType();
-    Node newDefaultVal = m->getArbitraryValue( tn, d_values );
+    Node newDefaultVal = m->getDomainValue( tn, d_values );
     if( !newDefaultVal.isNull() ){
       defaultVal = newDefaultVal;
       Debug("fmf-model-cons-debug") << "-> Change default value to ";

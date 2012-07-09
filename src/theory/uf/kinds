@@ -17,7 +17,17 @@ parameterized APPLY_UF VARIABLE 1: "uninterpreted function application"
 typerule APPLY_UF ::CVC4::theory::uf::UfTypeRule
 
 operator CARDINALITY_CONSTRAINT 2 "cardinality constraint"
-
 typerule CARDINALITY_CONSTRAINT ::CVC4::theory::uf::CardinalityConstraintTypeRule
+
+# for compact function models
+
+operator FUNCTION_MODEL 1:2 "function model"
+typerule FUNCTION_MODEL ::CVC4::theory::uf::FunctionModelTypeRule
+
+operator FUNCTION_CASE_SPLIT 1: "function case split"
+typerule FUNCTION_CASE_SPLIT ::CVC4::theory::uf::FunctionCaseSplitTypeRule
+
+operator FUNCTION_CASE 2 "function case"
+typerule FUNCTION_CASE ::CVC4::theory::uf::FunctionCaseTypeRule
 
 endtheory

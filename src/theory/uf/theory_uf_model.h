@@ -38,6 +38,8 @@ public:
   std::map< Node, UfModelTree > d_data;
   /** the value of this tree node (if all paths lead to same value) */
   Node d_value;
+  /** has concrete argument defintion */
+  bool hasConcreteArgumentDefinition();
 public:
   //is this model tree empty?
   bool isEmpty() { return d_data.empty() && d_value.isNull(); }
@@ -60,6 +62,7 @@ public:
     *
     */
   Node getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex );
+  Node getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, std::vector< int >& depIndex, int argIndex );
   ///** getConstant Value function
   //  *
   //  * given term n, where n may contain model basis arguments
@@ -70,6 +73,8 @@ public:
   //  *
   //  */
   Node getConstantValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int argIndex );
+  /** getFunctionValue */
+  Node getFunctionValue();
   /** simplify function */
   void simplify( Node op, Node defaultVal, int argIndex );
   // is total ?
@@ -103,8 +108,14 @@ public:
   Node getValue( TheoryModel* m, Node n, int& depIndex ){
     return d_tree.getValue( m, n, d_index_order, depIndex, 0 );
   }
+  Node getValue( TheoryModel* m, Node n, std::vector< int >& depIndex ){
+    return d_tree.getValue( m, n, d_index_order, depIndex, 0 );
+  }
   Node getConstantValue( TheoryModel* m, Node n ) {
     return d_tree.getConstantValue( m, n, d_index_order, 0 );
+  }
+  Node getFunctionValue(){
+    return d_tree.getFunctionValue();
   }
   void simplify() { d_tree.simplify( d_op, Node::null(), 0 ); }
   bool isTotal() { return d_tree.isTotal( d_op, 0 ); }
@@ -138,6 +149,8 @@ public:
   std::vector< Node > d_ground_asserts_reps;
   //data structure that stores the model
   UfModelTreeOrdered d_tree;
+  //node equivalent of this model
+  Node d_func_value;
 public:
   /** get operator */
   Node getOperator() { return d_op; }
@@ -145,10 +158,13 @@ public:
   void toStream( std::ostream& out );
   /** set value */
   void setValue( Node n, Node v, bool ground = true, bool isReq = true );
-  /** get value */
+  /** get value, return arguments that the value depends on */
   Node getValue( Node n, int& depIndex );
+  Node getValue( Node n, std::vector< int >& depIndex );
   /** get constant value */
   Node getConstantValue( Node n );
+  /** get function value for this function */
+  Node getFunctionValue();
   /** is model constructed */
   bool isModelConstructed() { return d_model_constructed; }
   /** is empty */

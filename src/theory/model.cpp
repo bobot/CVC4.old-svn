@@ -43,12 +43,25 @@ void RepSet::set( TypeNode t, std::vector< Node >& reps ){
 }
 
 void RepSet::toStream(std::ostream& out){
+#if 0
   for( std::map< TypeNode, std::vector< Node > >::iterator it = d_type_reps.begin(); it != d_type_reps.end(); ++it ){
     out << it->first << " : " << std::endl;
     for( int i=0; i<(int)it->second.size(); i++ ){
       out << "   " << i << ": " << it->second[i] << std::endl;
     }
   }
+#else
+  for( std::map< TypeNode, std::vector< Node > >::iterator it = d_type_reps.begin(); it != d_type_reps.end(); ++it ){
+    if( !it->first.isFunction() && !it->first.isPredicate() ){
+      out << "(" << it->first << " " << it->second.size() << " (";
+      for( int i=0; i<(int)it->second.size(); i++ ){
+        if( i>0 ){ out << " "; }
+        out << it->second[i];
+      }
+      out << "))" << std::endl;
+    }
+  }
+#endif
 }
 
 TheoryModel::TheoryModel( context::Context* c, std::string name ) :
@@ -78,20 +91,19 @@ Node TheoryModel::getValue( TNode n ){
     return n;
   }
 
+  // see if the model has an interpretation for this node
+  if( hasInterpretedValue( n ) ){
+    Debug("model") << "-> Model-interpreted term." << std::endl;
+    //otherwise, get the interpreted value in the model
+    return getInterpretedValue( n );
+  }
+
   // see if the value is explicitly set in the model
   if( d_equalityEngine.hasTerm( n ) ){
     Debug("model") << "-> Defined term." << std::endl;
     return getRepresentative( n );
-  }
-
-  // see if the model has an interpretation for this node
-  TypeNode type = n.getType();
-  if( n.getKind()==VARIABLE || hasInterpretedValue( n ) ){
-    Debug("model") << "-> Undefined term." << std::endl;
-    //otherwise, get the interpreted value in the model
-    return getInterpretedValue( n );
   }else{
-    Debug("model") << "-> Theory-interpreted symbol." << std::endl;
+    Debug("model") << "-> Theory-interpreted term." << std::endl;
     Node nn;
     if( n.getNumChildren()>0 ){
       std::vector< Node > children;
@@ -99,7 +111,7 @@ Node TheoryModel::getValue( TNode n ){
         Debug("model-debug") << "get operator: " << n.getOperator() << std::endl;
         children.push_back( n.getOperator() );
       }
-      //first, evaluate the children
+      //evaluate the children
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
         Node val = getValue( n[i] );
         Debug("model-debug") << i << " : " << n[i] << " -> " << val << std::endl;
@@ -125,12 +137,24 @@ Node TheoryModel::getValue( TNode n ){
   //}
 }
 
-Node TheoryModel::getArbitraryValue( TypeNode tn, std::vector< Node >& exclude, bool mkConst ){
+Node TheoryModel::getDomainValue( TypeNode tn, std::vector< Node >& exclude ){
+  if( d_ra.d_type_reps.find( tn )!=d_ra.d_type_reps.end() ){
+    //try to find a pre-existing arbitrary element
+    for( size_t i=0; i<d_ra.d_type_reps[tn].size(); i++ ){
+      if( std::find( exclude.begin(), exclude.end(), d_ra.d_type_reps[tn][i] )==exclude.end() ){
+        return d_ra.d_type_reps[tn][i];
+      }
+    }
+  }
+  return Node::null();
+}
+
+Node TheoryModel::getNewDomainValue( TypeNode tn, bool mkConst ){
   if( tn==NodeManager::currentNM()->booleanType() ){
-    if( exclude.empty() ){
+    if( d_ra.d_type_reps[tn].empty() ){
       return d_false;
-    }else if( exclude.size()==1 ){
-      return NodeManager::currentNM()->mkConst( areEqual( exclude[0], d_false ) );
+    }else if( d_ra.d_type_reps[tn].size()==1 ){
+      return NodeManager::currentNM()->mkConst( areEqual( d_ra.d_type_reps[tn][0], d_false ) );
     }else{
       return Node::null();
     }
@@ -138,21 +162,16 @@ Node TheoryModel::getArbitraryValue( TypeNode tn, std::vector< Node >& exclude, 
     int val = 0;
     do{
       Node r = NodeManager::currentNM()->mkConst( Rational(val) );
-      if( std::find( exclude.begin(), exclude.end(), r )==exclude.end() ){
+      if( std::find( d_ra.d_type_reps[tn].begin(), d_ra.d_type_reps[tn].end(), r )==d_ra.d_type_reps[tn].end() &&
+          !d_equalityEngine.hasTerm( r ) ){
         return r;
       }
       val++;
     }while( true );
-  }else if( d_ra.d_type_reps.find( tn )!=d_ra.d_type_reps.end() ){
-    //finite domain, find an arbitrary element
-    for( size_t i=0; i<d_ra.d_type_reps[tn].size(); i++ ){
-      if( std::find( exclude.begin(), exclude.end(), d_ra.d_type_reps[tn][i] )==exclude.end() ){
-        return d_ra.d_type_reps[tn][i];
-      }
-    }
+  }else{
+    //otherwise must make a variable  FIXME: how to make constants for other sorts?
+    return NodeManager::currentNM()->mkVar( tn );
   }
-  //otherwise must make a constant DO_THIS
-  return Node::null();
 }
 
 /** assert equality */
@@ -179,6 +198,7 @@ void TheoryModel::assertEqualityEngine( eq::EqualityEngine* ee ){
     if( eqc.getType()==NodeManager::currentNM()->booleanType() ){
       predicate = true;
       predPolarity = ee->areEqual( eqc, d_true );
+      //FIXME: do we guarentee that all boolean equivalence classes contain either d_true or d_false?
     }
     eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, ee );
     while( !eqc_i.isFinished() ){
@@ -265,21 +285,34 @@ DefaultModel::DefaultModel( context::Context* c, std::string name ) : TheoryMode
 Node DefaultModel::getInterpretedValue( TNode n ){
   TypeNode type = n.getType();
   if( type.isFunction() || type.isPredicate() ){
-    //DO_THIS
+    //DO_THIS?
     return n;
   }else{
     std::vector< Node > v_emp;
-    Node n2 = getArbitraryValue( type, v_emp );
+    Node n2 = getDomainValue( type, v_emp );
     if( !n2.isNull() ){
-      return getRepresentative( n2 );
+      return n2;
     }else{
-      return n;
+      return getNewDomainValue( type, true );
     }
   }
 }
 
 void DefaultModel::toStream(std::ostream& out){
-
+  //print everything in equality engine
+  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+  while( !eqcs_i.isFinished() ){
+    Node eqc = (*eqcs_i);
+    Node rep = getRepresentative( eqc );
+    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
+    while( !eqc_i.isFinished() ){
+      if( (*eqc_i).getMetaKind()!=kind::metakind::CONSTANT ){
+        out << "(" << (*eqc_i) << " " << rep << ")" << std::endl;
+      }
+      ++eqc_i;
+    }
+    ++eqcs_i;
+  }
 }
 
 void IncompleteModel::toStream(std::ostream& out){
@@ -336,7 +369,7 @@ void TheoryEngineModelBuilder::processBuildModel( TheoryModel* m ){
   for( size_t i = 0; i<d_unresolvedReps.size(); i++ ){
     Node n = d_unresolvedReps[i];
     TypeNode tn = n.getType();
-    Node rep = m->getArbitraryValue( tn, m->d_ra.d_type_reps[tn], true );
+    Node rep = m->getNewDomainValue( tn, true );
     if( !rep.isNull() ){
       m->assertEquality( n, rep, true );
       m->d_reps[ n ] = rep;
