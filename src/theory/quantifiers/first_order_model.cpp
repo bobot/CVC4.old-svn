@@ -26,7 +26,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : TheoryModel( qe->getTheoryEngine(), name ),
+FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : TheoryModel( c, name ),
 d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 
 }
@@ -66,6 +66,9 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
   }
 }
 
+bool FirstOrderModel::hasInterpretedValue( Node n ){
+  return n.getKind()==APPLY_UF;
+}
 
 Node FirstOrderModel::getInterpretedValue( TNode n ){
   Debug("fo-model") << "get interpreted value " << n << std::endl;

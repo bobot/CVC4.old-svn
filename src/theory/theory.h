@@ -556,15 +556,6 @@ public:
   }
 
   /**
-   * Return whether the value of this node should be interpreted by
-   * the theory.  Returning true for n ensures that if all of n's children
-   * are constant, then this theory's rewriter will rewrite n to a constant.
-   */
-  virtual bool hasInterpretedValue( TNode n ){
-    return false;
-  }
-
-  /**
    * Statically learn from assertion "in," which has been asserted
    * true at the top level.  The theory should only add (via
    * ::operator<< or ::append()) to the "learned" builder---it should

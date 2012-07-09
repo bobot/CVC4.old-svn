@@ -45,6 +45,8 @@ private:
   TermDb* d_term_db;
   //for initialize model
   void initializeModelForTerm( Node n );
+  //has interpreted value
+  bool hasInterpretedValue( Node n );
 public: //for Theory UF:
   //models for each UF operator
   std::map< Node, uf::UfModel > d_uf_model;

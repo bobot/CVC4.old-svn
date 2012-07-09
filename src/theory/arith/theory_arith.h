@@ -324,7 +324,6 @@ public:
   Node explain(TNode n);
 
   void collectModelInfo( TheoryModel* m );
-  bool hasInterpretedValue( TNode n );
 
   void shutdown(){ }
 

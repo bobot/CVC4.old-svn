@@ -128,10 +128,6 @@ void TheoryBV::collectModelInfo( TheoryModel* m ){
 
 }
 
-bool TheoryBV::hasInterpretedValue(TNode n) {
-  return false;
-}
-
 void TheoryBV::propagate(Effort e) {
   BVDebug("bitvector") << indent() << "TheoryBV::propagate()" << std::endl;
 

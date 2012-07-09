@@ -220,7 +220,6 @@ class TheoryArrays : public Theory {
   public:
 
   void collectModelInfo( TheoryModel* m );
-  bool hasInterpretedValue( TNode n );
 
   /////////////////////////////////////////////////////////////////////////////
   // NOTIFICATIONS

@@ -60,10 +60,8 @@ class TheoryModel : public Model
 {
   friend class TheoryEngineModelBuilder;
 protected:
-  /** pointer to theory engine */
-  TheoryEngine* d_te;
-  /** process initialize */
-  virtual void processInitialize() {}
+  /** true: use interpretation in model, false: use theory interpretation */
+  virtual bool hasInterpretedValue( Node n );
   /** add term */
   virtual void addTerm( Node n ) {}
 public:
@@ -77,7 +75,7 @@ public:
   Node d_true;
   Node d_false;
 public:
-  TheoryModel( TheoryEngine* te, std::string name );
+  TheoryModel( context::Context* c, std::string name );
   virtual ~TheoryModel(){}
   /**
    * Get value function.  This should be called only after a ModelBuilder has called buildModel(...)
@@ -113,7 +111,7 @@ public:
 class DefaultModel : public TheoryModel
 {
 public:
-  DefaultModel( TheoryEngine* te, std::string name );
+  DefaultModel( context::Context* c, std::string name );
   virtual ~DefaultModel(){}
 public:
   Node getInterpretedValue( TNode n );
@@ -125,7 +123,7 @@ public:
 class IncompleteModel : public TheoryModel
 {
 public:
-  IncompleteModel( TheoryEngine* te, std::string name ) : TheoryModel( te, name ){}
+  IncompleteModel( context::Context* c, std::string name ) : TheoryModel( c, name ){}
   virtual ~IncompleteModel(){}
 public:
   Node getInterpretedValue( TNode n ) { return Node::null(); }

@@ -36,13 +36,6 @@ void TheoryBool::collectModelInfo( TheoryModel* m ){
 
 }
 
-bool TheoryBool::hasInterpretedValue( TNode n ){
-  return n.getKind()==kind::NOT || n.getKind()==kind::AND ||
-         n.getKind()==kind::IFF || n.getKind()==kind::OR ||
-         n.getKind()==kind::IMPLIES || n.getKind()==kind::XOR ||
-         n.getKind()==kind::ITE;
-}
-
 Theory::PPAssertStatus TheoryBool::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
 
   if (in.getKind() == kind::CONST_BOOLEAN && !in.getConst<bool>()) {

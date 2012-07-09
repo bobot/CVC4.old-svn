@@ -1465,12 +1465,12 @@ void TheoryArith::check(Effort effortLevel){
     d_qflraStatus = Result::UNSAT;
     if(previous == Result::SAT){
       ++d_statistics.d_revertsOnConflicts;
-      Debug("arith::bt") << "clearing here " << " " << newFacts << " " << previous << " " << d_qflraStatus  << endl; 
+      Debug("arith::bt") << "clearing here " << " " << newFacts << " " << previous << " " << d_qflraStatus  << endl;
       revertOutOfConflict();
       d_simplex.clearQueue();
     }else{
       ++d_statistics.d_commitsOnConflicts;
-      Debug("arith::bt") << "committing here " << " " << newFacts << " " << previous << " " << d_qflraStatus  << endl; 
+      Debug("arith::bt") << "committing here " << " " << newFacts << " " << previous << " " << d_qflraStatus  << endl;
       d_partialModel.commitAssignmentChanges();
       revertOutOfConflict();
     }
@@ -1493,7 +1493,7 @@ void TheoryArith::check(Effort effortLevel){
       ++d_statistics.d_nontrivialSatChecks;
     }
 
-    Debug("arith::bt") << "committing sap inConflit"  << " " << newFacts << " " << previous << " " << d_qflraStatus  << endl; 
+    Debug("arith::bt") << "committing sap inConflit"  << " " << newFacts << " " << previous << " " << d_qflraStatus  << endl;
     d_partialModel.commitAssignmentChanges();
     d_unknownsInARow = 0;
     if(Debug.isOn("arith::consistency")){
@@ -1504,7 +1504,7 @@ void TheoryArith::check(Effort effortLevel){
     ++d_unknownsInARow;
     ++(d_statistics.d_unknownChecks);
     Assert(!fullEffort(effortLevel));
-    Debug("arith::bt") << "committing unknown"  << " " << newFacts << " " << previous << " " << d_qflraStatus  << endl; 
+    Debug("arith::bt") << "committing unknown"  << " " << newFacts << " " << previous << " " << d_qflraStatus  << endl;
     d_partialModel.commitAssignmentChanges();
     d_statistics.d_maxUnknownsInARow.maxAssign(d_unknownsInARow);
     break;
@@ -1925,13 +1925,6 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
 
 void TheoryArith::collectModelInfo( TheoryModel* m ){
 
-}
-
-bool TheoryArith::hasInterpretedValue( TNode n ){
-  return n.getKind()==kind::PLUS || n.getKind()==kind::MULT ||
-         n.getKind()==kind::DIVISION || n.getKind()==kind::LT ||
-         n.getKind()==kind::LEQ || n.getKind()==GT ||
-         n.getKind()==kind::GEQ;
 }
 
 bool TheoryArith::safeToReset() const {

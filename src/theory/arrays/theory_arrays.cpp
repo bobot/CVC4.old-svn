@@ -628,10 +628,6 @@ void TheoryArrays::collectModelInfo( TheoryModel* m ){
   m->assertEqualityEngine( &d_equalityEngine );
 }
 
-bool TheoryArrays::hasInterpretedValue( TNode n ){
-  return n.getKind()==kind::SELECT && n.getKind()==kind::STORE;
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // NOTIFICATIONS
 /////////////////////////////////////////////////////////////////////////////

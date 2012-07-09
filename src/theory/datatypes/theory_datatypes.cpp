@@ -628,10 +628,6 @@ void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
   }
 }
 
-bool TheoryDatatypes::hasInterpretedValue( TNode n ){
-  return n.getKind()==APPLY_TESTER || n.getKind()==APPLY_SELECTOR;
-}
-
 void TheoryDatatypes::merge(TNode a, TNode b) {
   if( !d_merge_pending.empty() ) {
     //Debug("datatypes") << "Append to merge pending list " << d_merge_pending.size() << endl;

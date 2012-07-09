@@ -31,10 +31,6 @@ void TheoryBuiltin::collectModelInfo( TheoryModel* m ){
 
 }
 
-bool TheoryBuiltin::hasInterpretedValue( TNode n ){
-  return n.getKind()==kind::TUPLE;
-}
-
 }/* CVC4::theory::builtin namespace */
 }/* CVC4::theory */
 }/* CVC4 namespace */

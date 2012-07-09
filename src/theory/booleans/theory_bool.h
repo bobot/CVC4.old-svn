@@ -36,7 +36,6 @@ public:
   }
 
   void collectModelInfo( TheoryModel* m );
-  bool hasInterpretedValue( TNode n );
 
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
 
