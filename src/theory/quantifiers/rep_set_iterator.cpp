@@ -301,7 +301,7 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
     }else{
       //first we must evaluate the arguments
       std::vector< Node > children;
-      if( n.hasOperator() ){
+      if( n.getMetaKind()==kind::metakind::PARAMETERIZED ){
         children.push_back( n.getOperator() );
       }
       std::vector< int > children_depIndex;
@@ -345,8 +345,6 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
           d_eval_uf_use_default[n] = true;
           argDepIndex = (int)n.getNumChildren();
         }
-        Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = ";
-        d_model->printRepresentativeDebug( "fmf-model-eval-debug", val );
         //recalculate the depIndex
         depIndex = -1;
         for( int i=0; i<argDepIndex; i++ ){
@@ -356,6 +354,8 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
             depIndex = children_depIndex[index];
           }
         }
+        Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = ";
+        d_model->printRepresentativeDebug( "fmf-model-eval-debug", val );
         Debug("fmf-model-eval-debug") << ", depIndex = " << depIndex << std::endl;
       }else if( n.getKind()==SELECT ){
         //DO_THIS?

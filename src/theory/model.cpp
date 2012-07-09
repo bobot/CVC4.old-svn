@@ -170,7 +170,8 @@ Node TheoryModel::getNewDomainValue( TypeNode tn, bool mkConst ){
     }while( true );
   }else{
     //otherwise must make a variable  FIXME: how to make constants for other sorts?
-    return NodeManager::currentNM()->mkVar( tn );
+    //return NodeManager::currentNM()->mkVar( tn );
+    return Node::null();
   }
 }
 
@@ -293,7 +294,12 @@ Node DefaultModel::getInterpretedValue( TNode n ){
     if( !n2.isNull() ){
       return n2;
     }else{
-      return getNewDomainValue( type, true );
+      n2 = getNewDomainValue( type, true );
+      if( !n2.isNull() ){
+        return n2;
+      }else{
+        return n;
+      }
     }
   }
 }

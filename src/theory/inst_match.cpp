@@ -195,7 +195,7 @@ bool InstMatchTrie::existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m
     if( modEq ){
       //check modulo equality if any other instantiation match exists
       if( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->hasTerm( n ) ){
-        eq::EqClassIterator eqc( qe->getEqualityQuery()->getRepresentative( n ),
+        eq::EqClassIterator eqc( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->getRepresentative( n ),
                                 ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
         while( !eqc.isFinished() ){
           Node en = (*eqc);
