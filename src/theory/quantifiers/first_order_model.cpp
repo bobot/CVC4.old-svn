@@ -34,6 +34,7 @@ d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 void FirstOrderModel::initialize(){
   //rebuild models
   d_uf_model.clear();
+  d_array_model.clear();
   //for each quantifier, collect all operators we care about
   for( int i=0; i<getNumAssertedQuantifiers(); i++ ){
     Node f = getAssertedQuantifier( i );
@@ -56,10 +57,13 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
     if( d_uf_model.find( op )==d_uf_model.end() ){
       TypeNode tn = op.getType();
       tn = tn[ (int)tn.getNumChildren()-1 ];
-      if( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) ){
+      if( tn==NodeManager::currentNM()->booleanType() || tn.isDatatype() || uf::StrongSolverTheoryUf::isRelevantType( tn ) ){
         d_uf_model[ op ] = uf::UfModel( op, this );
       }
     }
+  }
+  if( n.getKind()!=STORE && n.getType().isArray() ){
+    d_array_model[n] = Node::null();
   }
   for( int i=0; i<(int)n.getNumChildren(); i++ ){
     initializeModelForTerm( n[i] );

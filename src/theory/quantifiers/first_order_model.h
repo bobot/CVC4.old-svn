@@ -50,6 +50,9 @@ private:
 public: //for Theory UF:
   //models for each UF operator
   std::map< Node, uf::UfModel > d_uf_model;
+public: //for Theory Arrays:
+  //default value for each non-store array
+  std::map< Node, Node > d_array_model;
 public: //for Theory Quantifiers:
   /** list of quantifiers asserted in the current context */
   context::CDList<Node> d_forall_asserts;

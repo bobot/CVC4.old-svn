@@ -87,12 +87,13 @@ private: //for Theory UF:
   std::map< Node, bool > d_eval_uf_use_default;
   std::map< Node, uf::UfModelTreeOrdered > d_eval_uf_model;
   void makeEvalUfModel( Node n );
-private:
   //index ordering to use for each term
   std::map< Node, std::vector< int > > d_eval_term_index_order;
   int getMaxVariableNum( int n );
   void makeEvalUfIndexOrder( Node n );
 private:
+  //default evaluate term function
+  Node evaluateTermDefault( Node n, int& depIndex, std::vector< int >& childDepIndex );
   //temporary storing which literals have failed
   void clearEvalFailed( int index );
   std::map< Node, bool > d_eval_failed;

@@ -211,7 +211,7 @@ int ModelEngineBuilder::doInstGen( FirstOrderModel* fm, Node f ){
     if( lit.getKind()==APPLY_UF ){
       //only match predicates that are contrary to this one, use literal matching
       Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? fm->d_true : fm->d_false );
-      d_qe->getTermDatabase()->setInstantiationConstantAttr( eq, f );
+      fm->getTermDatabase()->setInstantiationConstantAttr( eq, f );
       tr_terms.push_back( eq );
     }else if( lit.getKind()==EQUAL ){
       //collect trigger terms
@@ -247,8 +247,17 @@ int ModelEngineBuilder::doInstGen( FirstOrderModel* fm, Node f ){
 }
 
 void ModelEngineBuilder::finishBuildModel( FirstOrderModel* fm ){
+  //build model for UF
   for( std::map< Node, uf::UfModel >::iterator it = fm->d_uf_model.begin(); it != fm->d_uf_model.end(); ++it ){
     finishBuildModelUf( fm, it->second );
+  }
+  //build model for arrays
+  for( std::map< Node, Node >::iterator it = fm->d_array_model.begin(); it != fm->d_array_model.end(); ++it ){
+    //consult the model basis select term
+    // i.e. the default value for array A is the value of select( A, e ), where e is the model basis term
+    TypeNode tn = it->first.getType();
+    Node selModelBasis = NodeManager::currentNM()->mkNode( SELECT, it->first, fm->getTermDatabase()->getModelBasisTerm( tn[0] ) );
+    it->second = fm->getRepresentative( selModelBasis );
   }
   Debug("fmf-model-debug") << "Done building models." << std::endl;
 }

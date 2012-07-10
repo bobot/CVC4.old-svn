@@ -133,7 +133,7 @@ RepSetEvaluator::RepSetEvaluator( FirstOrderModel* m, RepSetIterator* ri ) : d_m
 //   each n{d_riter->d_index[0]/x_0...d_riter->d_index[eVal]/x_eVal, */x_(eVal+1) ... */x_n } is equal to phaseReq in the current model
 int RepSetEvaluator::evaluate( Node n, int& depIndex ){
   ++d_eval_formulas;
-  //Debug("fmf-model-eval-debug") << "Evaluate " << n << " " << phaseReq << std::endl;
+  //Debug("fmf-eval-debug") << "Evaluate " << n << " " << phaseReq << std::endl;
   //Notice() << "Eval " << n << std::endl;
   if( n.getKind()==NOT ){
     int val = evaluate( n[0], depIndex );
@@ -214,17 +214,17 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
     //    return -1;
     //  }
     //}
-    //Debug("fmf-model-eval-debug") << "Evaluate literal " << n << std::endl;
+    //Debug("fmf-eval-debug") << "Evaluate literal " << n << std::endl;
     //this should be a literal
     //Node gn = n.substitute( d_riter->d_ic.begin(), d_riter->d_ic.end(), d_riter->d_terms.begin(), d_riter->d_terms.end() );
-    //Debug("fmf-model-eval-debug") << "  Ground version = " << gn << std::endl;
+    //Debug("fmf-eval-debug") << "  Ground version = " << gn << std::endl;
     int retVal = 0;
     depIndex = d_riter->getNumTerms()-1;
     if( n.getKind()==APPLY_UF ){
       //case for boolean predicates
       Node val = evaluateTerm( n, depIndex );
       if( d_model->hasTerm( val ) ){
-        if( d_model->areEqual( val, NodeManager::currentNM()->mkConst( true ) ) ){
+        if( d_model->areEqual( val, d_model->d_true ) ){
           retVal = 1;
         }else{
           retVal = -1;
@@ -233,11 +233,23 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
     }else if( n.getKind()==EQUAL ){
       //case for equality
       retVal = evaluateEquality( n[0], n[1], depIndex );
-    }else if( n.getKind()==APPLY_TESTER ){
-      //case for datatype tester predicate
+    }else{
+      std::vector< int > cdi;
+      Node val = evaluateTermDefault( n, depIndex, cdi );
+      if( !val.isNull() ){
+        val = Rewriter::rewrite( val );
+        if( val==d_model->d_true ){
+          retVal = 1;
+        }else if( val==d_model->d_false ){
+          retVal = -1;
+        }
+      }
     }
     if( retVal!=0 ){
-      Debug("fmf-model-eval-debug") << "Evaluate literal: return " << retVal << ", depends = " << depIndex << std::endl;
+      Debug("fmf-eval-debug") << "Evaluate literal: return " << retVal << ", depends = " << depIndex << std::endl;
+    }else{
+      Debug("fmf-eval-amb") << "Neither true nor false : " << n << std::endl;
+      //std::cout << "Neither true nor false : " << n << std::endl;
     }
     return retVal;
   }
@@ -246,27 +258,39 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
 int RepSetEvaluator::evaluateEquality( Node n1, Node n2, int& depIndex ){
   ++d_eval_eqs;
   //Notice() << "Eval eq " << n1 << " " << n2 << std::endl;
-  Debug("fmf-model-eval-debug") << "Evaluate equality: " << std::endl;
-  Debug("fmf-model-eval-debug") << "   " << n1 << " = " << n2 << std::endl;
+  Debug("fmf-eval-debug") << "Evaluate equality: " << std::endl;
+  Debug("fmf-eval-debug") << "   " << n1 << " = " << n2 << std::endl;
   int depIndex1, depIndex2;
   Node val1 = evaluateTerm( n1, depIndex1 );
   Node val2 = evaluateTerm( n2, depIndex2 );
-  Debug("fmf-model-eval-debug") << "   Values :  ";
-  d_model->printRepresentativeDebug( "fmf-model-eval-debug", val1 );
-  Debug("fmf-model-eval-debug") <<  " = ";
-  d_model->printRepresentativeDebug( "fmf-model-eval-debug", val2 );
-  Debug("fmf-model-eval-debug") << std::endl;
+  Debug("fmf-eval-debug") << "   Values :  ";
+  d_model->printRepresentativeDebug( "fmf-eval-debug", val1 );
+  Debug("fmf-eval-debug") <<  " = ";
+  d_model->printRepresentativeDebug( "fmf-eval-debug", val2 );
+  Debug("fmf-eval-debug") << std::endl;
   int retVal = 0;
-  if( d_model->areEqual( val1, val2 ) ){
-    retVal = 1;
-  }else if( d_model->areDisequal( val1, val2 ) ){
-    retVal = -1;
-  }else{
-    depIndex = d_riter->getNumTerms()-1;
+  if( !val1.isNull() && !val2.isNull() ){
+    if( d_model->areEqual( val1, val2 ) ){
+      retVal = 1;
+    }else if( d_model->areDisequal( val1, val2 ) ){
+      retVal = -1;
+    }else{
+      Node eq = val1.eqNode( val2 );
+      eq = Rewriter::rewrite( eq );
+      if( eq==d_model->d_true ){
+        retVal = 1;
+      }else if( eq==d_model->d_false ){
+        retVal = -1;
+      }
+    }
   }
   if( retVal!=0 ){
     depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
-    Debug("fmf-model-eval-debug") << "   value = " << (retVal==1) << ", depIndex = " << depIndex << std::endl;
+    Debug("fmf-eval-debug") << "   value = " << (retVal==1) << ", depIndex = " << depIndex << std::endl;
+  }else{
+    depIndex = d_riter->getNumTerms()-1;
+    Debug("fmf-eval-amb") << "Neither equal nor disequal : " << n1 << " , " << n2 << std::endl;
+    //std::cout << "Neither equal nor disequal : " << n1 << " , " << n2 << std::endl;
   }
   return retVal;
 }
@@ -299,33 +323,38 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
         depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
       }
     }else{
-      //first we must evaluate the arguments
-      std::vector< Node > children;
-      if( n.getMetaKind()==kind::metakind::PARAMETERIZED ){
-        children.push_back( n.getOperator() );
-      }
-      std::vector< int > children_depIndex;
-      depIndex = -1;
-      //for each argument, calculate its value, and the variables its value depends upon
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        children_depIndex.push_back( -1 );
-        Node nn = evaluateTerm( n[i], children_depIndex[i] );
-        if( nn.isNull() ){
+#if 1
+      //for select, pre-process read over writes
+      if( n.getKind()==SELECT ){
+        Node selIndex = evaluateTerm( n[1], depIndex );
+        if( selIndex.isNull() ){
           depIndex = d_riter->getNumTerms()-1;
-          return nn;
-        }else{
-          children.push_back( nn );
-          if( children_depIndex[i]>depIndex ){
-            depIndex = children_depIndex[i];
+          return Node::null();
+        }
+        Node arr = n[0];
+        int eval = 1;
+        while( arr.getKind()==STORE && eval!=0 ){
+          int tempIndex;
+          eval = evaluateEquality( selIndex, arr[1], tempIndex );
+          depIndex = tempIndex > depIndex ? tempIndex : depIndex;
+          if( eval==1 ){
+            val = evaluateTerm( arr[2], tempIndex );
+            depIndex = tempIndex > depIndex ? tempIndex : depIndex;
+            return val;
+          }else if( eval==-1 ){
+            arr = arr[0];
           }
         }
+        n = NodeManager::currentNM()->mkNode( SELECT, arr, selIndex );
       }
-      //recreate the value
-      val = NodeManager::currentNM()->mkNode( n.getKind(), children );
+#endif
+      //default term evaluate : evaluate all children, recreate the value
+      std::vector< int > children_depIndex;
+      val = evaluateTermDefault( n, depIndex, children_depIndex );
       //case split on the type of term
       if( n.getKind()==APPLY_UF ){
         Node op = n.getOperator();
-        //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
+        //Debug("fmf-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
         //if it is a defined UF, then consult the interpretation
         ++d_eval_uf_terms;
         int argDepIndex = 0;
@@ -338,8 +367,8 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
           }else{
             val = d_eval_uf_model[ n ].getValue( d_model, val, argDepIndex );
           }
-          //Debug("fmf-model-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
-          //d_eval_uf_model[ n ].debugPrint("fmf-model-eval-debug", d_qe );
+          //Debug("fmf-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
+          //d_eval_uf_model[ n ].debugPrint("fmf-eval-debug", d_qe );
           Assert( !val.isNull() );
         }else{
           d_eval_uf_use_default[n] = true;
@@ -349,22 +378,24 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
         depIndex = -1;
         for( int i=0; i<argDepIndex; i++ ){
           int index = d_eval_uf_use_default[n] ? i : d_eval_term_index_order[n][i];
-          Debug("fmf-model-eval-debug") << "Add variables from " << index << "..." << std::endl;
+          Debug("fmf-eval-debug") << "Add variables from " << index << "..." << std::endl;
           if( children_depIndex[index]>depIndex ){
             depIndex = children_depIndex[index];
           }
         }
-        Debug("fmf-model-eval-debug") << "Evaluate term " << n << " = ";
-        d_model->printRepresentativeDebug( "fmf-model-eval-debug", val );
-        Debug("fmf-model-eval-debug") << ", depIndex = " << depIndex << std::endl;
+        Debug("fmf-eval-debug") << "Evaluate term " << n << " = ";
+        d_model->printRepresentativeDebug( "fmf-eval-debug", val );
+        Debug("fmf-eval-debug") << ", depIndex = " << depIndex << std::endl;
       }else if( n.getKind()==SELECT ){
-        //DO_THIS?
-      }else if( n.getKind()==STORE ){
-        //DO_THIS?
-      }else if( n.getKind()==PLUS ){
-        //DO_THIS?
-      }else if( n.getKind()==APPLY_SELECTOR ){
-
+        if( d_model->d_array_model.find( n[0] )!=d_model->d_array_model.end() ){
+          //consult the default value for the array DO_THIS
+          //val = Rewriter::rewrite( val );
+          val = d_model->d_array_model[ n[0] ];
+        }else{
+          val = Rewriter::rewrite( val );
+        }
+      }else{
+        val = Rewriter::rewrite( val );
       }
     }
     return val;
@@ -372,6 +403,31 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
     depIndex = -1;
     return n;
   }
+}
+
+Node RepSetEvaluator::evaluateTermDefault( Node n, int& depIndex, std::vector< int >& childDepIndex ){
+  //first we must evaluate the arguments
+  std::vector< Node > children;
+  if( n.getMetaKind()==kind::metakind::PARAMETERIZED ){
+    children.push_back( n.getOperator() );
+  }
+  depIndex = -1;
+  //for each argument, calculate its value, and the variables its value depends upon
+  for( int i=0; i<(int)n.getNumChildren(); i++ ){
+    childDepIndex.push_back( -1 );
+    Node nn = evaluateTerm( n[i], childDepIndex[i] );
+    if( nn.isNull() ){
+      depIndex = d_riter->getNumTerms()-1;
+      return nn;
+    }else{
+      children.push_back( nn );
+      if( childDepIndex[i]>depIndex ){
+        depIndex = childDepIndex[i];
+      }
+    }
+  }
+  //recreate the value
+  return NodeManager::currentNM()->mkNode( n.getKind(), children );
 }
 
 void RepSetEvaluator::clearEvalFailed( int index ){
@@ -388,8 +444,8 @@ void RepSetEvaluator::makeEvalUfModel( Node n ){
       Node op = n.getOperator();
       d_eval_uf_model[n] = uf::UfModelTreeOrdered( op, d_eval_term_index_order[n] );
       d_model->d_uf_model[op].makeModel( d_eval_uf_model[n] );
-      //Debug("fmf-model-index-order") << "Make model for " << n << " : " << std::endl;
-      //d_eval_uf_model[n].debugPrint( "fmf-model-index-order", d_qe, 2 );
+      //Debug("fmf-index-order") << "Make model for " << n << " : " << std::endl;
+      //d_eval_uf_model[n].debugPrint( "fmf-index-order", d_qe, 2 );
     }
   }
 }
@@ -452,11 +508,11 @@ void RepSetEvaluator::makeEvalUfIndexOrder( Node n ){
       }
     }
     d_eval_uf_use_default[n] = useDefault;
-    Debug("fmf-model-index-order") << "Will consider the following index ordering for " << n << " : ";
+    Debug("fmf-index-order") << "Will consider the following index ordering for " << n << " : ";
     for( int i=0; i<(int)d_eval_term_index_order[n].size(); i++ ){
-      Debug("fmf-model-index-order") << d_eval_term_index_order[n][i] << " ";
+      Debug("fmf-index-order") << d_eval_term_index_order[n][i] << " ";
     }
-    Debug("fmf-model-index-order") << std::endl;
+    Debug("fmf-index-order") << std::endl;
 #else
     d_eval_uf_use_default[n] = true;
 #endif

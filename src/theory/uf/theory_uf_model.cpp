@@ -261,7 +261,7 @@ d_model_constructed( false ){
   d_tree = UfModelTreeOrdered( op );
   TypeNode tn = d_op.getType();
   tn = tn[(int)tn.getNumChildren()-1];
-  Assert( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) );
+  Assert( tn==NodeManager::currentNM()->booleanType() || tn.isDatatype() || uf::StrongSolverTheoryUf::isRelevantType( tn ) );
   //look at ground assertions
   for( size_t i=0; i<d_model->getTermDatabase()->d_op_map[ d_op ].size(); i++ ){
     Node n = d_model->getTermDatabase()->d_op_map[ d_op ][i];
