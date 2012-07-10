@@ -456,8 +456,9 @@ std::string DeclarationDefinitionCommand::getSymbol() const throw() {
 
 /* class DeclareFunctionCommand */
 
-DeclareFunctionCommand::DeclareFunctionCommand(const std::string& id, Type t) throw() :
+DeclareFunctionCommand::DeclareFunctionCommand(const std::string& id, Expr func, Type t) throw() :
   DeclarationDefinitionCommand(id),
+  d_func(func),
   d_type(t) {
 }
 
@@ -467,17 +468,18 @@ Type DeclareFunctionCommand::getType() const throw() {
 
 void DeclareFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("declarations") << *this;
+  smtEngine->addToModelFunction( d_func );
   d_commandStatus = CommandSuccess::instance();
 }
 
 Command* DeclareFunctionCommand::exportTo(ExprManager* exprManager,
                                           ExprManagerMapCollection& variableMap) {
-  return new DeclareFunctionCommand(d_symbol,
+  return new DeclareFunctionCommand(d_symbol, d_func.exportTo(exprManager, variableMap),
                                     d_type.exportTo(exprManager, variableMap));
 }
 
 Command* DeclareFunctionCommand::clone() const {
-  return new DeclareFunctionCommand(d_symbol, d_type);
+  return new DeclareFunctionCommand(d_symbol, d_func, d_type);
 }
 
 /* class DeclareTypeCommand */
@@ -498,6 +500,7 @@ Type DeclareTypeCommand::getType() const throw() {
 
 void DeclareTypeCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("declarations") << *this;
+  smtEngine->addToModelType( d_type );
   d_commandStatus = CommandSuccess::instance();
 }
 

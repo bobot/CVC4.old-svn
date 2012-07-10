@@ -1889,6 +1889,24 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
   return SExpr(sexprs);
 }
 
+
+void SmtEngine::addToModelType( Type& t ){
+  Trace("smt") << "SMT addToModelType(" << t << ")" << endl;
+  NodeManagerScope nms(d_nodeManager);
+  if( Options::current()->produceModels ) {
+    d_theoryEngine->getModel()->addDefineType( TypeNode::fromType( t ) );
+  }
+}
+
+void SmtEngine::addToModelFunction( Expr& e ){
+  Trace("smt") << "SMT addToModelFunction(" << e << ")" << endl;
+  NodeManagerScope nms(d_nodeManager);
+  if( Options::current()->produceModels ) {
+    d_theoryEngine->getModel()->addDefineFunction( e.getNode() );
+  }
+}
+
+
 Model* SmtEngine::getModel() throw(ModalException, AssertionException){
   Trace("smt") << "SMT getModel()" << endl;
   NodeManagerScope nms(d_nodeManager);

@@ -47,6 +47,9 @@ private:
   void initializeModelForTerm( Node n );
   //has interpreted value
   bool hasInterpretedValue( Node n );
+  /** to stream functions */
+  void toStreamFunction( Node n, std::ostream& out );
+  void toStreamType( TypeNode tn, std::ostream& out );
 public: //for Theory UF:
   //models for each UF operator
   std::map< Node, uf::UfModel > d_uf_model;

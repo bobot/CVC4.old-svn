@@ -240,8 +240,8 @@ command returns [CVC4::Command* cmd = NULL]
       if( sorts.size() > 0 ) {
         t = EXPR_MANAGER->mkFunctionType(sorts, t);
       }
-      PARSER_STATE->mkVar(name, t);
-      $cmd = new DeclareFunctionCommand(name, t); }
+      Expr func = PARSER_STATE->mkVar(name, t);
+      $cmd = new DeclareFunctionCommand(name, func, t); }
   | /* function definition */
     DEFINE_FUN_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]

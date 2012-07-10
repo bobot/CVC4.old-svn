@@ -387,6 +387,18 @@ public:
   SExpr getAssignment() throw(ModalException, AssertionException);
 
   /**
+   * Add to Model Type.  This is used for recording which types should be reported
+   * during a get-model call.
+   */
+  void addToModelType( Type& t );
+
+  /**
+   * Add to Model Function.  This is used for recording which functions should be reported
+   * during a get-model call.
+   */
+  void addToModelFunction( Expr& e );
+
+  /**
    * Get the model (only if immediately preceded by a SAT
    * or INVALID query).  Only permitted if CVC4 was built with model
    * support and produce-models is on.

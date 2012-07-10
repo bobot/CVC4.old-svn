@@ -74,6 +74,49 @@ bool TheoryModel::hasInterpretedValue( Node n ) {
   return false;
 }
 
+void TheoryModel::addDefineFunction( Node n ){
+  d_define_funcs.push_back( n );
+  d_defines.push_back( 0 );
+}
+
+void TheoryModel::addDefineType( TypeNode tn ){
+  d_define_types.push_back( tn );
+  d_defines.push_back( 1 );
+}
+
+void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
+  out << "(" << n << " ";
+  out << getRepresentative( n );
+  out << ")" << std::endl;
+}
+
+void TheoryModel::toStreamType( TypeNode tn, std::ostream& out ){
+  out << "(" << tn;
+  if( d_ra.d_type_reps.find( tn )!=d_ra.d_type_reps.end() ){
+    out << " " << d_ra.d_type_reps.size() << " (";
+    for( size_t i=0; i<d_ra.d_type_reps[tn].size(); i++ ){
+      if( i>0 ){ out << " "; }
+      out << d_ra.d_type_reps[tn][i];
+    }
+    out << ")";
+  }
+  out << ")" << std::endl;
+}
+
+void TheoryModel::toStream( std::ostream& out ){
+  int funcIndex = 0;
+  int typeIndex = 0;
+  for( size_t i=0; i<d_defines.size(); i++ ){
+    if( d_defines[i]==0 ){
+      toStreamFunction( d_define_funcs[funcIndex], out );
+      funcIndex++;
+    }else if( d_defines[i]==1 ){
+      toStreamType( d_define_types[typeIndex], out );
+      typeIndex++;
+    }
+  }
+}
+
 Node TheoryModel::getValue( TNode n ){
   Debug("model") << "TheoryModel::getValue " << n << std::endl;
 
@@ -275,10 +318,6 @@ void TheoryModel::printRepresentative( std::ostream& out, Node r ){
   }
 }
 
-void TheoryModel::toStream(std::ostream& out){
-
-}
-
 DefaultModel::DefaultModel( context::Context* c, std::string name ) : TheoryModel( c, name ){
 
 }
@@ -302,27 +341,6 @@ Node DefaultModel::getInterpretedValue( TNode n ){
       }
     }
   }
-}
-
-void DefaultModel::toStream(std::ostream& out){
-  //print everything in equality engine
-  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
-  while( !eqcs_i.isFinished() ){
-    Node eqc = (*eqcs_i);
-    Node rep = getRepresentative( eqc );
-    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
-    while( !eqc_i.isFinished() ){
-      if( (*eqc_i).getMetaKind()!=kind::metakind::CONSTANT ){
-        out << "(" << (*eqc_i) << " " << rep << ")" << std::endl;
-      }
-      ++eqc_i;
-    }
-    ++eqcs_i;
-  }
-}
-
-void IncompleteModel::toStream(std::ostream& out){
-
 }
 
 TheoryEngineModelBuilder::TheoryEngineModelBuilder( TheoryEngine* te ) : d_te( te ){

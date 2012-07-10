@@ -317,9 +317,10 @@ public:
 
 class CVC4_PUBLIC DeclareFunctionCommand : public DeclarationDefinitionCommand {
 protected:
+  Expr d_func;
   Type d_type;
 public:
-  DeclareFunctionCommand(const std::string& id, Type type) throw();
+  DeclareFunctionCommand(const std::string& id, Expr func, Type type) throw();
   ~DeclareFunctionCommand() throw() {}
   Type getType() const throw();
   void invoke(SmtEngine* smtEngine) throw();

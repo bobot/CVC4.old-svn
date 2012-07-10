@@ -75,6 +75,18 @@ bool FirstOrderModel::hasInterpretedValue( Node n ){
   return n.getKind()==APPLY_UF || type.isFunction() || type.isPredicate();
 }
 
+void FirstOrderModel::toStreamFunction( Node n, std::ostream& out ){
+  if( d_uf_model.find( n )!=d_uf_model.end() ){
+    d_uf_model[n].toStream( out );
+  }else{
+    TheoryModel::toStreamFunction( n, out );
+  }
+}
+
+void FirstOrderModel::toStreamType( TypeNode tn, std::ostream& out ){
+  TheoryModel::toStreamType( tn, out );
+}
+
 Node FirstOrderModel::getInterpretedValue( TNode n ){
   Debug("fo-model") << "get interpreted value " << n << std::endl;
   TypeNode type = n.getType();
@@ -96,6 +108,7 @@ TermDb* FirstOrderModel::getTermDatabase(){
 }
 
 void FirstOrderModel::toStream(std::ostream& out){
+  TheoryModel::toStream( out );
 #if 0
   out << "---Current Model---" << std::endl;
   out << "Representatives: " << std::endl;
@@ -105,7 +118,7 @@ void FirstOrderModel::toStream(std::ostream& out){
     it->second.toStream( out );
     out << std::endl;
   }
-#else
+#elif 0
   d_ra.toStream( out );
   //print everything not related to UF in equality engine
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );

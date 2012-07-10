@@ -64,7 +64,18 @@ protected:
   virtual bool hasInterpretedValue( Node n );
   /** add term */
   virtual void addTerm( Node n ) {}
+private:
+  /** definitions */
+  std::vector< Node > d_define_funcs;
+  std::vector< TypeNode > d_define_types;
+  std::vector< int > d_defines;
+protected:
+  /** to stream functions */
+  virtual void toStreamFunction( Node n, std::ostream& out );
+  virtual void toStreamType( TypeNode tn, std::ostream& out );
 public:
+  TheoryModel( context::Context* c, std::string name );
+  virtual ~TheoryModel(){}
   /** equality engine containing all known equalities/disequalities */
   eq::EqualityEngine d_equalityEngine;
   /** map of representatives of equality engine to used representatives in representative set */
@@ -75,8 +86,10 @@ public:
   Node d_true;
   Node d_false;
 public:
-  TheoryModel( context::Context* c, std::string name );
-  virtual ~TheoryModel(){}
+  /** add defined function */
+  void addDefineFunction( Node n );
+  /** add defined type */
+  void addDefineType( TypeNode tn );
   /**
    * Get value function.  This should be called only after a ModelBuilder has called buildModel(...)
    * on this model.
@@ -117,8 +130,6 @@ public:
   virtual ~DefaultModel(){}
 public:
   Node getInterpretedValue( TNode n );
-  /** to stream function */
-  void toStream( std::ostream& out );
 };
 
 //incomplete model class: does not extend model
@@ -129,8 +140,6 @@ public:
   virtual ~IncompleteModel(){}
 public:
   Node getInterpretedValue( TNode n ) { return Node::null(); }
-  /** to stream function */
-  void toStream( std::ostream& out );
 };
 
 
