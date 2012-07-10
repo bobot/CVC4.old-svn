@@ -183,6 +183,12 @@ public:
 public:
   /** set value preference */
   void setValuePreference( Node f, Node n, bool isPro );
+private:
+  //helper for to ITE function.
+  static Node toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode );
+public:
+  /** to ITE function */
+  static Node toIte( Node fm_node, std::vector< Node >& args ) { return toIte2( fm_node, args, 0, Node::null() ); }
 };
 
 //this class stores temporary information useful to model engine for constructing model

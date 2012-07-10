@@ -78,6 +78,8 @@ bool FirstOrderModel::hasInterpretedValue( Node n ){
 void FirstOrderModel::toStreamFunction( Node n, std::ostream& out ){
   if( d_uf_model.find( n )!=d_uf_model.end() ){
     d_uf_model[n].toStream( out );
+  //}else if( d_array_model.find( n )!=d_array_model.end() ){
+  //  out << "(" << n << " " << d_array_model[n] << ")" << std::endl;
   }else{
     TheoryModel::toStreamFunction( n, out );
   }

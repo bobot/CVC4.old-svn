@@ -474,6 +474,29 @@ void UfModel::toStream(std::ostream& out){
   //}
 }
 
+Node UfModel::toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode ){
+  if( fm_node.getKind()==FUNCTION_MODEL ){
+    if( fm_node[0].getKind()==FUNCTION_CASE_SPLIT ){
+      Node retNode;
+      Node childDefaultNode = defaultNode;
+      //get new default
+      if( fm_node.getNumChildren()==2 ){
+        childDefaultNode = toIte2( fm_node[1], args, index+1, defaultNode );
+      }
+      retNode = childDefaultNode;
+      for( int i=(int)fm_node[0].getNumChildren()-1; i>=0; i-- ){
+        Node childNode = toIte2( fm_node[0][1], args, index+1, childDefaultNode );
+        retNode = NodeManager::currentNM()->mkNode( ITE, args[index].eqNode( fm_node[0][0] ), childNode, retNode );
+      }
+      return retNode;
+    }else{
+      return toIte2( fm_node[0], args, index+1, defaultNode );
+    }
+  }else{
+    return fm_node;
+  }
+}
+
 
 void UfModelPreferenceData::setValuePreference( Node f, Node n, Node r, bool isPro ){
   if( std::find( d_values.begin(), d_values.end(), r )==d_values.end() ){

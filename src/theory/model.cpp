@@ -86,14 +86,14 @@ void TheoryModel::addDefineType( TypeNode tn ){
 
 void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
   out << "(" << n << " ";
-  out << getRepresentative( n );
+  out << getValue( n );
   out << ")" << std::endl;
 }
 
 void TheoryModel::toStreamType( TypeNode tn, std::ostream& out ){
   out << "(" << tn;
   if( d_ra.d_type_reps.find( tn )!=d_ra.d_type_reps.end() ){
-    out << " " << d_ra.d_type_reps.size() << " (";
+    out << " " << d_ra.d_type_reps[tn].size() << " (";
     for( size_t i=0; i<d_ra.d_type_reps[tn].size(); i++ ){
       if( i>0 ){ out << " "; }
       out << d_ra.d_type_reps[tn][i];
