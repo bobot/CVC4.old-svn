@@ -323,7 +323,7 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
         depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
       }
     }else{
-#if 1
+#if 0
       //for select, pre-process read over writes
       if( n.getKind()==SELECT ){
         Node selIndex = evaluateTerm( n[1], depIndex );
@@ -390,7 +390,8 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
         if( d_model->d_array_model.find( n[0] )!=d_model->d_array_model.end() ){
           //consult the default value for the array DO_THIS
           //val = Rewriter::rewrite( val );
-          val = d_model->d_array_model[ n[0] ];
+          //val = d_model->d_array_model[ n[0] ];
+          val = Rewriter::rewrite( val );
         }else{
           val = Rewriter::rewrite( val );
         }
