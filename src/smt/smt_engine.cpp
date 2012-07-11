@@ -608,6 +608,9 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
 
 void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
   throw(BadOptionException, ModalException) {
+
+  NodeManagerScope nms(d_nodeManager);
+
   Trace("smt") << "SMT setInfo(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
     if(key == ":status") {
@@ -664,6 +667,9 @@ void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
 
 CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
   throw(BadOptionException) {
+
+  NodeManagerScope nms(d_nodeManager);
+
   Trace("smt") << "SMT getInfo(" << key << ")" << endl;
   if(key == "all-statistics") {
     vector<SExpr> stats;
