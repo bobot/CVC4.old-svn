@@ -362,7 +362,7 @@ public:
   }
 };
 
-class LegalOpTest: public unary_function<TNode,bool> {
+class LegalOpTest/*: public unary_function<TNode,bool>*/ {
   Node d_op;
 public:
   inline LegalOpTest(Node op): d_op(op){}
@@ -375,7 +375,7 @@ public:
   };
 };
 
-class LegalKindTest : public unary_function<TNode,bool> {
+class LegalKindTest/* : public unary_function<TNode,bool>*/ {
   Kind d_kind;
 public:
   inline LegalKindTest(Kind kind): d_kind(kind){}
@@ -386,7 +386,7 @@ public:
   };
 };
 
-class LegalTypeTest : public unary_function<TNode,bool> {
+class LegalTypeTest/* : public unary_function<TNode,bool>*/ {
   TypeNode d_type;
 public:
   inline LegalTypeTest(TypeNode type): d_type(type){}
@@ -397,7 +397,7 @@ public:
   };
 };
 
-class LegalTest : public unary_function<TNode,bool> {
+class LegalTest/* : public unary_function<TNode,bool>*/ {
 public:
   inline bool operator() (TNode n) {
     return CandidateGenerator::isLegalCandidate(n);
@@ -776,7 +776,7 @@ private:
   /* generator */
   typedef ApplyMatcher AuxMatcher3;
 
-  class EqTest : public unary_function<Node,bool> {
+  class EqTest/* : public unary_function<Node,bool>*/ {
     TypeNode d_type;
   public:
     inline EqTest(TypeNode type): d_type(type){};

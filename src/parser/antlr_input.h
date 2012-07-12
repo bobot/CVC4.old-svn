@@ -130,8 +130,12 @@ class AntlrInput : public Input {
   static void lexerError(pANTLR3_BASE_RECOGNIZER recognizer);
 
   /** Returns the next available lexer token from the current input stream. */
+  /* - auxillary function */
   static pANTLR3_COMMON_TOKEN
   nextTokenStr (pANTLR3_TOKEN_SOURCE toksource);
+  /* - main function */
+  static pANTLR3_COMMON_TOKEN
+  nextToken (pANTLR3_TOKEN_SOURCE toksource);
 
   /* Since we own d_tokenStream and it needs to be freed, we need to prevent
    * copy construction and assignment.
@@ -181,6 +185,9 @@ public:
 
   /** Retrieve the remaining text in this input. */
   std::string getUnparsedText();
+
+  /** Get the ANTLR3 lexer for this input. */
+  pANTLR3_LEXER getAntlr3Lexer(){ return d_lexer; };
 
 protected:
   /** Create an input. This input takes ownership of the given input stream,
@@ -244,7 +251,9 @@ inline std::string AntlrInput::tokenText(pANTLR3_COMMON_TOKEN token) {
 inline std::string AntlrInput::tokenTextSubstr(pANTLR3_COMMON_TOKEN token,
                                                size_t index,
                                                size_t n) {
+
   ANTLR3_MARKER start = token->getStartIndex(token);
+  // Its the last character of the token (not the one just after)
   ANTLR3_MARKER end = token->getStopIndex(token);
   Assert( start < end );
   if( index > (size_t) end - start ) {
@@ -253,7 +262,7 @@ inline std::string AntlrInput::tokenTextSubstr(pANTLR3_COMMON_TOKEN token,
     throw std::invalid_argument(ss.str());
   }
   start += index;
-  if( n==0 || n >= (size_t) end - start ) {
+  if( n==0 || n > (size_t) end - start ) {
     return std::string( (const char *)start, end-start+1 );
   } else {
     return std::string( (const char *)start, n );

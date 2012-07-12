@@ -230,6 +230,18 @@ public:
     return d_queue.collectionModeContains(var);
   }
 
+  void reduceQueue(){
+    d_queue.reduce();
+  }
+
+  ArithPriorityQueue::const_iterator queueBegin() const{
+    return d_queue.begin();
+  }
+
+  ArithPriorityQueue::const_iterator queueEnd() const{
+    return d_queue.end();
+  }
+
 private:
 
   /** Reports a conflict to on the output channel. */
@@ -259,7 +271,7 @@ private:
 
 
 
-  /** These fields are designed to be accessable to TheoryArith methods. */
+  /** These fields are designed to be accessible to TheoryArith methods. */
   class Statistics {
   public:
     IntStat d_statUpdateConflicts;

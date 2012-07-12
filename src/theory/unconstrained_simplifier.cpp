@@ -523,7 +523,7 @@ void UnconstrainedSimplifier::processUnconstrained()
           }
           break;
 
-        // Array store - if both store and value are uncosntrained, so is resulting store
+        // Array store - if both store and value are unconstrained, so is resulting store
         case kind::STORE:
           if (((parent[0] == current &&
                 d_unconstrained.find(parent[2]) != d_unconstrained.end()) ||
@@ -694,7 +694,7 @@ void UnconstrainedSimplifier::processAssertions(vector<Node>& assertions)
     processUnconstrained();
     //    d_substitutions.print(Message.getStream());
     for (it = assertions.begin(); it != iend; ++it) {
-      (*it) = d_substitutions.apply(*it);
+      (*it) = Rewriter::rewrite(d_substitutions.apply(*it));
     }
   }
 

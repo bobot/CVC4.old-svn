@@ -463,7 +463,7 @@ void StrongSolverTheoryUf::ConflictFind::getDisequalitiesToRegions( int ri, std:
 
 void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& clique, OutputChannel* out ){
   Assert( d_cardinality>0 );
-  while( clique.size()>long(d_cardinality+1) ){
+  while( clique.size()>size_t(d_cardinality+1) ){
     clique.pop_back();
   }
   //found a clique
@@ -490,7 +490,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
       conflict.push_back( d_disequalities[i] );
       nodesWithinRep[r1][ d_disequalities[i][0][0] ] = true;
       nodesWithinRep[r2][ d_disequalities[i][0][1] ] = true;
-      if( conflict.size()==((int)clique.size()*( (int)clique.size()-1 )/2) ){
+      if( conflict.size()==(clique.size()*( clique.size()-1 )/2) ){
         break;
       }
     }
@@ -752,8 +752,8 @@ bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out )
                 }
                 Assert( children.size()>1 );
                 Node lem = NodeManager::currentNM()->mkNode( OR, children );
-                Debug( "uf-ss-lemma" ) << "*** Diambiguate lemma : " << lem << std::endl;
-                //Notice() << "*** Diambiguate lemma : " << lem << std::endl;
+                Debug( "uf-ss-lemma" ) << "*** Disambiguate lemma : " << lem << std::endl;
+                //Notice() << "*** Disambiguate lemma : " << lem << std::endl;
                 out->lemma( lem );
                 d_term_amb[ eq ] = false;
                 lemmaAdded = true;

@@ -207,6 +207,7 @@ public:
 
 class PcDispatcher{
 public:
+  virtual ~PcDispatcher(){};
   /* Send the node to the dispatcher */
   virtual void send(SetNode & s) = 0;
 };
@@ -280,6 +281,7 @@ public:
 
 class PpDispatcher{
 public:
+  virtual ~PpDispatcher(){};
   /* Send the node to the dispatcher */
   virtual void send(SetNode & s1, SetNode & s2, SetNode & sinter) = 0;
 };

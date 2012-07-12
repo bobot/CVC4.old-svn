@@ -46,7 +46,7 @@ class CandidateGenerator
 {
 public:
   CandidateGenerator(){}
-  ~CandidateGenerator(){}
+  virtual ~CandidateGenerator(){};
 
   /** Get candidates functions.  These set up a context to get all match candidates.
       cg->reset( eqc );

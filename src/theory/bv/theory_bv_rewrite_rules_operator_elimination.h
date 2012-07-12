@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file theory_bv_rewrite_rules_core.h
+/*! \file theory_bv_rewrite_rules_operator_elimination.h
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: none
- ** Minor contributors (to current version): 
+ ** Major contributors: barrett
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -65,7 +65,7 @@ bool RewriteRule<SgtEliminate>::applies(TNode node) {
 
 template<>
 Node RewriteRule<SgtEliminate>::apply(TNode node) {
-  BVDebug("bv-rewrite") << "RgewriteRule<UgtEliminate>(" << node << ")" << std::endl;
+  BVDebug("bv-rewrite") << "RewriteRule<SgtEliminate>(" << node << ")" << std::endl;
   TNode a = node[0];
   TNode b = node[1];
   Node result = utils::mkNode(kind::BITVECTOR_SLT, b, a);
@@ -221,7 +221,8 @@ Node RewriteRule<RotateRightEliminate>::apply(TNode node) {
 
 template<>
 bool RewriteRule<NandEliminate>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_NAND);
+  return (node.getKind() == kind::BITVECTOR_NAND &&
+          node.getNumChildren() == 2);
 }
 
 template<>
@@ -236,7 +237,8 @@ Node RewriteRule<NandEliminate>::apply(TNode node) {
 
 template<>
 bool RewriteRule<NorEliminate>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_NOR);
+  return (node.getKind() == kind::BITVECTOR_NOR &&
+          node.getNumChildren() == 2);
 }
 
 template<>
@@ -251,7 +253,8 @@ Node RewriteRule<NorEliminate>::apply(TNode node) {
 
 template<>
 bool RewriteRule<XnorEliminate>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_XNOR);
+  return (node.getKind() == kind::BITVECTOR_XNOR &&
+          node.getNumChildren() == 2);
 }
 
 template<>

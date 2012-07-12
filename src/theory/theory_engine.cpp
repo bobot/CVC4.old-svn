@@ -19,10 +19,13 @@
 #include <vector>
 #include <list>
 
+#include "decision/decision_engine.h"
+
 #include "expr/attribute.h"
 #include "expr/node.h"
 #include "expr/node_builder.h"
 #include "util/options.h"
+#include "util/lemma_output_channel.h"
 
 #include "theory/theory.h"
 #include "theory/theory_engine.h"
@@ -719,6 +722,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
     // If this is an atom, we preprocess its terms with the theory ppRewriter
     if (Theory::theoryOf(current) != THEORY_BOOL) {
       d_ppCache[current] = ppTheoryRewrite(current);
+      Assert(Rewriter::rewrite(d_ppCache[current]) == d_ppCache[current]);
       continue;
     }
 
@@ -735,6 +739,9 @@ Node TheoryEngine::preprocess(TNode assertion) {
       }
       // Mark the substitution and continue
       Node result = builder;
+      if (result != current) {
+        result = Rewriter::rewrite(result);
+      }
       Debug("theory::internal") << "TheoryEngine::preprocess(" << assertion << "): setting " << current << " -> " << result << endl;
       d_ppCache[current] = result;
       toVisit.pop_back();
@@ -888,19 +895,23 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
     }
   }
 
-  // Normalize to lhs < rhs
+  // Normalize to lhs < rhs if not a sat literal
   Assert(atom.getKind() == kind::EQUAL);
   Assert(atom[0] != atom[1]);
+  
   Node normalizedAtom = atom;
-  if (atom[0] > atom[1]) {
-    normalizedAtom = atom[1].eqNode(atom[0]);
-  }
+  if (!d_propEngine->isSatLiteral(normalizedAtom)) {
+    Node reverse = atom[1].eqNode(atom[0]);
+    if (d_propEngine->isSatLiteral(reverse) || atom[0] > atom[1]) {
+      normalizedAtom = reverse;
+    }  
+  } 
   Node normalizedAssertion = polarity ? normalizedAtom : normalizedAtom.notNode();
 
   // Try and assert (note that we assert the non-normalized one)
   if (markPropagation(normalizedAssertion, assertion, toTheoryId, fromTheoryId)) {
     // Check if has been pre-registered with the theory
-    bool preregistered = d_propEngine->isSatLiteral(normalizedAssertion) && Theory::theoryOf(normalizedAssertion) == toTheoryId;
+    bool preregistered = d_propEngine->isSatLiteral(normalizedAssertion) && Theory::theoryOf(normalizedAtom) == toTheoryId;
     // Assert away
     theoryOf(toTheoryId)->assertFact(normalizedAssertion, preregistered);
     d_factsAsserted = true;
@@ -1052,7 +1063,7 @@ static Node mkExplanation(const std::vector<NodeTheoryPair>& explanation) {
 
 
 Node TheoryEngine::getExplanation(TNode node) {
-  Debug("theory::explain") << "TheoryEngine::getExplanation(" << node << "): current proagation index = " << d_propagationMapTimestamp << std::endl;
+  Debug("theory::explain") << "TheoryEngine::getExplanation(" << node << "): current propagation index = " << d_propagationMapTimestamp << std::endl;
 
   bool polarity = node.getKind() != kind::NOT;
   TNode atom = polarity ? node : node[0];
@@ -1162,7 +1173,7 @@ void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
 Node TheoryEngine::ppSimpITE(TNode assertion)
 {
   Node result = d_iteSimplifier.simpITE(assertion);
-  result = d_iteSimplifier.simplifyWithCare(result);
+  result = d_iteSimplifier.simplifyWithCare(Rewriter::rewrite(result));
   result = Rewriter::rewrite(result);
   return result;
 }
@@ -1227,7 +1238,7 @@ void TheoryEngine::getExplanation(std::vector<NodeTheoryPair>& explanationVector
       explanation = theoryOf(toExplain.theory)->explain(toExplain.node);
     }
     Debug("theory::explain") << "TheoryEngine::explain(): got explanation " << explanation << " got from " << toExplain.theory << std::endl;
-    Assert(explanation != toExplain.node, "wansn't sent to you, so why are you explaining it trivially");
+    Assert(explanation != toExplain.node, "wasn't sent to you, so why are you explaining it trivially");
     // Mark the explanation
     NodeTheoryPair newExplain(explanation, toExplain.theory, toExplain.timestamp);
     explanationVector.push_back(newExplain);

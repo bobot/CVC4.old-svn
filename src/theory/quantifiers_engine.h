@@ -193,6 +193,7 @@ public:
   struct RRCreateCandidateGenerator:
     std::unary_function<QuantifiersEngine*, rrinst::CandidateGenerator*>{
     virtual rrinst::CandidateGenerator* operator()(QuantifiersEngine*) = 0;
+    virtual ~RRCreateCandidateGenerator (){};
   };
 private:
   RRCreateCandidateGenerator* d_rr_gen_classes[theory::THEORY_LAST];

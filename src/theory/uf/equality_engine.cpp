@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file equality_engine_impl.h
+/*! \file equality_engine.cpp
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): taking, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -1659,7 +1659,11 @@ void EqualityEngine::getDisequalities(bool allowConstants, EqualityNodeId classI
         }
         // Representative of the other member
         EqualityNodeId toCompareRep = getEqualityNode(toCompare).getFind();
-        Assert(toCompareRep != classId, "Otherwise we are in conflict");
+        if (toCompareRep == classId) {
+          // We're in conflict, so we will send it out from merge
+          out.clear();
+          return;
+        }
         // Check if we already have this one
         if (alreadyVisited.count(toCompareRep) == 0) {
           // Mark as visited
@@ -1698,7 +1702,7 @@ bool EqualityEngine::propagateTriggerTermDisequalities(Theory::Set tags, Trigger
 
   // This is the class trigger set
   const TriggerTermSet& triggerSet = getTriggerTermSet(triggerSetRef); 
-  // Go throught the disequalities and notify
+  // Go through the disequalities and notify
   TaggedEqualitiesSet::const_iterator it = disequalitiesToNotify.begin();
   TaggedEqualitiesSet::const_iterator it_end = disequalitiesToNotify.end();
   for (; !d_done && it != it_end; ++ it) {

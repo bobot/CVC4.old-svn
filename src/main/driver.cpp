@@ -11,9 +11,9 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Driver for (sequential) CVC4 executable
+ ** \brief Driver for (sequential) CVC4 executable (cvc4)
  **
- ** Driver for (sequential) CVC4 executable.
+ ** Driver for (sequential) CVC4 executable (cvc4).
  **/
 
 #include <cstdlib>
@@ -153,24 +153,8 @@ int runCvc4(int argc, char* argv[], Options& options) {
     }
   }
 
-  // Create the expression manager
-  ExprManager exprMgr(options);
-
-  // Create the SmtEngine
-  SmtEngine smt(&exprMgr);
-
-  // signal handlers need access
-  pStatistics = smt.getStatisticsRegistry();
-
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
-
-  // Timer statistic
-  RegisterStatistic statTotalTime(exprMgr, &s_totalTime);
-
-  // Filename statistics
-  ReferenceStat< const char* > s_statFilename("filename", filename);
-  RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
 
   if(options.inputLanguage == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
@@ -182,6 +166,9 @@ int runCvc4(int argc, char* argv[], Options& options) {
         options.inputLanguage = language::input::LANG_SMTLIB_V2;
       } else if(len >= 4 && !strcmp(".smt", filename + len - 4)) {
         options.inputLanguage = language::input::LANG_SMTLIB;
+      } else if((len >= 2 && !strcmp(".p", filename + len - 2))
+                || (len >= 5 && !strcmp(".tptp", filename + len - 5))) {
+        options.inputLanguage = language::input::LANG_TPTP;
       } else if(( len >= 4 && !strcmp(".cvc", filename + len - 4) )
                 || ( len >= 5 && !strcmp(".cvc4", filename + len - 5) )) {
         options.inputLanguage = language::input::LANG_CVC4;
@@ -225,6 +212,15 @@ int runCvc4(int argc, char* argv[], Options& options) {
                      << Expr::printtypes(false);
   }
 
+  // important even for muzzled builds (to get result output right)
+  *options.out << Expr::setlanguage(options.outputLanguage);
+
+  // Create the expression manager
+  ExprManager exprMgr(options);
+
+  // Create the SmtEngine
+  SmtEngine smt(&exprMgr);
+
   Parser* replayParser = NULL;
   if( options.replayFilename != "" ) {
     ParserBuilder replayParserBuilder(&exprMgr, options.replayFilename, options);
@@ -242,8 +238,15 @@ int runCvc4(int argc, char* argv[], Options& options) {
     *options.replayLog << Expr::setlanguage(options.outputLanguage) << Expr::setdepth(-1);
   }
 
-  // important even for muzzled builds (to get result output right)
-  *options.out << Expr::setlanguage(options.outputLanguage);
+  // signal handlers need access
+  pStatistics = smt.getStatisticsRegistry();
+
+  // Timer statistic
+  RegisterStatistic statTotalTime(exprMgr, &s_totalTime);
+
+  // Filename statistics
+  ReferenceStat< const char* > s_statFilename("filename", filename);
+  RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
 
   // Parse and execute commands until we are done
   Command* cmd;
@@ -283,7 +286,7 @@ int runCvc4(int argc, char* argv[], Options& options) {
       // have the replay parser use the file's declarations
       replayParser->useDeclarationsFrom(parser);
     }
-    while((cmd = parser->nextCommand())) {
+    while((cmd = parser->nextCommand()) && status) {
       if(dynamic_cast<QuitCommand*>(cmd) != NULL) {
         delete cmd;
         break;

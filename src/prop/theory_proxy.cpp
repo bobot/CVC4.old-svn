@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file sat.cpp
+/*! \file theory_proxy.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: dejan, taking, mdeters
- ** Minor contributors (to current version): kshitij
+ ** Major contributors: lianah, dejan, kshitij, mdeters
+ ** Minor contributors (to current version): barrett, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -25,7 +25,8 @@
 #include "theory/rewriter.h"
 #include "expr/expr_stream.h"
 #include "decision/decision_engine.h"
-
+#include "util/lemma_input_channel.h"
+#include "util/lemma_output_channel.h"
 
 namespace CVC4 {
 namespace prop {
@@ -80,19 +81,20 @@ void TheoryProxy::enqueueTheoryLiteral(const SatLiteral& l) {
 
 SatLiteral TheoryProxy::getNextDecisionRequest(bool &stopSearch) {
   TNode n = d_theoryEngine->getNextDecisionRequest();
-  if(not n.isNull())
+  if(not n.isNull()) {
     return d_cnfStream->getLiteral(n);
-  
+  }
+
   // If theory doesn't give us a deicsion ask the decision engine. It
-  // may return in undefSatLiteral in which case the sat solver figure
-  // it out something
+  // may return in undefSatLiteral in which case the sat solver uses
+  // whatever default heuristic it has.
   Assert(d_decisionEngine != NULL);
   Assert(stopSearch != true);
   SatLiteral ret = d_decisionEngine->getNext(stopSearch);
   if(stopSearch) {
     Trace("decision") << "  ***  Decision Engine stopped search *** " << std::endl;
   }
-  return ret;
+  return Options::current()->decisionOptions.stopOnly ? undefSatLiteral : ret;
 }
 
 bool TheoryProxy::theoryNeedCheck() const {

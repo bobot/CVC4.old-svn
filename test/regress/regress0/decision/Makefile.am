@@ -18,7 +18,6 @@ TESTS =	\
 	quant-Arrays_Q1-noinfer.smt2 \
 	quant-ex1.smt2 \
 	quant-ex1.disable_miniscope.smt2 \
-	quant-symmetric_unsat_7.smt2 \
 	uflia-error0.smt2 \
 	uflia-xs-09-16-3-4-1-5.smt \
 	uflia-xs-09-16-3-4-1-5.delta03.smt \
@@ -29,9 +28,12 @@ TESTS =	\
 	error122.smt \
 	error122.delta01.smt \
 	error3.smt \
-	error3.delta01.smt
+	error3.delta01.smt \
+	pp-regfile.delta01.smt \
+	pp-regfile.delta02.smt
 
-# Incorrect answers:
+# Correct, but takes too long:
+#	pp-regfile.smt \
 #
 
 EXTRA_DIST = $(TESTS)

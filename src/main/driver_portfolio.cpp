@@ -1,3 +1,21 @@
+/*********************                                                        */
+/*! \file driver_portfolio.cpp
+ ** \verbatim
+ ** Original author: kshitij
+ ** Major contributors: taking, mdeters
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief Driver for portfolio CVC4 executable (pcvc4)
+ **
+ ** Driver for portfolio CVC4 executable (pcvc4).
+ **/
+
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -27,6 +45,8 @@
 #include "util/dump.h"
 #include "util/result.h"
 #include "util/stats.h"
+#include "util/lemma_input_channel.h"
+#include "util/lemma_output_channel.h"
 
 #include "expr/pickler.h"
 #include "util/channel.h"
@@ -261,6 +281,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
         options.inputLanguage = language::input::LANG_SMTLIB_V2;
       } else if(len >= 4 && !strcmp(".smt", filename + len - 4)) {
         options.inputLanguage = language::input::LANG_SMTLIB;
+      } else if((len >= 2 && !strcmp(".p", filename + len - 2))
+                || (len >= 5 && !strcmp(".tptp", filename + len - 5))) {
+        options.inputLanguage = language::input::LANG_TPTP;
       } else if(( len >= 4 && !strcmp(".cvc", filename + len - 4) )
                 || ( len >= 5 && !strcmp(".cvc4", filename + len - 5) )) {
         options.inputLanguage = language::input::LANG_CVC4;
@@ -783,10 +806,10 @@ void sharingManager(int numThreads,
     }
   } /* end of infinite while */
 
-  Trace("interrupt") << "sharing thread interuppted, interrupting all smtEngines" << std::endl;
+  Trace("interrupt") << "sharing thread interrupted, interrupting all smtEngines" << std::endl;
 
   for(int t = 0; t < numThreads; ++t) {
-    Trace("interrupt") << "Interuppting thread #" << t << std::endl;
+    Trace("interrupt") << "Interrupting thread #" << t << std::endl;
     try{
       smts[t]->interrupt();
     }catch(ModalException &e){
@@ -795,5 +818,5 @@ void sharingManager(int numThreads,
     }
   }
 
-  Trace("sharing") << "sharing: Interuppted, exiting." << std::endl;
+  Trace("sharing") << "sharing: Interrupted, exiting." << std::endl;
 }
