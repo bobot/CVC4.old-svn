@@ -201,7 +201,7 @@ public:
   /** constructors */
   ApplyMatcher( Node pat, QuantifiersEngine* qe);
   /** destructor */
-  ~ApplyMatcher(){}
+  ~ApplyMatcher(){/*TODO delete dandling pointers? */}
   /** reset instantiation round (call this whenever equivalence classes have changed) */
   void resetInstantiationRound( QuantifiersEngine* qe );
   /** reset the term to match */

@@ -534,21 +534,22 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
 
   };
 
-  // //Verify that this instantiation can't immediately fire another rule
-  // for(RewriteRule::BodyMatch::const_iterator p = rule->body_match.begin();
-  //     p != rule->body_match.end(); ++p){
-  //   RewriteRule * r = (*p).second;
-  //   // Debug("rewriterules") << "  rule: " << r << std::endl;
-  //   // Use trigger2 since we can be in check
-  //   Trigger & tr = r->trigger_for_body_match;
-  //   InstMatch im;
-  //   TNode m = inst->substNode(*this,(*p).first, cache);
-  //   tr.getMatch(m,im);
-  //   if(!im.empty()){
-  //     im.d_matched = m;
-  //     addMatchRuleTrigger(r, im);
-  //   }
-  // }
+  //Verify that this instantiation can't immediately fire another rule
+  for(RewriteRule::BodyMatch::const_iterator p = rule->body_match.begin();
+      p != rule->body_match.end(); ++p){
+    RewriteRule * r = (*p).second;
+    // Debug("rewriterules") << "  rule: " << r << std::endl;
+    // Use trigger2 since we can be in check
+    ApplyMatcher * tr = r->trigger_for_body_match;
+    Assert(tr != NULL);
+    tr->resetInstantiationRound(getQuantifiersEngine());
+    InstMatch im;
+    TNode m = inst->substNode(*this,(*p).first, cache);
+    if( tr->reset(m,im,getQuantifiersEngine()) ){
+      im.d_matched = m;
+      addMatchRuleTrigger(r, im);
+    }
+  }
 };
 
 void TheoryRewriteRules::substGuards(const RuleInst *inst,
