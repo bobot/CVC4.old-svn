@@ -69,6 +69,21 @@ d_active( c ){
   //the model object
   d_model = new quantifiers::FirstOrderModel( this, c, "FirstOrderModel" );
 
+  //add quantifiers modules
+  if( !Options::current()->finiteModelFind || Options::current()->fmfInstEngine ){
+    //the instantiation must set incomplete flag unless finite model finding is turned on
+    d_inst_engine = new quantifiers::InstantiationEngine( this, !Options::current()->finiteModelFind );
+    d_modules.push_back(  d_inst_engine );
+  }else{
+    d_inst_engine = NULL;
+  }
+  if( Options::current()->finiteModelFind ){
+    d_model_engine = new quantifiers::ModelEngine( this );
+    d_modules.push_back( d_model_engine );
+  }else{
+    d_model_engine = NULL;
+  }
+
   //options
   d_optInstCheckDuplicate = true;
   d_optInstMakeRepresentative = true;
@@ -92,23 +107,6 @@ OutputChannel& QuantifiersEngine::getOutputChannel(){
 /** get default valuation for the quantifiers engine */
 Valuation& QuantifiersEngine::getValuation(){
   return d_te->getTheory( THEORY_QUANTIFIERS )->getValuation();
-}
-
-void QuantifiersEngine::addComponents(){
-  //add quantifiers modules
-  if( !Options::current()->finiteModelFind || Options::current()->fmfInstEngine ){
-    //the instantiation must set incomplete flag unless finite model finding is turned on
-    d_inst_engine = new quantifiers::InstantiationEngine( this, !Options::current()->finiteModelFind );
-    d_modules.push_back(  d_inst_engine );
-  }else{
-    d_inst_engine = NULL;
-  }
-  if( Options::current()->finiteModelFind ){
-    d_model_engine = new quantifiers::ModelEngine( this );
-    d_modules.push_back( d_model_engine );
-  }else{
-    d_model_engine = NULL;
-  }
 }
 
 void QuantifiersEngine::check( Theory::Effort e ){

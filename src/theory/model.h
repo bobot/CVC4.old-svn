@@ -60,8 +60,6 @@ class TheoryModel : public Model
 {
   friend class TheoryEngineModelBuilder;
 protected:
-  /** true: use interpretation in model, false: use theory interpretation */
-  virtual bool hasInterpretedValue( Node n );
   /** add term */
   virtual void addTerm( Node n ) {}
 private:
@@ -148,11 +146,10 @@ class TheoryEngineModelBuilder : public ModelBuilder
 protected:
   /** pointer to theory engine */
   TheoryEngine* d_te;
-  /** use constants for representatives */
-  bool d_useConstantReps;
+  /** choose representative */
+  virtual Node chooseRepresentative( TheoryModel* tm, Node eqc );
   /** representatives that are current not set */
-  std::vector< Node > d_unresolvedReps;
-  virtual void processBuildModel( TheoryModel* m );
+  virtual void processBuildModel( TheoryModel* tm );
 public:
   TheoryEngineModelBuilder( TheoryEngine* te );
   virtual ~TheoryEngineModelBuilder(){}

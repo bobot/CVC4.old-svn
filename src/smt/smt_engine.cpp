@@ -303,8 +303,6 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
     d_theoryEngine->addTheory<TheoryTraits<THEORY>::theory_class>(THEORY);
   CVC4_FOR_EACH_THEORY;
 
-  d_theoryEngine->addComponents();
-
   // global push/pop around everything, to ensure proper destruction
   // of context-dependent data structures
   d_userContext->push();

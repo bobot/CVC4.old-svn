@@ -43,6 +43,8 @@ protected:
   QuantifiersEngine* d_qe;
   //map from operators to model preference data
   std::map< Node, uf::UfModelPreferenceData > d_uf_prefs;
+  /** choose representative */
+  Node chooseRepresentative( TheoryModel* tm, Node eqc );
   /** use constants for representatives */
   void processBuildModel( TheoryModel* m );
   //analyze quantifiers

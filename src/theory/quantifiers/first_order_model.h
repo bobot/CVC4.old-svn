@@ -38,15 +38,13 @@ namespace quantifiers{
 
 class TermDb;
 
-class FirstOrderModel : public TheoryModel
+class FirstOrderModel : public DefaultModel
 {
 private:
   //pointer to term database
   TermDb* d_term_db;
   //for initialize model
   void initializeModelForTerm( Node n );
-  //has interpreted value
-  bool hasInterpretedValue( Node n );
   /** to stream functions */
   void toStreamFunction( Node n, std::ostream& out );
   void toStreamType( TypeNode tn, std::ostream& out );

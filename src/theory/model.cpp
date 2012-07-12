@@ -53,12 +53,14 @@ void RepSet::toStream(std::ostream& out){
 #else
   for( std::map< TypeNode, std::vector< Node > >::iterator it = d_type_reps.begin(); it != d_type_reps.end(); ++it ){
     if( !it->first.isFunction() && !it->first.isPredicate() ){
-      out << "(" << it->first << " " << it->second.size() << " (";
+      out << "(" << it->first << " " << it->second.size();
+      out << " (";
       for( int i=0; i<(int)it->second.size(); i++ ){
         if( i>0 ){ out << " "; }
         out << it->second[i];
       }
-      out << "))" << std::endl;
+      out << ")";
+      out << ")" << std::endl;
     }
   }
 #endif
@@ -68,10 +70,6 @@ TheoryModel::TheoryModel( context::Context* c, std::string name ) :
 d_equalityEngine( c, name ){
   d_true = NodeManager::currentNM()->mkConst( true );
   d_false = NodeManager::currentNM()->mkConst( false );
-}
-
-bool TheoryModel::hasInterpretedValue( Node n ) {
-  return false;
 }
 
 void TheoryModel::addDefineFunction( Node n ){
@@ -85,20 +83,35 @@ void TheoryModel::addDefineType( TypeNode tn ){
 }
 
 void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
-  out << "(" << n << " ";
-  out << getValue( n );
+  out << "(" << n;
+  //out << " : " << n.getType();
+  out << " ";
+  Node value = getValue( n );
+  if( n.getType().isSort() ){
+    int index = d_ra.getIndexFor( value );
+    if( index!=-1 ){
+      out << value.getType() << "_" << index;
+    }else{
+      out << value;
+    }
+  }else{
+    out << value;
+  }
   out << ")" << std::endl;
 }
 
 void TheoryModel::toStreamType( TypeNode tn, std::ostream& out ){
   out << "(" << tn;
-  if( d_ra.d_type_reps.find( tn )!=d_ra.d_type_reps.end() ){
-    out << " " << d_ra.d_type_reps[tn].size() << " (";
-    for( size_t i=0; i<d_ra.d_type_reps[tn].size(); i++ ){
-      if( i>0 ){ out << " "; }
-      out << d_ra.d_type_reps[tn][i];
+  if( tn.isSort() ){
+    if( d_ra.d_type_reps.find( tn )!=d_ra.d_type_reps.end() ){
+      out << " " << d_ra.d_type_reps[tn].size();
+      //out << " (";
+      //for( size_t i=0; i<d_ra.d_type_reps[tn].size(); i++ ){
+      //  if( i>0 ){ out << " "; }
+      //  out << d_ra.d_type_reps[tn][i];
+      //}
+      //out << ")";
     }
-    out << ")";
   }
   out << ")" << std::endl;
 }
@@ -134,19 +147,11 @@ Node TheoryModel::getValue( TNode n ){
     return n;
   }
 
-  // see if the model has an interpretation for this node
-  if( hasInterpretedValue( n ) ){
-    Debug("model") << "-> Model-interpreted term." << std::endl;
-    //otherwise, get the interpreted value in the model
-    return getInterpretedValue( n );
-  }
-
   // see if the value is explicitly set in the model
   if( d_equalityEngine.hasTerm( n ) ){
     Debug("model") << "-> Defined term." << std::endl;
     return getRepresentative( n );
   }else{
-    Debug("model") << "-> Theory-interpreted term." << std::endl;
     Node nn;
     if( n.getNumChildren()>0 ){
       std::vector< Node > children;
@@ -167,8 +172,20 @@ Node TheoryModel::getValue( TNode n ){
     }else{
       nn = n;
     }
-    Debug("model-debug") << "Interpreted symbol value: " << nn << std::endl;
-    return Rewriter::rewrite( nn );
+    nn = Rewriter::rewrite( nn );
+
+    // special case: value of a constant == itself
+    if(metakind == kind::metakind::CONSTANT) {
+      Debug("model") << "-> Theory-interpreted term." << std::endl;
+      return nn;
+    }else if( d_equalityEngine.hasTerm( nn ) ){
+      Debug("model") << "-> Theory-interpreted (defined) term." << std::endl;
+      return getRepresentative( nn );
+    }else{
+      Debug("model") << "-> Model-interpreted term." << std::endl;
+      //otherwise, get the interpreted value in the model
+      return getInterpretedValue( n );
+    }
   }
 
   ////case for equality
@@ -323,6 +340,7 @@ DefaultModel::DefaultModel( context::Context* c, std::string name ) : TheoryMode
 }
 
 Node DefaultModel::getInterpretedValue( TNode n ){
+  Assert( !d_equalityEngine.hasTerm( n ) );
   TypeNode type = n.getType();
   if( type.isFunction() || type.isPredicate() ){
     //DO_THIS?
@@ -344,7 +362,7 @@ Node DefaultModel::getInterpretedValue( TNode n ){
 }
 
 TheoryEngineModelBuilder::TheoryEngineModelBuilder( TheoryEngine* te ) : d_te( te ){
-  d_useConstantReps = true;
+
 }
 
 void TheoryEngineModelBuilder::buildModel( Model* m ){
@@ -355,53 +373,61 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
   Debug( "model-builder" ) << "TheoryEngineModelBuilder: Collect model info..." << std::endl;
   //collect model info from the theory engine
   d_te->collectModelInfo( tm );
-    Debug( "model-builder" ) << "TheoryEngineModelBuilder: Build representatives..." << std::endl;
+  Debug( "model-builder" ) << "TheoryEngineModelBuilder: Build representatives..." << std::endl;
   //populate term database, store representatives
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &tm->d_equalityEngine );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
-    Node rep;
-    if( !d_useConstantReps ){
-      rep = eqc;
-    }
+    //add terms to model
     eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &tm->d_equalityEngine );
     while( !eqc_i.isFinished() ){
-      //model-specific add term
       tm->addTerm( *eqc_i );
-      //if constant, use this as representative
-      if( d_useConstantReps && (*eqc_i).getMetaKind()==kind::metakind::CONSTANT ){
-        rep = *eqc_i;
-      }
       ++eqc_i;
     }
+    //choose representative for this equivalence class
+    Node rep = chooseRepresentative( tm, eqc );
     //store representative in representative set
     if( !rep.isNull() ){
       tm->d_reps[ eqc ] = rep;
       tm->d_ra.add( rep );
-    }else{
-      d_unresolvedReps.push_back( eqc );
     }
     ++eqcs_i;
   }
-  Debug( "model-builder" ) << "TheoryEngineModelBuilder: Complete model..." << std::endl;
-  //do model-specific initialization
+  //do model-builder specific initialization
+  // this should include choosing representatives for equivalence classes that have not yet been
+  // assigned representatives
   processBuildModel( tm );
 }
 
-void TheoryEngineModelBuilder::processBuildModel( TheoryModel* m ){
-  //now, create constants for all unresolved equivalence classes
-  for( size_t i = 0; i<d_unresolvedReps.size(); i++ ){
-    Node n = d_unresolvedReps[i];
-    TypeNode tn = n.getType();
-    Node rep = m->getNewDomainValue( tn, true );
-    if( !rep.isNull() ){
-      m->assertEquality( n, rep, true );
-      m->d_reps[ n ] = rep;
-      m->d_ra.add( rep );
-    }else{
-      m->d_reps[ n ] = n;
-      m->d_ra.add( n );
+Node TheoryEngineModelBuilder::chooseRepresentative( TheoryModel* tm, Node eqc ){
+  eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &tm->d_equalityEngine );
+  while( !eqc_i.isFinished() ){
+    //if constant, use this as representative
+    if( (*eqc_i).getMetaKind()==kind::metakind::CONSTANT ){
+      return *eqc_i;
     }
+    ++eqc_i;
   }
-  d_unresolvedReps.clear();
+  return Node::null();
+}
+
+void TheoryEngineModelBuilder::processBuildModel( TheoryModel* tm ){
+  Debug( "model-builder" ) << "TheoryEngineModelBuilder: Complete model..." << std::endl;
+  //create constants for all unresolved equivalence classes
+  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &tm->d_equalityEngine );
+  while( !eqcs_i.isFinished() ){
+    Node n = *eqcs_i;
+    if( tm->d_reps.find( n )!=tm->d_reps.end() ){
+      TypeNode tn = n.getType();
+      Node rep = tm->getNewDomainValue( tn, true );
+      if( !rep.isNull() ){
+        tm->assertEquality( n, rep, true );
+      }else{
+        rep = n;
+      }
+      tm->d_reps[ n ] = rep;
+      tm->d_ra.add( rep );
+    }
+    ++eqcs_i;
+  }
 }

@@ -43,10 +43,14 @@ using namespace CVC4::theory::quantifiers;
 ModelEngineBuilder::ModelEngineBuilder( QuantifiersEngine* qe ) :
 TheoryEngineModelBuilder( qe->getTheoryEngine() ),
 d_qe( qe ){
-  d_useConstantReps = false;
+
 }
 
-void ModelEngineBuilder:: processBuildModel( TheoryModel* m ) {
+Node ModelEngineBuilder::chooseRepresentative( TheoryModel* tm, Node eqc ){
+  return eqc;
+}
+
+void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
   d_addedLemmas = 0;
   //only construct first order model if optUseModel() is true
   if( optUseModel() ){

@@ -26,7 +26,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : TheoryModel( c, name ),
+FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : DefaultModel( c, name ),
 d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 
 }
@@ -70,23 +70,21 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
   }
 }
 
-bool FirstOrderModel::hasInterpretedValue( Node n ){
-  TypeNode type = n.getType();
-  return n.getKind()==APPLY_UF || type.isFunction() || type.isPredicate();
-}
-
 void FirstOrderModel::toStreamFunction( Node n, std::ostream& out ){
   if( d_uf_model.find( n )!=d_uf_model.end() ){
-    d_uf_model[n].toStream( out );
+    //d_uf_model[n].toStream( out );
+    Node value = d_uf_model[n].getFunctionValue();
+    out << "(" << n << " " << value << ")";
   //}else if( d_array_model.find( n )!=d_array_model.end() ){
-  //  out << "(" << n << " " << d_array_model[n] << ")" << std::endl;
+    //out << "(" << n << " " << d_array_model[n] << ")" << std::endl;
+  //  out << "(" << n << " Array)" << std::endl;
   }else{
-    TheoryModel::toStreamFunction( n, out );
+    DefaultModel::toStreamFunction( n, out );
   }
 }
 
 void FirstOrderModel::toStreamType( TypeNode tn, std::ostream& out ){
-  TheoryModel::toStreamType( tn, out );
+  DefaultModel::toStreamType( tn, out );
 }
 
 Node FirstOrderModel::getInterpretedValue( TNode n ){
@@ -102,15 +100,16 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
     int depIndex;
     return d_uf_model[ n.getOperator() ].getValue( n, depIndex );
   }
-  return n;
+  return DefaultModel::getInterpretedValue( n );
 }
 
 TermDb* FirstOrderModel::getTermDatabase(){
   return d_term_db;
 }
 
+
 void FirstOrderModel::toStream(std::ostream& out){
-  TheoryModel::toStream( out );
+  DefaultModel::toStream( out );
 #if 0
   out << "---Current Model---" << std::endl;
   out << "Representatives: " << std::endl;

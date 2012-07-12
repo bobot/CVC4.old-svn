@@ -129,11 +129,11 @@ class TheoryEngine {
   /**
    * Default model object
    */
-  theory::DefaultModel d_curr_model;
+  theory::DefaultModel* d_curr_model;
   /**
    * Model builder object
    */
-  theory::TheoryEngineModelBuilder d_curr_model_builder;
+  theory::TheoryEngineModelBuilder* d_curr_model_builder;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
   typedef std::hash_map<TNode, Node, TNodeHashFunction> TNodeMap;
@@ -425,11 +425,6 @@ public:
     d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo, getQuantifiersEngine());
   }
 
-  /**
-   * addComponents, called after all theories have been created
-   */
-  void addComponents();
-
   inline void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
     d_propEngine = propEngine;
@@ -657,7 +652,7 @@ public:
   /**
    * Get the model builder
    */
-  theory::TheoryEngineModelBuilder* getModelBuilder() { return &d_curr_model_builder; }
+  theory::TheoryEngineModelBuilder* getModelBuilder() { return d_curr_model_builder; }
 
   /**
    * Get the theory associated to a given Node.

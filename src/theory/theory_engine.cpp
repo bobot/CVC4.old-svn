@@ -56,8 +56,8 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_logicInfo(logicInfo),
   d_sharedTerms(this, context),
   d_quantEngine(NULL),
-  d_curr_model( context, "DefaultModel" ),
-  d_curr_model_builder( this ),
+  d_curr_model(NULL),
+  d_curr_model_builder(NULL),
   d_ppCache(),
   d_possiblePropagations(context),
   d_hasPropagated(context),
@@ -85,6 +85,10 @@ TheoryEngine::TheoryEngine(context::Context* context,
   // initialize the quantifiers engine
   d_quantEngine = new QuantifiersEngine(context, this);
 
+  //build model information if applicable
+  d_curr_model = new theory::DefaultModel( context, "DefaultModel" );
+  d_curr_model_builder = new theory::TheoryEngineModelBuilder( this );
+
   Rewriter::init();
   StatisticsRegistry::registerStat(&d_combineTheoriesTime);
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
@@ -104,13 +108,6 @@ TheoryEngine::~TheoryEngine() {
   delete d_quantEngine;
 
   StatisticsRegistry::unregisterStat(&d_combineTheoriesTime);
-}
-
-void TheoryEngine::addComponents(){
-  //add components for the quantifiers engine
-  if( d_quantEngine ){
-    d_quantEngine->addComponents();
-  }
 }
 
 void TheoryEngine::preRegister(TNode preprocessed) {
@@ -362,7 +359,7 @@ void TheoryEngine::check(Theory::Effort effort) {
         //if returning incomplete or SAT, we have ensured that the model in the quantifiers engine has been built
       }else if( Options::current()->produceModels ){
         //must build model at this point
-        d_curr_model_builder.buildModel( &d_curr_model );
+        d_curr_model_builder->buildModel( d_curr_model );
       }
     }
 
@@ -562,7 +559,7 @@ TheoryModel* TheoryEngine::getModel(){
     return d_quantEngine->getModel();
   }else{
     Debug("model") << "Get default model." << std::endl;
-    return &d_curr_model;
+    return d_curr_model;
   }
 }
 

@@ -202,8 +202,6 @@ public:
   /** get default valuation for the quantifiers engine */
   Valuation& getValuation();
 public:
-  /** addComponents, called after all theories have been created */
-  void addComponents();
   /** check at level */
   void check( Theory::Effort e );
   /** register (non-rewritten) quantifier */
