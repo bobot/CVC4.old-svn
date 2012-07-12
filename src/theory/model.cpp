@@ -167,11 +167,11 @@ Node TheoryModel::getValue( TNode n ){
         children.push_back( val );
       }
       Debug("model-debug") << "Done eval children" << std::endl;
-      //interpretation is the rewritten form
       nn = NodeManager::currentNM()->mkNode( n.getKind(), children );
     }else{
       nn = n;
     }
+    //interpretation is the rewritten form
     nn = Rewriter::rewrite( nn );
 
     // special case: value of a constant == itself
@@ -184,7 +184,7 @@ Node TheoryModel::getValue( TNode n ){
     }else{
       Debug("model") << "-> Model-interpreted term." << std::endl;
       //otherwise, get the interpreted value in the model
-      return getInterpretedValue( n );
+      return getInterpretedValue( nn );
     }
   }
 
@@ -209,6 +209,7 @@ Node TheoryModel::getDomainValue( TypeNode tn, std::vector< Node >& exclude ){
   return Node::null();
 }
 
+//FIXME: use the theory enumerator to generate constants here
 Node TheoryModel::getNewDomainValue( TypeNode tn, bool mkConst ){
   if( tn==NodeManager::currentNM()->booleanType() ){
     if( d_ra.d_type_reps[tn].empty() ){
@@ -243,7 +244,7 @@ void TheoryModel::assertEquality( Node a, Node b, bool polarity ){
 /** assert predicate */
 void TheoryModel::assertPredicate( Node a, bool polarity ){
   if( a.getKind()==EQUAL ){
-    assertEquality( a[0], a[1], polarity );
+    d_equalityEngine.assertEquality( a, polarity, Node::null() );
   }else{
     d_equalityEngine.assertPredicate( a, polarity, Node::null() );
   }
@@ -306,11 +307,10 @@ bool TheoryModel::areDisequal( Node a, Node b ){
 
 //for debugging
 void TheoryModel::printRepresentativeDebug( const char* c, Node r ){
-  Assert( !r.isNull() );
   if( r.isNull() ){
     Debug( c ) << "null";
   }else if( r.getType()==NodeManager::currentNM()->booleanType() ){
-    if( areEqual( r, NodeManager::currentNM()->mkConst( true ) ) ){
+    if( areEqual( r, d_true ) ){
       Debug( c ) << "true";
     }else{
       Debug( c ) << "false";
@@ -325,7 +325,7 @@ void TheoryModel::printRepresentative( std::ostream& out, Node r ){
   if( r.isNull() ){
     out << "null";
   }else if( r.getType()==NodeManager::currentNM()->booleanType() ){
-    if( areEqual( r, NodeManager::currentNM()->mkConst( true ) ) ){
+    if( areEqual( r, d_true ) ){
       out  << "true";
     }else{
       out  << "false";
@@ -346,11 +346,13 @@ Node DefaultModel::getInterpretedValue( TNode n ){
     //DO_THIS?
     return n;
   }else{
+    //first, try to choose an existing term as value
     std::vector< Node > v_emp;
     Node n2 = getDomainValue( type, v_emp );
     if( !n2.isNull() ){
       return n2;
     }else{
+      //otherwise, choose new valuse
       n2 = getNewDomainValue( type, true );
       if( !n2.isNull() ){
         return n2;
@@ -419,6 +421,7 @@ void TheoryEngineModelBuilder::processBuildModel( TheoryModel* tm ){
     Node n = *eqcs_i;
     if( tm->d_reps.find( n )!=tm->d_reps.end() ){
       TypeNode tn = n.getType();
+      //add new constant to equivalence class
       Node rep = tm->getNewDomainValue( tn, true );
       if( !rep.isNull() ){
         tm->assertEquality( n, rep, true );
