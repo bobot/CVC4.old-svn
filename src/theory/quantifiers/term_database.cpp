@@ -134,8 +134,8 @@ using namespace CVC4::theory::quantifiers;
    }
    for( int i=0; i<2; i++ ){
      Node n = NodeManager::currentNM()->mkConst( i==1 );
-     eq::EqClassIterator eqc( d_quantEngine->getEqualityQuery()->getRepresentative( n ),
-                               ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
+     eq::EqClassIterator eqc( ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->getRepresentative( n ),
+                              ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
      while( !eqc.isFinished() ){
        Node en = (*eqc);
        if( en.getKind()==APPLY_UF && !en.hasAttribute(InstConstantAttribute()) ){

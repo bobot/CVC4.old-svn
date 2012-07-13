@@ -84,7 +84,7 @@ void TheoryModel::addDefineType( TypeNode tn ){
 
 void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
   out << "(" << n;
-  //out << " : " << n.getType();
+  out << " : " << n.getType();
   out << " ";
   Node value = getValue( n );
   if( n.getType().isSort() ){
@@ -148,44 +148,36 @@ Node TheoryModel::getValue( TNode n ){
   }
 
   // see if the value is explicitly set in the model
-  if( d_equalityEngine.hasTerm( n ) ){
-    Debug("model") << "-> Defined term." << std::endl;
-    return getRepresentative( n );
+  Node nn;
+  if( n.getNumChildren()>0 ){
+    std::vector< Node > children;
+    if( metakind == kind::metakind::PARAMETERIZED ){
+      Debug("model-debug") << "get operator: " << n.getOperator() << std::endl;
+      children.push_back( n.getOperator() );
+    }
+    //evaluate the children
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      Node val = getValue( n[i] );
+      Debug("model-debug") << i << " : " << n[i] << " -> " << val << std::endl;
+      Assert( !val.isNull() );
+      children.push_back( val );
+    }
+    Debug("model-debug") << "Done eval children" << std::endl;
+    nn = NodeManager::currentNM()->mkNode( n.getKind(), children );
   }else{
-    Node nn;
-    if( n.getNumChildren()>0 ){
-      std::vector< Node > children;
-      if( metakind == kind::metakind::PARAMETERIZED ){
-        Debug("model-debug") << "get operator: " << n.getOperator() << std::endl;
-        children.push_back( n.getOperator() );
-      }
-      //evaluate the children
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        Node val = getValue( n[i] );
-        Debug("model-debug") << i << " : " << n[i] << " -> " << val << std::endl;
-        Assert( !val.isNull() );
-        children.push_back( val );
-      }
-      Debug("model-debug") << "Done eval children" << std::endl;
-      nn = NodeManager::currentNM()->mkNode( n.getKind(), children );
-    }else{
-      nn = n;
-    }
-    //interpretation is the rewritten form
-    nn = Rewriter::rewrite( nn );
+    nn = n;
+  }
+  //interpretation is the rewritten form
+  nn = Rewriter::rewrite( nn );
 
-    // special case: value of a constant == itself
-    if(metakind == kind::metakind::CONSTANT) {
-      Debug("model") << "-> Theory-interpreted term." << std::endl;
-      return nn;
-    }else if( d_equalityEngine.hasTerm( nn ) ){
-      Debug("model") << "-> Theory-interpreted (defined) term." << std::endl;
-      return getRepresentative( nn );
-    }else{
-      Debug("model") << "-> Model-interpreted term." << std::endl;
-      //otherwise, get the interpreted value in the model
-      return getInterpretedValue( nn );
-    }
+  // special case: value of a constant == itself
+  if(metakind == kind::metakind::CONSTANT) {
+    Debug("model") << "-> Theory-interpreted term." << std::endl;
+    return nn;
+  }else{
+    Debug("model") << "-> Model-interpreted term." << std::endl;
+    //otherwise, get the interpreted value in the model
+    return getInterpretedValue( nn );
   }
 
   ////case for equality
@@ -340,24 +332,30 @@ DefaultModel::DefaultModel( context::Context* c, std::string name ) : TheoryMode
 }
 
 Node DefaultModel::getInterpretedValue( TNode n ){
-  Assert( !d_equalityEngine.hasTerm( n ) );
-  TypeNode type = n.getType();
-  if( type.isFunction() || type.isPredicate() ){
-    //DO_THIS?
-    return n;
+  if( d_equalityEngine.hasTerm( n ) ){
+    return getRepresentative( n );
   }else{
-    //first, try to choose an existing term as value
-    std::vector< Node > v_emp;
-    Node n2 = getDomainValue( type, v_emp );
-    if( !n2.isNull() ){
-      return n2;
+    TypeNode type = n.getType();
+    if( type.isFunction() || type.isPredicate() ){
+      //DO_THIS?
+      return n;
+    }else if( type.isArray() ){
+      //DO_THIS?
+      return n;
     }else{
-      //otherwise, choose new valuse
-      n2 = getNewDomainValue( type, true );
+      //first, try to choose an existing term as value
+      std::vector< Node > v_emp;
+      Node n2 = getDomainValue( type, v_emp );
       if( !n2.isNull() ){
         return n2;
       }else{
-        return n;
+        //otherwise, choose new valuse
+        n2 = getNewDomainValue( type, true );
+        if( !n2.isNull() ){
+          return n2;
+        }else{
+          return n;
+        }
       }
     }
   }
@@ -402,10 +400,12 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
 }
 
 Node TheoryEngineModelBuilder::chooseRepresentative( TheoryModel* tm, Node eqc ){
+  TypeNode tn = eqc.getType();
   eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &tm->d_equalityEngine );
   while( !eqc_i.isFinished() ){
     //if constant, use this as representative
-    if( (*eqc_i).getMetaKind()==kind::metakind::CONSTANT ){
+    if( (*eqc_i).getMetaKind()==kind::metakind::CONSTANT ||
+        ( tn.isDatatype() && (*eqc_i).getKind()==APPLY_CONSTRUCTOR ) ){
       return *eqc_i;
     }
     ++eqc_i;

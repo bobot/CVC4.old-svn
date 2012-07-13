@@ -21,6 +21,7 @@
 
 #include "theory/model.h"
 #include "theory/uf/theory_uf_model.h"
+#include "theory/arrays/theory_arrays_model.h"
 
 namespace CVC4 {
 namespace theory {
@@ -43,6 +44,8 @@ class FirstOrderModel : public DefaultModel
 private:
   //pointer to term database
   TermDb* d_term_db;
+  //add term function
+  void addTerm( Node n );
   //for initialize model
   void initializeModelForTerm( Node n );
   /** to stream functions */
@@ -53,7 +56,7 @@ public: //for Theory UF:
   std::map< Node, uf::UfModel > d_uf_model;
 public: //for Theory Arrays:
   //default value for each non-store array
-  std::map< Node, Node > d_array_model;
+  std::map< Node, arrays::ArrayModel > d_array_model;
 public: //for Theory Quantifiers:
   /** list of quantifiers asserted in the current context */
   context::CDList<Node> d_forall_asserts;

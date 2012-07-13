@@ -21,6 +21,7 @@
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/arrays/theory_arrays_model.h"
 #include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/term_database.h"
 
@@ -47,7 +48,12 @@ d_qe( qe ){
 }
 
 Node ModelEngineBuilder::chooseRepresentative( TheoryModel* tm, Node eqc ){
-  return eqc;
+  Node n = TheoryEngineModelBuilder::chooseRepresentative( tm, eqc );
+  if( !n.isNull() ){
+    return n;
+  }else{
+    return eqc;
+  }
 }
 
 void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
@@ -256,12 +262,12 @@ void ModelEngineBuilder::finishBuildModel( FirstOrderModel* fm ){
     finishBuildModelUf( fm, it->second );
   }
   //build model for arrays
-  for( std::map< Node, Node >::iterator it = fm->d_array_model.begin(); it != fm->d_array_model.end(); ++it ){
+  for( std::map< Node, arrays::ArrayModel >::iterator it = fm->d_array_model.begin(); it != fm->d_array_model.end(); ++it ){
     //consult the model basis select term
     // i.e. the default value for array A is the value of select( A, e ), where e is the model basis term
     TypeNode tn = it->first.getType();
     Node selModelBasis = NodeManager::currentNM()->mkNode( SELECT, it->first, fm->getTermDatabase()->getModelBasisTerm( tn[0] ) );
-    it->second = fm->getRepresentative( selModelBasis );
+    it->second.setDefaultValue( fm->getRepresentative( selModelBasis ) );
   }
   Debug("fmf-model-debug") << "Done building models." << std::endl;
 }

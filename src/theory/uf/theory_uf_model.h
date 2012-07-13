@@ -128,6 +128,7 @@ public:
 class UfModel
 {
 private:
+  /** reference to model */
   quantifiers::FirstOrderModel* d_model;
   //the operator this model is for
   Node d_op;
@@ -139,6 +140,8 @@ private:
   // defaults
   std::vector< Node > d_defaults;
   Node getIntersection( Node n1, Node n2, bool& isGround );
+  //helper for to ITE function.
+  static Node toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode );
 public:
   UfModel(){}
   UfModel( Node op, quantifiers::FirstOrderModel* m );
@@ -163,8 +166,6 @@ public:
   Node getValue( Node n, std::vector< int >& depIndex );
   /** get constant value */
   Node getConstantValue( Node n );
-  /** get function value for this function */
-  Node getFunctionValue();
   /** is model constructed */
   bool isModelConstructed() { return d_model_constructed; }
   /** is empty */
@@ -180,13 +181,8 @@ public:
   void clearModel();
   /** make model */
   void makeModel( UfModelTreeOrdered& tree );
-public:
-  /** set value preference */
-  void setValuePreference( Node f, Node n, bool isPro );
-private:
-  //helper for to ITE function.
-  static Node toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode );
-public:
+  /** get function value for this function */
+  Node getFunctionValue();
   /** to ITE function for function model nodes */
   static Node toIte( Node fm_node, std::vector< Node >& args ) { return toIte2( fm_node, args, 0, Node::null() ); }
 };

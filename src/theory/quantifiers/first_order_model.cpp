@@ -17,6 +17,7 @@
 #include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/rep_set_iterator.h"
 #include "theory/quantifiers/model_engine.h"
+#include "theory/quantifiers/term_database.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 
 using namespace std;
@@ -31,7 +32,13 @@ d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 
 }
 
+void FirstOrderModel::addTerm( Node n ){
+  std::vector< Node > added;
+  d_term_db->addTerm( n, added, false );
+}
+
 void FirstOrderModel::initialize(){
+  //this is called after representatives have been chosen and the equality engine has been built
   //rebuild models
   d_uf_model.clear();
   d_array_model.clear();
@@ -62,8 +69,14 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
       }
     }
   }
-  if( n.getKind()!=STORE && n.getType().isArray() ){
-    d_array_model[n] = Node::null();
+  if( n.getType().isArray() ){
+    Node nn = getRepresentative( n );
+    while( nn.getKind()==STORE ){
+      nn = nn[0];
+    }
+    if( d_array_model.find( nn )==d_array_model.end() ){
+      d_array_model[nn] = arrays::ArrayModel( nn, this );
+    }
   }
   for( int i=0; i<(int)n.getNumChildren(); i++ ){
     initializeModelForTerm( n[i] );
@@ -71,16 +84,17 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
 }
 
 void FirstOrderModel::toStreamFunction( Node n, std::ostream& out ){
+  /*
   if( d_uf_model.find( n )!=d_uf_model.end() ){
     //d_uf_model[n].toStream( out );
     Node value = d_uf_model[n].getFunctionValue();
     out << "(" << n << " " << value << ")";
-  //}else if( d_array_model.find( n )!=d_array_model.end() ){
-    //out << "(" << n << " " << d_array_model[n] << ")" << std::endl;
-  //  out << "(" << n << " Array)" << std::endl;
-  }else{
-    DefaultModel::toStreamFunction( n, out );
+  }else if( d_array_model.find( n )!=d_array_model.end() ){
+    Node value = d_array_model[n].getArrayValue();
+    out << "(" << n << " " << value << ")" << std::endl;
   }
+  */
+  DefaultModel::toStreamFunction( n, out );
 }
 
 void FirstOrderModel::toStreamType( TypeNode tn, std::ostream& out ){
@@ -94,6 +108,14 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
     if( d_uf_model.find( n )!=d_uf_model.end() ){
       return d_uf_model[n].getFunctionValue();
     }else{
+      //std::cout << "no function model generated for " << n << std::endl;
+      return n;
+    }
+  }else if( type.isArray() ){
+    if( d_array_model.find( n )!=d_array_model.end() ){
+      return d_array_model[n].getArrayValue();
+    }else{
+      //std::cout << "no array model generated for " << n << std::endl;
       return n;
     }
   }else if( n.getKind()==APPLY_UF ){
@@ -109,6 +131,21 @@ TermDb* FirstOrderModel::getTermDatabase(){
 
 
 void FirstOrderModel::toStream(std::ostream& out){
+  /*
+  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+  while( !eqcs_i.isFinished() ){
+    Node eqc = (*eqcs_i);
+    out << eqc << " : " << eqc.getType() << " : " << std::endl;
+    out << "   ";
+    //add terms to model
+    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
+    while( !eqc_i.isFinished() ){
+      out << (*eqc_i) << " ";
+      ++eqc_i;
+    }
+    out << std::endl;
+    ++eqcs_i;
+  }*/
   DefaultModel::toStream( out );
 #if 0
   out << "---Current Model---" << std::endl;
