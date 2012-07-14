@@ -20,7 +20,15 @@ libquantifiers_la_SOURCES = \
 	inst_when_mode.cpp \
 	inst_when_mode.h \
 	literal_match_mode.cpp \
-	literal_match_mode.h
+	literal_match_mode.h \
+	relevant_domain.h \
+	relevant_domain.cpp \
+	rep_set_iterator.h \
+	rep_set_iterator.cpp \
+	term_database.h \
+	term_database.cpp \
+	first_order_model.h \
+	first_order_model.cpp
 
 EXTRA_DIST = \
 	kinds \

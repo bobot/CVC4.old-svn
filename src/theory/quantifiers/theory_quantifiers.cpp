@@ -28,11 +28,7 @@
 #include <time.h>
 #include "theory/quantifiers/theory_quantifiers_instantiator.h"
 #include "theory/quantifiers/options.h"
-
-#define USE_FLIP_DECISION
-
-//static bool clockSet = false;
-//double initClock;
+#include "theory/quantifiers/term_database.h"
 
 using namespace std;
 using namespace CVC4;
@@ -46,11 +42,6 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
-  if( options::finiteModelFind() ){
-    qe->addModule( new ModelEngine( this ) );
-  }else{
-    qe->addModule( new InstantiationEngine( this ) );
-  }
 }
 
 
@@ -66,10 +57,10 @@ void TheoryQuantifiers::addSharedTerm(TNode t) {
 void TheoryQuantifiers::notifyEq(TNode lhs, TNode rhs) {
   Debug("quantifiers-other") << "TheoryQuantifiers::notifyEq(): "
                      << lhs << " = " << rhs << endl;
-  
+
 }
 
-void TheoryQuantifiers::preRegisterTerm(TNode n) {  
+void TheoryQuantifiers::preRegisterTerm(TNode n) {
   Debug("quantifiers-prereg") << "TheoryQuantifiers::preRegisterTerm() " << n << endl;
   if( n.getKind()==FORALL && !n.hasAttribute(InstConstantAttribute()) ){
     getQuantifiersEngine()->registerQuantifier( n );
@@ -98,6 +89,10 @@ Node TheoryQuantifiers::getValue(TNode n) {
   }
 }
 
+void TheoryQuantifiers::collectModelInfo( TheoryModel* m ){
+
+}
+
 void TheoryQuantifiers::check(Effort e) {
   CodeTimer codeTimer(d_theoryTime);
 
@@ -120,7 +115,7 @@ void TheoryQuantifiers::check(Effort e) {
           break;
         }
       }
-      break;  
+      break;
     default:
       Unhandled(assertion.getKind());
       break;
@@ -148,7 +143,7 @@ void TheoryQuantifiers::assertExistential( Node n ){
   Assert( n.getKind()== NOT && n[0].getKind()==FORALL );
   if( !n[0].hasAttribute(InstConstantAttribute()) ){
     if( d_skolemized.find( n )==d_skolemized.end() ){
-      Node body = getQuantifiersEngine()->getSkolemizedBody( n[0] );
+      Node body = getQuantifiersEngine()->getTermDatabase()->getSkolemizedBody( n[0] );
       NodeBuilder<> nb(kind::OR);
       nb << n[0] << body.notNode();
       Node lem = nb;
@@ -160,9 +155,6 @@ void TheoryQuantifiers::assertExistential( Node n ){
 }
 
 bool TheoryQuantifiers::flipDecision(){
-#ifndef USE_FLIP_DECISION
-  return false;
-#else
   //Debug("quantifiers-flip") << "No instantiation given, flip decision, level = " << d_valuation.getDecisionLevel() << std::endl;
   //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
   //  Debug("quantifiers-flip") << "   " << d_valuation.getDecision( i ) << std::endl;
@@ -180,7 +172,6 @@ bool TheoryQuantifiers::flipDecision(){
     return restart();
   }
   return true;
-#endif
 }
 
 bool TheoryQuantifiers::restart(){

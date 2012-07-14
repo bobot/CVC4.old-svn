@@ -43,22 +43,13 @@ option smartTriggers /--disable-smart-triggers bool :default true
 
 # Whether to consider terms in the bodies of quantifiers for matching
 option registerQuantBodyTerms --register-quant-body-terms bool :default false
- consider terms within bodies of quantified formulas for matching
+ consider ground terms within bodies of quantified formulas for matching
 
 option instWhenMode --inst-when=MODE CVC4::theory::quantifiers::InstWhenMode :default CVC4::theory::quantifiers::INST_WHEN_FULL_LAST_CALL :include "theory/quantifiers/inst_when_mode.h" :handler CVC4::theory::quantifiers::stringToInstWhenMode :handler-include "theory/quantifiers/options_handlers.h"
  when to apply instantiation
 
 option eagerInstQuant --eager-inst-quant bool :default false
  apply quantifier instantiation eagerly
-
-option finiteModelFind --finite-model-find bool :default false
- use finite model finding heuristic for quantifier instantiation
-
-option fmfRegionSat --use-fmf-region-sat bool :default false
- use region-based SAT heuristic for finite model finding
-
-option fmfModelBasedInst /--disable-fmf-model-inst bool :default true
- disable model-based instantiation for finite model finding
 
 option efficientEMatching --efficient-e-matching bool :default false
  use efficient E-matching
@@ -75,5 +66,30 @@ option userPatternsQuant /--ignore-user-patterns bool :default true
 
 option flipDecision --enable-flip-decision/ bool :default false
  turns on flip decision heuristic
+
+option finiteModelFind --finite-model-find bool :default false
+ use finite model finding heuristic for quantifier instantiation
+
+option ufssRegions /--disable-uf-ss-regions bool :default true
+ disable region-based method for discovering cliques and splits in uf strong solver
+option ufssEagerSplits --uf-ss-eager-split bool :default false
+ add splits eagerly for uf strong solver
+option ufssColoringSat --uf-ss-coloring-sat bool :default false
+ use coloring-based SAT heuristic for uf strong solver
+
+option fmfModelBasedInst /--disable-fmf-mbqi bool :default true
+ disable model-based quantifier instantiation for finite model finding
+
+option fmfInstGen /--disable-fmf-inst-gen bool :default true
+ disable Inst-Gen instantiation techniques for finite model finding
+option fmfOneInstPerRound --fmf-one-inst-per-round bool :default false
+ only add one instantiation per quantifier per round for fmf
+option fmfInstEngine --fmf-inst-engine bool :default false
+ use instantiation engine in conjunction with finite model finding
+option fmfRelevantDomain --fmf-relevant-domain bool :default false
+ use relevant domain computation, similar to complete instantiation (Ge, deMoura 09)
+
+option printInstEngine --print-i-e bool :default false
+option printModelEngine --print-m-e bool :default false
 
 endmodule

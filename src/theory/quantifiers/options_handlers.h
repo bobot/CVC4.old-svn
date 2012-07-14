@@ -29,18 +29,39 @@ namespace theory {
 namespace quantifiers {
 
 static const std::string instWhenHelp = "\
-Possible settings for --inst-when:\n\
-+ pre-full\n\
-+ full\n\
-+ full-last-call\n\
-+ last-call\n\
+Modes currently supported by the --inst-when option:\n\
+\n\
+pre-full\n\
++ unsupported, experimental option\n\
+\n\
+full\n\
++ Run instantiation round at full effort, before theory combination.\n\
+\n\
+full-last-call (default)\n\
++ Alternate running instantiation rounds at full effort and last\n\
+  call.  In other words, interleave instantiation and theory combination.\n\
+\n\
+last-call\n\
++ Run instantiation at last call effort, after theory combination.\n\
+\n\
 ";
 
 static const std::string literalMatchHelp = "\
-Possible settings for --literal-matching:\n\
-+ none\n\
-+ predicate\n\
-+ equality\n\
+Literal match modes currently supported by the --literal-match option:\n\
+\n\
+none (default)\n\
++ Do not use literal matching.\n\
+\n\
+predicate\n\
++ Consider the phase requirements of predicate literals when applying heuristic\n\
+  quantifier instantiation.  For example, the trigger P( x ) in the quantified \n\
+  formula forall( x ). ( P( x ) V ~Q( x ) ) will only be matched with ground\n\
+  terms P( t ) where P( t ) is in the equivalence class of false, and likewise\n\
+  Q( x ) with Q( s ) where Q( s ) is in the equivalence class of true.\n\
+\n\
+equality\n\
++ unsupported, experimental option\n\
+\n\
 ";
 
 inline InstWhenMode stringToInstWhenMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {

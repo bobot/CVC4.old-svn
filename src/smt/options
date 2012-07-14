@@ -31,7 +31,7 @@ option doStaticLearning static-learning /--no-static-learning bool :default true
 /turn off static learning (e.g. diamond-breaking)
 
 common-option produceModels produce-models -m --produce-models bool :predicate CVC4::SmtEngine::beforeSearch :predicate-include "smt/smt_engine.h"
- support the get-value command
+ support the get-value and get-model commands
 common-option produceAssignments produce-assignments --produce-assignments bool
  support the get-assignment command
 
