@@ -74,11 +74,11 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
           }
         }
       }
-      if( options::printModelEngine() ){
+      if( Trace.isOn("model-engine") ){
         if( d_addedLemmas>0 ){
-          Message() << "InstGen, added lemmas = " << d_addedLemmas << std::endl;
+          Trace("model-engine") << "InstGen, added lemmas = " << d_addedLemmas << std::endl;
         }else{
-          Message() << "No InstGen lemmas..." << std::endl;
+          Trace("model-engine") << "No InstGen lemmas..." << std::endl;
         }
       }
       Debug("fmf-model-debug") << "---> Added lemmas = " << d_addedLemmas << std::endl;
@@ -385,9 +385,9 @@ void ModelEngine::check( Theory::Effort e ){
     if( addedLemmas==0 ){
       //quantifiers are initialized, we begin an instantiation round
       double clSet = 0;
-      if( options::printModelEngine() ){
+      if( Trace.isOn("model-engine") ){
         clSet = double(clock())/double(CLOCKS_PER_SEC);
-        Message() << "---Model Engine Round---" << std::endl;
+        Trace("model-engine") << "---Model Engine Round---" << std::endl;
       }
       Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
       ++(d_statistics.d_inst_rounds);
@@ -429,11 +429,11 @@ void ModelEngine::check( Theory::Effort e ){
         }
         Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
         Debug("fmf-model-debug") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
-        if( options::printModelEngine() ){
-          Message() << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
-          Message() << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
+        if( Trace.isOn("model-engine") ){
+          Trace("model-engine") << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
+          Trace("model-engine") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
           double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-          Message() << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
+          Trace("model-engine") << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
         }
 #ifdef ME_PRINT_WARNINGS
         if( addedLemmas>10000 ){

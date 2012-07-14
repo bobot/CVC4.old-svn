@@ -43,10 +43,10 @@ void FirstOrderModel::initialize(){
     initializeModelForTerm( f[1] );
   }
 
-  if( options::printModelEngine() ){
+  if( Trace.isOn("model-engine") ){
     for( std::map< TypeNode, std::vector< Node > >::iterator it = d_ra.d_type_reps.begin(); it != d_ra.d_type_reps.end(); ++it ){
       if( uf::StrongSolverTheoryUf::isRelevantType( it->first ) ){
-        Message() << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
+        Trace("model-engine") << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
       }
     }
   }

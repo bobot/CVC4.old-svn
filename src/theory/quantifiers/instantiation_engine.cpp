@@ -137,9 +137,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
     return false;
   }else{
     Debug("inst-engine-ctrl") << "---Done. " << (int)d_quantEngine->d_lemmas_waiting.size() << std::endl;
-    if( options::printInstEngine() ){
-      Message() << "Added lemmas = " << (int)d_quantEngine->d_lemmas_waiting.size() << std::endl;
-    }
+    Trace("inst-engine") << "Added lemmas = " << (int)d_quantEngine->d_lemmas_waiting.size() << std::endl;
     //flush lemmas to output channel
     d_quantEngine->flushLemmas( &d_quantEngine->getOutputChannel() );
     return true;
@@ -166,9 +164,9 @@ void InstantiationEngine::check( Theory::Effort e ){
   if( performCheck ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
     double clSet = 0;
-    if( options::printInstEngine() ){
+    if( Trace.isOn("inst-engine") ){
       clSet = double(clock())/double(CLOCKS_PER_SEC);
-      Message() << "---Instantiation Engine Round, effort = " << e << "---" << std::endl;
+      Trace("inst-engine") << "---Instantiation Engine Round, effort = " << e << "---" << std::endl;
     }
     bool quantActive = false;
     //for each quantifier currently asserted,
@@ -245,9 +243,9 @@ void InstantiationEngine::check( Theory::Effort e ){
         }
       }
     }
-    if( options::printInstEngine() ){
+    if( Trace.isOn("inst-engine") ){
       double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-      Message() << "Finished instantiation engine, time = " << (clSet2-clSet) << std::endl;
+      Trace("inst-engine") << "Finished instantiation engine, time = " << (clSet2-clSet) << std::endl;
     }
   }
 }

@@ -31,9 +31,6 @@ namespace quantifiers {
 static const std::string instWhenHelp = "\
 Modes currently supported by the --inst-when option:\n\
 \n\
-pre-full\n\
-+ unsupported, experimental option\n\
-\n\
 full\n\
 + Run instantiation round at full effort, before theory combination.\n\
 \n\
@@ -59,9 +56,6 @@ predicate\n\
   terms P( t ) where P( t ) is in the equivalence class of false, and likewise\n\
   Q( x ) with Q( s ) where Q( s ) is in the equivalence class of true.\n\
 \n\
-equality\n\
-+ unsupported, experimental option\n\
-\n\
 ";
 
 inline InstWhenMode stringToInstWhenMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
@@ -82,6 +76,12 @@ inline InstWhenMode stringToInstWhenMode(std::string option, std::string optarg,
   }
 }
 
+inline void checkInstWhenMode(std::string option, InstWhenMode mode, SmtEngine* smt) throw(OptionException) {
+  if(mode == INST_WHEN_PRE_FULL) {
+    throw OptionException(std::string("Mode pre-full for ") + option + " is not supported in this release.");
+  }
+}
+
 inline LiteralMatchMode stringToLiteralMatchMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
   if(optarg ==  "none") {
     return LITERAL_MATCH_NONE;
@@ -95,6 +95,12 @@ inline LiteralMatchMode stringToLiteralMatchMode(std::string option, std::string
   } else {
     throw OptionException(std::string("unknown option for --literal-matching: `") +
                           optarg + "'.  Try --literal-matching help.");
+  }
+}
+
+inline void checkLiteralMatchMode(std::string option, LiteralMatchMode mode, SmtEngine* smt) throw(OptionException) {
+  if(mode == LITERAL_MATCH_EQUALITY) {
+    throw OptionException(std::string("Mode equality for ") + option + " is not supported in this release.");
   }
 }
 
