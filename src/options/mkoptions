@@ -743,6 +743,9 @@ function alias {
   links=
   links_alternate=
 
+  options_already_documented=false
+  alternate_options_already_documented=false
+
   if [ $# -lt 3 ]; then
     echo "$kf:$lineno: error: malformed \"alias\" command; expected more arguments" >&2
     exit 1
@@ -776,7 +779,7 @@ function alias {
       let ++n_long
       long_option="${long_option:+$long_option | --}$option"
     else
-      if ! expr "$option" : '-.$'; then
+      if ! expr "$option" : '-.$' &>/dev/null; then
         echo "$kf:$lineno: error: expected short option specification, got \`$option'" >&2
         exit 1
       fi

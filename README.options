@@ -44,6 +44,5 @@ The above is now implemented, but there are things that still bug me:
   before creating the ExprManager.  Essentially like the assign() and
   assignBool() interfaces.
 * need a get-handler for options without an options value (for SmtEngine::getOption())
-* --smtlib2 not documented?!
 
 -- Morgan Deters <mdeters@cs.nyu.edu>  Wed, 20 Jun 2012 15:42:00 -0400
