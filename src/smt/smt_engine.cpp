@@ -40,6 +40,7 @@
 #include "smt/modal_exception.h"
 #include "smt/no_such_function_exception.h"
 #include "smt/smt_engine.h"
+#include "smt/smt_engine_scope.h"
 #include "theory/theory_engine.h"
 #include "proof/proof_manager.h"
 #include "util/proof.h"
@@ -50,19 +51,12 @@
 #include "util/output.h"
 #include "util/hash.h"
 #include "theory/substitutions.h"
-#include "theory/builtin/theory_builtin.h"
-#include "theory/booleans/theory_bool.h"
-#include "theory/booleans/circuit_propagator.h"
-#include "theory/uf/theory_uf.h"
-#include "theory/arith/theory_arith.h"
-#include "theory/arrays/theory_arrays.h"
-#include "theory/bv/theory_bv.h"
-#include "theory/datatypes/theory_datatypes.h"
 #include "theory/uf/options.h"
 #include "theory/arith/options.h"
 #include "theory/theory_traits.h"
 #include "theory/logic_info.h"
 #include "theory/options.h"
+#include "theory/booleans/circuit_propagator.h"
 #include "util/ite_removal.h"
 #include "theory/model.h"
 
@@ -270,6 +264,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_cumulativeResourceUsed(0),
   d_status(),
   d_private(new smt::SmtEnginePrivate(*this)),
+  d_statisticsRegistry(new StatisticsRegistry()),
   d_definitionExpansionTime("smt::SmtEngine::definitionExpansionTime"),
   d_nonclausalSimplificationTime("smt::SmtEngine::nonclausalSimplificationTime"),
   d_numConstantProps("smt::SmtEngine::numConstantProps", 0),
@@ -282,7 +277,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_numAssertionsPre("smt::SmtEngine::numAssertionsPreITERemoval", 0),
   d_numAssertionsPost("smt::SmtEngine::numAssertionsPostITERemoval", 0) {
 
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   StatisticsRegistry::registerStat(&d_definitionExpansionTime);
   StatisticsRegistry::registerStat(&d_nonclausalSimplificationTime);
@@ -387,7 +382,7 @@ void SmtEngine::shutdown() {
 }
 
 SmtEngine::~SmtEngine() throw() {
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   try {
     while(options::incrementalSolving() && d_userContext->getLevel() > 1) {
@@ -429,6 +424,9 @@ SmtEngine::~SmtEngine() throw() {
     delete d_theoryEngine;
     delete d_propEngine;
     //delete d_decisionEngine;
+
+    delete d_statisticsRegistry;
+
   } catch(Exception& e) {
     Warning() << "CVC4 threw an exception during cleanup." << endl
               << e << endl;
@@ -436,7 +434,7 @@ SmtEngine::~SmtEngine() throw() {
 }
 
 void SmtEngine::setLogic(const LogicInfo& logic) throw(ModalException) {
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << SetBenchmarkLogicCommand(logic.getLogicString());
@@ -447,7 +445,7 @@ void SmtEngine::setLogic(const LogicInfo& logic) throw(ModalException) {
 }
 
 void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   setLogic(LogicInfo(s));
 }
@@ -610,7 +608,7 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
 void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
   throw(BadOptionException, ModalException) {
 
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   Trace("smt") << "SMT setInfo(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
@@ -634,7 +632,7 @@ void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
         if(! value.isAtom()) {
           throw BadOptionException("argument to (set-info :cvc4-logic ..) must be a string");
         }
-        NodeManagerScope nms(d_nodeManager);
+        SmtScope smts(this);
         d_logic = value.getValue();
         setLogicInternal();
         return;
@@ -669,7 +667,7 @@ void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
 CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
   throw(BadOptionException) {
 
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   Trace("smt") << "SMT getInfo(" << key << ")" << endl;
   if(key == "all-statistics") {
@@ -717,7 +715,7 @@ void SmtEngine::defineFunction(Expr func,
        << func;
     Dump("declarations") << DefineFunctionCommand(ss.str(), func, formals, formula);
   }
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   // type check body
   Type formulaType = formula.getType(options::typeChecking());
@@ -1519,7 +1517,7 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
 
   Assert(e.isNull() || e.getExprManager() == d_exprManager);
 
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   finalOptionsAreSet();
 
@@ -1582,7 +1580,7 @@ Result SmtEngine::query(const BoolExpr& e) {
   Assert(!e.isNull());
   Assert(e.getExprManager() == d_exprManager);
 
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   finalOptionsAreSet();
 
@@ -1638,7 +1636,7 @@ Result SmtEngine::query(const BoolExpr& e) {
 
 Result SmtEngine::assertFormula(const BoolExpr& e) {
   Assert(e.getExprManager() == d_exprManager);
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   finalOptionsAreSet();
   Trace("smt") << "SmtEngine::assertFormula(" << e << ")" << endl;
   ensureBoolean(e);
@@ -1651,7 +1649,7 @@ Result SmtEngine::assertFormula(const BoolExpr& e) {
 
 Expr SmtEngine::simplify(const Expr& e) {
   Assert(e.getExprManager() == d_exprManager);
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   finalOptionsAreSet();
   if( options::typeChecking() ) {
     e.getType(true);// ensure expr is type-checked at this point
@@ -1666,7 +1664,7 @@ Expr SmtEngine::simplify(const Expr& e) {
 Expr SmtEngine::getValue(const Expr& e)
   throw(ModalException, AssertionException) {
   Assert(e.getExprManager() == d_exprManager);
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   // ensure expr is type-checked at this point
   Type type = e.getType(options::typeChecking());
@@ -1712,7 +1710,7 @@ Expr SmtEngine::getValue(const Expr& e)
 }
 
 bool SmtEngine::addToAssignment(const Expr& e) throw(AssertionException) {
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   finalOptionsAreSet();
   Type type = e.getType(options::typeChecking());
   // must be Boolean
@@ -1741,7 +1739,7 @@ bool SmtEngine::addToAssignment(const Expr& e) throw(AssertionException) {
 
 CVC4::SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
   Trace("smt") << "SMT getAssignment()" << endl;
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   finalOptionsAreSet();
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << GetAssignmentCommand();
@@ -1803,7 +1801,7 @@ CVC4::SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException)
 
 void SmtEngine::addToModelType( Type& t ){
   Trace("smt") << "SMT addToModelType(" << t << ")" << endl;
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   if( options::produceModels() ) {
     d_theoryEngine->getModel()->addDefineType( TypeNode::fromType( t ) );
   }
@@ -1811,7 +1809,7 @@ void SmtEngine::addToModelType( Type& t ){
 
 void SmtEngine::addToModelFunction( Expr& e ){
   Trace("smt") << "SMT addToModelFunction(" << e << ")" << endl;
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   if( options::produceModels() ) {
     d_theoryEngine->getModel()->addDefineFunction( e.getNode() );
   }
@@ -1820,7 +1818,7 @@ void SmtEngine::addToModelFunction( Expr& e ){
 
 Model* SmtEngine::getModel() throw(ModalException, AssertionException){
   Trace("smt") << "SMT getModel()" << endl;
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
 
   if(!options::produceModels()) {
     const char* msg =
@@ -1841,7 +1839,7 @@ Model* SmtEngine::getModel() throw(ModalException, AssertionException){
 
 Proof* SmtEngine::getProof() throw(ModalException, AssertionException) {
   Trace("smt") << "SMT getProof()" << endl;
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   finalOptionsAreSet();
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << GetProofCommand();
@@ -1871,7 +1869,7 @@ vector<Expr> SmtEngine::getAssertions()
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << GetAssertionsCommand();
   }
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   Trace("smt") << "SMT getAssertions()" << endl;
   if(!options::interactive()) {
     const char* msg =
@@ -1883,13 +1881,13 @@ vector<Expr> SmtEngine::getAssertions()
 }
 
 size_t SmtEngine::getStackLevel() const {
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   Trace("smt") << "SMT getStackLevel()" << endl;
   return d_context->getLevel();
 }
 
 void SmtEngine::push() {
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   finalOptionsAreSet();
   Trace("smt") << "SMT push()" << endl;
   d_private->processAssertions();
@@ -1913,7 +1911,7 @@ void SmtEngine::push() {
 }
 
 void SmtEngine::pop() {
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   finalOptionsAreSet();
   Trace("smt") << "SMT pop()" << endl;
   if(Dump.isOn("benchmark")) {
@@ -2021,11 +2019,11 @@ unsigned long SmtEngine::getTimeRemaining() const throw(ModalException) {
 }
 
 StatisticsRegistry* SmtEngine::getStatisticsRegistry() const {
-  return d_exprManager->d_nodeManager->getStatisticsRegistry();
+  return d_statisticsRegistry;
 }
 
 void SmtEngine::printModel( std::ostream& out, Model* m ){
-  NodeManagerScope nms(d_nodeManager);
+  SmtScope smts(this);
   m->toStream(out);
 }
 

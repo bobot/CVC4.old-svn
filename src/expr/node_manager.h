@@ -277,7 +277,7 @@ public:
   }
 
   /** Get this node manager's statistics registry */
-  StatisticsRegistry* getStatisticsRegistry() const {
+  StatisticsRegistry* getStatisticsRegistry() const throw() {
     return d_statisticsRegistry;
   }
 

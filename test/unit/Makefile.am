@@ -2,10 +2,11 @@
 UNIT_TESTS = \
 	theory/logic_info_white \
 	theory/theory_engine_white \
-	theory/theory_black \
+	theory/theory_white \
 	theory/theory_arith_white \
 	theory/union_find_black \
 	theory/theory_bv_white \
+	theory/type_enumerator_white \
 	expr/expr_public \
 	expr/expr_manager_public \
 	expr/node_white \
@@ -23,7 +24,7 @@ UNIT_TESTS = \
 	expr/type_node_white \
 	parser/parser_black \
 	parser/parser_builder_black \
-	prop/cnf_stream_black \
+	prop/cnf_stream_white \
 	context/context_black \
 	context/context_white \
 	context/context_mm_black \

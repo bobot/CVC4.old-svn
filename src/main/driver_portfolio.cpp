@@ -416,7 +416,7 @@ int runCvc4(int argc, char *argv[], Options& opts) {
   theStatisticsRegistry.registerStat_((&driverStatisticsRegistry));
 
   // Timer statistic
-  RegisterStatistic* statTotatTime =
+  RegisterStatistic* statTotalTime =
     new RegisterStatistic(&driverStatisticsRegistry, &s_totalTime);
   RegisterStatistic* statBeforePortfolioTime =
     new RegisterStatistic(&driverStatisticsRegistry, &s_beforePortfolioTime);
@@ -528,7 +528,8 @@ int runCvc4(int argc, char *argv[], Options& opts) {
     // Register the statistics registry of the thread
     string tag = "thread #" + boost::lexical_cast<string>(threadOptions[i][options::thread_id]);
     smts[i]->getStatisticsRegistry()->setName(tag);
-    theStatisticsRegistry.registerStat_( (Stat*)smts[i]->getStatisticsRegistry() );
+    theStatisticsRegistry.registerStat_( smts[i]->getStatisticsRegistry() );
+    theStatisticsRegistry.registerStat_( exprMgrs[i]->getStatisticsRegistry() );
   }
 
   /************************* Lemma sharing init ************************/
@@ -642,7 +643,7 @@ int runCvc4(int argc, char *argv[], Options& opts) {
 
   //delete vmaps;
 
-  delete statTotatTime;
+  delete statTotalTime;
   delete statBeforePortfolioTime;
   delete statFilenameReg;
 
