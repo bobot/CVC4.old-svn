@@ -118,10 +118,10 @@ bool Trigger::getNextMatch(){
 // }
 
 
-int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSplits ){
+int Trigger::addInstantiations( InstMatch& baseMatch ){
   int addedLemmas = d_mg->addInstantiations( baseMatch,
                                              d_nodes[0].getAttribute(InstConstantAttribute()),
-                                             d_quantEngine, instLimit, addSplits );
+                                             d_quantEngine);
   if( addedLemmas>0 ){
     Debug("inst-trigger") << "Added " << addedLemmas << " lemmas, trigger was ";
     for( int i=0; i<(int)d_nodes.size(); i++ ){

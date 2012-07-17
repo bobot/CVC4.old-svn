@@ -30,10 +30,13 @@
 #include <map>
 
 namespace CVC4 {
+class TheoryEngine;
+
 namespace theory {
 namespace quantifiers {
 
-class TheoryEngine;
+class ModelEngine;
+class InstantiationEngine;
 
 class TheoryQuantifiers : public Theory {
 private:
@@ -59,6 +62,7 @@ public:
   void check(Effort e);
   void propagate(Effort level);
   Node getValue(TNode n);
+  void collectModelInfo( TheoryModel* m );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
   bool flipDecision();

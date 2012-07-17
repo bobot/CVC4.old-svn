@@ -20,8 +20,11 @@
 #define __CVC4__THEORY_UF_CANDIDATE_GENERATOR_H
 
 #include "theory/quantifiers_engine.h"
+#include "theory/quantifiers/term_database.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/rr_inst_match.h"
+
+using namespace CVC4::theory::quantifiers;
 
 namespace CVC4 {
 namespace theory {

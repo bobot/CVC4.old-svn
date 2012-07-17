@@ -223,7 +223,7 @@ class TheoryArrays : public Theory {
   private:
   public:
 
-  Node getValue(TNode n);
+  void collectModelInfo( TheoryModel* m );
 
   /////////////////////////////////////////////////////////////////////////////
   // NOTIFICATIONS

@@ -44,11 +44,9 @@ private:
   /**  reset instantiation */
   void processResetInstantiationRound( Theory::Effort effort );
   /** process at effort */
-  int process( Node f, Theory::Effort effort, int e, int limitInst );
+  int process( Node f, Theory::Effort effort, int e );
   /** get value for */
   Node getValueFor( Node n );
-  /** get representative */
-  Node getRepresentative( Node n );
 
   class Statistics {
   public:
@@ -57,6 +55,12 @@ private:
     ~Statistics();
   };
   Statistics d_statistics;
+public:
+  /** general queries about equality */
+  bool hasTerm( Node a );
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
+  Node getRepresentative( Node a );
 };/* class InstantiatiorTheoryDatatypes  */
 
 

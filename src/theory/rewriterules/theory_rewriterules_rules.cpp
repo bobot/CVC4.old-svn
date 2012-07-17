@@ -23,6 +23,8 @@
 #include "theory/rewriterules/theory_rewriterules.h"
 #include "util/options.h"
 
+#include "theory/quantifiers/term_database.h"
+
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
@@ -110,7 +112,7 @@ inline void addPattern(TheoryRewriteRules & re,
   pattern.push_back(
                     Options::current()->rewriteRulesAsAxioms?
                     static_cast<Node>(tri):
-                    re.getQuantifiersEngine()->
+                    re.getQuantifiersEngine()->getTermDatabase()->
                     convertNodeToPattern(tri,r,vars,inst_constants));
 }
 

@@ -17,6 +17,7 @@
 #include "theory/uf/theory_uf_candidate_generator.h"
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
+#include "theory/quantifiers/term_database.h"
 
 using namespace std;
 using namespace CVC4;
@@ -30,7 +31,7 @@ namespace theory{
 namespace uf{
 namespace inst{
 
-CandidateGeneratorTheoryUf::CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op ) : 
+CandidateGeneratorTheoryUf::CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op ) :
   d_op( op ), d_ith( ith ), d_term_iter( -2 ){
   Assert( !d_op.isNull() );
 }
@@ -90,12 +91,12 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
 }
 
 
-//CandidateGeneratorTheoryUfDisequal::CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc ) : 
+//CandidateGeneratorTheoryUfDisequal::CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc ) :
 //  d_ith( ith ), d_eq_class( eqc ){
 //  d_eci = NULL;
 //}
 //void CandidateGeneratorTheoryUfDisequal::resetInstantiationRound(){
-//  
+//
 //}
 ////we will iterate over all terms that are disequal from eqc
 //void CandidateGeneratorTheoryUfDisequal::reset( Node eqc ){
@@ -125,12 +126,12 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
 //}
 
 
-CandidateGeneratorTheoryUfLitEq::CandidateGeneratorTheoryUfLitEq( InstantiatorTheoryUf* ith, Node mpat ) : 
+CandidateGeneratorTheoryUfLitEq::CandidateGeneratorTheoryUfLitEq( InstantiatorTheoryUf* ith, Node mpat ) :
   d_match_pattern( mpat ), d_ith( ith ){
-  
+
 }
 void CandidateGeneratorTheoryUfLitEq::resetInstantiationRound(){
-  
+
 }
 void CandidateGeneratorTheoryUfLitEq::reset( Node eqc ){
   d_eq = eq::EqClassesIterator( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
@@ -148,15 +149,15 @@ Node CandidateGeneratorTheoryUfLitEq::getNextCandidate(){
 }
 
 
-CandidateGeneratorTheoryUfLitDeq::CandidateGeneratorTheoryUfLitDeq( InstantiatorTheoryUf* ith, Node mpat ) : 
+CandidateGeneratorTheoryUfLitDeq::CandidateGeneratorTheoryUfLitDeq( InstantiatorTheoryUf* ith, Node mpat ) :
   d_match_pattern( mpat ), d_ith( ith ){
-  
+
 }
 void CandidateGeneratorTheoryUfLitDeq::resetInstantiationRound(){
 
 }
 void CandidateGeneratorTheoryUfLitDeq::reset( Node eqc ){
-  Node false_term = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative( 
+  Node false_term = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative(
                       NodeManager::currentNM()->mkConst<bool>(false) );
   d_eqc_false = eq::EqClassIterator( false_term, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
 }

@@ -1048,7 +1048,7 @@ public:
   }
   const InstMatch& getInstMatch(){return d_im;};
 
-  int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits );
+  int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe);
 };
 
 enum EffiStep{
@@ -1078,7 +1078,7 @@ static inline std::ostream& operator<<(std::ostream& out, const EffiStep& step) 
 }
 
 
-int MultiPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+int MultiPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe){
   //now, try to add instantiation for each match produced
   int addedLemmas = 0;
   resetInstantiationRound( qe );
@@ -1086,11 +1086,8 @@ int MultiPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, Quant
   while( getNextMatch( qe ) ){
     InstMatch im_copy = getInstMatch();
     //m.makeInternal( d_quantEngine->getEqualityQuery() );
-    if( qe->addInstantiation( quant, im_copy, addSplits ) ){
+    if( qe->addInstantiation( quant, im_copy ) ){
       addedLemmas++;
-      if( instLimit>0 && addedLemmas==instLimit ){
-        return addedLemmas;
-      }
     }
   }
   //return number of lemmas added
@@ -1303,10 +1300,10 @@ public:
 
   const InstMatch& getInstMatch(){return d_im;};
 
-  int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits );
+  int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe);
 };
 
-int MultiEfficientPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits ){
+int MultiEfficientPatsMatcher::addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe){
   //now, try to add instantiation for each match produced
   int addedLemmas = 0;
   Assert(baseMatch.empty());
@@ -1314,11 +1311,8 @@ int MultiEfficientPatsMatcher::addInstantiations( InstMatch& baseMatch, Node qua
   while( getNextMatch( qe ) ){
     InstMatch im_copy = getInstMatch();
     //m.makeInternal( d_quantEngine->getEqualityQuery() );
-    if( qe->addInstantiation( quant, im_copy, addSplits ) ){
+    if( qe->addInstantiation( quant, im_copy ) ){
       addedLemmas++;
-      if( instLimit>0 && addedLemmas==instLimit ){
-        return addedLemmas;
-      }
     }
   }
   //return number of lemmas added

@@ -330,15 +330,6 @@ void TheoryRewriteRules::notification(GList * const lpropa, bool b){
 
 Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, const RuleInst* ri,
                                               const size_t gid){
-  /** TODO: Should use the representative of g, but should I keep the
-      mapping for myself? */
-  /* If it false in one model (current valuation) it's false for all */
-  if (useCurrentModel){
-    Node val = getValuation().getValue(g0);
-    Debug("rewriterules::guards") << "getValue:" << g0 << " = "
-                          << val << " is " << (val == d_false) << std::endl;
-    if (val == d_false) return AFALSE;
-  };
   /** Currently create a node with a literal */
   Node g = getValuation().ensureLiteral(g0);
   GuardedMap::iterator l_i = d_guardeds.find(g);
@@ -594,6 +585,10 @@ Node TheoryRewriteRules::explain(TNode n){
   };
   substGuards(&inst, cache ,explanation);
   return normalizeConjunction(explanation);
+}
+
+void TheoryRewriteRules::collectModelInfo( TheoryModel* m ){
+
 }
 
 Theory::PPAssertStatus TheoryRewriteRules::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {

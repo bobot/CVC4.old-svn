@@ -47,7 +47,9 @@ libtheory_la_SOURCES = \
 	inst_match.h \
 	inst_match.cpp \
 	trigger.h \
-	trigger.cpp
+	trigger.cpp \
+	model.h \
+	model.cpp 
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \

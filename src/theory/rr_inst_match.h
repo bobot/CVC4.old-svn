@@ -179,6 +179,9 @@ public:
   virtual bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) = 0;
   /** If reset, or getNextMatch return false they remove from the
       InstMatch the binding that they have previously created */
+
+  /** virtual Matcher in order to have definned behavior */
+  virtual ~Matcher(){};
 };
 
 
@@ -241,7 +244,7 @@ public:
   virtual bool getNextMatch( QuantifiersEngine* qe ) = 0;
   virtual const InstMatch& getInstMatch() = 0;
   /** Add directly the instantiation to quantifiers engine */
-  virtual int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe, int instLimit, bool addSplits ) = 0;
+  virtual int addInstantiations( InstMatch& baseMatch, Node quant, QuantifiersEngine* qe) = 0;
 };
 
 PatsMatcher* mkPatterns( std::vector< Node > pat, QuantifiersEngine* qe );
