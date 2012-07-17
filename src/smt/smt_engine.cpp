@@ -1802,6 +1802,7 @@ CVC4::SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException)
 void SmtEngine::addToModelType( Type& t ){
   Trace("smt") << "SMT addToModelType(" << t << ")" << endl;
   SmtScope smts(this);
+  finalOptionsAreSet();
   if( options::produceModels() ) {
     d_theoryEngine->getModel()->addDefineType( TypeNode::fromType( t ) );
   }
@@ -1810,6 +1811,7 @@ void SmtEngine::addToModelType( Type& t ){
 void SmtEngine::addToModelFunction( Expr& e ){
   Trace("smt") << "SMT addToModelFunction(" << e << ")" << endl;
   SmtScope smts(this);
+  finalOptionsAreSet();
   if( options::produceModels() ) {
     d_theoryEngine->getModel()->addDefineFunction( e.getNode() );
   }
