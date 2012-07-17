@@ -263,11 +263,13 @@ void InstantiatorTheoryUf::newEqClass( TNode n ){
 }
 
 void InstantiatorTheoryUf::newTerms(SetNode& s){
+  static NoMatchAttribute rewrittenNodeAttribute;
   /* op -> nodes (if the set is empty, the op is not interesting) */
   std::hash_map< TNode, SetNode, TNodeHashFunction > h;
   /* types -> nodes (if the set is empty, the type is not interesting) */
   std::hash_map< TypeNode, SetNode, TypeNodeHashFunction > tyh;
   for(SetNode::iterator i=s.begin(), end=s.end(); i != end; ++i){
+    if (i->getAttribute(rewrittenNodeAttribute)) continue; /* skip it */
     if( !d_cand_gens.empty() ){
       // op
       TNode op = i->getOperator();

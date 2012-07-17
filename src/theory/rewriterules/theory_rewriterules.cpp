@@ -139,9 +139,6 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
   {
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
-  Debug("rewriterules") << Node::setdepth(-1);
-  Debug("rewriterules-rewrite") << Node::setdepth(-1);
-  Debug("rewriterules::lemma") << Node::setdepth(-1);
 }
 
 void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
@@ -233,7 +230,7 @@ void TheoryRewriteRules::check(Effort level) {
     //dequeue instantiated rules
     for(; !d_ruleinsts_to_add.empty();){
       RuleInst * ri = d_ruleinsts_to_add.back(); d_ruleinsts_to_add.pop_back();
-      if(simulateRewritting && ri->alreadyRewritten(*this)) break;
+      if(simulateRewritting && ri->alreadyRewritten(*this)) continue;
       if(ri->findGuard(*this, 0) != ri->rule->guards.size())
         d_ruleinsts.push_back(ri);
       else delete(ri);
@@ -529,26 +526,38 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
     //   (*i).setAttribute(rewrittenNodeAttribute,true);
     // };
     for(size_t i = 0; i < rule->to_remove.size(); ++i){
-      (inst->substNode(*this,rule->to_remove[i],cache)).setAttribute(rewrittenNodeAttribute,true);
+      Node rewritten = inst->substNode(*this,rule->to_remove[i],cache);
+      Debug("rewriterules::simulateRewriting") << "tag " << rewritten << " as rewritten" << std::endl;
+      rewritten.setAttribute(rewrittenNodeAttribute,true);
     };
 
   };
 
-  //Verify that this instantiation can't immediately fire another rule
-  for(RewriteRule::BodyMatch::const_iterator p = rule->body_match.begin();
-      p != rule->body_match.end(); ++p){
-    RewriteRule * r = (*p).second;
-    // Debug("rewriterules") << "  rule: " << r << std::endl;
-    // Use trigger2 since we can be in check
-    ApplyMatcher * tr = r->trigger_for_body_match;
-    Assert(tr != NULL);
-    tr->resetInstantiationRound(getQuantifiersEngine());
-    InstMatch im;
-    TNode m = inst->substNode(*this,(*p).first, cache);
-    if( tr->reset(m,im,getQuantifiersEngine()) ){
-      im.d_matched = m;
-      addMatchRuleTrigger(r, im);
+  if ( !rule->body_match.empty() ){
+
+    uf::TheoryUF* uf = static_cast<uf::TheoryUF *>(getQuantifiersEngine()->getTheoryEngine()->getTheory( theory::THEORY_UF ));
+    eq::EqualityEngine* ee =
+      static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
+
+    //Verify that this instantiation can't immediately fire another rule
+    for(RewriteRule::BodyMatch::const_iterator p = rule->body_match.begin();
+        p != rule->body_match.end(); ++p){
+      RewriteRule * r = (*p).second;
+      // Use trigger2 since we can be in check
+      ApplyMatcher * tr = r->trigger_for_body_match;
+      Assert(tr != NULL);
+      tr->resetInstantiationRound(getQuantifiersEngine());
+      InstMatch im;
+      TNode m = inst->substNode(*this,(*p).first, cache);
+      Assert( m.getKind() == kind::APPLY_UF );
+      ee->addTerm(m);
+      if( tr->reset(m,im,getQuantifiersEngine()) ){
+        im.d_matched = m;
+        Debug("rewriterules::matching") << "SimulatedRewrite: " << std::endl;
+        addMatchRuleTrigger(r, im);
+      }
     }
+
   }
 };
 
