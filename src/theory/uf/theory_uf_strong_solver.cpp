@@ -1188,6 +1188,7 @@ void StrongSolverTheoryUf::registerQuantifier( Node f ){
     if( isRelevantType( tn ) ){
       preRegisterType( tn );
     }else{
+      /*
       if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
         Debug("uf-ss-na") << "Error: Cannot perform finite model finding on arithmetic quantifier";
         Debug("uf-ss-na") << " (" << f << ")";
@@ -1199,6 +1200,7 @@ void StrongSolverTheoryUf::registerQuantifier( Node f ){
         Debug("uf-ss-na") << std::endl;
         Unimplemented("Cannot perform finite model finding on datatype quantifier");
       }
+      */
     }
   }
 }

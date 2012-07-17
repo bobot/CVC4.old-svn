@@ -623,9 +623,42 @@ void TheoryDatatypes::updateSelectors( Node a ) {
 void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
   //temporary
   for( int i=0; i<(int)d_preRegTerms.size(); i++ ){
-    Node n = find( d_preRegTerms[i] );
-    m->assertEquality( n, d_preRegTerms[i], true );
+    if( d_preRegTerms[i].getKind()==APPLY_TESTER ){
+
+    }else{
+      Node n = find( d_preRegTerms[i] );
+      if( n!=d_preRegTerms[i] ){
+        m->assertEquality( n, d_preRegTerms[i], true );
+      }
+    }
   }
+  /*
+  //assert all equalities in equivalence classes
+  for( BoolMap::iterator i = d_reps.begin(); i != d_reps.end(); i++ ) {
+    if( (*i).second ) {
+      Node n = (*i).first;
+      EqListN* eqc = (*d_equivalence_class.find( t )).second;
+      for( EqListN::const_iterator iter = eqc->begin(); iter != eqc->end(); iter++ ) {
+        m->assertEquality( n, *iter, true );
+      }
+      //assert all labels
+      EqLists::iterator lbl_i = d_labels.find( n );
+      if(lbl_i != d_labels.end()) {
+        EqList* lbl = (*lbl_i).second;
+        for( EqList::const_iterator i = lbl->begin(); i != lbl->end(); i++ ) {
+          Node t = *i;
+          if( t.getKind()==NOT ){
+            Assert( t[0].getKind()==APPLY_TESTER );
+            m->assertPredicate( t[0], false );
+          }else{
+            Assert( t.getKind()==APPLY_TESTER );
+            m->assertPredicate( t, true );
+          }
+        }
+      }
+    }
+  }
+  */
 }
 
 void TheoryDatatypes::merge(TNode a, TNode b) {

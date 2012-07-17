@@ -38,8 +38,17 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
     d_var_order[i] = i;
     //store default domain
     d_domain.push_back( RepDomain() );
-    for( int j=0; j<(int)d_model->d_ra.d_type_reps[d_f[0][i].getType()].size(); j++ ){
-      d_domain[i].push_back( j );
+    TypeNode tn = d_f[0][i].getType();
+    if( d_model->d_ra.hasType( tn ) ){
+      for( int j=0; j<(int)d_model->d_ra.d_type_reps[d_f[0][i].getType()].size(); j++ ){
+        d_domain[i].push_back( j );
+      }
+    }else if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
+      Unimplemented("Cannot create instantiation iterator for arithmetic quantifier");
+    }else if( tn.isDatatype() ){
+      Unimplemented("Cannot create instantiation iterator for datatype quantifier");
+    }else{
+      Unimplemented("Cannot create instantiation iterator for quantifier");
     }
   }
 }

@@ -70,10 +70,10 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
     }
   }
   if( n.getType().isArray() ){
-    Node nn = getRepresentative( n );
-    while( nn.getKind()==STORE ){
-      nn = nn[0];
+    while( n.getKind()==STORE ){
+      n = n[0];
     }
+    Node nn = getRepresentative( n );
     if( d_array_model.find( nn )==d_array_model.end() ){
       d_array_model[nn] = arrays::ArrayModel( nn, this );
     }

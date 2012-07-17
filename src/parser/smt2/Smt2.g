@@ -445,7 +445,7 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
   Expr f, f2;
   std::string attr;
   Expr attexpr;
-  std::vector<Expr> attexprs;
+  std::vector<Expr> patexprs;
   std::hash_set<std::string, StringHashFunction> names;
   std::vector< std::pair<std::string, Expr> > binders;
 }
@@ -590,8 +590,8 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
     /* attributed expressions */
   | LPAREN_TOK ATTRIBUTE_TOK term[expr, f2]
     ( attribute[expr, attexpr,attr]
-      { if(! attexpr.isNull()) {
-          attexprs.push_back(attexpr);
+      { if( attr == ":pattern" && ! attexpr.isNull()) {
+          patexprs.push_back(attexpr);
         }
       }
     )+ RPAREN_TOK
@@ -621,10 +621,15 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
         else PARSER_STATE->parseError("Error parsing rewrite rule.");
 
         expr = MK_EXPR( kind, args );
-      } else if(! attexprs.empty()) {
-        if(attexprs[0].getKind() == kind::INST_PATTERN) {
-          expr2 = MK_EXPR(kind::INST_PATTERN_LIST, attexprs);
+      } else if(! patexprs.empty()) {
+        if( !f2.isNull() && f2.getKind()==kind::INST_PATTERN_LIST ){
+          for( size_t i=0; i<f2.getNumChildren(); i++ ){
+            patexprs.push_back( f2[i] );
+          }
         }
+        expr2 = MK_EXPR(kind::INST_PATTERN_LIST, patexprs);
+      }else{
+        expr2 = f2;
       }
     }
     /* constants */
