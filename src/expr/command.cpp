@@ -991,7 +991,7 @@ std::string GetInfoCommand::getFlag() const throw() {
 void GetInfoCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
     vector<SExpr> v;
-    v.push_back(SExpr(d_flag));
+    v.push_back(SExpr(SExpr::Keyword(string(":") + d_flag)));
     v.push_back(smtEngine->getInfo(d_flag));
     stringstream ss;
     ss << SExpr(v);
@@ -1075,9 +1075,10 @@ std::string GetOptionCommand::getFlag() const throw() {
 void GetOptionCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
     vector<SExpr> v;
-    v.push_back(SExpr(d_flag));
+    v.push_back(SExpr(SExpr::Keyword(string(":") + d_flag)));
     v.push_back(smtEngine->getOption(d_flag));
     stringstream ss;
+    
     ss << SExpr(v);
     d_result = ss.str();
     d_commandStatus = CommandSuccess::instance();

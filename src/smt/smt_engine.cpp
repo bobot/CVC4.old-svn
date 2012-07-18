@@ -665,7 +665,7 @@ void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
 }
 
 CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
-  throw(BadOptionException) {
+  throw(BadOptionException, ModalException) {
 
   SmtScope smts(this);
 
@@ -682,7 +682,7 @@ CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
     }
     return stats;
   } else if(key == "error-behavior") {
-    return SExpr("immediate-exit");
+    return SExpr::Keyword("immediate-exit");
   } else if(key == "name") {
     return Configuration::getName();
   } else if(key == "version") {
@@ -692,10 +692,10 @@ CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
   } else if(key == "status") {
     return d_status.asSatisfiabilityResult().toString();
   } else if(key == "reason-unknown") {
-    if(d_status.isUnknown()) {
+    if(!d_status.isNull() && d_status.isUnknown()) {
       stringstream ss;
       ss << d_status.whyUnknown();
-      return ss.str();
+      return SExpr::Keyword(ss.str());
     } else {
       throw ModalException("Can't get-info :reason-unknown when the "
                            "last result wasn't unknown!");
