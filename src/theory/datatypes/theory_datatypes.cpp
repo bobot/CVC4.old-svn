@@ -95,9 +95,6 @@ void TheoryDatatypes::notifyCongruent(TNode lhs, TNode rhs) {
 
 void TheoryDatatypes::preRegisterTerm(TNode n) {
   Debug("datatypes-prereg") << "TheoryDatatypes::preRegisterTerm() " << n << endl;
-  if( n.getType().isDatatype() ){
-    d_preRegTerms.push_back( n );
-  }
 }
 
 
@@ -258,7 +255,10 @@ void TheoryDatatypes::check(Effort e) {
               }
             }
           }
-          if( !foundSel ){
+          //check if we do not need to resolve the constructor type for this equivalence class.
+          // this is if there are no selectors for this equivalence class, its type is infinite,
+          //  and we are not producing a model.
+          if( !foundSel && !Options::current()->produceModels && !Options::current()->finiteModelFind ){
             for( unsigned int j=0; j<possibleCons.size(); j++ ) {
               if( possibleCons[j] && !dt[ j ].isFinite() ) {
                 Debug("datatypes") << "Did not find selector for " << sf
@@ -289,6 +289,42 @@ void TheoryDatatypes::check(Effort e) {
   if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ) {
     Notice() << "TheoryDatatypes::check(): done" << endl;
   }
+#if 0
+  if( e == EFFORT_FULL ) {
+    //complete model if necessary
+    bool eqAdded = false;
+    if( Options::current()->produceModels || Options::current()->finiteModelFind ){
+      for( EqLists::iterator i = d_labels.begin(); i != d_labels.end(); i++ ) {
+        Node n = find( (*i).first );
+        if( n.getKind() != APPLY_CONSTRUCTOR ) {
+          addTermToLabels( n );
+          EqList* lbl = (n == (*i).first) ? (*i).second : (*d_labels.find( n )).second;
+          if( !lbl->empty() && (*lbl)[ lbl->size()-1 ].getKind() == APPLY_TESTER ) {
+            const Datatype& dt = ((DatatypeType)(n.getType()).toType()).getDatatype();
+            int j = Datatype::indexOf( (*lbl)[ lbl->size()-1 ].getOperator().toExpr() );
+            std::vector< Node > children;
+            children.push_back( Node::fromExpr( dt[j].getConstructor() ) );
+            for( int i=0; i<dt[j].getNumArgs(); i++ ){
+              children.push_back( NodeManager::currentNM()->mkNode( APPLY_SELECTOR, Node::fromExpr( dt[j][i].getSelector() ), n ) );
+            }
+            Node cons = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
+            if( find( n )!=find( cons ) ){
+              Message() << "Assert " << n << " = " << cons << ", by " << (*lbl)[ lbl->size()-1 ] << std::endl;
+              Node newEq = NodeManager::currentNM()->mkNode( EQUAL, n, cons );
+              collectTerms( newEq );
+              d_em.addNode( newEq, (*lbl)[ lbl->size()-1 ], 0 );
+              addEquality( newEq );
+              eqAdded = true;
+            }
+          }
+        }
+      }
+    }
+    if( eqAdded ){
+      check( e );
+    }
+  }
+#endif
 }
 
 bool TheoryDatatypes::checkTester( Node assertion, Node& conflict, unsigned& r ){
@@ -621,44 +657,63 @@ void TheoryDatatypes::updateSelectors( Node a ) {
 }
 
 void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
-  //temporary
-  for( int i=0; i<(int)d_preRegTerms.size(); i++ ){
-    if( d_preRegTerms[i].getKind()==APPLY_TESTER ){
-
-    }else{
-      Node n = find( d_preRegTerms[i] );
-      if( n!=d_preRegTerms[i] ){
-        m->assertEquality( n, d_preRegTerms[i], true );
-      }
-    }
-  }
-  /*
+  std::map< Node, bool > processed;
   //assert all equalities in equivalence classes
-  for( BoolMap::iterator i = d_reps.begin(); i != d_reps.end(); i++ ) {
-    if( (*i).second ) {
-      Node n = (*i).first;
-      EqListN* eqc = (*d_equivalence_class.find( t )).second;
-      for( EqListN::const_iterator iter = eqc->begin(); iter != eqc->end(); iter++ ) {
-        m->assertEquality( n, *iter, true );
+  for( EqLists::iterator i = d_labels.begin(); i != d_labels.end(); i++ ) {
+    Node n = (*i).first;
+    Node r = find( n );
+    if( processed.find( r )==processed.end() ){
+      processed[r] = true;
+      TypeNode tn = r.getType();
+      bool hasCons = r.getKind()==APPLY_CONSTRUCTOR;
+      EqListsN::iterator eqc_r_i = d_equivalence_class.find( r );
+      if( eqc_r_i!=d_equivalence_class.end() ){
+        EqListN* eqc = (*eqc_r_i).second;
+        for( EqListN::const_iterator iter = eqc->begin(); iter != eqc->end(); iter++ ) {
+          if( (*iter)!=r ){
+            m->assertEquality( r, *iter, true );
+            hasCons = hasCons || (*iter).getKind()==APPLY_CONSTRUCTOR;
+          }
+        }
       }
-      //assert all labels
-      EqLists::iterator lbl_i = d_labels.find( n );
-      if(lbl_i != d_labels.end()) {
-        EqList* lbl = (*lbl_i).second;
+      //if we have not yet assigned a constructor, do so
+      if( !hasCons && tn.isDatatype() ){
+        vector< bool > possibleCons;
+        const Datatype& dt = ((DatatypeType)(tn).toType()).getDatatype();
+        possibleCons.resize( dt.getNumConstructors(), true );
+        addTermToLabels( r );
+        EqList* lbl = (r == (*i).first) ? (*i).second : (*d_labels.find( r )).second;
         for( EqList::const_iterator i = lbl->begin(); i != lbl->end(); i++ ) {
           Node t = *i;
           if( t.getKind()==NOT ){
             Assert( t[0].getKind()==APPLY_TESTER );
-            m->assertPredicate( t[0], false );
+            possibleCons[ Datatype::indexOf( t[0].getOperator().toExpr() ) ] = false;
           }else{
+            int index = Datatype::indexOf( t.getOperator().toExpr() );
+            for( int j=0; j<(int)dt.getNumConstructors(); j++ ){
+              if( j!=index ){
+                possibleCons[ j ] = false;
+              }
+            }
             Assert( t.getKind()==APPLY_TESTER );
-            m->assertPredicate( t, true );
+          }
+        }
+        //must do a constructor (just choose the first one)
+        for( unsigned int j=0; j<possibleCons.size(); j++ ) {
+          if( possibleCons[j] ) {
+            std::vector< Node > children;
+            children.push_back( Node::fromExpr( dt[j].getConstructor() ) );
+            for( int i=0; i<dt[j].getNumArgs(); i++ ){
+              children.push_back( NodeManager::currentNM()->mkNode( APPLY_SELECTOR, Node::fromExpr( dt[j][i].getSelector() ), r ) );
+            }
+            Node cons = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
+            //Message() << "Assign " << cons << " to " << r << std::endl;
+            m->assertEquality( r, cons, true );
           }
         }
       }
     }
   }
-  */
 }
 
 void TheoryDatatypes::merge(TNode a, TNode b) {

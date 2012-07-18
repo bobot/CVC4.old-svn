@@ -141,9 +141,6 @@ private:
    * explanation manager for the congruence closure module
    */
   CongruenceClosureExplainer<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::APPLY_CONSTRUCTOR, kind::APPLY_SELECTOR)> d_cce;
-
-  //temporary
-  std::vector< Node > d_preRegTerms;
 public:
   TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   ~TheoryDatatypes();

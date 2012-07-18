@@ -47,15 +47,6 @@ d_qe( qe ){
 
 }
 
-Node ModelEngineBuilder::chooseRepresentative( TheoryModel* tm, Node eqc ){
-  Node n = TheoryEngineModelBuilder::chooseRepresentative( tm, eqc );
-  if( !n.isNull() ){
-    return n;
-  }else{
-    return eqc;
-  }
-}
-
 void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
   d_addedLemmas = 0;
   //only construct first order model if optUseModel() is true

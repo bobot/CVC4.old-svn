@@ -146,10 +146,10 @@ class TheoryEngineModelBuilder : public ModelBuilder
 protected:
   /** pointer to theory engine */
   TheoryEngine* d_te;
-  /** choose representative */
-  virtual Node chooseRepresentative( TheoryModel* tm, Node eqc );
-  /** representatives that are current not set */
-  virtual void processBuildModel( TheoryModel* tm );
+  /** choose representative for unresolved equivalence class */
+  void initializeType( TypeNode tn, std::map< TypeNode, bool >& unresolved_types );
+  /** process build model */
+  virtual void processBuildModel( TheoryModel* m ){}
 public:
   TheoryEngineModelBuilder( TheoryEngine* te );
   virtual ~TheoryEngineModelBuilder(){}

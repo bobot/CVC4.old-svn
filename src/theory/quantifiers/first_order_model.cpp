@@ -109,18 +109,18 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
       return d_uf_model[n].getFunctionValue();
     }else{
       //std::cout << "no function model generated for " << n << std::endl;
-      return n;
     }
   }else if( type.isArray() ){
     if( d_array_model.find( n )!=d_array_model.end() ){
       return d_array_model[n].getArrayValue();
     }else{
       //std::cout << "no array model generated for " << n << std::endl;
-      return n;
     }
   }else if( n.getKind()==APPLY_UF ){
     int depIndex;
     return d_uf_model[ n.getOperator() ].getValue( n, depIndex );
+  }else if( n.getKind()==SELECT ){
+
   }
   return DefaultModel::getInterpretedValue( n );
 }
