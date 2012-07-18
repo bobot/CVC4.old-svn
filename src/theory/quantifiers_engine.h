@@ -130,23 +130,7 @@ private:
   quantifiers::ModelEngine* d_model_engine;
   /** equality query class */
   EqualityQuery* d_eq_query;
-  /**
-   * A table from theory IDs to equality query. use getEqualityQuery;
-   */
-  inst::EqualityQuery* d_eq_query_arr[theory::THEORY_LAST];
 public:
-  /**
-   * A table from theory IDs to candidate generator of rrinst.
-   use getRrinstCandidateGenerator;
-   */
-  struct RRCreateCandidateGenerator:
-    std::unary_function<QuantifiersEngine*, rrinst::CandidateGenerator*>{
-    virtual rrinst::CandidateGenerator* operator()(QuantifiersEngine*) = 0;
-    virtual ~RRCreateCandidateGenerator (){};
-  };
-private:
-  RRCreateCandidateGenerator* d_rr_gen_classes[theory::THEORY_LAST];
-
   /** list of all quantifiers (pre-rewrite) */
   std::vector< Node > d_quants;
   /** list of all quantifiers (post-rewrite) */
@@ -197,32 +181,18 @@ public:
   /** get theory engine */
   TheoryEngine* getTheoryEngine() { return d_te; }
   /** get equality query object for the given type. The default is the
-      one of UF */
-  inst::EqualityQuery* getEqualityQuery(TypeNode t) {
-    TheoryId id = Theory::theoryOf(t);
-    inst::EqualityQuery* eq = d_eq_query_arr[id];
-    if(eq == NULL) return d_eq_query_arr[theory::THEORY_UF];
-    else return eq;
-  }
+      generic one */
+  inst::EqualityQuery* getEqualityQuery(TypeNode t);
   inst::EqualityQuery* getEqualityQuery() {
-    return d_eq_query_arr[theory::THEORY_UF];
-  }
-  /** set equality query object */
-  void setEqualityQuery( TheoryId id, EqualityQuery* eq ) {
-    d_eq_query_arr[id] = eq;
+    return d_eq_query;
   }
   /** get equality query object for the given type. The default is the
       one of UF */
-  rrinst::CandidateGenerator* getRRCandidateGenerator(TypeNode t) {
-    TheoryId id = Theory::theoryOf(t);
-    RRCreateCandidateGenerator* eq = d_rr_gen_classes[id];
-    if(eq == NULL) return (*d_rr_gen_classes[theory::THEORY_UF])(this);
-    else return (*eq)(this);
-  }
-  /** set creator of candidate generator object */
-  void setRRCreateCandidateGenerator( TheoryId id, RRCreateCandidateGenerator* eq ) {
-    d_rr_gen_classes[id] = eq;
-  }
+  rrinst::CandidateGenerator* getRRCanGenClasses(TypeNode t);
+  rrinst::CandidateGenerator* getRRCanGenClass(TypeNode t);
+  /* generic candidate generator */
+  rrinst::CandidateGenerator* getRRCanGenClasses();
+  rrinst::CandidateGenerator* getRRCanGenClass();
   /** get instantiation engine */
   quantifiers::InstantiationEngine* getInstantiationEngine() { return d_inst_engine; }
   /** get model engine */

@@ -27,21 +27,10 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arrays;
 
 
-struct ArraysRRCreateCandidateGenerator : QuantifiersEngine::RRCreateCandidateGenerator{
-  rrinst::CandidateGenerator* operator()(QuantifiersEngine* qe){
-    arrays::TheoryArrays* ar = static_cast<arrays::TheoryArrays *>(qe->getTheoryEngine()->getTheory( theory::THEORY_ARRAY ));
-    eq::EqualityEngine* ee =
-      static_cast<eq::EqualityEngine*>(ar->getEqualityEngine());
-    return new eq::rrinst::CandidateGeneratorTheoryEeClasses(ee);
-  }
-};
 
 
 InstantiatorTheoryArrays::InstantiatorTheoryArrays(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
-  ie->setEqualityQuery( theory::THEORY_ARRAY,
-                        new EqualityQueryInstantiatorTheoryEq( ((TheoryArrays*)d_th)->getEqualityEngine() ));
-  ie->setRRCreateCandidateGenerator( theory::THEORY_ARRAY, new ArraysRRCreateCandidateGenerator() );
 }
 
 void InstantiatorTheoryArrays::preRegisterTerm( Node t ){
@@ -97,3 +86,16 @@ Node InstantiatorTheoryArrays::getRepresentative( Node a ){
   }
 }
 
+rrinst::CandidateGenerator* InstantiatorTheoryArrays::getRRCanGenClasses(){
+  arrays::TheoryArrays* ar = static_cast<arrays::TheoryArrays *>(getTheory());
+  eq::EqualityEngine* ee =
+    static_cast<eq::EqualityEngine*>(ar->getEqualityEngine());
+  return new eq::rrinst::CandidateGeneratorTheoryEeClasses(ee);
+}
+
+rrinst::CandidateGenerator* InstantiatorTheoryArrays::getRRCanGenClass(){
+  arrays::TheoryArrays* ar = static_cast<arrays::TheoryArrays *>(getTheory());
+  eq::EqualityEngine* ee =
+    static_cast<eq::EqualityEngine*>(ar->getEqualityEngine());
+  return new eq::rrinst::CandidateGeneratorTheoryEeClass(ee);
+}

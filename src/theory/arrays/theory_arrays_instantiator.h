@@ -49,6 +49,9 @@ public:
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
+  /** general creators of candidate generators */
+  rrinst::CandidateGenerator* getRRCanGenClasses();
+  rrinst::CandidateGenerator* getRRCanGenClass();
 };/* class Instantiatior */
 
 /** equality query object using instantiator theory uf */

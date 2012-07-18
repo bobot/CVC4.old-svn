@@ -87,21 +87,10 @@ inline void outputEqClassInfo( const char* c, const EqClassInfo* eci){
 }
 
 
-struct UfRRCreateCandidateGenerator : QuantifiersEngine::RRCreateCandidateGenerator{
-  rrinst::CandidateGenerator* operator()(QuantifiersEngine* qe){
-    uf::TheoryUF* uf = static_cast<uf::TheoryUF*>(qe->getTheoryEngine()->getTheory( theory::THEORY_UF ));
-    eq::EqualityEngine* ee =
-      static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
-    return new eq::rrinst::CandidateGeneratorTheoryEeClasses(ee);
-  }
-};
 
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* qe, Theory* th) :
 Instantiator( c, qe, th )
 {
-  qe->setEqualityQuery( theory::THEORY_UF, new EqualityQueryInstantiatorTheoryUf( this ) );
-  qe->setRRCreateCandidateGenerator( theory::THEORY_UF, new UfRRCreateCandidateGenerator() );
-
   if( !Options::current()->finiteModelFind || Options::current()->fmfInstEngine ){
     if( Options::current()->cbqi ){
       addInstStrategy( new InstStrategyCheckCESolved( this, qe ) );
@@ -761,7 +750,7 @@ void InstantiatorTheoryUf::registerEfficientHandler( EfficientHandler& handler,
   //take all terms from the uf term db and add to candidate generator
   if( pats[0].getKind() == kind::INST_CONSTANT ){
     TypeNode ty = pats[0].getType();
-    rrinst::CandidateGenerator* cg = d_quantEngine->getRRCandidateGenerator(ty);
+    rrinst::CandidateGenerator* cg = d_quantEngine->getRRCanGenClasses(ty);
     cg->reset(Node::null());
     TNode c;
     SetNode ele;
@@ -843,6 +832,21 @@ void InstantiatorTheoryUf::outputIps( const char* c, Ips& ips ){
     Debug( c ) << ips[i].first << "." << ips[i].second;
   }
 }
+
+rrinst::CandidateGenerator* InstantiatorTheoryUf::getRRCanGenClasses(){
+  uf::TheoryUF* uf = static_cast<uf::TheoryUF*>(getTheory());
+  eq::EqualityEngine* ee =
+    static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
+  return new eq::rrinst::CandidateGeneratorTheoryEeClasses(ee);
+}
+
+rrinst::CandidateGenerator* InstantiatorTheoryUf::getRRCanGenClass(){
+  uf::TheoryUF* uf = static_cast<uf::TheoryUF*>(getTheory());
+  eq::EqualityEngine* ee =
+    static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
+  return new eq::rrinst::CandidateGeneratorTheoryEeClass(ee);
+}
+
 
 } /* namespace uf */
 } /* namespace theory */

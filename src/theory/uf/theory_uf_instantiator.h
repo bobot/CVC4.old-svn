@@ -431,6 +431,9 @@ public:
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
   Node getInternalRepresentative( Node a );
+  /** general creators of candidate generators */
+  rrinst::CandidateGenerator* getRRCanGenClasses();
+  rrinst::CandidateGenerator* getRRCanGenClass();
   /** new node */
   void newEqClass( TNode n );
   /** merge */

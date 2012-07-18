@@ -59,8 +59,6 @@ public:
   */
   virtual void reset( TNode eqc ) = 0;
   virtual TNode getNextCandidate() = 0;
-  /** add candidate to list of nodes returned by this generator */
-  virtual void addCandidate( Node n ) {}
   /** call this at the beginning of each instantiation round */
   virtual void resetInstantiationRound() = 0;
 public:
@@ -121,7 +119,7 @@ private:
   };
 
   EqualityQuery* d_eQ;
-  eq::EqualityEngine * d_eE;
+  CandidateGenerator * d_cG;
 
   context::Context* d_context;
   context::CDList<Mod, CleanUp, std::allocator<Mod> > d_mods;

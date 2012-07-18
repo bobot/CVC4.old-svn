@@ -213,6 +213,8 @@ bool ApplyMatcher::reset(TNode t, InstMatch & m, QuantifiersEngine* qe){
   //we will be requesting candidates for matching terms for each child
   d_reps.clear();
   for( size_t i=0; i< d_childrens.size(); i++ ){
+    Debug("matching-debug") << "Take the representative of " << t[ d_childrens[i].second ] << std::endl;
+    Assert( d_childrens[i].third->hasTerm(t[ d_childrens[i].second ]) );
     Node rep = d_childrens[i].third->getRepresentative( t[ d_childrens[i].second ] );
     d_reps.push_back( rep );
   }
@@ -278,7 +280,7 @@ private:
     // Otherwise try to find a new candidate that has at least one match
     while(true){
       TNode n = d_cg.getNextCandidate();//kept somewhere Term-db
-      Debug("matching") << "GenCand " << n << std::endl;
+      Debug("matching") << "GenCand " << n << " (" << this << ")" << std::endl;
       if(n.isNull()) return false;
       if(d_m.reset(n,m,qe)) return true;
     };
@@ -369,8 +371,9 @@ public:
   inline bool operator() (TNode n) {
     return
       CandidateGenerator::isLegalCandidate(n) &&
-      ( //n.getKind()==SELECT || n.getKind()==STORE ||
-       n.getKind()==APPLY_UF || n.getKind()==APPLY_CONSTRUCTOR) &&
+      // ( // n.getKind()==SELECT || n.getKind()==STORE ||
+      //  n.getKind()==APPLY_UF || n.getKind()==APPLY_CONSTRUCTOR) &&
+      n.hasOperator() &&
       n.getOperator()==d_op;
   };
 };
@@ -583,6 +586,117 @@ public:
   };
   bool reset( InstMatch& m, QuantifiersEngine* qe ){
     //    std::cout << m.d_map.size() << "/" << d_num_var << std::endl;
+    return d_cgm.reset(Node::null(), m, qe);
+  }
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
+    return d_cgm.getNextMatch(m, qe);
+  }
+};
+
+template <bool classes> /** true classes | false class */
+class GenericCandidateGeneratorClasses: public CandidateGenerator{
+private:
+  CandidateGenerator* d_cg;
+  QuantifiersEngine* d_qe;
+
+public:
+  void mkCandidateGenerator(){
+    if(classes)
+      d_cg = d_qe->getRRCanGenClasses();
+    else
+     d_cg = d_qe->getRRCanGenClass();
+  }
+
+  GenericCandidateGeneratorClasses(QuantifiersEngine* qe):
+    d_qe(qe) {
+    mkCandidateGenerator();
+  }
+  ~GenericCandidateGeneratorClasses(){
+    delete(d_cg);
+  }
+  const GenericCandidateGeneratorClasses & operator =(const GenericCandidateGeneratorClasses & m){
+    mkCandidateGenerator();
+    return m;
+  };
+  GenericCandidateGeneratorClasses(const GenericCandidateGeneratorClasses & m):
+  d_qe(m.d_qe){
+    mkCandidateGenerator();
+  }
+  void resetInstantiationRound(){
+    d_cg->resetInstantiationRound();
+  };
+  void reset( TNode eqc ){
+    Assert( !classes || eqc.isNull() );
+    d_cg->reset(eqc);
+  }; //* the argument is not used
+  TNode getNextCandidate(){
+    return d_cg->getNextCandidate();
+  };
+}; /* MetaCandidateGeneratorClasses */
+
+
+class GenericMatcher: public Matcher{
+  /* The matcher */
+  typedef ApplyMatcher AuxMatcher3;
+  typedef TestMatcher< AuxMatcher3, LegalOpTest > AuxMatcher2;
+  typedef CandidateGeneratorMatcher< GenericCandidateGeneratorClasses<false>, AuxMatcher2> AuxMatcher1;
+  AuxMatcher1 d_cgm;
+  static inline AuxMatcher1 createCgm(Node pat, QuantifiersEngine* qe){
+    /** In reverse order of matcher sequence */
+    AuxMatcher3 am3(pat,qe);
+    /** Keep only the one that have the good operator */
+    AuxMatcher2 am2(am3,LegalOpTest(pat.getOperator()));
+    /** Iter on the equivalence class of the given term */
+    GenericCandidateGeneratorClasses<false> cdtG(qe);
+    /* Create a matcher from the candidate generator */
+    AuxMatcher1 am1(cdtG,am2);
+    return am1;
+  }
+  Node d_pat;
+public:
+  GenericMatcher( Node pat, QuantifiersEngine* qe ):
+    d_cgm(createCgm(pat, qe)),
+    d_pat(pat) {}
+
+  void resetInstantiationRound( QuantifiersEngine* qe ){
+    d_cgm.resetInstantiationRound(qe);
+  };
+  bool reset( TNode t, InstMatch& m, QuantifiersEngine* qe ){
+    return d_cgm.reset(t, m, qe);
+  }
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
+    return d_cgm.getNextMatch(m, qe);
+  }
+};
+
+
+class GenericPatMatcher: public PatMatcher{
+  /* The matcher */
+  typedef ApplyMatcher AuxMatcher3;
+  typedef TestMatcher< AuxMatcher3, LegalOpTest > AuxMatcher2;
+  typedef CandidateGeneratorMatcher< GenericCandidateGeneratorClasses<true>, AuxMatcher2> AuxMatcher1;
+  AuxMatcher1 d_cgm;
+  static inline AuxMatcher1 createCgm(Node pat, QuantifiersEngine* qe){
+    /** In reverse order of matcher sequence */
+    AuxMatcher3 am3(pat,qe);
+    /** Keep only the one that have the good operator */
+    AuxMatcher2 am2(am3,LegalOpTest(pat.getOperator()));
+    /** Iter on the equivalence class of the given term */
+    GenericCandidateGeneratorClasses<true> cdtG(qe);
+    /* Create a matcher from the candidate generator */
+    AuxMatcher1 am1(cdtG,am2);
+    return am1;
+  }
+  Node d_pat;
+public:
+  GenericPatMatcher( Node pat, QuantifiersEngine* qe ):
+    d_cgm(createCgm(pat, qe)),
+    d_pat(pat) {}
+
+  void resetInstantiationRound( QuantifiersEngine* qe ){
+    d_cgm.resetInstantiationRound(qe);
+  };
+  bool reset( InstMatch& m, QuantifiersEngine* qe ){
     return d_cgm.reset(Node::null(), m, qe);
   }
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
@@ -829,12 +943,16 @@ public:
 Matcher* mkMatcher( Node pat, QuantifiersEngine* qe ){
   Debug("inst-match-gen") << "mkMatcher: Pattern term is " << pat << std::endl;
 
-  if( pat.getKind() == kind::APPLY_UF){
-    return new OpMatcher(pat, qe);
-  } else if( pat.getKind() == kind::APPLY_CONSTRUCTOR ){
-    return new DatatypesMatcher(pat, qe);
-  } else if( pat.getKind() == kind::SELECT || pat.getKind() == kind::STORE ){
-    return new ArrayMatcher(pat, qe);
+  // if( pat.getKind() == kind::APPLY_UF){
+  //   return new OpMatcher(pat, qe);
+  // } else if( pat.getKind() == kind::APPLY_CONSTRUCTOR ){
+  //   return new DatatypesMatcher(pat, qe);
+  // } else if( pat.getKind() == kind::SELECT || pat.getKind() == kind::STORE ){
+  //   return new ArrayMatcher(pat, qe);
+  if( pat.getKind() == kind::APPLY_UF ||
+      pat.getKind() == kind::APPLY_CONSTRUCTOR ||
+      pat.getKind() == kind::SELECT || pat.getKind() == kind::STORE ){
+    return new GenericMatcher(pat, qe);
   } else { /* Arithmetic? */
     /** TODO: something simpler to see if the pattern is a good
         arithmetic pattern */
@@ -882,6 +1000,7 @@ PatMatcher* mkPattern( Node pat, QuantifiersEngine* qe ){
     }
   } else if( Trigger::isAtomicTrigger( pat ) ){
     return new AllOpMatcher(pat, qe);
+    // return new GenericPatMatcher(pat, qe);
   } else if( pat.getKind()==INST_CONSTANT ){
     // just a variable
     return new AllVarMatcher(pat, qe);

@@ -33,7 +33,7 @@ template<bool modEq>
 InstMatchTrie2Gen<modEq>::InstMatchTrie2Gen(context::Context* c,  QuantifiersEngine* qe):
   d_context(c), d_mods(c) {
   d_eQ = qe->getEqualityQuery();
-  d_eE = ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine();
+  d_cG = qe->getRRCanGenClass();
 };
 
 /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
@@ -78,11 +78,11 @@ bool InstMatchTrie2Gen<modEq>::existsInstMatch(InstMatchTrie2Gen<modEq>::Tree * 
   // Even if n is in the trie others of the equivalence class
   // can also be in it since the equality can have appeared
   // after they have been added
-  if( modEq && d_eE->hasTerm( n ) ){
+  if( modEq && d_eQ->hasTerm( n ) ){
     //check modulo equality if any other instantiation match exists
-    eq::EqClassIterator eqc( d_eQ->getRepresentative( n ), d_eE );
-    for( ;!eqc.isFinished();++eqc ){
-      TNode en = (*eqc);
+    d_cG->reset( d_eQ->getRepresentative( n ) );
+    for(TNode en = d_cG->getNextCandidate() ; !en.isNull() ;
+        en = d_cG->getNextCandidate() ){
       if( en == n ) continue; // already tested
       typename InstMatchTrie2Gen<modEq>::Tree::MLevel::iterator itc =
         root->e.find( en );
@@ -102,6 +102,7 @@ bool InstMatchTrie2Gen<modEq>::existsInstMatch(InstMatchTrie2Gen<modEq>::Tree * 
 template<bool modEq>
 bool InstMatchTrie2Gen<modEq>::
 addInstMatch( InstMatch& m, InstMatchTrie2Gen<modEq>::Tree* e ) {
+  d_cG->resetInstantiationRound();
  mapIter begin = m.begin();
  mapIter end = m.end();
  mapIter diverge = begin;

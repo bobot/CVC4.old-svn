@@ -15,6 +15,7 @@
  **/
 
 #include "theory/datatypes/theory_datatypes_instantiator.h"
+#include "theory/datatypes/theory_datatypes_candidate_generator.h"
 #include "theory/datatypes/theory_datatypes.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers/term_database.h"
@@ -26,41 +27,9 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::datatypes;
 
-/** equality query object using instantiator theory uf */
-class CVC4::theory::datatypes::EqualityQueryTheory : public EqualityQuery
-{
-private:
-  /** pointer to instantiator uf class */
-  TheoryDatatypes* d_th;
-public:
-  EqualityQueryTheory( TheoryDatatypes* th ) : d_th( th ){}
-  ~EqualityQueryTheory(){}
-  /** general queries about equality */
-  bool hasTerm( Node a ) { return true; } //d_th->d_reps.find(a) != d_th->d_reps.end()}
-  Node getRepresentative( Node a ) {
-    //std::cout << a << "->" << d_th->d_unionFind.find( a ) << std::endl;
-    return d_th->d_unionFind.find( a );
-  }
-  bool areEqual( Node a, Node b )
-  { return getRepresentative(a) == getRepresentative(b); }
-  bool areDisequal( Node a, Node b )
-  { Assert(false, "datatypes::EqualityQueryInstantiatorTheory::areDisequal is not implemented");
-    return false; }
-  Node getInternalRepresentative( Node a ) { return getRepresentative( a ); }
-}; /* EqualityQueryInstantiatorTheoryUf */
-
-
-struct DatatypesRRCreateCandidateGenerator : QuantifiersEngine::RRCreateCandidateGenerator{
-  theory::rrinst::CandidateGenerator* operator()(QuantifiersEngine* qe){
-    Unimplemented("MetaCandidateGeneratorClasses for THEORY_DATATYPES");
-  }
-};
 
 InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, TheoryDatatypes* th) :
 Instantiator( c, ie, th ){
-  ie->setEqualityQuery( theory::THEORY_DATATYPES, new EqualityQueryTheory( th ) );
-  ie->setRRCreateCandidateGenerator( theory::THEORY_DATATYPES, new DatatypesRRCreateCandidateGenerator() );
-
 }
 
 void InstantiatorTheoryDatatypes::assertNode( Node assertion ){
@@ -199,4 +168,9 @@ bool InstantiatorTheoryDatatypes::areDisequal( Node a, Node b ){
 
 Node InstantiatorTheoryDatatypes::getRepresentative( Node a ){
   return ((TheoryDatatypes*)d_th)->getRepresentative( a );
+}
+
+CVC4::theory::rrinst::CandidateGenerator* InstantiatorTheoryDatatypes::getRRCanGenClass(){
+  TheoryDatatypes* th = static_cast<TheoryDatatypes *>(getTheory());
+  return new datatypes::rrinst::CandidateGeneratorTheoryClass(th);
 }
