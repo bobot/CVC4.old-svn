@@ -64,7 +64,6 @@ QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_active( c ){
   d_eq_query = new EqualityQueryQuantifiersEngine( this );
-
   d_term_db = new quantifiers::TermDb( this );
   d_hasAddedLemma = false;
 
@@ -79,7 +78,6 @@ d_active( c ){
   }else{
     d_inst_engine = NULL;
   }
-
   if( Options::current()->finiteModelFind ){
     d_model_engine = new quantifiers::ModelEngine( this );
     d_modules.push_back( d_model_engine );

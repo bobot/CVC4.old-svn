@@ -146,7 +146,6 @@ public:
   Node getFreeVariableForInstConstant( Node n );
 };/* class TermDb */
 
-
 }
 }
 }

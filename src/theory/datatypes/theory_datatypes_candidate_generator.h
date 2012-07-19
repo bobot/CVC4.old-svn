@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Theory uf candidate generator
+ ** \brief Theory datatypes candidate generator
  **/
 
 #include "cvc4_private.h"

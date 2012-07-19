@@ -26,11 +26,9 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arrays;
 
-
-
-
 InstantiatorTheoryArrays::InstantiatorTheoryArrays(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
+
 }
 
 void InstantiatorTheoryArrays::preRegisterTerm( Node t ){

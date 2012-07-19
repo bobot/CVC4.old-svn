@@ -155,10 +155,6 @@ class TheoryArrays : public Theory {
 
   public:
 
-  eq::EqualityEngine* getEqualityEngine() {
-    return &d_equalityEngine;
-  }
-
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
   Node ppRewrite(TNode atom);
 
@@ -349,6 +345,12 @@ class TheoryArrays : public Theory {
   void checkRowLemmas(TNode a, TNode b);
   void queueRowLemma(RowLemmaType lem);
   void dischargeLemmas();
+
+  public:
+
+  eq::EqualityEngine* getEqualityEngine() {
+    return &d_equalityEngine;
+  }
 
 };/* class TheoryArrays */
 
