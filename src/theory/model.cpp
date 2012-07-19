@@ -147,45 +147,36 @@ Node TheoryModel::getValue( TNode n ){
     return n;
   }
 
-  // see if the value is explicitly set in the model
-  if( d_equalityEngine.hasTerm( n ) ){
-    Debug("model") << "-> Defined term." << std::endl;
-    return getRepresentative( n );
+  Node nn;
+  if( n.getNumChildren()>0 ){
+    std::vector< Node > children;
+    if( metakind == kind::metakind::PARAMETERIZED ){
+      Debug("model-debug") << "get operator: " << n.getOperator() << std::endl;
+      children.push_back( n.getOperator() );
+    }
+    //evaluate the children
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      Node val = getValue( n[i] );
+      Debug("model-debug") << i << " : " << n[i] << " -> " << val << std::endl;
+      Assert( !val.isNull() );
+      children.push_back( val );
+    }
+    Debug("model-debug") << "Done eval children" << std::endl;
+    nn = NodeManager::currentNM()->mkNode( n.getKind(), children );
   }else{
-    Node nn;
-    if( n.getNumChildren()>0 ){
-      std::vector< Node > children;
-      if( metakind == kind::metakind::PARAMETERIZED ){
-        Debug("model-debug") << "get operator: " << n.getOperator() << std::endl;
-        children.push_back( n.getOperator() );
-      }
-      //evaluate the children
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        Node val = getValue( n[i] );
-        Debug("model-debug") << i << " : " << n[i] << " -> " << val << std::endl;
-        Assert( !val.isNull() );
-        children.push_back( val );
-      }
-      Debug("model-debug") << "Done eval children" << std::endl;
-      nn = NodeManager::currentNM()->mkNode( n.getKind(), children );
-    }else{
-      nn = n;
-    }
-    //interpretation is the rewritten form
-    nn = Rewriter::rewrite( nn );
+    nn = n;
+  }
+  //interpretation is the rewritten form
+  nn = Rewriter::rewrite( nn );
 
-    // special case: value of a constant == itself
-    if(metakind == kind::metakind::CONSTANT) {
-      Debug("model") << "-> Theory-interpreted term." << std::endl;
-      return nn;
-    }else if( d_equalityEngine.hasTerm( nn ) ){
-      Debug("model") << "-> Theory-interpreted (defined) term." << std::endl;
-      return getRepresentative( nn );
-    }else{
-      Debug("model") << "-> Model-interpreted term." << std::endl;
-      //otherwise, get the interpreted value in the model
-      return getInterpretedValue( nn );
-    }
+  // special case: value of a constant == itself
+  if(metakind == kind::metakind::CONSTANT) {
+    Debug("model") << "-> Theory-interpreted term." << std::endl;
+    return nn;
+  }else{
+    Debug("model") << "-> Model-interpreted term." << std::endl;
+    //otherwise, get the interpreted value in the model
+    return getInterpretedValue( nn );
   }
 
   ////case for equality
@@ -210,7 +201,7 @@ Node TheoryModel::getDomainValue( TypeNode tn, std::vector< Node >& exclude ){
 }
 
 //FIXME: use the theory enumerator to generate constants here
-Node TheoryModel::getNewDomainValue( TypeNode tn, bool mkConst ){
+Node TheoryModel::getNewDomainValue( TypeNode tn ){
   if( tn==NodeManager::currentNM()->booleanType() ){
     if( d_ra.d_type_reps[tn].empty() ){
       return d_false;
@@ -340,23 +331,32 @@ DefaultModel::DefaultModel( context::Context* c, std::string name ) : TheoryMode
 }
 
 Node DefaultModel::getInterpretedValue( TNode n ){
-  Assert( !d_equalityEngine.hasTerm( n ) );
   TypeNode type = n.getType();
   if( type.isFunction() || type.isPredicate() ){
     //DO_THIS?
     return n;
   }else{
-    //first, try to choose an existing term as value
+    //first, see if the representative is defined
+    if( d_equalityEngine.hasTerm( n ) ){
+      n = d_equalityEngine.getRepresentative( n );
+      //this check is required since d_equalityEngine.hasTerm( n )
+      // does not ensure that n is in an equivalence class in d_equalityEngine
+      if( d_reps.find( n )!=d_reps.end() ){
+        return d_reps[n];
+      }
+    }
+    //second, try to choose an existing term as value
     std::vector< Node > v_emp;
     Node n2 = getDomainValue( type, v_emp );
     if( !n2.isNull() ){
       return n2;
     }else{
-      //otherwise, choose new valuse
-      n2 = getNewDomainValue( type, true );
+      //otherwise, choose new value
+      n2 = getNewDomainValue( type );
       if( !n2.isNull() ){
         return n2;
       }else{
+        //otherwise, just return itself
         return n;
       }
     }
@@ -422,7 +422,7 @@ void TheoryEngineModelBuilder::processBuildModel( TheoryModel* tm ){
     if( tm->d_reps.find( n )!=tm->d_reps.end() ){
       TypeNode tn = n.getType();
       //add new constant to equivalence class
-      Node rep = tm->getNewDomainValue( tn, true );
+      Node rep = tm->getNewDomainValue( tn );
       if( !rep.isNull() ){
         tm->assertEquality( n, rep, true );
       }else{

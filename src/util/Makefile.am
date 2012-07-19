@@ -46,6 +46,7 @@ libutil_la_SOURCES = \
 	matcher.h \
 	gmp_util.h \
 	sexpr.h \
+	sexpr.cpp \
 	stats.h \
 	stats.cpp \
 	dynamic_array.h \
@@ -74,6 +75,8 @@ libutil_la_SOURCES = \
 	ite_removal.cpp \
 	node_visitor.h \
 	index.h \
+	uninterpreted_constant.h \
+	uninterpreted_constant.cpp \
 	model.h \
 	model.cpp
 

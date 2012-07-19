@@ -76,6 +76,7 @@ namespace smt {
   class DefinedFunction;
 
   class SmtEnginePrivate;
+  class SmtScope;
 }/* CVC4::smt namespace */
 
 // TODO: SAT layer (esp. CNF- versus non-clausal solvers under the
@@ -248,6 +249,9 @@ class CVC4_PUBLIC SmtEngine {
   void setLogicInternal() throw(AssertionException);
 
   friend class ::CVC4::smt::SmtEnginePrivate;
+  friend class ::CVC4::smt::SmtScope;
+
+  StatisticsRegistry* d_statisticsRegistry;
 
   // === STATISTICS ===
   /** time spent in definition-expansion */
@@ -305,7 +309,7 @@ public:
    * Query information about the SMT environment.
    */
   SExpr getInfo(const std::string& key) const
-    throw(BadOptionException);
+    throw(BadOptionException, ModalException);
 
   /**
    * Set an aspect of the current SMT execution environment.
@@ -530,6 +534,13 @@ public:
    * throws a ModalException.
    */
   unsigned long getTimeRemaining() const throw(ModalException);
+
+  /**
+   * Permit access to the underlying ExprManager.
+   */
+  ExprManager* getExprManager() const {
+    return d_exprManager;
+  }
 
   /**
    * Permit access to the underlying StatisticsRegistry.
