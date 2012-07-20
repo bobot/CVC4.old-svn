@@ -46,7 +46,14 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
     }else if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
       Unimplemented("Cannot create instantiation iterator for arithmetic quantifier");
     }else if( tn.isDatatype() ){
-      Unimplemented("Cannot create instantiation iterator for datatype quantifier");
+      const Datatype& dt = ((DatatypeType)(tn).toType()).getDatatype();
+      //if finite, then use type enumerator
+      if( dt.isFinite() ){
+        //DO_THIS: use type enumerator
+        Unimplemented("Not yet implemented: instantiation iterator for finite datatype quantifier");
+      }else{
+        Unimplemented("Cannot create instantiation iterator for infinite datatype quantifier");
+      }
     }else{
       Unimplemented("Cannot create instantiation iterator for quantifier");
     }

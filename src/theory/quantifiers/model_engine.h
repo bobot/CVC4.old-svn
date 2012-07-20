@@ -56,6 +56,8 @@ protected:
 public:
   ModelEngineBuilder( QuantifiersEngine* qe );
   virtual ~ModelEngineBuilder(){}
+  /** finish model */
+  void finishProcessBuildModel( TheoryModel* m );
 public:
   /** number of lemmas generated while building model */
   int d_addedLemmas;

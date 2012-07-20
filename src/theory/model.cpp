@@ -410,11 +410,11 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
     }
     //store representative in representative set
     if( !const_rep.isNull() ){
-      //std::cout << "Constant rep " << const_rep << " for " << eqc << std::endl;
+      //Message() << "Constant rep " << const_rep << " for " << eqc << std::endl;
       tm->d_reps[ eqc ] = const_rep;
       tm->d_ra.add( const_rep );
     }else{
-      //std::cout << "** unresolved eqc " << eqc << std::endl;
+      //Message() << "** unresolved eqc " << eqc << std::endl;
       unresolved_eqc[ eqc ] = true;
       unresolved_types[ eqct ] = true;
     }
@@ -476,10 +476,18 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
               if( tm->d_equalityEngine.hasTerm( acir ) ){
                 acir = tm->d_equalityEngine.getRepresentative( acir );
               }
-              //if( unresolved_eqc.find( acir )==unresolved_eqc.end() ){
-              //  Message() << "WARNING: unknown argument " << acir << " for datatype." << std::endl;
-              //}
-              if( unresolved_eqc.find( acir )==unresolved_eqc.end() || unresolved_eqc[ acir ] ){
+              if( unresolved_eqc.find( acir )==unresolved_eqc.end() ){
+                ////must add to existing equivalence class
+                //std::vector< Node > v_emp;
+                //Node acir_rep = tm->getDomainValue( acir.getType(), v_emp );
+                //if( !acir_rep.isNull() ){
+                //  tm->assertEquality( acir, acir_rep, true );
+                //}
+                //acir = acir_rep;
+                Message() << "Undefined datatype argument " << acir << std::endl;
+                acir = Node::null();
+              }
+              if( acir.isNull() || unresolved_eqc[ acir ] ){
                 repSet = true;
                 break;
               }else{
@@ -489,10 +497,10 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
             if( !repSet ){
               rep = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
               repSet = true;
-              //std::cout << "Datatype rep " << rep << " for " << n << std::endl;
+              //Message() << "Datatype rep " << rep << " for " << n << std::endl;
             }
           }else{
-            Unimplemented( "Build Model: Do not know how to resolve datatype equivalence class" );
+            //Unimplemented( "Build Model: Do not know how to resolve datatype equivalence class" );
           }
         }
 #endif
@@ -501,7 +509,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
           if( rep.isNull() ){
             rep = n;
           }
-          //std::cout << "New domain/ident " << rep << " for " << n << std::endl;
+          //Message() << "New domain/ident " << rep << " for " << n << std::endl;
         }
         if( !rep.isNull() ){
           tm->assertEquality( n, rep, true );

@@ -47,6 +47,12 @@ d_qe( qe ){
 
 }
 
+void ModelEngineBuilder::finishProcessBuildModel( TheoryModel* m ){
+  for( std::map< Node, Node >::iterator it = m->d_reps.begin(); it != m->d_reps.end(); ++it ){
+
+  }
+}
+
 void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
   d_addedLemmas = 0;
   //only construct first order model if optUseModel() is true
@@ -444,6 +450,8 @@ void ModelEngine::check( Theory::Effort e ){
       //CVC4 will answer SAT
       Debug("fmf-consistent") << std::endl;
       debugPrint("fmf-consistent");
+      // finish building the model in the standard way
+      d_builder.finishProcessBuildModel( d_quantEngine->getModel() );
     }else{
       //otherwise, the search will continue
       d_quantEngine->flushLemmas( &d_quantEngine->getOutputChannel() );
