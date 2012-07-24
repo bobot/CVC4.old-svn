@@ -51,11 +51,6 @@ private:
   typedef context::CDHashMap<Node, EqListN*, NodeHashFunction> EqListsN;
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 
-  /** keeps track of all selectors we care about, value is whether they have been collapsed */
-  BoolMap d_selectors;
-  /** map from (representative) nodes to a list of selectors whose arguments are
-      in the equivalence class of that node */
-  EqListsN d_selector_eq;
   /** map from nodes to whether they have been instantiated */
   BoolMap d_inst_map;
   /** transitive closure to record equivalence/subterm relation.  */
@@ -140,13 +135,20 @@ private:
   class EqcInfo
   {
   public:
-    EqcInfo( context::Context* c ) : d_constructor( c, Node::null() ), d_labels( c ), d_selectors( c ){}
+    EqcInfo( context::Context* c ) : d_inst( c, false ), d_constructor( c, Node::null() ), d_labels( c ), d_selectors( c ){}
     ~EqcInfo(){}
+    //whether we have instantiatied this eqc
+    context::CDO< bool > d_inst;
+    //constructor equal to this eqc
     context::CDO< Node > d_constructor;
+    //labels for this eqc
     EqList d_labels;
-    EqListN d_selectors;
-    bool hasLabel() { return !d_labels.empty() && getLabel().getKind()==kind::APPLY_TESTER; }
+    //all selectors whose argument is this eqc
+    BoolMap d_selectors;
+    //helper functions
+    bool hasLabel() { return !d_constructor.get().isNull() || (!d_labels.empty() && getLabel().getKind()==kind::APPLY_TESTER); }
     Node getLabel() { return d_labels[ d_labels.size() - 1 ]; }
+    int getLabelIndex();
     void getPossibleCons( TypeNode tn, std::vector< bool >& cons );
   };
 private:
@@ -211,6 +213,8 @@ private:
   void collectTerms( Node n );
   /** get instantiate cons */
   Node getInstantiateCons( Node n, const Datatype& dt, int index );
+  /** check instantiate */
+  void checkInstantiate( EqcInfo* eqc );
 public:
   //equality queries
   bool hasTerm( Node a );
