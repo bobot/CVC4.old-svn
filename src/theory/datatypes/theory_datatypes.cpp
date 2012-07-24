@@ -69,7 +69,6 @@ Node TheoryDatatypes::getConstructorForSelector( Node sel )
 
 TheoryDatatypes::TheoryDatatypes(Context* c, UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
   Theory(THEORY_DATATYPES, c, u, out, valuation, logicInfo, qe),
-  d_inst_map(c),
   d_cycle_check(c),
   d_hasSeenCycle(c, false),
   d_notify( *this ),
@@ -229,7 +228,7 @@ void TheoryDatatypes::eqNotifyPostMerge(TNode t1, TNode t2){
         d_eqc_info[ t1 ] = eqc1;
       }
       //merge labels
-      for( EqList::const_iterator j = eqc2->d_labels.begin(); j != eqc2->d_labels.end(); ++j ){
+      for( EqListN::const_iterator j = eqc2->d_labels.begin(); j != eqc2->d_labels.end(); ++j ){
         addTester( *j, eqc1 );
         if( d_conflict ){
           return;
@@ -282,7 +281,7 @@ void TheoryDatatypes::EqcInfo::getPossibleCons( TypeNode tn, std::vector< bool >
   if( hasLabel() ){
     pcons[ getLabelIndex() ] = true;
   }else{
-    for( EqList::const_iterator i = d_labels.begin(); i != d_labels.end(); i++ ) {
+    for( EqListN::const_iterator i = d_labels.begin(); i != d_labels.end(); i++ ) {
       Assert( (*i).getKind()==NOT );
       pcons[ Datatype::indexOf( (*i)[0].getOperator().toExpr() ) ] = false;
     }
@@ -297,7 +296,7 @@ int TheoryDatatypes::EqcInfo::getLabelIndex(){
   }
 }
 
-void TheoryDatatypes::addTester( TNode t, EqcInfo* eqc ){
+void TheoryDatatypes::addTester( Node t, EqcInfo* eqc ){
   if( !d_conflict ){
     //std::cout << "Add tester " << t << " " << eqc << std::endl;
     bool tpolarity = t.getKind()!=NOT;
@@ -322,7 +321,7 @@ void TheoryDatatypes::addTester( TNode t, EqcInfo* eqc ){
         }
       }
     }else{
-      for( EqList::const_iterator i = eqc->d_labels.begin(); i != eqc->d_labels.end(); i++ ) {
+      for( EqListN::const_iterator i = eqc->d_labels.begin(); i != eqc->d_labels.end(); i++ ) {
         Assert( (*i).getKind()==NOT );
         j = *i;
         jt = j[0];
@@ -358,7 +357,7 @@ void TheoryDatatypes::addTester( TNode t, EqcInfo* eqc ){
             Assert( testerIndex!=-1 );
             std::vector< Node > eq_terms;
             NodeBuilder<> nb(kind::AND);
-            for( EqList::const_iterator i = eqc->d_labels.begin(); i != eqc->d_labels.end(); i++ ) {
+            for( EqListN::const_iterator i = eqc->d_labels.begin(); i != eqc->d_labels.end(); i++ ) {
               nb << (*i);
               if( std::find( eq_terms.begin(), eq_terms.end(), (*i)[0][0] )==eq_terms.end() ){
                 eq_terms.push_back( (*i)[0][0] );
@@ -495,7 +494,7 @@ void TheoryDatatypes::check(Effort e) {
               if( ei->hasLabel() ){
                 //std::cout << ei->getLabel();
               }else{
-                for( EqList::const_iterator j = ei->d_labels.begin(); j != ei->d_labels.end(); j++ ){
+                for( EqListN::const_iterator j = ei->d_labels.begin(); j != ei->d_labels.end(); j++ ){
                   //std::cout << *j << " ";
                 }
               }
@@ -593,7 +592,7 @@ void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
             if( ei->hasLabel() ){
               //std::cout << ei->getLabel();
             }else{
-              for( EqList::const_iterator j = ei->d_labels.begin(); j != ei->d_labels.end(); j++ ){
+              for( EqListN::const_iterator j = ei->d_labels.begin(); j != ei->d_labels.end(); j++ ){
                 //std::cout << *j << " ";
               }
             }

@@ -51,8 +51,6 @@ private:
   typedef context::CDHashMap<Node, EqListN*, NodeHashFunction> EqListsN;
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 
-  /** map from nodes to whether they have been instantiated */
-  BoolMap d_inst_map;
   /** transitive closure to record equivalence/subterm relation.  */
   TransitiveClosureNode d_cycle_check;
   /** has seen cycle */
@@ -142,7 +140,7 @@ private:
     //constructor equal to this eqc
     context::CDO< Node > d_constructor;
     //labels for this eqc
-    EqList d_labels;
+    EqListN d_labels;
     //all selectors whose argument is this eqc
     BoolMap d_selectors;
     //helper functions
@@ -203,7 +201,7 @@ public:
   std::string identify() const { return std::string("TheoryDatatypes"); }
 private:
   /** add tester to equivalence class info */
-  void addTester( TNode t, EqcInfo* eqc );
+  void addTester( Node t, EqcInfo* eqc );
   /** for checking if cycles exist */
   void checkCycles();
   bool searchForCycle( Node n, Node on,
