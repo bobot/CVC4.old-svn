@@ -336,10 +336,10 @@ public:
 }/* CVC4::options namespace */
 
 /** Parse argc/argv and put the result into a CVC4::Options. */
-int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
+int Options::parseOptions(int argc, char* main_argv[]) throw(OptionException) {
   options::OptionsGuard guard(&s_current, this);
 
-  const char *progName = argv[0];
+  const char *progName = main_argv[0];
   SmtEngine* const smt = NULL;
 
   // Reset getopt(), in the case of multiple calls to parseOptions().
@@ -364,6 +364,8 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
   int extra_optind = 0, main_optind = 0;
   int old_optind;
 
+  char** argv = main_argv;
+
   for(;;) {
     int c = -1;
     Debug("preemptGetopt") << "top of loop, extra_optind == " << extra_optind << ", extra_argc == " << extra_argc << std::endl;
@@ -372,6 +374,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
       optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
 #endif /* HAVE_DECL_OPTRESET */
       old_optind = optind = extra_optind;
+      argv = extra_argv;
       Debug("preemptGetopt") << "in preempt code, next arg is " << extra_argv[optind == 0 ? 1 : optind] << std::endl;
       c = getopt_long(extra_argc, extra_argv,
                       ":${all_modules_short_options}",
@@ -396,7 +399,8 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
       optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
 #endif /* HAVE_DECL_OPTRESET */
       old_optind = optind = main_optind;
-      c = getopt_long(argc, argv,
+      argv = main_argv;
+      c = getopt_long(argc, main_argv,
                       ":${all_modules_short_options}",
                       cmdlineOptions, NULL);
       main_optind = optind;
@@ -410,7 +414,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 414 "${template}"
+#line 418 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the
