@@ -37,6 +37,7 @@ using namespace CVC4::theory::datatypes;
 #if 1
 
 void TheoryDatatypes::printModelDebug(){
+  /*
   //std::cout << "Datatypes model : " << std::endl;
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
   while( !eqcs_i.isFinished() ){
@@ -61,10 +62,10 @@ void TheoryDatatypes::printModelDebug(){
             if( hasLabel( ei, eqc ) ){
               //std::cout << getLabel( eqc );
             }else{
-              EqLists::iterator lbl_i = d_labels.find( eqc );
+              NodeListMap::iterator lbl_i = d_labels.find( eqc );
               if( lbl_i != d_labels.end() ){
-                EqList* lbl = (*lbl_i).second;
-                for( EqList::const_iterator j = lbl->begin(); j != lbl->end(); j++ ){
+                NodeList* lbl = (*lbl_i).second;
+                for( NodeList::const_iterator j = lbl->begin(); j != lbl->end(); j++ ){
                   //std::cout << *j << " ";
                 }
               }
@@ -79,6 +80,7 @@ void TheoryDatatypes::printModelDebug(){
     }
     ++eqcs_i;
   }
+  */
 }
 
 
@@ -86,6 +88,8 @@ TheoryDatatypes::TheoryDatatypes(Context* c, UserContext* u, OutputChannel& out,
   Theory(THEORY_DATATYPES, c, u, out, valuation, logicInfo, qe),
   d_cycle_check(c),
   d_hasSeenCycle(c, false),
+  d_infer(c),
+  d_infer_exp(c),
   d_notify( *this ),
   d_equalityEngine(d_notify, c, "theory::datatypes::TheoryDatatypes"),
   d_labels( c ),
@@ -105,8 +109,8 @@ TheoryDatatypes::EqcInfo* TheoryDatatypes::getOrMakeEqcInfo( Node n, bool doMake
   if( !hasEqcInfo( n ) ){
     if( doMake ){
       //add to labels
-      EqList* lbl = new(getSatContext()->getCMM()) EqList( true, getSatContext(), false,
-                                                           ContextMemoryAllocator<TNode>(getSatContext()->getCMM()) );
+      NodeList* lbl = new(getSatContext()->getCMM()) NodeList( true, getSatContext(), false,
+                                                             ContextMemoryAllocator<TNode>(getSatContext()->getCMM()) );
       d_labels.insertDataFromContextMemory( n, lbl );
       EqcInfo* ei;
       if( eqc_i!=d_eqc_info.end() ){
@@ -239,10 +243,14 @@ void TheoryDatatypes::merge( Node t1, Node t2 ){
               d_pending.push_back( eq );
               d_pending_exp[ eq ] = unifEq;
               Debug("datatypes-infer") << "DtInfer : " << eq << " by " << unifEq << std::endl;
+              d_infer.push_back( eq );
+              d_infer_exp.push_back( unifEq );
             }
           }
         }
-        eqc1->d_inst = eqc1->d_inst || eqc2->d_inst;
+        if( eqc1->d_inst.get().isNull() && !eqc2->d_inst.get().isNull() ){
+          eqc1->d_inst.set( eqc2->d_inst );
+        }
         if( cons1.isNull() && !cons2.isNull() ){
           checkInst = true;
           eqc1->d_constructor.set( eqc2->d_constructor );
@@ -256,10 +264,10 @@ void TheoryDatatypes::merge( Node t1, Node t2 ){
       }
       //merge labels
       Debug("datatypes-debug") << "Merge labels from " << eqc2 << " " << t2 << std::endl;
-      EqLists::iterator lbl_i = d_labels.find( t2 );
+      NodeListMap::iterator lbl_i = d_labels.find( t2 );
       if( lbl_i != d_labels.end() ){
-        EqList* lbl = (*lbl_i).second;
-        for( EqList::const_iterator j = lbl->begin(); j != lbl->end(); ++j ){
+        NodeList* lbl = (*lbl_i).second;
+        for( NodeList::const_iterator j = lbl->begin(); j != lbl->end(); ++j ){
           addTester( *j, eqc1, t1 );
           if( d_conflict ){
             return;
@@ -303,7 +311,7 @@ void TheoryDatatypes::eqNotifyDisequal(TNode t1, TNode t2, TNode reason){
 }
 
 TheoryDatatypes::EqcInfo::EqcInfo( context::Context* c ) :
-d_inst( c, false ), d_constructor( c, Node::null() ), d_selectors( c, false ){
+d_inst( c, Node::null() ), d_constructor( c, Node::null() ), d_selectors( c, false ){
 
 }
 
@@ -312,9 +320,9 @@ bool TheoryDatatypes::hasLabel( EqcInfo* eqc, Node n ){
 }
 
 Node TheoryDatatypes::getLabel( Node n ) {
-  EqLists::iterator lbl_i = d_labels.find( n );
+  NodeListMap::iterator lbl_i = d_labels.find( n );
   if( lbl_i != d_labels.end() ){
-    EqList* lbl = (*lbl_i).second;
+    NodeList* lbl = (*lbl_i).second;
     if( !(*lbl).empty() && (*lbl)[ (*lbl).size() - 1 ].getKind()==kind::APPLY_TESTER ){
       return (*lbl)[ (*lbl).size() - 1 ];
     }
@@ -336,10 +344,10 @@ void TheoryDatatypes::getPossibleCons( EqcInfo* eqc, Node n, std::vector< bool >
   if( hasLabel( eqc, n ) ){
     pcons[ getLabelIndex( eqc, n ) ] = true;
   }else{
-    EqLists::iterator lbl_i = d_labels.find( n );
+    NodeListMap::iterator lbl_i = d_labels.find( n );
     if( lbl_i != d_labels.end() ){
-      EqList* lbl = (*lbl_i).second;
-      for( EqList::const_iterator i = lbl->begin(); i != lbl->end(); i++ ) {
+      NodeList* lbl = (*lbl_i).second;
+      for( NodeList::const_iterator i = lbl->begin(); i != lbl->end(); i++ ) {
         Assert( (*i).getKind()==NOT );
         pcons[ Datatype::indexOf( (*i)[0].getOperator().toExpr() ) ] = false;
       }
@@ -374,10 +382,10 @@ void TheoryDatatypes::addTester( Node t, EqcInfo* eqc, Node n ){
         return;
       }
     }else{
-      EqLists::iterator lbl_i = d_labels.find( n );
+      NodeListMap::iterator lbl_i = d_labels.find( n );
       Assert( lbl_i != d_labels.end() );
-      EqList* lbl = (*lbl_i).second;
-      for( EqList::const_iterator i = lbl->begin(); i != lbl->end(); i++ ) {
+      NodeList* lbl = (*lbl_i).second;
+      for( NodeList::const_iterator i = lbl->begin(); i != lbl->end(); i++ ) {
         Assert( (*i).getKind()==NOT );
         j = *i;
         jt = j[0];
@@ -414,7 +422,7 @@ void TheoryDatatypes::addTester( Node t, EqcInfo* eqc, Node n ){
             Assert( testerIndex!=-1 );
             std::vector< Node > eq_terms;
             NodeBuilder<> nb(kind::AND);
-            for( EqList::const_iterator i = lbl->begin(); i != lbl->end(); i++ ) {
+            for( NodeList::const_iterator i = lbl->begin(); i != lbl->end(); i++ ) {
               nb << (*i);
               if( std::find( eq_terms.begin(), eq_terms.end(), (*i)[0][0] )==eq_terms.end() ){
                 eq_terms.push_back( (*i)[0][0] );
@@ -428,6 +436,8 @@ void TheoryDatatypes::addTester( Node t, EqcInfo* eqc, Node n ){
             d_pending.push_back( t_concl );
             d_pending_exp[ t_concl ] = t_concl_exp;
             Debug("datatypes-infer") << "DtInfer : " << t_concl << " by " << t_concl_exp << std::endl;
+            d_infer.push_back( t_concl );
+            d_infer_exp.push_back( t_concl_exp );
             return;
           }
         }
@@ -478,6 +488,7 @@ void TheoryDatatypes::check(Effort e) {
             d_pending.push_back( t );
             d_pending_exp[ t ] = NodeManager::currentNM()->mkConst( true );
             Debug("datatypes-infer") << "DtInfer : " << t << ", trivial" << std::endl;
+            d_infer.push_back( t );
           }else{
             std::vector< bool > pcons;
             getPossibleCons( eqc, n, pcons );
@@ -528,7 +539,6 @@ void TheoryDatatypes::check(Effort e) {
 
 void TheoryDatatypes::assertFact( Node fact, Node exp ){
   Assert( d_pending_merge.empty() );
-  collectTerms( fact );
   bool polarity = fact.getKind() != kind::NOT;
   TNode atom = polarity ? fact : fact[0];
   if (atom.getKind() == kind::EQUAL) {
@@ -565,6 +575,7 @@ void TheoryDatatypes::flushPendingFacts(){
 
 void TheoryDatatypes::preRegisterTerm(TNode n) {
   Debug("datatypes-prereg") << "TheoryDatatypes::preRegisterTerm() " << n << endl;
+  collectTerms( n );
   switch (n.getKind()) {
   case kind::EQUAL:
     // Add the trigger for equality
@@ -627,13 +638,14 @@ Node TheoryDatatypes::getInstantiateCons( Node n, const Datatype& dt, int index 
     children.push_back( NodeManager::currentNM()->mkNode( APPLY_SELECTOR, Node::fromExpr( dt[index][i].getSelector() ), n ) );
   }
   Node n_ic = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
+  collectTerms( n_ic );
   //TODO: add type ascription for ambiguous constructor type?
   return n_ic;
 }
 
 void TheoryDatatypes::checkInstantiate( EqcInfo* eqc, Node n ){
   //add constructor to equivalence class if not done so already
-  if( hasLabel( eqc, n ) && !eqc->d_inst ){
+  if( hasLabel( eqc, n ) && eqc->d_inst.get().isNull() ){
     Node exp;
     Node tt;
     if( !eqc->d_constructor.get().isNull() ){
@@ -647,15 +659,19 @@ void TheoryDatatypes::checkInstantiate( EqcInfo* eqc, Node n ){
     const Datatype& dt = ((DatatypeType)(tt.getType()).toType()).getDatatype();
     //must be finite or have a selector
     if( eqc->d_selectors || dt[ index ].isFinite() ){
+      eqc->d_inst.set( NodeManager::currentNM()->mkConst( true ) );
       Node tt_cons = getInstantiateCons( tt, dt, index );
+      Node eq;
       if( tt!=tt_cons ){
-        Node eq = tt.eqNode( tt_cons );
+        eq = tt.eqNode( tt_cons );
         Debug("datatypes-inst") << "DtInstantiate : " << eqc << " " << eq << std::endl;
         d_pending.push_back( eq );
         d_pending_exp[ eq ] = exp;
         Debug("datatypes-infer") << "DtInfer : " << eq << " by " << exp << std::endl;
+        //eqc->d_inst.set( eq );
+        d_infer.push_back( eq );
+        d_infer_exp.push_back( exp );
       }
-      eqc->d_inst = true;
     }
   }
 }

@@ -45,16 +45,17 @@ class InstantiatorTheoryDatatypes;
 class TheoryDatatypes : public Theory {
   friend class InstantiatorTheoryDatatypes;
 private:
-  typedef context::CDChunkList<TNode> EqList;
-  typedef context::CDHashMap<Node, EqList*, NodeHashFunction> EqLists;
-  typedef context::CDChunkList<Node> EqListN;
-  typedef context::CDHashMap<Node, EqListN*, NodeHashFunction> EqListsN;
+  typedef context::CDChunkList<Node> NodeList;
+  typedef context::CDHashMap<Node, NodeList*, NodeHashFunction> NodeListMap;
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 
   /** transitive closure to record equivalence/subterm relation.  */
   TransitiveClosureNode d_cycle_check;
   /** has seen cycle */
   context::CDO< bool > d_hasSeenCycle;
+  /** inferences */
+  NodeList d_infer;
+  NodeList d_infer_exp;
 private:
   //notification class for equality engine
   class NotifyClass : public eq::EqualityEngineNotify {
@@ -119,16 +120,19 @@ private:
     EqcInfo( context::Context* c );
     ~EqcInfo(){}
     //whether we have instantiatied this eqc
-    context::CDO< bool > d_inst;
+    context::CDO< Node > d_inst;
     //constructor equal to this eqc
     context::CDO< Node > d_constructor;
     //all selectors whose argument is this eqc
     context::CDO< bool > d_selectors;
   };
-  //helper functions related to eqc info
+  /** does eqc of n have a label? */
   bool hasLabel( EqcInfo* eqc, Node n );
+  /** get the label associated to n */
   Node getLabel( Node n );
+  /** get the index of the label associated to n */
   int getLabelIndex( EqcInfo* eqc, Node n );
+  /** get the possible constructors for n */
   void getPossibleCons( EqcInfo* eqc, Node n, std::vector< bool >& cons );
 private:
   /** The notify class */
@@ -146,7 +150,7 @@ private:
    *   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t )  followed by
    *   is_[constructor_(n+1)]( t ), each of which is a unique tester.
   */
-  EqLists d_labels;
+  NodeListMap d_labels;
   /** Are we in conflict */
   context::CDO<bool> d_conflict;
   /** The conflict node */
