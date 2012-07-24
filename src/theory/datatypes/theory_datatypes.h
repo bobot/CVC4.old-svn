@@ -57,16 +57,6 @@ private:
   context::CDO< bool > d_hasSeenCycle;
   /** get the constructor for the node */
   const DatatypeConstructor& getConstructor( Node cons );
-  /** get the constructor for the selector */
-  Node getConstructorForSelector( Node sel );
-
-  /**
-   * Terms that currently need to be checked for collapse/instantiation rules
-   */
-  std::map< Node, bool > d_checkMap;
-
-
-  ///---------------------------new
 private:
   //notification class for equality engine
   class NotifyClass : public eq::EqualityEngineNotify {
@@ -144,8 +134,8 @@ private:
     //all selectors whose argument is this eqc
     BoolMap d_selectors;
     //helper functions
-    bool hasLabel() { return !d_constructor.get().isNull() || (!d_labels.empty() && getLabel().getKind()==kind::APPLY_TESTER); }
-    Node getLabel() { return d_labels[ d_labels.size() - 1 ]; }
+    bool hasLabel() { return !d_constructor.get().isNull() || !getLabel().isNull(); }
+    Node getLabel();
     int getLabelIndex();
     void getPossibleCons( TypeNode tn, std::vector< bool >& cons );
   };
@@ -156,6 +146,8 @@ private:
   eq::EqualityEngine d_equalityEngine;
   /** information necessary for equivalence classes */
   std::map< Node, EqcInfo* > d_eqc_info;
+  /** has eqc info */
+  BoolMap d_has_eqc_info;
   /** Are we in conflict */
   context::CDO<bool> d_conflict;
   /** The conflict node */
@@ -163,6 +155,8 @@ private:
   /** pending assertions */
   std::vector< Node > d_pending;
   std::map< Node, Node > d_pending_exp;
+  std::vector< Node > d_pending_merge;
+  void merge( Node t1, Node t2 );
 private:
   /** assert fact */
   void assertFact( Node fact, Node exp );
@@ -170,6 +164,8 @@ private:
   void flushPendingFacts();
   /** get or make eqc info */
   EqcInfo* getOrMakeEqcInfo( Node n );
+  /** has eqc info */
+  bool hasEqcInfo( Node n ) { return d_has_eqc_info.find( n )!=d_has_eqc_info.end(); }
 public:
   TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation,
                   const LogicInfo& logicInfo, QuantifiersEngine* qe);
@@ -219,7 +215,6 @@ public:
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
-  ///---------------------------/new
 
 };/* class TheoryDatatypes */
 
