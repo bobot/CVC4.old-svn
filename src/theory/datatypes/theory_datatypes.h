@@ -55,8 +55,6 @@ private:
   TransitiveClosureNode d_cycle_check;
   /** has seen cycle */
   context::CDO< bool > d_hasSeenCycle;
-  /** get the constructor for the node */
-  const DatatypeConstructor& getConstructor( Node cons );
 private:
   //notification class for equality engine
   class NotifyClass : public eq::EqualityEngineNotify {
@@ -123,22 +121,23 @@ private:
   class EqcInfo
   {
   public:
-    EqcInfo( context::Context* c ) : d_inst( c, false ), d_constructor( c, Node::null() ), d_labels( c ), d_selectors( c ){}
+    EqcInfo( context::Context* c );
     ~EqcInfo(){}
+    context::CDO< bool > d_valid;
     //whether we have instantiatied this eqc
     context::CDO< bool > d_inst;
     //constructor equal to this eqc
     context::CDO< Node > d_constructor;
-    //labels for this eqc
-    EqListN d_labels;
     //all selectors whose argument is this eqc
-    BoolMap d_selectors;
-    //helper functions
-    bool hasLabel() { return !d_constructor.get().isNull() || !getLabel().isNull(); }
-    Node getLabel();
-    int getLabelIndex();
-    void getPossibleCons( TypeNode tn, std::vector< bool >& cons );
+    context::CDO< bool > d_selectors;
   };
+  //helper functions related to eqc info
+  bool hasLabel( EqcInfo* eqc, Node n );
+  Node getLabel( Node n );
+  int getLabelIndex( EqcInfo* eqc, Node n );
+  void getPossibleCons( EqcInfo* eqc, Node n, std::vector< bool >& cons );
+  void printDebug();
+  //typedef context::CDHashMap<Node, EqcInfo*, NodeHashFunction> EqcInfoMap;
 private:
   /** The notify class */
   NotifyClass d_notify;
@@ -146,8 +145,8 @@ private:
   eq::EqualityEngine d_equalityEngine;
   /** information necessary for equivalence classes */
   std::map< Node, EqcInfo* > d_eqc_info;
-  /** has eqc info */
-  BoolMap d_has_eqc_info;
+  EqLists d_labels;
+  //BoolMap d_has_eqc_info;
   /** Are we in conflict */
   context::CDO<bool> d_conflict;
   /** The conflict node */
@@ -163,9 +162,9 @@ private:
   /** flush pending facts */
   void flushPendingFacts();
   /** get or make eqc info */
-  EqcInfo* getOrMakeEqcInfo( Node n );
+  EqcInfo* getOrMakeEqcInfo( Node n, bool doMake = false );
   /** has eqc info */
-  bool hasEqcInfo( Node n ) { return d_has_eqc_info.find( n )!=d_has_eqc_info.end(); }
+  bool hasEqcInfo( Node n ) { return d_labels.find( n )!=d_labels.end(); }
 public:
   TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation,
                   const LogicInfo& logicInfo, QuantifiersEngine* qe);
@@ -197,7 +196,7 @@ public:
   std::string identify() const { return std::string("TheoryDatatypes"); }
 private:
   /** add tester to equivalence class info */
-  void addTester( Node t, EqcInfo* eqc );
+  void addTester( Node t, EqcInfo* eqc, Node n );
   /** for checking if cycles exist */
   void checkCycles();
   bool searchForCycle( Node n, Node on,
@@ -208,7 +207,7 @@ private:
   /** get instantiate cons */
   Node getInstantiateCons( Node n, const Datatype& dt, int index );
   /** check instantiate */
-  void checkInstantiate( EqcInfo* eqc );
+  void checkInstantiate( EqcInfo* eqc, Node n );
 public:
   //equality queries
   bool hasTerm( Node a );
