@@ -109,21 +109,15 @@ private:
   };/* class TheoryDatatypes::NotifyClass */
 private:
   /** equivalence class info
+   * d_inst is whether the instantiate rule has been applied,
    * d_constructor is a node of kind APPLY_CONSTRUCTOR (if any) in this equivalence class,
-   * d_labels is testers that hold for this equivalence class, either:
-   * a list of equations of the form
-   *   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t ), each of which are unique testers
-   *   and n is less than the number of possible constructors for t minus one,
-   * or a list of equations of the form
-   *   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t )  followed by
-   *   is_[constructor_(n+1)]( t ), each of which is a unique tester.
+   * d_selectors is whether a selector has been applied to this equivalence class.
    */
   class EqcInfo
   {
   public:
     EqcInfo( context::Context* c );
     ~EqcInfo(){}
-    context::CDO< bool > d_valid;
     //whether we have instantiatied this eqc
     context::CDO< bool > d_inst;
     //constructor equal to this eqc
@@ -136,8 +130,6 @@ private:
   Node getLabel( Node n );
   int getLabelIndex( EqcInfo* eqc, Node n );
   void getPossibleCons( EqcInfo* eqc, Node n, std::vector< bool >& cons );
-  void printDebug();
-  //typedef context::CDHashMap<Node, EqcInfo*, NodeHashFunction> EqcInfoMap;
 private:
   /** The notify class */
   NotifyClass d_notify;
@@ -145,17 +137,24 @@ private:
   eq::EqualityEngine d_equalityEngine;
   /** information necessary for equivalence classes */
   std::map< Node, EqcInfo* > d_eqc_info;
+  /** labels for each equivalence class
+   * for each eqc n, d_labels[n] is testers that hold for this equivalence class, either:
+   * a list of equations of the form
+   *   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t ), each of which are unique testers
+   *   and n is less than the number of possible constructors for t minus one,
+   * or a list of equations of the form
+   *   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t )  followed by
+   *   is_[constructor_(n+1)]( t ), each of which is a unique tester.
+  */
   EqLists d_labels;
-  //BoolMap d_has_eqc_info;
   /** Are we in conflict */
   context::CDO<bool> d_conflict;
   /** The conflict node */
   Node d_conflictNode;
-  /** pending assertions */
+  /** pending assertions/merges */
   std::vector< Node > d_pending;
   std::map< Node, Node > d_pending_exp;
   std::vector< Node > d_pending_merge;
-  void merge( Node t1, Node t2 );
 private:
   /** assert fact */
   void assertFact( Node fact, Node exp );
@@ -197,6 +196,8 @@ public:
 private:
   /** add tester to equivalence class info */
   void addTester( Node t, EqcInfo* eqc, Node n );
+  /** merge the equivalence class info of t1 and t2 */
+  void merge( Node t1, Node t2 );
   /** for checking if cycles exist */
   void checkCycles();
   bool searchForCycle( Node n, Node on,
@@ -208,6 +209,8 @@ private:
   Node getInstantiateCons( Node n, const Datatype& dt, int index );
   /** check instantiate */
   void checkInstantiate( EqcInfo* eqc, Node n );
+  /** debug print */
+  void printModelDebug();
 public:
   //equality queries
   bool hasTerm( Node a );
