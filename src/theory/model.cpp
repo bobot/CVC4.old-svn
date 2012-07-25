@@ -344,12 +344,14 @@ void TheoryModel::printRepresentative( std::ostream& out, Node r ){
   }
 }
 
-DefaultModel::DefaultModel( context::Context* c, std::string name ) : TheoryModel( c, name ){
+DefaultModel::DefaultModel( context::Context* c, std::string name, bool enableFuncModels ) :
+TheoryModel( c, name ), d_enableFuncModels( enableFuncModels ){
 
 }
 
 void DefaultModel::addTerm( Node n ){
-  if( n.getKind()==APPLY_UF ){
+  //must collect UF terms
+  if( d_enableFuncModels && n.getKind()==APPLY_UF ){
     d_uf_terms[ n.getOperator() ].push_back( n );
   }
 }
@@ -364,23 +366,27 @@ Node DefaultModel::getInterpretedValue( TNode n ){
   TypeNode type = n.getType();
   if( type.isFunction() || type.isPredicate() ){
     //for function models
-    if( d_uf_models.find( n )==d_uf_models.end() ){
-      uf::UfModelTree ufmto( n );
-      Node default_v;
-      for( size_t i=0; i<d_uf_terms[n].size(); i++ ){
-        Node un = d_uf_terms[n][i];
-        Node v = getRepresentative( un );
-        ufmto.setValue( this, un, v );
-        default_v = v;
+    if( d_enableFuncModels ){
+      if( d_uf_models.find( n )==d_uf_models.end() ){
+        uf::UfModelTree ufmt( n );
+        Node default_v;
+        for( size_t i=0; i<d_uf_terms[n].size(); i++ ){
+          Node un = d_uf_terms[n][i];
+          Node v = getRepresentative( un );
+          ufmt.setValue( this, un, v );
+          default_v = v;
+        }
+        if( default_v.isNull() ){
+          default_v = getInterpretedValue( NodeManager::currentNM()->mkVar( type.getRangeType() ) );
+        }
+        ufmt.setDefaultValue( this, default_v );
+        ufmt.simplify();
+        d_uf_models[n] = ufmt.getFunctionValue();
       }
-      if( default_v.isNull() ){
-        default_v = getInterpretedValue( NodeManager::currentNM()->mkVar( type.getRangeType() ) );
-      }
-      ufmto.setDefaultValue( this, default_v );
-      ufmto.simplify();
-      d_uf_models[n] = ufmto.getFunctionValue();
+      return d_uf_models[n];
+    }else{
+      return n;
     }
-    return d_uf_models[n];
   }else{
     //first, see if the representative is defined
     if( d_equalityEngine.hasTerm( n ) ){

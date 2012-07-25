@@ -127,9 +127,10 @@ public:
 class DefaultModel : public TheoryModel
 {
 protected:
+  bool d_enableFuncModels;
   void addTerm( Node n );
 public:
-  DefaultModel( context::Context* c, std::string name );
+  DefaultModel( context::Context* c, std::string name, bool enableFuncModels );
   virtual ~DefaultModel(){}
   std::map< Node, std::vector< Node > > d_uf_terms;
   std::map< Node, Node > d_uf_models;

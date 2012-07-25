@@ -327,7 +327,7 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
       if( eval==0 ){
         //evaluate children to see if they are the same
         Node val1 = evaluateTerm( n[ 1 ], depIndex1 );
-        Node val2 = evaluateTerm( n[ 1 ], depIndex1 );
+        Node val2 = evaluateTerm( n[ 2 ], depIndex2 );
         if( val1==val2 ){
           val = val1;
           depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
@@ -444,7 +444,8 @@ Node RepSetEvaluator::evaluateTermDefault( Node n, int& depIndex, std::vector< i
     }
   }
   //recreate the value
-  return NodeManager::currentNM()->mkNode( n.getKind(), children );
+  Node val = NodeManager::currentNM()->mkNode( n.getKind(), children );
+  return val;
 }
 
 void RepSetEvaluator::clearEvalFailed( int index ){

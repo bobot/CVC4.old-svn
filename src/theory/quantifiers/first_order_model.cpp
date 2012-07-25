@@ -26,7 +26,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : DefaultModel( c, name ),
+FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : DefaultModel( c, name, true ),
 d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 
 }
@@ -50,7 +50,7 @@ void FirstOrderModel::initialize(){
   //for each quantifier, collect all operators we care about
   for( int i=0; i<getNumAssertedQuantifiers(); i++ ){
     Node f = getAssertedQuantifier( i );
-    //initialize model for term
+    //initialize relevant models within bodies of all quantifiers
     initializeModelForTerm( f[1] );
   }
   //for debugging
@@ -115,6 +115,7 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
   TypeNode type = n.getType();
   if( type.isFunction() || type.isPredicate() ){
     if( d_uf_models.find( n )==d_uf_models.end() ){
+      //use the model tree to generate the model
       Node fn = d_uf_model_tree[n].getFunctionValue();
       d_uf_models[n] = fn;
       return fn;
