@@ -289,28 +289,31 @@ void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, uf::UfModel& m
     for( size_t i=0; i<model.d_ground_asserts.size(); i++ ){
       Node n = model.d_ground_asserts[i];
       Node v = model.d_ground_asserts_reps[i];
-      //if this assertion did not help the model, just consider it ground
-      //set n = v in the model tree
-      Debug("fmf-model-cons") << "  Set " << n << " = ";
-      fm->printRepresentativeDebug( "fmf-model-cons", v );
-      Debug("fmf-model-cons") << std::endl;
-      //set it as ground value
-      model.setValue( n, v );
-      if( model.optUsePartialDefaults() ){
-        //also set as default value if necessary
-        //if( n.getAttribute(ModelBasisArgAttribute())==1 && !d_term_pro_con[0][n].empty() ){
-        if( n.hasAttribute(ModelBasisArgAttribute()) && n.getAttribute(ModelBasisArgAttribute())==1 ){
-          model.setValue( n, v, false );
+      fm->getTermDatabase()->computeModelBasisArgAttribute( n );
+      if( !n.getAttribute(NoMatchAttribute()) || n.getAttribute(ModelBasisArgAttribute())==1 ){
+        //if this assertion did not help the model, just consider it ground
+        //set n = v in the model tree
+        Debug("fmf-model-cons") << "  Set " << n << " = ";
+        fm->printRepresentativeDebug( "fmf-model-cons", v );
+        Debug("fmf-model-cons") << std::endl;
+        //set it as ground value
+        model.d_uf_mtg.setValue( fm, n, v );
+        if( model.d_uf_mtg.optUsePartialDefaults() ){
+          //also set as default value if necessary
+          //if( n.getAttribute(ModelBasisArgAttribute())==1 && !d_term_pro_con[0][n].empty() ){
+          if( n.hasAttribute(ModelBasisArgAttribute()) && n.getAttribute(ModelBasisArgAttribute())==1 ){
+            model.d_uf_mtg.setValue( fm, n, v, false );
+            if( n==defaultTerm ){
+              //incidentally already set, we will not need to find a default value
+              setDefaultVal = false;
+            }
+          }
+        }else{
           if( n==defaultTerm ){
+            model.d_uf_mtg.setValue( fm, n, v, false );
             //incidentally already set, we will not need to find a default value
             setDefaultVal = false;
           }
-        }
-      }else{
-        if( n==defaultTerm ){
-          model.setValue( n, v, false );
-          //incidentally already set, we will not need to find a default value
-          setDefaultVal = false;
         }
       }
     }
@@ -320,7 +323,7 @@ void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, uf::UfModel& m
       //chose defaultVal based on heuristic, currently the best ratio of "pro" responses
       Node defaultVal = d_uf_prefs[op].getBestDefaultValue( defaultTerm, fm );
       Assert( !defaultVal.isNull() );
-      model.setValue( defaultTerm, defaultVal, false );
+      model.d_uf_mtg.setValue( fm, defaultTerm, defaultVal, false );
     }
     Debug("fmf-model-cons") << "  Making model...";
     model.setModel();

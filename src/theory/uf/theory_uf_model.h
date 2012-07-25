@@ -23,11 +23,6 @@
 
 namespace CVC4 {
 namespace theory {
-
-namespace quantifiers{
-  class FirstOrderModel;
-}
-
 namespace uf {
 
 class UfModelTree
@@ -66,6 +61,7 @@ public:
   /** getConstant Value function
     *
     * given term n, where n may contain model basis arguments
+    *   if n is null, then n is the model basis op term
     * if n is constant for its entire domain, then this function returns the value of its domain
     * otherwise, it returns null
     * for example, if f( x_0, x_1 ) := if( x_0 = a ) b else if( x_1 = a ) a else b,
@@ -128,26 +124,42 @@ public:
   }
 };
 
+class UfModelTreeGenerator
+{
+private:
+  //store for set values
+  Node d_default_value;
+  std::map< Node, Node > d_set_values[2][2];
+  // defaults
+  std::vector< Node > d_defaults;
+  Node getIntersection( TheoryModel* m, Node n1, Node n2, bool& isGround );
+public:
+  UfModelTreeGenerator(){}
+  ~UfModelTreeGenerator(){}
+  /** set default value */
+  void setDefaultValue( Node v ) { d_default_value = v; }
+  /** set value */
+  void setValue( TheoryModel* m, Node n, Node v, bool ground = true, bool isReq = true );
+  /** make model */
+  void makeModel( TheoryModel* m, UfModelTreeOrdered& tree );
+  /** uses partial default values */
+  bool optUsePartialDefaults();
+  /** reset */
+  void clear();
+};
+
 class UfModel
 {
 private:
   /** reference to model */
-  quantifiers::FirstOrderModel* d_model;
+  TheoryModel* d_model;
   //the operator this model is for
   Node d_op;
   //is model constructed
   bool d_model_constructed;
-  //store for set values
-  std::map< Node, Node > d_set_values[2][2];
-private:
-  // defaults
-  std::vector< Node > d_defaults;
-  Node getIntersection( Node n1, Node n2, bool& isGround );
-  //helper for to ITE function.
-  static Node toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode );
 public:
   UfModel(){}
-  UfModel( Node op, quantifiers::FirstOrderModel* m );
+  UfModel( Node op, TheoryModel* m, std::vector< Node >& terms );
   ~UfModel(){}
   //ground terms for this operator
   std::vector< Node > d_ground_asserts;
@@ -157,6 +169,8 @@ public:
   UfModelTreeOrdered d_tree;
   //node equivalent of this model
   Node d_func_value;
+  /** mode tree generator */
+  UfModelTreeGenerator d_uf_mtg;
 public:
   /** get operator */
   Node getOperator() { return d_op; }
@@ -174,9 +188,7 @@ public:
   /** is empty */
   bool isEmpty() { return d_ground_asserts.empty(); }
   /** is constant */
-  bool isConstant();
-  /** uses partial default values */
-  bool optUsePartialDefaults();
+  bool isConstant() { return !getConstantValue( Node::null() ).isNull(); }
 public:
   /** set model */
   void setModel();
@@ -186,9 +198,14 @@ public:
   void makeModel( UfModelTreeOrdered& tree );
   /** get function value for this function */
   Node getFunctionValue();
+private:
+  //helper for to ITE function.
+  static Node toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode );
+public:
   /** to ITE function for function model nodes */
   static Node toIte( Node fm_node, std::vector< Node >& args ) { return toIte2( fm_node, args, 0, Node::null() ); }
 };
+
 
 //this class stores temporary information useful to model engine for constructing model
 class UfModelPreferenceData

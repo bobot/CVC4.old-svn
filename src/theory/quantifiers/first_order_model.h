@@ -67,11 +67,13 @@ public: //for Theory Quantifiers:
 public:
   FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name );
   virtual ~FirstOrderModel(){}
-  // initialize the model
-  void initialize();
+  // reset the model
+  void reset();
   /** get interpreted value */
   Node getInterpretedValue( TNode n );
 public:
+  // initialize the model
+  void initialize();
   /** get term database */
   TermDb* getTermDatabase();
   /** to stream function */

@@ -32,23 +32,28 @@ d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 
 }
 
+void FirstOrderModel::reset(){
+  //rebuild models
+  d_uf_model.clear();
+  d_array_model.clear();
+  DefaultModel::reset();
+}
+
 void FirstOrderModel::addTerm( Node n ){
-  std::vector< Node > added;
-  d_term_db->addTerm( n, added, false );
+  //std::vector< Node > added;
+  //d_term_db->addTerm( n, added, false );
+  DefaultModel::addTerm( n );
 }
 
 void FirstOrderModel::initialize(){
   //this is called after representatives have been chosen and the equality engine has been built
-  //rebuild models
-  d_uf_model.clear();
-  d_array_model.clear();
   //for each quantifier, collect all operators we care about
   for( int i=0; i<getNumAssertedQuantifiers(); i++ ){
     Node f = getAssertedQuantifier( i );
     //initialize model for term
     initializeModelForTerm( f[1] );
   }
-
+  //for debugging
   if( Options::current()->printModelEngine ){
     for( std::map< TypeNode, std::vector< Node > >::iterator it = d_ra.d_type_reps.begin(); it != d_ra.d_type_reps.end(); ++it ){
       if( uf::StrongSolverTheoryUf::isRelevantType( it->first ) ){
@@ -65,7 +70,7 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
       TypeNode tn = op.getType();
       tn = tn[ (int)tn.getNumChildren()-1 ];
       if( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) ){
-        d_uf_model[ op ] = uf::UfModel( op, this );
+        d_uf_model[ op ] = uf::UfModel( op, this, d_uf_terms[op] );
       }
     }
   }
@@ -109,6 +114,7 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
       return d_uf_model[n].getFunctionValue();
     }else{
       //std::cout << "no function model generated for " << n << std::endl;
+      return n;
     }
   }else if( type.isArray() ){
     if( d_array_model.find( n )!=d_array_model.end() ){
@@ -117,8 +123,12 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
       //std::cout << "no array model generated for " << n << std::endl;
     }
   }else if( n.getKind()==APPLY_UF ){
-    int depIndex;
-    return d_uf_model[ n.getOperator() ].getValue( n, depIndex );
+    Node op = n.getOperator();
+    if( d_uf_model.find( op )!=d_uf_model.end() ){
+      //consult the uf model
+      int depIndex;
+      return d_uf_model[ op ].getValue( n, depIndex );
+    }
   }else if( n.getKind()==SELECT ){
 
   }

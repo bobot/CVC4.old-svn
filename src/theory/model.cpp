@@ -129,7 +129,7 @@ void TheoryModel::toStream( std::ostream& out ){
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
-    out << eqc << " : " << eqc.getType() << " : " << std::endl;
+    Debug("get-model-debug") << eqc << " : " << eqc.getType() << " : " << std::endl;
     out << "   ";
     //add terms to model
     eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
@@ -357,6 +357,7 @@ void DefaultModel::addTerm( Node n ){
 void DefaultModel::reset(){
   d_uf_terms.clear();
   d_uf_models.clear();
+  TheoryModel::reset();
 }
 
 Node DefaultModel::getInterpretedValue( TNode n ){
@@ -437,7 +438,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
     eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &tm->d_equalityEngine );
     while( !eqc_i.isFinished() ){
       Node n = *eqc_i;
-      tm->addTerm( n );
+      //check if this is constant, if so, we will use it as representative
       if( n.getMetaKind()==kind::metakind::CONSTANT ){
         const_rep = n;
       }
@@ -447,6 +448,8 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
       }else if( n.getKind()==APPLY_CONSTRUCTOR ){
         apply_constructors[ eqc ] = n;
       }
+      //add term to the model
+      tm->addTerm( n );
       ++eqc_i;
     }
     //store representative in representative set
@@ -477,7 +480,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
         Node n = it->first;
         TypeNode tn = n.getType();
         Node rep;
-        bool repSet = false;
+        bool mkRep = true;
 #if 1
         if( tn.isArray() ){
           TypeNode index_t = tn.getArrayIndexType();
@@ -486,10 +489,11 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
             //collect all relevant set values of n
             std::vector< Node > arr_selects;
             std::vector< Node > arr_select_values;
-            while( n.getKind()==STORE ){
-              arr_selects.push_back( tm->getRepresentative( n[1] ) );
-              arr_selects.push_back( tm->getRepresentative( n[2] ) );
-              n = n[0];
+            Node nbase = n;
+            while( nbase.getKind()==STORE ){
+              arr_selects.push_back( tm->getRepresentative( nbase[1] ) );
+              arr_select_values.push_back( tm->getRepresentative( nbase[2] ) );
+              nbase = nbase[0];
             }
             eq::EqClassIterator eqc_i = eq::EqClassIterator( n, &tm->d_equalityEngine );
             while( !eqc_i.isFinished() ){
@@ -504,14 +508,12 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
             }
             //now, construct based on select/value pairs
             //TODO: make this a constant
-            rep = n;
+            rep = nbase;
             for( int i=0; i<(int)arr_selects.size(); i++ ){
               rep = NodeManager::currentNM()->mkNode( STORE, rep, arr_selects[i], arr_select_values[i] );
             }
-            repSet = true;
-          }else{
-            repSet = true;
           }
+          mkRep = false;
         }else if( tn.isDatatype() ){
           if( apply_constructors.find( n )!=apply_constructors.end() ){
             Node ac = apply_constructors[n];
@@ -527,24 +529,26 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
                 acir = Node::null();
               }
               if( acir.isNull() || unresolved_eqc[ acir ] ){
-                repSet = true;
+                mkRep = false;
                 break;
               }else{
                 children.push_back( tm->getRepresentative( acir ) );
               }
             }
-            if( !repSet ){
+            if( mkRep ){
               rep = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
-              repSet = true;
               //Message() << "Datatype rep " << rep << " for " << n << std::endl;
             }
           }else{
             //Unimplemented( "Build Model: Do not know how to resolve datatype equivalence class" );
           }
+          mkRep = false;
         }
 #endif
-        if( !repSet ){
+        if( mkRep ){
+          //just make any representative
           rep = tm->getNewDomainValue( tn, true );
+          //if we can't get new domain value, just take n itself (this typically should not happen)
           if( rep.isNull() ){
             rep = n;
           }
@@ -568,6 +572,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
   }while( !fixedPoint );
 
   //for all unresolved equivalence classes, just get new domain value
+  //  this should typically never happen
   for( std::map< Node, bool >::iterator it = unresolved_eqc.begin(); it != unresolved_eqc.end(); ++it ){
     if( it->second ){
       Node n = it->first;
@@ -579,6 +584,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
       tm->assertEquality( n, rep, true );
       tm->d_reps[ n ] = rep;
       tm->d_ra.add( rep );
+      Message() << "Warning : Unresolved eqc, assign " << rep << " for eqc( " << n << " ) : " << n.getType() << std::endl;
     }
   }
 

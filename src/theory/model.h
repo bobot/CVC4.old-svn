@@ -128,11 +128,11 @@ class DefaultModel : public TheoryModel
 {
 protected:
   void addTerm( Node n );
-  std::map< Node, std::vector< Node > > d_uf_terms;
-  std::map< Node, Node > d_uf_models;
 public:
   DefaultModel( context::Context* c, std::string name );
   virtual ~DefaultModel(){}
+  std::map< Node, std::vector< Node > > d_uf_terms;
+  std::map< Node, Node > d_uf_models;
 public:
   void reset();
   Node getInterpretedValue( TNode n );

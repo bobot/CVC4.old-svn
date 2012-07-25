@@ -251,45 +251,10 @@ void UfModelTree::debugPrint( std::ostream& out, TheoryModel* m, std::vector< in
   }
 }
 
-UfModel::UfModel( Node op, quantifiers::FirstOrderModel* m ) : d_model( m ), d_op( op ),
-d_model_constructed( false ){
-  d_tree = UfModelTreeOrdered( op );
-  TypeNode tn = d_op.getType();
-  tn = tn[(int)tn.getNumChildren()-1];
-  Assert( tn==NodeManager::currentNM()->booleanType() || tn.isDatatype() || uf::StrongSolverTheoryUf::isRelevantType( tn ) );
-  //look at ground assertions
-  for( size_t i=0; i<d_model->getTermDatabase()->d_op_map[ d_op ].size(); i++ ){
-    Node n = d_model->getTermDatabase()->d_op_map[ d_op ][i];
-    d_model->getTermDatabase()->computeModelBasisArgAttribute( n );
-    if( !n.getAttribute(NoMatchAttribute()) || n.getAttribute(ModelBasisArgAttribute())==1 ){
-      Node r = d_model->getRepresentative( n );
-      d_ground_asserts_reps.push_back( r );
-      d_ground_asserts.push_back( n );
-    }
-  }
-  //determine if it is constant
-  if( !d_ground_asserts.empty() ){
-    bool isConstant = true;
-    for( int i=1; i<(int)d_ground_asserts.size(); i++ ){
-      if( d_ground_asserts_reps[0]!=d_ground_asserts_reps[i] ){
-        isConstant = false;
-        break;
-      }
-    }
-    if( isConstant ){
-      //set constant value
-      Node t = d_model->getTermDatabase()->getModelBasisOpTerm( d_op );
-      Node r = d_ground_asserts_reps[0];
-      setValue( t, r, false );
-      setModel();
-      Debug("fmf-model-cons") << "Function " << d_op << " is the constant function ";
-      d_model->printRepresentativeDebug( "fmf-model-cons", r );
-      Debug("fmf-model-cons") << std::endl;
-    }
-  }
-}
 
-Node UfModel::getIntersection( Node n1, Node n2, bool& isGround ){
+
+
+Node UfModelTreeGenerator::getIntersection( TheoryModel* m, Node n1, Node n2, bool& isGround ){
   //Notice() << "Get intersection " << n1 << " " << n2 << std::endl;
   isGround = true;
   std::vector< Node > children;
@@ -304,7 +269,7 @@ Node UfModel::getIntersection( Node n1, Node n2, bool& isGround ){
       children.push_back( n2[i] );
     }else if( n2[i].getAttribute(ModelBasisAttribute()) ){
       children.push_back( n1[i] );
-    }else if( d_model->areEqual( n1[i], n2[i] ) ){
+    }else if( m->areEqual( n1[i], n2[i] ) ){
       children.push_back( n1[i] );
     }else{
       return Node::null();
@@ -313,7 +278,7 @@ Node UfModel::getIntersection( Node n1, Node n2, bool& isGround ){
   return NodeManager::currentNM()->mkNode( APPLY_UF, children );
 }
 
-void UfModel::setValue( Node n, Node v, bool ground, bool isReq ){
+void UfModelTreeGenerator::setValue( TheoryModel* m, Node n, Node v, bool ground, bool isReq ){
   Assert( !n.isNull() );
   Assert( !v.isNull() );
   d_set_values[ isReq ? 1 : 0 ][ ground ? 1 : 0 ][n] = v;
@@ -327,13 +292,13 @@ void UfModel::setValue( Node n, Node v, bool ground, bool isReq ){
         //  is also defined.
         //for example, if we have that f( e, a ) = ..., and f( b, e ) = ...,
         //  then we must define f( b, a ).
-        Node ni = getIntersection( n, d_defaults[i], isGround );
+        Node ni = getIntersection( m, n, d_defaults[i], isGround );
         if( !ni.isNull() ){
           //if the intersection exists, and is not already defined
           if( d_set_values[0][ isGround ? 1 : 0 ].find( ni )==d_set_values[0][ isGround ? 1 : 0 ].end() &&
               d_set_values[1][ isGround ? 1 : 0 ].find( ni )==d_set_values[1][ isGround ? 1 : 0 ].end() ){
             //use the current value
-            setValue( ni, v, isGround, false );
+            setValue( m, ni, v, isGround, false );
           }
         }
       }
@@ -341,6 +306,73 @@ void UfModel::setValue( Node n, Node v, bool ground, bool isReq ){
     }
     if( isReq && d_set_values[0][ ground ? 1 : 0 ].find( n )!=d_set_values[0][ ground ? 1 : 0 ].end()){
       d_set_values[0][ ground ? 1 : 0 ].erase( n );
+    }
+  }
+}
+
+void UfModelTreeGenerator::makeModel( TheoryModel* m, UfModelTreeOrdered& tree ){
+  for( int j=0; j<2; j++ ){
+    for( int k=0; k<2; k++ ){
+      for( std::map< Node, Node >::iterator it = d_set_values[j][k].begin(); it != d_set_values[j][k].end(); ++it ){
+        tree.setValue( m, it->first, it->second, k==1 );
+      }
+    }
+  }
+  if( !d_default_value.isNull() ){
+    tree.setDefaultValue( m, d_default_value );
+  }
+  tree.simplify();
+}
+
+bool UfModelTreeGenerator::optUsePartialDefaults(){
+#ifdef USE_PARTIAL_DEFAULT_VALUES
+  return true;
+#else
+  return false;
+#endif
+}
+
+void UfModelTreeGenerator::clear(){
+  d_default_value = Node::null();
+  for( int j=0; j<2; j++ ){
+    for( int k=0; k<2; k++ ){
+      d_set_values[j][k].clear();
+    }
+  }
+  d_defaults.clear();
+}
+
+
+UfModel::UfModel( Node op, TheoryModel* m, std::vector< Node >& terms ) : d_model( m ), d_op( op ),
+d_model_constructed( false ){
+  d_tree = UfModelTreeOrdered( op );
+  TypeNode tn = d_op.getType();
+  tn = tn[(int)tn.getNumChildren()-1];
+  Assert( tn==NodeManager::currentNM()->booleanType() || tn.isSort() );
+  //look at ground assertions
+  for( size_t i=0; i<terms.size(); i++ ){
+    Node n = terms[i];
+    Node r = d_model->getRepresentative( n );
+    d_ground_asserts.push_back( n );
+    d_ground_asserts_reps.push_back( r );
+  }
+  //determine if it is constant
+  if( !d_ground_asserts.empty() ){
+    bool isConstant = true;
+    for( int i=1; i<(int)d_ground_asserts.size(); i++ ){
+      if( d_ground_asserts_reps[0]!=d_ground_asserts_reps[i] ){
+        isConstant = false;
+        break;
+      }
+    }
+    if( isConstant ){
+      //set constant value
+      Node r = d_ground_asserts_reps[0];
+      d_uf_mtg.setDefaultValue( r );
+      setModel();
+      Debug("fmf-model-cons") << "Function " << d_op << " is the constant function ";
+      d_model->printRepresentativeDebug( "fmf-model-cons", r );
+      Debug("fmf-model-cons") << std::endl;
     }
   }
 }
@@ -368,58 +400,35 @@ Node UfModel::getFunctionValue(){
   return d_func_value;
 }
 
-bool UfModel::isConstant(){
-  Node gn = d_model->getTermDatabase()->getModelBasisOpTerm( d_op );
-  Node n = getConstantValue( gn );
-  return !n.isNull();
-}
-
-bool UfModel::optUsePartialDefaults(){
-#ifdef USE_PARTIAL_DEFAULT_VALUES
-  return true;
-#else
-  return false;
-#endif
-}
-
 void UfModel::setModel(){
+  Assert( !d_model_constructed );
+  //make the model in d_tree
   makeModel( d_tree );
   d_model_constructed = true;
-  d_func_value = Node::null();
 
   //for debugging, make sure model satisfies all ground assertions
   for( size_t i=0; i<d_ground_asserts.size(); i++ ){
     int depIndex;
     Node n = d_tree.getValue( d_model, d_ground_asserts[i], depIndex );
     if( n!=d_ground_asserts_reps[i] ){
-      Debug("fmf-bad") << "Bad model : " << d_ground_asserts[i] << " := ";
-      d_model->printRepresentativeDebug("fmf-bad", n );
-      Debug("fmf-bad") << " != ";
-      d_model->printRepresentativeDebug("fmf-bad", d_ground_asserts_reps[i] );
-      Debug("fmf-bad") << std::endl;
+      Debug("fmf-unsound") << "Bad model : " << d_ground_asserts[i] << " := ";
+      d_model->printRepresentativeDebug("fmf-unsound", n );
+      Debug("fmf-unsound") << " != ";
+      d_model->printRepresentativeDebug("fmf-unsound", d_ground_asserts_reps[i] );
+      Debug("fmf-unsound") << std::endl;
     }
   }
 }
 
 void UfModel::clearModel(){
-  for( int j=0; j<2; j++ ){
-    for( int k=0; k<2; k++ ){
-      d_set_values[j][k].clear();
-    }
-  }
+  d_uf_mtg.clear();
   d_tree.clear();
   d_model_constructed = false;
+  d_func_value = Node::null();
 }
 
 void UfModel::makeModel( UfModelTreeOrdered& tree ){
-  for( int j=0; j<2; j++ ){
-    for( int k=0; k<2; k++ ){
-      for( std::map< Node, Node >::iterator it = d_set_values[j][k].begin(); it != d_set_values[j][k].end(); ++it ){
-        tree.setValue( d_model, it->first, it->second, k==1 );
-      }
-    }
-  }
-  tree.simplify();
+  d_uf_mtg.makeModel( d_model, tree );
 }
 
 void UfModel::toStream(std::ostream& out){
@@ -491,6 +500,10 @@ Node UfModel::toIte2( Node fm_node, std::vector< Node >& args, int index, Node d
     return fm_node;
   }
 }
+
+
+
+
 
 
 void UfModelPreferenceData::setValuePreference( Node f, Node n, Node r, bool isPro ){
