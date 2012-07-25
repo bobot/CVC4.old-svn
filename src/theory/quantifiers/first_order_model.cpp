@@ -131,21 +131,6 @@ TermDb* FirstOrderModel::getTermDatabase(){
 
 
 void FirstOrderModel::toStream(std::ostream& out){
-  /*
-  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
-  while( !eqcs_i.isFinished() ){
-    Node eqc = (*eqcs_i);
-    out << eqc << " : " << eqc.getType() << " : " << std::endl;
-    out << "   ";
-    //add terms to model
-    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
-    while( !eqc_i.isFinished() ){
-      out << (*eqc_i) << " ";
-      ++eqc_i;
-    }
-    out << std::endl;
-    ++eqcs_i;
-  }*/
   DefaultModel::toStream( out );
 #if 0
   out << "---Current Model---" << std::endl;

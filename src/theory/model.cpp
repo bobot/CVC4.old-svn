@@ -18,6 +18,7 @@
 #include "theory/quantifiers_engine.h"
 #include "theory/theory_engine.h"
 #include "util/datatype.h"
+#include "theory/uf/theory_uf_model.h"
 
 using namespace std;
 using namespace CVC4;
@@ -73,6 +74,11 @@ d_equalityEngine( c, name ){
   d_false = NodeManager::currentNM()->mkConst( false );
 }
 
+void TheoryModel::reset(){
+  d_reps.clear();
+  d_ra.clear();
+}
+
 void TheoryModel::addDefineFunction( Node n ){
   d_define_funcs.push_back( n );
   d_defines.push_back( 0 );
@@ -88,6 +94,7 @@ void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
   out << " : " << n.getType();
   out << " ";
   Node value = getValue( n );
+  /*
   if( n.getType().isSort() ){
     int index = d_ra.getIndexFor( value );
     if( index!=-1 ){
@@ -96,8 +103,8 @@ void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
       out << value;
     }
   }else{
-    out << value;
-  }
+  */
+  out << value;
   out << ")" << std::endl;
 }
 
@@ -118,6 +125,22 @@ void TheoryModel::toStreamType( TypeNode tn, std::ostream& out ){
 }
 
 void TheoryModel::toStream( std::ostream& out ){
+  /*//for debugging
+  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+  while( !eqcs_i.isFinished() ){
+    Node eqc = (*eqcs_i);
+    out << eqc << " : " << eqc.getType() << " : " << std::endl;
+    out << "   ";
+    //add terms to model
+    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
+    while( !eqc_i.isFinished() ){
+      out << (*eqc_i) << " ";
+      ++eqc_i;
+    }
+    out << std::endl;
+    ++eqcs_i;
+  }
+  */
   int funcIndex = 0;
   int typeIndex = 0;
   for( size_t i=0; i<d_defines.size(); i++ ){
@@ -180,14 +203,6 @@ Node TheoryModel::getValue( TNode n ){
     //otherwise, get the interpreted value in the model
     return getInterpretedValue( nn );
   }
-
-  ////case for equality
-  //if( n.getKind()==EQUAL ){
-  //  Debug("model") << "-> Equality." << std::endl;
-  //  Node n1 = getValue( n[0] );
-  //  Node n2 = getValue( n[1] );
-  //  return NodeManager::currentNM()->mkConst( n1==n2 );
-  //}
 }
 
 Node TheoryModel::getDomainValue( TypeNode tn, std::vector< Node >& exclude ){
@@ -333,11 +348,38 @@ DefaultModel::DefaultModel( context::Context* c, std::string name ) : TheoryMode
 
 }
 
+void DefaultModel::addTerm( Node n ){
+  if( n.getKind()==APPLY_UF ){
+    d_uf_terms[ n.getOperator() ].push_back( n );
+  }
+}
+
+void DefaultModel::reset(){
+  d_uf_terms.clear();
+  d_uf_models.clear();
+}
+
 Node DefaultModel::getInterpretedValue( TNode n ){
   TypeNode type = n.getType();
   if( type.isFunction() || type.isPredicate() ){
-    //DO_THIS?
-    return n;
+    //for function models
+    if( d_uf_models.find( n )==d_uf_models.end() ){
+      uf::UfModelTreeOrdered ufmto( n );
+      Node default_v;
+      for( size_t i=0; i<d_uf_terms[n].size(); i++ ){
+        Node un = d_uf_terms[n][i];
+        Node v = getRepresentative( un );
+        ufmto.setValue( this, un, v );
+        default_v = v;
+      }
+      if( default_v.isNull() ){
+        default_v = getInterpretedValue( NodeManager::currentNM()->mkVar( type.getRangeType() ) );
+      }
+      ufmto.setDefaultValue( this, default_v );
+      ufmto.simplify();
+      d_uf_models[n] = ufmto.getFunctionValue();
+    }
+    return d_uf_models[n];
   }else{
     //first, see if the representative is defined
     if( d_equalityEngine.hasTerm( n ) ){
@@ -373,8 +415,7 @@ TheoryEngineModelBuilder::TheoryEngineModelBuilder( TheoryEngine* te ) : d_te( t
 void TheoryEngineModelBuilder::buildModel( Model* m ){
   TheoryModel* tm = (TheoryModel*)m;
   //reset representative information
-  tm->d_reps.clear();
-  tm->d_ra.clear();
+  tm->reset();
   Debug( "model-builder" ) << "TheoryEngineModelBuilder: Collect model info..." << std::endl;
   //collect model info from the theory engine
   d_te->collectModelInfo( tm );
@@ -420,9 +461,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
     }
     ++eqcs_i;
   }
-  //complete the model
-  // this should include choosing representatives for equivalence classes that have not yet been
-  // assigned representatives
+  //choose representatives for unresolved equivalence classes
   Debug( "model-builder" ) << "TheoryEngineModelBuilder: Complete model..." << std::endl;
   bool fixedPoint;
   do{
@@ -444,8 +483,14 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
           TypeNode index_t = tn.getArrayIndexType();
           TypeNode elem_t = tn.getArrayConstituentType();
           if( !unresolved_types[ index_t ] && !unresolved_types[ elem_t ] ){
+            //collect all relevant set values of n
             std::vector< Node > arr_selects;
             std::vector< Node > arr_select_values;
+            while( n.getKind()==STORE ){
+              arr_selects.push_back( tm->getRepresentative( n[1] ) );
+              arr_selects.push_back( tm->getRepresentative( n[2] ) );
+              n = n[0];
+            }
             eq::EqClassIterator eqc_i = eq::EqClassIterator( n, &tm->d_equalityEngine );
             while( !eqc_i.isFinished() ){
               for( int i=0; i<(int)selects[ *eqc_i ].size(); i++ ){
@@ -457,7 +502,8 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
               }
               ++eqc_i;
             }
-            ////now, construct based on selects and default value
+            //now, construct based on select/value pairs
+            //TODO: make this a constant
             rep = n;
             for( int i=0; i<(int)arr_selects.size(); i++ ){
               rep = NodeManager::currentNM()->mkNode( STORE, rep, arr_selects[i], arr_select_values[i] );
@@ -477,13 +523,6 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
                 acir = tm->d_equalityEngine.getRepresentative( acir );
               }
               if( unresolved_eqc.find( acir )==unresolved_eqc.end() ){
-                ////must add to existing equivalence class
-                //std::vector< Node > v_emp;
-                //Node acir_rep = tm->getDomainValue( acir.getType(), v_emp );
-                //if( !acir_rep.isNull() ){
-                //  tm->assertEquality( acir, acir_rep, true );
-                //}
-                //acir = acir_rep;
                 Message() << "Undefined datatype argument " << acir << std::endl;
                 acir = Node::null();
               }
@@ -528,10 +567,12 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
     }
   }while( !fixedPoint );
 
+  //for all unresolved equivalence classes, just get new domain value
   for( std::map< Node, bool >::iterator it = unresolved_eqc.begin(); it != unresolved_eqc.end(); ++it ){
     if( it->second ){
       Node n = it->first;
       Node rep = tm->getNewDomainValue( n.getType(), true );
+      //if we can't get new domain value, just take n itself (this typically should not happen)
       if( rep.isNull() ){
         rep = n;
       }
@@ -540,6 +581,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
       tm->d_ra.add( rep );
     }
   }
+
   //model-specific initialization
   processBuildModel( tm );
 }

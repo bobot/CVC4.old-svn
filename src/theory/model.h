@@ -78,11 +78,16 @@ public:
   eq::EqualityEngine d_equalityEngine;
   /** map of representatives of equality engine to used representatives in representative set */
   std::map< Node, Node > d_reps;
-  /** representative alphabet */
+  /** set of representatives for each type */
   RepSet d_ra;
   //true/false nodes
   Node d_true;
   Node d_false;
+public:
+  /** reset function */
+  virtual void reset();
+  /** get interpreted value, should be a representative in d_reps */
+  virtual Node getInterpretedValue( TNode n ) = 0;
 public:
   /** add defined function */
   void addDefineFunction( Node n );
@@ -93,8 +98,6 @@ public:
    * on this model.
    */
   Node getValue( TNode n );
-  /** get interpreted value, should be a representative in d_reps */
-  virtual Node getInterpretedValue( TNode n ) = 0;
   /** get existing domain value, with possible exclusions */
   Node getDomainValue( TypeNode tn, std::vector< Node >& exclude );
   /** get new domain value */
@@ -123,10 +126,15 @@ public:
 //default model class: extends model arbitrarily
 class DefaultModel : public TheoryModel
 {
+protected:
+  void addTerm( Node n );
+  std::map< Node, std::vector< Node > > d_uf_terms;
+  std::map< Node, Node > d_uf_models;
 public:
   DefaultModel( context::Context* c, std::string name );
   virtual ~DefaultModel(){}
 public:
+  void reset();
   Node getInterpretedValue( TNode n );
 };
 

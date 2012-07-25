@@ -60,7 +60,7 @@ void UfModelTree::setValue( TheoryModel* m, Node n, Node v, std::vector< int >& 
   if( argIndex<(int)n.getNumChildren() ){
     //take r = null when argument is the model basis
     Node r;
-    if( ground || !n[ indexOrder[argIndex] ].getAttribute(ModelBasisAttribute()) ){
+    if( ground || ( !n.isNull() && !n[ indexOrder[argIndex] ].getAttribute(ModelBasisAttribute()) ) ){
       r = m->getRepresentative( n[ indexOrder[argIndex] ] );
     }
     d_data[ r ].setValue( m, n, v, indexOrder, ground, argIndex+1 );
@@ -247,11 +247,6 @@ void UfModelTree::debugPrint( std::ostream& out, TheoryModel* m, std::vector< in
     indent( out, ind );
     out << "return ";
     m->printRepresentative( out, d_value );
-    //out << " { ";
-    //for( int i=0; i<(int)d_explicit.size(); i++ ){
-    //  out << d_explicit[i] << " ";
-    //}
-    //out << "}";
     out << std::endl;
   }
 }

@@ -591,7 +591,9 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
   | LPAREN_TOK ATTRIBUTE_TOK term[expr, f2]
     ( attribute[expr, attexpr,attr]
       { if( attr == ":pattern" && ! attexpr.isNull()) {
-          patexprs.push_back(attexpr);
+          patexprs.push_back( attexpr );
+        }else if( attr==":axiom" ){
+          //do this?
         }
       }
     )+ RPAREN_TOK

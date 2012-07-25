@@ -11,77 +11,23 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Model Engine classes
+ ** \brief Model Engine class
  **/
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__MODEL_ENGINE_H
-#define __CVC4__MODEL_ENGINE_H
+#ifndef __CVC4__QUANTIFIERS_MODEL_ENGINE_H
+#define __CVC4__QUANTIFIERS_MODEL_ENGINE_H
 
 #include "theory/quantifiers_engine.h"
-#include "theory/quantifiers/theory_quantifiers.h"
+#include "theory/quantifiers/model_builder.h"
 #include "theory/model.h"
 #include "theory/uf/theory_uf_model.h"
 #include "theory/quantifiers/relevant_domain.h"
 
 namespace CVC4 {
 namespace theory {
-
-namespace uf{
-  class StrongSolverTheoryUf;
-}
-
 namespace quantifiers {
-
-
-//the model builder
-class ModelEngineBuilder : public TheoryEngineModelBuilder
-{
-protected:
-  //quantifiers engine
-  QuantifiersEngine* d_qe;
-  //map from operators to model preference data
-  std::map< Node, uf::UfModelPreferenceData > d_uf_prefs;
-  /** process build model */
-  void processBuildModel( TheoryModel* m );
-  //analyze quantifiers
-  void analyzeQuantifiers( FirstOrderModel* fm );
-  //build model
-  void finishBuildModel( FirstOrderModel* fm );
-  //theory-specific build models
-  void finishBuildModelUf( FirstOrderModel* fm, uf::UfModel& model );
-  //do InstGen techniques for quantifier, return number of lemmas produced
-  int doInstGen( FirstOrderModel* fm, Node f );
-public:
-  ModelEngineBuilder( QuantifiersEngine* qe );
-  virtual ~ModelEngineBuilder(){}
-  /** finish model */
-  void finishProcessBuildModel( TheoryModel* m );
-public:
-  /** number of lemmas generated while building model */
-  int d_addedLemmas;
-  //map from quantifiers to if are constant SAT
-  std::map< Node, bool > d_quant_sat;
-  //map from quantifiers to the instantiation literals that their model is dependent upon
-  std::map< Node, std::vector< Node > > d_quant_selection_lits;
-public:
-  //map from quantifiers to model basis match
-  std::map< Node, InstMatch > d_quant_basis_match;
-  //options
-  bool optUseModel();
-  bool optInstGen();
-  bool optOneQuantPerRoundInstGen();
-  /** statistics class */
-  class Statistics {
-  public:
-    IntStat d_pre_sat_quant;
-    IntStat d_pre_nsat_quant;
-    Statistics();
-    ~Statistics();
-  };
-  Statistics d_statistics;
-};
 
 class ModelEngine : public QuantifiersModule
 {

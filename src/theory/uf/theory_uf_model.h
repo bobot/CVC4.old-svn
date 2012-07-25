@@ -63,15 +63,15 @@ public:
     */
   Node getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex );
   Node getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, std::vector< int >& depIndex, int argIndex );
-  ///** getConstant Value function
-  //  *
-  //  * given term n, where n may contain model basis arguments
-  //  * if n is constant for its entire domain, then this function returns the value of its domain
-  //  * otherwise, it returns null
-  //  * for example, if f( x_0, x_1 ) := if( x_0 = a ) b else if( x_1 = a ) a else b,
-  //  *   then f( a, e ) would return b, while f( e, a ) would return null
-  //  *
-  //  */
+  /** getConstant Value function
+    *
+    * given term n, where n may contain model basis arguments
+    * if n is constant for its entire domain, then this function returns the value of its domain
+    * otherwise, it returns null
+    * for example, if f( x_0, x_1 ) := if( x_0 = a ) b else if( x_1 = a ) a else b,
+    *   then f( a, e ) would return b, while f( e, a ) would return null
+    *
+    */
   Node getConstantValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int argIndex );
   /** getFunctionValue */
   Node getFunctionValue();
@@ -104,6 +104,9 @@ public:
   void clear() { d_tree.clear(); }
   void setValue( TheoryModel* m, Node n, Node v, bool ground = true ){
     d_tree.setValue( m, n, v, d_index_order, ground, 0 );
+  }
+  void setDefaultValue( TheoryModel* m, Node v ){
+    d_tree.setValue( m, Node::null(), v, d_index_order, false, 0 );
   }
   Node getValue( TheoryModel* m, Node n, int& depIndex ){
     return d_tree.getValue( m, n, d_index_order, depIndex, 0 );

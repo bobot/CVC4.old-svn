@@ -231,7 +231,7 @@ void TheoryDatatypes::merge( Node t1, Node t2 ){
           if( cons1.getOperator()!=cons2.getOperator() ){
             //check for clash
             d_conflictNode = explain( cons1.eqNode( cons2 ) );
-            Debug("datatypes-conflict") << "CONFLICT: Clash conflict = " << d_conflictNode << std::endl;
+            Debug("datatypes-conflict") << "CONFLICT: Clash conflict : " << d_conflictNode << std::endl;
             d_out->conflict( d_conflictNode );
             d_conflict = true;
             return;
