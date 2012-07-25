@@ -35,14 +35,18 @@ protected:
   QuantifiersEngine* d_qe;
   //map from operators to model preference data
   std::map< Node, uf::UfModelPreferenceData > d_uf_prefs;
+  //built model uf
+  std::map< Node, bool > d_uf_model_constructed;
   /** process build model */
   void processBuildModel( TheoryModel* m );
+  //analyze model
+  void analyzeModel( FirstOrderModel* fm );
   //analyze quantifiers
   void analyzeQuantifiers( FirstOrderModel* fm );
   //build model
   void finishBuildModel( FirstOrderModel* fm );
   //theory-specific build models
-  void finishBuildModelUf( FirstOrderModel* fm, uf::UfModel& model );
+  void finishBuildModelUf( FirstOrderModel* fm, Node op );
   //do InstGen techniques for quantifier, return number of lemmas produced
   int doInstGen( FirstOrderModel* fm, Node f );
 public:

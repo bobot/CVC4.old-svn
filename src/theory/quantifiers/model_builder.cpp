@@ -18,7 +18,7 @@
 #include "theory/theory_engine.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/uf/theory_uf.h"
-#include "theory/uf/theory_uf_strong_solver.h"
+#include "theory/uf/theory_uf_model.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/arrays/theory_arrays_model.h"
 #include "theory/quantifiers/first_order_model.h"
@@ -56,6 +56,8 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
     FirstOrderModel* fm = (FirstOrderModel*)m;
     //initialize model
     fm->initialize();
+    //analyze the functions
+    analyzeModel( fm );
     //analyze the quantifiers
     Debug("fmf-model-debug") << "Analyzing quantifiers..." << std::endl;
     analyzeQuantifiers( fm );
@@ -86,6 +88,35 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
       //  this model will be an approximation that will need to be tested via exhaustive instantiation
       Debug("fmf-model-debug") << "Building model..." << std::endl;
       finishBuildModel( fm );
+    }
+  }
+}
+
+void ModelEngineBuilder::analyzeModel( FirstOrderModel* fm ){
+  //determine if any functions are constant
+  for( std::map< Node, uf::UfModelTree >::iterator it = fm->d_uf_model_tree.begin(); it != fm->d_uf_model_tree.end(); ++it ){
+    Node op = it->first;
+    for( size_t i=0; i<fm->d_uf_terms[op].size(); i++ ){
+      Node n = fm->d_uf_terms[op][i];
+      if( !n.getAttribute(NoMatchAttribute()) ){
+        Node v = fm->getRepresentative( n );
+        if( i==0 ){
+          d_uf_prefs[op].d_const_val = v;
+        }else if( v!=d_uf_prefs[op].d_const_val ){
+          d_uf_prefs[op].d_const_val = Node::null();
+          break;
+        }
+      }
+    }
+    if( !d_uf_prefs[op].d_const_val.isNull() ){
+      fm->d_uf_model_gen[op].setDefaultValue( d_uf_prefs[op].d_const_val );
+      fm->d_uf_model_gen[op].makeModel( fm, it->second );
+      Debug("fmf-model-cons") << "Function " << op << " is the constant function ";
+      fm->printRepresentativeDebug( "fmf-model-cons", d_uf_prefs[op].d_const_val );
+      Debug("fmf-model-cons") << std::endl;
+      d_uf_model_constructed[op] = true;
+    }else{
+      d_uf_model_constructed[op] = false;
     }
   }
 }
@@ -131,16 +162,16 @@ void ModelEngineBuilder::analyzeQuantifiers( FirstOrderModel* fm ){
         std::vector< Node > uf_terms;
         if( gn.getKind()==APPLY_UF ){
           uf_terms.push_back( gn );
-          isConst = fm->d_uf_model[gn.getOperator()].isConstant();
+          isConst = !d_uf_prefs[gn.getOperator()].d_const_val.isNull();
         }else if( gn.getKind()==EQUAL ){
           isConst = true;
           for( int j=0; j<2; j++ ){
             if( n[j].hasAttribute(InstConstantAttribute()) ){
               if( n[j].getKind()==APPLY_UF ){
                 Node op = gn[j].getOperator();
-                if( fm->d_uf_model.find( op )!=fm->d_uf_model.end() ){
+                if( fm->d_uf_model_tree.find( op )!=fm->d_uf_model_tree.end() ){
                   uf_terms.push_back( gn[j] );
-                  isConst = isConst && fm->d_uf_model[op].isConstant();
+                  isConst = isConst && !d_uf_prefs[op].d_const_val.isNull();
                 }else{
                   isConst = false;
                 }
@@ -251,9 +282,10 @@ int ModelEngineBuilder::doInstGen( FirstOrderModel* fm, Node f ){
 
 void ModelEngineBuilder::finishBuildModel( FirstOrderModel* fm ){
   //build model for UF
-  for( std::map< Node, uf::UfModel >::iterator it = fm->d_uf_model.begin(); it != fm->d_uf_model.end(); ++it ){
-    finishBuildModelUf( fm, it->second );
+  for( std::map< Node, uf::UfModelTree >::iterator it = fm->d_uf_model_tree.begin(); it != fm->d_uf_model_tree.end(); ++it ){
+    finishBuildModelUf( fm, it->first );
   }
+  /*
   //build model for arrays
   for( std::map< Node, arrays::ArrayModel >::iterator it = fm->d_array_model.begin(); it != fm->d_array_model.end(); ++it ){
     //consult the model basis select term
@@ -262,47 +294,48 @@ void ModelEngineBuilder::finishBuildModel( FirstOrderModel* fm ){
     Node selModelBasis = NodeManager::currentNM()->mkNode( SELECT, it->first, fm->getTermDatabase()->getModelBasisTerm( tn[0] ) );
     it->second.setDefaultValue( fm->getRepresentative( selModelBasis ) );
   }
+  */
   Debug("fmf-model-debug") << "Done building models." << std::endl;
 }
 
-void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, uf::UfModel& model ){
-  Node op = model.getOperator();
+void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, Node op ){
 #ifdef RECONSIDER_FUNC_CONSTANT
-  if( model.isModelConstructed() && model.isConstant() ){
+  if( d_uf_model_constructed[op] ){
     if( d_uf_prefs[op].d_reconsiderModel ){
       //if we are allowed to reconsider default value, then see if the default value can be improved
-      Node t = d_qe->getTermDatabase()->getModelBasisOpTerm( op );
-      Node v = model.getConstantValue( t );
+      Node v = d_uf_prefs[op].d_const_val;
       if( d_uf_prefs[op].d_value_pro_con[0][v].empty() ){
         Debug("fmf-model-cons-debug") << "Consider changing the default value for " << op << std::endl;
-        model.clearModel();
+        fm->d_uf_model_tree[op].clear();
+        fm->d_uf_model_gen[op].clear();
+        d_uf_model_constructed[op] = false;
       }
     }
   }
 #endif
-  if( !model.isModelConstructed() ){
+  if( !d_uf_model_constructed[op] ){
     //construct the model for the uninterpretted function/predicate
     bool setDefaultVal = true;
     Node defaultTerm = d_qe->getTermDatabase()->getModelBasisOpTerm( op );
     Debug("fmf-model-cons") << "Construct model for " << op << "..." << std::endl;
     //set the values in the model
-    for( size_t i=0; i<model.d_ground_asserts.size(); i++ ){
-      Node n = model.d_ground_asserts[i];
-      Node v = model.d_ground_asserts_reps[i];
+    for( size_t i=0; i<fm->d_uf_terms[op].size(); i++ ){
+      Node n = fm->d_uf_terms[op][i];
       fm->getTermDatabase()->computeModelBasisArgAttribute( n );
       if( !n.getAttribute(NoMatchAttribute()) || n.getAttribute(ModelBasisArgAttribute())==1 ){
+        Node v = fm->getRepresentative( n );
         //if this assertion did not help the model, just consider it ground
         //set n = v in the model tree
         Debug("fmf-model-cons") << "  Set " << n << " = ";
         fm->printRepresentativeDebug( "fmf-model-cons", v );
         Debug("fmf-model-cons") << std::endl;
         //set it as ground value
-        model.d_uf_mtg.setValue( fm, n, v );
-        if( model.d_uf_mtg.optUsePartialDefaults() ){
+        fm->d_uf_model_gen[op].setValue( fm, n, v );
+        if( fm->d_uf_model_gen[op].optUsePartialDefaults() ){
           //also set as default value if necessary
           //if( n.getAttribute(ModelBasisArgAttribute())==1 && !d_term_pro_con[0][n].empty() ){
           if( n.hasAttribute(ModelBasisArgAttribute()) && n.getAttribute(ModelBasisArgAttribute())==1 ){
-            model.d_uf_mtg.setValue( fm, n, v, false );
+            fm->d_uf_model_gen[op].setValue( fm, n, v, false );
             if( n==defaultTerm ){
               //incidentally already set, we will not need to find a default value
               setDefaultVal = false;
@@ -310,7 +343,7 @@ void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, uf::UfModel& m
           }
         }else{
           if( n==defaultTerm ){
-            model.d_uf_mtg.setValue( fm, n, v, false );
+            fm->d_uf_model_gen[op].setValue( fm, n, v, false );
             //incidentally already set, we will not need to find a default value
             setDefaultVal = false;
           }
@@ -323,10 +356,11 @@ void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, uf::UfModel& m
       //chose defaultVal based on heuristic, currently the best ratio of "pro" responses
       Node defaultVal = d_uf_prefs[op].getBestDefaultValue( defaultTerm, fm );
       Assert( !defaultVal.isNull() );
-      model.d_uf_mtg.setValue( fm, defaultTerm, defaultVal, false );
+      fm->d_uf_model_gen[op].setValue( fm, defaultTerm, defaultVal, false );
     }
     Debug("fmf-model-cons") << "  Making model...";
-    model.setModel();
+    fm->d_uf_model_gen[op].makeModel( fm, fm->d_uf_model_tree[op] );
+    d_uf_model_constructed[op] = true;
     Debug("fmf-model-cons") << "  Finished constructing model for " << op << "." << std::endl;
   }
 }

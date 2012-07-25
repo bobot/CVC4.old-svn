@@ -25,12 +25,12 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
-class UfModelTree
+class UfModelTreeNode
 {
 public:
-  UfModelTree(){}
+  UfModelTreeNode(){}
   /** the data */
-  std::map< Node, UfModelTree > d_data;
+  std::map< Node, UfModelTreeNode > d_data;
   /** the value of this tree node (if all paths lead to same value) */
   Node d_value;
   /** has concrete argument defintion */
@@ -79,21 +79,21 @@ public:
   void debugPrint( std::ostream& out, TheoryModel* m, std::vector< int >& indexOrder, int ind = 0, int arg = 0 );
 };
 
-class UfModelTreeOrdered
+class UfModelTree
 {
 private:
   Node d_op;
   std::vector< int > d_index_order;
-  UfModelTree d_tree;
+  UfModelTreeNode d_tree;
 public:
-  UfModelTreeOrdered(){}
-  UfModelTreeOrdered( Node op ) : d_op( op ){
+  UfModelTree(){}
+  UfModelTree( Node op ) : d_op( op ){
     TypeNode tn = d_op.getType();
     for( int i=0; i<(int)(tn.getNumChildren()-1); i++ ){
       d_index_order.push_back( i );
     }
   }
-  UfModelTreeOrdered( Node op, std::vector< int >& indexOrder ) : d_op( op ){
+  UfModelTree( Node op, std::vector< int >& indexOrder ) : d_op( op ){
     d_index_order.insert( d_index_order.end(), indexOrder.begin(), indexOrder.end() );
   }
   bool isEmpty() { return d_tree.isEmpty(); }
@@ -122,6 +122,12 @@ public:
   void debugPrint( std::ostream& out, TheoryModel* m, int ind = 0 ){
     d_tree.debugPrint( out, m, d_index_order, ind );
   }
+private:
+  //helper for to ITE function.
+  static Node toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode );
+public:
+  /** to ITE function for function model nodes */
+  static Node toIte( Node fm_node, std::vector< Node >& args ) { return toIte2( fm_node, args, 0, Node::null() ); }
 };
 
 class UfModelTreeGenerator
@@ -141,71 +147,12 @@ public:
   /** set value */
   void setValue( TheoryModel* m, Node n, Node v, bool ground = true, bool isReq = true );
   /** make model */
-  void makeModel( TheoryModel* m, UfModelTreeOrdered& tree );
+  void makeModel( TheoryModel* m, UfModelTree& tree );
   /** uses partial default values */
   bool optUsePartialDefaults();
   /** reset */
   void clear();
 };
-
-class UfModel
-{
-private:
-  /** reference to model */
-  TheoryModel* d_model;
-  //the operator this model is for
-  Node d_op;
-  //is model constructed
-  bool d_model_constructed;
-public:
-  UfModel(){}
-  UfModel( Node op, TheoryModel* m, std::vector< Node >& terms );
-  ~UfModel(){}
-  //ground terms for this operator
-  std::vector< Node > d_ground_asserts;
-  //the representatives they are equal to
-  std::vector< Node > d_ground_asserts_reps;
-  //data structure that stores the model
-  UfModelTreeOrdered d_tree;
-  //node equivalent of this model
-  Node d_func_value;
-  /** mode tree generator */
-  UfModelTreeGenerator d_uf_mtg;
-public:
-  /** get operator */
-  Node getOperator() { return d_op; }
-  /** debug print */
-  void toStream( std::ostream& out );
-  /** set value */
-  void setValue( Node n, Node v, bool ground = true, bool isReq = true );
-  /** get value, return arguments that the value depends on */
-  Node getValue( Node n, int& depIndex );
-  Node getValue( Node n, std::vector< int >& depIndex );
-  /** get constant value */
-  Node getConstantValue( Node n );
-  /** is model constructed */
-  bool isModelConstructed() { return d_model_constructed; }
-  /** is empty */
-  bool isEmpty() { return d_ground_asserts.empty(); }
-  /** is constant */
-  bool isConstant() { return !getConstantValue( Node::null() ).isNull(); }
-public:
-  /** set model */
-  void setModel();
-  /** clear model */
-  void clearModel();
-  /** make model */
-  void makeModel( UfModelTreeOrdered& tree );
-  /** get function value for this function */
-  Node getFunctionValue();
-private:
-  //helper for to ITE function.
-  static Node toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode );
-public:
-  /** to ITE function for function model nodes */
-  static Node toIte( Node fm_node, std::vector< Node >& args ) { return toIte2( fm_node, args, 0, Node::null() ); }
-};
-
 
 //this class stores temporary information useful to model engine for constructing model
 class UfModelPreferenceData
@@ -213,6 +160,7 @@ class UfModelPreferenceData
 public:
   UfModelPreferenceData() : d_reconsiderModel( false ){}
   virtual ~UfModelPreferenceData(){}
+  Node d_const_val;
   // preferences for default values
   std::vector< Node > d_values;
   std::map< Node, std::vector< Node > > d_value_pro_con[2];

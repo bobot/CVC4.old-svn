@@ -18,7 +18,6 @@
 #include "theory/quantifiers/rep_set_iterator.h"
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/term_database.h"
-#include "theory/uf/theory_uf_strong_solver.h"
 
 using namespace std;
 using namespace CVC4;
@@ -34,7 +33,8 @@ d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 
 void FirstOrderModel::reset(){
   //rebuild models
-  d_uf_model.clear();
+  d_uf_model_tree.clear();
+  d_uf_model_gen.clear();
   d_array_model.clear();
   DefaultModel::reset();
 }
@@ -56,7 +56,7 @@ void FirstOrderModel::initialize(){
   //for debugging
   if( Options::current()->printModelEngine ){
     for( std::map< TypeNode, std::vector< Node > >::iterator it = d_ra.d_type_reps.begin(); it != d_ra.d_type_reps.end(); ++it ){
-      if( uf::StrongSolverTheoryUf::isRelevantType( it->first ) ){
+      if( it->first.isSort() ){
         Message() << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
       }
     }
@@ -66,14 +66,17 @@ void FirstOrderModel::initialize(){
 void FirstOrderModel::initializeModelForTerm( Node n ){
   if( n.getKind()==APPLY_UF ){
     Node op = n.getOperator();
-    if( d_uf_model.find( op )==d_uf_model.end() ){
+    if( d_uf_model_tree.find( op )==d_uf_model_tree.end() ){
       TypeNode tn = op.getType();
       tn = tn[ (int)tn.getNumChildren()-1 ];
-      if( tn==NodeManager::currentNM()->booleanType() || uf::StrongSolverTheoryUf::isRelevantType( tn ) ){
-        d_uf_model[ op ] = uf::UfModel( op, this, d_uf_terms[op] );
+      //only generate models for predicates and functions with uninterpreted range types
+      if( tn==NodeManager::currentNM()->booleanType() || tn.isSort() ){
+        d_uf_model_tree[ op ] = uf::UfModelTree( op );
+        d_uf_model_gen[ op ].clear();
       }
     }
   }
+  /*
   if( n.getType().isArray() ){
     while( n.getKind()==STORE ){
       n = n[0];
@@ -83,6 +86,7 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
       d_array_model[nn] = arrays::ArrayModel( nn, this );
     }
   }
+  */
   for( int i=0; i<(int)n.getNumChildren(); i++ ){
     initializeModelForTerm( n[i] );
   }
@@ -110,24 +114,25 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
   Debug("fo-model") << "get interpreted value " << n << std::endl;
   TypeNode type = n.getType();
   if( type.isFunction() || type.isPredicate() ){
-    if( d_uf_model.find( n )!=d_uf_model.end() ){
-      return d_uf_model[n].getFunctionValue();
-    }else{
-      //std::cout << "no function model generated for " << n << std::endl;
-      return n;
+    if( d_uf_models.find( n )==d_uf_models.end() ){
+      Node fn = d_uf_model_tree[n].getFunctionValue();
+      d_uf_models[n] = fn;
+      return fn;
     }
+  /*
   }else if( type.isArray() ){
     if( d_array_model.find( n )!=d_array_model.end() ){
       return d_array_model[n].getArrayValue();
     }else{
       //std::cout << "no array model generated for " << n << std::endl;
     }
+  */
   }else if( n.getKind()==APPLY_UF ){
     Node op = n.getOperator();
-    if( d_uf_model.find( op )!=d_uf_model.end() ){
+    if( d_uf_model_tree.find( op )!=d_uf_model_tree.end() ){
       //consult the uf model
       int depIndex;
-      return d_uf_model[ op ].getValue( n, depIndex );
+      return d_uf_model_tree[ op ].getValue( this, n, depIndex );
     }
   }else if( n.getKind()==SELECT ){
 

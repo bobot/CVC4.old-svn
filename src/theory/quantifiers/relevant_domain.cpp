@@ -37,11 +37,11 @@ void RelevantDomain::compute(){
     d_quant_inst_domain[f].resize( f[0].getNumChildren() );
   }
   //add ground terms to domain (rule 1 of complete instantiation essentially uf fragment)
-  for( std::map< Node, uf::UfModel >::iterator it = d_model->d_uf_model.begin();
-       it != d_model->d_uf_model.end(); ++it ){
+  for( std::map< Node, uf::UfModelTree >::iterator it = d_model->d_uf_model_tree.begin();
+       it != d_model->d_uf_model_tree.end(); ++it ){
     Node op = it->first;
-    for( int i=0; i<(int)it->second.d_ground_asserts.size(); i++ ){
-      Node n = it->second.d_ground_asserts[i];
+    for( size_t i=0; i<d_model->d_uf_terms[op].size(); i++ ){
+      Node n = d_model->d_uf_terms[op][i];
       //add arguments to domain
       for( int j=0; j<(int)n.getNumChildren(); j++ ){
         if( d_model->d_ra.hasType( n[j].getType() ) ){
@@ -54,7 +54,7 @@ void RelevantDomain::compute(){
         }
       }
       //add to range
-      Node r = it->second.d_ground_asserts_reps[i];
+      Node r = d_model->getRepresentative( n );
       int raIndex = d_model->d_ra.getIndexFor( r );
       Assert( raIndex!=-1 );
       if( std::find( d_active_range[op].begin(), d_active_range[op].end(), raIndex )==d_active_range[op].end() ){

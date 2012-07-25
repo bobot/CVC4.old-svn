@@ -22,7 +22,6 @@
 #include "theory/quantifiers_engine.h"
 #include "theory/quantifiers/model_builder.h"
 #include "theory/model.h"
-#include "theory/uf/theory_uf_model.h"
 #include "theory/quantifiers/relevant_domain.h"
 
 namespace CVC4 {
@@ -31,7 +30,6 @@ namespace quantifiers {
 
 class ModelEngine : public QuantifiersModule
 {
-  friend class uf::UfModel;
   friend class RepSetIterator;
 private:
   /** builder class */

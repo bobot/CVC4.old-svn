@@ -34,12 +34,12 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 
 //clear
-void UfModelTree::clear(){
+void UfModelTreeNode::clear(){
   d_data.clear();
   d_value = Node::null();
 }
 
-bool UfModelTree::hasConcreteArgumentDefinition(){
+bool UfModelTreeNode::hasConcreteArgumentDefinition(){
   if( d_data.size()>1 ){
     return true;
   }else if( d_data.empty() ){
@@ -51,7 +51,7 @@ bool UfModelTree::hasConcreteArgumentDefinition(){
 }
 
 //set value function
-void UfModelTree::setValue( TheoryModel* m, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex ){
+void UfModelTreeNode::setValue( TheoryModel* m, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex ){
   if( d_data.empty() ){
     d_value = v;
   }else if( !d_value.isNull() && d_value!=v ){
@@ -68,7 +68,7 @@ void UfModelTree::setValue( TheoryModel* m, Node n, Node v, std::vector< int >& 
 }
 
 //get value function
-Node UfModelTree::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex ){
+Node UfModelTreeNode::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int& depIndex, int argIndex ){
   if( !d_value.isNull() && isTotal( n.getOperator(), argIndex ) ){
     //Notice() << "Constant, return " << d_value << ", depIndex = " << argIndex << std::endl;
     depIndex = argIndex;
@@ -82,7 +82,7 @@ Node UfModelTree::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrd
       if( i==0 ){
         r = m->getRepresentative( n[ indexOrder[argIndex] ] );
       }
-      std::map< Node, UfModelTree >::iterator it = d_data.find( r );
+      std::map< Node, UfModelTreeNode >::iterator it = d_data.find( r );
       if( it!=d_data.end() ){
         val = it->second.getValue( m, n, indexOrder, childDepIndex[i], argIndex+1 );
         if( !val.isNull() ){
@@ -101,7 +101,7 @@ Node UfModelTree::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrd
   }
 }
 
-Node UfModelTree::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, std::vector< int >& depIndex, int argIndex ){
+Node UfModelTreeNode::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, std::vector< int >& depIndex, int argIndex ){
   if( argIndex==(int)indexOrder.size() ){
     return d_value;
   }else{
@@ -113,7 +113,7 @@ Node UfModelTree::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrd
       if( i==0 ){
         r = m->getRepresentative( n[ indexOrder[argIndex] ] );
       }
-      std::map< Node, UfModelTree >::iterator it = d_data.find( r );
+      std::map< Node, UfModelTreeNode >::iterator it = d_data.find( r );
       if( it!=d_data.end() ){
         val = it->second.getValue( m, n, indexOrder, depIndex, argIndex+1 );
         //we have found a value
@@ -136,11 +136,11 @@ Node UfModelTree::getValue( TheoryModel* m, Node n, std::vector< int >& indexOrd
   }
 }
 
-Node UfModelTree::getFunctionValue(){
+Node UfModelTreeNode::getFunctionValue(){
   if( !d_data.empty() ){
     Node defaultValue;
     std::vector< Node > caseValues;
-    for( std::map< Node, UfModelTree >::iterator it = d_data.begin(); it != d_data.end(); ++it ){
+    for( std::map< Node, UfModelTreeNode >::iterator it = d_data.begin(); it != d_data.end(); ++it ){
       if( it->first.isNull() ){
         defaultValue = it->second.getFunctionValue();
       }else{
@@ -166,12 +166,12 @@ Node UfModelTree::getFunctionValue(){
 }
 
 //simplify function
-void UfModelTree::simplify( Node op, Node defaultVal, int argIndex ){
+void UfModelTreeNode::simplify( Node op, Node defaultVal, int argIndex ){
   if( argIndex<(int)op.getType().getNumChildren()-1 ){
     std::vector< Node > eraseData;
     //first process the default argument
     Node r;
-    std::map< Node, UfModelTree >::iterator it = d_data.find( r );
+    std::map< Node, UfModelTreeNode >::iterator it = d_data.find( r );
     if( it!=d_data.end() ){
       if( !defaultVal.isNull() && it->second.d_value==defaultVal ){
         eraseData.push_back( r );
@@ -188,7 +188,7 @@ void UfModelTree::simplify( Node op, Node defaultVal, int argIndex ){
       }
     }
     //now see if any children can be removed, and simplify the ones that cannot
-    for( std::map< Node, UfModelTree >::iterator it = d_data.begin(); it != d_data.end(); ++it ){
+    for( std::map< Node, UfModelTreeNode >::iterator it = d_data.begin(); it != d_data.end(); ++it ){
       if( !it->first.isNull() ){
         if( !defaultVal.isNull() && it->second.d_value==defaultVal ){
           eraseData.push_back( it->first );
@@ -207,12 +207,12 @@ void UfModelTree::simplify( Node op, Node defaultVal, int argIndex ){
 }
 
 //is total function
-bool UfModelTree::isTotal( Node op, int argIndex ){
+bool UfModelTreeNode::isTotal( Node op, int argIndex ){
   if( argIndex==(int)(op.getType().getNumChildren()-1) ){
     return !d_value.isNull();
   }else{
     Node r;
-    std::map< Node, UfModelTree >::iterator it = d_data.find( r );
+    std::map< Node, UfModelTreeNode >::iterator it = d_data.find( r );
     if( it!=d_data.end() ){
       return it->second.isTotal( op, argIndex+1 );
     }else{
@@ -221,7 +221,7 @@ bool UfModelTree::isTotal( Node op, int argIndex ){
   }
 }
 
-Node UfModelTree::getConstantValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int argIndex ){
+Node UfModelTreeNode::getConstantValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int argIndex ){
   return d_value;
 }
 
@@ -231,9 +231,9 @@ void indent( std::ostream& out, int ind ){
   }
 }
 
-void UfModelTree::debugPrint( std::ostream& out, TheoryModel* m, std::vector< int >& indexOrder, int ind, int arg ){
+void UfModelTreeNode::debugPrint( std::ostream& out, TheoryModel* m, std::vector< int >& indexOrder, int ind, int arg ){
   if( !d_data.empty() ){
-    for( std::map< Node, UfModelTree >::iterator it = d_data.begin(); it != d_data.end(); ++it ){
+    for( std::map< Node, UfModelTreeNode >::iterator it = d_data.begin(); it != d_data.end(); ++it ){
       if( !it->first.isNull() ){
         indent( out, ind );
         out << "if x_" << indexOrder[arg] << " == " << it->first << std::endl;
@@ -252,6 +252,28 @@ void UfModelTree::debugPrint( std::ostream& out, TheoryModel* m, std::vector< in
 }
 
 
+Node UfModelTree::toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode ){
+  if( fm_node.getKind()==FUNCTION_MODEL ){
+    if( fm_node[0].getKind()==FUNCTION_CASE_SPLIT ){
+      Node retNode;
+      Node childDefaultNode = defaultNode;
+      //get new default
+      if( fm_node.getNumChildren()==2 ){
+        childDefaultNode = toIte2( fm_node[1], args, index+1, defaultNode );
+      }
+      retNode = childDefaultNode;
+      for( int i=(int)fm_node[0].getNumChildren()-1; i>=0; i-- ){
+        Node childNode = toIte2( fm_node[0][1], args, index+1, childDefaultNode );
+        retNode = NodeManager::currentNM()->mkNode( ITE, args[index].eqNode( fm_node[0][0] ), childNode, retNode );
+      }
+      return retNode;
+    }else{
+      return toIte2( fm_node[0], args, index+1, defaultNode );
+    }
+  }else{
+    return fm_node;
+  }
+}
 
 
 Node UfModelTreeGenerator::getIntersection( TheoryModel* m, Node n1, Node n2, bool& isGround ){
@@ -310,7 +332,7 @@ void UfModelTreeGenerator::setValue( TheoryModel* m, Node n, Node v, bool ground
   }
 }
 
-void UfModelTreeGenerator::makeModel( TheoryModel* m, UfModelTreeOrdered& tree ){
+void UfModelTreeGenerator::makeModel( TheoryModel* m, UfModelTree& tree ){
   for( int j=0; j<2; j++ ){
     for( int k=0; k<2; k++ ){
       for( std::map< Node, Node >::iterator it = d_set_values[j][k].begin(); it != d_set_values[j][k].end(); ++it ){
@@ -341,169 +363,6 @@ void UfModelTreeGenerator::clear(){
   }
   d_defaults.clear();
 }
-
-
-UfModel::UfModel( Node op, TheoryModel* m, std::vector< Node >& terms ) : d_model( m ), d_op( op ),
-d_model_constructed( false ){
-  d_tree = UfModelTreeOrdered( op );
-  TypeNode tn = d_op.getType();
-  tn = tn[(int)tn.getNumChildren()-1];
-  Assert( tn==NodeManager::currentNM()->booleanType() || tn.isSort() );
-  //look at ground assertions
-  for( size_t i=0; i<terms.size(); i++ ){
-    Node n = terms[i];
-    Node r = d_model->getRepresentative( n );
-    d_ground_asserts.push_back( n );
-    d_ground_asserts_reps.push_back( r );
-  }
-  //determine if it is constant
-  if( !d_ground_asserts.empty() ){
-    bool isConstant = true;
-    for( int i=1; i<(int)d_ground_asserts.size(); i++ ){
-      if( d_ground_asserts_reps[0]!=d_ground_asserts_reps[i] ){
-        isConstant = false;
-        break;
-      }
-    }
-    if( isConstant ){
-      //set constant value
-      Node r = d_ground_asserts_reps[0];
-      d_uf_mtg.setDefaultValue( r );
-      setModel();
-      Debug("fmf-model-cons") << "Function " << d_op << " is the constant function ";
-      d_model->printRepresentativeDebug( "fmf-model-cons", r );
-      Debug("fmf-model-cons") << std::endl;
-    }
-  }
-}
-
-Node UfModel::getValue( Node n, int& depIndex ){
-  return d_tree.getValue( d_model, n, depIndex );
-}
-
-Node UfModel::getValue( Node n, std::vector< int >& depIndex ){
-  return d_tree.getValue( d_model, n, depIndex );
-}
-
-Node UfModel::getConstantValue( Node n ){
-  if( d_model_constructed ){
-    return d_tree.getConstantValue( d_model, n );
-  }else{
-    return Node::null();
-  }
-}
-
-Node UfModel::getFunctionValue(){
-  if( d_func_value.isNull() && d_model_constructed ){
-    d_func_value = d_tree.getFunctionValue();
-  }
-  return d_func_value;
-}
-
-void UfModel::setModel(){
-  Assert( !d_model_constructed );
-  //make the model in d_tree
-  makeModel( d_tree );
-  d_model_constructed = true;
-
-  //for debugging, make sure model satisfies all ground assertions
-  for( size_t i=0; i<d_ground_asserts.size(); i++ ){
-    int depIndex;
-    Node n = d_tree.getValue( d_model, d_ground_asserts[i], depIndex );
-    if( n!=d_ground_asserts_reps[i] ){
-      Debug("fmf-unsound") << "Bad model : " << d_ground_asserts[i] << " := ";
-      d_model->printRepresentativeDebug("fmf-unsound", n );
-      Debug("fmf-unsound") << " != ";
-      d_model->printRepresentativeDebug("fmf-unsound", d_ground_asserts_reps[i] );
-      Debug("fmf-unsound") << std::endl;
-    }
-  }
-}
-
-void UfModel::clearModel(){
-  d_uf_mtg.clear();
-  d_tree.clear();
-  d_model_constructed = false;
-  d_func_value = Node::null();
-}
-
-void UfModel::makeModel( UfModelTreeOrdered& tree ){
-  d_uf_mtg.makeModel( d_model, tree );
-}
-
-void UfModel::toStream(std::ostream& out){
-  //out << "Function " << d_op << std::endl;
-  //out << "   Type: " << d_op.getType() << std::endl;
-  //out << "   Ground asserts:" << std::endl;
-  //for( int i=0; i<(int)d_ground_asserts.size(); i++ ){
-  //  out << "      " << d_ground_asserts[i] << " = ";
-  //  d_model->printRepresentative( out, d_ground_asserts[i] );
-  //  out << std::endl;
-  //}
-  //out << "   Model:" << std::endl;
-
-  TypeNode t = d_op.getType();
-  out << d_op << "( ";
-  for( int i=0; i<(int)(t.getNumChildren()-1); i++ ){
-    out << "x_" << i << " : " << t[i];
-    if( i<(int)(t.getNumChildren()-2) ){
-      out << ", ";
-    }
-  }
-  out << " ) : " << t[(int)t.getNumChildren()-1] << std::endl;
-  if( d_tree.isEmpty() ){
-    out << "   [undefined]" << std::endl;
-  }else{
-    d_tree.debugPrint( out, d_model, 3 );
-    out << std::endl;
-  }
-  //out << "   Phase reqs:" << std::endl;  //for( int i=0; i<2; i++ ){
-  //  for( std::map< Node, std::vector< Node > >::iterator it = d_reqs[i].begin(); it != d_reqs[i].end(); ++it ){
-  //    out << "      " << it->first << std::endl;
-  //    for( int j=0; j<(int)it->second.size(); j++ ){
-  //      out << "         " << it->second[j] << " -> " << (i==1) << std::endl;
-  //    }
-  //  }
-  //}
-  //out << std::endl;
-  //for( int i=0; i<2; i++ ){
-  //  for( std::map< Node, std::map< Node, std::vector< Node > > >::iterator it = d_eq_reqs[i].begin(); it != d_eq_reqs[i].end(); ++it ){
-  //    out << "      " << "For " << it->first << ":" << std::endl;
-  //    for( std::map< Node, std::vector< Node > >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
-  //      for( int j=0; j<(int)it2->second.size(); j++ ){
-  //        out << "         " << it2->first << ( i==1 ? "==" : "!=" ) << it2->second[j] << std::endl;
-  //      }
-  //    }
-  //  }
-  //}
-}
-
-Node UfModel::toIte2( Node fm_node, std::vector< Node >& args, int index, Node defaultNode ){
-  if( fm_node.getKind()==FUNCTION_MODEL ){
-    if( fm_node[0].getKind()==FUNCTION_CASE_SPLIT ){
-      Node retNode;
-      Node childDefaultNode = defaultNode;
-      //get new default
-      if( fm_node.getNumChildren()==2 ){
-        childDefaultNode = toIte2( fm_node[1], args, index+1, defaultNode );
-      }
-      retNode = childDefaultNode;
-      for( int i=(int)fm_node[0].getNumChildren()-1; i>=0; i-- ){
-        Node childNode = toIte2( fm_node[0][1], args, index+1, childDefaultNode );
-        retNode = NodeManager::currentNM()->mkNode( ITE, args[index].eqNode( fm_node[0][0] ), childNode, retNode );
-      }
-      return retNode;
-    }else{
-      return toIte2( fm_node[0], args, index+1, defaultNode );
-    }
-  }else{
-    return fm_node;
-  }
-}
-
-
-
-
 
 
 void UfModelPreferenceData::setValuePreference( Node f, Node n, Node r, bool isPro ){

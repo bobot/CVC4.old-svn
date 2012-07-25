@@ -53,7 +53,9 @@ private:
   void toStreamType( TypeNode tn, std::ostream& out );
 public: //for Theory UF:
   //models for each UF operator
-  std::map< Node, uf::UfModel > d_uf_model;
+  std::map< Node, uf::UfModelTree > d_uf_model_tree;
+  //model generators
+  std::map< Node, uf::UfModelTreeGenerator > d_uf_model_gen;
 public: //for Theory Arrays:
   //default value for each non-store array
   std::map< Node, arrays::ArrayModel > d_array_model;

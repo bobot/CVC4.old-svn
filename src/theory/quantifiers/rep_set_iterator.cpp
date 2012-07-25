@@ -374,12 +374,12 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
         //if it is a defined UF, then consult the interpretation
         ++d_eval_uf_terms;
         int argDepIndex = 0;
-        if( d_model->d_uf_model.find( op )!=d_model->d_uf_model.end() ){
+        if( d_model->d_uf_model_tree.find( op )!=d_model->d_uf_model_tree.end() ){
           //make the term model specifically for n
           makeEvalUfModel( n );
           //now, consult the model
           if( d_eval_uf_use_default[n] ){
-            val = d_model->d_uf_model[op].d_tree.getValue( d_model, val, argDepIndex );
+            val = d_model->d_uf_model_tree[op].getValue( d_model, val, argDepIndex );
           }else{
             val = d_eval_uf_model[ n ].getValue( d_model, val, argDepIndex );
           }
@@ -459,8 +459,8 @@ void RepSetEvaluator::makeEvalUfModel( Node n ){
     makeEvalUfIndexOrder( n );
     if( !d_eval_uf_use_default[n] ){
       Node op = n.getOperator();
-      d_eval_uf_model[n] = uf::UfModelTreeOrdered( op, d_eval_term_index_order[n] );
-      d_model->d_uf_model[op].makeModel( d_eval_uf_model[n] );
+      d_eval_uf_model[n] = uf::UfModelTree( op, d_eval_term_index_order[n] );
+      d_model->d_uf_model_gen[op].makeModel( d_model, d_eval_uf_model[n] );
       //Debug("fmf-index-order") << "Make model for " << n << " : " << std::endl;
       //d_eval_uf_model[n].debugPrint( "fmf-index-order", d_qe, 2 );
     }

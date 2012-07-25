@@ -365,7 +365,7 @@ Node DefaultModel::getInterpretedValue( TNode n ){
   if( type.isFunction() || type.isPredicate() ){
     //for function models
     if( d_uf_models.find( n )==d_uf_models.end() ){
-      uf::UfModelTreeOrdered ufmto( n );
+      uf::UfModelTree ufmto( n );
       Node default_v;
       for( size_t i=0; i<d_uf_terms[n].size(); i++ ){
         Node un = d_uf_terms[n][i];
