@@ -367,9 +367,9 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
       //if not set already, rewrite and consult model for interpretation
       if( !setVal ){
         val = Rewriter::rewrite( val );
-        if( val.getMetaKind()!=kind::metakind::CONSTANT ){
-          val = d_model->getInterpretedValue( val );
-        }
+        //if( val.getMetaKind()!=kind::metakind::CONSTANT ){
+        //  val = d_model->getInterpretedValue( val );
+        //}
       }
       Debug("fmf-eval-debug") << "Evaluate term " << n << " = ";
       d_model->printRepresentativeDebug( "fmf-eval-debug", val );
@@ -394,7 +394,6 @@ Node RepSetEvaluator::evaluateTermDefault( Node n, int& depIndex, std::vector< i
       childDepIndex.push_back( -1 );
       Node nn = evaluateTerm( n[i], childDepIndex[i] );
       if( nn.isNull() ){
-        std::cout << n[i] << " returned null." << std::endl;
         depIndex = d_riter->getNumTerms()-1;
         return nn;
       }else{
