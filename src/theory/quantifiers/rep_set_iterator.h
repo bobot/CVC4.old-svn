@@ -103,7 +103,6 @@ public:
   virtual ~RepSetEvaluator(){}
   /** evaluate functions */
   int evaluate( Node n, int& depIndex );
-  int evaluateEquality( Node n1, Node n2, int& depIndex );
   Node evaluateTerm( Node n, int& depIndex );
 public:
   //statistics

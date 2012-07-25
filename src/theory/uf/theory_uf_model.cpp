@@ -57,7 +57,7 @@ void UfModelTreeNode::setValue( TheoryModel* m, Node n, Node v, std::vector< int
   }else if( !d_value.isNull() && d_value!=v ){
     d_value = Node::null();
   }
-  if( argIndex<(int)n.getNumChildren() ){
+  if( argIndex<(int)indexOrder.size() ){
     //take r = null when argument is the model basis
     Node r;
     if( ground || ( !n.isNull() && !n[ indexOrder[argIndex] ].getAttribute(ModelBasisAttribute()) ) ){
