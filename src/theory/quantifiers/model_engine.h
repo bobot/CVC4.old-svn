@@ -72,8 +72,9 @@ public:
   public:
     IntStat d_inst_rounds;
     IntStat d_eval_formulas;
-    IntStat d_eval_eqs;
     IntStat d_eval_uf_terms;
+    IntStat d_eval_lits;
+    IntStat d_eval_lits_unknown;
     IntStat d_num_quants_init;
     IntStat d_num_quants_init_fail;
     Statistics();

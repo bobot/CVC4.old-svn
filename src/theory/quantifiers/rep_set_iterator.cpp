@@ -139,7 +139,10 @@ void RepSetIterator::debugPrintSmall( const char* c ){
 }
 
 RepSetEvaluator::RepSetEvaluator( FirstOrderModel* m, RepSetIterator* ri ) : d_model( m ), d_riter( ri ){
-
+  d_eval_formulas = 0;
+  d_eval_uf_terms = 0;
+  d_eval_lits = 0;
+  d_eval_lits_unknown = 0;
 }
 
 //if evaluate( n, phaseReq ) = eVal,
@@ -224,6 +227,7 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
   }else if( n.getKind()==FORALL ){
     return 0;
   }else{
+    ++d_eval_lits;
     ////if we know we will fail again, immediately return
     //if( d_eval_failed.find( n )!=d_eval_failed.end() ){
     //  if( d_eval_failed[n] ){
@@ -255,6 +259,7 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
     if( retVal!=0 ){
       Debug("fmf-eval-debug") << "Evaluate literal: return " << retVal << ", depends = " << depIndex << std::endl;
     }else{
+      ++d_eval_lits_unknown;
       Debug("fmf-eval-amb") << "Neither true nor false : " << n << std::endl;
       //std::cout << "Neither true nor false : " << n << ", value = " << val << std::endl;
     }
@@ -289,21 +294,22 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
       depIndex = depIndex1>depIndex2 ? depIndex1 : depIndex2;
     }
   }else{
-#if 0
+    std::vector< int > children_depIndex;
     //for select, pre-process read over writes
     if( n.getKind()==SELECT ){
-      Node selIndex = evaluateTerm( n[1], depIndex );
-      if( selIndex.isNull() ){
+#if 1
+      Node sel = evaluateTerm( n[1], depIndex );
+      if( sel.isNull() ){
         depIndex = d_riter->getNumTerms()-1;
         return Node::null();
       }
       Node arr = n[0];
+      int tempIndex;
       int eval = 1;
       while( arr.getKind()==STORE && eval!=0 ){
-        int tempIndex;
-        eval = evaluateEquality( selIndex, arr[1], tempIndex );
-        depIndex = tempIndex > depIndex ? tempIndex : depIndex;
+        eval = evaluate( sel.eqNode( arr[1] ), tempIndex );
         if( eval==1 ){
+          depIndex = tempIndex > depIndex ? tempIndex : depIndex;
           val = evaluateTerm( arr[2], tempIndex );
           depIndex = tempIndex > depIndex ? tempIndex : depIndex;
           return val;
@@ -311,12 +317,16 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
           arr = arr[0];
         }
       }
-      n = NodeManager::currentNM()->mkNode( SELECT, arr, selIndex );
-    }
+      arr = evaluateTerm( arr, tempIndex );
+      depIndex = tempIndex > depIndex ? tempIndex : depIndex;
+      val = NodeManager::currentNM()->mkNode( SELECT, arr, sel );
+#else
+      val = evaluateTermDefault( n, depIndex, children_depIndex );
 #endif
-    //default term evaluate : evaluate all children, recreate the value
-    std::vector< int > children_depIndex;
-    val = evaluateTermDefault( n, depIndex, children_depIndex );
+    }else{
+      //default term evaluate : evaluate all children, recreate the value
+      val = evaluateTermDefault( n, depIndex, children_depIndex );
+    }
     if( !val.isNull() ){
       bool setVal = false;
       //custom ways of evaluating terms to minimize depIndex
@@ -367,9 +377,11 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
       //if not set already, rewrite and consult model for interpretation
       if( !setVal ){
         val = Rewriter::rewrite( val );
-        //if( val.getMetaKind()!=kind::metakind::CONSTANT ){
-        //  val = d_model->getInterpretedValue( val );
-        //}
+        if( val.getMetaKind()!=kind::metakind::CONSTANT ){
+          //FIXME: we cannot do this until we trust all theories collectModelInfo!
+          //val = d_model->getInterpretedValue( val );
+          //val = d_model->getRepresentative( val );
+        }
       }
       Debug("fmf-eval-debug") << "Evaluate term " << n << " = ";
       d_model->printRepresentativeDebug( "fmf-eval-debug", val );

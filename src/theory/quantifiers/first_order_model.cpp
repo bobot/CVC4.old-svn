@@ -70,7 +70,7 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
       TypeNode tn = op.getType();
       tn = tn[ (int)tn.getNumChildren()-1 ];
       //only generate models for predicates and functions with uninterpreted range types
-      if( tn==NodeManager::currentNM()->booleanType() || tn.isSort() ){
+      if( tn==NodeManager::currentNM()->booleanType() || tn.isSort() || tn.isDatatype() ){
         d_uf_model_tree[ op ] = uf::UfModelTree( op );
         d_uf_model_gen[ op ].clear();
       }

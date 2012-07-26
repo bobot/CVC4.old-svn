@@ -107,8 +107,9 @@ public:
 public:
   //statistics
   int d_eval_formulas;
-  int d_eval_eqs;
   int d_eval_uf_terms;
+  int d_eval_lits;
+  int d_eval_lits_unknown;
 };
 
 

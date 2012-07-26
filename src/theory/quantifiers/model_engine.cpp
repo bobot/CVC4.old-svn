@@ -281,8 +281,9 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
     }
   }
   d_statistics.d_eval_formulas += reval.d_eval_formulas;
-  d_statistics.d_eval_eqs += reval.d_eval_eqs;
   d_statistics.d_eval_uf_terms += reval.d_eval_uf_terms;
+  d_statistics.d_eval_lits += reval.d_eval_lits;
+  d_statistics.d_eval_lits_unknown += reval.d_eval_lits_unknown;
   int totalInst = 1;
   int relevantInst = 1;
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
@@ -338,15 +339,17 @@ void ModelEngine::debugPrint( const char* c ){
 ModelEngine::Statistics::Statistics():
   d_inst_rounds("ModelEngine::Inst_Rounds", 0),
   d_eval_formulas("ModelEngine::Eval_Formulas", 0 ),
-  d_eval_eqs("ModelEngine::Eval_Equalities", 0 ),
   d_eval_uf_terms("ModelEngine::Eval_Uf_Terms", 0 ),
+  d_eval_lits("ModelEngine::Eval_Lits", 0 ),
+  d_eval_lits_unknown("ModelEngine::Eval_Lits_Unknown", 0 ),
   d_num_quants_init("ModelEngine::Num_Quants", 0 ),
   d_num_quants_init_fail("ModelEngine::Num_Quants_No_Basis", 0 )
 {
   StatisticsRegistry::registerStat(&d_inst_rounds);
   StatisticsRegistry::registerStat(&d_eval_formulas);
-  StatisticsRegistry::registerStat(&d_eval_eqs);
   StatisticsRegistry::registerStat(&d_eval_uf_terms);
+  StatisticsRegistry::registerStat(&d_eval_lits);
+  StatisticsRegistry::registerStat(&d_eval_lits_unknown);
   StatisticsRegistry::registerStat(&d_num_quants_init);
   StatisticsRegistry::registerStat(&d_num_quants_init_fail);
 }
@@ -354,8 +357,9 @@ ModelEngine::Statistics::Statistics():
 ModelEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_inst_rounds);
   StatisticsRegistry::unregisterStat(&d_eval_formulas);
-  StatisticsRegistry::unregisterStat(&d_eval_eqs);
   StatisticsRegistry::unregisterStat(&d_eval_uf_terms);
+  StatisticsRegistry::unregisterStat(&d_eval_lits);
+  StatisticsRegistry::unregisterStat(&d_eval_lits_unknown);
   StatisticsRegistry::unregisterStat(&d_num_quants_init);
   StatisticsRegistry::unregisterStat(&d_num_quants_init_fail);
 }
