@@ -1,5 +1,7 @@
-% EXPECT: valid
+% EXPECT: invalid  
 % EXIT: 20
+%  AJR: The expected result of this benchmark changed after r4106,
+%  based on not rewriting wrong selectors to arb. ground term.
 DATATYPE
   nat = succ(pred : nat) | zero,
   list = cons(car : tree, cdr : list) | null,

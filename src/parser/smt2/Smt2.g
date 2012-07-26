@@ -380,6 +380,7 @@ extendedCommand[CVC4::Command*& cmd]
   : DECLARE_DATATYPES_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { /* open a scope to keep the UnresolvedTypes contained */
       PARSER_STATE->pushScope(); }
+    LPAREN_TOK RPAREN_TOK  //TODO: parametric datatypes
     LPAREN_TOK ( LPAREN_TOK datatypeDef[dts] RPAREN_TOK )+ RPAREN_TOK
     { PARSER_STATE->popScope();
       cmd = new DatatypeDeclarationCommand(PARSER_STATE->mkMutualDatatypeTypes(dts)); }

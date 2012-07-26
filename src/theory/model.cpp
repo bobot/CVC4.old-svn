@@ -544,7 +544,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
               rep = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
             }
           }else{
-            Message() << "TheoryEngineModelBuilder::buildModel : Do not know how to resolve datatype equivalence class" << std::endl;
+            Message() << "TheoryEngineModelBuilder::buildModel : Do not know how to resolve datatype equivalence class " << n << std::endl;
           }
           mkRep = false;
         }
@@ -569,7 +569,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
   }while( !fixedPoint );
 
   //for all unresolved equivalence classes, just get new domain value
-  //  this should typically never happen (all equivalence classes should be resolved)
+  //  this should typically never happen (all equivalence classes should be resolved at this point)
   for( std::map< Node, bool >::iterator it = unresolved_eqc.begin(); it != unresolved_eqc.end(); ++it ){
     if( it->second ){
       Node n = it->first;

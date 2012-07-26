@@ -39,9 +39,13 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
     //store default domain
     d_domain.push_back( RepDomain() );
     TypeNode tn = d_f[0][i].getType();
-    if( d_model->d_rep_set.hasType( tn ) ){
-      for( int j=0; j<(int)d_model->d_rep_set.d_type_reps[d_f[0][i].getType()].size(); j++ ){
-        d_domain[i].push_back( j );
+    if( tn.isSort() ){
+      if( d_model->d_rep_set.hasType( tn ) ){
+        for( int j=0; j<(int)d_model->d_rep_set.d_type_reps[d_f[0][i].getType()].size(); j++ ){
+          d_domain[i].push_back( j );
+        }
+      }else{
+        Unimplemented("Cannot create instantiation iterator for unknown uninterpretted sort");
       }
     }else if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
       Unimplemented("Cannot create instantiation iterator for arithmetic quantifier");
@@ -261,7 +265,10 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
     }else{
       ++d_eval_lits_unknown;
       Debug("fmf-eval-amb") << "Neither true nor false : " << n << std::endl;
-      //std::cout << "Neither true nor false : " << n << ", value = " << val << std::endl;
+      std::cout << "Neither true nor false : " << n << ", value = " << val << std::endl;
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        std::cout << "   " << n[i] << " : " << n[i].getType() << std::endl;
+      }
     }
     return retVal;
   }
@@ -303,7 +310,7 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
         depIndex = d_riter->getNumTerms()-1;
         return Node::null();
       }
-      Node arr = n[0];
+      Node arr = d_model->getRepresentative( n[0] );
       int tempIndex;
       int eval = 1;
       while( arr.getKind()==STORE && eval!=0 ){
@@ -329,51 +336,39 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
     }
     if( !val.isNull() ){
       bool setVal = false;
-      //custom ways of evaluating terms to minimize depIndex
-      if( depIndex>-1 ){
-        //for APPLY_UF terms
-        if( n.getKind()==APPLY_UF ){
-          Node op = n.getOperator();
-          //Debug("fmf-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
-          //if it is a defined UF, then consult the interpretation
-          if( d_model->d_uf_model_tree.find( op )!=d_model->d_uf_model_tree.end() ){
-            ++d_eval_uf_terms;
-            int argDepIndex = 0;
-            //make the term model specifically for n
-            makeEvalUfModel( n );
-            //now, consult the model
-            if( d_eval_uf_use_default[n] ){
-              val = d_model->d_uf_model_tree[op].getValue( d_model, val, argDepIndex );
-            }else{
-              val = d_eval_uf_model[ n ].getValue( d_model, val, argDepIndex );
-            }
-            //Debug("fmf-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
-            //d_eval_uf_model[ n ].debugPrint("fmf-eval-debug", d_qe );
-            Assert( !val.isNull() );
-            //recalculate the depIndex
-            depIndex = -1;
-            for( int i=0; i<argDepIndex; i++ ){
-              int index = d_eval_uf_use_default[n] ? i : d_eval_term_index_order[n][i];
-              Debug("fmf-eval-debug") << "Add variables from " << index << "..." << std::endl;
-              if( children_depIndex[index]>depIndex ){
-                depIndex = children_depIndex[index];
-              }
-            }
-            setVal = true;
+      //custom ways of evaluating terms
+      if( n.getKind()==APPLY_UF ){
+        Node op = n.getOperator();
+        //Debug("fmf-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
+        //if it is a defined UF, then consult the interpretation
+        if( d_model->d_uf_model_tree.find( op )!=d_model->d_uf_model_tree.end() ){
+          ++d_eval_uf_terms;
+          int argDepIndex = 0;
+          //make the term model specifically for n
+          makeEvalUfModel( n );
+          //now, consult the model
+          if( d_eval_uf_use_default[n] ){
+            val = d_model->d_uf_model_tree[op].getValue( d_model, val, argDepIndex );
+          }else{
+            val = d_eval_uf_model[ n ].getValue( d_model, val, argDepIndex );
           }
+          //Debug("fmf-eval-debug") << "Evaluate term " << n << " (" << gn << ")" << std::endl;
+          //d_eval_uf_model[ n ].debugPrint("fmf-eval-debug", d_qe );
+          Assert( !val.isNull() );
+          //recalculate the depIndex
+          depIndex = -1;
+          for( int i=0; i<argDepIndex; i++ ){
+            int index = d_eval_uf_use_default[n] ? i : d_eval_term_index_order[n][i];
+            Debug("fmf-eval-debug") << "Add variables from " << index << "..." << std::endl;
+            if( children_depIndex[index]>depIndex ){
+              depIndex = children_depIndex[index];
+            }
+          }
+          setVal = true;
         }
-      }
-      /*
       }else if( n.getKind()==SELECT ){
-        if( d_model->d_array_model.find( n[0] )!=d_model->d_array_model.end() ){
-          //consult the default value for the array DO_THIS
-          //val = Rewriter::rewrite( val );
-          //val = d_model->d_array_model[ n[0] ];
-          val = Rewriter::rewrite( val );
-        }else{
-          val = Rewriter::rewrite( val );
-        }
-        */
+        //we are free to interpret this term however we want
+      }
       //if not set already, rewrite and consult model for interpretation
       if( !setVal ){
         val = Rewriter::rewrite( val );
