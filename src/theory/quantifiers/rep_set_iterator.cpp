@@ -265,10 +265,10 @@ int RepSetEvaluator::evaluate( Node n, int& depIndex ){
     }else{
       ++d_eval_lits_unknown;
       Debug("fmf-eval-amb") << "Neither true nor false : " << n << std::endl;
-      std::cout << "Neither true nor false : " << n << ", value = " << val << std::endl;
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        std::cout << "   " << n[i] << " : " << n[i].getType() << std::endl;
-      }
+      //std::cout << "Neither true nor false : " << n << ", value = " << val << std::endl;
+      //for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      //  std::cout << "   " << n[i] << " : " << n[i].getType() << std::endl;
+      //}
     }
     return retVal;
   }

@@ -49,6 +49,7 @@ using namespace CVC4::theory::quantifiers;
    if( !withinQuant || Options::current()->registerQuantBodyTerms ){
      if( d_processed.find( n )==d_processed.end() ){
        d_processed[n] = true;
+       d_type_map[ n.getType() ].push_back( n );
        //if this is an atomic trigger, consider adding it
        if( Trigger::isAtomicTrigger( n ) ){
          if( !n.hasAttribute(InstConstantAttribute()) ){
@@ -56,7 +57,6 @@ using namespace CVC4::theory::quantifiers;
            //Notice() << "register trigger term " << n << std::endl;
            Node op = n.getOperator();
            d_op_map[op].push_back( n );
-           d_type_map[ n.getType() ].push_back( n );
            added.push_back( n );
 
            uf::InstantiatorTheoryUf* d_ith = (uf::InstantiatorTheoryUf*)d_quantEngine->getInstantiator( THEORY_UF );
