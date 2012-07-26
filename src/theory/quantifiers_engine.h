@@ -333,6 +333,7 @@ public:
   bool areDisequal( Node a, Node b );
   Node getInternalRepresentative( Node a );
   eq::EqualityEngine* getEngine();
+  void getEquivalenceClass( Node a, std::vector< Node >& eqc );
 }; /* EqualityQueryQuantifiersEngine */
 
 }/* CVC4::theory namespace */

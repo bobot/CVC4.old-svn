@@ -68,6 +68,8 @@ public:
   virtual Node getInternalRepresentative( Node a ) = 0;
   /** get the equality engine associated with this query */
   virtual eq::EqualityEngine* getEngine() = 0;
+  /** get the equivalence class of a */
+  virtual void getEquivalenceClass( Node a, std::vector< Node >& eqc ) = 0;
 };/* class EqualityQuery */
 
 /** basic class defining an instantiation */

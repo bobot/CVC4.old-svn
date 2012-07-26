@@ -59,6 +59,8 @@ Node CandidateGeneratorQueue::getNextCandidate(){
   }
 }
 
+#if 0
+
 CandidateGeneratorQE::CandidateGeneratorQE( QuantifiersEngine* qe, Node op ) :
   d_op( op ), d_qe( qe ), d_term_iter( -2 ){
   Assert( !d_op.isNull() );
@@ -99,7 +101,7 @@ Node CandidateGeneratorQE::getNextCandidate(){
       while( !d_eqc.isFinished() ){
         Node n = (*d_eqc);
         ++d_eqc;
-        if( n.getKind()==APPLY_UF && n.getOperator()==d_op ){
+        if( n.hasOperator() && n.getOperator()==d_op ){
           if( isLegalCandidate( n ) ){
             return n;
           }
@@ -117,6 +119,56 @@ Node CandidateGeneratorQE::getNextCandidate(){
   return Node::null();
 }
 
+#else
+
+
+CandidateGeneratorQE::CandidateGeneratorQE( QuantifiersEngine* qe, Node op ) :
+  d_op( op ), d_qe( qe ), d_term_iter( -1 ){
+  Assert( !d_op.isNull() );
+}
+void CandidateGeneratorQE::resetInstantiationRound(){
+  d_term_iter_limit = d_qe->getTermDatabase()->d_op_map[d_op].size();
+}
+
+void CandidateGeneratorQE::reset( Node eqc ){
+  d_term_iter = 0;
+  if( eqc.isNull() ){
+    d_using_term_db = true;
+  }else{
+    //create an equivalence class iterator in eq class eqc
+    d_eqc.clear();
+    d_qe->getEqualityQuery()->getEquivalenceClass( eqc, d_eqc );
+    d_using_term_db = false;
+  }
+}
+
+Node CandidateGeneratorQE::getNextCandidate(){
+  if( d_term_iter>=0 ){
+    if( d_using_term_db ){
+      //get next candidate term in the uf term database
+      while( d_term_iter<d_term_iter_limit ){
+        Node n = d_qe->getTermDatabase()->d_op_map[d_op][d_term_iter];
+        d_term_iter++;
+        if( isLegalCandidate( n ) ){
+          return n;
+        }
+      }
+    }else{
+      while( d_term_iter<(int)d_eqc.size() ){
+        Node n = d_eqc[d_term_iter];
+        d_term_iter++;
+        if( n.hasOperator() && n.getOperator()==d_op ){
+          if( isLegalCandidate( n ) ){
+            return n;
+          }
+        }
+      }
+    }
+  }
+  return Node::null();
+}
+
+#endif
 
 //CandidateGeneratorQEDisequal::CandidateGeneratorQEDisequal( QuantifiersEngine* qe, Node eqc ) :
 //  d_qe( qe ), d_eq_class( eqc ){

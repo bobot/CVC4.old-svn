@@ -159,17 +159,50 @@ InstantiatorTheoryDatatypes::Statistics::~Statistics(){
 }
 
 bool InstantiatorTheoryDatatypes::hasTerm( Node a ){
-  return ((TheoryDatatypes*)d_th)->hasTerm( a );
+  return ((TheoryDatatypes*)d_th)->getEqualityEngine()->hasTerm( a );
 }
 
 bool InstantiatorTheoryDatatypes::areEqual( Node a, Node b ){
-  return ((TheoryDatatypes*)d_th)->areEqual( a, b );
+  if( a==b ){
+    return true;
+  }else if( hasTerm( a ) && hasTerm( b ) ){
+    return ((TheoryDatatypes*)d_th)->getEqualityEngine()->areEqual( a, b );
+  }else{
+    return false;
+  }
 }
 
 bool InstantiatorTheoryDatatypes::areDisequal( Node a, Node b ){
-  return ((TheoryDatatypes*)d_th)->areDisequal( a, b );
+  if( a==b ){
+    return false;
+  }else if( hasTerm( a ) && hasTerm( b ) ){
+    return ((TheoryDatatypes*)d_th)->getEqualityEngine()->areDisequal( a, b, false );
+  }else{
+    return false;
+  }
 }
 
 Node InstantiatorTheoryDatatypes::getRepresentative( Node a ){
-  return ((TheoryDatatypes*)d_th)->getRepresentative( a );
+  if( hasTerm( a ) ){
+    return ((TheoryDatatypes*)d_th)->getEqualityEngine()->getRepresentative( a );
+  }else{
+    return a;
+  }
+}
+
+eq::EqualityEngine* InstantiatorTheoryDatatypes::getEqualityEngine(){
+  return &((TheoryDatatypes*)d_th)->d_equalityEngine;
+}
+
+void InstantiatorTheoryDatatypes::getEquivalenceClass( Node a, std::vector< Node >& eqc ){
+  if( hasTerm( a ) ){
+    a = getEqualityEngine()->getRepresentative( a );
+    eq::EqClassIterator eqc_iter( a, getEqualityEngine() );
+    while( !eqc_iter.isFinished() ){
+      if( std::find( eqc.begin(), eqc.end(), *eqc_iter )==eqc.end() ){
+        eqc.push_back( *eqc_iter );
+      }
+      eqc_iter++;
+    }
+  }
 }

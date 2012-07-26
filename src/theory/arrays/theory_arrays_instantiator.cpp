@@ -60,15 +60,19 @@ bool InstantiatorTheoryArrays::hasTerm( Node a ){
 }
 
 bool InstantiatorTheoryArrays::areEqual( Node a, Node b ){
-  if( hasTerm( a ) && hasTerm( b ) ){
+  if( a==b ){
+    return true;
+  }else if( hasTerm( a ) && hasTerm( b ) ){
     return ((TheoryArrays*)d_th)->getEqualityEngine()->areEqual( a, b );
   }else{
-    return a==b;
+    return false;
   }
 }
 
 bool InstantiatorTheoryArrays::areDisequal( Node a, Node b ){
-  if( hasTerm( a ) && hasTerm( b ) ){
+  if( a==b ){
+    return false;
+  }else if( hasTerm( a ) && hasTerm( b ) ){
     return ((TheoryArrays*)d_th)->getEqualityEngine()->areDisequal( a, b, false );
   }else{
     return false;
@@ -80,6 +84,23 @@ Node InstantiatorTheoryArrays::getRepresentative( Node a ){
     return ((TheoryArrays*)d_th)->getEqualityEngine()->getRepresentative( a );
   }else{
     return a;
+  }
+}
+
+eq::EqualityEngine* InstantiatorTheoryArrays::getEqualityEngine(){
+  return ((TheoryArrays*)d_th)->getEqualityEngine();
+}
+
+void InstantiatorTheoryArrays::getEquivalenceClass( Node a, std::vector< Node >& eqc ){
+  if( hasTerm( a ) ){
+    a = getEqualityEngine()->getRepresentative( a );
+    eq::EqClassIterator eqc_iter( a, getEqualityEngine() );
+    while( !eqc_iter.isFinished() ){
+      if( std::find( eqc.begin(), eqc.end(), *eqc_iter )==eqc.end() ){
+        eqc.push_back( *eqc_iter );
+      }
+      eqc_iter++;
+    }
   }
 }
 

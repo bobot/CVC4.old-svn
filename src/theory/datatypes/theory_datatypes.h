@@ -215,7 +215,9 @@ private:
   void checkInstantiate( EqcInfo* eqc, Node n );
   /** debug print */
   void printModelDebug();
-public:
+  /** get equality engine */
+  eq::EqualityEngine* getEqualityEngine() { return &d_equalityEngine; }
+private:
   //equality queries
   bool hasTerm( Node a );
   bool areEqual( Node a, Node b );

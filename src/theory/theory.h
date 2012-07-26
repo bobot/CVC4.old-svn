@@ -773,6 +773,10 @@ public:
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level);
 
+namespace eq{
+  class EqualityEngine;
+}
+
 class Instantiator {
   friend class QuantifiersEngine;
 protected:
@@ -834,6 +838,8 @@ public:
   virtual bool areDisequal( Node a, Node b ) { return false; }
   virtual Node getRepresentative( Node a ) { return a; }
   virtual Node getInternalRepresentative( Node a ) { return getRepresentative( a ); }
+  virtual eq::EqualityEngine* getEqualityEngine() { return NULL; }
+  virtual void getEquivalenceClass( Node a, std::vector< Node >& eqc ) {}
 };/* class Instantiator */
 
 inline Assertion Theory::get() {

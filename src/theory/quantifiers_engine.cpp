@@ -688,3 +688,23 @@ Node EqualityQueryQuantifiersEngine::getInternalRepresentative( Node a ){
 eq::EqualityEngine* EqualityQueryQuantifiersEngine::getEngine(){
   return ((uf::TheoryUF*)d_qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine();
 }
+
+void EqualityQueryQuantifiersEngine::getEquivalenceClass( Node a, std::vector< Node >& eqc ){
+  eq::EqualityEngine* ee = d_qe->getTheoryEngine()->getSharedTermsDatabase()->getEqualityEngine();
+  if( ee->hasTerm( a ) ){
+    Node rep = ee->getRepresentative( a );
+    eq::EqClassIterator eqc_iter( rep, ee );
+    while( !eqc_iter.isFinished() ){
+      eqc.push_back( *eqc_iter );
+      eqc_iter++;
+    }
+  }
+  for( int i=0; i<theory::THEORY_LAST; i++ ){
+    if( d_qe->getInstantiator( i ) ){
+      d_qe->getInstantiator( i )->getEquivalenceClass( a, eqc );
+    }
+  }
+  if( eqc.empty() ){
+    eqc.push_back( a );
+  }
+}
