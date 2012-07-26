@@ -127,6 +127,7 @@ public:
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
   Node getInternalRepresentative( Node a );
+  eq::EqualityEngine* getEqualityEngine();
   /** new node */
   void newEqClass( TNode n );
   /** merge */
@@ -194,6 +195,7 @@ public:
   bool areEqual( Node a, Node b ) { return d_ith->areEqual( a, b ); }
   bool areDisequal( Node a, Node b ) { return d_ith->areDisequal( a, b ); }
   Node getInternalRepresentative( Node a ) { return d_ith->getInternalRepresentative( a ); }
+  eq::EqualityEngine* getEngine() { return d_ith->getEqualityEngine(); }
 }; /* EqualityQueryInstantiatorTheoryUf */
 
 }

@@ -586,8 +586,14 @@ void TheoryDatatypes::preRegisterTerm(TNode n) {
     d_equalityEngine.addTriggerPredicate(n);
     break;
   default:
-    // Variables etc
-    d_equalityEngine.addTerm(n);
+    // Maybe it's a predicate
+    if (n.getType().isBoolean()) {
+      // Get triggered for both equal and dis-equal
+      d_equalityEngine.addTriggerPredicate(n);
+    } else {
+      // Function applications/predicates
+      d_equalityEngine.addTerm(n);
+    }
     break;
   }
   Assert( d_pending.empty() );
@@ -620,7 +626,11 @@ void TheoryDatatypes::collectTerms( Node n ) {
     }
   }else if( n.getKind() == APPLY_SELECTOR ){
     Debug("datatypes") << "  Found selector " << n << endl;
-    d_equalityEngine.addTerm( n );
+    if (n.getType().isBoolean()) {
+      d_equalityEngine.addTriggerPredicate( n );
+    }else{
+      d_equalityEngine.addTerm( n );
+    }
     Node rep = getRepresentative( n[0] );
     EqcInfo* eqc = getOrMakeEqcInfo( rep, true );
     if( !eqc->d_selectors ){

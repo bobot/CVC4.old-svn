@@ -169,7 +169,7 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
         return rep;
       }else{
         //otherwise, must search eq class
-        eq::EqClassIterator eqc_iter( rep, &((TheoryUF*)d_th)->d_equalityEngine );
+        eq::EqClassIterator eqc_iter( rep, getEqualityEngine() );
         rep = Node::null();
         while( !eqc_iter.isFinished() ){
           if( !(*eqc_iter).hasAttribute(InstConstantAttribute()) ){
@@ -183,6 +183,10 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
     }
   }
   return d_ground_reps[a];
+}
+
+eq::EqualityEngine* InstantiatorTheoryUf::getEqualityEngine(){
+  return &((TheoryUF*)d_th)->d_equalityEngine;
 }
 
 InstantiatorTheoryUf::Statistics::Statistics():

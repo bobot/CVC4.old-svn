@@ -684,3 +684,7 @@ Node EqualityQueryQuantifiersEngine::getInternalRepresentative( Node a ){
   //return a;
   return d_qe->getInstantiator( THEORY_UF )->getInternalRepresentative( a );
 }
+
+eq::EqualityEngine* EqualityQueryQuantifiersEngine::getEngine(){
+  return ((uf::TheoryUF*)d_qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine();
+}

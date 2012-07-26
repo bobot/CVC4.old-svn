@@ -308,8 +308,8 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
       int eval = 1;
       while( arr.getKind()==STORE && eval!=0 ){
         eval = evaluate( sel.eqNode( arr[1] ), tempIndex );
+        depIndex = tempIndex > depIndex ? tempIndex : depIndex;
         if( eval==1 ){
-          depIndex = tempIndex > depIndex ? tempIndex : depIndex;
           val = evaluateTerm( arr[2], tempIndex );
           depIndex = tempIndex > depIndex ? tempIndex : depIndex;
           return val;

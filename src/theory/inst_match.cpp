@@ -17,8 +17,8 @@
 #include "theory/inst_match.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers_engine.h"
+#include "theory/candidate_generator.h"
 #include "theory/uf/theory_uf_instantiator.h"
-#include "theory/uf/theory_uf_candidate_generator.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/term_database.h"
@@ -31,38 +31,6 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-
-bool CandidateGenerator::isLegalCandidate( Node n ){
-  return ( !n.getAttribute(NoMatchAttribute()) && ( !Options::current()->cbqi || !n.hasAttribute(InstConstantAttribute()) ) ) ||
-         ( Options::current()->finiteModelFind && n.hasAttribute(ModelBasisArgAttribute()) && n.getAttribute(ModelBasisArgAttribute())==1 );
-}
-
-void CandidateGeneratorQueue::addCandidate( Node n ) {
-  if( isLegalCandidate( n ) ){
-    d_candidates.push_back( n );
-  }
-}
-
-void CandidateGeneratorQueue::reset( Node eqc ){
-  if( d_candidate_index>0 ){
-    d_candidates.erase( d_candidates.begin(), d_candidates.begin() + d_candidate_index );
-    d_candidate_index = 0;
-  }
-  if( !eqc.isNull() ){
-    d_candidates.push_back( eqc );
-  }
-}
-Node CandidateGeneratorQueue::getNextCandidate(){
-  if( d_candidate_index<(int)d_candidates.size() ){
-    Node n = d_candidates[d_candidate_index];
-    d_candidate_index++;
-    return n;
-  }else{
-    d_candidate_index = 0;
-    d_candidates.clear();
-    return Node::null();
-  }
-}
 
 InstMatch::InstMatch() {
 }
@@ -121,18 +89,21 @@ void InstMatch::debugPrint( const char* c ){
 
 void InstMatch::makeComplete( Node f, QuantifiersEngine* qe ){
   for( int i=0; i<(int)qe->getTermDatabase()->d_inst_constants[f].size(); i++ ){
-    if( d_map.find( qe->getTermDatabase()->d_inst_constants[f][i] )==d_map.end() ){
-      d_map[ qe->getTermDatabase()->d_inst_constants[f][i] ] = qe->getTermDatabase()->getFreeVariableForInstConstant( qe->getTermDatabase()->d_inst_constants[f][i] );
+    Node ic = qe->getTermDatabase()->d_inst_constants[f][i];
+    if( d_map.find( ic )==d_map.end() ){
+      d_map[ ic ] = qe->getTermDatabase()->getFreeVariableForInstConstant( ic );
     }
   }
 }
 
 void InstMatch::makeInternal( QuantifiersEngine* qe ){
-  for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
-    if( Options::current()->cbqi && it->second.hasAttribute(InstConstantAttribute()) ){
-      d_map[ it->first ] = qe->getEqualityQuery()->getInternalRepresentative( it->second );
-      if( Options::current()->cbqi && it->second.hasAttribute(InstConstantAttribute()) ){
-        d_map[ it->first ] = qe->getTermDatabase()->getFreeVariableForInstConstant( it->first );
+  if( Options::current()->cbqi ){
+    for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
+      if( it->second.hasAttribute(InstConstantAttribute()) ){
+        d_map[ it->first ] = qe->getEqualityQuery()->getInternalRepresentative( it->second );
+        if( it->second.hasAttribute(InstConstantAttribute()) ){
+          d_map[ it->first ] = qe->getTermDatabase()->getFreeVariableForInstConstant( it->first );
+        }
       }
     }
   }
@@ -194,9 +165,9 @@ bool InstMatchTrie::existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m
     }
     if( modEq ){
       //check modulo equality if any other instantiation match exists
-      if( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->hasTerm( n ) ){
-        eq::EqClassIterator eqc( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->getRepresentative( n ),
-                                ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
+      if( qe->getEqualityQuery()->getEngine()->hasTerm( n ) ){
+        eq::EqClassIterator eqc( qe->getEqualityQuery()->getEngine()->getRepresentative( n ),
+                                 qe->getEqualityQuery()->getEngine() );
         while( !eqc.isFinished() ){
           Node en = (*eqc);
           if( en!=n ){
@@ -301,10 +272,10 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     //we will be producing candidates via literal matching heuristics
     if( d_pattern.getKind()!=NOT ){
       //candidates will be all equalities
-      d_cg = new uf::CandidateGeneratorTheoryUfLitEq( ith, d_match_pattern );
+      d_cg = new CandidateGeneratorQELitEq( qe, d_match_pattern );
     }else{
       //candidates will be all disequalities
-      d_cg = new uf::CandidateGeneratorTheoryUfLitDeq( ith, d_match_pattern );
+      d_cg = new CandidateGeneratorQELitDeq( qe, d_match_pattern );
     }
   }else if( d_pattern.getKind()==EQUAL || d_pattern.getKind()==IFF || d_pattern.getKind()==NOT ){
     Assert( d_matchPolicy==MATCH_GEN_DEFAULT );
@@ -313,7 +284,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     }else{
       Assert( Trigger::isAtomicTrigger( d_match_pattern ) );
       //we are matching only in a particular equivalence class
-      d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
+      d_cg = new CandidateGeneratorQE( qe, d_match_pattern.getOperator() );
       //store the equivalence class that we will call d_cg->reset( ... ) on
       d_eq_class = d_pattern[1];
     }
@@ -325,7 +296,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       ith->registerCandidateGenerator( d_cg, d_match_pattern );
     }else{
       //we will be scanning lists trying to find d_match_pattern.getOperator()
-      d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
+      d_cg = new CandidateGeneratorQE( qe, d_match_pattern.getOperator() );
     }
   }else{
     d_cg = new CandidateGeneratorQueue;
@@ -780,9 +751,9 @@ void InstMatchGeneratorMulti::processNewInstantiations( QuantifiersEngine* qe, I
       }
       if( modEq ){
         //check modulo equality for other possible instantiations
-        if( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->hasTerm( n ) ){
-          eq::EqClassIterator eqc( qe->getEqualityQuery()->getRepresentative( n ),
-                                  ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
+        if( qe->getEqualityQuery()->getEngine()->hasTerm( n ) ){
+          eq::EqClassIterator eqc( qe->getEqualityQuery()->getEngine()->getRepresentative( n ),
+                                   qe->getEqualityQuery()->getEngine() );
           while( !eqc.isFinished() ){
             Node en = (*eqc);
             if( en!=n ){

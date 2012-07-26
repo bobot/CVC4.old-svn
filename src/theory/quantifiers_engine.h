@@ -332,6 +332,7 @@ public:
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getInternalRepresentative( Node a );
+  eq::EqualityEngine* getEngine();
 }; /* EqualityQueryQuantifiersEngine */
 
 }/* CVC4::theory namespace */
