@@ -39,6 +39,9 @@ protected:
   std::map< Node, bool > d_uf_model_constructed;
   /** process build model */
   void processBuildModel( TheoryModel* m );
+  /** choose representative for unconstrained equivalence class */
+  Node chooseRepresentative( TheoryModel* m, Node eqc );
+protected:
   //analyze model
   void analyzeModel( FirstOrderModel* fm );
   //analyze quantifiers

@@ -39,8 +39,8 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
     //store default domain
     d_domain.push_back( RepDomain() );
     TypeNode tn = d_f[0][i].getType();
-    if( d_model->d_ra.hasType( tn ) ){
-      for( int j=0; j<(int)d_model->d_ra.d_type_reps[d_f[0][i].getType()].size(); j++ ){
+    if( d_model->d_rep_set.hasType( tn ) ){
+      for( int j=0; j<(int)d_model->d_rep_set.d_type_reps[d_f[0][i].getType()].size(); j++ ){
         d_domain[i].push_back( j );
       }
     }else if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
@@ -119,9 +119,9 @@ void RepSetIterator::getMatch( QuantifiersEngine* qe, InstMatch& m ){
 
 Node RepSetIterator::getTerm( int i ){
   TypeNode tn = d_f[0][d_index_order[i]].getType();
-  Assert( d_model->d_ra.d_type_reps.find( tn )!=d_model->d_ra.d_type_reps.end() );
+  Assert( d_model->d_rep_set.d_type_reps.find( tn )!=d_model->d_rep_set.d_type_reps.end() );
   int index = d_index_order[i];
-  return d_model->d_ra.d_type_reps[tn][d_domain[index][d_index[index]]];
+  return d_model->d_rep_set.d_type_reps[tn][d_domain[index][d_index[index]]];
 }
 
 void RepSetIterator::debugPrint( const char* c ){

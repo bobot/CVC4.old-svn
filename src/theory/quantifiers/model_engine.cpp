@@ -287,7 +287,7 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
   int totalInst = 1;
   int relevantInst = 1;
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
-    totalInst = totalInst * (int)d_quantEngine->getModel()->d_ra.d_type_reps[ f[0][i].getType() ].size();
+    totalInst = totalInst * (int)d_quantEngine->getModel()->d_rep_set.d_type_reps[ f[0][i].getType() ].size();
     relevantInst = relevantInst * (int)riter.d_domain[i].size();
   }
   d_totalLemmas += totalInst;

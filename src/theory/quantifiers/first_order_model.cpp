@@ -55,7 +55,7 @@ void FirstOrderModel::initialize(){
   }
   //for debugging
   if( Options::current()->printModelEngine ){
-    for( std::map< TypeNode, std::vector< Node > >::iterator it = d_ra.d_type_reps.begin(); it != d_ra.d_type_reps.end(); ++it ){
+    for( std::map< TypeNode, std::vector< Node > >::iterator it = d_rep_set.d_type_reps.begin(); it != d_rep_set.d_type_reps.end(); ++it ){
       if( it->first.isSort() ){
         Message() << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
       }
@@ -151,14 +151,14 @@ void FirstOrderModel::toStream(std::ostream& out){
 #if 0
   out << "---Current Model---" << std::endl;
   out << "Representatives: " << std::endl;
-  d_ra.toStream( out );
+  d_rep_set.toStream( out );
   out << "Functions: " << std::endl;
   for( std::map< Node, uf::UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
     it->second.toStream( out );
     out << std::endl;
   }
 #elif 0
-  d_ra.toStream( out );
+  d_rep_set.toStream( out );
   //print everything not related to UF in equality engine
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
   while( !eqcs_i.isFinished() ){

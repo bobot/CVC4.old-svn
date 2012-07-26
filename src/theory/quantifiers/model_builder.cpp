@@ -43,10 +43,8 @@ d_qe( qe ){
 
 }
 
-void ModelEngineBuilder::finishProcessBuildModel( TheoryModel* m ){
-  for( std::map< Node, Node >::iterator it = m->d_reps.begin(); it != m->d_reps.end(); ++it ){
-    //build proper representatives (TODO)
-  }
+Node ModelEngineBuilder::chooseRepresentative( TheoryModel* m, Node eqc ){
+  return eqc;
 }
 
 void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
@@ -362,6 +360,12 @@ void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, Node op ){
     fm->d_uf_model_gen[op].makeModel( fm, fm->d_uf_model_tree[op] );
     d_uf_model_constructed[op] = true;
     Debug("fmf-model-cons") << "  Finished constructing model for " << op << "." << std::endl;
+  }
+}
+
+void ModelEngineBuilder::finishProcessBuildModel( TheoryModel* m ){
+  for( std::map< Node, Node >::iterator it = m->d_reps.begin(); it != m->d_reps.end(); ++it ){
+    //build proper representatives (TODO)
   }
 }
 
