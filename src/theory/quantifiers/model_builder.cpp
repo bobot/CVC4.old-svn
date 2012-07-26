@@ -44,7 +44,25 @@ d_qe( qe ){
 }
 
 Node ModelEngineBuilder::chooseRepresentative( TheoryModel* m, Node eqc ){
+  Assert( m->d_equalityEngine.hasTerm( eqc ) );
+  Assert( m->d_equalityEngine.getRepresentative( eqc )==eqc );
+  //avoid interpreted symbols
+  if( isBadRepresentative( eqc ) ){
+    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &m->d_equalityEngine );
+    while( !eqc_i.isFinished() ){
+      if( !isBadRepresentative( *eqc_i ) ){
+        return *eqc_i;
+      }
+      ++eqc_i;
+    }
+    //otherwise, make new value?
+    Message() << "Warning: Bad rep " << eqc << std::endl;
+  }
   return eqc;
+}
+
+bool ModelEngineBuilder::isBadRepresentative( Node n ){
+  return n.getKind()==SELECT || n.getKind()==APPLY_SELECTOR;
 }
 
 void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {

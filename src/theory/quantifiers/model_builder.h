@@ -41,6 +41,8 @@ protected:
   void processBuildModel( TheoryModel* m );
   /** choose representative for unconstrained equivalence class */
   Node chooseRepresentative( TheoryModel* m, Node eqc );
+  /** bad representative */
+  bool isBadRepresentative( Node n );
 protected:
   //analyze model
   void analyzeModel( FirstOrderModel* fm );
