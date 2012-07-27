@@ -1388,8 +1388,8 @@ public:
   }
 
   MultiEfficientPatsMatcher(std::vector< Node > & pats, QuantifiersEngine* qe):
-    d_eh(qe->getTheoryEngine()->d_context),
-    d_cache(qe->getTheoryEngine()->d_context,qe,pats.size()),
+    d_eh(qe->getTheoryEngine()->getSatContext()),
+    d_cache(qe->getTheoryEngine()->getSatContext(),qe,pats.size()),
     d_pats(pats), d_step(ES_START) {
     Assert(pats.size() > 0);
     for( size_t i=0; i< pats.size(); i++ ){

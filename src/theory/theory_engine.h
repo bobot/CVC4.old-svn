@@ -85,7 +85,7 @@ class DecisionEngine;
  * CVC4.
  */
 class TheoryEngine {
-
+  
   /** Shared terms database can use the internals notify the theories */
   friend class SharedTermsDatabase;
 
@@ -95,13 +95,12 @@ class TheoryEngine {
   /** Access to decision engine */
   DecisionEngine* d_decisionEngine;
 
-public:
   /** Our context */
   context::Context* d_context;
 
   /** Our user context */
   context::UserContext* d_userContext;
-private:
+
   /**
    * A table of from theory IDs to theory pointers. Never use this table
    * directly, use theoryOf() instead.
@@ -448,6 +447,13 @@ public:
    */
   inline context::Context* getSatContext() const {
     return d_context;
+  }
+
+  /**
+   * Get a pointer to the underlying user context.
+   */
+  inline context::Context* getUserContext() const {
+    return d_userContext;
   }
 
   /**
