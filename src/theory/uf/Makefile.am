@@ -22,6 +22,6 @@ libuf_la_SOURCES = \
 	inst_strategy.h \
 	inst_strategy.cpp \
 	theory_uf_model.h \
-	theory_uf_model.cpp
+	theory_uf_model.cpp 
 
 EXTRA_DIST = kinds

@@ -16,29 +16,29 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__INST_MATCH_IMPL_H
-#define __CVC4__INST_MATCH_IMPL_H
+#ifndef __CVC4__RR_INST_MATCH_IMPL_H
+#define __CVC4__RR_INST_MATCH_IMPL_H
 
-#include "theory/inst_match.h"
+#include "theory/rr_inst_match.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers_engine.h"
-#include "theory/uf/theory_uf_instantiator.h"
-#include "theory/candidate_generator.h"
+#include "theory/rr_candidate_generator.h"
 #include "theory/uf/equality_engine.h"
 
 namespace CVC4 {
 namespace theory {
+namespace rrinst {
 
 template<bool modEq>
-InstMatchTrie2<modEq>::InstMatchTrie2(context::Context* c,  QuantifiersEngine* qe):
-  d_data(c->getLevel()), d_context(c), d_mods(c) {
+InstMatchTrie2Gen<modEq>::InstMatchTrie2Gen(context::Context* c,  QuantifiersEngine* qe):
+  d_context(c), d_mods(c) {
   d_eQ = qe->getEqualityQuery();
-  d_eE = ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine();
+  d_cG = qe->getRRCanGenClass();
 };
 
 /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
 template<bool modEq>
-void InstMatchTrie2<modEq>::addSubTree( Tree * root, mapIter current, mapIter end, size_t currLevel ) {
+void InstMatchTrie2Gen<modEq>::addSubTree( Tree * root, mapIter current, mapIter end, size_t currLevel ) {
   if( current == end ) return;
 
   Assert(root->e.find(current->second) == root->e.end());
@@ -49,7 +49,7 @@ void InstMatchTrie2<modEq>::addSubTree( Tree * root, mapIter current, mapIter en
 
 /** exists match */
 template<bool modEq>
-bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
+bool InstMatchTrie2Gen<modEq>::existsInstMatch(InstMatchTrie2Gen<modEq>::Tree * root,
                                             mapIter & current, mapIter & end,
                                             Tree * & e, mapIter & diverge) const{
   if( current == end ) {
@@ -65,7 +65,7 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
   };
 
   TNode n = current->second;
-  typename InstMatchTrie2<modEq>::Tree::MLevel::iterator it =
+  typename InstMatchTrie2Gen<modEq>::Tree::MLevel::iterator it =
     root->e.find( n );
   if( it!=root->e.end() &&
       existsInstMatch( (*it).second, ++current, end, e, diverge) ){
@@ -78,13 +78,13 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
   // Even if n is in the trie others of the equivalence class
   // can also be in it since the equality can have appeared
   // after they have been added
-  if( modEq && d_eE->hasTerm( n ) ){
+  if( modEq && d_eQ->hasTerm( n ) ){
     //check modulo equality if any other instantiation match exists
-    eq::EqClassIterator eqc( d_eQ->getRepresentative( n ), d_eE );
-    for( ;!eqc.isFinished();++eqc ){
-      TNode en = (*eqc);
+    d_cG->reset( d_eQ->getRepresentative( n ) );
+    for(TNode en = d_cG->getNextCandidate() ; !en.isNull() ;
+        en = d_cG->getNextCandidate() ){
       if( en == n ) continue; // already tested
-      typename InstMatchTrie2<modEq>::Tree::MLevel::iterator itc =
+      typename InstMatchTrie2Gen<modEq>::Tree::MLevel::iterator itc =
         root->e.find( en );
       if( itc!=root->e.end() &&
           existsInstMatch( (*itc).second, ++current, end, e, diverge) ){
@@ -100,10 +100,11 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
 }
 
 template<bool modEq>
-bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
- mapIter begin = m.d_map.begin();
- mapIter end = m.d_map.end();
- typename InstMatchTrie2<modEq>::Tree * e = &d_data;
+bool InstMatchTrie2Gen<modEq>::
+addInstMatch( InstMatch& m, InstMatchTrie2Gen<modEq>::Tree* e ) {
+  d_cG->resetInstantiationRound();
+ mapIter begin = m.begin();
+ mapIter end = m.end();
  mapIter diverge = begin;
  if( !existsInstMatch(e, begin, end, e, diverge ) ){
    Assert(!diverge->second.isNull());
@@ -118,8 +119,10 @@ bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
  }
 }
 
+}/* CVC4::theory::rrinst namespace */
+
 }/* CVC4::theory namespace */
 
 }/* CVC4 namespace */
 
-#endif /*  __CVC4__INST_MATCH_IMPL_H */
+#endif /*  __CVC4__RR_INST_MATCH_IMPL_H */

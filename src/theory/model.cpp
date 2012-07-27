@@ -171,7 +171,6 @@ Node TheoryModel::getValue( TNode n ){
     return n;
   }
 
-  // see if the value is explicitly set in the model
   Node nn;
   if( n.getNumChildren()>0 ){
     std::vector< Node > children;

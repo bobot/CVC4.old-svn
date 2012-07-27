@@ -39,9 +39,11 @@ namespace theory {
 namespace datatypes {
 
 class InstantiatorTheoryDatatypes;
+class EqualityQueryTheory;
 
 class TheoryDatatypes : public Theory {
   friend class InstantiatorTheoryDatatypes;
+  friend class EqualityQueryTheory;
 private:
   typedef context::CDChunkList<Node> NodeList;
   typedef context::CDHashMap<Node, NodeList*, NodeHashFunction> NodeListMap;
@@ -213,15 +215,16 @@ private:
   void checkInstantiate( EqcInfo* eqc, Node n );
   /** debug print */
   void printModelDebug();
-  /** get equality engine */
-  eq::EqualityEngine* getEqualityEngine() { return &d_equalityEngine; }
+
 private:
   //equality queries
   bool hasTerm( Node a );
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
-
+public:
+  /** get equality engine */
+  eq::EqualityEngine* getEqualityEngine() { return &d_equalityEngine; }
 };/* class TheoryDatatypes */
 
 }/* CVC4::theory::datatypes namespace */

@@ -26,7 +26,7 @@ using namespace CVC4;
 using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
-
+using namespace CVC4::theory::inst;
 
 bool CandidateGenerator::isLegalCandidate( Node n ){
   return ( !n.getAttribute(NoMatchAttribute()) && ( !Options::current()->cbqi || !n.hasAttribute(InstConstantAttribute()) ) );

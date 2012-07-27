@@ -25,6 +25,10 @@
 namespace CVC4 {
 namespace theory {
 
+class QuantifiersEngine;
+
+namespace inst {
+
 /** base class for generating candidates for matching */
 class CandidateGenerator {
 public:
@@ -67,7 +71,6 @@ public:
   Node getNextCandidate();
 };/* class CandidateGeneratorQueue */
 
-class QuantifiersEngine;
 class CandidateGeneratorQEDisequal;
 
 #if 0
@@ -177,7 +180,7 @@ public:
   Node getNextCandidate();
 };
 
-
+}/* CVC4::theory::inst namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 

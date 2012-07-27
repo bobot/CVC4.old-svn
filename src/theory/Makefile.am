@@ -13,6 +13,7 @@ libtheory_la_SOURCES = \
 	logic_info.cpp \
 	output_channel.h \
 	interrupted.h \
+	type_enumerator.h \
 	theory_engine.h \
 	theory_engine.cpp \
 	theory_test_utils.h \
@@ -39,8 +40,14 @@ libtheory_la_SOURCES = \
 	quantifiers_engine.cpp \
 	instantiator_default.h \
 	instantiator_default.cpp \
+	rr_inst_match.h \
+	rr_inst_match_impl.h \
+	rr_inst_match.cpp \
+	rr_trigger.h \
+	rr_trigger.cpp \
+	rr_candidate_generator.h \
+	rr_candidate_generator.cpp \
 	inst_match.h \
-	inst_match_impl.h \
 	inst_match.cpp \
 	trigger.h \
 	trigger.cpp \
@@ -52,7 +59,8 @@ libtheory_la_SOURCES = \
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \
 	instantiator_tables.cpp \
-	theory_traits.h
+	theory_traits.h \
+	type_enumerator.cpp
 
 libtheory_la_LIBADD = \
 	@builddir@/builtin/libbuiltin.la \
@@ -69,6 +77,7 @@ EXTRA_DIST = \
 	rewriter_tables_template.h \
 	instantiator_tables_template.cpp \
 	theory_traits_template.h \
+	type_enumerator_template.cpp \
 	mktheorytraits \
 	mkrewriter \
 	mkinstantiator \
@@ -77,12 +86,14 @@ EXTRA_DIST = \
 BUILT_SOURCES = \
 	rewriter_tables.h \
 	instantiator_tables.cpp \
-	theory_traits.h
+	theory_traits.h \
+	type_enumerator.cpp
 
 CLEANFILES = \
 	rewriter_tables.h \
 	instantiator_tables.cpp \
-	theory_traits.h
+	theory_traits.h \
+	type_enumerator.cpp
 
 include @top_srcdir@/src/theory/Makefile.subdirs
 
@@ -103,6 +114,14 @@ instantiator_tables.cpp: instantiator_tables_template.cpp mkinstantiator @top_bu
 	> $@) || (rm -f $@ && exit 1)
 
 theory_traits.h: theory_traits_template.h mktheorytraits @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mktheorytraits
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mktheorytraits \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+type_enumerator.cpp: type_enumerator_template.cpp mktheorytraits @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mktheorytraits
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mktheorytraits \

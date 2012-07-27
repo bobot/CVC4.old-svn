@@ -18,6 +18,7 @@
 #include "theory/datatypes/theory_datatypes.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers/term_database.h"
+#include "theory/rr_candidate_generator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -26,9 +27,9 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::datatypes;
 
-InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, Theory* th) :
-Instantiator( c, ie, th ){
 
+InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, TheoryDatatypes* th) :
+Instantiator( c, ie, th ){
 }
 
 void InstantiatorTheoryDatatypes::assertNode( Node assertion ){
@@ -61,7 +62,7 @@ int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e )
         if( i.getType().isDatatype() ){
           Node n = getValueFor( i );
           Debug("quant-datatypes-debug") << "Value for " << i << " is " << n << std::endl;
-          m.d_map[ i ] = n;
+          m.set(i,n);
         }
       }
       d_quantEngine->addInstantiation( f, m );
@@ -205,4 +206,11 @@ void InstantiatorTheoryDatatypes::getEquivalenceClass( Node a, std::vector< Node
       eqc_iter++;
     }
   }
+}
+
+CVC4::theory::rrinst::CandidateGenerator* InstantiatorTheoryDatatypes::getRRCanGenClass(){
+  datatypes::TheoryDatatypes* dt = static_cast<datatypes::TheoryDatatypes*>(getTheory());
+  eq::EqualityEngine* ee =
+    static_cast<eq::EqualityEngine*>(dt->getEqualityEngine());
+  return new eq::rrinst::CandidateGeneratorTheoryEeClass(ee);
 }

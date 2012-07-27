@@ -23,6 +23,7 @@
 
 namespace CVC4 {
 namespace theory {
+namespace inst {
 
 //a collect of nodes representing a trigger
 class Trigger {
@@ -162,6 +163,8 @@ inline std::ostream& operator<<(std::ostream& out, const Trigger & tr) {
   tr.toStream(out);
   return out;
 }
+
+}/* CVC4::theory::inst namespace */
 
 }/* CVC4::theory namespace */
 
