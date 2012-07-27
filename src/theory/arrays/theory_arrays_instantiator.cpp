@@ -18,6 +18,7 @@
 #include "theory/arrays/theory_arrays_instantiator.h"
 #include "theory/arrays/theory_arrays.h"
 #include "theory/quantifiers/options.h"
+#include "theory/uf/theory_uf_candidate_generator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -84,3 +85,16 @@ Node InstantiatorTheoryArrays::getRepresentative( Node a ){
   }
 }
 
+rrinst::CandidateGenerator* InstantiatorTheoryArrays::getRRCanGenClasses(){
+  arrays::TheoryArrays* ar = static_cast<arrays::TheoryArrays *>(getTheory());
+  eq::EqualityEngine* ee =
+    static_cast<eq::EqualityEngine*>(ar->getEqualityEngine());
+  return new eq::rrinst::CandidateGeneratorTheoryEeClasses(ee);
+}
+
+rrinst::CandidateGenerator* InstantiatorTheoryArrays::getRRCanGenClass(){
+  arrays::TheoryArrays* ar = static_cast<arrays::TheoryArrays *>(getTheory());
+  eq::EqualityEngine* ee =
+    static_cast<eq::EqualityEngine*>(ar->getEqualityEngine());
+  return new eq::rrinst::CandidateGeneratorTheoryEeClass(ee);
+}

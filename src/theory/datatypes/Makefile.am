@@ -16,7 +16,8 @@ libdatatypes_la_SOURCES = \
 	explanation_manager.h \
 	explanation_manager.cpp \
 	theory_datatypes_instantiator.h \
-	theory_datatypes_instantiator.cpp
+	theory_datatypes_instantiator.cpp \
+	theory_datatypes_candidate_generator.h
 
 EXTRA_DIST = \
 	kinds

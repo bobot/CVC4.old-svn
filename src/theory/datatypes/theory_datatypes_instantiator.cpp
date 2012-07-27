@@ -15,6 +15,7 @@
  **/
 
 #include "theory/datatypes/theory_datatypes_instantiator.h"
+#include "theory/datatypes/theory_datatypes_candidate_generator.h"
 #include "theory/datatypes/theory_datatypes.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers/options.h"
@@ -27,9 +28,9 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::datatypes;
 
-InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, Theory* th) :
-Instantiator( c, ie, th ){
 
+InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, TheoryDatatypes* th) :
+Instantiator( c, ie, th ){
 }
 
 void InstantiatorTheoryDatatypes::assertNode( Node assertion ){
@@ -61,7 +62,7 @@ int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e )
         if( i.getType().isDatatype() ){
           Node n = getValueFor( i );
           Debug("quant-datatypes-debug") << "Value for " << i << " is " << n << std::endl;
-          m.d_map[ i ] = n;
+          m.set(i,n);
         }
       }
       d_quantEngine->addInstantiation( f, m );
@@ -168,4 +169,9 @@ bool InstantiatorTheoryDatatypes::areDisequal( Node a, Node b ){
 
 Node InstantiatorTheoryDatatypes::getRepresentative( Node a ){
   return ((TheoryDatatypes*)d_th)->getRepresentative( a );
+}
+
+CVC4::theory::rrinst::CandidateGenerator* InstantiatorTheoryDatatypes::getRRCanGenClass(){
+  TheoryDatatypes* th = static_cast<TheoryDatatypes *>(getTheory());
+  return new datatypes::rrinst::CandidateGeneratorTheoryClass(th);
 }

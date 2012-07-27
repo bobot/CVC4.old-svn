@@ -29,6 +29,7 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
+using namespace CVC4::theory::inst;
 
 #define USE_SINGLE_TRIGGER_BEFORE_MULTI_TRIGGER
 //#define MULTI_TRIGGER_FULL_EFFORT_HALF
@@ -84,7 +85,7 @@ void InstStrategyCheckCESolved::calcSolved( Node f ){
     Node i = d_quantEngine->getTermDatabase()->getInstantiationConstant( f, j );
     Node rep = d_th->getInternalRepresentative( i );
     if( !rep.hasAttribute(InstConstantAttribute()) ){
-      d_th->d_baseMatch[f].d_map[ i ] = rep;
+      d_th->d_baseMatch[f].set(i,rep);
     }else{
       d_solved[ f ] = false;
     }
