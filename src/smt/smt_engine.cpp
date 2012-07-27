@@ -22,6 +22,8 @@
 #include <utility>
 #include <sstream>
 #include <stack>
+#include <cctype>
+#include <algorithm>
 #include <ext/hash_map>
 
 #include "context/cdlist.h"
@@ -672,8 +674,16 @@ CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
   Trace("smt") << "SMT getInfo(" << key << ")" << endl;
   if(key == "all-statistics") {
     vector<SExpr> stats;
-    for(StatisticsRegistry::const_iterator i = StatisticsRegistry::begin();
-        i != StatisticsRegistry::end();
+    for(StatisticsRegistry::const_iterator i = d_exprManager->getStatisticsRegistry()->begin_();
+        i != d_exprManager->getStatisticsRegistry()->end_();
+        ++i) {
+      vector<SExpr> v;
+      v.push_back((*i)->getName());
+      v.push_back((*i)->getValue());
+      stats.push_back(v);
+    }
+    for(StatisticsRegistry::const_iterator i = d_statisticsRegistry->begin_();
+        i != d_statisticsRegistry->end_();
         ++i) {
       vector<SExpr> v;
       v.push_back((*i)->getName());
@@ -682,6 +692,7 @@ CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
     }
     return stats;
   } else if(key == "error-behavior") {
+    // immediate-exit | continued-execution
     return SExpr::Keyword("immediate-exit");
   } else if(key == "name") {
     return Configuration::getName();
@@ -690,12 +701,22 @@ CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
   } else if(key == "authors") {
     return Configuration::about();
   } else if(key == "status") {
-    return d_status.asSatisfiabilityResult().toString();
+    // sat | unsat | unknown
+    switch(d_status.asSatisfiabilityResult().isSat()) {
+    case Result::SAT:
+      return SExpr::Keyword("sat");
+    case Result::UNSAT:
+      return SExpr::Keyword("unsat");
+    default:
+      return SExpr::Keyword("unknown");
+    }
   } else if(key == "reason-unknown") {
     if(!d_status.isNull() && d_status.isUnknown()) {
       stringstream ss;
       ss << d_status.whyUnknown();
-      return SExpr::Keyword(ss.str());
+      string s = ss.str();
+      transform(s.begin(), s.end(), s.begin(), ::tolower);
+      return SExpr::Keyword(s);
     } else {
       throw ModalException("Can't get-info :reason-unknown when the "
                            "last result wasn't unknown!");

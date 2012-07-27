@@ -242,15 +242,18 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   }
 
   // signal handlers need access
+  StatisticsRegistry driverStats("driver");
   pStatistics = smt.getStatisticsRegistry();
+  exprMgr.getStatisticsRegistry()->setName("ExprManager");
   pStatistics->registerStat_(exprMgr.getStatisticsRegistry());
+  pStatistics->registerStat_(&driverStats);
 
   // Timer statistic
-  RegisterStatistic statTotalTime(exprMgr, &s_totalTime);
+  RegisterStatistic statTotalTime(&driverStats, &s_totalTime);
 
   // Filename statistics
   ReferenceStat< const char* > s_statFilename("filename", filename);
-  RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
+  RegisterStatistic statFilenameReg(&driverStats, &s_statFilename);
 
   // Parse and execute commands until we are done
   Command* cmd;
@@ -332,7 +335,7 @@ int runCvc4(int argc, char* argv[], Options& opts) {
 #endif /* CVC4_COMPETITION_MODE */
 
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
-  RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
+  RegisterStatistic statSatResultReg(&driverStats, &s_statSatResult);
 
   s_totalTime.stop();
 
