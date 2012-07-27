@@ -56,7 +56,7 @@ Node ModelEngineBuilder::chooseRepresentative( TheoryModel* m, Node eqc ){
       ++eqc_i;
     }
     //otherwise, make new value?
-    Message() << "Warning: Bad rep " << eqc << std::endl;
+    //Message() << "Warning: Bad rep " << eqc << std::endl;
   }
   return eqc;
 }

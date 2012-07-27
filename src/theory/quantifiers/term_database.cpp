@@ -171,12 +171,18 @@ void TermDb::registerModelBasis( Node n, Node gn ){
 
 Node TermDb::getModelBasisTerm( TypeNode tn, int i ){
   if( d_model_basis_term.find( tn )==d_model_basis_term.end() ){
-    std::stringstream ss;
-    ss << Expr::setlanguage(Options::current()->outputLanguage);
-    ss << "e_" << tn;
-    d_model_basis_term[tn] = NodeManager::currentNM()->mkVar( ss.str(), tn );
+    Node mbt;
+    if( d_type_map[ tn ].empty() ){
+      std::stringstream ss;
+      ss << Expr::setlanguage(Options::current()->outputLanguage);
+      ss << "e_" << tn;
+      mbt = NodeManager::currentNM()->mkVar( ss.str(), tn );
+    }else{
+      mbt = d_type_map[ tn ][ 0 ];
+    }
     ModelBasisAttribute mba;
-    d_model_basis_term[tn].setAttribute(mba,true);
+    mbt.setAttribute(mba,true);
+    d_model_basis_term[tn] = mbt;
   }
   return d_model_basis_term[tn];
 }
