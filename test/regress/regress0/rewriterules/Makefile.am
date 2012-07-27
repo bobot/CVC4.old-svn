@@ -1,11 +1,12 @@
 BINARY = cvc4
 
-CVC4_REGRESSION_ARGS ?= "--efficient-e-matching"
+CVC4_REGRESSION_ARGS ?= --efficient-e-matching
+export CVC4_REGRESSION_ARGS
 
 if PROOF_REGRESSIONS
 TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) --proof @top_builddir@/src/main/$(BINARY)
 else
-TESTS_ENVIRONMENT = CVC4_REGRESSION_ARGS="$(CVC4_REGRESSION_ARGS)" @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+TESTS_ENVIRONMENT = @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
 endif
 
 MAKEFLAGS = -k
