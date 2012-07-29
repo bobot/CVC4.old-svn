@@ -717,8 +717,6 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
     ( attribute[expr, attexpr,attr]
       { if( attr == ":pattern" && ! attexpr.isNull()) {
           patexprs.push_back( attexpr );
-        }else if( attr==":axiom" ){
-          //do this?
         }
       }
     )+ RPAREN_TOK
@@ -800,19 +798,11 @@ attribute[CVC4::Expr& expr,CVC4::Expr& retExpr, std::string& attr]
   Expr e2;
 }
 : KEYWORD
-  { attr = AntlrInput::tokenText($KEYWORD); }
-  symbolicExpr[sexpr]
-  { if(attr == ":named") {
-      std::string name = sexpr.getValue();
-      // FIXME ensure expr is a closed subterm
-      // check that sexpr is a fresh function symbol
-      PARSER_STATE->checkDeclaration(name, CHECK_UNDECLARED, SYM_VARIABLE);
-      // define it
-      Expr func = PARSER_STATE->mkFunction(name, expr.getType());
-      // bind name to expr with define-fun
-      Command* c =
-        new DefineNamedFunctionCommand(name, func, std::vector<Expr>(), expr);
-      PARSER_STATE->preemptCommand(c);
+  {   
+    attr = AntlrInput::tokenText($KEYWORD);
+    //EXPR_MANAGER->setNamedAttribute( expr, attr );
+    if( attr==":rewrite-rule" || attr==":axiom" ){
+      //do nothing
     } else {
       std::stringstream ss;
       ss << "Attribute `" << attr << "' not supported";
@@ -824,9 +814,20 @@ attribute[CVC4::Expr& expr,CVC4::Expr& retExpr, std::string& attr]
       attr = std::string(":pattern");
       retExpr = MK_EXPR(kind::INST_PATTERN, patexprs);
     }
-  | ATTRIBUTE_REWRITE_RULE {
-    attr = std::string(":rewrite-rule");
-  }
+  | ATTRIBUTE_NAMED_TOK symbolicExpr[sexpr]
+    { 
+      attr = std::string(":named");
+      std::string name = sexpr.getValue();
+      // FIXME ensure expr is a closed subterm
+      // check that sexpr is a fresh function symbol
+      PARSER_STATE->checkDeclaration(name, CHECK_UNDECLARED, SYM_VARIABLE);
+      // define it
+      Expr func = PARSER_STATE->mkFunction(name, expr.getType());
+      // bind name to expr with define-fun
+      Command* c =
+        new DefineNamedFunctionCommand(name, func, std::vector<Expr>(), expr);
+      PARSER_STATE->preemptCommand(c);
+    }
   ;
 
 /**
@@ -1210,7 +1211,7 @@ PROPAGATION_RULE_TOK : 'assert-propagation';
 
 // attributes
 ATTRIBUTE_PATTERN_TOK : ':pattern';
-ATTRIBUTE_REWRITE_RULE : ':rewrite-rule';
+ATTRIBUTE_NAMED_TOK : ':named';
 
 // operators (NOTE: theory symbols go here)
 AMPERSAND_TOK     : '&';

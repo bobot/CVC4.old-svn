@@ -36,43 +36,43 @@ using namespace CVC4::theory::datatypes;
 
 void TheoryDatatypes::printModelDebug(){
   /*
-  //std::cout << "Datatypes model : " << std::endl;
+  std::cout << "Datatypes model : " << std::endl;
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
     if( eqc.getType().isDatatype() || eqc.getType().isBoolean() ){
-      //std::cout << eqc << " : " << eqc.getType() << " : " << std::endl;
-      //std::cout << "   { ";
+      std::cout << eqc << " : " << eqc.getType() << " : " << std::endl;
+      std::cout << "   { ";
       //add terms to model
       eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
       while( !eqc_i.isFinished() ){
-        //std::cout << (*eqc_i) << " ";
+        std::cout << (*eqc_i) << " ";
         ++eqc_i;
       }
-      //std::cout << "}" << std::endl;
+      std::cout << "}" << std::endl;
       if( eqc.getType().isDatatype() ){
         EqcInfo* ei = getOrMakeEqcInfo( eqc );
         if( ei ){
-          //std::cout << "   Instantiated : " << ( ei->d_inst ? "yes" : "no" ) << std::endl;
+          std::cout << "   Instantiated : " << ei->d_inst.get() << std::endl;
           if( ei->d_constructor.get().isNull() ){
-            //std::cout << "   Constructor : " << std::endl;
-            //std::cout << "   Labels : ";
+            std::cout << "   Constructor : " << std::endl;
+            std::cout << "   Labels : ";
             if( hasLabel( ei, eqc ) ){
-              //std::cout << getLabel( eqc );
+              std::cout << getLabel( eqc );
             }else{
               NodeListMap::iterator lbl_i = d_labels.find( eqc );
               if( lbl_i != d_labels.end() ){
                 NodeList* lbl = (*lbl_i).second;
                 for( NodeList::const_iterator j = lbl->begin(); j != lbl->end(); j++ ){
-                  //std::cout << *j << " ";
+                  std::cout << *j << " ";
                 }
               }
             }
-            //std::cout << std::endl;
+            std::cout << std::endl;
           }else{
-            //std::cout << "   Constructor : " << ei->d_constructor.get() << std::endl;
+            std::cout << "   Constructor : " << ei->d_constructor.get() << std::endl;
           }
-          //std::cout << "   Selectors : " << ( ei->d_selectors ? "yes" : "no" ) << std::endl;
+          std::cout << "   Selectors : " << ( ei->d_selectors ? "yes" : "no" ) << std::endl;
         }
       }
     }
@@ -461,10 +461,6 @@ void TheoryDatatypes::check(Effort e) {
     Assertion assertion = get();
     TNode fact = assertion.assertion;
     Debug("datatypes-assert") << "Assert " << fact << std::endl;
-
-    //reset the maps
-    d_pending.clear();
-    d_pending_exp.clear();
     //assert the fact
     assertFact( fact, fact );
     flushPendingFacts();
@@ -544,6 +540,17 @@ void TheoryDatatypes::assertFact( Node fact, Node exp ){
   }else{
     d_equalityEngine.assertPredicate( atom, polarity, exp );
   }
+  doPendingMerges();
+  //add to tester if applicable
+  if( atom.getKind()==kind::APPLY_TESTER ){
+    Node rep = getRepresentative( atom[0] );
+    EqcInfo* eqc = getOrMakeEqcInfo( rep, true );
+    addTester( fact, eqc, rep );
+  }
+  doPendingMerges();
+}
+
+void TheoryDatatypes::doPendingMerges(){
   //do all pending merges
   int i=0;
   while( i<(int)d_pending_merge.size() ){
@@ -552,23 +559,20 @@ void TheoryDatatypes::assertFact( Node fact, Node exp ){
     i++;
   }
   d_pending_merge.clear();
-  //add to tester if applicable
-  if( atom.getKind()==kind::APPLY_TESTER ){
-    Node rep = getRepresentative( atom[0] );
-    EqcInfo* eqc = getOrMakeEqcInfo( rep, true );
-    addTester( fact, eqc, rep );
-  }
 }
 
 void TheoryDatatypes::flushPendingFacts(){
-  //also assert the pending facts
-  int i = 0;
-  while( !d_conflict && i<(int)d_pending.size() ){
-    assertFact( d_pending[i], d_pending_exp[ d_pending[i] ] );
-    i++;
+  doPendingMerges();
+  if( !d_pending.empty() ){
+    //also assert the pending facts
+    int i = 0;
+    while( !d_conflict && i<(int)d_pending.size() ){
+      assertFact( d_pending[i], d_pending_exp[ d_pending[i] ] );
+      i++;
+    }
+    d_pending.clear();
+    d_pending_exp.clear();
   }
-  d_pending.clear();
-  d_pending_exp.clear();
 }
 
 void TheoryDatatypes::preRegisterTerm(TNode n) {
@@ -594,7 +598,7 @@ void TheoryDatatypes::preRegisterTerm(TNode n) {
     }
     break;
   }
-  Assert( d_pending.empty() );
+  flushPendingFacts();
 }
 
 void TheoryDatatypes::presolve() {

@@ -164,6 +164,8 @@ private:
   void assertFact( Node fact, Node exp );
   /** flush pending facts */
   void flushPendingFacts();
+  /** do pending merged */
+  void doPendingMerges();
   /** get or make eqc info */
   EqcInfo* getOrMakeEqcInfo( Node n, bool doMake = false );
   /** has eqc info */

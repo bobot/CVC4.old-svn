@@ -39,15 +39,7 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
     //store default domain
     d_domain.push_back( RepDomain() );
     TypeNode tn = d_f[0][i].getType();
-    if( tn.isSort() ){
-      if( d_model->d_rep_set.hasType( tn ) ){
-        for( int j=0; j<(int)d_model->d_rep_set.d_type_reps[d_f[0][i].getType()].size(); j++ ){
-          d_domain[i].push_back( j );
-        }
-      }else{
-        Unimplemented("Cannot create instantiation iterator for unknown uninterpretted sort");
-      }
-    }else if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
+    if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
       Unimplemented("Cannot create instantiation iterator for arithmetic quantifier");
     }else if( tn.isDatatype() ){
       const Datatype& dt = ((DatatypeType)(tn).toType()).getDatatype();
@@ -57,6 +49,14 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
         Unimplemented("Not yet implemented: instantiation iterator for finite datatype quantifier");
       }else{
         Unimplemented("Cannot create instantiation iterator for infinite datatype quantifier");
+      }
+    }else if( tn.isSort() ){
+      if( d_model->d_rep_set.hasType( tn ) ){
+        for( int j=0; j<(int)d_model->d_rep_set.d_type_reps[d_f[0][i].getType()].size(); j++ ){
+          d_domain[i].push_back( j );
+        }
+      }else{
+        Unimplemented("Cannot create instantiation iterator for unknown uninterpretted sort");
       }
     }else{
       Unimplemented("Cannot create instantiation iterator for quantifier");
@@ -308,7 +308,7 @@ Node RepSetEvaluator::evaluateTerm( Node n, int& depIndex ){
       std::vector< int > children_depIndex;
       //for select, pre-process read over writes
       if( n.getKind()==SELECT ){
-#if 1
+#if 0
         //std::cout << "Evaluate " << n << std::endl;
         Node sel = evaluateTerm( n[1], depIndex );
         if( sel.isNull() ){

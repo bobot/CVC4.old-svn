@@ -437,6 +437,7 @@ void TheoryEngine::combineTheories() {
           d_factsAsserted = true;
           continue;
         } else {
+          //std::cout << literal << " " << normalizedLiteral << " " << carePair.theory << std::endl;
           Unreachable();
         }
       }

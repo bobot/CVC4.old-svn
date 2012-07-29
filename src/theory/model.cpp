@@ -543,7 +543,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
               rep = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
             }
           }else{
-            Message() << "TheoryEngineModelBuilder::buildModel : Do not know how to resolve datatype equivalence class " << n << std::endl;
+            Message() << "TheoryEngineModelBuilder::buildModel : Do not know how to resolve datatype equivalence class " << n << " : " << n.getType() << std::endl;
           }
           mkRep = false;
         }
