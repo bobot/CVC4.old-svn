@@ -83,31 +83,9 @@ void ModelEngine::check( Theory::Effort e ){
         //print debug
         Debug("fmf-model-complete") << std::endl;
         debugPrint("fmf-model-complete");
-        //verify we are SAT by trying exhaustive instantiation
-        if( optUseRelevantDomain() ){
-          d_rel_domain.compute();
-        }
-        d_triedLemmas = 0;
-        d_testLemmas = 0;
-        d_relevantLemmas = 0;
-        d_totalLemmas = 0;
-        Debug("fmf-model-debug") << "Do exhaustive instantiation..." << std::endl;
-        for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
-          Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
-          if( d_builder.d_quant_sat.find( f )==d_builder.d_quant_sat.end() ){
-            addedLemmas += exhaustiveInstantiate( f, optUseRelevantDomain() );
-            if( optOneQuantPerRound() && addedLemmas>0 ){
-              break;
-            }
-          }
-#ifdef ME_PRINT_WARNINGS
-          if( addedLemmas>10000 ){
-            break;
-          }
-#endif
-        }
-        Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
-        Debug("fmf-model-debug") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
+        //successfully built an acceptable model, now check it
+        checkModel( addedLemmas );
+        //print debug information
         if( Options::current()->printModelEngine ){
           Message() << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
           Message() << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
@@ -124,11 +102,15 @@ void ModelEngine::check( Theory::Effort e ){
       }
     }
     if( addedLemmas==0 ){
-      //CVC4 will answer SAT
+      //CVC4 will answer SAT or unknown
       Debug("fmf-consistent") << std::endl;
       debugPrint("fmf-consistent");
       // finish building the model in the standard way
       d_builder.finishProcessBuildModel( d_quantEngine->getModel() );
+      //if the check was incomplete, we must set incomplete flag
+      if( d_incomplete_check ){
+        d_quantEngine->getOutputChannel().setIncomplete();
+      }
     }else{
       //otherwise, the search will continue
       d_quantEngine->flushLemmas( &d_quantEngine->getOutputChannel() );
@@ -204,6 +186,35 @@ int ModelEngine::initializeQuantifier( Node f ){
   return 0;
 }
 
+void ModelEngine::checkModel( int& addedLemmas ){
+  //verify we are SAT by trying exhaustive instantiation
+  d_incomplete_check = false;
+  if( optUseRelevantDomain() ){
+    d_rel_domain.compute();
+  }
+  d_triedLemmas = 0;
+  d_testLemmas = 0;
+  d_relevantLemmas = 0;
+  d_totalLemmas = 0;
+  Debug("fmf-model-debug") << "Do exhaustive instantiation..." << std::endl;
+  for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
+    Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
+    if( d_builder.d_quant_sat.find( f )==d_builder.d_quant_sat.end() ){
+      addedLemmas += exhaustiveInstantiate( f, optUseRelevantDomain() );
+      if( optOneQuantPerRound() && addedLemmas>0 ){
+        break;
+      }
+    }
+#ifdef ME_PRINT_WARNINGS
+    if( addedLemmas>10000 ){
+      break;
+    }
+#endif
+  }
+  Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
+  Debug("fmf-model-debug") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
+}
+
 int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
   int tests = 0;
   int addedLemmas = 0;
@@ -226,6 +237,8 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
     }
   }
   RepSetIterator riter( f, d_quantEngine->getModel() );
+  //if the iterator is incomplete, we will return unknown instead of sat if no instantiations are added this round
+  d_incomplete_check = d_incomplete_check|| riter.d_incomplete;
   //set the domain for the iterator (the sufficient set of instantiations to try)
   if( useRelInstDomain ){
     riter.setDomain( d_rel_domain.d_quant_inst_domain[f] );

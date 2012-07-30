@@ -39,6 +39,8 @@ public:
   std::vector< int > d_index;
   //domain we are considering
   std::vector< RepDomain > d_domain;
+  //are we only considering a strict subset of the domain of the quantifier?
+  bool d_incomplete;
   //ordering for variables we are indexing over
   //  for example, given reps = { a, b } and quantifier forall( x, y, z ) P( x, y, z ) with d_index_order = { 2, 0, 1 },
   //    then we consider instantiations in this order:

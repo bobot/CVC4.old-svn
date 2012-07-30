@@ -67,6 +67,14 @@ bool ModelEngineBuilder::isBadRepresentative( Node n ){
 
 void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
   d_addedLemmas = 0;
+  //for debugging
+  if( Options::current()->printModelEngine ){
+    for( std::map< TypeNode, std::vector< Node > >::iterator it = m->d_rep_set.d_type_reps.begin(); it != m->d_rep_set.d_type_reps.end(); ++it ){
+      if( it->first.isSort() ){
+        Message() << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
+      }
+    }
+  }
   //only construct first order model if optUseModel() is true
   if( optUseModel() ){
     FirstOrderModel* fm = (FirstOrderModel*)m;

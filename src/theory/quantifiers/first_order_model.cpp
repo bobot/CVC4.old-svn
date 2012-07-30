@@ -53,14 +53,6 @@ void FirstOrderModel::initialize(){
     //initialize relevant models within bodies of all quantifiers
     initializeModelForTerm( f[1] );
   }
-  //for debugging
-  if( Options::current()->printModelEngine ){
-    for( std::map< TypeNode, std::vector< Node > >::iterator it = d_rep_set.d_type_reps.begin(); it != d_rep_set.d_type_reps.end(); ++it ){
-      if( it->first.isSort() ){
-        Message() << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
-      }
-    }
-  }
 }
 
 void FirstOrderModel::initializeModelForTerm( Node n ){

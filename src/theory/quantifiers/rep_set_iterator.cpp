@@ -17,6 +17,7 @@
 #include "theory/quantifiers/rep_set_iterator.h"
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/term_database.h"
+#include "theory/type_enumerator.h"
 
 #define USE_INDEX_ORDERING
 
@@ -28,7 +29,8 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
 RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_model( model ){
-  //store instantiation constants
+  d_incomplete = false;
+  //store indicies
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
     d_index.push_back( 0 );
   }
@@ -39,26 +41,48 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
     //store default domain
     d_domain.push_back( RepDomain() );
     TypeNode tn = d_f[0][i].getType();
+    bool setDomain = false;
+    bool useTypeEnum = false;
     if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
       Unimplemented("Cannot create instantiation iterator for arithmetic quantifier");
     }else if( tn.isDatatype() ){
       const Datatype& dt = ((DatatypeType)(tn).toType()).getDatatype();
       //if finite, then use type enumerator
       if( dt.isFinite() ){
-        //DO_THIS: use type enumerator
+        //useTypeEnum = true;
         Unimplemented("Not yet implemented: instantiation iterator for finite datatype quantifier");
       }else{
         Unimplemented("Cannot create instantiation iterator for infinite datatype quantifier");
       }
     }else if( tn.isSort() ){
       if( d_model->d_rep_set.hasType( tn ) ){
-        for( int j=0; j<(int)d_model->d_rep_set.d_type_reps[d_f[0][i].getType()].size(); j++ ){
-          d_domain[i].push_back( j );
-        }
+        //use all representatives in the current model
+        setDomain = true;
       }else{
         Unimplemented("Cannot create instantiation iterator for unknown uninterpretted sort");
       }
+    }
+    if( !setDomain ){
+      if( useTypeEnum ){
+        //use the type enumerator to populate the domain
+        TypeEnumerator te(tn);
+        while( true ){
+          Node n = *te;
+          if( std::find( d_model->d_rep_set.d_type_reps[tn].begin(), d_model->d_rep_set.d_type_reps[tn].end(), n )==
+              d_model->d_rep_set.d_type_reps[tn].end() ){
+            d_model->d_rep_set.d_type_reps[tn].push_back( n );
+          }
+          ++te;
+        }
+        setDomain = true;
+      }
+    }
+    if( setDomain ){
+      for( size_t j=0; j<d_model->d_rep_set.d_type_reps[tn].size(); j++ ){
+        d_domain[i].push_back( j );
+      }
     }else{
+      d_incomplete = true;
       Unimplemented("Cannot create instantiation iterator for quantifier");
     }
   }

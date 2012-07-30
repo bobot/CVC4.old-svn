@@ -453,7 +453,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
       }else if( n.getKind()==APPLY_CONSTRUCTOR ){
         apply_constructors[ eqc ] = n;
       }
-      //model-specific processing of the term, this will include
+      //model-specific processing of the term
       tm->addTerm( n );
       ++eqc_i;
     }
@@ -495,8 +495,11 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
             std::vector< Node > arr_select_values;
             Node nbase = n;
             while( nbase.getKind()==STORE ){
-              arr_selects.push_back( tm->getRepresentative( nbase[1] ) );
-              arr_select_values.push_back( tm->getRepresentative( nbase[2] ) );
+              Node r = tm->getRepresentative( nbase[1] );
+              if( std::find( arr_selects.begin(), arr_selects.end(), r )==arr_selects.end() ){
+                arr_selects.push_back( r );
+                arr_select_values.push_back( tm->getRepresentative( nbase[2] ) );
+              }
               nbase = nbase[0];
             }
             eq::EqClassIterator eqc_i = eq::EqClassIterator( n, &tm->d_equalityEngine );
@@ -511,7 +514,6 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
               ++eqc_i;
             }
             //now, construct based on select/value pairs
-            //TODO: make this a constant
             rep = chooseRepresentative( tm, nbase );
             for( int i=0; i<(int)arr_selects.size(); i++ ){
               rep = NodeManager::currentNM()->mkNode( STORE, rep, arr_selects[i], arr_select_values[i] );
@@ -567,7 +569,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
     }
   }while( !fixedPoint );
 
-  //for all unresolved equivalence classes, just get new domain value
+  //choose representatives for any equivalence classes that are still unresolved
   //  this should typically never happen (all equivalence classes should be resolved at this point)
   for( std::map< Node, bool >::iterator it = unresolved_eqc.begin(); it != unresolved_eqc.end(); ++it ){
     if( it->second ){
