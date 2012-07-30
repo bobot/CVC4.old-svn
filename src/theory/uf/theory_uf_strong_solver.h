@@ -190,9 +190,13 @@ public:
     int combineRegions( int ai, int bi );
     /** move node n to region ri */
     void moveNode( Node n, int ri );
+    /** allocate cardinality */
+    void allocateCardinality( OutputChannel* out );
   private:
-    /** cardinality operating with */
+    /** cardinality */
     context::CDO< int > d_cardinality;
+    /** maximum allocated cardinality */
+    int d_aloc_cardinality;
     /** type */
     TypeNode d_type;
     /** cardinality lemma term */
@@ -203,13 +207,16 @@ public:
     std::map< int, Node > d_cardinality_lemma;
     /** cardinality assertions (indexed by cardinality literals ) */
     NodeBoolMap d_cardinality_assertions;
+    /** whether a positive cardinality constraint has been asserted */
+    context::CDO< bool > d_hasCard;
   public:
     ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) :
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
-        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( c, 1 ), d_type( tn ),
-        d_cardinality_assertions( c ), d_is_cardinality_set( c, false ),
-        d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ), d_hasCard( c, false ){}
+        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ), d_type( tn ),
+        d_cardinality_assertions( c ), d_hasCard( c, false ){}
     ~ConflictFind(){}
+    /** initialize */
+    void initialize( OutputChannel* out );
     /** new node */
     void newEqClass( Node n );
     /** merge */
@@ -217,7 +224,7 @@ public:
     /** assert terms are disequal */
     void assertDisequal( Node a, Node b, Node reason );
     /** assert cardinality */
-    void assertCardinality( int c, bool val );
+    void assertCardinality( OutputChannel* out, int c, bool val );
     /** whether cardinality has been asserted */
     bool hasCardinalityAsserted() { return d_hasCard; }
     /** check */
@@ -226,8 +233,6 @@ public:
     void propagate( Theory::Effort level, OutputChannel* out );
     //print debug
     void debugPrint( const char* c );
-    /** set cardinality */
-    void setCardinality( int c, OutputChannel* out );
     /** get cardinality */
     int getCardinality() { return d_cardinality; }
     /** get representatives */
@@ -237,16 +242,10 @@ public:
     /** minimize */
     bool minimize( OutputChannel* out );
     /** get cardinality lemma */
-    Node getCardinalityLemma();
+    Node getCardinalityLemma( int c, OutputChannel* out );
   public:
     /** get number of regions (for debugging) */
     int getNumRegions();
-    /** is cardinality set */
-    context::CDO< bool > d_is_cardinality_set;
-    context::CDO< bool > d_is_cardinality_requested_c;
-    bool d_is_cardinality_requested;
-    /** whether a positive cardinality constraint has been asserted */
-    context::CDO< bool > d_hasCard;
   }; /** class ConflictFind */
 private:
   /** The output channel for the strong solver. */

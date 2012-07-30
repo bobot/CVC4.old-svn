@@ -46,7 +46,8 @@ d_qe( qe ){
 Node ModelEngineBuilder::chooseRepresentative( TheoryModel* m, Node eqc ){
   Assert( m->d_equalityEngine.hasTerm( eqc ) );
   Assert( m->d_equalityEngine.getRepresentative( eqc )==eqc );
-  //avoid interpreted symbols
+  d_chosen_reps[ eqc ] = true;
+  //avoid bad representatives
   if( isBadRepresentative( eqc ) ){
     eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &m->d_equalityEngine );
     while( !eqc_i.isFinished() ){
@@ -62,6 +63,7 @@ Node ModelEngineBuilder::chooseRepresentative( TheoryModel* m, Node eqc ){
 }
 
 bool ModelEngineBuilder::isBadRepresentative( Node n ){
+  //avoid interpreted symbols
   return n.getKind()==SELECT || n.getKind()==APPLY_SELECTOR;
 }
 
@@ -81,6 +83,7 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
     //initialize model
     fm->initialize();
     //analyze the functions
+    Debug("fmf-model-debug") << "Analyzing model..." << std::endl;
     analyzeModel( fm );
     //analyze the quantifiers
     Debug("fmf-model-debug") << "Analyzing quantifiers..." << std::endl;
@@ -117,6 +120,7 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
 }
 
 void ModelEngineBuilder::analyzeModel( FirstOrderModel* fm ){
+  d_uf_model_constructed.clear();
   //determine if any functions are constant
   for( std::map< Node, uf::UfModelTree >::iterator it = fm->d_uf_model_tree.begin(); it != fm->d_uf_model_tree.end(); ++it ){
     Node op = it->first;
@@ -392,6 +396,9 @@ void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, Node op ){
 void ModelEngineBuilder::finishProcessBuildModel( TheoryModel* m ){
   for( std::map< Node, Node >::iterator it = m->d_reps.begin(); it != m->d_reps.end(); ++it ){
     //build proper representatives (TODO)
+    if( d_chosen_reps.find( it->first )!=d_chosen_reps.end() ){
+
+    }
   }
 }
 

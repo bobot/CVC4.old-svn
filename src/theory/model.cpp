@@ -19,6 +19,7 @@
 #include "theory/theory_engine.h"
 #include "util/datatype.h"
 #include "theory/uf/theory_uf_model.h"
+#include "theory/arrays/theory_arrays_model.h"
 
 using namespace std;
 using namespace CVC4;
@@ -490,37 +491,23 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
           TypeNode index_t = tn.getArrayIndexType();
           TypeNode elem_t = tn.getArrayConstituentType();
           if( !unresolved_types[ index_t ] && !unresolved_types[ elem_t ] ){
-            //collect all relevant set values of n
-            std::vector< Node > arr_selects;
-            std::vector< Node > arr_select_values;
-            Node nbase = n;
-            while( nbase.getKind()==STORE ){
-              Node r = tm->getRepresentative( nbase[1] );
-              if( std::find( arr_selects.begin(), arr_selects.end(), r )==arr_selects.end() ){
-                arr_selects.push_back( r );
-                arr_select_values.push_back( tm->getRepresentative( nbase[2] ) );
-              }
-              nbase = nbase[0];
-            }
+            arrays::ArrayModel am( n, tm );
+            //set all values from existing select terms
             eq::EqClassIterator eqc_i = eq::EqClassIterator( n, &tm->d_equalityEngine );
             while( !eqc_i.isFinished() ){
               for( int i=0; i<(int)selects[ *eqc_i ].size(); i++ ){
-                Node r = tm->getRepresentative( selects[ *eqc_i ][i][1] );
-                if( std::find( arr_selects.begin(), arr_selects.end(), r )==arr_selects.end() ){
-                  arr_selects.push_back( r );
-                  arr_select_values.push_back( tm->getRepresentative( selects[ *eqc_i ][i] ) );
-                }
+                am.setValue( tm, selects[ *eqc_i ][i][1], selects[ *eqc_i ][i] );
               }
               ++eqc_i;
             }
-            //now, construct based on select/value pairs
-            rep = chooseRepresentative( tm, nbase );
-            for( int i=0; i<(int)arr_selects.size(); i++ ){
-              rep = NodeManager::currentNM()->mkNode( STORE, rep, arr_selects[i], arr_select_values[i] );
-            }
+            //choose a representative as the default array
+            am.setDefaultArray( chooseRepresentative( tm, am.d_base_arr ) );
+            //construct the representative
+            rep = am.getArrayValue();
           }
           mkRep = false;
         }else if( tn.isDatatype() ){
+          //we require that all datatype equivalence classes have a constructor in them
           if( apply_constructors.find( n )!=apply_constructors.end() ){
             Node ac = apply_constructors[n];
             std::vector< Node > children;
@@ -542,6 +529,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
               }
             }
             if( mkRep ){
+              //construct the representative from the representatives of the children
               rep = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
             }
           }else{
@@ -549,9 +537,11 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
           }
           mkRep = false;
         }
+        //if applicable, choose any representative
         if( mkRep ){
           rep = chooseRepresentative( tm, n );
         }
+        //if we have generated a representative for n on this iteration
         if( !rep.isNull() ){
           tm->assertEquality( n, rep, true );
           tm->d_reps[ n ] = rep;

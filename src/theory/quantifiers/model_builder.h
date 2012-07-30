@@ -37,6 +37,9 @@ protected:
   std::map< Node, uf::UfModelPreferenceData > d_uf_prefs;
   //built model uf
   std::map< Node, bool > d_uf_model_constructed;
+  //chosen representatives
+  std::map< Node, bool > d_chosen_reps;
+protected:
   /** process build model */
   void processBuildModel( TheoryModel* m );
   /** choose representative for unconstrained equivalence class */
