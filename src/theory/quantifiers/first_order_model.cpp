@@ -17,7 +17,6 @@
 #include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/rep_set_iterator.h"
 #include "theory/quantifiers/model_engine.h"
-#include "theory/quantifiers/options.h"
 #include "theory/quantifiers/term_database.h"
 
 using namespace std;
