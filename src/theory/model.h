@@ -33,6 +33,7 @@ public:
   RepSet(){}
   ~RepSet(){}
   std::map< TypeNode, std::vector< Node > > d_type_reps;
+  std::map< TypeNode, bool > d_type_complete;
   std::map< Node, int > d_tmap;
   /** clear the set */
   void clear();
@@ -44,6 +45,8 @@ public:
   void set( TypeNode t, std::vector< Node >& reps );
   /** returns index in d_type_reps for node n */
   int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
+  /** complete all values */
+  void complete( TypeNode t );
   /** debug print */
   void toStream(std::ostream& out);
 };
@@ -117,6 +120,12 @@ public:
     *   If it cannot find such a node, it returns null.
     */
   Node getNewDomainValue( TypeNode tn );
+  /** complete all values for type
+    *   Calling this function ensures that all terms of type tn exist in d_rep_set.d_type_reps[tn]
+    */
+  void completeValues( TypeNode tn ){
+    d_rep_set.complete( tn );
+  }
 public:
   /** assert equality holds in the model */
   void assertEquality( Node a, Node b, bool polarity );

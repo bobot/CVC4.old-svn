@@ -420,6 +420,7 @@ void StrongSolverTheoryUf::SortRepModel::Region::addSplit( OutputChannel* out ){
   out->split( s );
   //tell the sat solver to explore the equals branch first
   out->requirePhase( s, true );
+  ++( d_cf->d_th->getStrongSolver()->d_statistics.d_split_lemmas );
 }
 
 bool StrongSolverTheoryUf::SortRepModel::Region::minimize( OutputChannel* out ){
@@ -635,7 +636,6 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
             if( d_regions[i]->hasSplits() ){
               d_regions[i]->addSplit( out );
               addedLemma = true;
-              ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
 #ifdef ONE_SPLIT_REGION
               break;
 #endif
@@ -949,13 +949,16 @@ void StrongSolverTheoryUf::SortRepModel::moveNode( Node n, int ri ){
 }
 
 void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out ){
+  if( d_aloc_cardinality>0 ){
+    Trace("uf-ss-fmf") << "No model of size " << d_aloc_cardinality << " exists for type " << d_type << " in this branch" << std::endl;
+  }
   d_aloc_cardinality++;
   //add appropriate lemma
   Node lem = getCardinalityLemma( d_aloc_cardinality, out );
-  //add the appropriate lemma
-  Debug("uf-ss-fmf") << "Allocate cardinality " << d_type << " = " << d_aloc_cardinality << std::endl;
+  //add the appropriate lemma, propagate as decision
   Debug("uf-ss-prop-as-dec") << "Propagate as decision " << lem[0] << std::endl;
   out->propagateAsDecision( lem[0] );
+  d_th->getStrongSolver()->d_statistics.d_max_model_size.maxAssign( d_aloc_cardinality );
 }
 
 Node StrongSolverTheoryUf::SortRepModel::getCardinalityLemma( int c, OutputChannel* out ){
@@ -1040,14 +1043,20 @@ void StrongSolverTheoryUf::InfRepModel::initialize( OutputChannel* out ){
 
 /** new node */
 void StrongSolverTheoryUf::InfRepModel::newEqClass( Node n ){
-  d_rep[n] = true;
-  d_const_rep[n] = n.getMetaKind()==metakind::CONSTANT;
+  d_rep[n] = n;
+  //d_const_rep[n] = n.getMetaKind()==metakind::CONSTANT;
 }
 
 /** merge */
 void StrongSolverTheoryUf::InfRepModel::merge( Node a, Node b ){
-  d_rep[b] = false;
-  d_const_rep[a] = d_const_rep[a] || d_const_rep[b];
+  //d_rep[b] = false;
+  //d_const_rep[a] = d_const_rep[a] || d_const_rep[b];
+  Node repb = d_rep[b];
+  Assert( !repb.isNull() );
+  if( repb.getMetaKind()==metakind::CONSTANT || isBadRepresentative( d_rep[a] ) ){
+    d_rep[a] = repb;
+  }
+  d_rep[b] = Node::null();
 }
 
 /** check */
@@ -1057,13 +1066,50 @@ void StrongSolverTheoryUf::InfRepModel::check( Theory::Effort level, OutputChann
 
 /** minimize */
 bool StrongSolverTheoryUf::InfRepModel::minimize( OutputChannel* out ){
-  return !addSplit( out );
+#if 0
+  bool retVal = true;
+#else
+  bool retVal = !addSplit( out );
+#endif
+  if( retVal ){
+    std::vector< Node > reps;
+    getRepresentatives( reps );
+    Trace("uf-ss-fmf") << "Num representatives of type " << d_type << " : " << reps.size() << std::endl;
+    /*
+    for( int i=0; i<(int)reps.size(); i++ ){
+      std::cout << reps[i] << " ";
+    }
+    std::cout << std::endl;
+    for( int i=0; i<(int)reps.size(); i++ ){
+      std::cout << reps[i].getMetaKind() << " ";
+    }
+    std::cout << std::endl;
+    for( NodeNodeMap::iterator it = d_rep.begin(); it != d_rep.end(); ++it ){
+      Node rep = (*it).second;
+      if( !rep.isNull() && !isBadRepresentative( rep ) ){
+        for( NodeNodeMap::iterator it2 = d_rep.begin(); it2 != d_rep.end(); ++it2 ){
+          Node rep2 = (*it2).second;
+          if( !rep2.isNull() && !isBadRepresentative( rep2 ) ){
+            if( d_th->getQuantifiersEngine()->getEqualityQuery()->areDisequal( rep, rep2 ) ){
+              std::cout << "1 ";
+            }else{
+              std::cout << "0 ";
+            }
+          }
+        }
+        //std::cout << " : " << rep;
+        std::cout << std::endl;
+      }
+    }
+    */
+  }
+  return retVal;
 }
 
 /** get representatives */
 void StrongSolverTheoryUf::InfRepModel::getRepresentatives( std::vector< Node >& reps ){
-  for( NodeBoolMap::iterator it = d_rep.begin(); it != d_rep.end(); ++it ){
-    if( (*it).second ){
+  for( NodeNodeMap::iterator it = d_rep.begin(); it != d_rep.end(); ++it ){
+    if( !(*it).second.isNull() ){
       reps.push_back( (*it).first );
     }
   }
@@ -1072,15 +1118,34 @@ void StrongSolverTheoryUf::InfRepModel::getRepresentatives( std::vector< Node >&
 /** add split function */
 bool StrongSolverTheoryUf::InfRepModel::addSplit( OutputChannel* out ){
   std::vector< Node > visited;
-  for( NodeBoolMap::iterator it = d_rep.begin(); it != d_rep.end(); ++it ){
-    if( (*it).second ){
+  for( NodeNodeMap::iterator it = d_rep.begin(); it != d_rep.end(); ++it ){
+    Node rep = (*it).second;
+    if( !rep.isNull() && !isBadRepresentative( rep ) ){
+      bool constRep = rep.getMetaKind()==metakind::CONSTANT;
       for( size_t i=0; i<visited.size(); i++ ){
-
+        if( !constRep || !visited[i].getMetaKind()==metakind::CONSTANT ){
+          if( !d_th->getQuantifiersEngine()->getEqualityQuery()->areDisequal( rep, visited[i] ) ){
+            //split on these nodes
+            Node eq = rep.eqNode( visited[i] );
+            Trace("uf-ss-lemma") << "*** Split on " << eq << std::endl;
+            eq = Rewriter::rewrite( eq );
+            Debug("uf-ss-lemma-debug") << "Rewritten " << eq << std::endl;
+            out->split( eq );
+            //explore the equals branch first
+            out->requirePhase( eq, true );
+            ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
+            return true;
+          }
+        }
       }
-      visited.push_back( (*it).first );
+      visited.push_back( rep );
     }
   }
   return false;
+}
+
+bool StrongSolverTheoryUf::InfRepModel::isBadRepresentative( Node n ){
+  return n.getKind()==kind::PLUS;
 }
 
 StrongSolverTheoryUf::StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th) :
@@ -1216,19 +1281,13 @@ void StrongSolverTheoryUf::registerQuantifier( Node f ){
 
 void StrongSolverTheoryUf::preRegisterType( TypeNode tn, bool req ){
   if( d_rep_model.find( tn )==d_rep_model.end() ){
+    RepModel* rm = NULL;
     if( tn.isSort() ){
-      Debug("uf-ss-register") << "Preregister " << tn << "." << std::endl;
-      //enter into incremental finite model finding mode: try cardinality = 1 first
-      //if( !d_conf_types.empty() ){
-      //  Debug("uf-ss-na") << "Strong solver unimplemented for multiple sorts." << std::endl;
-      //  Unimplemented();
-      //}
-      d_rep_model[tn] = new SortRepModel( tn, d_th->getSatContext(), d_th );
-      //assign cardinality restriction
-      d_statistics.d_max_model_size.maxAssign( 1 );
-      d_rep_model[tn]->initialize( d_out );
-      d_rep_model_init[tn] = true;
-      d_conf_types.push_back( tn );
+      Debug("uf-ss-register") << "Preregister sort " << tn << "." << std::endl;
+      rm  = new SortRepModel( tn, d_th->getSatContext(), d_th );
+    }else if( tn.isInteger() ){
+      //rm = new InfRepModel( tn, d_th->getSatContext(), d_th );
+      //rm  = new SortRepModel( tn, d_th->getSatContext(), d_th );
     }else{
       /*
       if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
@@ -1243,6 +1302,11 @@ void StrongSolverTheoryUf::preRegisterType( TypeNode tn, bool req ){
         Unimplemented("Cannot perform finite model finding on datatype quantifier");
       }
       */
+    }
+    if( rm ){
+      rm->initialize( d_out );
+      d_rep_model[tn] = rm;
+      d_rep_model_init[tn] = true;
     }
   }
 }
@@ -1292,6 +1356,9 @@ bool StrongSolverTheoryUf::minimize(){
     if( !it->second->minimize( d_out ) ){
       return false;
     }
+  }
+  for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
+    std::cout << "Cardinality( " << it->first << " ) : " << it->second->getCardinality() << std::endl;
   }
   return true;
 }

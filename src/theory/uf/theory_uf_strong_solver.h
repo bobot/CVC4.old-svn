@@ -38,6 +38,7 @@ class StrongSolverTheoryUf{
 protected:
   typedef context::CDHashMap<Node, bool, NodeHashFunction> NodeBoolMap;
   typedef context::CDHashMap<Node, int, NodeHashFunction> NodeIntMap;
+  typedef context::CDHashMap<Node, Node, NodeHashFunction> NodeNodeMap;
   typedef context::CDChunkList<Node> NodeList;
   typedef context::CDList<bool> BoolList;
   typedef context::CDList<bool> IntList;
@@ -277,11 +278,13 @@ private:
     /** theory uf pointer */
     TheoryUF* d_th;
     /** list of representatives */
-    NodeBoolMap d_rep;
+    NodeNodeMap d_rep;
     /** whether representatives are constant */
     NodeBoolMap d_const_rep;
     /** add split */
     bool addSplit( OutputChannel* out );
+    /** is bad representative */
+    bool isBadRepresentative( Node n );
   public:
     InfRepModel( TypeNode tn, context::Context* c, TheoryUF* th ) : RepModel( tn ),
       d_th( th ), d_rep( c ), d_const_rep( c ){}

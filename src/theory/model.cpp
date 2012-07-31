@@ -20,6 +20,7 @@
 #include "util/datatype.h"
 #include "theory/uf/theory_uf_model.h"
 #include "theory/arrays/theory_arrays_model.h"
+#include "theory/type_enumerator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -29,6 +30,7 @@ using namespace CVC4::theory;
 
 void RepSet::clear(){
   d_type_reps.clear();
+  d_type_complete.clear();
   d_tmap.clear();
 }
 
@@ -43,6 +45,20 @@ void RepSet::set( TypeNode t, std::vector< Node >& reps ){
     d_tmap[ reps[i] ] = i;
   }
   d_type_reps[t].insert( d_type_reps[t].begin(), reps.begin(), reps.end() );
+}
+
+void RepSet::complete( TypeNode t ){
+  if( d_type_complete.find( t )==d_type_complete.end() ){
+    d_type_complete[t] = true;
+    TypeEnumerator te(t);
+    while( true ){    //FIXME
+      Node n = *te;
+      if( std::find( d_type_reps[t].begin(), d_type_reps[t].end(), n )==d_type_reps[t].end() ){
+        add( n );
+      }
+      ++te;
+    }
+  }
 }
 
 void RepSet::toStream(std::ostream& out){
@@ -265,7 +281,7 @@ void TheoryModel::assertEqualityEngine( eq::EqualityEngine* ee ){
     Node eqc = (*eqcs_i);
     bool predicate = false;
     bool predPolarity = false;
-    if( eqc.getType()==NodeManager::currentNM()->booleanType() ){
+    if( eqc.getType().isBoolean() ){
       predicate = true;
       predPolarity = ee->areEqual( eqc, d_true );
       //FIXME: do we guarentee that all boolean equivalence classes contain either d_true or d_false?
@@ -318,7 +334,7 @@ bool TheoryModel::areDisequal( Node a, Node b ){
 void TheoryModel::printRepresentativeDebug( const char* c, Node r ){
   if( r.isNull() ){
     Debug( c ) << "null";
-  }else if( r.getType()==NodeManager::currentNM()->booleanType() ){
+  }else if( r.getType().isBoolean() ){
     if( areEqual( r, d_true ) ){
       Debug( c ) << "true";
     }else{
@@ -333,7 +349,7 @@ void TheoryModel::printRepresentative( std::ostream& out, Node r ){
   Assert( !r.isNull() );
   if( r.isNull() ){
     out << "null";
-  }else if( r.getType()==NodeManager::currentNM()->booleanType() ){
+  }else if( r.getType().isBoolean() ){
     if( areEqual( r, d_true ) ){
       out  << "true";
     }else{
