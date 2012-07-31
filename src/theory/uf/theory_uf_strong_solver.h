@@ -32,6 +32,7 @@ namespace theory {
 namespace uf {
 
 class TheoryUF;
+class TermDisambiguator;
 
 class StrongSolverTheoryUf{
 protected:
@@ -42,14 +43,45 @@ protected:
   typedef context::CDList<bool> IntList;
   typedef context::CDHashMap<TypeNode, bool, TypeNodeHashFunction> TypeNodeBoolMap;
 public:
+  class RepModel {
+  protected:
+    /** type */
+    TypeNode d_type;
+  public:
+    RepModel( TypeNode tn ) : d_type( tn ){}
+    virtual ~RepModel(){}
+    /** initialize */
+    virtual void initialize( OutputChannel* out ) = 0;
+    /** new node */
+    virtual void newEqClass( Node n ) = 0;
+    /** merge */
+    virtual void merge( Node a, Node b ) = 0;
+    /** assert terms are disequal */
+    virtual void assertDisequal( Node a, Node b, Node reason ) = 0;
+    /** check */
+    virtual void check( Theory::Effort level, OutputChannel* out ){}
+    /** propagate */
+    virtual void propagate( Theory::Effort level, OutputChannel* out ){}
+    /** minimize */
+    virtual bool minimize( OutputChannel* out ){ return true; }
+    /** assert cardinality */
+    virtual void assertCardinality( OutputChannel* out, int c, bool val ){}
+    /** get cardinality */
+    virtual int getCardinality() { return -1; }
+    /** get representatives */
+    virtual void getRepresentatives( std::vector< Node >& reps ){}
+    /** print debug */
+    virtual void debugPrint( const char* c ){}
+  };
+public:
   /** information for incremental conflict/clique finding for a particular sort */
-  class ConflictFind {
+  class SortRepModel : public RepModel {
   public:
     /** a partition of the current equality graph for which cliques can occur internally */
     class Region {
     public:
       /** conflict find pointer */
-      ConflictFind* d_cf;
+      SortRepModel* d_cf;
       /** information stored about each node in region */
       class RegionNodeInfo {
       public:
@@ -106,11 +138,11 @@ public:
       void setRep( Node n, bool valid );
     public:
       //constructor
-      Region( ConflictFind* cf, context::Context* c ) : d_cf( cf ), d_testClique( c ), d_testCliqueSize( c, 0 ),
+      Region( SortRepModel* cf, context::Context* c ) : d_cf( cf ), d_testClique( c ), d_testCliqueSize( c, 0 ),
         d_splits( c ), d_splitsSize( c, 0 ), d_reps_size( c, 0 ), d_total_diseq_external( c, 0 ),
         d_total_diseq_internal( c, 0 ), d_valid( c, true ) {
       }
-      ~Region(){}
+      virtual ~Region(){}
       //region node infomation
       std::map< Node, RegionNodeInfo* > d_nodes;
       //whether region is valid
@@ -168,8 +200,6 @@ public:
     std::vector< Node > d_disequalities;
     /** number of representatives in all regions */
     context::CDO< unsigned > d_reps;
-    /** whether two terms are ambiguous (indexed by equalities) */
-    NodeBoolMap d_term_amb;
   private:
     /** get number of disequalities from node n to region ri */
     int getNumDisequalitiesToRegion( Node n, int ri );
@@ -179,8 +209,6 @@ public:
     void explainClique( std::vector< Node >& clique, OutputChannel* out );
     /** is valid */
     bool isValid( int ri ) { return ri>=0 && ri<(int)d_regions_index && d_regions[ ri ]->d_valid; }
-    /** check ambiguous terms */
-    bool disambiguateTerms( OutputChannel* out );
   private:
     /** check if we need to combine region ri */
     void checkRegion( int ri, bool rec = true );
@@ -192,13 +220,13 @@ public:
     void moveNode( Node n, int ri );
     /** allocate cardinality */
     void allocateCardinality( OutputChannel* out );
+    /** get cardinality lemma */
+    Node getCardinalityLemma( int c, OutputChannel* out );
   private:
     /** cardinality */
     context::CDO< int > d_cardinality;
     /** maximum allocated cardinality */
     int d_aloc_cardinality;
-    /** type */
-    TypeNode d_type;
     /** cardinality lemma term */
     Node d_cardinality_lemma_term;
     /** cardinality literals */
@@ -210,11 +238,11 @@ public:
     /** whether a positive cardinality constraint has been asserted */
     context::CDO< bool > d_hasCard;
   public:
-    ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) :
+    SortRepModel( TypeNode tn, context::Context* c, TheoryUF* th ) : RepModel( tn ),
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
-        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ), d_type( tn ),
+        d_reps( c, 0 ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ),
         d_cardinality_assertions( c ), d_hasCard( c, false ){}
-    ~ConflictFind(){}
+    virtual ~SortRepModel(){}
     /** initialize */
     void initialize( OutputChannel* out );
     /** new node */
@@ -223,45 +251,76 @@ public:
     void merge( Node a, Node b );
     /** assert terms are disequal */
     void assertDisequal( Node a, Node b, Node reason );
-    /** assert cardinality */
-    void assertCardinality( OutputChannel* out, int c, bool val );
-    /** whether cardinality has been asserted */
-    bool hasCardinalityAsserted() { return d_hasCard; }
     /** check */
     void check( Theory::Effort level, OutputChannel* out );
     /** propagate */
     void propagate( Theory::Effort level, OutputChannel* out );
+    /** minimize */
+    bool minimize( OutputChannel* out );
     //print debug
     void debugPrint( const char* c );
+    /** assert cardinality */
+    void assertCardinality( OutputChannel* out, int c, bool val );
     /** get cardinality */
     int getCardinality() { return d_cardinality; }
     /** get representatives */
     void getRepresentatives( std::vector< Node >& reps );
-    /** get model basis term */
-    //Node getCardinalityTerm() { return d_cardinality_lemma_term; }
-    /** minimize */
-    bool minimize( OutputChannel* out );
-    /** get cardinality lemma */
-    Node getCardinalityLemma( int c, OutputChannel* out );
   public:
     /** get number of regions (for debugging) */
     int getNumRegions();
-  }; /** class ConflictFind */
+  }; /** class SortRepModel */
+private:
+  /** infinite rep model */
+  class InfRepModel : public RepModel
+  {
+  protected:
+    /** theory uf pointer */
+    TheoryUF* d_th;
+    /** list of representatives */
+    NodeBoolMap d_rep;
+    /** whether representatives are constant */
+    NodeBoolMap d_const_rep;
+    /** add split */
+    bool addSplit( OutputChannel* out );
+  public:
+    InfRepModel( TypeNode tn, context::Context* c, TheoryUF* th ) : RepModel( tn ),
+      d_th( th ), d_rep( c ), d_const_rep( c ){}
+    virtual ~InfRepModel(){}
+    /** initialize */
+    void initialize( OutputChannel* out );
+    /** new node */
+    void newEqClass( Node n );
+    /** merge */
+    void merge( Node a, Node b );
+    /** assert terms are disequal */
+    void assertDisequal( Node a, Node b, Node reason ){}
+    /** check */
+    void check( Theory::Effort level, OutputChannel* out );
+    /** minimize */
+    bool minimize( OutputChannel* out );
+    /** get representatives */
+    void getRepresentatives( std::vector< Node >& reps );
+    /** print debug */
+    void debugPrint( const char* c ){}
+  };
 private:
   /** The output channel for the strong solver. */
   OutputChannel* d_out;
   /** theory uf pointer */
   TheoryUF* d_th;
-  /** conflict find structure, one for each type */
-  std::map< TypeNode, ConflictFind* > d_conf_find;
+  /** rep model structure, one for each type */
+  std::map< TypeNode, RepModel* > d_rep_model;
   /** all types */
   std::vector< TypeNode > d_conf_types;
   /** whether conflict find data structures have been initialized */
-  TypeNodeBoolMap d_conf_find_init;
-  /** pre register type */
-  void preRegisterType( TypeNode tn );
+  TypeNodeBoolMap d_rep_model_init;
   /** get conflict find */
-  ConflictFind* getConflictFind( TypeNode tn );
+  RepModel* getRepModel( TypeNode tn );
+private:
+  /** term disambiguator */
+  TermDisambiguator* d_term_amb;
+  /** pre register type */
+  void preRegisterType( TypeNode tn, bool req = false );
 public:
   StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th);
   ~StrongSolverTheoryUf() {}
@@ -298,8 +357,6 @@ public:
   int getCardinality( TypeNode t );
   /** get representatives */
   void getRepresentatives( TypeNode t, std::vector< Node >& reps );
-  /** get cardinality term */
-  //Node getCardinalityTerm( TypeNode t );
   /** minimize */
   bool minimize();
 
@@ -314,10 +371,24 @@ public:
   };
   /** statistics class */
   Statistics d_statistics;
+};/* class StrongSolverTheoryUf */
 
+
+class TermDisambiguator
+{
+private:
+  /** quantifiers engine */
+  QuantifiersEngine* d_qe;
+  /** whether two terms are ambiguous (indexed by equalities) */
+  context::CDHashMap<Node, bool, NodeHashFunction> d_term_amb;
   /** involves relevant type */
   static bool involvesRelevantType( Node n );
-};/* class StrongSolverTheoryUf */
+public:
+  TermDisambiguator( QuantifiersEngine* qe, context::Context* c ) : d_qe( qe ), d_term_amb( c ){}
+  ~TermDisambiguator(){}
+  /** check ambiguous terms */
+  int disambiguateTerms( OutputChannel* out );
+};
 
 }
 }/* CVC4::theory namespace */

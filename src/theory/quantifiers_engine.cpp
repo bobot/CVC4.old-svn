@@ -125,6 +125,13 @@ void QuantifiersEngine::check( Theory::Effort e ){
   }else if( e==Theory::EFFORT_FULL ){
     ++(d_statistics.d_instantiation_rounds);
   }
+  //if effort is last call, try to minimize model first
+  if( e==Theory::EFFORT_LAST_CALL && Options::current()->finiteModelFind ){
+    //first, check if we can minimize the model further
+    if( !((uf::TheoryUF*)getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver()->minimize() ){
+      return;
+    }
+  }
   for( int i=0; i<(int)d_modules.size(); i++ ){
     d_modules[i]->check( e );
   }
