@@ -70,10 +70,10 @@ bool ModelEngineBuilder::isBadRepresentative( Node n ){
 void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
   d_addedLemmas = 0;
   //for debugging
-  if( Options::current()->printModelEngine ){
+  if( Trace.isOn("model-engine") ){
     for( std::map< TypeNode, std::vector< Node > >::iterator it = m->d_rep_set.d_type_reps.begin(); it != m->d_rep_set.d_type_reps.end(); ++it ){
       if( it->first.isSort() ){
-        Message() << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
+        Trace("model-engine") << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
       }
     }
   }
@@ -101,11 +101,11 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
           }
         }
       }
-      if( Options::current()->printModelEngine ){
+      if( Trace.isOn("model-engine") ){
         if( d_addedLemmas>0 ){
-          Message() << "InstGen, added lemmas = " << d_addedLemmas << std::endl;
+          Trace("model-engine") << "InstGen, added lemmas = " << d_addedLemmas << std::endl;
         }else{
-          Message() << "No InstGen lemmas..." << std::endl;
+          Trace("model-engine") << "No InstGen lemmas..." << std::endl;
         }
       }
       Debug("fmf-model-debug") << "---> Added lemmas = " << d_addedLemmas << std::endl;
@@ -403,11 +403,11 @@ void ModelEngineBuilder::finishProcessBuildModel( TheoryModel* m ){
 }
 
 bool ModelEngineBuilder::optUseModel() {
-  return Options::current()->fmfModelBasedInst;
+  return options::fmfModelBasedInst();
 }
 
 bool ModelEngineBuilder::optInstGen(){
-  return Options::current()->fmfInstGen;
+  return options::fmfInstGen();
 }
 
 bool ModelEngineBuilder::optOneQuantPerRoundInstGen(){

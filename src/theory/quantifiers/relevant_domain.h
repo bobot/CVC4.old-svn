@@ -16,8 +16,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__RELEVANT_DOMAIN_H
-#define __CVC4__RELEVANT_DOMAIN_H
+#ifndef __CVC4__THEORY__QUANTIFIERS__RELEVANT_DOMAIN_H
+#define __CVC4__THEORY__QUANTIFIERS__RELEVANT_DOMAIN_H
 
 #include "theory/quantifiers/first_order_model.h"
 
@@ -46,10 +46,10 @@ public:
   //relevant instantiation domain for each quantifier
   std::map< Node, std::vector< RepDomain > > d_quant_inst_domain;
   std::map< Node, std::map< int, bool > > d_quant_inst_domain_complete;
-};
+};/* class RelevantDomain */
 
-}
-}
-}
+}/* CVC4::theory::quantifiers namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
 
-#endif
+#endif /* __CVC4__THEORY__QUANTIFIERS__RELEVANT_DOMAIN_H */

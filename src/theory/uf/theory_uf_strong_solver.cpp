@@ -194,7 +194,7 @@ struct sortExternalDegree {
 };
 
 bool StrongSolverTheoryUf::SortRepModel::Region::getMustCombine( int cardinality ){
-  if( Options::current()->ufssRegions && d_total_diseq_external>=long(cardinality) ){
+  if( options::ufssRegions() && d_total_diseq_external>=long(cardinality) ){
     //The number of external disequalities is greater than or equal to cardinality.
     //Thus, a clique of size cardinality+1 may exist between nodes in d_regions[i] and other regions
     //Check if this is actually the case:  must have n nodes with outgoing degree (cardinality+1-n) for some n>0
@@ -243,7 +243,7 @@ bool StrongSolverTheoryUf::SortRepModel::Region::check( Theory::Effort level, in
         }
       }
       return true;
-    }else if( Options::current()->ufssRegions || Options::current()->ufssEagerSplits || level==Theory::EFFORT_FULL ){
+    }else if( options::ufssRegions() || options::ufssEagerSplits() || level==Theory::EFFORT_FULL ){
       //build test clique, up to size cardinality+1
       if( d_testCliqueSize<=long(cardinality) ){
         std::vector< Node > newClique;
@@ -491,7 +491,7 @@ void StrongSolverTheoryUf::SortRepModel::initialize( OutputChannel* out ){
 /** new node */
 void StrongSolverTheoryUf::SortRepModel::newEqClass( Node n ){
   if( d_regions_map.find( n )==d_regions_map.end() ){
-    if( !Options::current()->ufssRegions ){
+    if( !options::ufssRegions() ){
       //if not using regions, always add new equivalence classes to region index = 0
       d_regions_index = 0;
     }
@@ -501,7 +501,7 @@ void StrongSolverTheoryUf::SortRepModel::newEqClass( Node n ){
     if( d_regions_index<d_regions.size() ){
       d_regions[ d_regions_index ]->debugPrint("uf-ss-debug",true);
       d_regions[ d_regions_index ]->d_valid = true;
-      Assert( !Options::current()->ufssRegions || d_regions[ d_regions_index ]->getNumReps()==0 );
+      Assert( !options::ufssRegions() || d_regions[ d_regions_index ]->getNumReps()==0 );
     }else{
       d_regions.push_back( new Region( this, d_th->getSatContext() ) );
     }
@@ -628,7 +628,7 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
       }
       bool addedLemma = false;
       //do splitting on demand
-      if( level==Theory::EFFORT_FULL || Options::current()->ufssEagerSplits ){
+      if( level==Theory::EFFORT_FULL || options::ufssEagerSplits() ){
         Debug("uf-ss-debug") << "Add splits?" << std::endl;
         //see if we have any recommended splits from large regions
         for( int i=0; i<(int)d_regions_index; i++ ){
@@ -647,7 +647,7 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
       if( level==Theory::EFFORT_FULL ){
         if( !addedLemma ){
           Debug("uf-ss") << "No splits added." << std::endl;
-          if( !Options::current()->ufssColoringSat ){
+          if( !options::ufssColoringSat() ){
             bool recheck = false;
             //naive strategy, force region combination involving the first valid region
             for( int i=0; i<(int)d_regions_index; i++ ){
@@ -965,7 +965,7 @@ Node StrongSolverTheoryUf::SortRepModel::getCardinalityLemma( int c, OutputChann
   if( d_cardinality_lemma.find( c )==d_cardinality_lemma.end() ){
     if( d_cardinality_lemma_term.isNull() ){
       std::stringstream ss;
-      ss << Expr::setlanguage(Options::current()->outputLanguage);
+      ss << Expr::setlanguage(options::outputLanguage());
       ss << "t_" << d_type;
       d_cardinality_lemma_term = NodeManager::currentNM()->mkVar( ss.str(), d_type );
     }
@@ -1017,7 +1017,7 @@ int StrongSolverTheoryUf::SortRepModel::getNumRegions(){
 }
 
 void StrongSolverTheoryUf::SortRepModel::getRepresentatives( std::vector< Node >& reps ){
-  if( !Options::current()->ufssColoringSat ){
+  if( !options::ufssColoringSat() ){
     bool foundRegion = false;
     for( int i=0; i<(int)d_regions_index; i++ ){
       //should not have multiple regions at this point
@@ -1155,7 +1155,7 @@ d_rep_model(),
 d_conf_types(),
 d_rep_model_init( c )
 {
-  if( Options::current()->ufssColoringSat ){
+  if( options::ufssColoringSat() ){
     d_term_amb = new TermDisambiguator( th->getQuantifiersEngine(), c );
   }else{
     d_term_amb = NULL;
@@ -1251,7 +1251,7 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
     it->second->check( level, d_out );
   }
   //disambiguate terms if necessary
-  if( level==Theory::EFFORT_FULL && Options::current()->ufssColoringSat ){
+  if( level==Theory::EFFORT_FULL && options::ufssColoringSat() ){
     Assert( d_term_amb!=NULL );
     d_statistics.d_disamb_term_lemmas += d_term_amb->disambiguateTerms( d_out );
   }
