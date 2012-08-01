@@ -41,12 +41,12 @@ public:
   bool hasType( TypeNode tn ) { return d_type_reps.find( tn )!=d_type_reps.end(); }
   /** add representative for type */
   void add( Node n );
-  /** set the representatives for type */
-  void set( TypeNode t, std::vector< Node >& reps );
   /** returns index in d_type_reps for node n */
   int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
   /** complete all values */
   void complete( TypeNode t );
+  /** replace representative */
+  void replace( Node o, Node n );
   /** debug print */
   void toStream(std::ostream& out);
 };

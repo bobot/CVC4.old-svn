@@ -1358,7 +1358,7 @@ bool StrongSolverTheoryUf::minimize(){
     }
   }
   for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
-    std::cout << "Cardinality( " << it->first << " ) : " << it->second->getCardinality() << std::endl;
+    Trace("uf-ss-minimize") << "Cardinality( " << it->first << " ) : " << it->second->getCardinality() << std::endl;
   }
   return true;
 }

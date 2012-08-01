@@ -39,14 +39,15 @@ void RepSet::add( Node n ){
   d_tmap[ n ] = (int)d_type_reps[t].size();
   d_type_reps[t].push_back( n );
 }
-
+/*
 void RepSet::set( TypeNode t, std::vector< Node >& reps ){
   for( size_t i=0; i<reps.size(); i++ ){
     d_tmap[ reps[i] ] = i;
   }
+  d_type_reps[t].clear();
   d_type_reps[t].insert( d_type_reps[t].begin(), reps.begin(), reps.end() );
 }
-
+*/
 void RepSet::complete( TypeNode t ){
   if( d_type_complete.find( t )==d_type_complete.end() ){
     d_type_complete[t] = true;
@@ -59,6 +60,14 @@ void RepSet::complete( TypeNode t ){
       ++te;
     }
   }
+}
+
+void RepSet::replace( Node o, Node n ){
+  Assert( o.getType()==n.getType() );
+  Assert( hasType( o.getType() ) );
+  int index = getIndexFor( o );
+  Assert( index!=-1 );
+  d_type_reps[ o.getType() ][ index ] = n;
 }
 
 void RepSet::toStream(std::ostream& out){

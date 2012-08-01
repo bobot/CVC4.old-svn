@@ -69,7 +69,7 @@ void RelevantDomain::compute(){
     for( int i=0; i<(int)d_model->getNumAssertedQuantifiers(); i++ ){
       Node f = d_model->getAssertedQuantifier( i );
       //compute the domain of relevant instantiations (rule 3 of complete instantiation, essentially uf fragment)
-      if( computeRelevantInstantiationDomain( d_model->getTermDatabase()->getCounterexampleBody( f ), Node::null(), -1, d_quant_inst_domain[f] ) ){
+      if( computeRelevantInstantiationDomain( d_model->getTermDatabase()->getCounterexampleBody( f ), Node::null(), -1, f ) ){
         success = false;
       }
       //extend the possible domain for functions (rule 2 of complete instantiation, essentially uf fragment)
@@ -81,7 +81,7 @@ void RelevantDomain::compute(){
   }while( !success );
 }
 
-bool RelevantDomain::computeRelevantInstantiationDomain( Node n, Node parent, int arg, std::vector< RepDomain >& rd ){
+bool RelevantDomain::computeRelevantInstantiationDomain( Node n, Node parent, int arg, Node f ){
   bool domainChanged = false;
   if( n.getKind()==INST_CONSTANT ){
     bool domainSet = false;
@@ -93,8 +93,9 @@ bool RelevantDomain::computeRelevantInstantiationDomain( Node n, Node parent, in
       if( d_active_domain.find( op )!=d_active_domain.end() ){
         for( size_t i=0; i<d_active_domain[op][arg].size(); i++ ){
           int d = d_active_domain[op][arg][i];
-          if( std::find( rd[vi].begin(), rd[vi].end(), d )==rd[vi].end() ){
-            rd[vi].push_back( d );
+          if( std::find( d_quant_inst_domain[f][vi].begin(), d_quant_inst_domain[f][vi].end(), d )==
+              d_quant_inst_domain[f][vi].end() ){
+            d_quant_inst_domain[f][vi].push_back( d );
             domainChanged = true;
           }
         }
@@ -104,21 +105,21 @@ bool RelevantDomain::computeRelevantInstantiationDomain( Node n, Node parent, in
     if( !domainSet ){
       //otherwise, we must consider the entire domain
       TypeNode tn = n.getType();
-      if( d_model->d_rep_set.hasType( tn ) ){
-        if( rd[vi].size()!=d_model->d_rep_set.d_type_reps[tn].size() ){
-          rd[vi].clear();
+      if( d_quant_inst_domain_complete[f].find( vi )==d_quant_inst_domain_complete[f].end() ){
+        if( d_model->d_rep_set.hasType( tn ) ){
+          //it is the complete domain
+          d_quant_inst_domain[f][vi].clear();
           for( size_t i=0; i<d_model->d_rep_set.d_type_reps[tn].size(); i++ ){
-            rd[vi].push_back( i );
-            domainChanged = true;
+            d_quant_inst_domain[f][vi].push_back( i );
           }
+          domainChanged = true;
         }
-      }else{
-        //infinite domain?
+        d_quant_inst_domain_complete[f][vi] = true;
       }
     }
   }else{
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      if( computeRelevantInstantiationDomain( n[i], n, i, rd ) ){
+      if( computeRelevantInstantiationDomain( n[i], n, i, f ) ){
         domainChanged = true;
       }
     }
