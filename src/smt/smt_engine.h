@@ -554,11 +554,11 @@ public:
   /**
    * Used as a predicate for options preprocessor.
    */
-  static void beforeSearch(std::string option, bool value, SmtEngine* smt) {
-    if(smt->d_queryMade || smt->d_problemExtended) {
+  static void beforeSearch(std::string option, bool value, SmtEngine* smt) throw(ModalException) {
+    if(smt != NULL && smt->d_fullyInited) {
       std::stringstream ss;
-      ss << "cannot change option `" << option << "' after assertions have been made";
-      throw OptionException(ss.str());
+      ss << "cannot change option `" << option << "' after final initialization (i.e., after logic has been set)";
+      throw ModalException(ss.str());
     }
   }
 
