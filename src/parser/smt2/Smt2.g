@@ -717,6 +717,10 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
     ( attribute[expr, attexpr,attr]
       { if( attr == ":pattern" && ! attexpr.isNull()) {
           patexprs.push_back( attexpr );
+        }else{
+          //std::string attrName = attr;
+          //attrName.erase( attrName.begin() );
+          //EXPR_MANAGER->setUserAttribute( expr, attrName, attexpr );
         }
       }
     )+ RPAREN_TOK

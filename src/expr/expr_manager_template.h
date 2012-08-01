@@ -465,6 +465,9 @@ public:
   /** Returns the maximum arity of the given kind. */
   static unsigned maxArity(Kind kind);
 
+  /** set user attribute */
+  void setUserAttribute( Expr e, std::string& attr, Expr attrExpr );
+
 };/* class ExprManager */
 
 ${mkConst_instantiations}

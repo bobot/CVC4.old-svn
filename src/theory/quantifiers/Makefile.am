@@ -38,7 +38,9 @@ libquantifiers_la_SOURCES = \
 	first_order_model.h \
 	first_order_model.cpp \
 	model_builder.h \
-	model_builder.cpp
+	model_builder.cpp \
+	quantifiers_attributes.h \
+	quantifiers_attributes.cpp
 
 EXTRA_DIST = \
 	kinds \

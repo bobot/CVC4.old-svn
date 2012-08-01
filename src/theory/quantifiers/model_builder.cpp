@@ -175,7 +175,7 @@ void ModelEngineBuilder::analyzeQuantifiers( FirstOrderModel* fm ){
       bool value;
       if( d_qe->getValuation().hasSatValue( gn, value ) ){
         if( value!=it->second ){
-          //store this literal as a model basis literal
+          //this literal is eligible as a selection literal
           //  this literal will force a default values in model that (modulo exceptions) shows
           //  that f is satisfied by the model
           d_quant_selection_lits[f].push_back( value ? n : n.notNode() );

@@ -171,13 +171,15 @@ int ModelEngine::initializeQuantifier( Node f ){
     Node n = d_quantEngine->getTermDatabase()->getCounterexampleBody( f );
     Node gn = n.substitute( ics.begin(), ics.end(), terms.begin(), terms.end() );
     d_quantEngine->getTermDatabase()->registerModelBasis( n, gn );
-    //add model basis instantiation
-    if( d_quantEngine->addInstantiation( f, terms ) ){
-      return 1;
-    }else{
-      //shouldn't happen usually, but will occur if x != y is a required literal for f.
-      //Notice() << "No model basis for " << f << std::endl;
-      ++(d_statistics.d_num_quants_init_fail);
+    if( d_builder.optInstGen() ){
+      //add model basis instantiation
+      if( d_quantEngine->addInstantiation( f, terms ) ){
+        return 1;
+      }else{
+        //shouldn't happen usually, but will occur if x != y is a required literal for f.
+        //Notice() << "No model basis for " << f << std::endl;
+        ++(d_statistics.d_num_quants_init_fail);
+      }
     }
   }
   return 0;
