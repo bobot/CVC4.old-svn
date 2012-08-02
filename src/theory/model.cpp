@@ -39,26 +39,22 @@ void RepSet::add( Node n ){
   d_tmap[ n ] = (int)d_type_reps[t].size();
   d_type_reps[t].push_back( n );
 }
-/*
-void RepSet::set( TypeNode t, std::vector< Node >& reps ){
-  for( size_t i=0; i<reps.size(); i++ ){
-    d_tmap[ reps[i] ] = i;
-  }
-  d_type_reps[t].clear();
-  d_type_reps[t].insert( d_type_reps[t].begin(), reps.begin(), reps.end() );
-}
-*/
+
 void RepSet::complete( TypeNode t ){
   if( d_type_complete.find( t )==d_type_complete.end() ){
     d_type_complete[t] = true;
     TypeEnumerator te(t);
-    while( true ){    //FIXME
+    while( !te.isFinished() ){
       Node n = *te;
       if( std::find( d_type_reps[t].begin(), d_type_reps[t].end(), n )==d_type_reps[t].end() ){
         add( n );
       }
       ++te;
     }
+    for( size_t i=0; i<d_type_reps[t].size(); i++ ){
+      Trace("reps-complete") << d_type_reps[t][i] << " ";
+    }
+    Trace("reps-complete") << std::endl;
   }
 }
 
@@ -108,29 +104,30 @@ void TheoryModel::addDefineType( TypeNode tn ){
 }
 
 void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
-  out << "(" << n;
-  out << " : " << n.getType();
-  out << " ";
-  Node value = getValue( n );
-  /*
-  if( n.getType().isSort() ){
-    int index = d_rep_set.getIndexFor( value );
-    if( index!=-1 ){
-      out << value.getType() << "_" << index;
-    }else{
-      out << value;
+  out << "(define-fun " << n << " (";
+  TypeNode tn = n.getType();
+  if( tn.isFunction() || tn.isPredicate() ){
+    for( size_t i=0; i<tn.getNumChildren()-1; i++ ){
+      if( i>0 ) out << " ";
+      out << "($x" << (i+1) << " " << tn[i] << ")";
     }
+    out << ") " << tn.getRangeType();
   }else{
-  */
-  out << value;
+    out << ") " << tn;
+  }
+  out << " ";
+  out << getValue( n );
   out << ")" << std::endl;
 }
 
 void TheoryModel::toStreamType( TypeNode tn, std::ostream& out ){
-  out << "(" << tn;
+  out << "(declare-sort " << tn << " " << tn.getNumChildren()-1 << ")" << std::endl;
   if( tn.isSort() ){
     if( d_rep_set.d_type_reps.find( tn )!=d_rep_set.d_type_reps.end() ){
-      out << " " << d_rep_set.d_type_reps[tn].size();
+      out << "; cardinality of " << tn << " is " << d_rep_set.d_type_reps[tn].size() << std::endl;
+      //for( size_t i=0; i<d_rep_set.d_type_reps[tn].size(); i++ ){
+      //  out << "(declare-fun " << tn << "_" << i << " () " << tn << ")" << std::endl;
+      //}
       //out << " (";
       //for( size_t i=0; i<d_rep_set.d_type_reps[tn].size(); i++ ){
       //  if( i>0 ){ out << " "; }
@@ -139,7 +136,6 @@ void TheoryModel::toStreamType( TypeNode tn, std::ostream& out ){
       //out << ")";
     }
   }
-  out << ")" << std::endl;
 }
 
 void TheoryModel::toStream( std::ostream& out ){
@@ -236,6 +232,7 @@ Node TheoryModel::getDomainValue( TypeNode tn, std::vector< Node >& exclude ){
 
 //FIXME: use the theory enumerator to generate constants here
 Node TheoryModel::getNewDomainValue( TypeNode tn ){
+#if 1
   if( tn==NodeManager::currentNM()->booleanType() ){
     if( d_rep_set.d_type_reps[tn].empty() ){
       return d_false;
@@ -259,6 +256,33 @@ Node TheoryModel::getNewDomainValue( TypeNode tn ){
     //return NodeManager::currentNM()->mkVar( tn );
     return Node::null();
   }
+#else
+  if( tn.isSort() ){
+    return Node::null();
+  }else{
+    TypeEnumerator te(tn);
+    while( !te.isFinished() ){
+      Node r = *te;
+      if(Debug.isOn("getNewDomainValue")) {
+        Debug("getNewDomainValue") << "getNewDomainValue( " << tn << ")" << endl;
+        Debug("getNewDomainValue") << "+ TypeEnumerator gave: " << r << endl;
+        Debug("getNewDomainValue") << "+ d_type_reps are:";
+        for(vector<Node>::const_iterator i = d_rep_set.d_type_reps[tn].begin();
+            i != d_rep_set.d_type_reps[tn].end();
+            ++i) {
+          Debug("getNewDomainValue") << " " << *i;
+        }
+        Debug("getNewDomainValue") << endl;
+      }
+      if( std::find(d_rep_set.d_type_reps[tn].begin(), d_rep_set.d_type_reps[tn].end(), r) ==d_rep_set.d_type_reps[tn].end() ) {
+        Debug("getNewDomainValue") << "+ it's new, so returning " << r << endl;
+        return r;
+      }
+      ++te;
+    }
+    return Node::null();
+  }
+#endif
 }
 
 /** assert equality */

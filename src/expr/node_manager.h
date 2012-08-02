@@ -567,9 +567,6 @@ public:
                            const AttrKind& attr,
                            const typename AttrKind::value_type& value);
 
-  /** set user attribute */
-  void setUserAttribute( Node n, std::string& attr, Node attrExpr );
-
   /** Get the (singleton) type for Booleans. */
   inline TypeNode booleanType();
 

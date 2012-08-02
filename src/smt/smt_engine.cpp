@@ -2052,4 +2052,9 @@ void SmtEngine::printModel( std::ostream& out, Model* m ){
   m->toStream(out);
 }
 
+void SmtEngine::setUserAttribute( std::string& attr, Expr expr ){
+  SmtScope smts(this);
+  d_theoryEngine->setUserAttribute( attr, expr.getNode() );
+}
+
 }/* CVC4 namespace */

@@ -878,11 +878,6 @@ unsigned ExprManager::maxArity(Kind kind) {
   return metakind::getUpperBoundForKind(kind);
 }
 
-void ExprManager::setUserAttribute( Expr e, std::string& attr, Expr attrExpr ){
-  NodeManagerScope nms(d_nodeManager);
-  d_nodeManager->setUserAttribute( e.getNode(), attr, attrExpr.getNode() );
-}
-
 NodeManager* ExprManager::getNodeManager() const {
   return d_nodeManager;
 }

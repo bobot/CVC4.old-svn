@@ -27,8 +27,6 @@
 
 #include "expr/type_checker.h"
 
-#include "theory/quantifiers/quantifiers_attributes.h"
-
 #include <algorithm>
 #include <stack>
 #include <utility>
@@ -368,10 +366,6 @@ TypeNode NodeManager::mkPredicateSubtype(Expr lambda, Expr witness)
 TypeNode NodeManager::mkSubrangeType(const SubrangeBounds& bounds)
   throw(TypeCheckingExceptionPrivate) {
   return TypeNode(mkTypeConst(bounds));
-}
-
-void NodeManager::setUserAttribute( Node n, std::string& attr, Node attrExpr ){
-  theory::quantifiers::QuantifiersAttributes::setUserAttribute( n, attr, attrExpr );
 }
 
 }/* CVC4 namespace */

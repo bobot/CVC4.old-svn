@@ -34,7 +34,7 @@ struct QuantifiersAttributes
     *   This function will apply a custom set of attributes to all top-level universal
     *   quantifiers contained in n
     */
-  static void setUserAttribute( Node n, std::string& attr, Node attrExpr );
+  static void setUserAttribute( std::string& attr, Node n );
 };
 
 

@@ -54,8 +54,8 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
       const Datatype& dt = ((DatatypeType)(tn).toType()).getDatatype();
       //if finite, then complete all values of the domain  TODO
       if( dt.isFinite() ){
-        //model->completeValues( tn );
-        d_incomplete = true;
+        model->completeValues( tn );
+        //d_incomplete = true;
       }else{
         d_incomplete = true;
       }

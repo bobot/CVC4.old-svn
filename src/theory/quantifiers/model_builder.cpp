@@ -402,6 +402,8 @@ void ModelEngineBuilder::finishProcessBuildModel( TheoryModel* m ){
   d_completingModel = true;
   buildModel( m );
   d_completingModel = false;
+  //refresh model with new representatives, in other words make
+  //  uf model tree classes refer to new representatives TODO
 }
 
 bool ModelEngineBuilder::optUseModel() {

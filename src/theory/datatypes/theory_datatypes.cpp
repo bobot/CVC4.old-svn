@@ -23,6 +23,7 @@
 #include "util/datatype.h"
 #include "util/Assert.h"
 #include "theory/datatypes/theory_datatypes_instantiator.h"
+#include "theory/datatypes/datatypes_rewriter.h"
 #include "theory/model.h"
 
 #include <map>
@@ -142,6 +143,7 @@ bool TheoryDatatypes::propagate(TNode literal){
     Debug("dt::propagate") << "TheoryDatatypes::propagate(" << literal << "): already in conflict" << std::endl;
     return false;
   }
+  Trace("dt-prop") << "dtPropagate " << literal << std::endl;
   // Propagate out
   bool ok = d_out->propagate(literal);
   if (!ok) {
@@ -610,6 +612,51 @@ void TheoryDatatypes::addSharedTerm(TNode t) {
                      << t << endl;
 }
 
+
+EqualityStatus TheoryDatatypes::getEqualityStatus(TNode a, TNode b){
+  if( d_equalityEngine.hasTerm(a) && d_equalityEngine.hasTerm(b) ){
+    if (d_equalityEngine.areEqual(a, b)) {
+      // The terms are implied to be equal
+      return EQUALITY_TRUE;
+    }
+    if (d_equalityEngine.areDisequal(a, b, false)) {
+      // The terms are implied to be dis-equal
+      return EQUALITY_FALSE;
+    }
+  }
+  return EQUALITY_UNKNOWN;
+}
+
+void TheoryDatatypes::computeCareGraph(){
+#if 0
+  Debug("dt-sharing") << "TheoryDatatypes::computeCareGraph<" << getId() << ">()" << endl;
+  for (unsigned i = 0; i < d_sharedTerms.size(); ++ i) {
+    TNode a = d_sharedTerms[i];
+    TypeNode aType = a.getType();
+    for (unsigned j = i + 1; j < d_sharedTerms.size(); ++ j) {
+      TNode b = d_sharedTerms[j];
+      if (b.getType() == aType) {
+        // We don't care about the terms of different types
+        continue;
+      }
+      switch (d_valuation.getEqualityStatus(a, b)) {
+      case EQUALITY_TRUE_AND_PROPAGATED:
+      case EQUALITY_FALSE_AND_PROPAGATED:
+        // If we know about it, we should have propagated it, so we can skip
+        break;
+      default:
+        //DatatypesRewriter::checkClash( a, b )
+        // Let's split on it
+        addCarePair( a, b);
+        break;
+      }
+    }
+  }
+#else
+  Theory::computeCareGraph();
+#endif
+}
+
 void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
   printModelDebug();
   m->assertEqualityEngine( &d_equalityEngine );
@@ -781,3 +828,4 @@ Node TheoryDatatypes::getRepresentative( Node a ){
     return a;
   }
 }
+

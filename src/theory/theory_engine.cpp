@@ -438,7 +438,7 @@ void TheoryEngine::combineTheories() {
           d_factsAsserted = true;
           continue;
         } else {
-          //std::cout << literal << " " << normalizedLiteral << " " << carePair.theory << std::endl;
+          Message() << "mark propagation fail: " << literal << " " << normalizedLiteral << " " << carePair.theory << std::endl;
           Unreachable();
         }
       }
@@ -1272,4 +1272,22 @@ void TheoryEngine::getExplanation(std::vector<NodeTheoryPair>& explanationVector
 void TheoryEngine::ppUnconstrainedSimp(vector<Node>& assertions)
 {
   d_unconstrainedSimp.processAssertions(assertions);
+}
+
+
+void TheoryEngine::setUserAttribute( std::string& attr, Node n ){
+  Trace("te-attr") << "set user attribute " << attr << " " << n << std::endl;
+  if( d_attr_handle.find( attr )!=d_attr_handle.end() ){
+    for( size_t i=0; i<d_attr_handle[attr].size(); i++ ){
+      d_attr_handle[attr][i]->setUserAttribute( attr, n );
+    }
+  }else{
+    //unhandled exception?
+  }
+}
+
+void TheoryEngine::handleUserAttribute( const char* attr, Theory* t ){
+  Trace("te-attr") << "Handle user attribute " << attr << " " << t << std::endl;
+  std::string str( attr );
+  d_attr_handle[ str ].push_back( t );
 }

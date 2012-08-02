@@ -555,7 +555,7 @@ public:
    * for all theories with no conflicts and no lemmas added.
    */
   virtual void collectModelInfo( TheoryModel* m ){
-    Unimplemented("Theory %s doesn't support Theory::getModel interface",
+    Unimplemented("Theory %s doesn't support Theory::collectModelInfo interface",
                   identify().c_str());
   }
 
@@ -650,6 +650,15 @@ public:
    * etc..)
    */
   virtual std::string identify() const = 0;
+
+  /** Set user attribute
+    * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
+    *  via the syntax (! n :attr)
+    */
+  virtual void setUserAttribute( std::string& attr, Node n ) {
+    Unimplemented("Theory %s doesn't support Theory::setUserAttribute interface",
+                  identify().c_str());
+  }
 
   /** A set of theories */
   typedef uint32_t Set;

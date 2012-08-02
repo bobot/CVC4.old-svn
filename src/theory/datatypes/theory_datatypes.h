@@ -168,6 +168,9 @@ private:
   EqcInfo* getOrMakeEqcInfo( Node n, bool doMake = false );
   /** has eqc info */
   bool hasEqcInfo( Node n ) { return d_labels.find( n )!=d_labels.end(); }
+protected:
+  /** compute care graph */
+  void computeCareGraph();
 public:
   TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation,
                   const LogicInfo& logicInfo, QuantifiersEngine* qe);
@@ -194,6 +197,7 @@ public:
   void preRegisterTerm(TNode n);
   void presolve();
   void addSharedTerm(TNode t);
+  EqualityStatus getEqualityStatus(TNode a, TNode b);
   void collectModelInfo( TheoryModel* m );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }

@@ -109,7 +109,13 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
     if( d_uf_models.find( n )==d_uf_models.end() ){
       //use the model tree to generate the model
       Node fn = d_uf_model_tree[n].getFunctionValue();
-      d_uf_models[n] = fn;
+      std::vector< Node > vars;
+      for( size_t i=0; i<type.getNumChildren()-1; i++ ){
+        std::stringstream ss;
+        ss << "$x" << (i+1);
+        vars.push_back( NodeManager::currentNM()->mkVar( ss.str(), type[i] ) );
+      }
+      d_uf_models[n] = uf::UfModelTree::toIte( fn, vars );
       return fn;
     }
   /*

@@ -24,16 +24,16 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-void QuantifiersAttributes::setUserAttribute( Node n, std::string& attr, Node attrExpr ){
+void QuantifiersAttributes::setUserAttribute( std::string& attr, Node n ){
   if( n.getKind()==FORALL ){
-    if( attr==":axiom" ){
-
-    }else if( attr==":conjecture" ){
-
+    if( attr=="axiom" ){
+      Trace("quant-attr") << "Set axiom " << n << std::endl;
+    }else if( attr=="conjecture" ){
+      Trace("quant-attr") << "Set conjecture " << n << std::endl;
     }
   }else{
     for( size_t i=0; i<n.getNumChildren(); i++ ){
-      setUserAttribute( n, attr, attrExpr );
+      setUserAttribute( attr, n );
     }
   }
 }

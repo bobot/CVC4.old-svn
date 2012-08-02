@@ -567,6 +567,12 @@ public:
    */
   void printModel( std::ostream& out, Model* m );
 
+  /** Set user attribute
+    * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
+    *  via the syntax (! expr :attr)
+    */
+  void setUserAttribute( std::string& attr, Expr expr );
+
 };/* class SmtEngine */
 
 }/* CVC4 namespace */

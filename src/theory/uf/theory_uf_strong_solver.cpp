@@ -941,6 +941,7 @@ Node StrongSolverTheoryUf::SortRepModel::getCardinalityLemma( int c, OutputChann
         ss << Expr::setlanguage(options::outputLanguage());
         ss << "t_" << d_type;
         d_cardinality_lemma_term = NodeManager::currentNM()->mkVar( ss.str(), d_type );
+        Trace("mkVar") << "SortRepModel:: Make variable " << d_cardinality_lemma_term << " : " << d_type << std::endl;
       }else{
         d_cardinality_lemma_term = d_th->getQuantifiersEngine()->getTermDatabase()->d_type_map[ d_type ][0];
         d_cardinality_lemma_term_eq = true;
@@ -980,6 +981,7 @@ bool StrongSolverTheoryUf::SortRepModel::addSplit( Region* r, OutputChannel* out
       out->requirePhase( s, true );
       ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
     }else{
+      //we are allowed to do this since we own this variable TODO: make this a simplification
       d_cardinality_lemma_term_eq = true;
       out->lemma( s );
     }

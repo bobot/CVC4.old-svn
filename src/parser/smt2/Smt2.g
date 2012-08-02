@@ -717,10 +717,6 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
     ( attribute[expr, attexpr,attr]
       { if( attr == ":pattern" && ! attexpr.isNull()) {
           patexprs.push_back( attexpr );
-        }else{
-          //std::string attrName = attr;
-          //attrName.erase( attrName.begin() );
-          //EXPR_MANAGER->setUserAttribute( expr, attr, attexpr );
         }
       }
     )+ RPAREN_TOK
@@ -805,8 +801,13 @@ attribute[CVC4::Expr& expr,CVC4::Expr& retExpr, std::string& attr]
   {   
     attr = AntlrInput::tokenText($KEYWORD);
     //EXPR_MANAGER->setNamedAttribute( expr, attr );
-    if( attr==":rewrite-rule" || attr==":axiom" ){
+    if( attr==":rewrite-rule" ){
       //do nothing
+    } else if( attr==":axiom" || attr==":conjecture" ){
+      std::string attr_name = attr;
+      attr_name.erase( attr_name.begin() );
+      Command* c = new SetUserAttributeCommand( attr_name, expr );
+      PARSER_STATE->preemptCommand(c);
     } else {
       std::stringstream ss;
       ss << "Attribute `" << attr << "' not supported";

@@ -27,6 +27,8 @@
 namespace CVC4 {
 namespace theory {
 
+class Theory;
+
 /**
  * A LemmaStatus, returned from OutputChannel::lemma(), provides information
  * about the lemma added.  In particular, it contains the T-rewritten lemma
@@ -224,8 +226,13 @@ public:
    * long-running operations, they cannot rely on resource() to break
    * out of infinite or intractable computations.
    */
-  virtual void spendResource() throw() {
-  }
+  virtual void spendResource() throw() {}
+
+  /** Handle user attribute
+    *   Associates theory t with the attribute attr.  Theory t will be
+    *   notifed whenever an attribute of name attr is set.
+    */
+  virtual void handleUserAttribute( const char* attr, Theory* t ) = 0;
 
 };/* class OutputChannel */
 

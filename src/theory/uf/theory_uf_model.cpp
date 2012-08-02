@@ -263,8 +263,8 @@ Node UfModelTree::toIte2( Node fm_node, std::vector< Node >& args, int index, No
       }
       retNode = childDefaultNode;
       for( int i=(int)fm_node[0].getNumChildren()-1; i>=0; i-- ){
-        Node childNode = toIte2( fm_node[0][1], args, index+1, childDefaultNode );
-        retNode = NodeManager::currentNM()->mkNode( ITE, args[index].eqNode( fm_node[0][0] ), childNode, retNode );
+        Node childNode = toIte2( fm_node[0][i][1], args, index+1, childDefaultNode );
+        retNode = NodeManager::currentNM()->mkNode( ITE, args[index].eqNode( fm_node[0][i][0] ), childNode, retNode );
       }
       return retNode;
     }else{

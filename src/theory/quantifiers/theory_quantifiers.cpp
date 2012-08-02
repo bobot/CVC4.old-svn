@@ -24,11 +24,10 @@
 #include "theory/quantifiers/model_engine.h"
 #include "expr/kind.h"
 #include "util/Assert.h"
-#include <map>
-#include <time.h>
 #include "theory/quantifiers/theory_quantifiers_instantiator.h"
 #include "theory/quantifiers/options.h"
 #include "theory/quantifiers/term_database.h"
+#include "theory/quantifiers/quantifiers_attributes.h"
 
 using namespace std;
 using namespace CVC4;
@@ -42,6 +41,8 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
+  out.handleUserAttribute( "axiom", this );
+  out.handleUserAttribute( "conjecture", this );
 }
 
 
@@ -188,4 +189,8 @@ bool TheoryQuantifiers::restart(){
 
 void TheoryQuantifiers::performCheck(Effort e){
   getQuantifiersEngine()->check( e );
+}
+
+void TheoryQuantifiers::setUserAttribute( std::string& attr, Node n ){
+  QuantifiersAttributes::setUserAttribute( attr, n );
 }
