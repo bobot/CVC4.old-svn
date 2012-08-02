@@ -62,14 +62,6 @@ void RepSet::complete( TypeNode t ){
   }
 }
 
-void RepSet::replace( Node o, Node n ){
-  Assert( o.getType()==n.getType() );
-  Assert( hasType( o.getType() ) );
-  int index = getIndexFor( o );
-  Assert( index!=-1 );
-  d_type_reps[ o.getType() ][ index ] = n;
-}
-
 void RepSet::toStream(std::ostream& out){
 #if 0
   for( std::map< TypeNode, std::vector< Node > >::iterator it = d_type_reps.begin(); it != d_type_reps.end(); ++it ){

@@ -405,33 +405,6 @@ Node StrongSolverTheoryUf::SortRepModel::Region::getBestSplit(){
 #endif
 }
 
-void StrongSolverTheoryUf::SortRepModel::Region::addSplit( OutputChannel* out ){
-  Node s = getBestSplit();
-  //add lemma to output channel
-  Assert( s!=Node::null() && s.getKind()==EQUAL );
-  s = Rewriter::rewrite( s );
-  Trace("uf-ss-lemma") << "*** Split on " << s << std::endl;
-  //Trace("uf-ss-lemma") << d_th->getEqualityEngine()->areEqual( s[0], s[1] ) << " ";
-  //Trace("uf-ss-lemma") << d_th->getEqualityEngine()->areDisequal( s[0], s[1] ) << std::endl;
-  //Trace("uf-ss-lemma") << s[0].getType() << " " << s[1].getType() << std::endl;
-  debugPrint("uf-ss-temp");
-  //Notice() << "*** Split on " << s << std::endl;
-  //split on the equality s
-  out->split( s );
-  //tell the sat solver to explore the equals branch first
-  out->requirePhase( s, true );
-  ++( d_cf->d_th->getStrongSolver()->d_statistics.d_split_lemmas );
-}
-
-bool StrongSolverTheoryUf::SortRepModel::Region::minimize( OutputChannel* out ){
-  if( hasSplits() ){
-    addSplit( out );
-    return false;
-  }else{
-    return true;
-  }
-}
-
 void StrongSolverTheoryUf::SortRepModel::Region::debugPrint( const char* c, bool incClique ){
   Debug( c ) << "Num reps: " << d_reps_size << std::endl;
   for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
@@ -633,8 +606,7 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
         //see if we have any recommended splits from large regions
         for( int i=0; i<(int)d_regions_index; i++ ){
           if( d_regions[i]->d_valid && d_regions[i]->getNumReps()>d_cardinality ){
-            if( d_regions[i]->hasSplits() ){
-              d_regions[i]->addSplit( out );
+            if( addSplit( d_regions[i], out ) ){
               addedLemma = true;
 #ifdef ONE_SPLIT_REGION
               break;
@@ -691,7 +663,7 @@ bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out ){
     if( d_regions[i]->d_valid ){
       if( validRegionIndex!=-1 ){
         combineRegions( validRegionIndex, i );
-        if( !d_regions[validRegionIndex]->minimize( out ) ){
+        if( addSplit( d_regions[validRegionIndex], out ) ){
           return false;
         }
       }else{
@@ -699,7 +671,7 @@ bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out ){
       }
     }
   }
-  if( !d_regions[validRegionIndex]->minimize( out ) ){
+  if( addSplit( d_regions[validRegionIndex], out ) ){
     return false;
   }
   return true;
@@ -964,10 +936,15 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
 Node StrongSolverTheoryUf::SortRepModel::getCardinalityLemma( int c, OutputChannel* out ){
   if( d_cardinality_lemma.find( c )==d_cardinality_lemma.end() ){
     if( d_cardinality_lemma_term.isNull() ){
-      std::stringstream ss;
-      ss << Expr::setlanguage(options::outputLanguage());
-      ss << "t_" << d_type;
-      d_cardinality_lemma_term = NodeManager::currentNM()->mkVar( ss.str(), d_type );
+      if( d_th->getQuantifiersEngine()->getTermDatabase()->d_type_map[ d_type ].empty() ){
+        std::stringstream ss;
+        ss << Expr::setlanguage(options::outputLanguage());
+        ss << "t_" << d_type;
+        d_cardinality_lemma_term = NodeManager::currentNM()->mkVar( ss.str(), d_type );
+      }else{
+        d_cardinality_lemma_term = d_th->getQuantifiersEngine()->getTermDatabase()->d_type_map[ d_type ][0];
+        d_cardinality_lemma_term_eq = true;
+      }
     }
     Node lem = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_lemma_term,
                                   NodeManager::currentNM()->mkConst( Rational( c ) ) );
@@ -979,6 +956,37 @@ Node StrongSolverTheoryUf::SortRepModel::getCardinalityLemma( int c, OutputChann
     out->lemma( lem );
   }
   return d_cardinality_lemma[ c ];
+}
+
+bool StrongSolverTheoryUf::SortRepModel::addSplit( Region* r, OutputChannel* out ){
+  if( r->hasSplits() ){
+    Node s = r->getBestSplit();
+    bool mustSplit = true;
+    if( !d_cardinality_lemma_term_eq && ( s[0]==d_cardinality_lemma_term || s[1]==d_cardinality_lemma_term ) ){
+      mustSplit = false;
+    }
+    //add lemma to output channel
+    Assert( s!=Node::null() && s.getKind()==EQUAL );
+    s = Rewriter::rewrite( s );
+    Trace("uf-ss-lemma") << "*** Split on " << s << std::endl;
+    //Trace("uf-ss-lemma") << d_th->getEqualityEngine()->areEqual( s[0], s[1] ) << " ";
+    //Trace("uf-ss-lemma") << d_th->getEqualityEngine()->areDisequal( s[0], s[1] ) << std::endl;
+    //Trace("uf-ss-lemma") << s[0].getType() << " " << s[1].getType() << std::endl;
+    //Notice() << "*** Split on " << s << std::endl;
+    //split on the equality s
+    if( mustSplit ){
+      out->split( s );
+      //tell the sat solver to explore the equals branch first
+      out->requirePhase( s, true );
+      ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
+    }else{
+      d_cardinality_lemma_term_eq = true;
+      out->lemma( s );
+    }
+    return true;
+  }else{
+    return false;
+  }
 }
 
 void StrongSolverTheoryUf::SortRepModel::debugPrint( const char* c ){
@@ -1320,11 +1328,11 @@ StrongSolverTheoryUf::RepModel* StrongSolverTheoryUf::getRepModel( TypeNode tn )
   }
   if( it!=d_rep_model.end() ){
     //initialize the type if necessary
-    if( d_rep_model_init.find( tn )==d_rep_model_init.end() ){
-      //initialize the model
-      it->second->initialize( d_out );
-      d_rep_model_init[tn] = true;
-    }
+    //if( d_rep_model_init.find( tn )==d_rep_model_init.end() ){
+      ////initialize the model
+      //it->second->initialize( d_out );
+      //d_rep_model_init[tn] = true;
+    //}
     return it->second;
   }
   return NULL;

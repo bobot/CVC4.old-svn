@@ -125,8 +125,6 @@ public:
       //disequalities needed for this clique to happen
       NodeBoolMap d_splits;
       context::CDO< unsigned > d_splitsSize;
-      /** get split */
-      Node getBestSplit();
     private:
       //number of valid representatives in this region
       context::CDO< unsigned > d_reps_size;
@@ -176,13 +174,11 @@ public:
       void getRepresentatives( std::vector< Node >& reps );
       /** get external disequalities */
       void getNumExternalDisequalities( std::map< Node, int >& num_ext_disequalities );
+      /** get split */
+      Node getBestSplit();
     public:
       /** check for cliques */
       bool check( Theory::Effort level, int cardinality, std::vector< Node >& clique );
-      /** add split */
-      void addSplit( OutputChannel* out );
-      /** minimize */
-      bool minimize( OutputChannel* out );
       //print debug
       void debugPrint( const char* c, bool incClique = false );
     };
@@ -223,6 +219,8 @@ public:
     void allocateCardinality( OutputChannel* out );
     /** get cardinality lemma */
     Node getCardinalityLemma( int c, OutputChannel* out );
+    /** add split */
+    bool addSplit( Region* r, OutputChannel* out );
   private:
     /** cardinality */
     context::CDO< int > d_cardinality;
@@ -230,6 +228,7 @@ public:
     int d_aloc_cardinality;
     /** cardinality lemma term */
     Node d_cardinality_lemma_term;
+    bool d_cardinality_lemma_term_eq;
     /** cardinality literals */
     std::map< int, Node > d_cardinality_literal;
     /** cardinality lemmas */
@@ -241,7 +240,7 @@ public:
   public:
     SortRepModel( TypeNode tn, context::Context* c, TheoryUF* th ) : RepModel( tn ),
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
-        d_reps( c, 0 ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ),
+        d_reps( c, 0 ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ), d_cardinality_lemma_term_eq( false ),
         d_cardinality_assertions( c ), d_hasCard( c, false ){}
     virtual ~SortRepModel(){}
     /** initialize */

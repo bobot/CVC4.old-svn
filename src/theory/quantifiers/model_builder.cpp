@@ -39,27 +39,30 @@ using namespace CVC4::theory::quantifiers;
 
 ModelEngineBuilder::ModelEngineBuilder( QuantifiersEngine* qe ) :
 TheoryEngineModelBuilder( qe->getTheoryEngine() ),
-d_qe( qe ){
+d_qe( qe ), d_completingModel( false ){
 
 }
 
 Node ModelEngineBuilder::chooseRepresentative( TheoryModel* m, Node eqc ){
-  Assert( m->d_equalityEngine.hasTerm( eqc ) );
-  Assert( m->d_equalityEngine.getRepresentative( eqc )==eqc );
-  d_chosen_reps[ eqc ] = true;
-  //avoid bad representatives
-  if( isBadRepresentative( eqc ) ){
-    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &m->d_equalityEngine );
-    while( !eqc_i.isFinished() ){
-      if( !isBadRepresentative( *eqc_i ) ){
-        return *eqc_i;
+  if( d_completingModel ){
+    return TheoryEngineModelBuilder::chooseRepresentative( m, eqc );
+  }else{
+    Assert( m->d_equalityEngine.hasTerm( eqc ) );
+    Assert( m->d_equalityEngine.getRepresentative( eqc )==eqc );
+    //avoid bad representatives
+    if( isBadRepresentative( eqc ) ){
+      eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &m->d_equalityEngine );
+      while( !eqc_i.isFinished() ){
+        if( !isBadRepresentative( *eqc_i ) ){
+          return *eqc_i;
+        }
+        ++eqc_i;
       }
-      ++eqc_i;
+      //otherwise, make new value?
+      //Message() << "Warning: Bad rep " << eqc << std::endl;
     }
-    //otherwise, make new value?
-    //Message() << "Warning: Bad rep " << eqc << std::endl;
+    return eqc;
   }
-  return eqc;
 }
 
 bool ModelEngineBuilder::isBadRepresentative( Node n ){
@@ -68,53 +71,55 @@ bool ModelEngineBuilder::isBadRepresentative( Node n ){
 }
 
 void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
-  d_addedLemmas = 0;
-  //for debugging
-  if( Trace.isOn("model-engine") ){
-    for( std::map< TypeNode, std::vector< Node > >::iterator it = m->d_rep_set.d_type_reps.begin(); it != m->d_rep_set.d_type_reps.end(); ++it ){
-      if( it->first.isSort() ){
-        Trace("model-engine") << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
+  if( !d_completingModel ){
+    d_addedLemmas = 0;
+    //for debugging
+    if( Trace.isOn("model-engine") ){
+      for( std::map< TypeNode, std::vector< Node > >::iterator it = m->d_rep_set.d_type_reps.begin(); it != m->d_rep_set.d_type_reps.end(); ++it ){
+        if( it->first.isSort() ){
+          Trace("model-engine") << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
+        }
       }
     }
-  }
-  //only construct first order model if optUseModel() is true
-  if( optUseModel() ){
-    FirstOrderModel* fm = (FirstOrderModel*)m;
-    //initialize model
-    fm->initialize();
-    //analyze the functions
-    Debug("fmf-model-debug") << "Analyzing model..." << std::endl;
-    analyzeModel( fm );
-    //analyze the quantifiers
-    Debug("fmf-model-debug") << "Analyzing quantifiers..." << std::endl;
-    analyzeQuantifiers( fm );
-    //if applicable, find exceptions
-    if( optInstGen() ){
-      //now, see if we know that any exceptions via InstGen exist
-      Debug("fmf-model-debug") << "Perform InstGen techniques for quantifiers..." << std::endl;
-      for( int i=0; i<fm->getNumAssertedQuantifiers(); i++ ){
-        Node f = fm->getAssertedQuantifier( i );
-        if( d_quant_sat.find( f )==d_quant_sat.end() ){
-          d_addedLemmas += doInstGen( fm, f );
-          if( optOneQuantPerRoundInstGen() && d_addedLemmas>0 ){
-            break;
+    //only construct first order model if optUseModel() is true
+    if( optUseModel() ){
+      FirstOrderModel* fm = (FirstOrderModel*)m;
+      //initialize model
+      fm->initialize();
+      //analyze the functions
+      Debug("fmf-model-debug") << "Analyzing model..." << std::endl;
+      analyzeModel( fm );
+      //analyze the quantifiers
+      Debug("fmf-model-debug") << "Analyzing quantifiers..." << std::endl;
+      analyzeQuantifiers( fm );
+      //if applicable, find exceptions
+      if( optInstGen() ){
+        //now, see if we know that any exceptions via InstGen exist
+        Debug("fmf-model-debug") << "Perform InstGen techniques for quantifiers..." << std::endl;
+        for( int i=0; i<fm->getNumAssertedQuantifiers(); i++ ){
+          Node f = fm->getAssertedQuantifier( i );
+          if( d_quant_sat.find( f )==d_quant_sat.end() ){
+            d_addedLemmas += doInstGen( fm, f );
+            if( optOneQuantPerRoundInstGen() && d_addedLemmas>0 ){
+              break;
+            }
           }
         }
-      }
-      if( Trace.isOn("model-engine") ){
-        if( d_addedLemmas>0 ){
-          Trace("model-engine") << "InstGen, added lemmas = " << d_addedLemmas << std::endl;
-        }else{
-          Trace("model-engine") << "No InstGen lemmas..." << std::endl;
+        if( Trace.isOn("model-engine") ){
+          if( d_addedLemmas>0 ){
+            Trace("model-engine") << "InstGen, added lemmas = " << d_addedLemmas << std::endl;
+          }else{
+            Trace("model-engine") << "No InstGen lemmas..." << std::endl;
+          }
         }
+        Debug("fmf-model-debug") << "---> Added lemmas = " << d_addedLemmas << std::endl;
       }
-      Debug("fmf-model-debug") << "---> Added lemmas = " << d_addedLemmas << std::endl;
-    }
-    if( d_addedLemmas==0 ){
-      //if no immediate exceptions, build the model
-      //  this model will be an approximation that will need to be tested via exhaustive instantiation
-      Debug("fmf-model-debug") << "Building model..." << std::endl;
-      finishBuildModel( fm );
+      if( d_addedLemmas==0 ){
+        //if no immediate exceptions, build the model
+        //  this model will be an approximation that will need to be tested via exhaustive instantiation
+        Debug("fmf-model-debug") << "Building model..." << std::endl;
+        finishBuildModel( fm );
+      }
     }
   }
 }
@@ -394,12 +399,9 @@ void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, Node op ){
 }
 
 void ModelEngineBuilder::finishProcessBuildModel( TheoryModel* m ){
-  for( std::map< Node, Node >::iterator it = m->d_reps.begin(); it != m->d_reps.end(); ++it ){
-    //build proper representatives (TODO)
-    if( d_chosen_reps.find( it->first )!=d_chosen_reps.end() ){
-
-    }
-  }
+  d_completingModel = true;
+  buildModel( m );
+  d_completingModel = false;
 }
 
 bool ModelEngineBuilder::optUseModel() {

@@ -37,8 +37,9 @@ protected:
   std::map< Node, uf::UfModelPreferenceData > d_uf_prefs;
   //built model uf
   std::map< Node, bool > d_uf_model_constructed;
-  //chosen representatives
-  std::map< Node, bool > d_chosen_reps;
+  // completing model
+  //  this flag is set when we are sure that the candidate model is a real model
+  bool d_completingModel;
 protected:
   /** process build model */
   void processBuildModel( TheoryModel* m );

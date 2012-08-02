@@ -720,7 +720,7 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
         }else{
           //std::string attrName = attr;
           //attrName.erase( attrName.begin() );
-          //EXPR_MANAGER->setUserAttribute( expr, attrName, attexpr );
+          //EXPR_MANAGER->setUserAttribute( expr, attr, attexpr );
         }
       }
     )+ RPAREN_TOK

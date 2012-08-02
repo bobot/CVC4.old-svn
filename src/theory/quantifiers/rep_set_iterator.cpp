@@ -41,6 +41,11 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
     d_domain.push_back( RepDomain() );
     TypeNode tn = d_f[0][i].getType();
     if( tn.isSort() ){
+      if( !d_model->d_rep_set.hasType( tn ) ){
+        Node var = NodeManager::currentNM()->mkVar( tn );
+        Trace("mkVar") << "RepSetIterator:: Make variable " << var << " : " << tn << std::endl;
+        d_model->d_rep_set.add( var );
+      }
       //we have performed finite model finding on this sort, should exist in model
       Assert( d_model->d_rep_set.hasType( tn ) );
     }else if( tn.isInteger() || tn.isReal() ){

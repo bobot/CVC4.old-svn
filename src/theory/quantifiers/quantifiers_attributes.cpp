@@ -26,9 +26,9 @@ using namespace CVC4::theory::quantifiers;
 
 void QuantifiersAttributes::setUserAttribute( Node n, std::string& attr, Node attrExpr ){
   if( n.getKind()==FORALL ){
-    if( attr=="axiom" ){
+    if( attr==":axiom" ){
 
-    }else if( attr=="conjecture" ){
+    }else if( attr==":conjecture" ){
 
     }
   }else{

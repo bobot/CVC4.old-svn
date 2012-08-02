@@ -45,8 +45,6 @@ public:
   int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
   /** complete all values */
   void complete( TypeNode t );
-  /** replace representative */
-  void replace( Node o, Node n );
   /** debug print */
   void toStream(std::ostream& out);
 };

@@ -199,6 +199,7 @@ Node TermDb::getModelBasisTerm( TypeNode tn, int i ){
       ss << Expr::setlanguage(options::outputLanguage());
       ss << "e_" << tn;
       mbt = NodeManager::currentNM()->mkVar( ss.str(), tn );
+      Trace("mkVar") << "ModelBasis:: Make variable " << mbt << " : " << tn << std::endl;
     }else{
       mbt = d_type_map[ tn ][ 0 ];
     }
@@ -343,6 +344,7 @@ Node TermDb::getFreeVariableForInstConstant( Node n ){
     }else{
       if( d_type_map[ tn ].empty() ){
         d_free_vars[tn] = NodeManager::currentNM()->mkVar( tn );
+        Trace("mkVar") << "FreeVar:: Make variable " << d_free_vars[tn] << " : " << tn << std::endl;
       }else{
         d_free_vars[tn] = d_type_map[ tn ][ 0 ];
       }

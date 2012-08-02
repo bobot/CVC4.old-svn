@@ -32,10 +32,6 @@ d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
 }
 
 void FirstOrderModel::reset(){
-  //rebuild models
-  d_uf_model_tree.clear();
-  d_uf_model_gen.clear();
-  d_array_model.clear();
   DefaultModel::reset();
 }
 
@@ -46,6 +42,10 @@ void FirstOrderModel::addTerm( Node n ){
 }
 
 void FirstOrderModel::initialize(){
+  //rebuild models
+  d_uf_model_tree.clear();
+  d_uf_model_gen.clear();
+  d_array_model.clear();
   //this is called after representatives have been chosen and the equality engine has been built
   //for each quantifier, collect all operators we care about
   for( int i=0; i<getNumAssertedQuantifiers(); i++ ){

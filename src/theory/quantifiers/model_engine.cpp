@@ -72,7 +72,6 @@ void ModelEngine::check( Theory::Effort e ){
       //initialize the model
       Debug("fmf-model-debug") << "Build model..." << std::endl;
       d_builder.buildModel( d_quantEngine->getModel() );
-      d_quantEngine->d_model_set = true;
       //if builder has lemmas, add and return
       if( d_builder.d_addedLemmas>0 ){
         addedLemmas += (int)d_builder.d_addedLemmas;
@@ -102,8 +101,11 @@ void ModelEngine::check( Theory::Effort e ){
       //CVC4 will answer SAT or unknown
       Debug("fmf-consistent") << std::endl;
       debugPrint("fmf-consistent");
-      // finish building the model in the standard way
-      d_builder.finishProcessBuildModel( d_quantEngine->getModel() );
+      if( options::produceModels() ){
+        // finish building the model in the standard way
+        d_builder.finishProcessBuildModel( d_quantEngine->getModel() );
+        d_quantEngine->d_model_set = true;
+      }
       //if the check was incomplete, we must set incomplete flag
       if( d_incomplete_check ){
         d_quantEngine->getOutputChannel().setIncomplete();
