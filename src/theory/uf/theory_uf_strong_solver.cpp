@@ -981,7 +981,10 @@ bool StrongSolverTheoryUf::SortRepModel::addSplit( Region* r, OutputChannel* out
       out->requirePhase( s, true );
       ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
     }else{
-      //we are allowed to do this since we own this variable TODO: make this a simplification
+      //Ideally, we should not have to do the following, given the variable we created for
+      //  the cardinality lemma is not pre-registered
+      Trace("mkVar") << "Add possibly unsound var lemma : " << s << std::endl;
+      //we are allowed to do this since we own this variable
       d_cardinality_lemma_term_eq = true;
       out->lemma( s );
     }

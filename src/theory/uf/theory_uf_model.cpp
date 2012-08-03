@@ -275,6 +275,15 @@ Node UfModelTree::toIte2( Node fm_node, std::vector< Node >& args, int index, No
   }
 }
 
+Node UfModelTree::toIte( TypeNode type, Node fm_node, const char* argPrefix ){
+  std::vector< Node > vars;
+  for( size_t i=0; i<type.getNumChildren()-1; i++ ){
+    std::stringstream ss;
+    ss << argPrefix << (i+1);
+    vars.push_back( NodeManager::currentNM()->mkVar( ss.str(), type[i] ) );
+  }
+  return toIte( fm_node, vars );
+}
 
 Node UfModelTreeGenerator::getIntersection( TheoryModel* m, Node n1, Node n2, bool& isGround ){
   //Notice() << "Get intersection " << n1 << " " << n2 << std::endl;

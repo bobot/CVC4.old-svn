@@ -121,7 +121,7 @@ void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
 }
 
 void TheoryModel::toStreamType( TypeNode tn, std::ostream& out ){
-  out << "(declare-sort " << tn << " " << tn.getNumChildren()-1 << ")" << std::endl;
+  out << "(declare-sort " << tn << " " << tn.getNumChildren() << ")" << std::endl;
   if( tn.isSort() ){
     if( d_rep_set.d_type_reps.find( tn )!=d_rep_set.d_type_reps.end() ){
       out << "; cardinality of " << tn << " is " << d_rep_set.d_type_reps[tn].size() << std::endl;
@@ -422,7 +422,8 @@ Node DefaultModel::getInterpretedValue( TNode n ){
         }
         ufmt.setDefaultValue( this, default_v );
         ufmt.simplify();
-        d_uf_models[n] = ufmt.getFunctionValue();
+        Node fn = ufmt.getFunctionValue();
+        d_uf_models[n] = uf::UfModelTree::toIte( type, fn, "$x" );
       }
       return d_uf_models[n];
     }else{

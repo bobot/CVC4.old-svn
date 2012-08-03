@@ -147,6 +147,7 @@ private:
 public:
   /** to ITE function for function model nodes */
   static Node toIte( Node fm_node, std::vector< Node >& args ) { return toIte2( fm_node, args, 0, Node::null() ); }
+  static Node toIte( TypeNode type, Node fm_node, const char* argPrefix );
 };
 
 class UfModelTreeGenerator

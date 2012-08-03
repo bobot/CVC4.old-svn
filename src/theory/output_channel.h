@@ -232,7 +232,7 @@ public:
     *   Associates theory t with the attribute attr.  Theory t will be
     *   notifed whenever an attribute of name attr is set.
     */
-  virtual void handleUserAttribute( const char* attr, Theory* t ) = 0;
+  virtual void handleUserAttribute( const char* attr, Theory* t ){}
 
 };/* class OutputChannel */
 

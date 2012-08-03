@@ -127,6 +127,9 @@ void TheoryUF::preRegisterTerm(TNode node) {
     // Remember the function and predicate terms
     d_functionsTerms.push_back(node);
     break;
+  case kind::CARDINALITY_CONSTRAINT:
+    //do nothing
+    break;
   default:
     // Variables etc
     d_equalityEngine.addTerm(node);
