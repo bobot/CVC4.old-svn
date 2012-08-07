@@ -191,28 +191,32 @@ void ModelEngineBuilder::analyzeQuantifiers( FirstOrderModel* fm ){
       }
       if( pref!=0 ){
         //Store preferences for UF
-        bool isConst = !n.hasAttribute(InstConstantAttribute());
+        bool isConst = false;
         std::vector< Node > uf_terms;
-        if( gn.getKind()==APPLY_UF ){
-          uf_terms.push_back( gn );
-          isConst = !d_uf_prefs[gn.getOperator()].d_const_val.isNull();
-        }else if( gn.getKind()==EQUAL ){
-          isConst = true;
-          for( int j=0; j<2; j++ ){
-            if( n[j].hasAttribute(InstConstantAttribute()) ){
-              if( n[j].getKind()==APPLY_UF ){
-                Node op = gn[j].getOperator();
-                if( fm->d_uf_model_tree.find( op )!=fm->d_uf_model_tree.end() ){
-                  uf_terms.push_back( gn[j] );
-                  isConst = isConst && !d_uf_prefs[op].d_const_val.isNull();
+        if( n.hasAttribute(InstConstantAttribute()) ){
+          if( gn.getKind()==APPLY_UF ){
+            uf_terms.push_back( gn );
+            isConst = !d_uf_prefs[gn.getOperator()].d_const_val.isNull();
+          }else if( gn.getKind()==EQUAL ){
+            isConst = true;
+            for( int j=0; j<2; j++ ){
+              if( n[j].hasAttribute(InstConstantAttribute()) ){
+                if( n[j].getKind()==APPLY_UF ){
+                  Node op = gn[j].getOperator();
+                  if( fm->d_uf_model_tree.find( op )!=fm->d_uf_model_tree.end() ){
+                    uf_terms.push_back( gn[j] );
+                    isConst = isConst && !d_uf_prefs[op].d_const_val.isNull();
+                  }else{
+                    isConst = false;
+                  }
                 }else{
                   isConst = false;
                 }
-              }else{
-                isConst = false;
               }
             }
           }
+        }else{
+          isConst = true;
         }
         Debug("fmf-model-prefs") << "  It is " << ( pref==1 ? "pro" : "con" );
         Debug("fmf-model-prefs") << " the definition of " << n << std::endl;
@@ -273,41 +277,44 @@ int ModelEngineBuilder::doInstGen( FirstOrderModel* fm, Node f ){
   for( int i=0; i<(int)d_quant_selection_lits[f].size(); i++ ){
     bool phase = d_quant_selection_lits[f][i].getKind()!=NOT;
     Node lit = d_quant_selection_lits[f][i].getKind()==NOT ? d_quant_selection_lits[f][i][0] : d_quant_selection_lits[f][i];
-    Assert( lit.hasAttribute(InstConstantAttribute()) );
-    std::vector< Node > tr_terms;
-    if( lit.getKind()==APPLY_UF ){
-      //only match predicates that are contrary to this one, use literal matching
-      Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? fm->d_true : fm->d_false );
-      fm->getTermDatabase()->setInstantiationConstantAttr( eq, f );
-      tr_terms.push_back( eq );
-    }else if( lit.getKind()==EQUAL ){
-      //collect trigger terms
-      for( int j=0; j<2; j++ ){
-        if( lit[j].hasAttribute(InstConstantAttribute()) ){
-          if( lit[j].getKind()==APPLY_UF ){
-            tr_terms.push_back( lit[j] );
-          }else{
-            tr_terms.clear();
-            break;
+    if( lit.hasAttribute(InstConstantAttribute()) ){  //this should always be true
+      std::vector< Node > tr_terms;
+      if( lit.getKind()==APPLY_UF ){
+        //only match predicates that are contrary to this one, use literal matching
+        Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? fm->d_true : fm->d_false );
+        fm->getTermDatabase()->setInstantiationConstantAttr( eq, f );
+        tr_terms.push_back( eq );
+      }else if( lit.getKind()==EQUAL ){
+        //collect trigger terms
+        for( int j=0; j<2; j++ ){
+          if( lit[j].hasAttribute(InstConstantAttribute()) ){
+            if( lit[j].getKind()==APPLY_UF ){
+              tr_terms.push_back( lit[j] );
+            }else{
+              tr_terms.clear();
+              break;
+            }
           }
         }
+        if( tr_terms.size()==1 && !phase ){
+          //equality between a function and a ground term, use literal matching
+          tr_terms.clear();
+          tr_terms.push_back( lit );
+        }
       }
-      if( tr_terms.size()==1 && !phase ){
-        //equality between a function and a ground term, use literal matching
-        tr_terms.clear();
-        tr_terms.push_back( lit );
+      //if applicable, try to add exceptions here
+      if( !tr_terms.empty() ){
+        //make a trigger for these terms, add instantiations
+        inst::Trigger* tr = inst::Trigger::mkTrigger( d_qe, f, tr_terms );
+        //Notice() << "Trigger = " << (*tr) << std::endl;
+        tr->resetInstantiationRound();
+        tr->reset( Node::null() );
+        //d_qe->d_optInstMakeRepresentative = false;
+        //d_qe->d_optMatchIgnoreModelBasis = true;
+        addedLemmas += tr->addInstantiations( d_quant_basis_match[f] );
       }
-    }
-    //if applicable, try to add exceptions here
-    if( !tr_terms.empty() ){
-      //make a trigger for these terms, add instantiations
-      inst::Trigger* tr = inst::Trigger::mkTrigger( d_qe, f, tr_terms );
-      //Notice() << "Trigger = " << (*tr) << std::endl;
-      tr->resetInstantiationRound();
-      tr->reset( Node::null() );
-      //d_qe->d_optInstMakeRepresentative = false;
-      //d_qe->d_optMatchIgnoreModelBasis = true;
-      addedLemmas += tr->addInstantiations( d_quant_basis_match[f] );
+    }else{
+      std::cout << f << " " << lit << std::endl;
     }
   }
   return addedLemmas;
