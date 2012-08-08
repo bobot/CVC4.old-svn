@@ -423,7 +423,9 @@ Node DefaultModel::getInterpretedValue( TNode n ){
         ufmt.setDefaultValue( this, default_v );
         ufmt.simplify();
         Node fn = ufmt.getFunctionValue();
+        std::cout << "Function value : " << fn << std::endl;
         d_uf_models[n] = uf::UfModelTree::toIte( type, fn, "$x" );
+        std::cout << "To ite : " << d_uf_models[n] << std::endl;
       }
       return d_uf_models[n];
     }else{

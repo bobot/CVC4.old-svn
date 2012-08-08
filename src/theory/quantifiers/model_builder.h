@@ -70,6 +70,8 @@ public:
   std::map< Node, bool > d_quant_sat;
   //map from quantifiers to the instantiation literals that their model is dependent upon
   std::map< Node, std::vector< Node > > d_quant_selection_lits;
+  //consider axioms
+  bool d_considerAxioms;
 public:
   //map from quantifiers to model basis match
   std::map< Node, InstMatch > d_quant_basis_match;
@@ -77,6 +79,8 @@ public:
   bool optUseModel();
   bool optInstGen();
   bool optOneQuantPerRoundInstGen();
+  // set effort
+  void setEffort( int effort );
   /** statistics class */
   class Statistics {
   public:

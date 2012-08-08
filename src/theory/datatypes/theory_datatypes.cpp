@@ -610,6 +610,7 @@ void TheoryDatatypes::presolve() {
 void TheoryDatatypes::addSharedTerm(TNode t) {
   Debug("datatypes") << "TheoryDatatypes::addSharedTerm(): "
                      << t << endl;
+  d_equalityEngine.addTriggerTerm(t, THEORY_DATATYPES);
 }
 
 
@@ -645,9 +646,10 @@ void TheoryDatatypes::computeCareGraph(){
         // If we know about it, we should have propagated it, so we can skip
         break;
       default:
-        //DatatypesRewriter::checkClash( a, b )
-        // Let's split on it
-        addCarePair( a, b);
+        if( !DatatypesRewriter::checkClash( a, b ) ){
+          // Let's split on it
+          addCarePair( a, b);
+        }
         break;
       }
     }

@@ -25,10 +25,12 @@
 #include "theory/arrays/theory_arrays_model.h"
 #include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/term_database.h"
+#include "theory/quantifiers/quantifiers_attributes.h"
 
 //#define ME_PRINT_WARNINGS
 
 #define EVAL_FAIL_SKIP_MULTIPLE
+//#define LIMIT_EXH_INST_AXIOMS
 //#define ONE_QUANT_PER_ROUND
 
 using namespace std;
@@ -43,7 +45,7 @@ using namespace CVC4::theory::inst;
 ModelEngine::ModelEngine( QuantifiersEngine* qe ) :
 QuantifiersModule( qe ),
 d_builder( qe ),
-d_rel_domain( qe->getModel() ){
+d_rel_domain( qe, qe->getModel() ){
 
 }
 
@@ -51,6 +53,7 @@ void ModelEngine::check( Theory::Effort e ){
   if( e==Theory::EFFORT_LAST_CALL && !d_quantEngine->hasAddedLemma() ){
     //the following will attempt to build a model and test that it satisfies all asserted universal quantifiers
     int addedLemmas = 0;
+    Trace("model-engine") << "---Model Engine Round---" << std::endl;
     if( d_builder.optUseModel() ){
       //check if any quantifiers are un-initialized
       for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
@@ -58,43 +61,42 @@ void ModelEngine::check( Theory::Effort e ){
         addedLemmas += initializeQuantifier( f );
       }
     }
-    if( addedLemmas==0 ){
-      //quantifiers are initialized, we begin an instantiation round
-      double clSet = 0;
-      if( Trace.isOn("model-engine") ){
-        clSet = double(clock())/double(CLOCKS_PER_SEC);
-        Trace("model-engine") << "---Model Engine Round---" << std::endl;
-      }
-      Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
-      ++(d_statistics.d_inst_rounds);
-      //reset the quantifiers engine
-      d_quantEngine->resetInstantiationRound( e );
-      //initialize the model
-      Debug("fmf-model-debug") << "Build model..." << std::endl;
-      d_builder.buildModel( d_quantEngine->getModel() );
-      //if builder has lemmas, add and return
-      if( d_builder.d_addedLemmas>0 ){
-        addedLemmas += (int)d_builder.d_addedLemmas;
-      }else{
-        //print debug
-        Debug("fmf-model-complete") << std::endl;
-        debugPrint("fmf-model-complete");
-        //successfully built an acceptable model, now check it
-        checkModel( addedLemmas );
-        //print debug information
+    //two effort levels: first try exhaustive instantiation without axioms, then with.
+    int startEffort = ( !d_quantEngine->getModel()->isAxiomAsserted() || optExhInstantiateAxioms() ) ? 1 : 0;
+    for( int effort=startEffort; effort<2; effort++ ){
+      // for effort = 0, we only instantiate non-axioms
+      // for effort = 1, we instantiate everything
+      if( addedLemmas==0 ){
+        //quantifiers are initialized, we begin an instantiation round
+        double clSet = 0;
         if( Trace.isOn("model-engine") ){
-          Trace("model-engine") << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
-          Trace("model-engine") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
-          double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-          Trace("model-engine") << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
+          clSet = double(clock())/double(CLOCKS_PER_SEC);
         }
-#ifdef ME_PRINT_WARNINGS
-        if( addedLemmas>10000 ){
-          Debug("fmf-exit") << std::endl;
-          debugPrint("fmf-exit");
-          exit( 0 );
+        Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
+        ++(d_statistics.d_inst_rounds);
+        //reset the quantifiers engine
+        d_quantEngine->resetInstantiationRound( e );
+        //initialize the model
+        Debug("fmf-model-debug") << "Build model..." << std::endl;
+        d_builder.setEffort( effort );
+        d_builder.buildModel( d_quantEngine->getModel() );
+        //if builder has lemmas, add and return
+        if( d_builder.d_addedLemmas>0 ){
+          addedLemmas += (int)d_builder.d_addedLemmas;
+        }else{
+          //print debug
+          Debug("fmf-model-complete") << std::endl;
+          debugPrint("fmf-model-complete");
+          //successfully built an acceptable model, now check it
+          checkModel( addedLemmas );
+          //print debug information
+          if( Trace.isOn("model-engine") ){
+            Trace("model-engine") << "Effort = " << effort << ", added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
+            Trace("model-engine") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
+            double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
+            Trace("model-engine") << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
+          }
         }
-#endif
       }
     }
     if( addedLemmas==0 ){
@@ -135,6 +137,14 @@ bool ModelEngine::optUseRelevantDomain(){
 
 bool ModelEngine::optOneQuantPerRound(){
 #ifdef ONE_QUANT_PER_ROUND
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool ModelEngine::optExhInstantiateAxioms(){
+#ifndef LIMIT_EXH_INST_AXIOMS
   return true;
 #else
   return false;
@@ -200,17 +210,21 @@ void ModelEngine::checkModel( int& addedLemmas ){
   Debug("fmf-model-debug") << "Do exhaustive instantiation..." << std::endl;
   for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
     Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
-    if( d_builder.d_quant_sat.find( f )==d_builder.d_quant_sat.end() ){
-      addedLemmas += exhaustiveInstantiate( f, optUseRelevantDomain() );
-      if( optOneQuantPerRound() && addedLemmas>0 ){
-        break;
+    if( d_builder.d_considerAxioms || !f.getAttribute(AxiomAttribute()) ){
+      if( d_builder.d_quant_sat.find( f )==d_builder.d_quant_sat.end() ){
+        addedLemmas += exhaustiveInstantiate( f, optUseRelevantDomain() );
+#ifdef ME_PRINT_WARNINGS
+        if( addedLemmas>10000 ){
+          Debug("fmf-exit") << std::endl;
+          debugPrint("fmf-exit");
+          exit( 0 );
+        }
+#endif
+        if( optOneQuantPerRound() && addedLemmas>0 ){
+          break;
+        }
       }
     }
-#ifdef ME_PRINT_WARNINGS
-    if( addedLemmas>10000 ){
-      break;
-    }
-#endif
   }
   Debug("fmf-model-debug") << "---> Added lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
   Debug("fmf-model-debug") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;

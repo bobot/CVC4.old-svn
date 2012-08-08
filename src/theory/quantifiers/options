@@ -85,5 +85,7 @@ option fmfInstEngine --fmf-inst-engine bool :default false
  use instantiation engine in conjunction with finite model finding
 option fmfRelevantDomain --fmf-relevant-domain bool :default false
  use relevant domain computation, similar to complete instantiation (Ge, deMoura 09)
+#option fmfLimitExhAxioms --fmf-limit-exh-axioms bool :default false
+# only apply exhaustive instantiation to axioms when no other instantiations can be found
 
 endmodule

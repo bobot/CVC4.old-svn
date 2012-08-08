@@ -24,6 +24,7 @@
 #include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/term_database.h"
 #include "theory/quantifiers/model_builder.h"
+#include "theory/quantifiers/quantifiers_attributes.h"
 
 //#define ME_PRINT_WARNINGS
 
@@ -40,7 +41,7 @@ using namespace CVC4::theory::quantifiers;
 ModelEngineBuilder::ModelEngineBuilder( QuantifiersEngine* qe ) :
 TheoryEngineModelBuilder( qe->getTheoryEngine() ),
 d_qe( qe ), d_completingModel( false ){
-
+  d_considerAxioms = true;
 }
 
 Node ModelEngineBuilder::chooseRepresentative( TheoryModel* m, Node eqc ){
@@ -85,7 +86,7 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
     if( optUseModel() ){
       FirstOrderModel* fm = (FirstOrderModel*)m;
       //initialize model
-      fm->initialize();
+      fm->initialize( d_considerAxioms );
       //analyze the functions
       Debug("fmf-model-debug") << "Analyzing model..." << std::endl;
       analyzeModel( fm );
@@ -98,10 +99,12 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
         Debug("fmf-model-debug") << "Perform InstGen techniques for quantifiers..." << std::endl;
         for( int i=0; i<fm->getNumAssertedQuantifiers(); i++ ){
           Node f = fm->getAssertedQuantifier( i );
-          if( d_quant_sat.find( f )==d_quant_sat.end() ){
-            d_addedLemmas += doInstGen( fm, f );
-            if( optOneQuantPerRoundInstGen() && d_addedLemmas>0 ){
-              break;
+          if( d_considerAxioms || !f.getAttribute(AxiomAttribute()) ){
+            if( d_quant_sat.find( f )==d_quant_sat.end() ){
+              d_addedLemmas += doInstGen( fm, f );
+              if( optOneQuantPerRoundInstGen() && d_addedLemmas>0 ){
+                break;
+              }
             }
           }
         }
@@ -163,104 +166,107 @@ void ModelEngineBuilder::analyzeQuantifiers( FirstOrderModel* fm ){
   //analyze the preferences of each quantifier
   for( int i=0; i<(int)fm->getNumAssertedQuantifiers(); i++ ){
     Node f = fm->getAssertedQuantifier( i );
-    Debug("fmf-model-prefs") << "Analyze quantifier " << f << std::endl;
-    std::vector< Node > pro_con[2];
-    std::vector< Node > constantSatOps;
-    bool constantSatReconsider;
-    //for each asserted quantifier f,
-    // - determine which literals form model basis for each quantifier
-    // - check which function/predicates have good and bad definitions according to f
-    for( std::map< Node, bool >::iterator it = d_qe->d_phase_reqs[f].begin();
-         it != d_qe->d_phase_reqs[f].end(); ++it ){
-      Node n = it->first;
-      Node gn = d_qe->getTermDatabase()->getModelBasis( n );
-      Debug("fmf-model-req") << "   Req: " << n << " -> " << it->second << std::endl;
-      //calculate preference
-      int pref = 0;
-      bool value;
-      if( d_qe->getValuation().hasSatValue( gn, value ) ){
-        if( value!=it->second ){
-          //this literal is eligible as a selection literal
-          //  this literal will force a default values in model that (modulo exceptions) shows
-          //  that f is satisfied by the model
-          d_quant_selection_lits[f].push_back( value ? n : n.notNode() );
-          pref = 1;
-        }else{
-          pref = -1;
+    if( d_considerAxioms || !f.getAttribute(AxiomAttribute()) ){
+      Debug("fmf-model-prefs") << "Analyze quantifier " << f << std::endl;
+      std::vector< Node > pro_con[2];
+      std::vector< Node > constantSatOps;
+      bool constantSatReconsider;
+      //for each asserted quantifier f,
+      // - determine which literals form model basis for each quantifier
+      // - check which function/predicates have good and bad definitions according to f
+      for( std::map< Node, bool >::iterator it = d_qe->d_phase_reqs[f].begin();
+           it != d_qe->d_phase_reqs[f].end(); ++it ){
+        Node n = it->first;
+        Node gn = d_qe->getTermDatabase()->getModelBasis( n );
+        Debug("fmf-model-req") << "   Req: " << n << " -> " << it->second << std::endl;
+        //calculate preference
+        int pref = 0;
+        bool value;
+        if( d_qe->getValuation().hasSatValue( gn, value ) ){
+          if( value!=it->second ){
+            //this literal is eligible as a selection literal
+            //  this literal will force a default values in model that (modulo exceptions) shows
+            //  that f is satisfied by the model
+            d_quant_selection_lits[f].push_back( value ? n : n.notNode() );
+            pref = 1;
+          }else{
+            pref = -1;
+          }
         }
-      }
-      if( pref!=0 ){
-        //Store preferences for UF
-        bool isConst = false;
-        std::vector< Node > uf_terms;
-        if( n.hasAttribute(InstConstantAttribute()) ){
-          if( gn.getKind()==APPLY_UF ){
-            uf_terms.push_back( gn );
-            isConst = !d_uf_prefs[gn.getOperator()].d_const_val.isNull();
-          }else if( gn.getKind()==EQUAL ){
-            isConst = true;
-            for( int j=0; j<2; j++ ){
-              if( n[j].hasAttribute(InstConstantAttribute()) ){
-                if( n[j].getKind()==APPLY_UF ){
-                  Node op = gn[j].getOperator();
-                  if( fm->d_uf_model_tree.find( op )!=fm->d_uf_model_tree.end() ){
-                    uf_terms.push_back( gn[j] );
-                    isConst = isConst && !d_uf_prefs[op].d_const_val.isNull();
+        if( pref!=0 ){
+          //Store preferences for UF
+          bool isConst = false;
+          std::vector< Node > uf_terms;
+          if( n.hasAttribute(InstConstantAttribute()) ){
+            if( gn.getKind()==APPLY_UF ){
+              uf_terms.push_back( gn );
+              isConst = !d_uf_prefs[gn.getOperator()].d_const_val.isNull();
+            }else if( gn.getKind()==EQUAL ){
+              isConst = true;
+              for( int j=0; j<2; j++ ){
+                if( n[j].hasAttribute(InstConstantAttribute()) ){
+                  if( n[j].getKind()==APPLY_UF ){
+                    Node op = gn[j].getOperator();
+                    if( fm->d_uf_model_tree.find( op )!=fm->d_uf_model_tree.end() ){
+                      uf_terms.push_back( gn[j] );
+                      isConst = isConst && !d_uf_prefs[op].d_const_val.isNull();
+                    }else{
+                      isConst = false;
+                    }
                   }else{
                     isConst = false;
                   }
-                }else{
-                  isConst = false;
                 }
               }
             }
+          }else{
+            //ground term is always constant
+            isConst = true;
           }
-        }else{
-          isConst = true;
-        }
-        Debug("fmf-model-prefs") << "  It is " << ( pref==1 ? "pro" : "con" );
-        Debug("fmf-model-prefs") << " the definition of " << n << std::endl;
-        if( pref==1 && isConst ){
-          d_quant_sat[f] = true;
-          //instead, just note to the model for each uf term that f is pro its definition
-          constantSatReconsider = false;
-          constantSatOps.clear();
-          for( int j=0; j<(int)uf_terms.size(); j++ ){
-            Node op = uf_terms[j].getOperator();
-            constantSatOps.push_back( op );
-            if( d_uf_prefs[op].d_reconsiderModel ){
-              constantSatReconsider = true;
+          Debug("fmf-model-prefs") << "  It is " << ( pref==1 ? "pro" : "con" );
+          Debug("fmf-model-prefs") << " the definition of " << n << std::endl;
+          if( pref==1 && isConst ){
+            d_quant_sat[f] = true;
+            //instead, just note to the model for each uf term that f is pro its definition
+            constantSatReconsider = false;
+            constantSatOps.clear();
+            for( int j=0; j<(int)uf_terms.size(); j++ ){
+              Node op = uf_terms[j].getOperator();
+              constantSatOps.push_back( op );
+              if( d_uf_prefs[op].d_reconsiderModel ){
+                constantSatReconsider = true;
+              }
+            }
+            if( !constantSatReconsider ){
+              break;
+            }
+          }else{
+            int pcIndex = pref==1 ? 0 : 1;
+            for( int j=0; j<(int)uf_terms.size(); j++ ){
+              pro_con[pcIndex].push_back( uf_terms[j] );
             }
           }
-          if( !constantSatReconsider ){
-            break;
-          }
-        }else{
-          int pcIndex = pref==1 ? 0 : 1;
-          for( int j=0; j<(int)uf_terms.size(); j++ ){
-            pro_con[pcIndex].push_back( uf_terms[j] );
-          }
         }
       }
-    }
-    if( d_quant_sat.find( f )!=d_quant_sat.end() ){
-      Debug("fmf-model-prefs") << "  * Constant SAT due to definition of ops: ";
-      for( int i=0; i<(int)constantSatOps.size(); i++ ){
-        Debug("fmf-model-prefs") << constantSatOps[i] << " ";
-        d_uf_prefs[constantSatOps[i]].d_reconsiderModel = false;
-      }
-      Debug("fmf-model-prefs") << std::endl;
-      quantSatInit++;
-      d_statistics.d_pre_sat_quant += quantSatInit;
-    }else{
-      nquantSatInit++;
-      d_statistics.d_pre_nsat_quant += quantSatInit;
-      //note quantifier's value preferences to models
-      for( int k=0; k<2; k++ ){
-        for( int j=0; j<(int)pro_con[k].size(); j++ ){
-          Node op = pro_con[k][j].getOperator();
-          Node r = fm->getRepresentative( pro_con[k][j] );
-          d_uf_prefs[op].setValuePreference( f, pro_con[k][j], r, k==0 );
+      if( d_quant_sat.find( f )!=d_quant_sat.end() ){
+        Debug("fmf-model-prefs") << "  * Constant SAT due to definition of ops: ";
+        for( int i=0; i<(int)constantSatOps.size(); i++ ){
+          Debug("fmf-model-prefs") << constantSatOps[i] << " ";
+          d_uf_prefs[constantSatOps[i]].d_reconsiderModel = false;
+        }
+        Debug("fmf-model-prefs") << std::endl;
+        quantSatInit++;
+        d_statistics.d_pre_sat_quant += quantSatInit;
+      }else{
+        nquantSatInit++;
+        d_statistics.d_pre_nsat_quant += quantSatInit;
+        //note quantifier's value preferences to models
+        for( int k=0; k<2; k++ ){
+          for( int j=0; j<(int)pro_con[k].size(); j++ ){
+            Node op = pro_con[k][j].getOperator();
+            Node r = fm->getRepresentative( pro_con[k][j] );
+            d_uf_prefs[op].setValuePreference( f, pro_con[k][j], r, k==0 );
+          }
         }
       }
     }
@@ -282,7 +288,7 @@ int ModelEngineBuilder::doInstGen( FirstOrderModel* fm, Node f ){
       if( lit.getKind()==APPLY_UF ){
         //only match predicates that are contrary to this one, use literal matching
         Node eq = NodeManager::currentNM()->mkNode( IFF, lit, !phase ? fm->d_true : fm->d_false );
-        fm->getTermDatabase()->setInstantiationConstantAttr( eq, f );
+        d_qe->getTermDatabase()->setInstantiationConstantAttr( eq, f );
         tr_terms.push_back( eq );
       }else if( lit.getKind()==EQUAL ){
         //collect trigger terms
@@ -361,7 +367,7 @@ void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, Node op ){
     //set the values in the model
     for( size_t i=0; i<fm->d_uf_terms[op].size(); i++ ){
       Node n = fm->d_uf_terms[op][i];
-      fm->getTermDatabase()->computeModelBasisArgAttribute( n );
+      d_qe->getTermDatabase()->computeModelBasisArgAttribute( n );
       if( !n.getAttribute(NoMatchAttribute()) || n.getAttribute(ModelBasisArgAttribute())==1 ){
         Node v = fm->getRepresentative( n );
         //if this assertion did not help the model, just consider it ground
@@ -427,6 +433,10 @@ bool ModelEngineBuilder::optOneQuantPerRoundInstGen(){
 #else
   return false;
 #endif
+}
+
+void ModelEngineBuilder::setEffort( int effort ){
+  d_considerAxioms = effort>=1;
 }
 
 ModelEngineBuilder::Statistics::Statistics():

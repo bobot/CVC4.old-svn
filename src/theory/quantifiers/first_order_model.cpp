@@ -18,6 +18,7 @@
 #include "theory/quantifiers/rep_set_iterator.h"
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/term_database.h"
+#include "theory/quantifiers/quantifiers_attributes.h"
 
 using namespace std;
 using namespace CVC4;
@@ -26,9 +27,16 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-FirstOrderModel::FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name ) : DefaultModel( c, name, true ),
-d_term_db( qe->getTermDatabase() ), d_forall_asserts( c ){
+FirstOrderModel::FirstOrderModel( context::Context* c, std::string name ) : DefaultModel( c, name, true ),
+d_axiom_asserted( c, false ), d_forall_asserts( c ){
 
+}
+
+void FirstOrderModel::assertQuantifier( Node n ){
+  d_forall_asserts.push_back( n );
+  if( n.getAttribute(AxiomAttribute()) ){
+    d_axiom_asserted = true;
+  }
 }
 
 void FirstOrderModel::reset(){
@@ -36,12 +44,10 @@ void FirstOrderModel::reset(){
 }
 
 void FirstOrderModel::addTerm( Node n ){
-  //std::vector< Node > added;
-  //d_term_db->addTerm( n, added, false );
   DefaultModel::addTerm( n );
 }
 
-void FirstOrderModel::initialize(){
+void FirstOrderModel::initialize( bool considerAxioms ){
   //rebuild models
   d_uf_model_tree.clear();
   d_uf_model_gen.clear();
@@ -50,8 +56,10 @@ void FirstOrderModel::initialize(){
   //for each quantifier, collect all operators we care about
   for( int i=0; i<getNumAssertedQuantifiers(); i++ ){
     Node f = getAssertedQuantifier( i );
-    //initialize relevant models within bodies of all quantifiers
-    initializeModelForTerm( f[1] );
+    if( considerAxioms || !f.hasAttribute(AxiomAttribute()) ){
+      //initialize relevant models within bodies of all quantifiers
+      initializeModelForTerm( f[1] );
+    }
   }
 }
 
@@ -110,7 +118,7 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
       //use the model tree to generate the model
       Node fn = d_uf_model_tree[n].getFunctionValue();
       d_uf_models[n] = uf::UfModelTree::toIte( type, fn, "$x" );
-      return fn;
+      return d_uf_models[n];
     }
   /*
   }else if( type.isArray() ){
@@ -133,13 +141,7 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
   return DefaultModel::getInterpretedValue( n );
 }
 
-TermDb* FirstOrderModel::getTermDatabase(){
-  return d_term_db;
-}
-
-
 void FirstOrderModel::toStream(std::ostream& out){
-  DefaultModel::toStream( out );
 #if 0
   out << "---Current Model---" << std::endl;
   out << "Representatives: " << std::endl;
@@ -172,5 +174,7 @@ void FirstOrderModel::toStream(std::ostream& out){
     it->second.toStream( out );
     out << std::endl;
   }
+#else
+  DefaultModel::toStream( out );
 #endif
 }

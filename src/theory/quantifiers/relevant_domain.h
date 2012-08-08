@@ -28,6 +28,7 @@ namespace quantifiers {
 class RelevantDomain
 {
 private:
+  QuantifiersEngine* d_qe;
   FirstOrderModel* d_model;
 
   //the domain of the arguments for each operator
@@ -39,7 +40,7 @@ private:
   //for computing extended
   bool extendFunctionDomains( Node n, RepDomain& range );
 public:
-  RelevantDomain( FirstOrderModel* m );
+  RelevantDomain( QuantifiersEngine* qe, FirstOrderModel* m );
   virtual ~RelevantDomain(){}
   //compute the relevant domain
   void compute();

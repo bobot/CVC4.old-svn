@@ -28,8 +28,12 @@ void QuantifiersAttributes::setUserAttribute( std::string& attr, Node n ){
   if( n.getKind()==FORALL ){
     if( attr=="axiom" ){
       Trace("quant-attr") << "Set axiom " << n << std::endl;
+      AxiomAttribute aa;
+      n.setAttribute( aa, true );
     }else if( attr=="conjecture" ){
       Trace("quant-attr") << "Set conjecture " << n << std::endl;
+      ConjectureAttribute ca;
+      n.setAttribute( ca, true );
     }
   }else{
     for( size_t i=0; i<n.getNumChildren(); i++ ){

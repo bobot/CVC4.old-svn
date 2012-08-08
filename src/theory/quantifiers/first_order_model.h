@@ -42,8 +42,6 @@ class TermDb;
 class FirstOrderModel : public DefaultModel
 {
 private:
-  //pointer to term database
-  TermDb* d_term_db;
   //add term function
   void addTerm( Node n );
   //for initialize model
@@ -51,6 +49,10 @@ private:
   /** to stream functions */
   void toStreamFunction( Node n, std::ostream& out );
   void toStreamType( TypeNode tn, std::ostream& out );
+  /** whether an axiom is asserted */
+  context::CDO< bool > d_axiom_asserted;
+  /** list of quantifiers asserted in the current context */
+  context::CDList<Node> d_forall_asserts;
 public: //for Theory UF:
   //models for each UF operator
   std::map< Node, uf::UfModelTree > d_uf_model_tree;
@@ -60,14 +62,16 @@ public: //for Theory Arrays:
   //default value for each non-store array
   std::map< Node, arrays::ArrayModel > d_array_model;
 public: //for Theory Quantifiers:
-  /** list of quantifiers asserted in the current context */
-  context::CDList<Node> d_forall_asserts;
+  /** assert quantifier */
+  void assertQuantifier( Node n );
   /** get number of asserted quantifiers */
   int getNumAssertedQuantifiers() { return (int)d_forall_asserts.size(); }
   /** get asserted quantifier */
   Node getAssertedQuantifier( int i ) { return d_forall_asserts[i]; }
+  /** bool axiom asserted */
+  bool isAxiomAsserted() { return d_axiom_asserted; }
 public:
-  FirstOrderModel( QuantifiersEngine* qe, context::Context* c, std::string name );
+  FirstOrderModel( context::Context* c, std::string name );
   virtual ~FirstOrderModel(){}
   // reset the model
   void reset();
@@ -75,9 +79,7 @@ public:
   Node getInterpretedValue( TNode n );
 public:
   // initialize the model
-  void initialize();
-  /** get term database */
-  TermDb* getTermDatabase();
+  void initialize( bool considerAxioms = true );
   /** to stream function */
   void toStream( std::ostream& out );
 };/* class FirstOrderModel */

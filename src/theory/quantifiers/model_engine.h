@@ -47,6 +47,7 @@ private:
   bool optOneInstPerQuantRound();
   bool optUseRelevantDomain();
   bool optOneQuantPerRound();
+  bool optExhInstantiateAxioms();
 private:
   //initialize quantifiers, return number of lemmas produced
   int initializeQuantifier( Node f );

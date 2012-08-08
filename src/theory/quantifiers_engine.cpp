@@ -70,7 +70,7 @@ d_active( c ){
   d_hasAddedLemma = false;
 
   //the model object
-  d_model = new quantifiers::FirstOrderModel( this, c, "FirstOrderModel" );
+  d_model = new quantifiers::FirstOrderModel( c, "FirstOrderModel" );
 
   //add quantifiers modules
   if( !options::finiteModelFind() || options::fmfInstEngine() ){
@@ -121,6 +121,7 @@ void QuantifiersEngine::check( Theory::Effort e ){
 
   d_hasAddedLemma = false;
   d_model_set = false;
+  d_resetInstRound = false;
   if( e==Theory::EFFORT_LAST_CALL ){
     ++(d_statistics.d_instantiation_rounds_lc);
   }else if( e==Theory::EFFORT_FULL ){
@@ -234,7 +235,7 @@ void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
 void QuantifiersEngine::assertNode( Node f ){
   Assert( f.getKind()==FORALL );
   for( int j=0; j<(int)d_quant_rewritten[f].size(); j++ ){
-    d_model->d_forall_asserts.push_back( d_quant_rewritten[f][j] );
+    d_model->assertQuantifier( d_quant_rewritten[f][j] );
     for( int i=0; i<(int)d_modules.size(); i++ ){
       d_modules[i]->assertNode( d_quant_rewritten[f][j] );
     }
@@ -250,12 +251,15 @@ void QuantifiersEngine::propagate( Theory::Effort level ){
 }
 
 void QuantifiersEngine::resetInstantiationRound( Theory::Effort level ){
-  for( theory::TheoryId i=theory::THEORY_FIRST; i<theory::THEORY_LAST; ++i ){
-    if( getInstantiator( i ) ){
-      getInstantiator( i )->resetInstantiationRound( level );
+  if( !d_resetInstRound ){
+    d_resetInstRound = true;
+    for( theory::TheoryId i=theory::THEORY_FIRST; i<theory::THEORY_LAST; ++i ){
+      if( getInstantiator( i ) ){
+        getInstantiator( i )->resetInstantiationRound( level );
+      }
     }
+    getTermDatabase()->reset( level );
   }
-  getTermDatabase()->reset( level );
 }
 
 void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
