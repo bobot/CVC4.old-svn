@@ -492,7 +492,7 @@ void TheoryDatatypes::check(Effort e) {
             //for( int i=0; i<(int)pcons.size(); i++ ){ //std::cout << pcons[i] << " "; }
             //std::cout << std::endl;
             //check if we do not need to resolve the constructor type for this equivalence class.
-            // this is if there are no selectors for this equivalence class, its type is infinite,
+            // this is if there are no selectors for this equivalence class, its possible values are infinite,
             //  and we are not producing a model, then do not split.
             int consIndex = -1;
             bool needSplit = true;
@@ -629,34 +629,7 @@ EqualityStatus TheoryDatatypes::getEqualityStatus(TNode a, TNode b){
 }
 
 void TheoryDatatypes::computeCareGraph(){
-#if 0
-  Debug("dt-sharing") << "TheoryDatatypes::computeCareGraph<" << getId() << ">()" << endl;
-  for (unsigned i = 0; i < d_sharedTerms.size(); ++ i) {
-    TNode a = d_sharedTerms[i];
-    TypeNode aType = a.getType();
-    for (unsigned j = i + 1; j < d_sharedTerms.size(); ++ j) {
-      TNode b = d_sharedTerms[j];
-      if (b.getType() == aType) {
-        // We don't care about the terms of different types
-        continue;
-      }
-      switch (d_valuation.getEqualityStatus(a, b)) {
-      case EQUALITY_TRUE_AND_PROPAGATED:
-      case EQUALITY_FALSE_AND_PROPAGATED:
-        // If we know about it, we should have propagated it, so we can skip
-        break;
-      default:
-        if( !DatatypesRewriter::checkClash( a, b ) ){
-          // Let's split on it
-          addCarePair( a, b);
-        }
-        break;
-      }
-    }
-  }
-#else
   Theory::computeCareGraph();
-#endif
 }
 
 void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
@@ -731,6 +704,7 @@ void TheoryDatatypes::checkInstantiate( EqcInfo* eqc, Node n ){
     const Datatype& dt = ((DatatypeType)(tt.getType()).toType()).getDatatype();
     //must be finite or have a selector
     if( eqc->d_selectors || dt[ index ].isFinite() ){
+      //instantiate this equivalence class
       eqc->d_inst.set( NodeManager::currentNM()->mkConst( true ) );
       Node tt_cons = getInstantiateCons( tt, dt, index );
       Node eq;
@@ -830,4 +804,3 @@ Node TheoryDatatypes::getRepresentative( Node a ){
     return a;
   }
 }
-

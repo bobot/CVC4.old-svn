@@ -26,10 +26,7 @@
 #include "theory/quantifiers/model_builder.h"
 #include "theory/quantifiers/quantifiers_attributes.h"
 
-//#define ME_PRINT_WARNINGS
-
 #define RECONSIDER_FUNC_CONSTANT
-//#define ONE_QUANT_PER_ROUND_INST_GEN
 
 using namespace std;
 using namespace CVC4;
@@ -428,11 +425,7 @@ bool ModelEngineBuilder::optInstGen(){
 }
 
 bool ModelEngineBuilder::optOneQuantPerRoundInstGen(){
-#ifdef ONE_QUANT_PER_ROUND_INST_GEN
-  return true;
-#else
-  return false;
-#endif
+  return options::fmfInstGenOneQuantPerRound();
 }
 
 void ModelEngineBuilder::setEffort( int effort ){

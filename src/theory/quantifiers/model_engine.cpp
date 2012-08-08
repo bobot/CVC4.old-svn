@@ -30,8 +30,6 @@
 //#define ME_PRINT_WARNINGS
 
 #define EVAL_FAIL_SKIP_MULTIPLE
-//#define LIMIT_EXH_INST_AXIOMS
-//#define ONE_QUANT_PER_ROUND
 
 using namespace std;
 using namespace CVC4;
@@ -136,19 +134,11 @@ bool ModelEngine::optUseRelevantDomain(){
 }
 
 bool ModelEngine::optOneQuantPerRound(){
-#ifdef ONE_QUANT_PER_ROUND
-  return true;
-#else
-  return false;
-#endif
+  return options::fmfOneQuantPerRound();
 }
 
 bool ModelEngine::optExhInstantiateAxioms(){
-#ifndef LIMIT_EXH_INST_AXIOMS
-  return true;
-#else
-  return false;
-#endif
+  return options::fmfExhAxioms();
 }
 
 int ModelEngine::initializeQuantifier( Node f ){
