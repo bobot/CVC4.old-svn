@@ -25,6 +25,7 @@
 #include "theory/datatypes/theory_datatypes_instantiator.h"
 #include "theory/datatypes/datatypes_rewriter.h"
 #include "theory/model.h"
+#include "smt/options.h"
 
 #include <map>
 
@@ -35,51 +36,51 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::datatypes;
 
-void TheoryDatatypes::printModelDebug(){
-  /*
-  std::cout << "Datatypes model : " << std::endl;
+void TheoryDatatypes::printModelDebug( const char* c ){
+  Trace( c ) << "Datatypes model : " << std::endl;
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
     if( eqc.getType().isDatatype() || eqc.getType().isBoolean() ){
-      std::cout << eqc << " : " << eqc.getType() << " : " << std::endl;
-      std::cout << "   { ";
+      Trace( c ) << eqc << " : " << eqc.getType() << " : " << std::endl;
+      Trace( c ) << "   { ";
       //add terms to model
       eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
       while( !eqc_i.isFinished() ){
-        std::cout << (*eqc_i) << " ";
+        Trace( c ) << (*eqc_i) << " ";
         ++eqc_i;
       }
-      std::cout << "}" << std::endl;
+      Trace( c ) << "}" << std::endl;
       if( eqc.getType().isDatatype() ){
         EqcInfo* ei = getOrMakeEqcInfo( eqc );
         if( ei ){
-          std::cout << "   Instantiated : " << ei->d_inst.get() << std::endl;
+          Trace( c ) << "   Instantiated : " << ei->d_inst.get() << std::endl;
           if( ei->d_constructor.get().isNull() ){
-            std::cout << "   Constructor : " << std::endl;
-            std::cout << "   Labels : ";
+            Trace("model-warn") << eqc << " has no constructor in equivalence class!" << std::endl;
+
+            Trace( c ) << "   Constructor : " << std::endl;
+            Trace( c ) << "   Labels : ";
             if( hasLabel( ei, eqc ) ){
-              std::cout << getLabel( eqc );
+              Trace( c ) << getLabel( eqc );
             }else{
               NodeListMap::iterator lbl_i = d_labels.find( eqc );
               if( lbl_i != d_labels.end() ){
                 NodeList* lbl = (*lbl_i).second;
                 for( NodeList::const_iterator j = lbl->begin(); j != lbl->end(); j++ ){
-                  std::cout << *j << " ";
+                  Trace( c ) << *j << " ";
                 }
               }
             }
-            std::cout << std::endl;
+            Trace( c ) << std::endl;
           }else{
-            std::cout << "   Constructor : " << ei->d_constructor.get() << std::endl;
+            Trace( c ) << "   Constructor : " << ei->d_constructor.get() << std::endl;
           }
-          std::cout << "   Selectors : " << ( ei->d_selectors ? "yes" : "no" ) << std::endl;
+          Trace( c ) << "   Selectors : " << ( ei->d_selectors ? "yes" : "no" ) << std::endl;
         }
       }
     }
     ++eqcs_i;
   }
-  */
 }
 
 
@@ -506,9 +507,20 @@ void TheoryDatatypes::check(Effort e) {
                 }
               }
             }
+            if( !needSplit && mustSpecifyModel() ){
+              //for the sake of termination, we must choose the constructor of a ground term
+              //NEED GUARENTEE: groundTerm should not contain any subterms of the same type
+              Node groundTerm = n.getType().mkGroundTerm();
+              int index = Datatype::indexOf( groundTerm.getOperator().toExpr() );
+              if( pcons[index] ){
+                consIndex = index;
+              }
+              needSplit = true;
+            }
             if( needSplit && consIndex!=-1 ) {
               Node test = NodeManager::currentNM()->mkNode( APPLY_TESTER, Node::fromExpr( dt[consIndex].getTester() ), n );
               Debug("datatypes-split") << "*************Split for possible constructor " << test << " for " << n <<  endl;
+              test = Rewriter::rewrite( test );
               NodeBuilder<> nb(kind::OR);
               nb << test << test.notNode();
               Node lemma = nb;
@@ -524,9 +536,9 @@ void TheoryDatatypes::check(Effort e) {
       ++eqcs_i;
     }
     flushPendingFacts();
-    if( !d_conflict ){
-      printModelDebug();
-    }
+    //if( !d_conflict ){
+    //  printModelDebug();
+    //}
   }
   if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ) {
     Notice() << "TheoryDatatypes::check(): done" << endl;
@@ -633,7 +645,8 @@ void TheoryDatatypes::computeCareGraph(){
 }
 
 void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
-  printModelDebug();
+  Trace("dt-model") << std::endl;
+  printModelDebug( "dt-model" );
   m->assertEqualityEngine( &d_equalityEngine );
 }
 
@@ -703,7 +716,7 @@ void TheoryDatatypes::checkInstantiate( EqcInfo* eqc, Node n ){
     int index = getLabelIndex( eqc, n );
     const Datatype& dt = ((DatatypeType)(tt.getType()).toType()).getDatatype();
     //must be finite or have a selector
-    if( eqc->d_selectors || dt[ index ].isFinite() ){
+    if( eqc->d_selectors || dt[ index ].isFinite() || mustSpecifyModel() ){
       //instantiate this equivalence class
       eqc->d_inst.set( NodeManager::currentNM()->mkConst( true ) );
       Node tt_cons = getInstantiateCons( tt, dt, index );
@@ -771,6 +784,11 @@ bool TheoryDatatypes::searchForCycle( Node n, Node on,
     }
   }
   return false;
+}
+
+bool TheoryDatatypes::mustSpecifyModel(){
+  return false;
+//  return options::finiteModelFind() || options::produceModels();
 }
 
 bool TheoryDatatypes::hasTerm( Node a ){

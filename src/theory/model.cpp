@@ -504,11 +504,10 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
     }
     //store representative in representative set
     if( !const_rep.isNull() ){
-      //Message() << "Constant rep " << const_rep << " for " << eqc << std::endl;
+      unresolved_eqc[ eqc ] = false;
       tm->d_reps[ eqc ] = const_rep;
       tm->d_rep_set.add( const_rep );
     }else{
-      //Message() << "** unresolved eqc " << eqc << std::endl;
       unresolved_eqc[ eqc ] = true;
       unresolved_types[ eqct ] = true;
     }
@@ -558,12 +557,15 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
             children.push_back( ac.getOperator() );
             for( size_t i = 0; i<ac.getNumChildren(); i++ ){
               Node acir = ac[i];
-              if( tm->d_equalityEngine.hasTerm( acir ) ){
-                acir = tm->d_equalityEngine.getRepresentative( acir );
-              }
-              if( unresolved_eqc.find( acir )==unresolved_eqc.end() ){
-                Message() << "TheoryEngineModelBuilder::buildModel : Datatype argument does not exist in the model " << acir << std::endl;
-                acir = Node::null();
+              if( acir.getMetaKind()!=kind::metakind::CONSTANT ){
+                if( tm->d_equalityEngine.hasTerm( acir ) ){
+                  acir = tm->d_equalityEngine.getRepresentative( acir );
+                }
+                if( unresolved_eqc.find( acir )==unresolved_eqc.end() ){
+                  Trace("model-warn") << "TheoryEngineModelBuilder::buildModel : Datatype argument does not exist in the model " << acir << std::endl;
+                  Trace("model-warn") << "  from " << ac << ", argument " << i << std::endl;
+                  acir = Node::null();
+                }
               }
               if( acir.isNull() || unresolved_eqc[ acir ] ){
                 mkRep = false;
@@ -577,7 +579,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
               rep = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
             }
           }else{
-            Message() << "TheoryEngineModelBuilder::buildModel : Do not know how to resolve datatype equivalence class " << n << " : " << n.getType() << std::endl;
+            Trace("model-warn") << "TheoryEngineModelBuilder::buildModel : Do not know how to resolve datatype equivalence class " << n << " : " << n.getType() << std::endl;
           }
           mkRep = false;
         }
@@ -613,7 +615,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
       tm->d_reps[ n ] = rep;
       tm->d_rep_set.add( rep );
       //FIXME: Assertion failure here?
-      Message() << "Warning : Unresolved eqc, assigning " << rep << " for eqc( " << n << " ), type = " << n.getType() << std::endl;
+      Trace("model-warn") << "Warning : Unresolved eqc, assigning " << rep << " for eqc( " << n << " ), type = " << n.getType() << std::endl;
     }
   }
 

@@ -251,15 +251,15 @@ void QuantifiersEngine::propagate( Theory::Effort level ){
 }
 
 void QuantifiersEngine::resetInstantiationRound( Theory::Effort level ){
-  if( !d_resetInstRound ){
-    d_resetInstRound = true;
-    for( theory::TheoryId i=theory::THEORY_FIRST; i<theory::THEORY_LAST; ++i ){
-      if( getInstantiator( i ) ){
-        getInstantiator( i )->resetInstantiationRound( level );
-      }
+  //if( !d_resetInstRound ){
+  d_resetInstRound = true;
+  for( theory::TheoryId i=theory::THEORY_FIRST; i<theory::THEORY_LAST; ++i ){
+    if( getInstantiator( i ) ){
+      getInstantiator( i )->resetInstantiationRound( level );
     }
-    getTermDatabase()->reset( level );
   }
+  getTermDatabase()->reset( level );
+  //}
 }
 
 void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){

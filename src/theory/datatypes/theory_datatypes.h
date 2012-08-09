@@ -201,6 +201,8 @@ public:
   void collectModelInfo( TheoryModel* m );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }
+  /** debug print */
+  void printModelDebug( const char* c );
 private:
   /** add tester to equivalence class info */
   void addTester( Node t, EqcInfo* eqc, Node n );
@@ -217,9 +219,11 @@ private:
   Node getInstantiateCons( Node n, const Datatype& dt, int index );
   /** check instantiate */
   void checkInstantiate( EqcInfo* eqc, Node n );
-  /** debug print */
-  void printModelDebug();
-
+  /** must specify model
+    *  This returns true when the datatypes theory is expected to specify the constructor
+    *  type for all equivalence classes.
+    */
+  bool mustSpecifyModel();
 private:
   //equality queries
   bool hasTerm( Node a );

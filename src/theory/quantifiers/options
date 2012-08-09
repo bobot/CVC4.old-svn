@@ -80,7 +80,7 @@ option fmfModelBasedInst /--disable-fmf-mbqi bool :default true
 option fmfOneInstPerRound --fmf-one-inst-per-round bool :default false
  only add one instantiation per quantifier per round for fmf
 option fmfOneQuantPerRound --fmf-one-quant-per-round bool :default false
- only add one quantifier per round for fmf 
+ only add instantiations for one quantifier per round for fmf 
 option fmfInstEngine --fmf-inst-engine bool :default false
  use instantiation engine in conjunction with finite model finding
 option fmfRelevantDomain --fmf-relevant-domain bool :default false
