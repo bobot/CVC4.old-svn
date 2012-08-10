@@ -1925,7 +1925,7 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
   }
 }
 
-void TheoryArith::collectModelInfo( TheoryModel* m ){
+void TheoryArith::collectModelInfo( TheoryModel* m, bool addConsts ){
 
 }
 

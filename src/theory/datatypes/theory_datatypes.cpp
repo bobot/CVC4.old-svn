@@ -644,7 +644,7 @@ void TheoryDatatypes::computeCareGraph(){
   Theory::computeCareGraph();
 }
 
-void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
+void TheoryDatatypes::collectModelInfo( TheoryModel* m, bool addConsts ){
   Trace("dt-model") << std::endl;
   printModelDebug( "dt-model" );
   m->assertEqualityEngine( &d_equalityEngine );

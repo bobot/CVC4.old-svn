@@ -554,7 +554,7 @@ public:
    * model.  This should be called after a call to check( FULL_EFFORT )
    * for all theories with no conflicts and no lemmas added.
    */
-  virtual void collectModelInfo( TheoryModel* m ){
+  virtual void collectModelInfo( TheoryModel* m, bool addConsts ){
     Unimplemented("Theory %s doesn't support Theory::collectModelInfo interface",
                   identify().c_str());
   }

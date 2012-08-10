@@ -62,7 +62,7 @@ public:
   void check(Effort e);
   void propagate(Effort level);
   Node getValue(TNode n);
-  void collectModelInfo( TheoryModel* m );
+  void collectModelInfo( TheoryModel* m, bool addConsts );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
   bool flipDecision();
@@ -71,8 +71,6 @@ private:
   void assertUniversal( Node n );
   void assertExistential( Node n );
   bool restart();
-public:
-  void performCheck(Effort e);
 };/* class TheoryQuantifiers */
 
 }/* CVC4::theory::quantifiers namespace */

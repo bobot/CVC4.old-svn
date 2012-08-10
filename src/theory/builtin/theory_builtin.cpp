@@ -27,7 +27,7 @@ namespace CVC4 {
 namespace theory {
 namespace builtin {
 
-void TheoryBuiltin::collectModelInfo( TheoryModel* m ){
+void TheoryBuiltin::collectModelInfo( TheoryModel* m, bool addConsts ){
 
 }
 

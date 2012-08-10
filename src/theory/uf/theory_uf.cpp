@@ -176,7 +176,7 @@ Node TheoryUF::explain(TNode literal) {
   return mkAnd(assumptions);
 }
 
-void TheoryUF::collectModelInfo( TheoryModel* m ){
+void TheoryUF::collectModelInfo( TheoryModel* m, bool addConsts ){
   m->assertEqualityEngine( &d_equalityEngine );
 }
 

@@ -147,7 +147,7 @@ public:
    *
    * See theory/theory.h for more information about this method.
    */
-  void collectModelInfo( TheoryModel* m ){
+  void collectModelInfo( TheoryModel* m, bool addConsts ){
     Unimplemented("TheoryUFTim doesn't support model generation");
   }
 

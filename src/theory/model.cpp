@@ -423,9 +423,9 @@ Node DefaultModel::getInterpretedValue( TNode n ){
         ufmt.setDefaultValue( this, default_v );
         ufmt.simplify();
         Node fn = ufmt.getFunctionValue();
-        std::cout << "Function value : " << fn << std::endl;
+        //std::cout << "Function value : " << fn << std::endl;
         d_uf_models[n] = uf::UfModelTree::toIte( type, fn, "$x" );
-        std::cout << "To ite : " << d_uf_models[n] << std::endl;
+        //std::cout << "To ite : " << d_uf_models[n] << std::endl;
       }
       return d_uf_models[n];
     }else{
@@ -452,7 +452,7 @@ Node DefaultModel::getInterpretedValue( TNode n ){
       if( !n2.isNull() ){
         return n2;
       }else{
-        //otherwise, just return itself
+        //otherwise, just return itself (this usually should not happen)
         return n;
       }
     }
@@ -469,7 +469,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m ){
   tm->reset();
   //collect model info from the theory engine
   Debug( "model-builder" ) << "TheoryEngineModelBuilder: Collect model info..." << std::endl;
-  d_te->collectModelInfo( tm );
+  d_te->collectModelInfo( tm, false );
   //unresolved equivalence classes
   std::map< Node, bool > unresolved_eqc;
   std::map< TypeNode, bool > unresolved_types;

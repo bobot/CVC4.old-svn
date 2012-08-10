@@ -90,7 +90,7 @@ Node TheoryQuantifiers::getValue(TNode n) {
   }
 }
 
-void TheoryQuantifiers::collectModelInfo( TheoryModel* m ){
+void TheoryQuantifiers::collectModelInfo( TheoryModel* m, bool addConsts ){
 
 }
 
@@ -185,10 +185,6 @@ bool TheoryQuantifiers::restart(){
     Debug("quantifiers-flip") << "Do restart." << std::endl;
     return true;
   }
-}
-
-void TheoryQuantifiers::performCheck(Effort e){
-  getQuantifiersEngine()->check( e );
 }
 
 void TheoryQuantifiers::setUserAttribute( std::string& attr, Node n ){

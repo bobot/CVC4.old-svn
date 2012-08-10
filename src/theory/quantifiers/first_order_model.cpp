@@ -114,10 +114,12 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
   Debug("fo-model") << "get interpreted value " << n << std::endl;
   TypeNode type = n.getType();
   if( type.isFunction() || type.isPredicate() ){
-    if( d_uf_models.find( n )==d_uf_models.end() ){
-      //use the model tree to generate the model
-      Node fn = d_uf_model_tree[n].getFunctionValue();
-      d_uf_models[n] = uf::UfModelTree::toIte( type, fn, "$x" );
+    if( d_uf_model_tree.find( n )!=d_uf_model_tree.end() ){
+      if( d_uf_models.find( n )==d_uf_models.end() ){
+        //use the model tree to generate the model
+        Node fn = d_uf_model_tree[n].getFunctionValue();
+        d_uf_models[n] = uf::UfModelTree::toIte( type, fn, "$x" );
+      }
       return d_uf_models[n];
     }
   /*

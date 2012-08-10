@@ -348,7 +348,8 @@ void TheoryEngine::check(Theory::Effort effort) {
         ! d_inConflict &&
         ! d_lemmasAdded ) {
       if( d_logicInfo.isQuantified() ){
-        ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->performCheck(Theory::EFFORT_LAST_CALL);
+        //quantifiers engine must pass effort last call check
+        d_quantEngine->check(Theory::EFFORT_LAST_CALL);
         // if we have given up, then possibly flip decision
         if(options::flipDecision()) {
           if(d_incomplete && !d_inConflict && !d_lemmasAdded) {
@@ -544,11 +545,13 @@ bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
   return true;
 }
 
-void TheoryEngine::collectModelInfo( theory::TheoryModel* m ){
+void TheoryEngine::collectModelInfo( theory::TheoryModel* m, bool addConsts ){
+  //have shared term engine collectModelInfo
+  d_sharedTerms.collectModelInfo( m, addConsts );
   //consult each theory to get all relevant information concerning the model
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_theoryTable[i] ){
-      d_theoryTable[i]->collectModelInfo( m );
+      d_theoryTable[i]->collectModelInfo( m, addConsts );
     }
   }
 }

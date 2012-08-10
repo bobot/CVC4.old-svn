@@ -652,7 +652,7 @@ public:
   /**
    * collect model info
    */
-  void collectModelInfo( theory::TheoryModel* m );
+  void collectModelInfo( theory::TheoryModel* m, bool addConsts );
 
   /**
    * Get the current model

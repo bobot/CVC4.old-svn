@@ -35,7 +35,7 @@ public:
     Theory(THEORY_BOOL, c, u, out, valuation, logicInfo, qe) {
   }
 
-  void collectModelInfo( TheoryModel* m );
+  void collectModelInfo( TheoryModel* m, bool addConsts );
 
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
 
