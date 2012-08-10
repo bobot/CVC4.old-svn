@@ -57,9 +57,11 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
         model->completeValues( tn );
         //d_incomplete = true;
       }else{
+        Trace("fmf-incomplete") << "Incomplete because of infinite datatype " << tn << " for quantifier " << f << std::endl;
         d_incomplete = true;
       }
     }else{
+      Trace("fmf-incomplete") << "Incomplete because of type " << tn << " for quantifier " << f << std::endl;
       d_incomplete = true;
     }
     if( d_model->d_rep_set.hasType( tn ) ){
@@ -67,6 +69,7 @@ RepSetIterator::RepSetIterator( Node f, FirstOrderModel* model ) : d_f( f ), d_m
         d_domain[i].push_back( j );
       }
     }else{
+      Trace("fmf-incomplete") << "Incomplete, unknown type " << tn << " for quantifier " << f << std::endl;
       d_incomplete = true;
       Unimplemented("Cannot create instantiation iterator for unknown type quantifier");
     }

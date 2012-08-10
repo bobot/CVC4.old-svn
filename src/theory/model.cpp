@@ -21,6 +21,8 @@
 #include "theory/uf/theory_uf_model.h"
 #include "theory/arrays/theory_arrays_model.h"
 #include "theory/type_enumerator.h"
+#include "smt/model_format_mode.h"
+#include "smt/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -116,7 +118,17 @@ void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
     out << ") " << tn;
   }
   out << " ";
-  out << getValue( n );
+  bool printedModel = false;
+  if( tn.isFunction() ){
+    if( options::modelFormatMode()==MODEL_FORMAT_MODE_TABLE ){
+      for( size_t i=0; i<tn.getNumChildren()-1; i++ ){
+      }
+    }
+  }
+  if( !printedModel ){
+    //just do the default
+    out << getValue( n );
+  }
   out << ")" << std::endl;
 }
 

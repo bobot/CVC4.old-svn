@@ -37,7 +37,7 @@ void QuantifiersAttributes::setUserAttribute( std::string& attr, Node n ){
     }
   }else{
     for( size_t i=0; i<n.getNumChildren(); i++ ){
-      setUserAttribute( attr, n );
+      setUserAttribute( attr, n[i] );
     }
   }
 }
