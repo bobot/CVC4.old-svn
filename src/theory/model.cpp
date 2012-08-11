@@ -30,60 +30,6 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-void RepSet::clear(){
-  d_type_reps.clear();
-  d_type_complete.clear();
-  d_tmap.clear();
-}
-
-void RepSet::add( Node n ){
-  TypeNode t = n.getType();
-  d_tmap[ n ] = (int)d_type_reps[t].size();
-  d_type_reps[t].push_back( n );
-}
-
-void RepSet::complete( TypeNode t ){
-  if( d_type_complete.find( t )==d_type_complete.end() ){
-    d_type_complete[t] = true;
-    TypeEnumerator te(t);
-    while( !te.isFinished() ){
-      Node n = *te;
-      if( std::find( d_type_reps[t].begin(), d_type_reps[t].end(), n )==d_type_reps[t].end() ){
-        add( n );
-      }
-      ++te;
-    }
-    for( size_t i=0; i<d_type_reps[t].size(); i++ ){
-      Trace("reps-complete") << d_type_reps[t][i] << " ";
-    }
-    Trace("reps-complete") << std::endl;
-  }
-}
-
-void RepSet::toStream(std::ostream& out){
-#if 0
-  for( std::map< TypeNode, std::vector< Node > >::iterator it = d_type_reps.begin(); it != d_type_reps.end(); ++it ){
-    out << it->first << " : " << std::endl;
-    for( int i=0; i<(int)it->second.size(); i++ ){
-      out << "   " << i << ": " << it->second[i] << std::endl;
-    }
-  }
-#else
-  for( std::map< TypeNode, std::vector< Node > >::iterator it = d_type_reps.begin(); it != d_type_reps.end(); ++it ){
-    if( !it->first.isFunction() && !it->first.isPredicate() ){
-      out << "(" << it->first << " " << it->second.size();
-      out << " (";
-      for( int i=0; i<(int)it->second.size(); i++ ){
-        if( i>0 ){ out << " "; }
-        out << it->second[i];
-      }
-      out << ")";
-      out << ")" << std::endl;
-    }
-  }
-#endif
-}
-
 TheoryModel::TheoryModel( context::Context* c, std::string name ) :
 d_equalityEngine( c, name ){
   d_true = NodeManager::currentNM()->mkConst( true );

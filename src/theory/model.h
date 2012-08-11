@@ -21,37 +21,12 @@
 
 #include "util/model.h"
 #include "theory/uf/equality_engine.h"
+#include "theory/rep_set.h"
 
 namespace CVC4 {
 namespace theory {
 
 class QuantifiersEngine;
-
-/** this class stores a representative set */
-class RepSet {
-public:
-  RepSet(){}
-  ~RepSet(){}
-  std::map< TypeNode, std::vector< Node > > d_type_reps;
-  std::map< TypeNode, bool > d_type_complete;
-  std::map< Node, int > d_tmap;
-  /** clear the set */
-  void clear();
-  /** has type */
-  bool hasType( TypeNode tn ) { return d_type_reps.find( tn )!=d_type_reps.end(); }
-  /** add representative for type */
-  void add( Node n );
-  /** returns index in d_type_reps for node n */
-  int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
-  /** complete all values */
-  void complete( TypeNode t );
-  /** debug print */
-  void toStream(std::ostream& out);
-};
-
-//representative domain
-typedef std::vector< int > RepDomain;
-
 class TheoryEngineModelBuilder;
 
 /** Theory Model class

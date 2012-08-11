@@ -89,7 +89,8 @@ void ModelEngine::check( Theory::Effort e ){
           checkModel( addedLemmas );
           //print debug information
           if( Trace.isOn("model-engine") ){
-            Trace("model-engine") << "Effort = " << effort << ", added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
+            Trace("model-engine") << "Instantiate axioms : " << d_builder.d_considerAxioms << std::endl;
+            Trace("model-engine") << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
             Trace("model-engine") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
             double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
             Trace("model-engine") << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
@@ -241,7 +242,8 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
       Debug("inst-fmf-ei") << "    " << d_builder.d_quant_selection_lits[f][i] << std::endl;
     }
   }
-  RepSetIterator riter( f, d_quantEngine->getModel() );
+  RepSetIterator riter( &(d_quantEngine->getModel()->d_rep_set) );
+  riter.setQuantifier( f );
   //if the iterator is incomplete, we will return unknown instead of sat if no instantiations are added this round
   d_incomplete_check = d_incomplete_check|| riter.d_incomplete;
   //set the domain for the iterator (the sufficient set of instantiations to try)
@@ -251,6 +253,8 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
   RepSetEvaluator reval( d_quantEngine->getModel(), &riter );
   while( !riter.isFinished() && ( addedLemmas==0 || !optOneInstPerQuantRound() ) ){
     d_testLemmas++;
+    int eval = 0;
+    int depIndex;
     if( d_builder.optUseModel() ){
       //see if instantiation is already true in current model
       Debug("fmf-model-eval") << "Evaluating ";
@@ -259,44 +263,42 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
       tests++;
       //if evaluate(...)==1, then the instantiation is already true in the model
       //  depIndex is the index of the least significant variable that this evaluation relies upon
-      int depIndex = riter.getNumTerms()-1;
-      int eval = reval.evaluate( d_quantEngine->getTermDatabase()->getCounterexampleBody( f ), depIndex );
+      depIndex = riter.getNumTerms()-1;
+      eval = reval.evaluate( d_quantEngine->getTermDatabase()->getCounterexampleBody( f ), depIndex );
       if( eval==1 ){
         Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
-        riter.increment2( depIndex );
       }else{
         Debug("fmf-model-eval") << "  Returned " << (eval==-1 ? "failure" : "unknown") << ", depIndex = " << depIndex << std::endl;
-        InstMatch m;
-        riter.getMatch( d_quantEngine, m );
-        Debug("fmf-model-eval") << "* Add instantiation " << m << std::endl;
-        triedLemmas++;
-        d_triedLemmas++;
-        if( d_quantEngine->addInstantiation( f, m ) ){
-          addedLemmas++;
-#ifdef EVAL_FAIL_SKIP_MULTIPLE
-          if( eval==-1 ){
-            riter.increment2( depIndex );
-          }else{
-            riter.increment();
-          }
-#else
-          riter.increment();
-#endif
-        }else{
-          Debug("ajr-temp") << "* Failed Add instantiation " << m << std::endl;
-          riter.increment();
-        }
       }
+    }
+    if( eval==1 ){
+      //instantiation is already true -> skip
+      riter.increment2( depIndex );
     }else{
+      //instantiation was not shown to be true, construct the match
       InstMatch m;
-      riter.getMatch( d_quantEngine, m );
-      Debug("fmf-model-eval") << "* Add instantiation " << std::endl;
+      for( int i=0; i<riter.getNumTerms(); i++ ){
+        m.set( d_quantEngine->getTermDatabase()->getInstantiationConstant( f, riter.d_index_order[i] ), riter.getTerm( i ) );
+      }
+      Debug("fmf-model-eval") << "* Add instantiation " << m << std::endl;
       triedLemmas++;
       d_triedLemmas++;
+      //add as instantiation
       if( d_quantEngine->addInstantiation( f, m ) ){
         addedLemmas++;
+#ifdef EVAL_FAIL_SKIP_MULTIPLE
+        if( eval==-1 ){
+          riter.increment2( depIndex );
+        }else{
+          riter.increment();
+        }
+#else
+        riter.increment();
+#endif
+      }else{
+        Debug("ajr-temp") << "* Failed Add instantiation " << m << std::endl;
+        riter.increment();
       }
-      riter.increment();
     }
   }
   d_statistics.d_eval_formulas += reval.d_eval_formulas;

@@ -21,63 +21,11 @@
 
 #include "theory/quantifiers_engine.h"
 #include "theory/quantifiers/first_order_model.h"
+#include "theory/rep_set.h"
 
 namespace CVC4 {
 namespace theory {
 namespace quantifiers {
-
-/** this class iterates over a RepSet */
-class RepSetIterator {
-public:
-  RepSetIterator( Node f, FirstOrderModel* model );
-  ~RepSetIterator(){}
-  //pointer to quantifier
-  Node d_f;
-  //pointer to model
-  FirstOrderModel* d_model;
-  //index we are considering
-  std::vector< int > d_index;
-  //domain we are considering
-  std::vector< RepDomain > d_domain;
-  //are we only considering a strict subset of the domain of the quantifier?
-  bool d_incomplete;
-  //ordering for variables we are indexing over
-  //  for example, given reps = { a, b } and quantifier forall( x, y, z ) P( x, y, z ) with d_index_order = { 2, 0, 1 },
-  //    then we consider instantiations in this order:
-  //      a/x a/y a/z
-  //      a/x b/y a/z
-  //      b/x a/y a/z
-  //      b/x b/y a/z
-  //      ...
-  std::vector< int > d_index_order;
-  //variables to index they are considered at
-  //  for example, if d_index_order = { 2, 0, 1 }
-  //    then d_var_order = { 0 -> 1, 1 -> 2, 2 -> 0 }
-  std::map< int, int > d_var_order;
-  //the instantiation constants of d_f
-  std::vector< Node > d_ic;
-  //the current terms we are considering
-  std::vector< Node > d_terms;
-public:
-  /** set index order */
-  void setIndexOrder( std::vector< int >& indexOrder );
-  /** set domain */
-  void setDomain( std::vector< RepDomain >& domain );
-  /** increment the iterator */
-  void increment2( int counter );
-  void increment();
-  /** is the iterator finished? */
-  bool isFinished();
-  /** produce the match that this iterator represents */
-  void getMatch( QuantifiersEngine* qe, InstMatch& m );
-  /** get the i_th term we are considering */
-  Node getTerm( int i );
-  /** get the number of terms we are considering */
-  int getNumTerms() { return d_f[0].getNumChildren(); }
-  /** debug print */
-  void debugPrint( const char* c );
-  void debugPrintSmall( const char* c );
-};
 
 class RepSetEvaluator
 {
