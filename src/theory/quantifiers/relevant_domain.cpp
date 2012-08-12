@@ -31,11 +31,13 @@ RelevantDomain::RelevantDomain( QuantifiersEngine* qe, FirstOrderModel* m ) : d_
 }
 
 void RelevantDomain::compute(){
+  Trace("rel-dom") << "compute relevant domain" << std::endl;
   d_quant_inst_domain.clear();
   for( int i=0; i<(int)d_model->getNumAssertedQuantifiers(); i++ ){
     Node f = d_model->getAssertedQuantifier( i );
     d_quant_inst_domain[f].resize( f[0].getNumChildren() );
   }
+  Trace("rel-dom") << "account for ground terms" << std::endl;
   //add ground terms to domain (rule 1 of complete instantiation essentially uf fragment)
   for( std::map< Node, uf::UfModelTree >::iterator it = d_model->d_uf_model_tree.begin();
        it != d_model->d_uf_model_tree.end(); ++it ){
@@ -47,6 +49,7 @@ void RelevantDomain::compute(){
         if( d_model->d_rep_set.hasType( n[j].getType() ) ){
           Node ra = d_model->getRepresentative( n[j] );
           int raIndex = d_model->d_rep_set.getIndexFor( ra );
+          if( raIndex==-1 ) Trace("rel-dom-warn") << "WARNING: Ground domain: rep set does not contain : " << ra << std::endl;
           Assert( raIndex!=-1 );
           if( std::find( d_active_domain[op][j].begin(), d_active_domain[op][j].end(), raIndex )==d_active_domain[op][j].end() ){
             d_active_domain[op][j].push_back( raIndex );
@@ -56,12 +59,14 @@ void RelevantDomain::compute(){
       //add to range
       Node r = d_model->getRepresentative( n );
       int raIndex = d_model->d_rep_set.getIndexFor( r );
+      if( raIndex==-1 ) Trace("rel-dom-warn") << "WARNING: Ground range: rep set does not contain : " << r << std::endl;
       Assert( raIndex!=-1 );
       if( std::find( d_active_range[op].begin(), d_active_range[op].end(), raIndex )==d_active_range[op].end() ){
         d_active_range[op].push_back( raIndex );
       }
     }
   }
+  Trace("rel-dom") << "do quantifiers" << std::endl;
   //find fixed point for relevant domain computation
   bool success;
   do{
@@ -79,6 +84,7 @@ void RelevantDomain::compute(){
       }
     }
   }while( !success );
+  Trace("rel-dom") << "done compute relevant domain" << std::endl;
 }
 
 bool RelevantDomain::computeRelevantInstantiationDomain( Node n, Node parent, int arg, Node f ){
@@ -167,7 +173,13 @@ bool RelevantDomain::extendFunctionDomains( Node n, RepDomain& range ){
       }
     }else{
       Node r = d_model->getRepresentative( n );
-      range.push_back( d_model->d_rep_set.getIndexFor( r ) );
+      int index = d_model->d_rep_set.getIndexFor( r );
+      if( index==-1 ){
+        //we consider all ground terms in bodies of quantifiers to be the first ground representative
+        range.push_back( 0 );
+      }else{
+        range.push_back( index );
+      }
     }
     return domainChanged;
   }

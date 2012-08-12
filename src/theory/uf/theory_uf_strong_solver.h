@@ -64,7 +64,7 @@ public:
     /** get next decision request */
     virtual TNode getNextDecisionRequest() { return TNode::null(); }
     /** minimize */
-    virtual bool minimize( OutputChannel* out ){ return true; }
+    virtual bool minimize( OutputChannel* out, TheoryModel* m ){ return true; }
     /** assert cardinality */
     virtual void assertCardinality( OutputChannel* out, int c, bool val ){}
     /** get cardinality */
@@ -261,7 +261,7 @@ public:
     /** get next decision request */
     TNode getNextDecisionRequest();
     /** minimize */
-    bool minimize( OutputChannel* out );
+    bool minimize( OutputChannel* out, TheoryModel* m );
     /** assert cardinality */
     void assertCardinality( OutputChannel* out, int c, bool val );
     /** get cardinality */
@@ -371,7 +371,7 @@ public:
   /** get representatives */
   void getRepresentatives( Node n, std::vector< Node >& reps );
   /** minimize */
-  bool minimize();
+  bool minimize( TheoryModel* m = NULL );
 
   class Statistics {
   public:

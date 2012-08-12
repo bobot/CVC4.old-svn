@@ -669,7 +669,7 @@ TNode StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
   return TNode::null();
 }
 
-bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out ){
+bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryModel* m ){
   //ensure that model forms a clique:
   // if two equivalence classes are neither equal nor disequal, add a split
   int validRegionIndex = -1;
@@ -687,6 +687,47 @@ bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out ){
   }
   if( addSplit( d_regions[validRegionIndex], out ) ){
     return false;
+  }
+  //otherwise, inspect the model to ensure that all representatives have been accounted for
+  if( m ){
+    //if the model has terms that the strong solver does not know about
+    if( (int)m->d_rep_set.d_type_reps[ d_type ].size()>d_cardinality ){
+      std::vector< Node > unaccounted;
+      eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &m->d_equalityEngine );
+      while( !eqcs_i.isFinished() ){
+        Node eqc = (*eqcs_i);
+        if( eqc.getType()==d_type ){
+          //we must ensure that this equivalence class has been accounted for
+          if( d_regions_map.find( eqc )==d_regions_map.end() ){
+            if( std::find( unaccounted.begin(), unaccounted.end(), eqc )==unaccounted.end() ){
+              unaccounted.push_back( eqc );
+              if( unaccounted.size()>1 ){
+                break;
+              }
+            }
+          }
+        }
+        ++eqcs_i;
+      }
+      //if necessary, split on an equality
+      if( !unaccounted.empty() ){
+        Node splitEq;
+        if( unaccounted.size()>1 ){
+          splitEq = unaccounted[0].eqNode( unaccounted[1] );
+        }else{
+          splitEq = unaccounted[0].eqNode( d_cardinality_lemma_term );
+        }
+        splitEq = Rewriter::rewrite( splitEq );
+        Trace("uf-ss-minimize") << "Last chance minimize : " << splitEq << std::endl;
+        out->split( splitEq );
+        //tell the sat solver to explore the equals branch first
+        out->requirePhase( splitEq, true );
+        ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
+        return false;
+      }else{
+        Assert( false );
+      }
+    }
   }
   return true;
 }
@@ -1257,7 +1298,7 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
     if( isDecision ){
       for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
         if( !it->second->hasCardinalityAsserted() ){
-          Trace("uf-ss-warn") << "WARNING: Assert " << n << " as a decision before cardinality." << std::endl;
+          Trace("uf-ss-warn") << "WARNING: Assert " << n << " as a decision before cardinality for " << it->first << "." << std::endl;
           //Message() << "Error: constraint asserted before cardinality for " << it->first << std::endl;
           //Unimplemented();
         }
@@ -1387,9 +1428,9 @@ void StrongSolverTheoryUf::getRepresentatives( Node n, std::vector< Node >& reps
   }
 }
 
-bool StrongSolverTheoryUf::minimize(){
+bool StrongSolverTheoryUf::minimize( TheoryModel* m ){
   for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
-    if( !it->second->minimize( d_out ) ){
+    if( !it->second->minimize( d_out, m ) ){
       return false;
     }
   }

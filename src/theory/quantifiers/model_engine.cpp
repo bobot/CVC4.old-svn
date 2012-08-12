@@ -49,13 +49,14 @@ d_rel_domain( qe, qe->getModel() ){
 
 void ModelEngine::check( Theory::Effort e ){
   if( e==Theory::EFFORT_LAST_CALL && !d_quantEngine->hasAddedLemma() ){
+    FirstOrderModel* fm = d_quantEngine->getModel();
     //the following will attempt to build a model and test that it satisfies all asserted universal quantifiers
     int addedLemmas = 0;
     Trace("model-engine") << "---Model Engine Round---" << std::endl;
     if( d_builder.optUseModel() ){
       //check if any quantifiers are un-initialized
-      for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
-        Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
+      for( int i=0; i<fm->getNumAssertedQuantifiers(); i++ ){
+        Node f = fm->getAssertedQuantifier( i );
         addedLemmas += initializeQuantifier( f );
       }
     }
@@ -63,7 +64,7 @@ void ModelEngine::check( Theory::Effort e ){
       Trace("model-engine") << "Initialize, Added Lemmas = " << addedLemmas << std::endl;
     }
     //two effort levels: first try exhaustive instantiation without axioms, then with.
-    int startEffort = ( !d_quantEngine->getModel()->isAxiomAsserted() || optExhInstantiateAxioms() ) ? 1 : 0;
+    int startEffort = ( !fm->isAxiomAsserted() || optExhInstantiateAxioms() ) ? 1 : 0;
     for( int effort=startEffort; effort<2; effort++ ){
       // for effort = 0, we only instantiate non-axioms
       // for effort = 1, we instantiate everything
@@ -80,23 +81,30 @@ void ModelEngine::check( Theory::Effort e ){
         //initialize the model
         Debug("fmf-model-debug") << "Build model..." << std::endl;
         d_builder.setEffort( effort );
-        d_builder.buildModel( d_quantEngine->getModel(), false );
+        d_builder.buildModel( fm, false );
         //if builder has lemmas, add and return
         if( d_builder.d_addedLemmas>0 ){
           addedLemmas += (int)d_builder.d_addedLemmas;
         }else{
-          //print debug
-          Debug("fmf-model-complete") << std::endl;
-          debugPrint("fmf-model-complete");
-          //successfully built an acceptable model, now check it
-          checkModel( addedLemmas );
-          //print debug information
-          if( Trace.isOn("model-engine") ){
-            Trace("model-engine") << "Instantiate axioms : " << ( d_builder.d_considerAxioms ? "yes" : "no" ) << std::endl;
-            Trace("model-engine") << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
-            Trace("model-engine") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
-            double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-            Trace("model-engine") << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
+          //let the strong solver verify that the model is minimal
+          uf::StrongSolverTheoryUf* uf_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
+          //we will try to minimize one last time
+          if( uf_ss->minimize( fm ) ){
+            //for debugging
+            uf_ss->debugModel( fm );
+            //print debug
+            Debug("fmf-model-complete") << std::endl;
+            debugPrint("fmf-model-complete");
+            //successfully built an acceptable model, now check it
+            checkModel( addedLemmas );
+            //print debug information
+            if( Trace.isOn("model-engine") ){
+              Trace("model-engine") << "Instantiate axioms : " << ( d_builder.d_considerAxioms ? "yes" : "no" ) << std::endl;
+              Trace("model-engine") << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
+              Trace("model-engine") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
+              double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
+              Trace("model-engine") << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
+            }
           }
         }
       }
@@ -107,7 +115,7 @@ void ModelEngine::check( Theory::Effort e ){
       debugPrint("fmf-consistent");
       if( options::produceModels() ){
         // finish building the model in the standard way
-        d_builder.buildModel( d_quantEngine->getModel(), true );
+        d_builder.buildModel( fm, true );
         d_quantEngine->d_model_set = true;
       }
       //if the check was incomplete, we must set incomplete flag
@@ -207,9 +215,6 @@ void ModelEngine::checkModel( int& addedLemmas ){
       }
     }
   }
-  //let the strong solver debug the model
-  uf::StrongSolverTheoryUf* uf_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
-  uf_ss->debugModel( fm );
   //verify we are SAT by trying exhaustive instantiation
   d_incomplete_check = false;
   if( optUseRelevantDomain() ){
@@ -243,6 +248,17 @@ void ModelEngine::checkModel( int& addedLemmas ){
 }
 
 int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
+  Trace("rel-dom") << "Exhaustive instantiate " << f << std::endl;
+  if( useRelInstDomain ){
+    Trace("rel-dom") << "Relevant domain : " << std::endl;
+    for( size_t i=0; i<d_rel_domain.d_quant_inst_domain[f].size(); i++ ){
+      Trace("rel-dom") << "   " << i << " : ";
+      for( size_t j=0; j<d_rel_domain.d_quant_inst_domain[f][i].size(); j++ ){
+        Trace("rel-dom") << d_rel_domain.d_quant_inst_domain[f][i][j] << " ";
+      }
+      Trace("rel-dom") << std::endl;
+    }
+  }
   int tests = 0;
   int addedLemmas = 0;
   int triedLemmas = 0;
