@@ -165,6 +165,20 @@ Node UfModelTreeNode::getFunctionValue(){
   }
 }
 
+//update function
+void UfModelTreeNode::update( TheoryModel* m ){
+  if( !d_value.isNull() ){
+    d_value = m->getRepresentative( d_value );
+  }
+  std::map< Node, UfModelTreeNode > old = d_data;
+  d_data.clear();
+  for( std::map< Node, UfModelTreeNode >::iterator it = old.begin(); it != old.end(); ++it ){
+    Node rep = m->getRepresentative( it->first );
+    d_data[ rep ] = it->second;
+    d_data[ rep ].update( m );
+  }
+}
+
 //simplify function
 void UfModelTreeNode::simplify( Node op, Node defaultVal, int argIndex ){
   if( argIndex<(int)op.getType().getNumChildren()-1 ){

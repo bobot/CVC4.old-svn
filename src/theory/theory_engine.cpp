@@ -361,7 +361,7 @@ void TheoryEngine::check(Theory::Effort effort) {
         //if returning incomplete or SAT, we have ensured that the model in the quantifiers engine has been built
       }else if( options::produceModels() ){
         //must build model at this point
-        d_curr_model_builder->buildModel( d_curr_model );
+        d_curr_model_builder->buildModel( d_curr_model, true );
       }
     }
 

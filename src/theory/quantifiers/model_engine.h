@@ -62,7 +62,7 @@ private:
   int d_totalLemmas;
   int d_relevantLemmas;
 public:
-  ModelEngine( QuantifiersEngine* qe );
+  ModelEngine( context::Context* c, QuantifiersEngine* qe );
   ~ModelEngine(){}
 public:
   void check( Theory::Effort e );

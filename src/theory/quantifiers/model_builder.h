@@ -27,24 +27,29 @@ namespace CVC4 {
 namespace theory {
 namespace quantifiers {
 
-//the model builder
+/** model builder class
+  *  This class is capable of building candidate models based on the current quantified formulas
+  *  that are asserted.  Use:
+  *  (1) call ModelEngineBuilder::buildModel( m, false );, where m is a FirstOrderModel
+  *  (2) if candidate model is determined to be a real model,
+           then call ModelEngineBuilder::buildModel( m, true );
+  */
 class ModelEngineBuilder : public TheoryEngineModelBuilder
 {
 protected:
   //quantifiers engine
   QuantifiersEngine* d_qe;
+  //the model we are working with
+  context::CDO< FirstOrderModel* > d_curr_model;
   //map from operators to model preference data
   std::map< Node, uf::UfModelPreferenceData > d_uf_prefs;
   //built model uf
   std::map< Node, bool > d_uf_model_constructed;
-  // completing model
-  //  this flag is set when we are sure that the candidate model is a real model
-  bool d_completingModel;
 protected:
   /** process build model */
-  void processBuildModel( TheoryModel* m );
+  void processBuildModel( TheoryModel* m, bool fullModel );
   /** choose representative for unconstrained equivalence class */
-  Node chooseRepresentative( TheoryModel* m, Node eqc );
+  Node chooseRepresentative( TheoryModel* m, Node eqc, bool fullModel );
   /** bad representative */
   bool isBadRepresentative( Node n );
 protected:
@@ -59,11 +64,8 @@ protected:
   //do InstGen techniques for quantifier, return number of lemmas produced
   int doInstGen( FirstOrderModel* fm, Node f );
 public:
-  ModelEngineBuilder( QuantifiersEngine* qe );
+  ModelEngineBuilder( context::Context* c, QuantifiersEngine* qe );
   virtual ~ModelEngineBuilder(){}
-  /** finish model */
-  void finishProcessBuildModel( TheoryModel* m );
-public:
   /** number of lemmas generated while building model */
   int d_addedLemmas;
   //map from quantifiers to if are constant SAT

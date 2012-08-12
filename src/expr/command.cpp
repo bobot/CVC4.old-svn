@@ -1168,6 +1168,7 @@ DatatypeDeclarationCommand::getDatatypes() const throw() {
 
 void DatatypeDeclarationCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("declarations") << *this;
+  smtEngine->addToModelDatatypes( d_datatypes );
   d_commandStatus = CommandSuccess::instance();
 }
 

@@ -40,9 +40,9 @@ using namespace CVC4::theory::quantifiers;
 using namespace CVC4::theory::inst;
 
 //Model Engine constructor
-ModelEngine::ModelEngine( QuantifiersEngine* qe ) :
+ModelEngine::ModelEngine( context::Context* c, QuantifiersEngine* qe ) :
 QuantifiersModule( qe ),
-d_builder( qe ),
+d_builder( c, qe ),
 d_rel_domain( qe, qe->getModel() ){
 
 }
@@ -58,6 +58,9 @@ void ModelEngine::check( Theory::Effort e ){
         Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
         addedLemmas += initializeQuantifier( f );
       }
+    }
+    if( addedLemmas>0 ){
+      Trace("model-engine") << "Initialize, Added Lemmas = " << addedLemmas << std::endl;
     }
     //two effort levels: first try exhaustive instantiation without axioms, then with.
     int startEffort = ( !d_quantEngine->getModel()->isAxiomAsserted() || optExhInstantiateAxioms() ) ? 1 : 0;
@@ -77,7 +80,7 @@ void ModelEngine::check( Theory::Effort e ){
         //initialize the model
         Debug("fmf-model-debug") << "Build model..." << std::endl;
         d_builder.setEffort( effort );
-        d_builder.buildModel( d_quantEngine->getModel() );
+        d_builder.buildModel( d_quantEngine->getModel(), false );
         //if builder has lemmas, add and return
         if( d_builder.d_addedLemmas>0 ){
           addedLemmas += (int)d_builder.d_addedLemmas;
@@ -89,7 +92,7 @@ void ModelEngine::check( Theory::Effort e ){
           checkModel( addedLemmas );
           //print debug information
           if( Trace.isOn("model-engine") ){
-            Trace("model-engine") << "Instantiate axioms : " << d_builder.d_considerAxioms << std::endl;
+            Trace("model-engine") << "Instantiate axioms : " << ( d_builder.d_considerAxioms ? "yes" : "no" ) << std::endl;
             Trace("model-engine") << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
             Trace("model-engine") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
             double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
@@ -104,7 +107,7 @@ void ModelEngine::check( Theory::Effort e ){
       debugPrint("fmf-consistent");
       if( options::produceModels() ){
         // finish building the model in the standard way
-        d_builder.finishProcessBuildModel( d_quantEngine->getModel() );
+        d_builder.buildModel( d_quantEngine->getModel(), true );
         d_quantEngine->d_model_set = true;
       }
       //if the check was incomplete, we must set incomplete flag

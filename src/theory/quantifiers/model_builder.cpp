@@ -35,15 +35,15 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-ModelEngineBuilder::ModelEngineBuilder( QuantifiersEngine* qe ) :
+ModelEngineBuilder::ModelEngineBuilder( context::Context* c, QuantifiersEngine* qe ) :
 TheoryEngineModelBuilder( qe->getTheoryEngine() ),
-d_qe( qe ), d_completingModel( false ){
+d_qe( qe ), d_curr_model( c, NULL ){
   d_considerAxioms = true;
 }
 
-Node ModelEngineBuilder::chooseRepresentative( TheoryModel* m, Node eqc ){
-  if( d_completingModel ){
-    return TheoryEngineModelBuilder::chooseRepresentative( m, eqc );
+Node ModelEngineBuilder::chooseRepresentative( TheoryModel* m, Node eqc, bool fullModel ){
+  if( fullModel ){
+    return TheoryEngineModelBuilder::chooseRepresentative( m, eqc, fullModel );
   }else{
     Assert( m->d_equalityEngine.hasTerm( eqc ) );
     Assert( m->d_equalityEngine.getRepresentative( eqc )==eqc );
@@ -68,8 +68,18 @@ bool ModelEngineBuilder::isBadRepresentative( Node n ){
   return n.getKind()==SELECT || n.getKind()==APPLY_SELECTOR;
 }
 
-void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
-  if( !d_completingModel ){
+void ModelEngineBuilder::processBuildModel( TheoryModel* m, bool fullModel ) {
+  FirstOrderModel* fm = (FirstOrderModel*)m;
+  if( fullModel ){
+    Assert( d_curr_model==fm );
+    //update models
+    for( std::map< Node, uf::UfModelTree >::iterator it = fm->d_uf_model_tree.begin(); it != fm->d_uf_model_tree.end(); ++it ){
+      it->second.update( fm );
+    }
+
+  }else{
+    d_curr_model = fm;
+    //build model for relevant symbols contained in quantified formulas
     d_addedLemmas = 0;
     //for debugging
     if( Trace.isOn("model-engine") ){
@@ -81,7 +91,6 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m ) {
     }
     //only construct first order model if optUseModel() is true
     if( optUseModel() ){
-      FirstOrderModel* fm = (FirstOrderModel*)m;
       //initialize model
       fm->initialize( d_considerAxioms );
       //analyze the functions
@@ -406,14 +415,6 @@ void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, Node op ){
     d_uf_model_constructed[op] = true;
     Debug("fmf-model-cons") << "  Finished constructing model for " << op << "." << std::endl;
   }
-}
-
-void ModelEngineBuilder::finishProcessBuildModel( TheoryModel* m ){
-  d_completingModel = true;
-  buildModel( m );
-  d_completingModel = false;
-  //refresh model with new representatives, in other words make
-  //  uf model tree classes refer to new representatives TODO
 }
 
 bool ModelEngineBuilder::optUseModel() {

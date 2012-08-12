@@ -403,6 +403,12 @@ public:
   void addToModelFunction( Expr& e );
 
   /**
+   * Add to Model Datatypes.  This is used for recording which datatype types should be reported
+   * during a get-model call.
+   */
+  void addToModelDatatypes( std::vector< DatatypeType >& dts );
+
+  /**
    * Get the model (only if immediately preceded by a SAT
    * or INVALID query).  Only permitted if CVC4 was built with model
    * support and produce-models is on.

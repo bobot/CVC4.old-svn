@@ -93,7 +93,6 @@ void RepSetIterator::setQuantifier( Node f ){
 }
 
 void RepSetIterator::setFunctionDomain( Node op ){
-  //TODO
   TypeNode tn = op.getType();
   for( size_t i=0; i<tn.getNumChildren()-1; i++ ){
     d_types.push_back( tn[i] );

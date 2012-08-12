@@ -1837,6 +1837,19 @@ void SmtEngine::addToModelFunction( Expr& e ){
   }
 }
 
+void SmtEngine::addToModelDatatypes( std::vector< DatatypeType >& dts ){
+  Trace("smt") << "SMT addToModelDatatypes(...)" << endl;
+  SmtScope smts(this);
+  finalOptionsAreSet();
+  if( options::produceModels() ) {
+    std::vector< TypeNode > dt_nodes;
+    for( size_t i=0; i<dts.size(); i++ ){
+      dt_nodes.push_back( TypeNode::fromType( dts[i] ) );
+    }
+    d_theoryEngine->getModel()->addDefineDatatypes( dt_nodes );
+  }
+}
+
 
 Model* SmtEngine::getModel() throw(ModalException, AssertionException){
   Trace("smt") << "SMT getModel()" << endl;

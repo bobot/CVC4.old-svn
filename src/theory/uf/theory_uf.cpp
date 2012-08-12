@@ -23,6 +23,7 @@
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/model.h"
+#include "theory/type_enumerator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -176,8 +177,56 @@ Node TheoryUF::explain(TNode literal) {
   return mkAnd(assumptions);
 }
 
-void TheoryUF::collectModelInfo( TheoryModel* m, bool addConsts ){
+void TheoryUF::collectModelInfo( TheoryModel* m, bool fullModel ){
   m->assertEqualityEngine( &d_equalityEngine );
+  if( fullModel ){
+#if 1
+    std::map< TypeNode, int > type_count;
+    //must choose proper representatives
+    // for each equivalence class, specify the constructor as a representative
+    eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+    while( !eqcs_i.isFinished() ){
+      Node eqc = (*eqcs_i);
+      TypeNode tn = eqc.getType();
+      if( tn.isSort() ){
+        if( type_count.find( tn )==type_count.end() ){
+          type_count[tn] = 0;
+        }
+        std::stringstream ss;
+        ss << Expr::setlanguage(options::outputLanguage());
+        ss << "$t_" << tn << (type_count[tn]+1);
+        type_count[tn]++;
+        Node rep = NodeManager::currentNM()->mkVar( ss.str(), tn );
+        Trace("mkVar") << "TheoryUF::collectModelInfo:  make variable " << rep << " : " << tn << std::endl;
+        //specify the constant as the representative
+        m->assertEquality( eqc, rep, true );
+        m->assertRepresentative( rep );
+      }
+      ++eqcs_i;
+    }
+#else
+    //FIXME: Uninterpretted constants do not have typing rule!!!
+    std::map< TypeNode, TypeEnumerator* > type_enums;
+    //must choose proper representatives
+    // for each equivalence class, specify the constructor as a representative
+    eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+    while( !eqcs_i.isFinished() ){
+      Node eqc = (*eqcs_i);
+      TypeNode tn = eqc.getType();
+      if( tn.isSort() ){
+        if( type_enums.find( tn )==type_enums.end() ){
+          type_enums[tn] = new TypeEnumerator( tn );
+        }
+        Node rep = *(*type_enums[tn]);
+        ++(*type_enums[tn]);
+        //specify the constant as the representative
+        m->assertEquality( eqc, rep, true );
+        m->assertRepresentative( rep );
+      }
+      ++eqcs_i;
+    }
+ #endif
+  }
 }
 
 void TheoryUF::presolve() {

@@ -644,10 +644,29 @@ void TheoryDatatypes::computeCareGraph(){
   Theory::computeCareGraph();
 }
 
-void TheoryDatatypes::collectModelInfo( TheoryModel* m, bool addConsts ){
+void TheoryDatatypes::collectModelInfo( TheoryModel* m, bool fullModel ){
   Trace("dt-model") << std::endl;
   printModelDebug( "dt-model" );
   m->assertEqualityEngine( &d_equalityEngine );
+  //must choose proper representatives
+  // for each equivalence class, specify the constructor as a representative
+  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+  while( !eqcs_i.isFinished() ){
+    Node eqc = (*eqcs_i);
+    if( eqc.getType().isDatatype() ){
+      EqcInfo* ei = getOrMakeEqcInfo( eqc );
+      if( ei ){
+        if( !ei->d_constructor.get().isNull() ){
+          m->assertRepresentative( ei->d_constructor.get() );
+        }else{
+          Trace("model-warn") << "Datatypes: no constructor in equivalence class " << eqc << std::endl;
+        }
+      }else{
+        Trace("model-warn") << "Datatypes: no equivalence class info for " << eqc << std::endl;
+      }
+    }
+    ++eqcs_i;
+  }
 }
 
 

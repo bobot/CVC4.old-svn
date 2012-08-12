@@ -81,7 +81,7 @@ d_active( c ){
     d_inst_engine = NULL;
   }
   if( options::finiteModelFind() ){
-    d_model_engine = new quantifiers::ModelEngine( this );
+    d_model_engine = new quantifiers::ModelEngine( c, this );
     d_modules.push_back( d_model_engine );
   }else{
     d_model_engine = NULL;
@@ -140,7 +140,7 @@ void QuantifiersEngine::check( Theory::Effort e ){
   //build the model if not done so already
   //  this happens if no quantifiers are currently asserted and no model-building module is enabled
   if( options::produceModels() && e==Theory::EFFORT_LAST_CALL && !d_hasAddedLemma && !d_model_set ){
-    d_te->getModelBuilder()->buildModel( d_model );
+    d_te->getModelBuilder()->buildModel( d_model, true );
   }
 }
 

@@ -49,6 +49,8 @@ public:
   Node getConstantValue( TheoryModel* m, Node n, std::vector< int >& indexOrder, int argIndex );
   /** getFunctionValue */
   Node getFunctionValue();
+  /** update function */
+  void update( TheoryModel* m );
   /** simplify function */
   void simplify( Node op, Node defaultVal, int argIndex );
   /** is total ? */
@@ -126,9 +128,11 @@ public:
     *   Returns a compact representation of this function, of kind FUNCTION_MODEL.
     *   See documentation in theory/uf/kinds
     */
-  Node getFunctionValue(){
-    return d_tree.getFunctionValue();
-  }
+  Node getFunctionValue(){ return d_tree.getFunctionValue(); }
+  /** update
+    *   This will update all values in the tree to be representatives in m.
+    */
+  void update( TheoryModel* m ){ d_tree.update( m ); }
   /** simplify the tree */
   void simplify() { d_tree.simplify( d_op, Node::null(), 0 ); }
   /** is this tree total? */
