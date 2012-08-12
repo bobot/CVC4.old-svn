@@ -232,7 +232,6 @@ public:
     int d_aloc_cardinality;
     /** cardinality lemma term */
     Node d_cardinality_lemma_term;
-    bool d_cardinality_lemma_term_eq;
     /** cardinality literals */
     std::map< int, Node > d_cardinality_literal;
     /** cardinality lemmas */
@@ -245,7 +244,6 @@ public:
     SortRepModel( Node n, context::Context* c, TheoryUF* th ) : RepModel( n.getType() ),
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
         d_reps( c, 0 ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ), d_cardinality_lemma_term( n ),
-        d_cardinality_lemma_term_eq( false ),
         d_cardinality_assertions( c ), d_hasCard( c, false ){}
     virtual ~SortRepModel(){}
     /** initialize */

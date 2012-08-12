@@ -604,6 +604,14 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
     options::decisionMode.set(decMode);
     options::decisionStopOnly.set(stoponly);
   }
+
+  //for finite model finding
+  if( ! options::instWhenMode.wasSetByUser()){
+    if( options::fmfInstEngine() ){
+      Trace("smt") << "setting inst when mode to LAST_CALL" << std::endl;
+      options::instWhenMode.set( INST_WHEN_LAST_CALL );
+    }
+  }
 }
 
 void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)

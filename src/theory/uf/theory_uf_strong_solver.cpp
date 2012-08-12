@@ -950,18 +950,7 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
 
 Node StrongSolverTheoryUf::SortRepModel::getCardinalityLemma( int c, OutputChannel* out ){
   if( d_cardinality_lemma.find( c )==d_cardinality_lemma.end() ){
-    if( d_cardinality_lemma_term.isNull() ){
-      if( d_th->getQuantifiersEngine()->getTermDatabase()->d_type_map[ d_type ].empty() ){
-        std::stringstream ss;
-        ss << Expr::setlanguage(options::outputLanguage());
-        ss << "t_" << d_type;
-        d_cardinality_lemma_term = NodeManager::currentNM()->mkVar( ss.str(), d_type );
-        Trace("mkVar") << "SortRepModel:: Make variable " << d_cardinality_lemma_term << " : " << d_type << std::endl;
-      }else{
-        d_cardinality_lemma_term = d_th->getQuantifiersEngine()->getTermDatabase()->d_type_map[ d_type ][0];
-        d_cardinality_lemma_term_eq = true;
-      }
-    }
+    Assert( !d_cardinality_lemma_term.isNull() );
     Node lem = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_lemma_term,
                                   NodeManager::currentNM()->mkConst( Rational( c ) ) );
     lem = Rewriter::rewrite(lem);
@@ -1002,7 +991,6 @@ bool StrongSolverTheoryUf::SortRepModel::addSplit( Region* r, OutputChannel* out
       //  the cardinality lemma is not pre-registered
       Trace("mkVar") << "Add possibly unsound var lemma : " << s << std::endl;
       //we are allowed to do this since we own this variable
-      d_cardinality_lemma_term_eq = true;
       out->lemma( s );
     }
     return true;
@@ -1037,20 +1025,27 @@ void StrongSolverTheoryUf::SortRepModel::debugPrint( const char* c ){
 }
 
 void StrongSolverTheoryUf::SortRepModel::debugModel( TheoryModel* m ){
-  int eqcCount = 0;
+  std::vector< Node > eqcs;
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &m->d_equalityEngine );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
     if( eqc.getType()==d_type ){
-      eqcCount++;
-      //we must ensure that this equivalence class has been accounted for
+      if( std::find( eqcs.begin(), eqcs.end(), eqc )==eqcs.end() ){
+        eqcs.push_back( eqc );
+        //we must ensure that this equivalence class has been accounted for
+        if( d_regions_map.find( eqc )==d_regions_map.end() ){
+          Trace("uf-ss-warn") << "WARNING : equivalence class " << eqc << " unaccounted for." << std::endl;
+          Trace("uf-ss-warn") << "  type : " << d_type << std::endl;
+          Trace("uf-ss-warn") << "  kind : " << eqc.getKind() << std::endl;
+        }
+      }
     }
     ++eqcs_i;
   }
-  if( eqcCount!=d_cardinality ){
+  if( (int)eqcs.size()!=d_cardinality ){
     Trace("uf-ss-warn") << "WARNING : Model does not have same # representatives as cardinality for " << d_type << "." << std::endl;
     Trace("uf-ss-warn") << "  cardinality : " << d_cardinality << std::endl;
-    Trace("uf-ss-warn") << "  # reps : " << eqcCount << std::endl;
+    Trace("uf-ss-warn") << "  # reps : " << (int)eqcs.size() << std::endl;
   }
 }
 
@@ -1427,8 +1422,10 @@ void StrongSolverTheoryUf::debugPrint( const char* c ){
 }
 
 void StrongSolverTheoryUf::debugModel( TheoryModel* m ){
-  for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
-    it->second->debugModel( m );
+  if( Trace.isOn("uf-ss-warn") ){
+    for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
+      it->second->debugModel( m );
+    }
   }
 }
 

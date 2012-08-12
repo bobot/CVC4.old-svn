@@ -419,7 +419,10 @@ TheoryModel( c, name ), d_enableFuncModels( enableFuncModels ){
 void DefaultModel::addTerm( Node n ){
   //must collect UF terms
   if( d_enableFuncModels && n.getKind()==APPLY_UF ){
-    d_uf_terms[ n.getOperator() ].push_back( n );
+    Node op = n.getOperator();
+    if( std::find( d_uf_terms[ op ].begin(), d_uf_terms[ op ].end(), n )==d_uf_terms[ op ].end() ){
+      d_uf_terms[ op ].push_back( n );
+    }
   }
 }
 
@@ -494,7 +497,6 @@ void TheoryEngineModelBuilder::buildModel( Model* m, bool fullModel ){
   //collect model info from the theory engine
   Trace("model-builder") << "TheoryEngineModelBuilder: Collect model info..." << std::endl;
   d_te->collectModelInfo( tm, fullModel );
-#if 1
   Trace("model-builder") << "Collect representatives..." << std::endl;
   //store asserted representative map
   std::map< Node, Node > assertedReps;
@@ -502,45 +504,51 @@ void TheoryEngineModelBuilder::buildModel( Model* m, bool fullModel ){
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &tm->d_equalityEngine );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
-    TypeNode eqct = eqc.getType();
-    Node const_rep;
-    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &tm->d_equalityEngine );
-    while( !eqc_i.isFinished() ){
-      Node n = *eqc_i;
-      //if this node was specified as a representative
-      if( tm->d_reps.find( n )!=tm->d_reps.end() ){
-        Assert( !tm->d_reps[n].isNull() );
-        //if not already specified
-        if( assertedReps.find( eqc )==assertedReps.end() ){
-          Trace("model-builder") << "Rep( " << eqc << " ) = " << tm->d_reps[n] << std::endl;
-          assertedReps[ eqc ] = tm->d_reps[n];
-        }else{
-          //duplicate representative specified
-          Trace("model-warn") << "Duplicate representative specified for equivalence class " << eqc << ": " << std::endl;
-          Trace("model-warn") << "      " << assertedReps[eqc] << ", " << n << std::endl;
-          Trace("model-warn") << "  Type : " << n.getType() << std::endl;
+    if( assertedReps.find( eqc )!=assertedReps.end() ){
+      Trace("model-warn") << "Duplicate equivalence class!!!! " << eqc << std::endl;
+    }else{
+      TypeNode eqct = eqc.getType();
+      Node const_rep;
+      eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &tm->d_equalityEngine );
+      while( !eqc_i.isFinished() ){
+        Node n = *eqc_i;
+        //if this node was specified as a representative
+        if( tm->d_reps.find( n )!=tm->d_reps.end() ){
+          Assert( !tm->d_reps[n].isNull() );
+          //if not already specified
+          if( assertedReps.find( eqc )==assertedReps.end() ){
+            Trace("model-builder") << "Rep( " << eqc << " ) = " << tm->d_reps[n] << std::endl;
+            assertedReps[ eqc ] = tm->d_reps[n];
+          }else{
+            if( n!=assertedReps[eqc] ){   //FIXME : this should be an assertion, EqClassIterator should not give duplicates
+              //duplicate representative specified
+              Trace("model-warn") << "Duplicate representative specified for equivalence class " << eqc << ": " << std::endl;
+              Trace("model-warn") << "      " << assertedReps[eqc] << ", " << n << std::endl;
+              Trace("model-warn") << "  Type : " << n.getType() << std::endl;
+            }
+          }
+        }else if( n.getMetaKind()==kind::metakind::CONSTANT ){
+          //if this is constant, we will use it as representative (if none other specified)
+          const_rep = n;
         }
-      }else if( n.getMetaKind()==kind::metakind::CONSTANT ){
-        //if this is constant, we will use it as representative (if none other specified)
-        const_rep = n;
+        //model-specific processing of the term
+        tm->addTerm( n );
+        ++eqc_i;
       }
-      //model-specific processing of the term
-      tm->addTerm( n );
-      ++eqc_i;
-    }
-    //if a representative was not specified
-    if( assertedReps.find( eqc )==assertedReps.end() ){
-      if( !const_rep.isNull() ){
-        //use the constant representative
-        assertedReps[ eqc ] = const_rep;
-      }else{
-        if( fullModel ){
-          //assertion failure?
-          Trace("model-warn") << "No representative specified for equivalence class " << eqc << std::endl;
-          Trace("model-warn") << "  Type : " << eqc.getType() << std::endl;
+      //if a representative was not specified
+      if( assertedReps.find( eqc )==assertedReps.end() ){
+        if( !const_rep.isNull() ){
+          //use the constant representative
+          assertedReps[ eqc ] = const_rep;
+        }else{
+          if( fullModel ){
+            //assertion failure?
+            Trace("model-warn") << "No representative specified for equivalence class " << eqc << std::endl;
+            Trace("model-warn") << "  Type : " << eqc.getType() << std::endl;
+          }
+          //assertedReps[ eqc ] = chooseRepresentative( tm, eqc, fullModel );
+          assertedReps[ eqc ] = eqc;
         }
-        //assertedReps[ eqc ] = chooseRepresentative( tm, eqc, fullModel );
-        assertedReps[ eqc ] = eqc;
       }
     }
     ++eqcs_i;
@@ -549,8 +557,8 @@ void TheoryEngineModelBuilder::buildModel( Model* m, bool fullModel ){
   //now, normalize all representatives
   // this will make every leaf of asserted representatives into a representative
   std::map< Node, bool > normalized;
-  std::map< Node, bool > normalizing;
   for( std::map< Node, Node >::iterator it = assertedReps.begin(); it != assertedReps.end(); ++it ){
+    std::map< Node, bool > normalizing;
     normalizeRepresentative( tm, it->first, assertedReps, normalized, normalizing );
   }
   Trace("model-builder") << "Copy representatives to model..." << std::endl;
@@ -560,178 +568,9 @@ void TheoryEngineModelBuilder::buildModel( Model* m, bool fullModel ){
     tm->d_reps[ it->first ] = it->second;
     tm->d_rep_set.add( it->second );
   }
-#else
-  //unresolved equivalence classes
-  std::map< Node, bool > unresolved_eqc;
-  std::map< TypeNode, bool > unresolved_types;
-  std::map< Node, std::vector< Node > > selects;
-  std::map< Node, Node > apply_constructors;
-  Debug( "model-builder" ) << "TheoryEngineModelBuilder: Build representatives..." << std::endl;
-  //populate term database, store constant representatives
-  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &tm->d_equalityEngine );
-  while( !eqcs_i.isFinished() ){
-    Node eqc = (*eqcs_i);
-    TypeNode eqct = eqc.getType();
-    //initialize unresolved type information
-    initializeType( eqct, unresolved_types );
-    //add terms to model, get constant rep if possible
-    Node const_rep;
-    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &tm->d_equalityEngine );
-    while( !eqc_i.isFinished() ){
-      Node n = *eqc_i;
-      //check if this is constant, if so, we will use it as representative
-      if( n.getMetaKind()==kind::metakind::CONSTANT ){
-        const_rep = n;
-      }
-      //theory-specific information needed
-      if( n.getKind()==SELECT ){
-        selects[ n[0] ].push_back( n );
-      }else if( n.getKind()==APPLY_CONSTRUCTOR ){
-        apply_constructors[ eqc ] = n;
-      }
-      //model-specific processing of the term
-      tm->addTerm( n );
-      ++eqc_i;
-    }
-    //store representative in representative set
-    if( !const_rep.isNull() ){
-      unresolved_eqc[ eqc ] = false;
-      tm->d_reps[ eqc ] = const_rep;
-      tm->d_rep_set.add( const_rep );
-    }else{
-      unresolved_eqc[ eqc ] = true;
-      unresolved_types[ eqct ] = true;
-    }
-    ++eqcs_i;
-  }
-  //choose representatives for unresolved equivalence classes
-  Debug( "model-builder" ) << "TheoryEngineModelBuilder: Complete model..." << std::endl;
-  bool fixedPoint;
-  do{
-    fixedPoint = true;
-    //for calculating unresolved types
-    std::map< TypeNode, bool > unresolved_types_next;
-    for( std::map< TypeNode, bool >::iterator it = unresolved_types.begin(); it != unresolved_types.end(); ++it ){
-      unresolved_types_next[ it->first ] = false;
-    }
-    //try to resolve each unresolved equivalence class
-    for( std::map< Node, bool >::iterator it = unresolved_eqc.begin(); it != unresolved_eqc.end(); ++it ){
-      if( it->second ){
-        Node n = it->first;
-        TypeNode tn = n.getType();
-        Node rep;
-        bool mkRep = true;
-        if( tn.isArray() ){
-          TypeNode index_t = tn.getArrayIndexType();
-          TypeNode elem_t = tn.getArrayConstituentType();
-          if( !unresolved_types[ index_t ] && !unresolved_types[ elem_t ] ){
-            arrays::ArrayModel am( n, tm );
-            //set all values from existing select terms
-            eq::EqClassIterator eqc_i = eq::EqClassIterator( n, &tm->d_equalityEngine );
-            while( !eqc_i.isFinished() ){
-              for( int i=0; i<(int)selects[ *eqc_i ].size(); i++ ){
-                am.setValue( tm, selects[ *eqc_i ][i][1], selects[ *eqc_i ][i] );
-              }
-              ++eqc_i;
-            }
-            //choose a representative as the default array
-            if( fullModel ){
-              am.setDefaultArray( chooseRepresentative( tm, am.d_base_arr, true ) );
-            }
-            //construct the representative
-            rep = am.getArrayValue();
-          }
-          mkRep = false;
-        }else if( tn.isDatatype() ){
-          //we require that all datatype equivalence classes have a constructor in them
-          if( apply_constructors.find( n )!=apply_constructors.end() ){
-            Node ac = apply_constructors[n];
-            std::vector< Node > children;
-            children.push_back( ac.getOperator() );
-            for( size_t i = 0; i<ac.getNumChildren(); i++ ){
-              Node acir = ac[i];
-              if( acir.getMetaKind()!=kind::metakind::CONSTANT ){
-                if( tm->d_equalityEngine.hasTerm( acir ) ){
-                  acir = tm->d_equalityEngine.getRepresentative( acir );
-                }
-                if( unresolved_eqc.find( acir )==unresolved_eqc.end() ){
-                  Trace("model-warn") << "TheoryEngineModelBuilder::buildModel : Datatype argument does not exist in the model " << acir << std::endl;
-                  Trace("model-warn") << "  from " << ac << ", argument " << i << std::endl;
-                  acir = Node::null();
-                }
-              }
-              if( acir.isNull() || unresolved_eqc[ acir ] ){
-                mkRep = false;
-                break;
-              }else{
-                children.push_back( tm->getRepresentative( acir ) );
-              }
-            }
-            if( mkRep ){
-              //construct the representative from the representatives of the children
-              rep = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
-            }
-          }else{
-            Trace("model-warn") << "TheoryEngineModelBuilder::buildModel : Do not know how to resolve datatype equivalence class " << n << " : " << n.getType() << std::endl;
-          }
-          mkRep = false;
-        }
-        //if applicable, choose any representative
-        if( mkRep ){
-          rep = chooseRepresentative( tm, n, fullModel );
-        }
-        //if we have generated a representative for n on this iteration
-        if( !rep.isNull() ){
-          tm->assertEquality( n, rep, true );
-          tm->d_reps[ n ] = rep;
-          tm->d_rep_set.add( rep );
-          unresolved_eqc[ n ] = false;
-          fixedPoint = false;
-        }else{
-          unresolved_types_next[ tn ] = true;
-        }
-      }
-    }
-    //for calculating unresolved types
-    for( std::map< TypeNode, bool >::iterator it = unresolved_types.begin(); it != unresolved_types.end(); ++it ){
-      unresolved_types[ it->first ] = unresolved_types_next[ it->first ];
-    }
-  }while( !fixedPoint );
-
-  //choose representatives for any equivalence classes that are still unresolved
-  //  this should typically never happen (all equivalence classes should be resolved at this point)
-  for( std::map< Node, bool >::iterator it = unresolved_eqc.begin(); it != unresolved_eqc.end(); ++it ){
-    if( it->second ){
-      Node n = it->first;
-      Node rep = chooseRepresentative( tm, n, fullModel );
-      tm->assertEquality( n, rep, true );
-      tm->d_reps[ n ] = rep;
-      tm->d_rep_set.add( rep );
-      //FIXME: Assertion failure here?
-      Trace("model-warn") << "Warning : Unresolved eqc, assigning " << rep << " for eqc( " << n << " ), type = " << n.getType() << std::endl;
-    }
-  }
-#endif
 
   //model-specific initialization
   processBuildModel( tm, fullModel );
-}
-
-void TheoryEngineModelBuilder::initializeType( TypeNode tn, std::map< TypeNode, bool >& unresolved_types ){
-  if( unresolved_types.find( tn )==unresolved_types.end() ){
-    unresolved_types[tn] = false;
-    if( tn.isArray() ){
-      initializeType( tn.getArrayIndexType(), unresolved_types );
-      initializeType( tn.getArrayConstituentType(), unresolved_types );
-    }else if( tn.isDatatype() ){
-      const Datatype& dt = ((DatatypeType)(tn).toType()).getDatatype();
-      for( size_t i = 0; i<dt.getNumConstructors(); i++ ){
-        for( size_t j = 0; j<dt[i].getNumArgs(); j++ ){
-          initializeType( TypeNode::fromType( dt[i][j].getType() ), unresolved_types );
-        }
-      }
-    }
-  }
 }
 
 Node TheoryEngineModelBuilder::chooseRepresentative( TheoryModel* m, Node eqc, bool fullModel ){
@@ -749,51 +588,67 @@ Node TheoryEngineModelBuilder::chooseRepresentative( TheoryModel* m, Node eqc, b
 Node TheoryEngineModelBuilder::normalizeRepresentative( TheoryModel* m, Node r, std::map< Node, Node >& reps,
                                                         std::map< Node, bool >& normalized,
                                                         std::map< Node, bool >& normalizing ){
-  //std::cout << "normalize rep " << r << std::endl;
-  if( reps.find( r )!=reps.end() ){
-    if( normalized.find( r )!=normalized.end() ){
-      //std::cout << " -> already normalized, return " << reps[r] << std::endl;
-      return reps[r];
-    }else if( normalizing.find( r )!=normalizing.end() && normalizing[r] ){
-      //TODO: this case is only temporary to handle things like when store( A, e, i ) is given
-      //       as a representative for array A.
-      //std::cout << " -> currently normalizing, give up : " << r << std::endl;
-      return r;
-    }else{
-      normalizing[ r ] = true;
-      Node retNode = reps[r];
-      if( retNode.getNumChildren()>0 ){
-        //std::cout << " -> " << retNode << " is a structural specified rep" << std::endl;
-        //non-leaf case: construct representative from children
-        std::vector< Node > children;
-        if( retNode.getMetaKind() == kind::metakind::PARAMETERIZED ){
-          children.push_back( retNode.getOperator() );
-        }
-        for( size_t i=0; i<retNode.getNumChildren(); i++ ){
-          Node ri = normalizeRepresentative( m, retNode[i], reps, normalized, normalizing );
-          children.push_back( ri );
-        }
-        retNode = NodeManager::currentNM()->mkNode( retNode.getKind(), children );
-        retNode = Rewriter::rewrite( retNode );
-      }
-      //std::cout << " --> returned " << retNode << " for " << r << std::endl;
-      normalized[ r ] = true;
-      reps[ r ] = retNode;
-      normalizing[ r ] = false;
-      return retNode;
-    }
+  Trace("temb-normalize") << r << std::endl;
+  if( normalized.find( r )!=normalized.end() ){
+    //std::cout << " -> already normalized, return " << reps[r] << std::endl;
+    return reps[r];
+  }else if( normalizing.find( r )!=normalizing.end() && normalizing[r] ){
+    //TODO: this case is only temporary to handle things like when store( A, e, i ) is given
+    //       as a representative for array A.
+    //std::cout << " -> currently normalizing, give up : " << r << std::endl;
+    return r;
+  }else if( reps.find( r )!=reps.end() ){
+    normalizing[ r ] = true;
+    Node retNode = normalizeNode( m, reps[r], reps, normalized, normalizing );
+    normalizing[ r ] = false;
+    //std::cout << " --> returned " << retNode << " for " << r << std::endl;
+    normalized[ r ] = true;
+    reps[ r ] = retNode;
+    return retNode;
   }else if( m->d_equalityEngine.hasTerm( r ) ){
+    normalizing[ r ] = true;
     //return the normalized representative from the model
     r = m->d_equalityEngine.getRepresentative( r );
     //std::cout << " -> it is the representative " << r << std::endl;
-    return normalizeRepresentative( m, r, reps, normalized, normalizing );
+    Node retNode = normalizeRepresentative( m, r, reps, normalized, normalizing );
+    normalizing[ r ] = false;
+    return retNode;
   }else{
     if( r.getMetaKind()!=kind::metakind::CONSTANT ){
       Trace("model-warn") << "Normalizing representative, unknown term: " << r << std::endl;
       Trace("model-warn") << "  Type : " << r.getType() << std::endl;
       Trace("model-warn") << "  Kind : " << r.getKind() << std::endl;
+      normalizing[ r ] = true;
+      r = normalizeNode( m, r, reps, normalized, normalizing );
+      normalizing[ r ] = false;
     }
     //std::cout << " -> unknown, return " << r << std::endl;
+    return r;
+  }
+}
+
+Node TheoryEngineModelBuilder::normalizeNode( TheoryModel* m, Node r, std::map< Node, Node >& reps,
+                                              std::map< Node, bool >& normalized,
+                                              std::map< Node, bool >& normalizing ){
+  if( r.getNumChildren()>0 ){
+    //std::cout << " ---> normalize " << r << " " << r.getNumChildren() << " " << r.getKind() << std::endl;
+    //non-leaf case: construct representative from children
+    std::vector< Node > children;
+    if( r.getMetaKind() == kind::metakind::PARAMETERIZED ){
+      children.push_back( r.getOperator() );
+    }
+    for( size_t i=0; i<r.getNumChildren(); i++ ){
+      Node ri = normalizeRepresentative( m, r[i], reps, normalized, normalizing );
+      children.push_back( ri );
+    }
+    Node retNode = NodeManager::currentNM()->mkNode( r.getKind(), children );
+    retNode = Rewriter::rewrite( retNode );
+    if( retNode!=r ){
+      //assure that it is made equal in the model
+      m->assertEquality( r, retNode, true );
+    }
+    return retNode;
+  }else{
     return r;
   }
 }

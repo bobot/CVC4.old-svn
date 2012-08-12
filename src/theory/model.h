@@ -164,8 +164,6 @@ class TheoryEngineModelBuilder : public ModelBuilder
 protected:
   /** pointer to theory engine */
   TheoryEngine* d_te;
-  /** choose representative for unresolved equivalence class */
-  void initializeType( TypeNode tn, std::map< TypeNode, bool >& unresolved_types );
   /** process build model */
   virtual void processBuildModel( TheoryModel* m, bool fullModel ){}
   /** choose representative for unconstrained equivalence class */
@@ -174,6 +172,9 @@ protected:
   Node normalizeRepresentative( TheoryModel* m, Node r, std::map< Node, Node >& reps,
                                 std::map< Node, bool >& normalized,
                                 std::map< Node, bool >& normalizing );
+  Node normalizeNode( TheoryModel* m, Node r, std::map< Node, Node >& reps,
+                      std::map< Node, bool >& normalized,
+                      std::map< Node, bool >& normalizing );
 public:
   TheoryEngineModelBuilder( TheoryEngine* te );
   virtual ~TheoryEngineModelBuilder(){}

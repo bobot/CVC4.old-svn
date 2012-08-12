@@ -648,6 +648,7 @@ void TheoryDatatypes::collectModelInfo( TheoryModel* m, bool fullModel ){
   Trace("dt-model") << std::endl;
   printModelDebug( "dt-model" );
   m->assertEqualityEngine( &d_equalityEngine );
+#if 1
   //must choose proper representatives
   // for each equivalence class, specify the constructor as a representative
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
@@ -659,14 +660,15 @@ void TheoryDatatypes::collectModelInfo( TheoryModel* m, bool fullModel ){
         if( !ei->d_constructor.get().isNull() ){
           m->assertRepresentative( ei->d_constructor.get() );
         }else{
-          Trace("model-warn") << "Datatypes: no constructor in equivalence class " << eqc << std::endl;
+          Trace("model-warn") << "WARNING: Datatypes: no constructor in equivalence class " << eqc << std::endl;
         }
       }else{
-        Trace("model-warn") << "Datatypes: no equivalence class info for " << eqc << std::endl;
+        Trace("model-warn") << "WARNING: Datatypes: no equivalence class info for " << eqc << std::endl;
       }
     }
     ++eqcs_i;
   }
+#endif
 }
 
 
