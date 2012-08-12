@@ -640,19 +640,33 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
 }
 
 void StrongSolverTheoryUf::SortRepModel::propagate( Theory::Effort level, OutputChannel* out ){
-  Assert( d_cardinality>0 );
   //propagate the current cardinality as a decision literal, if not already asserted
   for( int i=1; i<=d_aloc_cardinality; i++ ){
-    Node cn = d_cardinality_literal[ i ];
-    Debug("uf-ss-prop-as-dec") << "Propagate as decision " << d_type << ", cardinality = " << d_aloc_cardinality << std::endl;
-    Assert( !cn.isNull() );
-    if( d_cardinality_assertions.find( cn )==d_cardinality_assertions.end() ){
-      out->propagateAsDecision( cn );
-      Debug("uf-ss-prop-as-dec") << "Propagate as decision " << cn;
-      Debug("uf-ss-prop-as-dec") << " " << cn[0].getType() << std::endl;
-      break;
+    if( !d_hasCard || i<d_cardinality ){
+      Node cn = d_cardinality_literal[ i ];
+      Assert( !cn.isNull() );
+      if( d_cardinality_assertions.find( cn )==d_cardinality_assertions.end() ){
+        out->propagateAsDecision( cn );
+        Trace("uf-ss-prop-as-dec") << "Propagate as decision " << cn << " " << d_type << std::endl;
+        break;
+      }
     }
   }
+}
+
+TNode StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
+  //request the current cardinality as a decision literal, if not already asserted
+  for( int i=1; i<=d_aloc_cardinality; i++ ){
+    if( !d_hasCard || i<d_cardinality ){
+      Node cn = d_cardinality_literal[ i ];
+      Assert( !cn.isNull() );
+      if( d_cardinality_assertions.find( cn )==d_cardinality_assertions.end() ){
+        Trace("uf-ss-prop-as-dec") << "Propagate as decision " << d_type << " " << i << std::endl;
+        return cn;
+      }
+    }
+  }
+  return TNode::null();
 }
 
 bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out ){
@@ -801,6 +815,7 @@ void StrongSolverTheoryUf::SortRepModel::explainClique( std::vector< Node >& cli
 }
 
 void StrongSolverTheoryUf::SortRepModel::assertCardinality( OutputChannel* out, int c, bool val ){
+  Trace("uf-ss-assert") << "Assert cardinality " << d_type << " " << c << " " << val << std::endl;
   Assert( d_cardinality_literal.find( c )!=d_cardinality_literal.end() );
   d_cardinality_assertions[ d_cardinality_literal[c] ] = val;
   if( val ){
@@ -928,8 +943,8 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
   //add appropriate lemma
   Node lem = getCardinalityLemma( d_aloc_cardinality, out );
   //add the appropriate lemma, propagate as decision
-  Debug("uf-ss-prop-as-dec") << "Propagate as decision " << lem[0] << std::endl;
-  out->propagateAsDecision( lem[0] );
+  //Trace("uf-ss-prop-as-dec") << "Propagate as decision " << lem[0] << " " << d_type << std::endl;
+  //out->propagateAsDecision( lem[0] );
   d_th->getStrongSolver()->d_statistics.d_max_model_size.maxAssign( d_aloc_cardinality );
 }
 
@@ -955,6 +970,8 @@ Node StrongSolverTheoryUf::SortRepModel::getCardinalityLemma( int c, OutputChann
     d_cardinality_lemma[ c ] = lem;
     //add as lemma to output channel
     out->lemma( lem );
+    //require phase
+    out->requirePhase( d_cardinality_literal[ c ], true );
   }
   return d_cardinality_lemma[ c ];
 }
@@ -963,9 +980,9 @@ bool StrongSolverTheoryUf::SortRepModel::addSplit( Region* r, OutputChannel* out
   if( r->hasSplits() ){
     Node s = r->getBestSplit();
     bool mustSplit = true;
-    if( !d_cardinality_lemma_term_eq && ( s[0]==d_cardinality_lemma_term || s[1]==d_cardinality_lemma_term ) ){
-      mustSplit = false;
-    }
+    //if( !d_cardinality_lemma_term_eq && ( s[0]==d_cardinality_lemma_term || s[1]==d_cardinality_lemma_term ) ){
+    //  mustSplit = false;
+    //}
     //add lemma to output channel
     Assert( s!=Node::null() && s.getKind()==EQUAL );
     s = Rewriter::rewrite( s );
@@ -1016,6 +1033,24 @@ void StrongSolverTheoryUf::SortRepModel::debugPrint( const char* c ){
   }
   if( debugReps!=d_reps ){
     Debug( c ) << "***Bad reps: " << d_reps << ", actual = " << debugReps << std::endl;
+  }
+}
+
+void StrongSolverTheoryUf::SortRepModel::debugModel( TheoryModel* m ){
+  int eqcCount = 0;
+  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &m->d_equalityEngine );
+  while( !eqcs_i.isFinished() ){
+    Node eqc = (*eqcs_i);
+    if( eqc.getType()==d_type ){
+      eqcCount++;
+      //we must ensure that this equivalence class has been accounted for
+    }
+    ++eqcs_i;
+  }
+  if( eqcCount!=d_cardinality ){
+    Trace("uf-ss-warn") << "WARNING : Model does not have same # representatives as cardinality for " << d_type << "." << std::endl;
+    Trace("uf-ss-warn") << "  cardinality : " << d_cardinality << std::endl;
+    Trace("uf-ss-warn") << "  # reps : " << eqcCount << std::endl;
   }
 }
 
@@ -1177,30 +1212,27 @@ d_rep_model_init( c )
 
 /** new node */
 void StrongSolverTheoryUf::newEqClass( Node n ){
-  TypeNode tn = n.getType();
-  RepModel* c = getRepModel( tn );
+  RepModel* c = getRepModel( n );
   if( c ){
-    Debug("uf-ss-solver") << "StrongSolverTheoryUf: New eq class " << n << " " << tn << std::endl;
+    Debug("uf-ss-solver") << "StrongSolverTheoryUf: New eq class " << n << " : " << n.getType() << std::endl;
     c->newEqClass( n );
   }
 }
 
 /** merge */
 void StrongSolverTheoryUf::merge( Node a, Node b ){
-  TypeNode tn = a.getType();
-  RepModel* c = getRepModel( tn );
+  RepModel* c = getRepModel( a );
   if( c ){
-    Debug("uf-ss-solver") << "StrongSolverTheoryUf: Merge " << a << " " << b << " " << tn << std::endl;
+    Debug("uf-ss-solver") << "StrongSolverTheoryUf: Merge " << a << " " << b << " : " << a.getType() << std::endl;
     c->merge( a, b );
   }
 }
 
 /** assert terms are disequal */
 void StrongSolverTheoryUf::assertDisequal( Node a, Node b, Node reason ){
-  TypeNode tn = a.getType();
-  RepModel* c = getRepModel( tn );
+  RepModel* c = getRepModel( a );
   if( c ){
-    Debug("uf-ss-solver") << "StrongSolverTheoryUf: Assert disequal " << a << " " << b << " " << tn << std::endl;
+    Debug("uf-ss-solver") << "StrongSolverTheoryUf: Assert disequal " << a << " " << b << " : " << a.getType() << std::endl;
     //Assert( d_th->d_equalityEngine.getRepresentative( a )==a );
     //Assert( d_th->d_equalityEngine.getRepresentative( b )==b );
     c->assertDisequal( a, b, reason );
@@ -1218,38 +1250,24 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
     long nCard = n[1].getConst<Rational>().getNumerator().getLong();
     d_rep_model[tn]->assertCardinality( d_out, nCard, true );
   }else if( n.getKind()==NOT && n[0].getKind()==CARDINALITY_CONSTRAINT ){
-    //must add new lemma
     Node nn = n[0];
     TypeNode tn = nn[0].getType();
     Assert( tn.isSort() );
     Assert( d_rep_model[tn] );
     long nCard = nn[1].getConst<Rational>().getNumerator().getLong();
     d_rep_model[tn]->assertCardinality( d_out, nCard, false );
-    /*
-    if( nCard==d_rep_model[tn]->getCardinality() ){
-      AlwaysAssert(!isDecision, "Error: Negative cardinality node decided upon");
-      Debug("uf-ss-fmf") << "No model of size " << d_rep_model[tn]->getCardinality() << " exists for type " << tn << std::endl;
-      //Notice() << "No model of size " << d_rep_model[tn]->getCardinality() << " exists for type " << tn << std::endl;
-      //increment to next cardinality
-      d_statistics.d_max_model_size.maxAssign( d_rep_model[tn]->getCardinality() + 1 );
-      d_rep_model[tn]->setCardinality( d_rep_model[tn]->getCardinality() + 1, d_out );
-      //Notice() << d_rep_model[tn]->getCardinality() << " ";
-      ////give up permanently on this cardinality
-      //d_out->lemma( n );
-    }
-    */
   }else{
     ////FIXME: this is too strict: theory propagations are showing up as isDecision=true, but
     ////       a theory propagation is not a decision.
-    //if( isDecision ){
-    //  for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
-    //    if( !it->second->hasCardinalityAsserted() ){
-    //      Notice() << "Assert " << n << " " << isDecision << std::endl;
-    //      Notice() << "Error: constraint asserted before cardinality for " << it->first << std::endl;
-    //      Unimplemented();
-    //    }
-    //  }
-    //}
+    if( isDecision ){
+      for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
+        if( !it->second->hasCardinalityAsserted() ){
+          Trace("uf-ss-warn") << "WARNING: Assert " << n << " as a decision before cardinality." << std::endl;
+          //Message() << "Error: constraint asserted before cardinality for " << it->first << std::endl;
+          //Unimplemented();
+        }
+      }
+    }
   }
 }
 
@@ -1273,31 +1291,30 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
 
 /** propagate */
 void StrongSolverTheoryUf::propagate( Theory::Effort level ){
+  //for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
+  //  it->second->propagate( level, d_out );
+  //}
+}
+
+/** get next decision request */
+TNode StrongSolverTheoryUf::getNextDecisionRequest(){
   for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
-    it->second->propagate( level, d_out );
+    TNode n = it->second->getNextDecisionRequest();
+    if( !n.isNull() ){
+      return n;
+    }
   }
+  return TNode::null();
 }
 
 void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
-  //shouldn't have to preregister this type (it may be that there are no quantifiers over tn)  FIXME
-  preRegisterType( n.getType() );
-}
-
-void StrongSolverTheoryUf::registerQuantifier( Node f ){
-  Debug("uf-ss-register") << "Register quantifier " << f << std::endl;
-  //must ensure the quantifier does not quantify over arithmetic
-  for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-    TypeNode tn = f[0][i].getType();
-    preRegisterType( tn, true );
-  }
-}
-
-void StrongSolverTheoryUf::preRegisterType( TypeNode tn, bool req ){
+  //shouldn't have to preregister this type (it may be that there are no quantifiers over tn)
+  TypeNode tn = n.getType();
   if( d_rep_model.find( tn )==d_rep_model.end() ){
     RepModel* rm = NULL;
     if( tn.isSort() ){
       Debug("uf-ss-register") << "Preregister sort " << tn << "." << std::endl;
-      rm  = new SortRepModel( tn, d_th->getSatContext(), d_th );
+      rm  = new SortRepModel( n, d_th->getSatContext(), d_th );
     }else if( tn.isInteger() ){
       //rm = new InfRepModel( tn, d_th->getSatContext(), d_th );
       //rm  = new SortRepModel( tn, d_th->getSatContext(), d_th );
@@ -1324,11 +1341,22 @@ void StrongSolverTheoryUf::preRegisterType( TypeNode tn, bool req ){
   }
 }
 
-StrongSolverTheoryUf::RepModel* StrongSolverTheoryUf::getRepModel( TypeNode tn ){
+void StrongSolverTheoryUf::registerQuantifier( Node f ){
+  Debug("uf-ss-register") << "Register quantifier " << f << std::endl;
+  //must ensure the quantifier does not quantify over arithmetic
+  //for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+  //  TypeNode tn = f[0][i].getType();
+  //  preRegisterType( tn, true );
+  //}
+}
+
+
+StrongSolverTheoryUf::RepModel* StrongSolverTheoryUf::getRepModel( Node n ){
+  TypeNode tn = n.getType();
   std::map< TypeNode, RepModel* >::iterator it = d_rep_model.find( tn );
   //pre-register the type if not done already
   if( it==d_rep_model.end() ){
-    preRegisterType( tn );
+    preRegisterTerm( n );
     it = d_rep_model.find( tn );
   }
   if( it!=d_rep_model.end() ){
@@ -1348,8 +1376,8 @@ void StrongSolverTheoryUf::notifyRestart(){
 }
 
 /** get cardinality for sort */
-int StrongSolverTheoryUf::getCardinality( TypeNode t ) {
-  RepModel* c = getRepModel( t );
+int StrongSolverTheoryUf::getCardinality( Node n ) {
+  RepModel* c = getRepModel( n );
   if( c ){
     return c->getCardinality();
   }else{
@@ -1357,8 +1385,8 @@ int StrongSolverTheoryUf::getCardinality( TypeNode t ) {
   }
 }
 
-void StrongSolverTheoryUf::getRepresentatives( TypeNode t, std::vector< Node >& reps ){
-  RepModel* c = getRepModel( t );
+void StrongSolverTheoryUf::getRepresentatives( Node n, std::vector< Node >& reps ){
+  RepModel* c = getRepModel( n );
   if( c ){
     c->getRepresentatives( reps );
   }
@@ -1395,6 +1423,12 @@ void StrongSolverTheoryUf::debugPrint( const char* c ){
     Debug( c ) << "Conflict find structure for " << it->first << ": " << std::endl;
     it->second->debugPrint( c );
     Debug( c ) << std::endl;
+  }
+}
+
+void StrongSolverTheoryUf::debugModel( TheoryModel* m ){
+  for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
+    it->second->debugModel( m );
   }
 }
 

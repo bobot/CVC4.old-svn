@@ -520,6 +520,33 @@ bool TheoryEngine::properConflict(TNode conflict) const {
   return true;
 }
 
+TNode TheoryEngine::getNextDecisionRequest() {
+#if 1
+  for( int i=0; i<theory::THEORY_LAST; i++ ){
+    if( d_theoryTable[i] ){
+      TNode request = d_theoryTable[i]->getNextDecisionRequest();
+      if( !request.isNull() ){
+        Trace("prop-as-dec") << "decision request : " << request << " from " << i << std::endl;
+        return request;
+      }
+    }
+  }
+  return TNode::null();
+#else
+  Trace("te-dec-req") << "Theory engine get next decision request" << std::endl;
+  if(d_decisionRequestsIndex < d_decisionRequests.size()) {
+    TNode req = d_decisionRequests[d_decisionRequestsIndex];
+    Debug("propagateAsDecision") << "TheoryEngine requesting decision["
+                                 << d_decisionRequestsIndex << "]: "
+                                 << req << std::endl;
+    d_decisionRequestsIndex = d_decisionRequestsIndex + 1;
+    return req;
+  } else {
+    return TNode::null();
+  }
+#endif
+}
+
 bool TheoryEngine::properPropagation(TNode lit) const {
   if(!getPropEngine()->isTranslatedSatLiteral(lit)) {
     return false;

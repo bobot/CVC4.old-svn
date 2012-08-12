@@ -20,6 +20,7 @@
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/theory_uf_model.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/arrays/theory_arrays_model.h"
 #include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/term_database.h"
@@ -81,14 +82,6 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m, bool fullModel ) {
     d_curr_model = fm;
     //build model for relevant symbols contained in quantified formulas
     d_addedLemmas = 0;
-    //for debugging
-    if( Trace.isOn("model-engine") ){
-      for( std::map< TypeNode, std::vector< Node > >::iterator it = m->d_rep_set.d_type_reps.begin(); it != m->d_rep_set.d_type_reps.end(); ++it ){
-        if( it->first.isSort() ){
-          Trace("model-engine") << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
-        }
-      }
-    }
     //only construct first order model if optUseModel() is true
     if( optUseModel() ){
       //initialize model

@@ -61,18 +61,22 @@ public:
     virtual void assertDisequal( Node a, Node b, Node reason ) = 0;
     /** check */
     virtual void check( Theory::Effort level, OutputChannel* out ){}
-    /** propagate */
-    virtual void propagate( Theory::Effort level, OutputChannel* out ){}
+    /** get next decision request */
+    virtual TNode getNextDecisionRequest() { return TNode::null(); }
     /** minimize */
     virtual bool minimize( OutputChannel* out ){ return true; }
     /** assert cardinality */
     virtual void assertCardinality( OutputChannel* out, int c, bool val ){}
     /** get cardinality */
     virtual int getCardinality() { return -1; }
+    /** has cardinality */
+    virtual bool hasCardinalityAsserted() { return true; }
     /** get representatives */
     virtual void getRepresentatives( std::vector< Node >& reps ){}
     /** print debug */
     virtual void debugPrint( const char* c ){}
+    /** debug a model */
+    virtual void debugModel( TheoryModel* m ){}
   };
 public:
   /** information for incremental conflict/clique finding for a particular sort */
@@ -238,9 +242,10 @@ public:
     /** whether a positive cardinality constraint has been asserted */
     context::CDO< bool > d_hasCard;
   public:
-    SortRepModel( TypeNode tn, context::Context* c, TheoryUF* th ) : RepModel( tn ),
+    SortRepModel( Node n, context::Context* c, TheoryUF* th ) : RepModel( n.getType() ),
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
-        d_reps( c, 0 ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ), d_cardinality_lemma_term_eq( false ),
+        d_reps( c, 0 ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ), d_cardinality_lemma_term( n ),
+        d_cardinality_lemma_term_eq( false ),
         d_cardinality_assertions( c ), d_hasCard( c, false ){}
     virtual ~SortRepModel(){}
     /** initialize */
@@ -255,16 +260,22 @@ public:
     void check( Theory::Effort level, OutputChannel* out );
     /** propagate */
     void propagate( Theory::Effort level, OutputChannel* out );
+    /** get next decision request */
+    TNode getNextDecisionRequest();
     /** minimize */
     bool minimize( OutputChannel* out );
-    //print debug
-    void debugPrint( const char* c );
     /** assert cardinality */
     void assertCardinality( OutputChannel* out, int c, bool val );
     /** get cardinality */
     int getCardinality() { return d_cardinality; }
     /** get representatives */
     void getRepresentatives( std::vector< Node >& reps );
+    /** has cardinality */
+    bool hasCardinalityAsserted() { return d_hasCard; }
+    //print debug
+    void debugPrint( const char* c );
+    /** debug a model */
+    void debugModel( TheoryModel* m );
   public:
     /** get number of regions (for debugging) */
     int getNumRegions();
@@ -317,12 +328,10 @@ private:
   /** whether conflict find data structures have been initialized */
   TypeNodeBoolMap d_rep_model_init;
   /** get conflict find */
-  RepModel* getRepModel( TypeNode tn );
+  RepModel* getRepModel( Node n );
 private:
   /** term disambiguator */
   TermDisambiguator* d_term_amb;
-  /** pre register type */
-  void preRegisterType( TypeNode tn, bool req = false );
 public:
   StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th);
   ~StrongSolverTheoryUf() {}
@@ -339,6 +348,8 @@ public:
   void check( Theory::Effort level );
   /** propagate */
   void propagate( Theory::Effort level );
+  /** get next decision request */
+  TNode getNextDecisionRequest();
   /** preregister a term */
   void preRegisterTerm( TNode n );
   /** preregister a quantifier */
@@ -350,15 +361,17 @@ public:
   std::string identify() const { return std::string("StrongSolverTheoryUf"); }
   //print debug
   void debugPrint( const char* c );
+  /** debug a model */
+  void debugModel( TheoryModel* m );
 public:
   /** get number of types */
   int getNumCardinalityTypes() { return (int)d_conf_types.size(); }
   /** get type */
   TypeNode getCardinalityType( int i ) { return d_conf_types[i]; }
   /** get cardinality for sort */
-  int getCardinality( TypeNode t );
+  int getCardinality( Node n );
   /** get representatives */
-  void getRepresentatives( TypeNode t, std::vector< Node >& reps );
+  void getRepresentatives( Node n, std::vector< Node >& reps );
   /** minimize */
   bool minimize();
 

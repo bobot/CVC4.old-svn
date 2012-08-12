@@ -154,8 +154,16 @@ bool TheoryUF::propagate(TNode literal) {
 }/* TheoryUF::propagate(TNode) */
 
 void TheoryUF::propagate(Effort effort) {
+  //if (d_thss != NULL) {
+  //  return d_thss->propagate(effort);
+  //}
+}
+
+TNode TheoryUF::getNextDecisionRequest(){
   if (d_thss != NULL) {
-    return d_thss->propagate(effort);
+    return d_thss->getNextDecisionRequest();
+  }else{
+    return TNode::null();
   }
 }
 

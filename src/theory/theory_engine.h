@@ -627,18 +627,7 @@ public:
     }
   }
 
-  TNode getNextDecisionRequest() {
-    if(d_decisionRequestsIndex < d_decisionRequests.size()) {
-      TNode req = d_decisionRequests[d_decisionRequestsIndex];
-      Debug("propagateAsDecision") << "TheoryEngine requesting decision["
-                                   << d_decisionRequestsIndex << "]: "
-                                   << req << std::endl;
-      d_decisionRequestsIndex = d_decisionRequestsIndex + 1;
-      return req;
-    } else {
-      return TNode::null();
-    }
-  }
+  TNode getNextDecisionRequest() ;
 
   bool properConflict(TNode conflict) const;
   bool properPropagation(TNode lit) const;

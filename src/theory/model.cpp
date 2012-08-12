@@ -34,6 +34,13 @@ TheoryModel::TheoryModel( context::Context* c, std::string name ) :
 d_equalityEngine( c, name ){
   d_true = NodeManager::currentNM()->mkConst( true );
   d_false = NodeManager::currentNM()->mkConst( false );
+  // The kinds we are treating as function application in congruence
+  d_equalityEngine.addFunctionKind(kind::APPLY_UF);
+  d_equalityEngine.addFunctionKind(kind::SELECT);
+  d_equalityEngine.addFunctionKind(kind::STORE);
+  d_equalityEngine.addFunctionKind(kind::APPLY_CONSTRUCTOR);
+  d_equalityEngine.addFunctionKind(kind::APPLY_SELECTOR);
+  d_equalityEngine.addFunctionKind(kind::APPLY_TESTER);
 }
 
 void TheoryModel::reset(){

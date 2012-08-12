@@ -250,6 +250,16 @@ void QuantifiersEngine::propagate( Theory::Effort level ){
   }
 }
 
+TNode QuantifiersEngine::getNextDecisionRequest(){
+  for( int i=0; i<(int)d_modules.size(); i++ ){
+    TNode n = d_modules[i]->getNextDecisionRequest();
+    if( !n.isNull() ){
+      return n;
+    }
+  }
+  return TNode::null();
+}
+
 void QuantifiersEngine::resetInstantiationRound( Theory::Effort level ){
   //if( !d_resetInstRound ){
   d_resetInstRound = true;

@@ -562,6 +562,11 @@ public:
                   identify().c_str());
   }
 
+  /** get next decision request, if any */
+  virtual TNode getNextDecisionRequest() {
+    return TNode::null();
+  }
+
   /**
    * Statically learn from assertion "in," which has been asserted
    * true at the top level.  The theory should only add (via

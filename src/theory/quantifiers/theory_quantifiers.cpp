@@ -127,9 +127,12 @@ void TheoryQuantifiers::check(Effort e) {
 }
 
 void TheoryQuantifiers::propagate(Effort level){
-  CodeTimer codeTimer(d_theoryTime);
+  //CodeTimer codeTimer(d_theoryTime);
+  //getQuantifiersEngine()->propagate( level );
+}
 
-  getQuantifiersEngine()->propagate( level );
+TNode TheoryQuantifiers::getNextDecisionRequest(){
+  return getQuantifiersEngine()->getNextDecisionRequest();
 }
 
 void TheoryQuantifiers::assertUniversal( Node n ){

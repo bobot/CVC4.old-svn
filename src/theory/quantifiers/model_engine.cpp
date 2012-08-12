@@ -192,6 +192,24 @@ int ModelEngine::initializeQuantifier( Node f ){
 }
 
 void ModelEngine::checkModel( int& addedLemmas ){
+  FirstOrderModel* fm = d_quantEngine->getModel();
+  //for debugging
+  if( Trace.isOn("model-engine") ){
+    for( std::map< TypeNode, std::vector< Node > >::iterator it = fm->d_rep_set.d_type_reps.begin(); it != fm->d_rep_set.d_type_reps.end(); ++it ){
+      if( it->first.isSort() ){
+        Trace("model-engine") << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
+        //Trace("model-engine") << "   ";
+        ////we must be certain that UF has seen all of these
+        //for( size_t i=0; i<it->second.size(); i++ ){
+        //  Trace("model-engine") << it->second[i] << "  ";
+        //}
+        //Trace("model-engine") << std::endl;
+      }
+    }
+  }
+  //let the strong solver debug the model
+  uf::StrongSolverTheoryUf* uf_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
+  uf_ss->debugModel( fm );
   //verify we are SAT by trying exhaustive instantiation
   d_incomplete_check = false;
   if( optUseRelevantDomain() ){
@@ -202,8 +220,8 @@ void ModelEngine::checkModel( int& addedLemmas ){
   d_relevantLemmas = 0;
   d_totalLemmas = 0;
   Debug("fmf-model-debug") << "Do exhaustive instantiation..." << std::endl;
-  for( int i=0; i<d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
-    Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
+  for( int i=0; i<fm->getNumAssertedQuantifiers(); i++ ){
+    Node f = fm->getAssertedQuantifier( i );
     if( d_builder.d_considerAxioms || !f.getAttribute(AxiomAttribute()) ){
       if( d_builder.d_quant_sat.find( f )==d_builder.d_quant_sat.end() ){
         addedLemmas += exhaustiveInstantiate( f, optUseRelevantDomain() );
