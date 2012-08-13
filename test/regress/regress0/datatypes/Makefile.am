@@ -15,7 +15,7 @@ MAKEFLAGS = -k
 TESTS =	\
 	tuple.cvc \
 	rec1.cvc \
-	rec2.cvc \
+	rec4.cvc \
 	datatype.cvc \
 	datatype0.cvc \
 	datatype1.cvc \
@@ -36,9 +36,12 @@ TESTS =	\
 	v2l40025.cvc \
 	v3l60006.cvc \
 	v5l30058.cvc \
-	bug286.cvc
+	bug286.cvc \
+	wrong-sel-simp.cvc
 
-FAILING_TESTS = rec5.cvc
+FAILING_TESTS = \
+	rec2.cvc \
+	rec5.cvc
 
 EXTRA_DIST = $(TESTS)
 
@@ -51,7 +54,7 @@ endif
 # and make sure to distribute it
 EXTRA_DIST += \
 	error.cvc \
-	rec4.cvc
+	$(FAILING_TESTS)
 
 # synonyms for "check"
 .PHONY: regress regress0 test

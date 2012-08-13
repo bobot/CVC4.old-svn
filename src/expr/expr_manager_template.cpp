@@ -20,7 +20,7 @@
 #include "expr/expr_manager.h"
 #include "expr/variable_type_map.h"
 #include "context/context.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/stats.h"
 
 #include <map>
@@ -40,7 +40,7 @@ ${includes}
       stringstream statName; \
       statName << "expr::ExprManager::" << kind; \
       d_exprStatistics[kind] = new IntStat(statName.str(), 0); \
-      StatisticsRegistry::registerStat(d_exprStatistics[kind]); \
+      d_nodeManager->getStatisticsRegistry()->registerStat_(d_exprStatistics[kind]); \
     } \
     ++ *(d_exprStatistics[kind]); \
   }
@@ -51,12 +51,12 @@ ${includes}
     if (d_exprStatisticsVars[type] == NULL) { \
       stringstream statName; \
       if (type == LAST_TYPE) { \
-        statName << "expr::ExprManager::VARIABLE:Parametrized type"; \
+        statName << "expr::ExprManager::VARIABLE:Parameterized type"; \
       } else { \
         statName << "expr::ExprManager::VARIABLE:" << type; \
       } \
       d_exprStatisticsVars[type] = new IntStat(statName.str(), 0); \
-      StatisticsRegistry::registerStat(d_exprStatisticsVars[type]); \
+      d_nodeManager->getStatisticsRegistry()->registerStat_(d_exprStatisticsVars[type]); \
     } \
     ++ *(d_exprStatisticsVars[type]); \
   }
@@ -78,7 +78,7 @@ ExprManager::ExprManager() :
   for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
     d_exprStatistics[i] = NULL;
   }
-  for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
+  for (unsigned i = 0; i < LAST_TYPE; ++ i) {
     d_exprStatisticsVars[i] = NULL;
   }
 #endif
@@ -88,7 +88,7 @@ ExprManager::ExprManager(const Options& options) :
   d_ctxt(new Context()),
   d_nodeManager(new NodeManager(d_ctxt, this, options)) {
 #ifdef CVC4_STATISTICS_ON
-  for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
+  for (unsigned i = 0; i < LAST_TYPE; ++ i) {
     d_exprStatisticsVars[i] = NULL;
   }
   for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
@@ -105,13 +105,13 @@ ExprManager::~ExprManager() throw() {
 #ifdef CVC4_STATISTICS_ON
     for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
       if (d_exprStatistics[i] != NULL) {
-        StatisticsRegistry::unregisterStat(d_exprStatistics[i]);
+        d_nodeManager->getStatisticsRegistry()->unregisterStat_(d_exprStatistics[i]);
         delete d_exprStatistics[i];
       }
     }
-    for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
+    for (unsigned i = 0; i < LAST_TYPE; ++ i) {
       if (d_exprStatisticsVars[i] != NULL) {
-        StatisticsRegistry::unregisterStat(d_exprStatisticsVars[i]);
+        d_nodeManager->getStatisticsRegistry()->unregisterStat_(d_exprStatisticsVars[i]);
         delete d_exprStatisticsVars[i];
       }
     }
@@ -126,7 +126,7 @@ ExprManager::~ExprManager() throw() {
   }
 }
 
-const Options* ExprManager::getOptions() const {
+const Options& ExprManager::getOptions() const {
   return d_nodeManager->getOptions();
 }
 
@@ -884,6 +884,10 @@ NodeManager* ExprManager::getNodeManager() const {
 
 Context* ExprManager::getContext() const {
   return d_ctxt;
+}
+
+StatisticsRegistry* ExprManager::getStatisticsRegistry() const throw() {
+  return d_nodeManager->getStatisticsRegistry();
 }
 
 namespace expr {

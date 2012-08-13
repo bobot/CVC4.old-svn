@@ -99,6 +99,12 @@ function endtheory {
   seen_endtheory=true
 }
 
+function enumerator {
+  # enumerator KIND enumerator-class header
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
+}
+
 function typechecker {
   # typechecker header
   lineno=${BASH_LINENO[0]}
@@ -107,6 +113,12 @@ function typechecker {
 
 function typerule {
   # typerule OPERATOR typechecking-class
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
+}
+
+function construle {
+  # construle OPERATOR isconst-checking-class
   lineno=${BASH_LINENO[0]}
   check_theory_seen
 }
@@ -181,7 +193,7 @@ function constant {
     fi
   fi
   if ! expr "$3" : '\(::*\)' >/dev/null; then
-    echo "$kf:$lineno: warning: constant $1 hasher \`$3' isn't fully-qualified (e.g., ::CVC4::RationalHashFcn)" >&2
+    echo "$kf:$lineno: warning: constant $1 hasher \`$3' isn't fully-qualified (e.g., ::CVC4::RationalHashFunction)" >&2
   fi
 
   if [ -n "$4" ]; then
@@ -240,7 +252,7 @@ struct ConstantMapReverse< ::CVC4::kind::$1 > {
   metakind_constHashes="${metakind_constHashes}
   case kind::$1:
 #line $lineno \"$kf\"
-    return $3::hash(nv->getConst< $2 >());
+    return $3()(nv->getConst< $2 >());
 "
   metakind_constPrinters="${metakind_constPrinters}
   case kind::$1:

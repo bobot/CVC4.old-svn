@@ -39,7 +39,6 @@
 #include "theory/shared_terms_database.h"
 #include "theory/term_registration_visitor.h"
 #include "theory/valuation.h"
-#include "util/options.h"
 #include "util/stats.h"
 #include "util/hash.h"
 #include "util/cache.h"
@@ -70,7 +69,7 @@ class ITESimplifier {
       hash ^= 0x9e3779b9 + NodeHashFunction().operator()(pair.second) + (hash << 6) + (hash >> 2);
       return hash;
     }
-  };
+  };/* struct ITESimplifier::NodePairHashFunction */
 
   typedef std::hash_map<NodePair, Node, NodePairHashFunction> NodePairMap;
 

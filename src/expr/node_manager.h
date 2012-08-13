@@ -41,7 +41,7 @@
 #include "util/subrange_bound.h"
 #include "util/configuration_private.h"
 #include "util/tls.h"
-#include "util/options.h"
+#include "options/options.h"
 
 namespace CVC4 {
 
@@ -54,8 +54,8 @@ class TypeChecker;
 // Definition of an attribute for the variable name.
 // TODO: hide this attribute behind a NodeManager interface.
 namespace attr {
-  struct VarNameTag {};
-  struct SortArityTag {};
+  struct VarNameTag { };
+  struct SortArityTag { };
 }/* CVC4::expr::attr namespace */
 
 typedef Attribute<attr::VarNameTag, std::string> VarNameAttr;
@@ -75,7 +75,7 @@ class NodeManager {
   };
 
   typedef __gnu_cxx::hash_set<expr::NodeValue*,
-                              expr::NodeValuePoolHashFcn,
+                              expr::NodeValuePoolHashFunction,
                               expr::NodeValuePoolEq> NodeValuePool;
   typedef __gnu_cxx::hash_set<expr::NodeValue*,
                               expr::NodeValueIDHashFunction,
@@ -83,7 +83,7 @@ class NodeManager {
 
   static CVC4_THREADLOCAL(NodeManager*) s_current;
 
-  Options d_options;
+  Options* d_options;
   StatisticsRegistry* d_statisticsRegistry;
 
   NodeValuePool d_nodeValuePool;
@@ -230,8 +230,8 @@ class NodeManager {
   };/* struct NodeManager::NVStorage<N> */
 
   // attribute tags
-  struct TypeTag {};
-  struct TypeCheckedTag;
+  struct TypeTag { };
+  struct TypeCheckedTag { };
 
   // NodeManager's attributes.  These aren't exposed outside of this
   // class; use the getters.
@@ -267,17 +267,17 @@ public:
   static NodeManager* currentNM() { return s_current; }
 
   /** Get this node manager's options (const version) */
-  const Options* getOptions() const {
-    return &d_options;
+  const Options& getOptions() const {
+    return *d_options;
   }
 
   /** Get this node manager's options (non-const version) */
-  Options* getOptions() {
-    return &d_options;
+  Options& getOptions() {
+    return *d_options;
   }
 
   /** Get this node manager's statistics registry */
-  StatisticsRegistry* getStatisticsRegistry() const {
+  StatisticsRegistry* getStatisticsRegistry() const throw() {
     return d_statisticsRegistry;
   }
 
@@ -661,10 +661,10 @@ public:
   /** Make a new (anonymous) sort of arity 0. */
   inline TypeNode mkSort();
 
-  /** Make a new sort with the given name and arity. */
+  /** Make a new sort with the given name of arity 0. */
   inline TypeNode mkSort(const std::string& name);
 
-  /** Make a new sort with the given name and arity. */
+  /** Make a new sort by parameterizing the given sort constructor. */
   inline TypeNode mkSort(TypeNode constructor,
                          const std::vector<TypeNode>& children);
 
@@ -791,18 +791,18 @@ public:
     // Expr is destructed, there's no active node manager.
     //Assert(nm != NULL);
     NodeManager::s_current = nm;
-    Options::s_current = nm ? &nm->d_options : NULL;
+    Options::s_current = nm ? nm->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << NodeManager::s_current << "\n";
   }
 
   ~NodeManagerScope() {
     NodeManager::s_current = d_oldNodeManager;
-    Options::s_current = d_oldNodeManager ? &d_oldNodeManager->d_options : NULL;
+    Options::s_current = d_oldNodeManager ? d_oldNodeManager->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << "returning to " << NodeManager::s_current << "\n";
   }
-};
+};/* class NodeManagerScope */
 
 
 template <class AttrKind>

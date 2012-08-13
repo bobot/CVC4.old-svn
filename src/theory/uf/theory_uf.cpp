@@ -18,8 +18,11 @@
  **/
 
 #include "theory/uf/theory_uf.h"
+#include "theory/uf/options.h"
+#include "theory/quantifiers/options.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_strong_solver.h"
+#include "theory/model.h"
 
 using namespace std;
 using namespace CVC4;
@@ -30,6 +33,9 @@ using namespace CVC4::theory::uf;
 TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
   Theory(THEORY_UF, c, u, out, valuation, logicInfo, qe),
   d_notify(*this),
+  /* The strong theory solver can be notified by EqualityEngine::init(),
+   * so make sure it's initialized first. */
+  d_thss(options::finiteModelFind() ? new StrongSolverTheoryUf(c, u, out, this) : NULL),
   d_equalityEngine(d_notify, c, "theory::uf::TheoryUF"),
   d_conflict(c, false),
   d_literalsToPropagate(c),
@@ -38,13 +44,7 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
-
-  if (Options::current()->finiteModelFind) {
-    d_thss = new StrongSolverTheoryUf(c, u, out, this);
-  } else {
-    d_thss = NULL;
-  }
-}/* TheoryUF::TheoryUF() */
+}
 
 static Node mkAnd(const std::vector<TNode>& conjunctions) {
   Assert(conjunctions.size() > 0);
@@ -173,11 +173,15 @@ Node TheoryUF::explain(TNode literal) {
   return mkAnd(assumptions);
 }
 
+void TheoryUF::collectModelInfo( TheoryModel* m ){
+  m->assertEqualityEngine( &d_equalityEngine );
+}
+
 void TheoryUF::presolve() {
   // TimerStat::CodeTimer codeTimer(d_presolveTimer);
 
   Debug("uf") << "uf: begin presolve()" << endl;
-  if(Options::current()->ufSymmetryBreaker) {
+  if(options::ufSymmetryBreaker()) {
     vector<Node> newClauses;
     d_symb.apply(newClauses);
     for(vector<Node>::const_iterator i = newClauses.begin();
@@ -297,7 +301,7 @@ void TheoryUF::ppStaticLearn(TNode n, NodeBuilder<>& learned) {
     }
   }
 
-  if(Options::current()->ufSymmetryBreaker) {
+  if(options::ufSymmetryBreaker()) {
     d_symb.assertFormula(n);
   }
 }/* TheoryUF::ppStaticLearn() */

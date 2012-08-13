@@ -24,8 +24,8 @@ libexpr_la_SOURCES = \
 	node_value.cpp \
 	command.h \
 	command.cpp \
-	declaration_scope.h \
-	declaration_scope.cpp \
+	symbol_table.h \
+	symbol_table.cpp \
 	expr_manager_scope.h \
 	node_self_iterator.h \
 	variable_type_map.h \
@@ -56,12 +56,13 @@ EXTRA_DIST = \
 	expr_template.h \
 	expr_template.cpp \
 	type_checker_template.cpp \
+	options_handlers.h \
 	mkkind \
 	mkmetakind \
 	mkexpr \
 	expr_stream.i \
 	expr_manager.i \
-	declaration_scope.i \
+	symbol_table.i \
 	command.i \
 	type.i \
 	kind.i \
@@ -154,3 +155,6 @@ type_checker.cpp: type_checker_template.cpp mkexpr @top_builddir@/src/theory/.su
 		$< \
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
+
+.PHONY: builts
+builts: $(BUILT_SOURCES)

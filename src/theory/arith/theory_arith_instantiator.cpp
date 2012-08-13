@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file instantiator_arith_instantiator.cpp
+/*! \file theory_arith_instantiator.cpp
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -17,6 +17,8 @@
 #include "theory/arith/theory_arith_instantiator.h"
 #include "theory/arith/theory_arith.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers/options.h"
+#include "theory/quantifiers/term_database.h"
 
 using namespace std;
 using namespace CVC4;
@@ -40,7 +42,7 @@ void InstStrategySimplex::processResetInstantiationRound( Theory::Effort effort 
   d_counter++;
 }
 
-int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstStrategySimplex::process( Node f, Theory::Effort effort, int e ){
   if( e<2 ){
     return STATUS_UNFINISHED;
   }else if( e==2 ){
@@ -99,7 +101,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 //
 //}
 //
-//int InstStrategySimplexUfMatch::process( Node f, int effort, int instLimit ){
+//int InstStrategySimplexUfMatch::process( Node f, int effort ){
 //  if( effort<2 ){
 //    return STATUS_UNFINISHED;
 //  }else if( effort==2 ){
@@ -120,7 +122,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 //        while( d_tableaux_ce_term_trigger[x]->getNextMatch() && !addedLemma ){
 //          InstMatch* m = d_tableaux_ce_term_trigger[x]->getCurrent();
 //          if( m->isComplete( f ) ){
-//            if( d_quantEngine->addInstantiation( f, m, true ) ){
+//            if( d_quantEngine->addInstantiation( f, m ) ){
 //              ++(d_th->d_statistics.d_instantiations_match_pure);
 //              ++(d_th->d_statistics.d_instantiations);
 //              addedLemma = true;
@@ -133,8 +135,8 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 //            //Debug("quant-arith") << std::endl;
 //            std::vector< Node > vars;
 //            std::vector< Node > matches;
-//            for( int i=0; i<d_quantEngine->getNumInstantiationConstants( f ); i++ ){
-//              Node ic = d_quantEngine->getInstantiationConstant( f, i );
+//            for( int i=0; i<d_quantEngine->getTermDatabase()->getNumInstantiationConstants( f ); i++ ){
+//              Node ic = d_quantEngine->getTermDatabase()->getInstantiationConstant( f, i );
 //              if( m->d_map[ ic ]!=Node::null() ){
 //                vars.push_back( ic );
 //                matches.push_back( m->d_map[ ic ] );
@@ -162,7 +164,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 //                ++(d_th->d_statistics.d_instantiations_match_var);
 //              }
 //            }else{
-//              if( d_quantEngine->addInstantiation( f, m, true ) ){
+//              if( d_quantEngine->addInstantiation( f, m ) ){
 //                addedLemma = true;
 //                ++(d_th->d_statistics.d_instantiations_match_no_var);
 //                ++(d_th->d_statistics.d_instantiations);
@@ -178,7 +180,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 
 InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
-  if( Options::current()->cbqi ){
+  if( options::cbqi() ){
     addInstStrategy( new InstStrategySimplex( this, d_quantEngine ) );
   }
 }
@@ -190,7 +192,7 @@ void InstantiatorTheoryArith::preRegisterTerm( Node t ){
 void InstantiatorTheoryArith::assertNode( Node assertion ){
   Debug("quant-arith-assert") << "InstantiatorTheoryArith::check: " << assertion << std::endl;
   d_quantEngine->addTermToDatabase( assertion );
-  if( Options::current()->cbqi ){
+  if( options::cbqi() ){
     if( assertion.hasAttribute(InstConstantAttribute()) ){
       setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
     }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
@@ -200,7 +202,7 @@ void InstantiatorTheoryArith::assertNode( Node assertion ){
 }
 
 void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort effort ){
-  if( Options::current()->cbqi ){
+  if( options::cbqi() ){
     Debug("quant-arith") << "Setting up simplex for instantiator... " << std::endl;
     d_instRows.clear();
     d_tableaux_term.clear();
@@ -242,7 +244,7 @@ void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort eff
   }
 }
 
-int InstantiatorTheoryArith::process( Node f, Theory::Effort effort, int e, int instLimit ){
+int InstantiatorTheoryArith::process( Node f, Theory::Effort effort, int e ){
   Debug("quant-arith") << "Arith: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   return InstStrategy::STATUS_UNKNOWN;
 }
@@ -316,11 +318,11 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
     Node f = d_quantEngine->getQuantifier( q );
     Debug(c) << f << std::endl;
     Debug(c) << "   Inst constants: ";
-    for( int i=0; i<(int)d_quantEngine->getNumInstantiationConstants( f ); i++ ){
+    for( int i=0; i<(int)d_quantEngine->getTermDatabase()->getNumInstantiationConstants( f ); i++ ){
       if( i>0 ){
         Debug( c ) << ", ";
       }
-      Debug( c ) << d_quantEngine->getInstantiationConstant( f, i );
+      Debug( c ) << d_quantEngine->getTermDatabase()->getInstantiationConstant( f, i );
     }
     Debug(c) << std::endl;
     Debug(c) << "   Instantiation rows: ";
@@ -375,9 +377,9 @@ bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, I
   }
   instVal = Rewriter::rewrite( instVal );
   //use as instantiation value for var
-  m.d_map[ var ] = instVal;
+  m.set(var, instVal);
   Debug("quant-arith") << "Add instantiation " << m << std::endl;
-  return d_quantEngine->addInstantiation( f, m, true );
+  return d_quantEngine->addInstantiation( f, m );
 }
 
 Node InstantiatorTheoryArith::getTableauxValue( Node n, bool minus_delta ){

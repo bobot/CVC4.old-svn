@@ -25,6 +25,10 @@
 #include "printer/cvc/cvc_printer.h"
 #include "printer/ast/ast_printer.h"
 
+#include <string>
+
+using namespace std;
+
 namespace CVC4 {
 
 Printer* Printer::d_printers[language::output::LANG_MAX];
@@ -37,6 +41,9 @@ Printer* Printer::makePrinter(OutputLanguage lang) throw() {
     return new printer::smt::SmtPrinter();
 
   case LANG_SMTLIB_V2:
+    return new printer::smt2::Smt2Printer();
+
+  case LANG_TPTP: //TODO the printer
     return new printer::smt2::Smt2Printer();
 
   case LANG_CVC4:
@@ -81,6 +88,42 @@ void Printer::toStream(std::ostream& out, const Result& r) const throw() {
       }
       break;
     }
+  }
+}/* Printer::toStream() */
+
+void Printer::toStream(std::ostream& out, const SExpr& sexpr) const throw() {
+  if(sexpr.isInteger()) {
+    out << sexpr.getIntegerValue();
+  } else if(sexpr.isRational()) {
+    out << sexpr.getRationalValue();
+  } else if(sexpr.isKeyword()) {
+    out << sexpr.getValue();
+  } else if(sexpr.isString()) {
+    string s = sexpr.getValue();
+    // escape backslash and quote
+    for(size_t i = 0; i < s.length(); ++i) {
+      if(s[i] == '"') {
+        s.replace(i, 1, "\\\"");
+        ++i;
+      } else if(s[i] == '\\') {
+        s.replace(i, 1, "\\\\");
+        ++i;
+      }
+    }
+    out << "\"" << s << "\"";
+  } else {
+    out << '(';
+    const vector<SExpr>& kids = sexpr.getChildren();
+    bool first = true;
+    for(vector<SExpr>::const_iterator i = kids.begin(); i != kids.end(); ++i) {
+      if(first) {
+        first = false;
+      } else {
+        out << ' ';
+      }
+      out << *i;
+    }
+    out << ')';
   }
 }/* Printer::toStream() */
 

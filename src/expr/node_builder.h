@@ -569,7 +569,7 @@ public:
     Assert(getKind() == kind::UNDEFINED_KIND || d_nv->d_id == 0,
            "can't redefine the Kind of a NodeBuilder");
     Assert(d_nv->d_id == 0,
-           "interal inconsistency with NodeBuilder: d_id != 0");
+           "internal inconsistency with NodeBuilder: d_id != 0");
     AssertArgument(k != kind::UNDEFINED_KIND &&
                    k != kind::NULL_EXPR &&
                    k < kind::LAST_KIND,
@@ -742,7 +742,7 @@ public:
 
 #include "expr/node.h"
 #include "expr/node_manager.h"
-#include "util/options.h"
+#include "expr/options.h"
 
 namespace CVC4 {
 
@@ -1301,7 +1301,7 @@ inline void NodeBuilder<nchild_thresh>::maybeCheckType(const TNode n) const
     throw(TypeCheckingExceptionPrivate, AssertionException) {
   /* force an immediate type check, if early type checking is
      enabled and the current node isn't a variable or constant */
-  if( d_nm->getOptions()->earlyTypeChecking ) {
+  if( d_nm->getOptions()[options::earlyTypeChecking] ) {
     kind::MetaKind mk = n.getMetaKind();
     if( mk != kind::metakind::VARIABLE
         && mk != kind::metakind::CONSTANT ) {

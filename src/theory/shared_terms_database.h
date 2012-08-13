@@ -1,15 +1,18 @@
 /*********************                                                        */
-/*! \file node_visitor.h
+/*! \file shared_terms_database.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors:
- ** Minor contributors (to current version):
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
  **/
 
 #pragma once
@@ -120,14 +123,14 @@ private:
   bool propagateEquality(TNode equality, bool polarity);
 
   /** Theory engine */
-  TheoryEngine* d_theoryEngine;  
+  TheoryEngine* d_theoryEngine;
 
   /** Are we in conflict */
   context::CDO<bool> d_inConflict;
-  
+
   /** Conflicting terms, if any */
   Node d_conflictLHS, d_conflictRHS;
-  
+
   /** Polarity of the conflict */
   bool d_conflictPolarity;
 
@@ -163,7 +166,7 @@ public:
    */
   bool isKnown(TNode literal) const;
 
-  /** 
+  /**
    * Returns an explanation of the propagation that came from the database.
    */
   Node explain(TNode literal) const;
@@ -172,10 +175,10 @@ public:
    * Add an equality to propagate.
    */
   void addEqualityToPropagate(TNode equality);
-  
+
   /**
-   * Add a shared term to the database. The shared term is a subterm of the atom and 
-   * should be associated with the given theory. 
+   * Add a shared term to the database. The shared term is a subterm of the atom and
+   * should be associated with the given theory.
    */
   void addSharedTerm(TNode atom, TNode term, theory::Theory::Set theories);
 
@@ -208,7 +211,7 @@ public:
    * Get the theories that share the term and have been notified already.
    */
   theory::Theory::Set getNotifiedTheories(TNode term) const;
-   
+
   /**
    * Returns true if the term is currently registered as shared with some theory.
    */
@@ -235,6 +238,10 @@ public:
    */
   bool areDisequal(TNode a, TNode b) const;
 
+  /**
+   * get equality engine
+   */
+  theory::eq::EqualityEngine* getEqualityEngine() { return &d_equalityEngine; }
 protected:
 
   /**

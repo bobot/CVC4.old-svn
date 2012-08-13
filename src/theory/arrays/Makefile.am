@@ -7,6 +7,7 @@ noinst_LTLIBRARIES = libarrays.la
 
 libarrays_la_SOURCES = \
 	theory_arrays_type_rules.h \
+	type_enumerator.h \
 	theory_arrays_rewriter.h \
 	theory_arrays.h \
 	theory_arrays.cpp \
@@ -17,6 +18,9 @@ libarrays_la_SOURCES = \
 	static_fact_manager.h \
 	static_fact_manager.cpp \
 	theory_arrays_instantiator.h \
-	theory_arrays_instantiator.cpp
+	theory_arrays_instantiator.cpp \
+	theory_arrays_model.h \
+	theory_arrays_model.cpp
 
-EXTRA_DIST = kinds
+EXTRA_DIST = \
+	kinds

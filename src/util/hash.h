@@ -26,6 +26,7 @@
 namespace __gnu_cxx {}
 
 #include <ext/hash_map>
+#include <ext/hash_set>
 
 namespace __gnu_cxx {
 
@@ -52,12 +53,6 @@ struct StringHashFunction {
     return std::hash<const char*>()(str.c_str());
   }
 };/* struct StringHashFunction */
-
-struct StringHashStrategy {
-  static size_t hash(const std::string& str) {
-    return std::hash<const char*>()(str.c_str());
-  }
-};/* struct StringHashStrategy */
 
 }/* CVC4 namespace */
 

@@ -27,6 +27,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "prop/theory_proxy.h"
 #include "prop/minisat/minisat.h"
+#include "prop/options.h"
 #include "util/output.h"
 #include "expr/command.h"
 #include "proof/proof_manager.h"
@@ -1079,7 +1080,7 @@ lbool Solver::search(int nof_conflicts)
                            (int)max_learnts, nLearnts(), (double)learnts_literals/nLearnts(), progressEstimate()*100);
             }
 
-            if (theoryConflict && Options::current()->sat_refine_conflicts) {
+            if (theoryConflict && options::sat_refine_conflicts()) {
               check_type = CHECK_FINAL_FAKE;
             } else {
               check_type = CHECK_WITH_THEORY;
@@ -1526,7 +1527,7 @@ bool Solver::flipDecision() {
 
 CRef Solver::updateLemmas() {
 
-  Debug("minisat::lemmas") << "Solver::updateLemmas()" << std::endl;
+  Debug("minisat::lemmas") << "Solver::updateLemmas() begin" << std::endl;
 
   CRef conflict = CRef_Undef;
 
@@ -1537,36 +1538,40 @@ CRef Solver::updateLemmas() {
   lemma_lt lt(*this);
 
   // Check for propagation and level to backtrack to
-  for (int i = 0; i < lemmas.size(); ++ i)
-  {
-    // The current lemma
-    vec<Lit>& lemma = lemmas[i];
-    // If it's an empty lemma, we have a conflict at zero level
-    if (lemma.size() == 0) {
-      conflict = CRef_Lazy;
-      backtrackLevel = 0;
-      Debug("minisat::lemmas") << "Solver::updateLemmas(): found empty clause" << std::endl;
-      continue;
-    }
-    // Sort the lemma to be able to attach
-    sort(lemma, lt);
-    // See if the lemma propagates something
-    if (lemma.size() == 1 || value(lemma[1]) == l_False) {
-      Debug("minisat::lemmas") << "found unit " << lemma.size() << std::endl;
-      // This lemma propagates, see which level we need to backtrack to
-      int currentBacktrackLevel = lemma.size() == 1 ? 0 : level(var(lemma[1]));
-      // Even if the first literal is true, we should propagate it at this level (unless it's set at a lower level)
-      if (value(lemma[0]) != l_True || level(var(lemma[0])) > currentBacktrackLevel) {
-        if (currentBacktrackLevel < backtrackLevel) {
-          backtrackLevel = currentBacktrackLevel;
+  int i = 0;
+  while (i < lemmas.size()) {
+    // We need this loop as when we backtrack, due to registration more lemmas could be added
+    for (; i < lemmas.size(); ++ i)
+    {
+      // The current lemma
+      vec<Lit>& lemma = lemmas[i];
+      // If it's an empty lemma, we have a conflict at zero level
+      if (lemma.size() == 0) {
+        conflict = CRef_Lazy;
+        backtrackLevel = 0;
+        Debug("minisat::lemmas") << "Solver::updateLemmas(): found empty clause" << std::endl;
+        continue;
+      }
+      // Sort the lemma to be able to attach
+      sort(lemma, lt);
+      // See if the lemma propagates something
+      if (lemma.size() == 1 || value(lemma[1]) == l_False) {
+        Debug("minisat::lemmas") << "found unit " << lemma.size() << std::endl;
+        // This lemma propagates, see which level we need to backtrack to
+        int currentBacktrackLevel = lemma.size() == 1 ? 0 : level(var(lemma[1]));
+        // Even if the first literal is true, we should propagate it at this level (unless it's set at a lower level)
+        if (value(lemma[0]) != l_True || level(var(lemma[0])) > currentBacktrackLevel) {
+          if (currentBacktrackLevel < backtrackLevel) {
+            backtrackLevel = currentBacktrackLevel;
+          }
         }
       }
     }
-  }
 
-  // Pop so that propagation would be current
-  Debug("minisat::lemmas") << "Solver::updateLemmas(): backtracking to " << backtrackLevel << " from " << decisionLevel() << std::endl;
-  cancelUntil(backtrackLevel);
+    // Pop so that propagation would be current
+    Debug("minisat::lemmas") << "Solver::updateLemmas(): backtracking to " << backtrackLevel << " from " << decisionLevel() << std::endl;
+    cancelUntil(backtrackLevel);
+  }
 
   // Last index in the trail
   int backtrack_index = trail.size();
@@ -1623,6 +1628,8 @@ CRef Solver::updateLemmas() {
   if (conflict != CRef_Undef) {
     theoryConflict = true;
   }
+
+  Debug("minisat::lemmas") << "Solver::updateLemmas() end" << std::endl;
 
   return conflict;
 }

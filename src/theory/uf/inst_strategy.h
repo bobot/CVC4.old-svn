@@ -20,6 +20,7 @@
 #define __CVC4__INST_STRATEGY_H
 
 #include "theory/quantifiers_engine.h"
+#include "theory/quantifiers/trigger.h"
 
 #include "context/context.h"
 #include "context/context_mm.h"
@@ -45,9 +46,9 @@ private:
   void calcSolved( Node f );
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
+  int process( Node f, Theory::Effort effort, int e );
 public:
-  InstStrategyCheckCESolved( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
+  InstStrategyCheckCESolved( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) :
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyCheckCESolved(){}
   /** identify */
@@ -59,14 +60,14 @@ private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
   /** explicitly provided patterns */
-  std::map< Node, std::vector< Trigger* > > d_user_gen;
+  std::map< Node, std::vector< inst::Trigger* > > d_user_gen;
   /** counter for quantifiers */
   std::map< Node, int > d_counter;
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
+  int process( Node f, Theory::Effort effort, int e );
 public:
-  InstStrategyUserPatterns( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
+  InstStrategyUserPatterns( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) :
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyUserPatterns(){}
 public:
@@ -75,7 +76,7 @@ public:
   /** get num patterns */
   int getNumUserGenerators( Node f ) { return (int)d_user_gen[f].size(); }
   /** get user pattern */
-  Trigger* getUserGenerator( Node f, int i ) { return d_user_gen[f][ i ]; }
+  inst::Trigger* getUserGenerator( Node f, int i ) { return d_user_gen[f][ i ]; }
   /** identify */
   std::string identify() const { return std::string("UserPatterns"); }
 };/* class InstStrategyUserPatterns */
@@ -99,7 +100,7 @@ private:
   /** generate additional triggers */
   bool d_generate_additional;
   /** triggers for each quantifier */
-  std::map< Node, std::map< Trigger*, bool > > d_auto_gen_trigger;
+  std::map< Node, std::map< inst::Trigger*, bool > > d_auto_gen_trigger;
   std::map< Node, int > d_counter;
   /** single, multi triggers for each quantifier */
   std::map< Node, std::vector< Node > > d_patTerms[2];
@@ -109,18 +110,18 @@ private:
 private:
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
+  int process( Node f, Theory::Effort effort, int e );
   /** generate triggers */
   void generateTriggers( Node f );
 public:
-  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt, int rstrt, int rgfr = -1 ) : 
+  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt, int rstrt, int rgfr = -1 ) :
       InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ), d_rlv_strategy( rstrt ), d_generate_additional( false ){
     setRegenerateFrequency( rgfr );
   }
   ~InstStrategyAutoGenTriggers(){}
 public:
   /** get auto-generated trigger */
-  Trigger* getAutoGenTrigger( Node f );
+  inst::Trigger* getAutoGenTrigger( Node f );
   /** identify */
   std::string identify() const { return std::string("AutoGenTriggers"); }
   /** set regenerate frequency, if fr<0, turn off regenerate */
@@ -144,9 +145,9 @@ private:
   InstantiatorTheoryUf* d_th;
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
+  int process( Node f, Theory::Effort effort, int e );
 public:
-  InstStrategyAddFailSplits( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
+  InstStrategyAddFailSplits( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) :
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyAddFailSplits(){}
   /** identify */
@@ -163,9 +164,9 @@ private:
   std::map< Node, bool > d_guessed;
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
+  int process( Node f, Theory::Effort effort, int e );
 public:
-  InstStrategyFreeVariable( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
+  InstStrategyFreeVariable( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) :
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyFreeVariable(){}
   /** identify */

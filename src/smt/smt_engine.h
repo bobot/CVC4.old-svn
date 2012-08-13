@@ -29,11 +29,10 @@
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "util/proof.h"
-#include "smt/bad_option_exception.h"
+#include "util/model.h"
 #include "smt/modal_exception.h"
-#include "smt/no_such_function_exception.h"
 #include "util/hash.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/result.h"
 #include "util/sexpr.h"
 #include "util/stats.h"
@@ -75,6 +74,7 @@ namespace smt {
   class DefinedFunction;
 
   class SmtEnginePrivate;
+  class SmtScope;
 }/* CVC4::smt namespace */
 
 // TODO: SAT layer (esp. CNF- versus non-clausal solvers under the
@@ -247,6 +247,9 @@ class CVC4_PUBLIC SmtEngine {
   void setLogicInternal() throw(AssertionException);
 
   friend class ::CVC4::smt::SmtEnginePrivate;
+  friend class ::CVC4::smt::SmtScope;
+
+  StatisticsRegistry* d_statisticsRegistry;
 
   // === STATISTICS ===
   /** time spent in definition-expansion */
@@ -297,26 +300,26 @@ public:
   /**
    * Set information about the script executing.
    */
-  void setInfo(const std::string& key, const SExpr& value)
-    throw(BadOptionException, ModalException);
+  void setInfo(const std::string& key, const CVC4::SExpr& value)
+    throw(OptionException, ModalException);
 
   /**
    * Query information about the SMT environment.
    */
-  SExpr getInfo(const std::string& key) const
-    throw(BadOptionException);
+  CVC4::SExpr getInfo(const std::string& key) const
+    throw(OptionException, ModalException);
 
   /**
    * Set an aspect of the current SMT execution environment.
    */
-  void setOption(const std::string& key, const SExpr& value)
-    throw(BadOptionException, ModalException);
+  void setOption(const std::string& key, const CVC4::SExpr& value)
+    throw(OptionException, ModalException);
 
   /**
    * Get an aspect of the current SMT execution environment.
    */
-  SExpr getOption(const std::string& key) const
-    throw(BadOptionException);
+  CVC4::SExpr getOption(const std::string& key) const
+    throw(OptionException);
 
   /**
    * Add a formula to the current context: preprocess, do per-theory
@@ -383,7 +386,26 @@ public:
    * INVALID query).  Only permitted if the SmtEngine is set to
    * operate interactively and produce-assignments is on.
    */
-  SExpr getAssignment() throw(ModalException, AssertionException);
+  CVC4::SExpr getAssignment() throw(ModalException, AssertionException);
+
+  /**
+   * Add to Model Type.  This is used for recording which types should be reported
+   * during a get-model call.
+   */
+  void addToModelType( Type& t );
+
+  /**
+   * Add to Model Function.  This is used for recording which functions should be reported
+   * during a get-model call.
+   */
+  void addToModelFunction( Expr& e );
+
+  /**
+   * Get the model (only if immediately preceded by a SAT
+   * or INVALID query).  Only permitted if CVC4 was built with model
+   * support and produce-models is on.
+   */
+  Model* getModel() throw(ModalException, AssertionException);
 
   /**
    * Get the last proof (only if immediately preceded by an UNSAT
@@ -512,6 +534,13 @@ public:
   unsigned long getTimeRemaining() const throw(ModalException);
 
   /**
+   * Permit access to the underlying ExprManager.
+   */
+  ExprManager* getExprManager() const {
+    return d_exprManager;
+  }
+
+  /**
    * Permit access to the underlying StatisticsRegistry.
    */
   StatisticsRegistry* getStatisticsRegistry() const;
@@ -519,6 +548,22 @@ public:
   Result getStatusOfLastCommand() const {
     return d_status;
   }
+
+  /**
+   * Used as a predicate for options preprocessor.
+   */
+  static void beforeSearch(std::string option, bool value, SmtEngine* smt) throw(ModalException) {
+    if(smt != NULL && smt->d_fullyInited) {
+      std::stringstream ss;
+      ss << "cannot change option `" << option << "' after final initialization (i.e., after logic has been set)";
+      throw ModalException(ss.str());
+    }
+  }
+
+  /**
+   * print model function (need this?)
+   */
+  void printModel( std::ostream& out, Model* m );
 
 };/* class SmtEngine */
 

@@ -203,7 +203,7 @@ if test -n "${enable_replay+set}"; then
 fi
 AC_MSG_RESULT([$with_build])
 
-AM_INIT_AUTOMAKE([1.11 no-define tar-pax parallel-tests color-tests])
+AM_INIT_AUTOMAKE([1.11 no-define tar-pax parallel-tests color-tests subdir-objects])
 AC_CONFIG_HEADERS([cvc4autoconfig.h])
 
 # Initialize libtool's configuration options.
@@ -293,7 +293,7 @@ else
   CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }$CLN_CFLAGS"
   CVC4CXXFLAGS="${CVC4CXXFLAGS:+$CVC4CXXFLAGS }$CLN_CFLAGS"
   CVC4CFLAGS="${CVC4CFLAGS:+$CVC4CFLAGS }$CLN_CFLAGS"
-  LIBS="${LIBS:+$LIBS }$CLN_LIBS"
+  LIBS="$CLN_LIBS${LIBS:+ $LIBS}"
   cvc4_cln_or_gmp=cln
 fi
 
@@ -849,7 +849,7 @@ AC_LIB_ANTLR
 # supported by the build host).
 CVC4_CHECK_BINDINGS([c java])dnl csharp perl php python ruby tcl ocaml])
 
-# Checks for header files.
+# Checks for header files and their contents.
 AC_CHECK_HEADERS([getopt.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -862,6 +862,9 @@ AC_CHECK_HEADERS([getopt.h unistd.h])
 
 AC_CHECK_DECLS([optreset], [], [], [#include <getopt.h>])
 
+# check with which standard strerror_r() complies
+AC_FUNC_STRERROR_R
+
 # require boost library
 BOOST_REQUIRE()
 
@@ -873,16 +876,28 @@ if test "$enable_static_binary" = yes; then
   LDFLAGS="-static $LDFLAGS"
 fi
 cvc4_has_threads=yes
-BOOST_THREADS([], [AC_MSG_WARN([disabling multithreaded support])
+AC_ARG_ENABLE([thread-support],
+    AS_HELP_STRING([--disable-thread-support], [do not support multithreaded-capable library]))
+if test "$enable_thread_support" = no; then
+  cvc4_has_threads=no
+  if test "$with_portfolio" = yes; then
+    AC_MSG_ERROR([user gave both --with-portfolio and --disable-thread-support, which are contradictory])
+  fi
+else
+  BOOST_THREADS([], [AC_MSG_WARN([disabling multithreaded support])
                    cvc4_has_threads=no])
+fi
 LDFLAGS="$cvc4_save_LDFLAGS"
 if test $cvc4_has_threads = no; then
-  if test x$with_portfolio = xyes; then
+  if test "$enable_thread_support" = yes; then
+    AC_MSG_ERROR([user gave --enable-thread-support but could not build with threads; maybe boost threading library is missing?])
+  fi
+  if test "$with_portfolio" = yes; then
     AC_MSG_ERROR([user gave --with-portfolio but could not build with threads; maybe boost threading library is missing?])
   fi
   with_portfolio=no
 fi
-if test x$with_portfolio != xyes; then
+if test "$with_portfolio" != yes; then
   with_portfolio=no
 fi
 AM_CONDITIONAL([CVC4_BUILD_PCVC4], [test "$with_portfolio" = yes])
@@ -1010,7 +1025,7 @@ AC_DEFINE_UNQUOTED(CVC4_RELEASE, ${CVC4_RELEASE}, [Release component of the vers
 AC_DEFINE_UNQUOTED(CVC4_EXTRAVERSION, ["${CVC4_EXTRAVERSION}"], [Extraversion component of the version of CVC4.])
 AC_DEFINE_UNQUOTED(CVC4_RELEASE_STRING, ["${CVC4_RELEASE_STRING}"], [Full release string for CVC4.])
 
-CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }$CVC4CPPFLAGS"
+CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }${BOOST_CPPFLAGS:+$BOOST_CPPFLAGS }$CVC4CPPFLAGS"
 CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }$CVC4CXXFLAGS -Wno-deprecated"
 CFLAGS="${CFLAGS:+$CFLAGS }$CVC4CFLAGS -Wno-deprecated -fexceptions"
 LDFLAGS="${LDFLAGS:+$LDFLAGS }$CVC4LDFLAGS"
@@ -1050,6 +1065,7 @@ fi
 AC_SUBST(CVC4_USE_CLN_IMP)
 AC_SUBST(CVC4_USE_GMP_IMP)
 
+# month/year for man pages
 MAN_DATE=`date '+%B %Y'`
 AC_SUBST(MAN_DATE)
 
@@ -1073,7 +1089,7 @@ CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/integer.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/tls.h])
 
-CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.1])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.1_template])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.5])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4parser.3])

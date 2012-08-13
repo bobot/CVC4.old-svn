@@ -21,6 +21,7 @@
 #define __CVC4__INSTANTIATOR_THEORY_ARRAYS_H
 
 #include "theory/quantifiers_engine.h"
+#include "theory/uf/equality_engine.h"
 
 namespace CVC4 {
 namespace theory {
@@ -32,7 +33,7 @@ protected:
   /** reset instantiation round */
   void processResetInstantiationRound( Theory::Effort effort );
   /** process quantifier */
-  int process( Node f, Theory::Effort effort, int e, int limitInst = 0 );
+  int process( Node f, Theory::Effort effort, int e );
 public:
   InstantiatorTheoryArrays(context::Context* c, QuantifiersEngine* ie, Theory* th);
   ~InstantiatorTheoryArrays() {}
@@ -42,6 +43,17 @@ public:
   void assertNode( Node assertion );
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryArrays"); }
+public:
+  /** general queries about equality */
+  bool hasTerm( Node a );
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
+  Node getRepresentative( Node a );
+  eq::EqualityEngine* getEqualityEngine();
+  void getEquivalenceClass( Node a, std::vector< Node >& eqc );
+  /** general creators of candidate generators */
+  rrinst::CandidateGenerator* getRRCanGenClasses();
+  rrinst::CandidateGenerator* getRRCanGenClass();
 };/* class Instantiatior */
 
 }

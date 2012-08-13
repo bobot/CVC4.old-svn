@@ -336,7 +336,7 @@ public:
   typedef typename SuperT::const_iterator const_iterator;
 
   RowVector(MatrixEntryVector<T>* mev) : SuperT(mev){}
-};
+};/* class RowVector<T> */
 
 template <class T>
   class ColumnVector : public MatrixVector<T, false>
@@ -347,7 +347,7 @@ public:
   typedef typename SuperT::const_iterator const_iterator;
 
   ColumnVector(MatrixEntryVector<T>* mev) : SuperT(mev){}
-};
+};/* class ColumnVector<T> */
 
 template <class T>
 class Matrix {
@@ -853,6 +853,14 @@ public:
     return d_basic2RowIndex.isKey(v);
   }
 
+  void debugPrintIsBasic(ArithVar v) const {
+    if(isBasic(v)){
+      Warning() << v << " is basic." << std::endl;
+    }else{
+      Warning() << v << " is non-basic." << std::endl;
+    }
+  }
+
   BasicIterator beginBasic() const {
     return d_basic2RowIndex.begin();
   }
@@ -911,7 +919,7 @@ private:
   /* Changes the basic variable on the row for basicOld to basicNew. */
   void rowPivot(ArithVar basicOld, ArithVar basicNew);
 
-};
+};/* class Tableau */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

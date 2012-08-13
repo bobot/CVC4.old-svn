@@ -269,6 +269,7 @@ void ArithPartialModel::printModel(ArithVar x){
     Debug("model") << getUpperBound(x) << " ";
     Debug("model") << getUpperBoundConstraint(x) << " ";
   }
+  Debug("model") << endl;
 }
 
 void ArithPartialModel::deltaIsSmallerThan(const DeltaRational& l, const DeltaRational& u){
@@ -303,6 +304,6 @@ void ArithPartialModel::computeDelta(){
   d_deltaIsSafe = true;
 }
 
-}; /* namesapce arith */
-}; /* namespace theory */
-}; /* namespace CVC4 */
+}/* CVC4::theory::arith namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */

@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file sat_module.h
+/*! \file sat_solver.h
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: 
- ** Minor contributors (to current version): 
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -16,14 +16,13 @@
  ** SAT Solver.
  **/
 
-#include "cvc4_public.h"
+#include "cvc4_private.h"
 
 #ifndef __CVC4__PROP__SAT_MODULE_H
 #define __CVC4__PROP__SAT_MODULE_H
 
 #include <string>
 #include <stdint.h>
-#include "util/options.h"
 #include "util/stats.h"
 #include "context/cdlist.h"
 #include "prop/sat_solver_types.h"

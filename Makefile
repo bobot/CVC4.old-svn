@@ -34,8 +34,9 @@ distclean maintainerclean:
 .PHONY: test
 test: check
 
-.PHONY: doc
+.PHONY: doc doc-internals
 doc: doc-builds
+doc-internals: doc-internals-builds
 
 .PHONY: examples
 examples: all
@@ -43,7 +44,7 @@ examples: all
 
 YEAR := $(shell date +%Y)
 submission submission-main:
-	@if [ -n "`ls src/parser/*/generated`" ]; then \
+	@if [ -n "`ls src/parser/*/generated 2>/dev/null`" ]; then \
 	  echo 'ERROR:' >&2; \
 	  echo 'ERROR: Please make maintainer-clean first.' >&2; \
 	  echo 'ERROR:' >&2; \
@@ -58,13 +59,12 @@ submission submission-main:
 	# main track
 	mkdir -p cvc4-smtcomp-$(YEAR)
 	cp -p builds/bin/cvc4 cvc4-smtcomp-$(YEAR)/cvc4
-	( echo '#!/bin/sh'; \
-	  echo 'exec ./cvc4 -L smt2 --no-checking --no-interactive' ) > cvc4-smtcomp-$(YEAR)/run
+	cp contrib/run-script-smtcomp2012 cvc4-smtcomp-$(YEAR)/run
 	chmod 755 cvc4-smtcomp-$(YEAR)/run
 	tar cf cvc4-smtcomp-$(YEAR).tar cvc4-smtcomp-$(YEAR)
 submission-application:
 	# application track is a separate build because it has different preprocessor #defines
-	@if [ -n "`ls src/parser/*/generated`" ]; then \
+	@if [ -n "`ls src/parser/*/generated 2>/dev/null`" ]; then \
 	  echo 'ERROR:' >&2; \
 	  echo 'ERROR: Please make maintainer-clean first.' >&2; \
 	  echo 'ERROR:' >&2; \
@@ -85,7 +85,7 @@ submission-application:
 	tar cf cvc4-application-smtcomp-$(YEAR).tar cvc4-application-smtcomp-$(YEAR)
 submission-parallel:
 	# parallel track can't be built with -cln, so it's a separate build
-	@if [ -n "`ls src/parser/*/generated`" ]; then \
+	@if [ -n "`ls src/parser/*/generated 2>/dev/null`" ]; then \
 	  echo 'ERROR:' >&2; \
 	  echo 'ERROR: Please make maintainer-clean first.' >&2; \
 	  echo 'ERROR:' >&2; \

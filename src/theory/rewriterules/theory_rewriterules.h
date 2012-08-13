@@ -1,12 +1,11 @@
-/*********************                                                       */
-/*! \file rewrite_engine.h
+/*********************                                                        */
+/*! \file theory_rewriterules.h
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: bobot
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011
- ** The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -28,13 +27,18 @@
 #include "theory/theory_engine.h"
 #include "theory/quantifiers_engine.h"
 #include "context/context_mm.h"
-#include "theory/inst_match_impl.h"
+#include "theory/rewriterules/rr_inst_match_impl.h"
+#include "theory/rewriterules/rr_trigger.h"
+#include "theory/rewriterules/rr_inst_match.h"
 #include "util/stats.h"
 #include "theory/rewriterules/theory_rewriterules_preprocess.h"
+#include "theory/model.h"
 
 namespace CVC4 {
 namespace theory {
 namespace rewriterules {
+using namespace CVC4::theory::rrinst;
+typedef CVC4::theory::rrinst::Trigger Trigger;
 
 typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
 
@@ -45,6 +49,7 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
   class RewriteRule{
   public:
     // constant
+    const size_t id; //for debugging
     const bool d_split;
     mutable Trigger trigger;
     std::vector<Node> guards;
@@ -58,7 +63,7 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
        rule) */
     typedef context::CDList< std::pair<TNode,RewriteRule* > > BodyMatch;
     mutable BodyMatch body_match;
-    mutable Trigger trigger_for_body_match; // used because we can be matching
+    mutable ApplyMatcher * trigger_for_body_match; // used because we can be matching
                                     // trigger when we need new match.
                                     // So currently we use another
                                     // trigger for that.
@@ -70,7 +75,7 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
     const bool directrr;
 
     RewriteRule(TheoryRewriteRules & re,
-                Trigger & tr, Trigger & tr2,
+                Trigger & tr, ApplyMatcher * tr2,
                 std::vector<Node> & g, Node b, TNode nt,
                 std::vector<Node> & fv,std::vector<Node> & iv,
                 std::vector<Node> & to_r, bool drr);
@@ -183,6 +188,8 @@ private:
       inside check */
   typedef std::vector< RuleInst* > QRuleInsts;
   QRuleInsts d_ruleinsts_to_add;
+  bool d_ppAssert_on; //Indicate if a ppAssert have been done
+
  public:
   /** true and false for predicate */
   Node d_true;
@@ -200,6 +207,7 @@ private:
   /** Usual function for theories */
   void check(Theory::Effort e);
   Node explain(TNode n);
+  void collectModelInfo( TheoryModel* m );
   void notifyEq(TNode lhs, TNode rhs);
   std::string identify() const {
     return "THEORY_REWRITERULES";
@@ -230,7 +238,7 @@ private:
    */
   void propagateRule(const RuleInst * r, TCache cache);
 
-  /** Auxillary functions */
+  /** Auxiliary functions */
 private:
   /** A guard is verify, notify the Guarded */
   void notification(GList * const lpropa, bool b);
@@ -238,14 +246,16 @@ private:
      already true */
   bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
 
-  Node substGuards(const RuleInst * inst,
+  void substGuards(const RuleInst * inst,
                    TCache cache,
-                   Node last = Node::null());
+                   NodeBuilder<> & conjunction);
 
   void addRewriteRule(const Node r);
   void computeMatchBody ( const RewriteRule * r, size_t start = 0);
   void addMatchRuleTrigger(const RewriteRule* r,
                            InstMatch & im, bool delay = true);
+
+  Node normalizeConjunction(NodeBuilder<> & conjunction);
 
   /* rewrite pattern */
   typedef std::hash_map< Node, rewriter::RRPpRewrite*, NodeHashFunction > RegisterRRPpRewrite;
@@ -254,6 +264,21 @@ private:
   bool addRewritePattern(TNode pattern, TNode body,
                          rewriter::Subst & pvars,
                          rewriter::Subst & vars);
+
+    /** statistics class */
+  class Statistics {
+  public:
+    IntStat d_num_rewriterules;
+    IntStat d_check;
+    IntStat d_full_check;
+    IntStat d_poll;
+    IntStat d_match_found;
+    IntStat d_cache_hit;
+    IntStat d_cache_miss;
+    Statistics();
+    ~Statistics();
+  };
+  Statistics d_statistics;
 
 };/* class TheoryRewriteRules */
 

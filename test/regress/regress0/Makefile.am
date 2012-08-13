@@ -1,4 +1,4 @@
-SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers lemmas push-pop preprocess unconstrained decision
+SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers rewriterules lemmas push-pop preprocess unconstrained decision
 DIST_SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers rewriterules lemmas push-pop preprocess unconstrained decision
 
 BINARY = cvc4
@@ -43,7 +43,8 @@ SMT2_TESTS = \
 	simple-lra.smt2 \
 	simple-rdl.smt2 \
 	simple-uf.smt2 \
-	simplification_bug4.smt2
+	simplification_bug4.smt2 \
+	parallel-let.smt2
 
 # Regression tests for PL inputs
 CVC_TESTS = \
@@ -85,6 +86,19 @@ CVC_TESTS = \
 	wiki.21.cvc \
 	simplification_bug3.cvc
 
+# Regression tests for TPTP inputs
+TPTP_TESTS = \
+	tptp_parser.p \
+	tptp_parser2.p \
+	tptp_parser3.p \
+	tptp_parser4.p \
+	tptp_parser5.p \
+	tptp_parser6.p \
+	tptp_parser7.p \
+	tptp_parser8.p \
+	tptp_parser9.p \
+	tptp_parser10.p
+
 # Regression tests derived from bug reports
 BUG_TESTS = \
 	bug32.cvc \
@@ -102,9 +116,12 @@ BUG_TESTS = \
 	buggy-ite.smt2 \
 	bug303.smt2 \
 	bug310.cvc \
-	bug339.smt2
+	bug322.cvc \
+	bug322b.cvc \
+	bug339.smt2 \
+	bug365.smt2
 
-TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
+TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(TPTP_TESTS) $(BUG_TESTS)
 
 EXTRA_DIST = $(TESTS) \
 	simplification_bug4.smt2.expect

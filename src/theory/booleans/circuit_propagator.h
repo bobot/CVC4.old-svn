@@ -260,11 +260,11 @@ public:
   { d_context.pop(); }
 
   /** Assert for propagation */
-  void assert(TNode assertion);
+  void assertTrue(TNode assertion);
 
   /**
    * Propagate through the asserted circuit propagator. New information discovered by the propagator
-   * are put in the subsitutions vector used in construction.
+   * are put in the substitutions vector used in construction.
    *
    * @return true iff conflict found
    */

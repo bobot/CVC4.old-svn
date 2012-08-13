@@ -17,6 +17,9 @@
 #include "theory/datatypes/theory_datatypes_instantiator.h"
 #include "theory/datatypes/theory_datatypes.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers/options.h"
+#include "theory/quantifiers/term_database.h"
+#include "theory/rewriterules/rr_candidate_generator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -25,15 +28,15 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::datatypes;
 
-InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, Theory* th) :
-Instantiator( c, ie, th ){
 
+InstantiatorTheoryDatatypes::InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, TheoryDatatypes* th) :
+Instantiator( c, ie, th ){
 }
 
 void InstantiatorTheoryDatatypes::assertNode( Node assertion ){
   Debug("quant-datatypes-assert") << "InstantiatorTheoryDatatypes::check: " << assertion << std::endl;
   d_quantEngine->addTermToDatabase( assertion );
-  if( Options::current()->cbqi ){
+  if( options::cbqi() ){
     if( assertion.hasAttribute(InstConstantAttribute()) ){
       setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
     }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
@@ -47,28 +50,32 @@ void InstantiatorTheoryDatatypes::processResetInstantiationRound( Theory::Effort
 }
 
 
-int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e, int limitInst ){
+int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e ){
   Debug("quant-datatypes") << "Datatypes: Try to solve (" << e << ") for " << f << "... " << std::endl;
-  if( Options::current()->cbqi ){
+  if( options::cbqi() ){
     if( e<2 ){
       return InstStrategy::STATUS_UNFINISHED;
     }else if( e==2 ){
+      /*
       InstMatch m;
-      for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
-        Node i = d_quantEngine->getInstantiationConstant( f, j );
+      for( int j = 0; j<(int)d_quantEngine->getTermDatabase()->getNumInstantiationConstants( f ); j++ ){
+        Node i = d_quantEngine->getTermDatabase()->getInstantiationConstant( f, j );
         if( i.getType().isDatatype() ){
           Node n = getValueFor( i );
           Debug("quant-datatypes-debug") << "Value for " << i << " is " << n << std::endl;
-          m.d_map[ i ] = n;
+          m.set(i,n);
         }
       }
       d_quantEngine->addInstantiation( f, m );
+      */
     }
   }
   return InstStrategy::STATUS_UNKNOWN;
 }
 
 Node InstantiatorTheoryDatatypes::getValueFor( Node n ){
+  return n;
+  /*  FIXME
   //simply get the ground value for n in the current model, if it exists,
   //  or return an arbitrary ground term otherwise
   Debug("quant-datatypes-debug")  << "get value for " << n << std::endl;
@@ -140,10 +147,7 @@ Node InstantiatorTheoryDatatypes::getValueFor( Node n ){
       }
     }
   }
-}
-
-Node InstantiatorTheoryDatatypes::getRepresentative( Node n ){
-  return ((TheoryDatatypes*)d_th)->find( n );
+  */
 }
 
 InstantiatorTheoryDatatypes::Statistics::Statistics():
@@ -156,3 +160,58 @@ InstantiatorTheoryDatatypes::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_instantiations);
 }
 
+bool InstantiatorTheoryDatatypes::hasTerm( Node a ){
+  return ((TheoryDatatypes*)d_th)->getEqualityEngine()->hasTerm( a );
+}
+
+bool InstantiatorTheoryDatatypes::areEqual( Node a, Node b ){
+  if( a==b ){
+    return true;
+  }else if( hasTerm( a ) && hasTerm( b ) ){
+    return ((TheoryDatatypes*)d_th)->getEqualityEngine()->areEqual( a, b );
+  }else{
+    return false;
+  }
+}
+
+bool InstantiatorTheoryDatatypes::areDisequal( Node a, Node b ){
+  if( a==b ){
+    return false;
+  }else if( hasTerm( a ) && hasTerm( b ) ){
+    return ((TheoryDatatypes*)d_th)->getEqualityEngine()->areDisequal( a, b, false );
+  }else{
+    return false;
+  }
+}
+
+Node InstantiatorTheoryDatatypes::getRepresentative( Node a ){
+  if( hasTerm( a ) ){
+    return ((TheoryDatatypes*)d_th)->getEqualityEngine()->getRepresentative( a );
+  }else{
+    return a;
+  }
+}
+
+eq::EqualityEngine* InstantiatorTheoryDatatypes::getEqualityEngine(){
+  return &((TheoryDatatypes*)d_th)->d_equalityEngine;
+}
+
+void InstantiatorTheoryDatatypes::getEquivalenceClass( Node a, std::vector< Node >& eqc ){
+  if( hasTerm( a ) ){
+    a = getEqualityEngine()->getRepresentative( a );
+    eq::EqClassIterator eqc_iter( a, getEqualityEngine() );
+    while( !eqc_iter.isFinished() ){
+      if( std::find( eqc.begin(), eqc.end(), *eqc_iter )==eqc.end() ){
+        eqc.push_back( *eqc_iter );
+      }
+      eqc_iter++;
+    }
+  }
+}
+
+CVC4::theory::rrinst::CandidateGenerator* InstantiatorTheoryDatatypes::getRRCanGenClass(){
+  datatypes::TheoryDatatypes* dt = static_cast<datatypes::TheoryDatatypes*>(getTheory());
+  eq::EqualityEngine* ee =
+    static_cast<eq::EqualityEngine*>(dt->getEqualityEngine());
+  return new eq::rrinst::CandidateGeneratorTheoryEeClass(ee);
+}

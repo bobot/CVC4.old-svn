@@ -104,20 +104,34 @@ EXTRA_DIST = \
 	config/build-type \
 	config/mkbuilddir \
 	config/doxygen.cfg \
-	doc/cvc4.1.in \
+	doc/cvc4.1_template.in \
 	doc/cvc4.5.in \
 	doc/libcvc4.3.in \
 	doc/libcvc4parser.3.in \
 	doc/libcvc4compat.3.in
 man_MANS = \
 	doc/cvc4.1 \
+	doc/pcvc4.1 \
 	doc/cvc4.5 \
 	doc/libcvc4.3 \
 	doc/libcvc4parser.3 \
 	doc/libcvc4compat.3
+
+doc/pcvc4.1:
+	rm -f doc/pcvc4.1
+	$(LN_S) cvc4.1 doc/pcvc4.1
 
 dist-hook:
 	cp -p "$(srcdir)/Makefile" "$(distdir)/Makefile"
 
 distclean-local:
 	test -z "$(DX_DOCDIR)" || rm -fr "$(DX_DOCDIR)"
+
+# these have .in versions
+DISTCLEANFILES = \
+	doc/cvc4.1 \
+	doc/cvc4.1_template \
+	doc/cvc4.5 \
+	doc/libcvc4.3 \
+	doc/libcvc4compat.3 \
+	doc/libcvc4parser.3

@@ -23,9 +23,10 @@
 #include "parser/parser.h"
 #include "smt/smt.h"
 #include "smt2/smt2.h"
+#include "tptp/tptp.h"
 
 #include "expr/expr_manager.h"
-#include "util/options.h"
+#include "parser/options.h"
 
 namespace CVC4 {
 namespace parser {
@@ -91,6 +92,9 @@ Parser* ParserBuilder::build()
   case language::input::LANG_SMTLIB_V2:
     parser = new Smt2(d_exprManager, input, d_strictMode, d_parseOnly);
     break;
+  case language::input::LANG_TPTP:
+    parser = new Tptp(d_exprManager, input, d_strictMode, d_parseOnly);
+    break;
   default:
     parser = new Parser(d_exprManager, input, d_strictMode, d_parseOnly);
     break;
@@ -142,11 +146,11 @@ ParserBuilder& ParserBuilder::withParseOnly(bool flag) {
 
 ParserBuilder& ParserBuilder::withOptions(const Options& options) {
   return
-    withInputLanguage(options.inputLanguage)
-      .withMmap(options.memoryMap)
-      .withChecks(options.semanticChecks)
-      .withStrictMode(options.strictParsing)
-      .withParseOnly(options.parseOnly);
+    withInputLanguage(options[options::inputLanguage])
+      .withMmap(options[options::memoryMap])
+      .withChecks(options[options::semanticChecks])
+      .withStrictMode(options[options::strictParsing])
+      .withParseOnly(options[options::parseOnly]);
   }
 
 ParserBuilder& ParserBuilder::withStrictMode(bool flag) {

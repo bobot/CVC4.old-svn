@@ -91,7 +91,6 @@ class CVC4_PUBLIC Type {
   friend class ExprManager;
   friend class NodeManager;
   friend class TypeNode;
-  friend struct TypeHashStrategy;
   friend std::ostream& CVC4::operator<<(std::ostream& out, const Type& t);
   friend TypeNode expr::exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* nm, ExprManagerMapCollection& vmap);
 
@@ -146,8 +145,7 @@ public:
   Cardinality getCardinality() const;
 
   /**
-   * Is this a well-founded type?  (I.e., do there exist ground
-   * terms?)
+   * Is this a well-founded type?
    */
   bool isWellFounded() const;
 
@@ -156,6 +154,17 @@ public:
    * exception if this type is not well-founded.
    */
   Expr mkGroundTerm() const;
+
+  /**
+   * Is this type a subtype of the given type?
+   */
+  bool isSubtypeOf(Type t) const;
+
+  /**
+   * Is this type comparable to the given type (i.e., do they share
+   * a common ancestor in the subtype tree)?
+   */
+  bool isComparableTo(Type t) const;
 
   /**
    * Substitution of Types.

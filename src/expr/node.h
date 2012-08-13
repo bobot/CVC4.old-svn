@@ -442,10 +442,7 @@ public:
    * Returns true if this node represents a constant
    * @return true if const
    */
-  inline bool isConst() const {
-    assertTNodeNotExpired();
-    return getMetaKind() == kind::metakind::CONSTANT;
-  }
+  inline bool isConst() const;
 
   /**
    * Returns true if this node represents a constant
@@ -892,12 +889,32 @@ inline std::ostream& operator<<(std::ostream& out, TNode n) {
   return out;
 }
 
+/**
+ * Serializes a vector of node to the given stream.
+ *
+ * @param out the output stream to use
+ * @param ns the vector of nodes to output to the stream
+ * @return the stream
+ */
+template<bool ref_count>
+inline std::ostream& operator<<(std::ostream& out,
+                                const std::vector< NodeTemplate<ref_count> > & ns) {
+  for(typename std::vector< NodeTemplate<ref_count> >::const_iterator
+        i=ns.begin(), end=ns.end();
+      i != end; ++i){
+    out << *i;
+  }
+  return out;
+}
+
+
 }/* CVC4 namespace */
 
 #include <ext/hash_map>
 
 #include "expr/attribute.h"
 #include "expr/node_manager.h"
+#include "expr/type_checker.h"
 
 namespace CVC4 {
 
@@ -1242,6 +1259,42 @@ TypeNode NodeTemplate<ref_count>::getType(bool check) const
   assertTNodeNotExpired();
 
   return NodeManager::currentNM()->getType(*this, check);
+}
+
+/** Is this node constant? (and has that been computed yet?) */
+struct IsConstTag { };
+struct IsConstComputedTag { };
+typedef expr::Attribute<IsConstTag, bool> IsConstAttr;
+typedef expr::Attribute<IsConstComputedTag, bool> IsConstComputedAttr;
+
+template <bool ref_count>
+inline bool
+NodeTemplate<ref_count>::isConst() const {
+  assertTNodeNotExpired();
+  Debug("isConst") << "Node::isConst() for: " << *this << std::endl;
+  if(isNull()) {
+    return false;
+  }
+  switch(getMetaKind()) {
+  case kind::metakind::CONSTANT:
+    Debug("isConst") << "Node::isConst() returning true, it's a CONSTANT" << std::endl;
+    return true;
+  case kind::metakind::VARIABLE:
+    Debug("isConst") << "Node::isConst() returning false, it's a VARIABLE" << std::endl;
+    return false;
+  default:
+    if(getAttribute(IsConstComputedAttr())) {
+      bool bval = getAttribute(IsConstAttr());
+      Debug("isConst") << "Node::isConst() returning cached value " << (bval ? "true" : "false") << " for: " << *this << std::endl;
+      return bval;
+    } else {
+      bool bval = expr::TypeChecker::computeIsConst(NodeManager::currentNM(), *this);
+      Debug("isConst") << "Node::isConst() computed value " << (bval ? "true" : "false") << " for: " << *this << std::endl;
+      const_cast< NodeTemplate<ref_count>* >(this)->setAttribute(IsConstAttr(), bval);
+      const_cast< NodeTemplate<ref_count>* >(this)->setAttribute(IsConstComputedAttr(), true);
+      return bval;
+    }
+  }
 }
 
 template <bool ref_count>

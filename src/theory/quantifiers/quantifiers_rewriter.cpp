@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file theory_quantifiers_rewriter.cpp
+/*! \file quantifiers_rewriter.cpp
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -15,6 +15,7 @@
  **/
 
 #include "theory/quantifiers/quantifiers_rewriter.h"
+#include "theory/quantifiers/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -551,7 +552,7 @@ Node QuantifiersRewriter::computeOperation( Node f, int computeOption ){
     n = computeCNF( n, args, defs, false );
     ipl = Node::null();
   }
-  if( f[1]==n && args.size()==long(f[0].getNumChildren()) ){
+  if( f[1]==n && args.size()==f[0].getNumChildren() ){
     return f;
   }else{
     if( args.empty() ){
@@ -690,14 +691,14 @@ Node QuantifiersRewriter::rewriteQuant( Node n, bool isNested, bool duringRewrit
 }
 
 bool QuantifiersRewriter::doMiniscopingNoFreeVar(){
-  return Options::current()->miniscopeQuantFreeVar;
+  return options::miniscopeQuantFreeVar();
 }
 
 bool QuantifiersRewriter::doMiniscopingAnd(){
-  if( Options::current()->miniscopeQuant ){
+  if( options::miniscopeQuant() ){
     return true;
   }else{
-    if( Options::current()->cbqi ){
+    if( options::cbqi() ){
       return true;
     }else{
       return false;
@@ -709,13 +710,13 @@ bool QuantifiersRewriter::doOperation( Node f, bool isNested, int computeOption,
   if( computeOption==COMPUTE_NNF ){
     return false;//TODO: compute NNF (current bad idea since arithmetic rewrites equalities)
   }else if( computeOption==COMPUTE_PRE_SKOLEM ){
-    return Options::current()->preSkolemQuant && !duringRewrite;
+    return options::preSkolemQuant() && !duringRewrite;
   }else if( computeOption==COMPUTE_PRENEX ){
-    return Options::current()->prenexQuant;
+    return options::prenexQuant();
   }else if( computeOption==COMPUTE_VAR_ELIMINATION ){
-    return Options::current()->varElimQuant;
+    return options::varElimQuant();
   }else if( computeOption==COMPUTE_CNF ){
-    return Options::current()->cnfQuant && !duringRewrite;// || Options::current()->finiteModelFind;
+    return options::cnfQuant() && !duringRewrite;// || options::finiteModelFind();
   }else{
     return false;
   }

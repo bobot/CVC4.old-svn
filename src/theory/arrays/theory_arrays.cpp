@@ -24,6 +24,7 @@
 #include "theory/rewriter.h"
 #include "expr/command.h"
 #include "theory/arrays/theory_arrays_instantiator.h"
+#include "theory/model.h"
 
 using namespace std;
 
@@ -57,7 +58,7 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_checkTimer("theory::arrays::checkTime"),
   d_ppEqualityEngine(u, "theory::arrays::TheoryArraysPP"),
   d_ppFacts(u),
-  //  d_ppCache(u),  
+  //  d_ppCache(u),
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
   d_isPreRegistered(c),
@@ -211,7 +212,7 @@ Node TheoryArrays::ppRewrite(TNode term) {
                 for (j = leftWrites - 1; j > i; --j) {
                   index_j = write_j[1];
                   if (!ppDisequal(index_i, index_j)) {
-                    Node hyp2(index_i.getType() == nm->booleanType()? 
+                    Node hyp2(index_i.getType() == nm->booleanType()?
                               index_i.iffNode(index_j) : index_i.eqNode(index_j));
                     hyp << hyp2.notNode();
                   }
@@ -279,11 +280,11 @@ Theory::PPAssertStatus TheoryArrays::ppAssert(TNode in, SubstitutionMap& outSubs
     {
       d_ppFacts.push_back(in);
       d_ppEqualityEngine.assertEquality(in, true, in);
-      if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
+      if (in[0].isVar() && !in[1].hasSubterm(in[0])) {
         outSubstitutions.addSubstitution(in[0], in[1]);
         return PP_ASSERT_STATUS_SOLVED;
       }
-      if (in[1].getMetaKind() == kind::metakind::VARIABLE && !in[0].hasSubterm(in[1])) {
+      if (in[1].isVar() && !in[0].hasSubterm(in[1])) {
         outSubstitutions.addSubstitution(in[1], in[0]);
         return PP_ASSERT_STATUS_SOLVED;
       }
@@ -623,26 +624,9 @@ void TheoryArrays::computeCareGraph()
 // MODEL GENERATION
 /////////////////////////////////////////////////////////////////////////////
 
-
-Node TheoryArrays::getValue(TNode n)
-{
-  // TODO: Implement this
-  NodeManager* nodeManager = NodeManager::currentNM();
-
-  switch(n.getKind()) {
-
-  case kind::VARIABLE:
-    Unhandled(kind::VARIABLE);
-
-  case kind::EQUAL: // 2 args
-    return nodeManager->
-      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
-
-  default:
-    Unhandled(n.getKind());
-  }
+void TheoryArrays::collectModelInfo( TheoryModel* m ){
+  m->assertEqualityEngine( &d_equalityEngine );
 }
-
 
 /////////////////////////////////////////////////////////////////////////////
 // NOTIFICATIONS
@@ -663,7 +647,7 @@ void TheoryArrays::presolve()
 void TheoryArrays::check(Effort e) {
   TimerStat::CodeTimer codeTimer(d_checkTimer);
 
-  while (!done() && !d_conflict) 
+  while (!done() && !d_conflict)
   {
     // Get all the assertions
     Assertion assertion = get();
@@ -770,7 +754,9 @@ Node TheoryArrays::mkAnd(std::vector<TNode>& conjunctions)
     all.insert(t);
   }
 
-  Assert(all.size() > 0);
+  if (all.size() == 0) {
+    return d_true;
+  }
   if (all.size() == 1) {
     // All the same, or just one
     return *(all.begin());
@@ -1304,7 +1290,7 @@ void TheoryArrays::dischargeLemmas()
       d_equalityEngine.assertEquality(eq2, true, d_true);
       continue;
     }
-    
+
     Node lem = nm->mkNode(kind::OR, eq2_r, eq1_r);
 
     Trace("arrays-lem")<<"Arrays::addRowLemma adding "<<lem<<"\n";

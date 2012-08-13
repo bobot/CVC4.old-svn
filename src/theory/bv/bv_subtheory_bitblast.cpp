@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file bv_subtheory_eq_bitblast.cpp
+/*! \file bv_subtheory_bitblast.cpp
  ** \verbatim
- ** Original author: lianah
- ** Major contributors: dejan
+ ** Original author: dejan
+ ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -20,6 +20,7 @@
 #include "theory/bv/theory_bv.h"
 #include "theory/bv/theory_bv_utils.h"
 #include "theory/bv/bitblaster.h"
+#include "theory/bv/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -57,7 +58,7 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
   BVDebug("bitvector::bitblaster") << "BitblastSolver::addAssertions (" << e << ")" << std::endl;
 
   //// Eager bit-blasting
-  if (Options::current()->bitvectorEagerBitblast) {
+  if (options::bitvectorEagerBitblast()) {
     for (unsigned i = 0; i < assertions.size(); ++i) {
       TNode atom = assertions[i].getKind() == kind::NOT ? assertions[i][0] : assertions[i];
       if (atom.getKind() != kind::BITVECTOR_BITOF) {
@@ -105,7 +106,7 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
   }
 
   // solving
-  if (e == Theory::EFFORT_FULL || Options::current()->bitvectorEagerFullcheck) {
+  if (e == Theory::EFFORT_FULL || options::bitvectorEagerFullcheck()) {
     Assert(!d_bv->inConflict());
     BVDebug("bitvector::bitblaster") << "BitblastSolver::addAssertions solving. \n";
     bool ok = d_bitblaster->solve();

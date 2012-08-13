@@ -1,12 +1,11 @@
-/*********************                                                       */
-/*! \file rewrite_engine.cpp
+/*********************                                                        */
+/*! \file theory_rewriterules_params.h
  ** \verbatim
  ** Original author: bobot
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011
- ** The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -17,7 +16,6 @@
  ** [[ Add lengthier description here ]]
  ** \todo document this file
  **/
-
 
 #ifndef __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
 #define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
@@ -59,7 +57,7 @@ static const bool representative_instantiation = false;
 
    Allow to break loop with other theories.
  */
-static const size_t checkSlowdown = 10;
+static const size_t checkSlowdown = 0;
 
 /**
    Use the current model to eliminate guard before asking for notification
@@ -67,16 +65,9 @@ static const size_t checkSlowdown = 10;
 static const bool useCurrentModel = false;
 
 /**
-   Simulate rewritting by tagging rewritten terms.
+   Simulate rewriting by tagging rewritten terms.
  */
-static const bool simulateRewritting = false;
-
-/**
-   Choose the kind of matching to use:
-   - InstMatchGenerator::MATCH_GEN_DEFAULT 0
-   - InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH 1
-*/
-static const int match_gen_kind = 0;
+static const bool simulateRewritting = true;
 
 /**
    Do narrowing at full effort
@@ -86,7 +77,7 @@ static const bool narrowing_full_effort = false;
 /**
    Direct rewrite: Add rewrite rules directly in the rewriter.
  */
-static const bool direct_rewrite = true;
+static const bool direct_rewrite = false;
 
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */

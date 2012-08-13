@@ -29,11 +29,11 @@ namespace CVC4 {
 namespace theory {
 namespace booleans {
 
-void CircuitPropagator::assert(TNode assertion)
+void CircuitPropagator::assertTrue(TNode assertion)
 {
   if (assertion.getKind() == kind::AND) {
     for (unsigned i = 0; i < assertion.getNumChildren(); ++ i) {
-      assert(assertion[i]);
+      assertTrue(assertion[i]);
     }
   } else {
     // Analyze the assertion for back-edges and all that
@@ -366,7 +366,7 @@ bool CircuitPropagator::propagate() {
     Debug("circuit-prop") << "CircuitPropagator::propagate(): assigned to " << (assignment ? "true" : "false") << std::endl;
 
     // Is this an atom
-    bool atom = Theory::theoryOf(current) != THEORY_BOOL || current.getMetaKind() == kind::metakind::VARIABLE;
+    bool atom = Theory::theoryOf(current) != THEORY_BOOL || current.isVar();
 
     // If an atom, add to the list for simplification
     if (atom) {
