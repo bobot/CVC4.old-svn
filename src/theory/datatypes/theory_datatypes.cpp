@@ -427,9 +427,8 @@ void TheoryDatatypes::merge( Node t1, Node t2 ){
             //do unification
             Node unifEq = cons1.eqNode( cons2 );
             for( int i=0; i<(int)cons1.getNumChildren(); i++ ) {
-              Node eq = cons1[i].eqNode( cons2[i] );
-              eq = Rewriter::rewrite( eq );
-              if( eq!=NodeManager::currentNM()->mkConst( true ) ){
+              if( cons1[i]!=cons2[i] ){
+                Node eq = cons1[i].eqNode( cons2[i] );
                 d_pending.push_back( eq );
                 d_pending_exp[ eq ] = unifEq;
                 Trace("datatypes-infer") << "DtInfer : " << eq << " by " << unifEq << std::endl;
@@ -831,11 +830,15 @@ bool TheoryDatatypes::searchForCycle( Node n, Node on,
 }
 
 bool TheoryDatatypes::mustSpecifyModel(){
-  //return false;
+#if 0
   return options::finiteModelFind() || options::produceModels();
+#else
+  return false;
+#endif
 }
 
 bool TheoryDatatypes::mustCommunicateFact( Node n ){
+#if 0
   //the datatypes theory makes 3 different inferences :
   //  (1) Unification : C( t1...tn ) = C( s1...sn ) => ti = si
   //  (2) Label : ~is_C1( t ) ... ~is_C{i-1}( t ) ~is_C{i+1}( t ) ... ~is_Cn( t ) => is_Ci( t )
@@ -846,6 +849,9 @@ bool TheoryDatatypes::mustCommunicateFact( Node n ){
   }else{
     return false;
   }
+#else
+  return false;
+#endif
 }
 
 bool TheoryDatatypes::hasTerm( Node a ){

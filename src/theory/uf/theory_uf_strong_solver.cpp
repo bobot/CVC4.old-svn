@@ -671,6 +671,7 @@ TNode StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
 
 bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryModel* m ){
   if( m ){
+#if 0
     // ensure that the constructed model is minimal
     // if the model has terms that the strong solver does not know about
     if( (int)m->d_rep_set.d_type_reps[ d_type ].size()>d_cardinality ){
@@ -695,6 +696,7 @@ bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryMod
       }
       Assert( false );
     }
+#endif
   }else{
     //internal minimize, ensure that model forms a clique:
     // if two equivalence classes are neither equal nor disequal, add a split
