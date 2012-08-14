@@ -329,7 +329,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
     //}
 
     //Notice() << "**INST" << std::endl;
-    Debug("inst") << "*** Instantiate " << f << " with " << std::endl;
+    Trace("inst") << "*** Instantiate " << f << " with " << std::endl;
     //Notice() << "*** Instantiate " << f << " with " << std::endl;
     uint64_t maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
@@ -340,10 +340,10 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
         }
         Unreachable("Bad instantiation");
       }else{
-        Debug("inst") << "   " << terms[i];
+        Trace("inst") << "   " << terms[i];
         //Notice() << "   " << terms[i] << std::endl;
         //Debug("inst-engine") << " " << terms[i].getAttribute(InstLevelAttribute());
-        Debug("inst") << std::endl;
+        Trace("inst") << std::endl;
         if( terms[i].hasAttribute(InstLevelAttribute()) ){
           if( terms[i].getAttribute(InstLevelAttribute())>maxInstLevel ){
             maxInstLevel = terms[i].getAttribute(InstLevelAttribute());
@@ -353,6 +353,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
         }
       }
     }
+    Trace("inst-debug") << "*** Lemma is " << lem << std::endl;
     d_term_db->setInstantiationLevelAttr( body, maxInstLevel+1 );
     ++(d_statistics.d_instantiations);
     d_statistics.d_total_inst_var += (int)terms.size();
@@ -367,13 +368,12 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m ){
   m.makeComplete( f, this );
   m.makeRepresentative( this );
-  Debug("quant-duplicate") << "After make rep: " << m << std::endl;
+  Trace("inst-add") << "Add instantiation: " << m << std::endl;
   if( !d_inst_match_trie[f].addInstMatch( this, f, m, true ) ){
-    Debug("quant-duplicate") << " -> Already exists." << std::endl;
+    Trace("inst-add") << " -> Already exists." << std::endl;
     ++(d_statistics.d_inst_duplicate);
     return false;
   }
-  Debug("quant-duplicate") << " -> Does not exist." << std::endl;
   std::vector< Node > match;
   m.computeTermVec( d_term_db->d_inst_constants[f], match );
 
@@ -388,6 +388,7 @@ bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m ){
   //}
 
   if( addInstantiation( f, match ) ){
+    Trace("inst-add") << " -> Success." << std::endl;
     //d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)d_inst_constants[f].size() - m.d_map.size()/2 );
     //if( d_inst_constants[f].size()!=m.d_map.size() ){
     //  //Notice() << "Unspec. " << std::endl;
@@ -403,8 +404,10 @@ bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m ){
     //  }
     //}
     return true;
+  }else{
+    Trace("inst-add") << " -> Lemma already exists." << std::endl;
+    return false;
   }
-  return false;
 }
 
 bool QuantifiersEngine::addSplit( Node n, bool reqPhase, bool reqPhasePol ){

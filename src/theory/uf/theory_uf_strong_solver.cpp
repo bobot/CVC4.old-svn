@@ -670,63 +670,49 @@ TNode StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
 }
 
 bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryModel* m ){
-  //ensure that model forms a clique:
-  // if two equivalence classes are neither equal nor disequal, add a split
-  int validRegionIndex = -1;
-  for( int i=0; i<(int)d_regions_index; i++ ){
-    if( d_regions[i]->d_valid ){
-      if( validRegionIndex!=-1 ){
-        combineRegions( validRegionIndex, i );
-        if( addSplit( d_regions[validRegionIndex], out ) ){
-          return false;
-        }
-      }else{
-        validRegionIndex = i;
-      }
-    }
-  }
-  if( addSplit( d_regions[validRegionIndex], out ) ){
-    return false;
-  }
-  //otherwise, inspect the model to ensure that all representatives have been accounted for
   if( m ){
-    //if the model has terms that the strong solver does not know about
+    // ensure that the constructed model is minimal
+    // if the model has terms that the strong solver does not know about
     if( (int)m->d_rep_set.d_type_reps[ d_type ].size()>d_cardinality ){
-      std::vector< Node > unaccounted;
       eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &m->d_equalityEngine );
       while( !eqcs_i.isFinished() ){
         Node eqc = (*eqcs_i);
         if( eqc.getType()==d_type ){
           //we must ensure that this equivalence class has been accounted for
           if( d_regions_map.find( eqc )==d_regions_map.end() ){
-            if( std::find( unaccounted.begin(), unaccounted.end(), eqc )==unaccounted.end() ){
-              unaccounted.push_back( eqc );
-              if( unaccounted.size()>1 ){
-                break;
-              }
-            }
+            //split on unaccounted for term and cardinality lemma term (as default)
+            Node splitEq = eqc.eqNode( d_cardinality_lemma_term );
+            splitEq = Rewriter::rewrite( splitEq );
+            Trace("uf-ss-minimize") << "Last chance minimize : " << splitEq << std::endl;
+            out->split( splitEq );
+            //tell the sat solver to explore the equals branch first
+            out->requirePhase( splitEq, true );
+            ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
+            return false;
           }
         }
         ++eqcs_i;
       }
-      //if necessary, split on an equality
-      if( !unaccounted.empty() ){
-        Node splitEq;
-        if( unaccounted.size()>1 ){
-          splitEq = unaccounted[0].eqNode( unaccounted[1] );
+      Assert( false );
+    }
+  }else{
+    //internal minimize, ensure that model forms a clique:
+    // if two equivalence classes are neither equal nor disequal, add a split
+    int validRegionIndex = -1;
+    for( int i=0; i<(int)d_regions_index; i++ ){
+      if( d_regions[i]->d_valid ){
+        if( validRegionIndex!=-1 ){
+          combineRegions( validRegionIndex, i );
+          if( addSplit( d_regions[validRegionIndex], out ) ){
+            return false;
+          }
         }else{
-          splitEq = unaccounted[0].eqNode( d_cardinality_lemma_term );
+          validRegionIndex = i;
         }
-        splitEq = Rewriter::rewrite( splitEq );
-        Trace("uf-ss-minimize") << "Last chance minimize : " << splitEq << std::endl;
-        out->split( splitEq );
-        //tell the sat solver to explore the equals branch first
-        out->requirePhase( splitEq, true );
-        ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
-        return false;
-      }else{
-        Assert( false );
       }
+    }
+    if( addSplit( d_regions[validRegionIndex], out ) ){
+      return false;
     }
   }
   return true;
@@ -1280,7 +1266,6 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
   Debug("uf-ss-assert") << "Assert " << n << " " << isDecision << std::endl;
   if( n.getKind()==CARDINALITY_CONSTRAINT ){
     TypeNode tn = n[0].getType();
-    Assert( d_rep_model[tn]->getCardinality()>0 );
     Assert( tn.isSort() );
     Assert( d_rep_model[tn] );
     long nCard = n[1].getConst<Rational>().getNumerator().getLong();

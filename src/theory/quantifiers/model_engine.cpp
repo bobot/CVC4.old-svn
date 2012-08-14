@@ -88,7 +88,8 @@ void ModelEngine::check( Theory::Effort e ){
         }else{
           //let the strong solver verify that the model is minimal
           uf::StrongSolverTheoryUf* uf_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
-          //we will try to minimize one last time
+          //we will try to minimize with the strong solver in case there are terms
+          //  the strong solver was not notified of in the model
           if( uf_ss->minimize( fm ) ){
             //for debugging
             uf_ss->debugModel( fm );
@@ -105,13 +106,16 @@ void ModelEngine::check( Theory::Effort e ){
               double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
               Trace("model-engine") << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
             }
+          }else{
+            Trace("model-engine") << "Strong solver minimized model" << std::endl;
+            return;
           }
         }
       }
     }
     if( addedLemmas==0 ){
       //CVC4 will answer SAT or unknown
-      Debug("fmf-consistent") << std::endl;
+      Trace("fmf-consistent") << std::endl;
       debugPrint("fmf-consistent");
       if( options::produceModels() ){
         // finish building the model in the standard way
@@ -206,12 +210,11 @@ void ModelEngine::checkModel( int& addedLemmas ){
     for( std::map< TypeNode, std::vector< Node > >::iterator it = fm->d_rep_set.d_type_reps.begin(); it != fm->d_rep_set.d_type_reps.end(); ++it ){
       if( it->first.isSort() ){
         Trace("model-engine") << "Cardinality( " << it->first << " )" << " = " << it->second.size() << std::endl;
-        //Trace("model-engine") << "   ";
-        ////we must be certain that UF has seen all of these
-        //for( size_t i=0; i<it->second.size(); i++ ){
-        //  Trace("model-engine") << it->second[i] << "  ";
-        //}
-        //Trace("model-engine") << std::endl;
+        Trace("model-engine-debug") << "   ";
+        for( size_t i=0; i<it->second.size(); i++ ){
+          Trace("model-engine-debug") << it->second[i] << "  ";
+        }
+        Trace("model-engine-debug") << std::endl;
       }
     }
   }
@@ -380,16 +383,16 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
 }
 
 void ModelEngine::debugPrint( const char* c ){
-  Debug( c ) << "Quantifiers: " << std::endl;
+  Trace( c ) << "Quantifiers: " << std::endl;
   for( int i=0; i<(int)d_quantEngine->getModel()->getNumAssertedQuantifiers(); i++ ){
     Node f = d_quantEngine->getModel()->getAssertedQuantifier( i );
-    Debug( c ) << "   ";
+    Trace( c ) << "   ";
     if( d_builder.d_quant_sat.find( f )!=d_builder.d_quant_sat.end() ){
-      Debug( c ) << "*SAT* ";
+      Trace( c ) << "*SAT* ";
     }else{
-      Debug( c ) << "      ";
+      Trace( c ) << "      ";
     }
-    Debug( c ) << f << std::endl;
+    Trace( c ) << f << std::endl;
   }
   //d_quantEngine->getModel()->debugPrint( c );
 }

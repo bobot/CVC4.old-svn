@@ -1926,7 +1926,21 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
 }
 
 void TheoryArith::collectModelInfo( TheoryModel* m, bool addConsts ){
-
+  ArithVarToNodeMap avtnm = d_arithvarNodeMap.getArithVarToNodeMap();
+  for( ArithVarToNodeMap::iterator it = avtnm.begin(); it != avtnm.end(); ++it ){
+    ArithVar x = (*it).first;
+    if( d_partialModel.hasEitherBound( x ) ){
+      Node n = (*it).second;
+      if( n.getKind()!=PLUS ){
+        DeltaRational drat = d_partialModel.getAssignment( x );
+        const Rational& delta = d_partialModel.getDelta();
+        Node val = NodeManager::currentNM()->mkConst( drat.getNoninfinitesimalPart() +
+                                                      drat.getInfinitesimalPart() * delta  );
+        Trace("arith-cmi") << "collectModelInfo : " << n << " = " << val << std::endl;
+        m->assertEquality( n, val, true );
+      }
+    }
+  }
 }
 
 bool TheoryArith::safeToReset() const {
