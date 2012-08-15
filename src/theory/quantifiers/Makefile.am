@@ -31,8 +31,6 @@ libquantifiers_la_SOURCES = \
 	literal_match_mode.h \
 	relevant_domain.h \
 	relevant_domain.cpp \
-	rep_set_iterator.h \
-	rep_set_iterator.cpp \
 	term_database.h \
 	term_database.cpp \
 	first_order_model.h \

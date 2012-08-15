@@ -15,7 +15,6 @@
  **/
 
 #include "theory/quantifiers/model_engine.h"
-#include "theory/quantifiers/rep_set_iterator.h"
 #include "theory/theory_engine.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/uf/theory_uf.h"
@@ -290,7 +289,7 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
   if( useRelInstDomain ){
     riter.setDomain( d_rel_domain.d_quant_inst_domain[f] );
   }
-  RepSetEvaluator reval( d_quantEngine->getModel(), &riter );
+  d_quantEngine->getModel()->resetEvaluate();
   while( !riter.isFinished() && ( addedLemmas==0 || !optOneInstPerQuantRound() ) ){
     d_testLemmas++;
     int eval = 0;
@@ -304,7 +303,7 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
       //if evaluate(...)==1, then the instantiation is already true in the model
       //  depIndex is the index of the least significant variable that this evaluation relies upon
       depIndex = riter.getNumTerms()-1;
-      eval = reval.evaluate( d_quantEngine->getTermDatabase()->getCounterexampleBody( f ), depIndex );
+      eval = d_quantEngine->getModel()->evaluate( d_quantEngine->getTermDatabase()->getCounterexampleBody( f ), depIndex, &riter );
       if( eval==1 ){
         Debug("fmf-model-eval") << "  Returned success with depIndex = " << depIndex << std::endl;
       }else{
@@ -341,10 +340,10 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
       }
     }
   }
-  d_statistics.d_eval_formulas += reval.d_eval_formulas;
-  d_statistics.d_eval_uf_terms += reval.d_eval_uf_terms;
-  d_statistics.d_eval_lits += reval.d_eval_lits;
-  d_statistics.d_eval_lits_unknown += reval.d_eval_lits_unknown;
+  d_statistics.d_eval_formulas += d_quantEngine->getModel()->d_eval_formulas;
+  d_statistics.d_eval_uf_terms += d_quantEngine->getModel()->d_eval_uf_terms;
+  d_statistics.d_eval_lits += d_quantEngine->getModel()->d_eval_lits;
+  d_statistics.d_eval_lits_unknown += d_quantEngine->getModel()->d_eval_lits_unknown;
   int totalInst = 1;
   int relevantInst = 1;
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){

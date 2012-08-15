@@ -58,6 +58,14 @@ public: //for Theory UF:
   std::map< Node, uf::UfModelTree > d_uf_model_tree;
   //model generators
   std::map< Node, uf::UfModelTreeGenerator > d_uf_model_gen;
+private:
+  //map from terms to the models used to calculate their value
+  std::map< Node, bool > d_eval_uf_use_default;
+  std::map< Node, uf::UfModelTree > d_eval_uf_model;
+  void makeEvalUfModel( Node n );
+  //index ordering to use for each term
+  std::map< Node, std::vector< int > > d_eval_term_index_order;
+  void makeEvalUfIndexOrder( Node n );
 public: //for Theory Arrays:
   //default value for each non-store array
   std::map< Node, arrays::ArrayModel > d_array_model;
@@ -82,6 +90,27 @@ public:
   void initialize( bool considerAxioms = true );
   /** to stream function */
   void toStream( std::ostream& out );
+
+//the following functions are for evaluating quantifier bodies
+public:
+  /** reset evaluation */
+  void resetEvaluate();
+  /** evaluate functions */
+  int evaluate( Node n, int& depIndex, RepSetIterator* ri  );
+  Node evaluateTerm( Node n, int& depIndex, RepSetIterator* ri  );
+public:
+  //statistics
+  int d_eval_formulas;
+  int d_eval_uf_terms;
+  int d_eval_lits;
+  int d_eval_lits_unknown;
+private:
+  //default evaluate term function
+  Node evaluateTermDefault( Node n, int& depIndex, std::vector< int >& childDepIndex, RepSetIterator* ri  );
+  //temporary storing which literals have failed
+  void clearEvalFailed( int index );
+  std::map< Node, bool > d_eval_failed;
+  std::map< int, std::vector< Node > > d_eval_failed_lits;
 };/* class FirstOrderModel */
 
 }/* CVC4::theory::quantifiers namespace */

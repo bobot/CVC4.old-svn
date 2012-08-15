@@ -667,7 +667,6 @@ void TheoryDatatypes::collectModelInfo( TheoryModel* m, bool fullModel ){
   Trace("dt-model") << std::endl;
   printModelDebug( "dt-model" );
   m->assertEqualityEngine( &d_equalityEngine );
-#if 1
   //must choose proper representatives
   // for each equivalence class, specify the constructor as a representative
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
@@ -689,7 +688,6 @@ void TheoryDatatypes::collectModelInfo( TheoryModel* m, bool fullModel ){
     }
     ++eqcs_i;
   }
-#endif
 }
 
 
