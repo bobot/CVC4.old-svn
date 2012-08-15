@@ -130,6 +130,13 @@ public:
   }
 };/* class TupleTypeRule */
 
+class UninterpretedConstantTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
+    return TypeNode::fromType(n.getConst<UninterpretedConstant>().getType());
+  }
+};/* class UninterpretedConstantTypeRule */
+
 class StringConstantTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
@@ -139,21 +146,15 @@ public:
 };/* class StringConstantTypeRule */
 
 class SortProperties {
-//private:  //FIXME?
-//  static std::map< TypeNode, TNode > d_groundTerms;
 public:
   inline static bool isWellFounded(TypeNode type) {
     return true;
   }
   inline static Node mkGroundTerm(TypeNode type) {
     Assert(type.getKind() == kind::SORT_TYPE);
-    //if( d_groundTerms.find( type )==d_groundTerms.end() ){
-    //  d_groundTerms[type] = NodeManager::currentNM()->mkVar( type );
-    //}
-    //return d_groundTerms[type];
     return NodeManager::currentNM()->mkVar( type );
   }
-};
+};/* class SortProperties */
 
 class FunctionProperties {
 public:

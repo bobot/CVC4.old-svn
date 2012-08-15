@@ -17,12 +17,10 @@
 #include "theory/model.h"
 #include "theory/quantifiers_engine.h"
 #include "theory/theory_engine.h"
-#include "util/datatype.h"
-#include "theory/uf/theory_uf_model.h"
-#include "theory/arrays/theory_arrays_model.h"
 #include "theory/type_enumerator.h"
 #include "smt/model_format_mode.h"
 #include "smt/options.h"
+#include "theory/uf/theory_uf_model.h"
 
 using namespace std;
 using namespace CVC4;
@@ -188,8 +186,6 @@ void TheoryModel::toStream( std::ostream& out ){
 Node TheoryModel::getValue( TNode n ){
   Debug("model") << "TheoryModel::getValue " << n << std::endl;
 
-  kind::MetaKind metakind = n.getMetaKind();
-
   //// special case: prop engine handles boolean vars
   //if(metakind == kind::metakind::VARIABLE && n.getType().isBoolean()) {
   //  Debug("model") << "-> Propositional variable." << std::endl;
@@ -197,7 +193,7 @@ Node TheoryModel::getValue( TNode n ){
   //}
 
   // special case: value of a constant == itself
-  if(metakind == kind::metakind::CONSTANT) {
+  if( n.isConst() ) {
     Debug("model") << "-> Constant." << std::endl;
     return n;
   }
@@ -205,7 +201,7 @@ Node TheoryModel::getValue( TNode n ){
   Node nn;
   if( n.getNumChildren()>0 ){
     std::vector< Node > children;
-    if( metakind == kind::metakind::PARAMETERIZED ){
+    if( n.getMetaKind() == kind::metakind::PARAMETERIZED ){
       Debug("model-debug") << "get operator: " << n.getOperator() << std::endl;
       children.push_back( n.getOperator() );
     }
@@ -225,7 +221,7 @@ Node TheoryModel::getValue( TNode n ){
   nn = Rewriter::rewrite( nn );
 
   // special case: value of a constant == itself
-  if(metakind == kind::metakind::CONSTANT) {
+  if( nn.isConst() ) {
     Debug("model") << "-> Theory-interpreted term." << std::endl;
     return nn;
   }else{
@@ -317,7 +313,7 @@ void TheoryModel::assertPredicate( Node a, bool polarity ){
 }
 
 /** assert equality engine */
-void TheoryModel::assertEqualityEngine( eq::EqualityEngine* ee ){
+void TheoryModel::assertEqualityEngine( const eq::EqualityEngine* ee ){
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( ee );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
@@ -527,7 +523,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m, bool fullModel ){
               Trace("model-warn") << "  Type : " << n.getType() << std::endl;
             }
           }
-        }else if( n.getMetaKind()==kind::metakind::CONSTANT ){
+        }else if( n.isConst() ){
           //if this is constant, we will use it as representative (if none other specified)
           const_rep = n;
         }
@@ -590,18 +586,18 @@ Node TheoryEngineModelBuilder::normalizeRepresentative( TheoryModel* m, Node r, 
                                                         std::map< Node, bool >& normalizing ){
   Trace("temb-normalize") << r << std::endl;
   if( normalized.find( r )!=normalized.end() ){
-    //std::cout << " -> already normalized, return " << reps[r] << std::endl;
+    //Message() << " -> already normalized, return " << reps[r] << std::endl;
     return reps[r];
   }else if( normalizing.find( r )!=normalizing.end() && normalizing[r] ){
     //TODO: this case is only temporary to handle things like when store( A, e, i ) is given
     //       as a representative for array A.
-    //std::cout << " -> currently normalizing, give up : " << r << std::endl;
+    //Message() << " -> currently normalizing, give up : " << r << std::endl;
     return r;
   }else if( reps.find( r )!=reps.end() ){
     normalizing[ r ] = true;
     Node retNode = normalizeNode( m, reps[r], reps, normalized, normalizing );
     normalizing[ r ] = false;
-    //std::cout << " --> returned " << retNode << " for " << r << std::endl;
+    //Message() << " --> returned " << retNode << " for " << r << std::endl;
     normalized[ r ] = true;
     reps[ r ] = retNode;
     return retNode;
@@ -609,12 +605,12 @@ Node TheoryEngineModelBuilder::normalizeRepresentative( TheoryModel* m, Node r, 
     normalizing[ r ] = true;
     //return the normalized representative from the model
     r = m->d_equalityEngine.getRepresentative( r );
-    //std::cout << " -> it is the representative " << r << std::endl;
+    //Message() << " -> it is the representative " << r << std::endl;
     Node retNode = normalizeRepresentative( m, r, reps, normalized, normalizing );
     normalizing[ r ] = false;
     return retNode;
   }else{
-    if( r.getMetaKind()!=kind::metakind::CONSTANT ){
+    if( !r.isConst() ){
       Trace("model-warn") << "Normalizing representative, unknown term: " << r << std::endl;
       Trace("model-warn") << "  Type : " << r.getType() << std::endl;
       Trace("model-warn") << "  Kind : " << r.getKind() << std::endl;
@@ -622,7 +618,7 @@ Node TheoryEngineModelBuilder::normalizeRepresentative( TheoryModel* m, Node r, 
       r = normalizeNode( m, r, reps, normalized, normalizing );
       normalizing[ r ] = false;
     }
-    //std::cout << " -> unknown, return " << r << std::endl;
+    //Message() << " -> unknown, return " << r << std::endl;
     return r;
   }
 }
@@ -631,7 +627,7 @@ Node TheoryEngineModelBuilder::normalizeNode( TheoryModel* m, Node r, std::map< 
                                               std::map< Node, bool >& normalized,
                                               std::map< Node, bool >& normalizing ){
   if( r.getNumChildren()>0 ){
-    //std::cout << " ---> normalize " << r << " " << r.getNumChildren() << " " << r.getKind() << std::endl;
+    //Message() << " ---> normalize " << r << " " << r.getNumChildren() << " " << r.getKind() << std::endl;
     //non-leaf case: construct representative from children
     std::vector< Node > children;
     if( r.getMetaKind() == kind::metakind::PARAMETERIZED ){

@@ -81,7 +81,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
   }
 
   // variables
-  if(n.getMetaKind() == kind::metakind::VARIABLE) {
+  if(n.isVar()) {
     string s;
     if(n.getAttribute(expr::VarNameAttr(), s)) {
       out << s;

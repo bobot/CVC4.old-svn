@@ -25,7 +25,7 @@
 
 #include "expr/command.h"
 #include "smt/smt_engine.h"
-#include "smt/bad_option_exception.h"
+#include "options/options.h"
 #include "util/output.h"
 #include "util/dump.h"
 #include "util/sexpr.h"
@@ -1000,7 +1000,7 @@ void SetInfoCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
     smtEngine->setInfo(d_flag, d_sexpr);
     d_commandStatus = CommandSuccess::instance();
-  } catch(BadOptionException&) {
+  } catch(UnrecognizedOptionException&) {
     d_commandStatus = new CommandUnsupported();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -1034,7 +1034,7 @@ void GetInfoCommand::invoke(SmtEngine* smtEngine) throw() {
        << response;
     d_result = ss.str();
     d_commandStatus = CommandSuccess::instance();
-  } catch(BadOptionException&) {
+  } catch(UnrecognizedOptionException&) {
     d_commandStatus = new CommandUnsupported();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -1084,7 +1084,7 @@ void SetOptionCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
     smtEngine->setOption(d_flag, d_sexpr);
     d_commandStatus = CommandSuccess::instance();
-  } catch(BadOptionException&) {
+  } catch(UnrecognizedOptionException&) {
     d_commandStatus = new CommandUnsupported();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -1119,7 +1119,7 @@ void GetOptionCommand::invoke(SmtEngine* smtEngine) throw() {
     ss << SExpr(v);
     d_result = ss.str();
     d_commandStatus = CommandSuccess::instance();
-  } catch(BadOptionException&) {
+  } catch(UnrecognizedOptionException&) {
     d_commandStatus = new CommandUnsupported();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -1183,34 +1183,37 @@ Command* DatatypeDeclarationCommand::clone() const {
 
 /* class RewriteRuleCommand */
 
-RewriteRuleCommand::RewriteRuleCommand(const VExpr & vars,
-                                       const std::vector< Expr> & guards,
-                                       const Expr & head, const Expr & body,
-                                       Triggers triggers) throw() :
+RewriteRuleCommand::RewriteRuleCommand(const std::vector<Expr>& vars,
+                                       const std::vector<Expr>& guards,
+                                       Expr head, Expr body,
+                                       const Triggers& triggers) throw() :
   d_vars(vars), d_guards(guards), d_head(head), d_body(body), d_triggers(triggers) {
 }
 
-RewriteRuleCommand::RewriteRuleCommand(const VExpr & vars,
-                                       const Expr & head, const Expr & body) throw() :
+RewriteRuleCommand::RewriteRuleCommand(const std::vector<Expr>& vars,
+                                       Expr head, Expr body) throw() :
   d_vars(vars), d_head(head), d_body(body) {
 }
 
-const RewriteRuleCommand::VExpr & RewriteRuleCommand::getVars() const throw(){
+const std::vector<Expr>& RewriteRuleCommand::getVars() const throw() {
   return d_vars;
-};
-const RewriteRuleCommand::VExpr & RewriteRuleCommand::getGuards() const throw(){
-  return d_guards;
-};
-const Expr & RewriteRuleCommand::getHead() const throw(){
-  return d_head;
-};
-const Expr & RewriteRuleCommand::getBody() const throw(){
-  return d_body;
-};
-const RewriteRuleCommand::Triggers & RewriteRuleCommand::getTriggers() const throw(){
-  return d_triggers;
-};
+}
 
+const std::vector<Expr>& RewriteRuleCommand::getGuards() const throw() {
+  return d_guards;
+}
+
+Expr RewriteRuleCommand::getHead() const throw() {
+  return d_head;
+}
+
+Expr RewriteRuleCommand::getBody() const throw() {
+  return d_body;
+}
+
+const RewriteRuleCommand::Triggers& RewriteRuleCommand::getTriggers() const throw() {
+  return d_triggers;
+}
 
 void RewriteRuleCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
@@ -1271,52 +1274,54 @@ Command* RewriteRuleCommand::exportTo(ExprManager* exprManager, ExprManagerMapCo
   Expr head = d_head.exportTo(exprManager, variableMap);
   Expr body = d_body.exportTo(exprManager, variableMap);
   /** Create the converted rules */
-  return new RewriteRuleCommand(vars,guards,head,body,triggers);
+  return new RewriteRuleCommand(vars, guards, head, body, triggers);
 }
 
 Command* RewriteRuleCommand::clone() const {
-  return new RewriteRuleCommand(d_vars,d_guards,d_head,d_body,d_triggers);
+  return new RewriteRuleCommand(d_vars, d_guards, d_head, d_body, d_triggers);
 }
 
 /* class PropagateRuleCommand */
 
-PropagateRuleCommand::PropagateRuleCommand(const VExpr & vars,
-                                           const VExpr & guards,
-                                           const VExpr & heads,
-                                           const Expr & body,
-                                           const Triggers triggers,
-                                           bool deduction
-                                           ) throw() :
+PropagateRuleCommand::PropagateRuleCommand(const std::vector<Expr>& vars,
+                                           const std::vector<Expr>& guards,
+                                           const std::vector<Expr>& heads,
+                                           Expr body,
+                                           const Triggers& triggers,
+                                           bool deduction) throw() :
   d_vars(vars), d_guards(guards), d_heads(heads), d_body(body), d_triggers(triggers), d_deduction(deduction) {
 }
 
-PropagateRuleCommand::PropagateRuleCommand(const VExpr & vars,
-                                           const VExpr & heads,
-                                           const Expr & body,
-                                           bool deduction
-                                           ) throw() :
+PropagateRuleCommand::PropagateRuleCommand(const std::vector<Expr>& vars,
+                                           const std::vector<Expr>& heads,
+                                           Expr body,
+                                           bool deduction) throw() :
   d_vars(vars), d_heads(heads), d_body(body), d_deduction(deduction) {
 }
 
-const PropagateRuleCommand::VExpr & PropagateRuleCommand::getVars() const throw(){
+const std::vector<Expr>& PropagateRuleCommand::getVars() const throw() {
   return d_vars;
-};
-const PropagateRuleCommand::VExpr & PropagateRuleCommand::getGuards() const throw(){
-  return d_guards;
-};
-const PropagateRuleCommand::VExpr & PropagateRuleCommand::getHeads() const throw(){
-  return d_heads;
-};
-const Expr & PropagateRuleCommand::getBody() const throw(){
-  return d_body;
-};
-const PropagateRuleCommand::Triggers & PropagateRuleCommand::getTriggers() const throw(){
-  return d_triggers;
-};
-bool PropagateRuleCommand::isDeduction() const throw(){
-  return d_deduction;
-};
+}
 
+const std::vector<Expr>& PropagateRuleCommand::getGuards() const throw() {
+  return d_guards;
+}
+
+const std::vector<Expr>& PropagateRuleCommand::getHeads() const throw() {
+  return d_heads;
+}
+
+Expr PropagateRuleCommand::getBody() const throw() {
+  return d_body;
+}
+
+const PropagateRuleCommand::Triggers& PropagateRuleCommand::getTriggers() const throw() {
+  return d_triggers;
+}
+
+bool PropagateRuleCommand::isDeduction() const throw() {
+  return d_deduction;
+}
 
 void PropagateRuleCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
@@ -1386,13 +1391,12 @@ Command* PropagateRuleCommand::exportTo(ExprManager* exprManager, ExprManagerMap
   /** Convert head and body */
   Expr body = d_body.exportTo(exprManager, variableMap);
   /** Create the converted rules */
-  return new PropagateRuleCommand(vars,guards,heads,body,triggers);
+  return new PropagateRuleCommand(vars, guards, heads, body, triggers);
 }
 
 Command* PropagateRuleCommand::clone() const {
-  return new PropagateRuleCommand(d_vars,d_guards,d_heads,d_body,d_triggers);
+  return new PropagateRuleCommand(d_vars, d_guards, d_heads, d_body, d_triggers);
 }
-
 
 /* output stream insertion operator for benchmark statuses */
 std::ostream& operator<<(std::ostream& out,
