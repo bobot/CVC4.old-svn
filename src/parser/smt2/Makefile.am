@@ -35,7 +35,13 @@ libparsersmt2_la_SOURCES = \
 	smt2_input.cpp \
 	$(ANTLR_STUFF)
 
-BUILT_SOURCES = $(ANTLR_STUFF) stamp-generated
+BUILT_SOURCES = \
+	generated/Smt2.tokens \
+	generated/Smt2Lexer.h \
+	generated/Smt2Lexer.c \
+	generated/Smt2Parser.h \
+	generated/Smt2Parser.c \
+	stamp-generated
 
 DISTCLEANFILES = $(ANTLR_STUFF)
 distclean-local:

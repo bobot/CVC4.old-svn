@@ -62,8 +62,8 @@ public:
    * For more information about what is a valid rational string,
    * see GMP's documentation for mpq_set_str().
    */
-  explicit Integer(const char * s, int base = 10): d_value(s,base) {}
-  Integer(const std::string& s, unsigned base = 10) : d_value(s, base) {}
+  explicit Integer(const char* s, unsigned base = 10): d_value(s, base) {}
+  explicit Integer(const std::string& s, unsigned base = 10) : d_value(s, base) {}
 
   Integer(const Integer& q) : d_value(q.d_value) {}
 
@@ -418,11 +418,11 @@ public:
   friend class CVC4::Rational;
 };/* class Integer */
 
-struct IntegerHashStrategy {
-  static inline size_t hash(const CVC4::Integer& i) {
+struct IntegerHashFunction {
+  inline size_t operator()(const CVC4::Integer& i) const {
     return i.hash();
   }
-};/* struct IntegerHashStrategy */
+};/* struct IntegerHashFunction */
 
 inline std::ostream& operator<<(std::ostream& os, const Integer& n) {
   return os << n.toString();

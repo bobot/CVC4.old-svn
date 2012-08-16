@@ -35,7 +35,13 @@ libparsertptp_la_SOURCES = \
 	tptp_input.cpp \
 	$(ANTLR_STUFF)
 
-BUILT_SOURCES = $(ANTLR_STUFF) stamp-generated
+BUILT_SOURCES = \
+	generated/Tptp.tokens \
+	generated/TptpLexer.h \
+	generated/TptpLexer.c \
+	generated/TptpParser.h \
+	generated/TptpParser.c \
+	stamp-generated
 
 DISTCLEANFILES = $(ANTLR_STUFF)
 distclean-local:

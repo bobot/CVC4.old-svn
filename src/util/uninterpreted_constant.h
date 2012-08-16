@@ -31,7 +31,7 @@ class CVC4_PUBLIC UninterpretedConstant {
 
 public:
 
-  UninterpretedConstant(Type type, Integer index) throw() :
+  UninterpretedConstant(Type type, Integer index) throw(IllegalArgumentException) :
     d_type(type),
     d_index(index) {
     CheckArgument(type.isSort(), type, "uninterpreted constants can only be created for uninterpreted sorts, not `%s'", type.toString().c_str());
@@ -77,10 +77,10 @@ std::ostream& operator<<(std::ostream& out, const UninterpretedConstant& uc) CVC
 /**
  * Hash function for the BitVector constants.
  */
-struct CVC4_PUBLIC UninterpretedConstantHashStrategy {
-  static inline size_t hash(const UninterpretedConstant& uc) {
-    return TypeHashFunction()(uc.getType()) * IntegerHashStrategy::hash(uc.getIndex());
+struct CVC4_PUBLIC UninterpretedConstantHashFunction {
+  inline size_t operator()(const UninterpretedConstant& uc) const {
+    return TypeHashFunction()(uc.getType()) * IntegerHashFunction()(uc.getIndex());
   }
-};/* struct UninterpretedConstantHashStrategy */
+};/* struct UninterpretedConstantHashFunction */
 
 }/* CVC4 namespace */

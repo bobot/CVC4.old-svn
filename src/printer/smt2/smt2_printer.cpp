@@ -80,7 +80,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   }
 
   // variable
-  if(n.getMetaKind() == kind::metakind::VARIABLE) {
+  if(n.isVar()) {
     string s;
     if(n.getAttribute(expr::VarNameAttr(), s)) {
       out << s;

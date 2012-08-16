@@ -38,9 +38,7 @@
 #include "expr/metakind.h"
 #include "expr/node_builder.h"
 #include "prop/prop_engine.h"
-#include "smt/bad_option_exception.h"
 #include "smt/modal_exception.h"
-#include "smt/no_such_function_exception.h"
 #include "smt/smt_engine.h"
 #include "smt/smt_engine_scope.h"
 #include "theory/theory_engine.h"
@@ -50,6 +48,7 @@
 #include "util/configuration.h"
 #include "util/exception.h"
 #include "smt/options.h"
+#include "options/option_exception.h"
 #include "util/output.h"
 #include "util/hash.h"
 #include "theory/substitutions.h"
@@ -186,7 +185,7 @@ class SmtEnginePrivate {
    *
    * Returns false if the formula simplifies to "false"
    */
-  bool simplifyAssertions() throw(NoSuchFunctionException, AssertionException);
+  bool simplifyAssertions() throw(TypeCheckingException, AssertionException);
 
 public:
 
@@ -226,13 +225,13 @@ public:
    * even be simplified.
    */
   void addFormula(TNode n)
-    throw(NoSuchFunctionException, AssertionException);
+    throw(TypeCheckingException, AssertionException);
 
   /**
    * Expand definitions in n.
    */
   Node expandDefinitions(TNode n, hash_map<TNode, Node, TNodeHashFunction>& cache)
-    throw(NoSuchFunctionException, AssertionException);
+    throw(TypeCheckingException, AssertionException);
 
 };/* class SmtEnginePrivate */
 
@@ -607,13 +606,13 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
 }
 
 void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
-  throw(BadOptionException, ModalException) {
+  throw(OptionException, ModalException) {
 
   SmtScope smts(this);
 
   Trace("smt") << "SMT setInfo(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
-    if(key == ":status") {
+    if(key == "status") {
       std::string s = value.getValue();
       BenchmarkStatus status =
         (s == "sat") ? SMT_SATISFIABLE :
@@ -625,13 +624,13 @@ void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
   }
 
   // Check for CVC4-specific info keys (prefixed with "cvc4-" or "cvc4_")
-  if(key.length() > 6) {
-    string prefix = key.substr(0, 6);
-    if(prefix == ":cvc4-" || prefix == ":cvc4_") {
-      string cvc4key = key.substr(6);
+  if(key.length() > 5) {
+    string prefix = key.substr(0, 5);
+    if(prefix == "cvc4-" || prefix == "cvc4_") {
+      string cvc4key = key.substr(5);
       if(cvc4key == "logic") {
         if(! value.isAtom()) {
-          throw BadOptionException("argument to (set-info :cvc4-logic ..) must be a string");
+          throw OptionException("argument to (set-info :cvc4-logic ..) must be a string");
         }
         SmtScope smts(this);
         d_logic = value.getValue();
@@ -656,17 +655,17 @@ void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
       s = value.getValue();
     }
     if(s != "sat" && s != "unsat" && s != "unknown") {
-      throw BadOptionException("argument to (set-info :status ..) must be "
-                               "`sat' or `unsat' or `unknown'");
+      throw OptionException("argument to (set-info :status ..) must be "
+                            "`sat' or `unsat' or `unknown'");
     }
     d_status = Result(s);
     return;
   }
-  throw BadOptionException();
+  throw UnrecognizedOptionException();
 }
 
 CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
-  throw(BadOptionException, ModalException) {
+  throw(OptionException, ModalException) {
 
   SmtScope smts(this);
 
@@ -721,7 +720,7 @@ CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
                            "last result wasn't unknown!");
     }
   } else {
-    throw BadOptionException();
+    throw UnrecognizedOptionException();
   }
 }
 
@@ -785,7 +784,7 @@ void SmtEngine::defineFunction(Expr func,
 }
 
 Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<TNode, Node, TNodeHashFunction>& cache)
-  throw(NoSuchFunctionException, AssertionException) {
+  throw(TypeCheckingException, AssertionException) {
 
   if(n.getKind() != kind::APPLY && n.getNumChildren() == 0) {
     // don't bother putting in the cache
@@ -814,7 +813,7 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<TNode, Node, TNodeHas
       Debug("expand") << "     : \"" << name << "\"" << endl;
     }
     if(i == d_smt.d_definedFunctions->end()) {
-      throw NoSuchFunctionException(Expr(d_smt.d_exprManager, new Node(func)));
+      throw TypeCheckingException(n.toExpr(), std::string("Undefined function: `") + func.toString() + "'");
     }
     if(Debug.isOn("expand")) {
       Debug("expand") << " defn: " << def.getFunction() << endl
@@ -1234,7 +1233,7 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
 
 // returns false if simpflication led to "false"
 bool SmtEnginePrivate::simplifyAssertions()
-  throw(NoSuchFunctionException, AssertionException) {
+  throw(TypeCheckingException, AssertionException) {
   try {
 
     Trace("simplify") << "SmtEnginePrivate::simplify()" << endl;
@@ -1508,7 +1507,7 @@ void SmtEnginePrivate::processAssertions() {
 }
 
 void SmtEnginePrivate::addFormula(TNode n)
-  throw(NoSuchFunctionException, AssertionException) {
+  throw(TypeCheckingException, AssertionException) {
 
   Trace("smt") << "SmtEnginePrivate::addFormula(" << n << ")" << endl;
 
@@ -1743,7 +1742,7 @@ bool SmtEngine::addToAssignment(const Expr& e) throw(AssertionException) {
                      ( d_definedFunctions->find(n.getOperator()) !=
                        d_definedFunctions->end() ) &&
                      n.getNumChildren() == 0 ) ||
-                   n.getMetaKind() == kind::metakind::VARIABLE ), e,
+                   n.isVar() ), e,
                  "expected variable or defined-function application "
                  "in addToAssignment(),\ngot %s", e.toString().c_str() );
   if(!options::produceAssignments()) {
@@ -1809,7 +1808,7 @@ CVC4::SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException)
       Assert((*i).getNumChildren() == 0);
       v.push_back((*i).getOperator().toString());
     } else {
-      Assert((*i).getMetaKind() == kind::metakind::VARIABLE);
+      Assert((*i).isVar());
       v.push_back((*i).toString());
     }
     v.push_back(resultNode.toString());

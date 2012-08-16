@@ -33,7 +33,13 @@ libparsercvc_la_SOURCES = \
 	cvc_input.cpp \
 	$(ANTLR_STUFF)
 
-BUILT_SOURCES = $(ANTLR_STUFF) stamp-generated
+BUILT_SOURCES = \
+	generated/Cvc.tokens \
+	generated/CvcLexer.h \
+	generated/CvcLexer.c \
+	generated/CvcParser.h \
+	generated/CvcParser.c \
+	stamp-generated
 
 EXTRA_DIST = README
 

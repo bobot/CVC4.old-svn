@@ -54,8 +54,8 @@ class TypeChecker;
 // Definition of an attribute for the variable name.
 // TODO: hide this attribute behind a NodeManager interface.
 namespace attr {
-  struct VarNameTag {};
-  struct SortArityTag {};
+  struct VarNameTag { };
+  struct SortArityTag { };
 }/* CVC4::expr::attr namespace */
 
 typedef Attribute<attr::VarNameTag, std::string> VarNameAttr;
@@ -75,7 +75,7 @@ class NodeManager {
   };
 
   typedef __gnu_cxx::hash_set<expr::NodeValue*,
-                              expr::NodeValuePoolHashFcn,
+                              expr::NodeValuePoolHashFunction,
                               expr::NodeValuePoolEq> NodeValuePool;
   typedef __gnu_cxx::hash_set<expr::NodeValue*,
                               expr::NodeValueIDHashFunction,
@@ -230,8 +230,8 @@ class NodeManager {
   };/* struct NodeManager::NVStorage<N> */
 
   // attribute tags
-  struct TypeTag {};
-  struct TypeCheckedTag;
+  struct TypeTag { };
+  struct TypeCheckedTag { };
 
   // NodeManager's attributes.  These aren't exposed outside of this
   // class; use the getters.
@@ -979,14 +979,11 @@ inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
   Assert(types.size() >= 2);
   std::vector<TypeNode> typeNodes;
   for (unsigned i = 0; i < types.size(); ++ i) {
-    /* FIXME when congruence closure no longer abuses tuples */
-#if 0
     CheckArgument(!types[i].isFunctionLike(), types,
                   "cannot put function-like types in tuples");
     if(types[i].isBoolean()) {
       WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a tuple type with a Boolean argument)" << std::endl;
     }
-#endif /* 0 */
     typeNodes.push_back(types[i]);
   }
   return mkTypeNode(kind::TUPLE_TYPE, typeNodes);
