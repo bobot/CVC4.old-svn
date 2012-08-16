@@ -19,6 +19,7 @@
 #include "theory/uf/equality_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers/options.h"
 #include "theory/quantifiers/term_database.h"
 
 //#define USE_SMART_SPLITS
@@ -194,7 +195,7 @@ struct sortExternalDegree {
 };
 
 bool StrongSolverTheoryUf::ConflictFind::Region::getMustCombine( int cardinality ){
-  if( Options::current()->ufssRegions && d_total_diseq_external>=long(cardinality) ){
+  if( options::ufssRegions() && d_total_diseq_external>=long(cardinality) ){
     //The number of external disequalities is greater than or equal to cardinality.
     //Thus, a clique of size cardinality+1 may exist between nodes in d_regions[i] and other regions
     //Check if this is actually the case:  must have n nodes with outgoing degree (cardinality+1-n) for some n>0
@@ -243,7 +244,7 @@ bool StrongSolverTheoryUf::ConflictFind::Region::check( Theory::Effort level, in
         }
       }
       return true;
-    }else if( Options::current()->ufssRegions || Options::current()->ufssEagerSplits || level==Theory::EFFORT_FULL ){
+    }else if( options::ufssRegions() || options::ufssEagerSplits() || level==Theory::EFFORT_FULL ){
       //build test clique, up to size cardinality+1
       if( d_testCliqueSize<=long(cardinality) ){
         std::vector< Node > newClique;
@@ -584,7 +585,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
 /** new node */
 void StrongSolverTheoryUf::ConflictFind::newEqClass( Node n ){
   if( d_regions_map.find( n )==d_regions_map.end() ){
-    if( !Options::current()->ufssRegions ){
+    if( !options::ufssRegions() ){
       //if not using regions, always add new equivalence classes to region index = 0
       d_regions_index = 0;
     }
@@ -594,7 +595,7 @@ void StrongSolverTheoryUf::ConflictFind::newEqClass( Node n ){
     if( d_regions_index<d_regions.size() ){
       d_regions[ d_regions_index ]->debugPrint("uf-ss-debug",true);
       d_regions[ d_regions_index ]->d_valid = true;
-      Assert( !Options::current()->ufssRegions || d_regions[ d_regions_index ]->getNumReps()==0 );
+      Assert( !options::ufssRegions() || d_regions[ d_regions_index ]->getNumReps()==0 );
     }else{
       d_regions.push_back( new Region( this, d_th->getSatContext() ) );
     }
@@ -882,7 +883,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
       }
       bool addedLemma = false;
       //do splitting on demand
-      if( level==Theory::EFFORT_FULL || Options::current()->ufssEagerSplits ){
+      if( level==Theory::EFFORT_FULL || options::ufssEagerSplits() ){
         Debug("uf-ss-debug") << "Add splits?" << std::endl;
         //see if we have any recommended splits from large regions
         for( int i=0; i<(int)d_regions_index; i++ ){
@@ -902,7 +903,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
       if( level==Theory::EFFORT_FULL ){
         if( !addedLemma ){
           Debug("uf-ss") << "No splits added." << std::endl;
-          if( Options::current()->ufssColoringSat ){
+          if( options::ufssColoringSat() ){
             //otherwise, try to disambiguate individual terms
             if( !disambiguateTerms( out ) ){
               //no disequalities can be propagated
@@ -1000,7 +1001,7 @@ void StrongSolverTheoryUf::ConflictFind::setCardinality( int c, OutputChannel* o
 }
 
 void StrongSolverTheoryUf::ConflictFind::getRepresentatives( std::vector< Node >& reps ){
-  if( !Options::current()->ufssColoringSat ){
+  if( !options::ufssColoringSat() ){
     bool foundRegion = false;
     for( int i=0; i<(int)d_regions_index; i++ ){
       //should not have multiple regions at this point
@@ -1045,7 +1046,7 @@ Node StrongSolverTheoryUf::ConflictFind::getCardinalityLemma(){
   if( d_cardinality_lemma.find( d_cardinality )==d_cardinality_lemma.end() ){
     if( d_cardinality_lemma_term.isNull() ){
       std::stringstream ss;
-      ss << Expr::setlanguage(Options::current()->outputLanguage);
+      ss << Expr::setlanguage(options::outputLanguage());
       ss << "t_" << d_type;
       d_cardinality_lemma_term = NodeManager::currentNM()->mkVar( ss.str(), d_type );
     }
@@ -1077,7 +1078,7 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
     Debug("uf-ss-solver") << "StrongSolverTheoryUf: New eq class " << n << " " << tn << std::endl;
     c->newEqClass( n );
   }
-  //else if( isRelevantType( tn ) ){
+  //else if( tn.isSort() ){
   //  //Debug("uf-ss-solver") << "WAIT: StrongSolverTheoryUf: New eq class " << n << " " << tn << std::endl;
   //  //d_new_eq_class_waiting[tn].push_back( n );
   //}
@@ -1111,7 +1112,7 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
   if( n.getKind()==CARDINALITY_CONSTRAINT ){
     TypeNode tn = n[0].getType();
     Assert( d_conf_find[tn]->getCardinality()>0 );
-    Assert( isRelevantType( tn ) );
+    Assert( tn.isSort() );
     Assert( d_conf_find[tn] );
     long nCard = n[1].getConst<Rational>().getNumerator().getLong();
     d_conf_find[tn]->assertCardinality( nCard, true );
@@ -1124,7 +1125,7 @@ void StrongSolverTheoryUf::assertNode( Node n, bool isDecision ){
     //must add new lemma
     Node nn = n[0];
     TypeNode tn = nn[0].getType();
-    Assert( isRelevantType( tn ) );
+    Assert( tn.isSort() );
     Assert( d_conf_find[tn] );
     long nCard = nn[1].getConst<Rational>().getNumerator().getLong();
     d_conf_find[tn]->assertCardinality( nCard, false );
@@ -1177,7 +1178,7 @@ void StrongSolverTheoryUf::propagate( Theory::Effort level ){
 void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
   //shouldn't have to preregister this type (it may be that there are no quantifiers over tn)  FIXME
   TypeNode tn = n.getType();
-  if( isRelevantType( tn ) ){
+  if( tn.isSort() ){
     preRegisterType( tn );
   }
 }
@@ -1187,9 +1188,10 @@ void StrongSolverTheoryUf::registerQuantifier( Node f ){
   //must ensure the quantifier does not quantify over arithmetic
   for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
     TypeNode tn = f[0][i].getType();
-    if( isRelevantType( tn ) ){
+    if( tn.isSort() ){
       preRegisterType( tn );
     }else{
+      /*
       if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
         Debug("uf-ss-na") << "Error: Cannot perform finite model finding on arithmetic quantifier";
         Debug("uf-ss-na") << " (" << f << ")";
@@ -1201,6 +1203,7 @@ void StrongSolverTheoryUf::registerQuantifier( Node f ){
         Debug("uf-ss-na") << std::endl;
         Unimplemented("Cannot perform finite model finding on datatype quantifier");
       }
+      */
     }
   }
 }
@@ -1233,7 +1236,7 @@ StrongSolverTheoryUf::ConflictFind* StrongSolverTheoryUf::getConflictFind( TypeN
   std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.find( tn );
   //pre-register the type if not done already
   if( it==d_conf_find.end() ){
-    if( isRelevantType( tn ) ){
+    if( tn.isSort() ){
       preRegisterType( tn );
       it = d_conf_find.find( tn );
     }
@@ -1332,20 +1335,10 @@ StrongSolverTheoryUf::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_max_model_size);
 }
 
-bool StrongSolverTheoryUf::isRelevantType( TypeNode t ){
-  return t!=NodeManager::currentNM()->booleanType() &&
-         t!=NodeManager::currentNM()->integerType() &&
-         t!=NodeManager::currentNM()->realType() &&
-         t!=NodeManager::currentNM()->builtinOperatorType() &&
-         !t.isFunction() &&
-         !t.isDatatype() &&
-         !t.isArray();
-}
-
 bool StrongSolverTheoryUf::involvesRelevantType( Node n ){
   if( n.getKind()==APPLY_UF ){
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      if( isRelevantType( n[i].getType() ) ){
+      if( n[i].getType().isSort() ){
         return true;
       }
     }

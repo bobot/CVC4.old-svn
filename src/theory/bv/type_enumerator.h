@@ -38,7 +38,7 @@ class BitVectorEnumerator : public TypeEnumeratorBase<BitVectorEnumerator> {
 public:
 
   BitVectorEnumerator(TypeNode type) throw(AssertionException) :
-    TypeEnumeratorBase(type),
+    TypeEnumeratorBase<BitVectorEnumerator>(type),
     d_size(type.getBitVectorSize()),
     d_bits(0) {
   }
@@ -53,6 +53,10 @@ public:
   BitVectorEnumerator& operator++() throw() {
     d_bits += 1;
     return *this;
+  }
+
+  bool isFinished() throw() {
+    return d_bits != d_bits.modByPow2(d_size);
   }
 
 };/* BitVectorEnumerator */

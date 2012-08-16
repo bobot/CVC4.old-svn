@@ -36,7 +36,8 @@
 #include "theory/shared_terms_database.h"
 #include "theory/term_registration_visitor.h"
 #include "theory/valuation.h"
-#include "util/options.h"
+#include "options/options.h"
+#include "smt/options.h"
 #include "util/stats.h"
 #include "util/hash.h"
 #include "util/cache.h"
@@ -450,6 +451,13 @@ public:
   }
 
   /**
+   * Get a pointer to the underlying user context.
+   */
+  inline context::Context* getUserContext() const {
+    return d_userContext;
+  }
+
+  /**
    * Get a pointer to the underlying quantifiers engine.
    */
   theory::QuantifiersEngine* getQuantifiersEngine() const {
@@ -677,8 +685,8 @@ public:
   }
 
   /** Get the theory for id */
-  theory::Theory* getTheory(int id) {
-    return d_theoryTable[id];
+  theory::Theory* getTheory(theory::TheoryId theoryId) {
+    return d_theoryTable[theoryId];
   }
 
   /**

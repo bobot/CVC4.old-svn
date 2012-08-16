@@ -38,15 +38,8 @@ libtheory_la_SOURCES = \
 	unconstrained_simplifier.cpp \
 	quantifiers_engine.h \
 	quantifiers_engine.cpp \
-	instantiator_default.h \
-	instantiator_default.cpp \
-	inst_match.h \
-	inst_match_impl.h \
-	inst_match.cpp \
-	trigger.h \
-	trigger.cpp \
 	model.h \
-	model.cpp 
+	model.cpp
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \
@@ -66,6 +59,7 @@ libtheory_la_LIBADD = \
 	@builddir@/rewriterules/librewriterules.la
 
 EXTRA_DIST = \
+	options_handlers.h \
 	rewriter_tables_template.h \
 	instantiator_tables_template.cpp \
 	theory_traits_template.h \

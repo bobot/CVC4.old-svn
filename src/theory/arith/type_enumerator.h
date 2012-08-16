@@ -37,7 +37,7 @@ class RationalEnumerator : public TypeEnumeratorBase<RationalEnumerator> {
 public:
 
   RationalEnumerator(TypeNode type) throw(AssertionException) :
-    TypeEnumeratorBase(type),
+    TypeEnumeratorBase<RationalEnumerator>(type),
     d_rat(0) {
     Assert(type.getKind() == kind::TYPE_CONSTANT &&
            type.getConst<TypeConstant>() == REAL_TYPE);
@@ -72,6 +72,10 @@ public:
     return *this;
   }
 
+  bool isFinished() throw() {
+    return false;
+  }
+
 };/* class RationalEnumerator */
 
 class IntegerEnumerator : public TypeEnumeratorBase<IntegerEnumerator> {
@@ -80,7 +84,7 @@ class IntegerEnumerator : public TypeEnumeratorBase<IntegerEnumerator> {
 public:
 
   IntegerEnumerator(TypeNode type) throw(AssertionException) :
-    TypeEnumeratorBase(type),
+    TypeEnumeratorBase<IntegerEnumerator>(type),
     d_int(0) {
     Assert(type.getKind() == kind::TYPE_CONSTANT &&
            type.getConst<TypeConstant>() == INTEGER_TYPE);
@@ -98,6 +102,10 @@ public:
       d_int = -d_int;
     }
     return *this;
+  }
+
+  bool isFinished() throw() {
+    return false;
   }
 
 };/* class IntegerEnumerator */

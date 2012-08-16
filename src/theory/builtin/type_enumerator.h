@@ -37,7 +37,7 @@ class UninterpretedSortEnumerator : public TypeEnumeratorBase<UninterpretedSortE
 public:
 
   UninterpretedSortEnumerator(TypeNode type) throw(AssertionException) :
-    TypeEnumeratorBase(type),
+    TypeEnumeratorBase<UninterpretedSortEnumerator>(type),
     d_count(0) {
     Assert(type.getKind() == kind::SORT_TYPE);
   }
@@ -49,6 +49,10 @@ public:
   UninterpretedSortEnumerator& operator++() throw() {
     d_count += 1;
     return *this;
+  }
+
+  bool isFinished() throw() {
+    return false;
   }
 
 };/* class UninterpretedSortEnumerator */

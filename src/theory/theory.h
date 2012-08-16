@@ -32,7 +32,7 @@
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "context/cdo.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/stats.h"
 #include "util/dump.h"
 
@@ -51,6 +51,10 @@ class Instantiator;
 class InstStrategy;
 class QuantifiersEngine;
 class TheoryModel;
+
+namespace rrinst{
+class CandidateGenerator;
+}
 
 /**
  * Information about an assertion for the theories.
@@ -773,6 +777,10 @@ public:
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level);
 
+namespace eq{
+  class EqualityEngine;
+}
+
 class Instantiator {
   friend class QuantifiersEngine;
 protected:
@@ -834,6 +842,14 @@ public:
   virtual bool areDisequal( Node a, Node b ) { return false; }
   virtual Node getRepresentative( Node a ) { return a; }
   virtual Node getInternalRepresentative( Node a ) { return getRepresentative( a ); }
+  virtual eq::EqualityEngine* getEqualityEngine() { return NULL; }
+  virtual void getEquivalenceClass( Node a, std::vector< Node >& eqc ) {}
+public:
+  /** A Creator of CandidateGenerator for classes (one element in each
+      equivalence class) and class (every element of one equivalence
+      class) */
+  virtual rrinst::CandidateGenerator* getRRCanGenClasses(){ return NULL; };
+  virtual rrinst::CandidateGenerator* getRRCanGenClass(){ return NULL; };
 };/* class Instantiator */
 
 inline Assertion Theory::get() {

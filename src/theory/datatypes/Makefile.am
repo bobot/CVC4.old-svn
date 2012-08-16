@@ -11,11 +11,8 @@ libdatatypes_la_SOURCES = \
 	theory_datatypes.h \
 	datatypes_rewriter.h \
 	theory_datatypes.cpp \
-	union_find.h \
-	union_find.cpp \
-	explanation_manager.h \
-	explanation_manager.cpp \
 	theory_datatypes_instantiator.h \
 	theory_datatypes_instantiator.cpp
-
-EXTRA_DIST = kinds
+	
+EXTRA_DIST = \
+	kinds

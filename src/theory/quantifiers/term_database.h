@@ -16,8 +16,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__QUANTIFIERS_TERM_DATABASE_H
-#define __CVC4__QUANTIFIERS_TERM_DATABASE_H
+#ifndef __CVC4__THEORY__QUANTIFIERS__TERM_DATABASE_H
+#define __CVC4__THEORY__QUANTIFIERS__TERM_DATABASE_H
 
 #include "theory/theory.h"
 
@@ -48,7 +48,7 @@ private:
   /** calculated no match terms */
   bool d_matching_active;
   /** terms processed */
-  std::map< Node, bool > d_processed;
+  std::hash_set< Node, NodeHashFunction > d_processed;
 public:
   TermDb( QuantifiersEngine* qe ) : d_quantEngine( qe ), d_matching_active( true ){}
   ~TermDb(){}
@@ -61,13 +61,16 @@ public:
   /** map from type nodes to terms of that type */
   std::map< TypeNode, std::vector< Node > > d_type_map;
   /** add a term to the database */
-  void addTerm( Node n, std::vector< Node >& added, bool withinQuant = false );
+  void addTerm( Node n, std::set< Node >& added, bool withinQuant = false );
   /** reset (calculate which terms are active) */
   void reset( Theory::Effort effort );
   /** set active */
   void setMatchingActive( bool a ) { d_matching_active = a; }
   /** get active */
   bool getMatchingActive() { return d_matching_active; }
+private:
+  /** for efficient e-matching */
+  void addTermEfficient( Node n, std::set< Node >& added);
 public:
   /** parent structure (for efficient E-matching):
       n -> op -> index -> L
@@ -75,7 +78,9 @@ public:
         has operator "op", and n'["index"] = n.
       for example, d_parents[n][f][1] = { f( t1, n ), f( t2, n ), ... }
   */
-  std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
+  /* Todo replace int by size_t */
+  std::hash_map< Node, std::hash_map< Node, std::hash_map< int, std::vector< Node >  >, NodeHashFunction  > , NodeHashFunction > d_parents;
+  const std::vector<Node> & getParents(TNode n, TNode f, int arg);
 private:
   //map from types to model basis terms
   std::map< TypeNode, Node > d_model_basis_term;
@@ -144,8 +149,8 @@ public:
   Node getFreeVariableForInstConstant( Node n );
 };/* class TermDb */
 
-}
-}
-}
+}/* CVC4::theory::quantifiers namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
 
-#endif
+#endif /* __CVC4__THEORY__QUANTIFIERS__TERM_DATABASE_H */
