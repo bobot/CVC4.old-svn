@@ -59,6 +59,7 @@
 #include "theory/theory_traits.h"
 #include "theory/logic_info.h"
 #include "util/ite_removal.h"
+#include "theory/model.h"
 
 using namespace std;
 using namespace CVC4;
@@ -603,6 +604,9 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
 
 void SmtEngine::setInfo(const std::string& key, const SExpr& value)
   throw(BadOptionException, ModalException) {
+
+  NodeManagerScope nms(d_nodeManager);
+
   Trace("smt") << "SMT setInfo(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
     if(key == ":status") {
@@ -659,6 +663,9 @@ void SmtEngine::setInfo(const std::string& key, const SExpr& value)
 
 SExpr SmtEngine::getInfo(const std::string& key) const
   throw(BadOptionException) {
+
+  NodeManagerScope nms(d_nodeManager);
+
   Trace("smt") << "SMT getInfo(" << key << ")" << endl;
   if(key == ":all-statistics") {
     vector<SExpr> stats;
@@ -737,7 +744,8 @@ void SmtEngine::setOption(const std::string& key, const SExpr& value)
     } else if(key == ":produce-unsat-cores") {
       throw BadOptionException();
     } else if(key == ":produce-models") {
-      throw BadOptionException();
+      //throw BadOptionException();
+      const_cast<Options*>( Options::s_current )->produceModels = true;
     } else if(key == ":produce-assignments") {
       throw BadOptionException();
     } else {
@@ -802,17 +810,32 @@ void SmtEngine::defineFunction(Expr func,
   Type formulaType = formula.getType(Options::current()->typeChecking);
 
   Type funcType = func.getType();
-  Type rangeType = funcType.isFunction() ?
-    FunctionType(funcType).getRangeType() : funcType;
-  if(formulaType != rangeType) {
-    stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
-       << "Defined function's declared type does not match that of body\n"
-       << "The function  : " << func << "\n"
-       << "Its range type: " << rangeType << "\n"
-       << "The body      : " << formula << "\n"
-       << "Body type     : " << formulaType;
-    throw TypeCheckingException(func, ss.str());
+  // We distinguish here between definitions of constants and functions,
+  // because the type checking for them is subtly different.  Perhaps we
+  // should instead have SmtEngine::defineFunction() and
+  // SmtEngine::defineConstant() for better clarity, although then that
+  // doesn't match the SMT-LIBv2 standard...
+  if(formals.size() > 0) {
+    Type rangeType = FunctionType(funcType).getRangeType();
+    if(formulaType != rangeType) {
+      stringstream ss;
+      ss << "Type of defined function does not match its declaration\n"
+         << "The function  : " << func << "\n"
+         << "Declared type : " << rangeType << "\n"
+         << "The body      : " << formula << "\n"
+         << "Body type     : " << formulaType;
+      throw TypeCheckingException(func, ss.str());
+    }
+  } else {
+    if(formulaType != funcType) {
+      stringstream ss;
+      ss << "Declared type of defined constant does not match its definition\n"
+         << "The constant   : " << func << "\n"
+         << "Declared type  : " << funcType << "\n"
+         << "The definition : " << formula << "\n"
+         << "Definition type: " << formulaType;
+      throw TypeCheckingException(func, ss.str());
+    }
   }
   TNode funcNode = func.getTNode();
   vector<Node> formalsNodes;
@@ -914,7 +937,7 @@ void SmtEnginePrivate::removeITEs() {
   for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
     d_assertionsToCheck[i] = Rewriter::rewrite(d_assertionsToCheck[i]);
   }
-  
+
 }
 
 void SmtEnginePrivate::staticLearning() {
@@ -954,7 +977,7 @@ bool SmtEnginePrivate::nonClausalSimplify() {
   for (unsigned i = 0; i < d_assertionsToPreprocess.size(); ++ i) {
     Assert(Rewriter::rewrite(d_assertionsToPreprocess[i]) == d_assertionsToPreprocess[i]);
     Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): asserting " << d_assertionsToPreprocess[i] << endl;
-    d_propagator.assert(d_assertionsToPreprocess[i]);
+    d_propagator.assertTrue(d_assertionsToPreprocess[i]);
   }
 
   Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
@@ -1353,8 +1376,7 @@ bool SmtEnginePrivate::simplifyAssertions()
     // well-typed, and we don't want the C++ runtime to abort our
     // process without any error notice.
     stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
-       << "A bad expression was produced.  Original exception follows:\n"
+    ss << "A bad expression was produced.  Original exception follows:\n"
        << tcep;
     InternalError(ss.str().c_str());
   }
@@ -1447,7 +1469,7 @@ void SmtEnginePrivate::processAssertions() {
         expandDefinitions(d_assertionsToPreprocess[i], cache);
     }
   }
-    
+
   // Apply the substitutions we already have, and normalize
   Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                     << "applying substitutions" << endl;
@@ -1573,8 +1595,7 @@ void SmtEngine::ensureBoolean(const BoolExpr& e) {
   Type boolType = d_exprManager->booleanType();
   if(type != boolType) {
     stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
-       << "Expected " << boolType << "\n"
+    ss << "Expected " << boolType << "\n"
        << "The assertion : " << e << "\n"
        << "Its type      : " << type;
     throw TypeCheckingException(e, ss.str());
@@ -1747,16 +1768,15 @@ Expr SmtEngine::getValue(const Expr& e)
     throw ModalException(msg);
   }
   if(d_status.isNull() ||
-     d_status.asSatisfiabilityResult() != Result::SAT ||
+     d_status.asSatisfiabilityResult() == Result::UNSAT ||
      d_problemExtended) {
     const char* msg =
-      "Cannot get value unless immediately preceded by SAT/INVALID response.";
+      "Cannot get value unless immediately preceded by SAT/INVALID or UNKNOWN response.";
     throw ModalException(msg);
   }
-  if(type.isFunction() || type.isPredicate() ||
-     type.isKind() || type.isSortConstructor()) {
+  if(type.isKind() || type.isSortConstructor()) {
     const char* msg =
-      "Cannot get value of a function, predicate, or sort.";
+      "Cannot get value of a sort.";
     throw ModalException(msg);
   }
 
@@ -1767,10 +1787,14 @@ Expr SmtEngine::getValue(const Expr& e)
   n = Rewriter::rewrite(n);
 
   Trace("smt") << "--- getting value of " << n << endl;
-  Node resultNode = d_theoryEngine->getValue(n);
-
+  theory::TheoryModel* m = d_theoryEngine->getModel();
+  Node resultNode;
+  if( m ){
+    resultNode = m->getValue( n );
+  }
+  Trace("smt") << "--- got value " << n << " = " << resultNode << endl;
   // type-check the result we got
-  Assert(resultNode.isNull() || resultNode.getType() == n.getType());
+  Assert(resultNode.isNull() || resultNode.getType().isSubtypeOf( n.getType() ));
   return Expr(d_exprManager, new Node(resultNode));
 }
 
@@ -1816,11 +1840,11 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
     throw ModalException(msg);
   }
   if(d_status.isNull() ||
-     d_status.asSatisfiabilityResult() != Result::SAT ||
+     d_status.asSatisfiabilityResult() == Result::UNSAT  ||
      d_problemExtended) {
     const char* msg =
       "Cannot get the current assignment unless immediately "
-      "preceded by SAT/INVALID response.";
+      "preceded by SAT/INVALID or UNKNOWN response.";
     throw ModalException(msg);
   }
 
@@ -1840,7 +1864,11 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
     Node n = Rewriter::rewrite(*i);
 
     Trace("smt") << "--- getting value of " << n << endl;
-    Node resultNode = d_theoryEngine->getValue(n);
+    theory::TheoryModel* m = d_theoryEngine->getModel();
+    Node resultNode;
+    if( m ){
+      resultNode = m->getValue( n );
+    }
 
     // type-check the result we got
     Assert(resultNode.isNull() || resultNode.getType() == boolType);
@@ -1857,6 +1885,45 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
     sexprs.push_back(v);
   }
   return SExpr(sexprs);
+}
+
+
+void SmtEngine::addToModelType( Type& t ){
+  Trace("smt") << "SMT addToModelType(" << t << ")" << endl;
+  NodeManagerScope nms(d_nodeManager);
+  if( Options::current()->produceModels ) {
+    d_theoryEngine->getModel()->addDefineType( TypeNode::fromType( t ) );
+  }
+}
+
+void SmtEngine::addToModelFunction( Expr& e ){
+  Trace("smt") << "SMT addToModelFunction(" << e << ")" << endl;
+  NodeManagerScope nms(d_nodeManager);
+  if( Options::current()->produceModels ) {
+    d_theoryEngine->getModel()->addDefineFunction( e.getNode() );
+  }
+}
+
+
+Model* SmtEngine::getModel() throw(ModalException, AssertionException){
+  Trace("smt") << "SMT getModel()" << endl;
+  NodeManagerScope nms(d_nodeManager);
+
+  if(!Options::current()->produceModels) {
+    const char* msg =
+      "Cannot get value when produce-models options is off.";
+    throw ModalException(msg);
+  }
+  if(d_status.isNull() ||
+     d_status.asSatisfiabilityResult() == Result::UNSAT  ||
+     d_problemExtended) {
+    const char* msg =
+      "Cannot get the current model unless immediately "
+      "preceded by SAT/INVALID or UNKNOWN response.";
+    throw ModalException(msg);
+  }
+
+  return d_theoryEngine->getModel();
 }
 
 Proof* SmtEngine::getProof() throw(ModalException, AssertionException) {
@@ -2042,6 +2109,11 @@ unsigned long SmtEngine::getTimeRemaining() const throw(ModalException) {
 
 StatisticsRegistry* SmtEngine::getStatisticsRegistry() const {
   return d_exprManager->d_nodeManager->getStatisticsRegistry();
+}
+
+void SmtEngine::printModel( std::ostream& out, Model* m ){
+  NodeManagerScope nms(d_nodeManager);
+  m->toStream(out);
 }
 
 }/* CVC4 namespace */

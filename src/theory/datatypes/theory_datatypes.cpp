@@ -23,6 +23,7 @@
 #include "util/datatype.h"
 #include "util/Assert.h"
 #include "theory/datatypes/theory_datatypes_instantiator.h"
+#include "theory/model.h"
 
 #include <map>
 
@@ -94,6 +95,9 @@ void TheoryDatatypes::notifyCongruent(TNode lhs, TNode rhs) {
 
 void TheoryDatatypes::preRegisterTerm(TNode n) {
   Debug("datatypes-prereg") << "TheoryDatatypes::preRegisterTerm() " << n << endl;
+  if( n.getType().isDatatype() ){
+    d_preRegTerms.push_back( n );
+  }
 }
 
 
@@ -124,7 +128,7 @@ void TheoryDatatypes::check(Effort e) {
     if( !hasConflict() ){
       if( d_em.hasNode( assertion ) ){
         Debug("datatypes") << "Assertion has already been derived" << endl;
-        d_em.assert( assertion );
+        d_em.assertTrue( assertion );
       } else {
         switch(assertion.getKind()) {
         case kind::EQUAL:
@@ -616,16 +620,11 @@ void TheoryDatatypes::updateSelectors( Node a ) {
   }
 }
 
-Node TheoryDatatypes::getValue(TNode n) {
-  NodeManager* nodeManager = NodeManager::currentNM();
-  switch(n.getKind()) {
-  case kind::VARIABLE:
-    Unhandled(kind::VARIABLE);
-  case kind::EQUAL: // 2 args
-    return nodeManager->
-      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
-  default:
-    Unhandled(n.getKind());
+void TheoryDatatypes::collectModelInfo( TheoryModel* m ){
+  //temporary
+  for( int i=0; i<(int)d_preRegTerms.size(); i++ ){
+    Node n = find( d_preRegTerms[i] );
+    m->assertEquality( n, d_preRegTerms[i], true );
   }
 }
 
@@ -949,7 +948,7 @@ void TheoryDatatypes::addEquality(TNode eq) {
     //setup merge pending list
     d_merge_pending.push_back( vector< pair< Node, Node > >() );
 
-    d_cce.assert(eq);
+    d_cce.assertTrue(eq);
     d_cc.addTerm(eq[0]);
     d_cc.addTerm(eq[1]);
 
@@ -979,7 +978,7 @@ void TheoryDatatypes::addEquality(TNode eq) {
     Debug("datatypes-ae") << "   Find is " << find( eq[0] ) << " = " << find( eq[1] ) << std::endl;
     //merge original nodes
     merge( eq[0], eq[1] );
-    d_cce.assert(eq);
+    d_cce.assertTrue(eq);
     d_cc.addTerm(eq[0]);
     d_cc.addTerm(eq[1]);
 #else
@@ -987,7 +986,7 @@ void TheoryDatatypes::addEquality(TNode eq) {
     Debug("datatypes-ae") << "   Find is " << find( eq[0] ) << " = " << find( eq[1] ) << std::endl;
     merge( eq[0], eq[1] );
     if( !hasConflict() ){
-      d_cce.assert(eq);
+      d_cce.assertTrue(eq);
       d_cc.addTerm(eq[0]);
       d_cc.addTerm(eq[1]);
     }
@@ -1054,3 +1053,64 @@ bool TheoryDatatypes::searchForCycle( Node n, Node on,
   }
   return false;
 }
+
+bool TheoryDatatypes::hasTerm( Node a ){
+  return false;
+}
+
+bool TheoryDatatypes::areEqual( Node a, Node b ){
+  Node ar = find( a );
+  Node br = find( b );
+  if( ar==br ){
+    return true;
+  }else if( ar.getKind()==APPLY_CONSTRUCTOR && br.getKind()==APPLY_CONSTRUCTOR &&
+            ar.getOperator()==br.getOperator() ){
+    //for( int i=0; i<(int)ar.getNumChildren(); i++ ){
+    //  if( !areEqual( ar[0], br[0] ) ){
+    //    return false;
+    //  }
+    //}
+    //return true;
+    return false;
+  }else{
+    return false;
+  }
+}
+
+bool TheoryDatatypes::areDisequal( Node a, Node b ){
+  Node ar = find( a );
+  Node br = find( b );
+  if( ar==br ){
+    return false;
+  }else if( ar.getKind()==APPLY_CONSTRUCTOR && br.getKind()==APPLY_CONSTRUCTOR &&
+            ar.getOperator()!=br.getOperator() ){
+    return true;
+  }else{
+    EqLists::iterator deq_ia = d_disequalities.find( ar );
+    EqLists::iterator deq_ib = d_disequalities.find( br );
+    if( deq_ia!=d_disequalities.end() && deq_ib!=d_disequalities.end() ){
+      EqList* deq;
+      if( (*deq_ib).second->size()<(*deq_ia).second->size() ){
+        deq = (*deq_ib).second;
+      }else{
+        deq = (*deq_ia).second;
+      }
+      for(EqList::const_iterator i = deq->begin(); i != deq->end(); i++) {
+        TNode deqn = (*i);
+        TNode sp = find(deqn[0]);
+        TNode tp = find(deqn[1]);
+        if( sp==a && tp==b ){
+          return true;
+        }else if( sp==b && tp==a ){
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+}
+
+Node TheoryDatatypes::getRepresentative( Node a ){
+  return find( a );
+}
+

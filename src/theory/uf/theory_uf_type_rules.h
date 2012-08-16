@@ -46,8 +46,7 @@ public:
         TypeNode currentArgumentType = *argument_type_it;
         if(!currentArgument.isSubtypeOf(currentArgumentType)) {
           std::stringstream ss;
-          ss << Expr::setlanguage(Options::current()->outputLanguage)
-             << "argument type is not a subtype of the function's argument type:\n"
+          ss << "argument type is not a subtype of the function's argument type:\n"
              << "argument:  " << *argument_it << "\n"
              << "has type:  " << (*argument_it).getType() << "\n"
              << "not subtype: " << *argument_type_it;
@@ -71,7 +70,69 @@ public:
     }
     return nodeManager->booleanType();
   }
-};/* class UfTypeRule */
+};/* class CardinalityConstraintTypeRule */
+
+class FunctionModelTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw(TypeCheckingExceptionPrivate) {
+    TypeNode tn = n[0].getType(check);
+    if( check ){
+      if( n.getNumChildren()==2 ){
+        if( n[0].getKind()!=kind::FUNCTION_CASE_SPLIT ){
+          throw TypeCheckingExceptionPrivate(n, "improper function model representation : first child must be case split");
+        }
+        TypeNode tn2 = n[1].getType(check);
+        if( tn!=tn2 ){
+          std::stringstream ss;
+          ss << "function model has inconsistent return types : " << tn << " " << tn2;
+          throw TypeCheckingExceptionPrivate(n, ss.str());
+        }
+      }
+    }
+    return tn;
+  }
+};/* class FunctionModelTypeRule */
+
+class FunctionCaseSplitTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw(TypeCheckingExceptionPrivate) {
+    TypeNode retType = n[0][1].getType(check);
+    if( check ){
+      TypeNode argType = n[0][0].getType(check);
+      for( size_t i=0; i<n.getNumChildren(); i++ ){
+        TypeNode argType2 = n[i][0].getType(check);
+        if( argType!=argType2 ){
+          std::stringstream ss;
+          ss << "function case split has inconsistent argument types : " << argType << " " << argType2;
+          throw TypeCheckingExceptionPrivate(n, ss.str());
+        }
+        TypeNode retType2 = n[i][1].getType(check);
+        if( retType!=retType2 ){
+          std::stringstream ss;
+          ss << "function case split has inconsistent return types : " << retType << " " << retType2;
+          throw TypeCheckingExceptionPrivate(n, ss.str());
+        }
+      }
+    }
+    return retType;
+  }
+};/* class FunctionCaseSplitTypeRule */
+
+
+class FunctionCaseTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw(TypeCheckingExceptionPrivate) {
+    TypeNode retType = n[1].getType(check);
+    if( check ){
+      TypeNode argType = n[0].getType(check);
+    }
+    return retType;
+  }
+};/* class FunctionCaseTypeRule */
+
 
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */

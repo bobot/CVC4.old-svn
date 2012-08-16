@@ -922,9 +922,9 @@ declareVariables[CVC4::Command*& cmd, CVC4::Type& t, const std::vector<std::stri
             }
           } else {
             Debug("parser") << "  " << *i << " not declared" << std::endl;
-            PARSER_STATE->mkVar(*i, t);
+            Expr func = PARSER_STATE->mkVar(*i, t);
             if(topLevel) {
-              Command* decl = new DeclareFunctionCommand(*i, t);
+              Command* decl = new DeclareFunctionCommand(*i, func, t);
               seq->addCommand(decl);
             }
           }
@@ -942,7 +942,7 @@ declareVariables[CVC4::Command*& cmd, CVC4::Type& t, const std::vector<std::stri
             i != i_end;
             ++i) {
           PARSER_STATE->checkDeclaration(*i, CHECK_UNDECLARED, SYM_VARIABLE);
-          Expr func = EXPR_MANAGER->mkVar(*i, f.getType());
+          Expr func = EXPR_MANAGER->mkVar(*i, t);
           PARSER_STATE->defineFunction(*i, f);
           Command* decl = new DefineFunctionCommand(*i, func, f);
           seq->addCommand(decl);
@@ -2093,6 +2093,12 @@ NUMBER_OR_RANGEOP
     | {$type = DOT; }
     )
   ;
+
+// these empty fragments remove "no lexer rule corresponding to token" warnings
+fragment INTEGER_LITERAL:;
+fragment DECIMAL_LITERAL:;
+fragment DOT:;
+fragment DOTDOT:;
 
 /**
  * Matches the hexidecimal digits (0-9, a-f, A-F)
