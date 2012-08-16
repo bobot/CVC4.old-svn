@@ -500,7 +500,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << BitVectorType(n.getType().toType()).getSize();
       out << ',';
       toStream(out, n[child], depth, types, false);
-      out << ',';        
+      out << ',';
       toStream(out, n[child+1], depth, types, false);
       while (child > 0) {
         out << ')';
@@ -537,7 +537,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << BitVectorType(n.getType().toType()).getSize();
       out << ',';
       toStream(out, n[child], depth, types, false);
-      out << ',';        
+      out << ',';
       toStream(out, n[child+1], depth, types, false);
       while (child > 0) {
         out << ')';
@@ -728,6 +728,10 @@ void CvcPrinter::toStream(std::ostream& out, const CommandStatus* s) const throw
       << typeid(*s).name() << endl;
 
 }/* CvcPrinter::toStream(CommandStatus*) */
+
+void CvcPrinter::toStream(std::ostream& out, Model* m, Command* c, int c_type ) const throw(){
+
+}
 
 static void toStream(std::ostream& out, const AssertCommand* c) throw() {
   out << "ASSERT " << c->getExpr() << ";";

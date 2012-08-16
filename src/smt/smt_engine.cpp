@@ -60,6 +60,7 @@
 #include "theory/booleans/circuit_propagator.h"
 #include "util/ite_removal.h"
 #include "theory/model.h"
+#include "printer/printer.h"
 
 using namespace std;
 using namespace CVC4;
@@ -1826,47 +1827,19 @@ CVC4::SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException)
 }
 
 
-void SmtEngine::addToModelType( Type& t ){
-  Trace("smt") << "SMT addToModelType(" << t << ")" << endl;
+void SmtEngine::addToModelCommand( Command* c, int c_type ){
+  Trace("smt") << "SMT addToModelCommand(" << c << ", " << c_type << ")" << endl;
   SmtScope smts(this);
   finalOptionsAreSet();
   if( options::produceModels() ) {
-    d_theoryEngine->getModel()->addDefineType( TypeNode::fromType( t ) );
+    d_theoryEngine->getModel()->addCommand( c, c_type );
   }
 }
-
-void SmtEngine::addToModelFunction( Expr& e ){
-  Trace("smt") << "SMT addToModelFunction(" << e << ")" << endl;
-  SmtScope smts(this);
-  finalOptionsAreSet();
-  if( options::produceModels() ) {
-    d_theoryEngine->getModel()->addDefineFunction( e.getNode() );
-  }
-}
-
-void SmtEngine::addToModelDatatypes( std::vector< DatatypeType >& dts ){
-  Trace("smt") << "SMT addToModelDatatypes(...)" << endl;
-  SmtScope smts(this);
-  finalOptionsAreSet();
-  if( options::produceModels() ) {
-    std::vector< TypeNode > dt_nodes;
-    for( size_t i=0; i<dts.size(); i++ ){
-      dt_nodes.push_back( TypeNode::fromType( dts[i] ) );
-    }
-    d_theoryEngine->getModel()->addDefineDatatypes( dt_nodes );
-  }
-}
-
 
 Model* SmtEngine::getModel() throw(ModalException, AssertionException){
   Trace("smt") << "SMT getModel()" << endl;
   SmtScope smts(this);
 
-  if(!options::produceModels()) {
-    const char* msg =
-      "Cannot get model when produce-models options is off.";
-    throw ModalException(msg);
-  }
   if(d_status.isNull() ||
      d_status.asSatisfiabilityResult() == Result::UNSAT  ||
      d_problemExtended) {
@@ -1875,7 +1848,11 @@ Model* SmtEngine::getModel() throw(ModalException, AssertionException){
       "preceded by SAT/INVALID or UNKNOWN response.";
     throw ModalException(msg);
   }
-
+  if(!options::produceModels()) {
+    const char* msg =
+      "Cannot get model when produce-models options is off.";
+    throw ModalException(msg);
+  }
   return d_theoryEngine->getModel();
 }
 
@@ -2069,7 +2046,8 @@ StatisticsRegistry* SmtEngine::getStatisticsRegistry() const {
 
 void SmtEngine::printModel( std::ostream& out, Model* m ){
   SmtScope smts(this);
-  m->toStream(out);
+  Printer::getPrinter(options::outputLanguage())->toStream( out, m );
+  //m->toStream(out);
 }
 
 void SmtEngine::setUserAttribute( std::string& attr, Expr expr ){

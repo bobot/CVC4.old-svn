@@ -462,13 +462,17 @@ DeclareFunctionCommand::DeclareFunctionCommand(const std::string& id, Expr func,
   d_type(t) {
 }
 
+Expr DeclareFunctionCommand::getFunction() const throw() {
+  return d_func;
+}
+
 Type DeclareFunctionCommand::getType() const throw() {
   return d_type;
 }
 
 void DeclareFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("declarations") << *this;
-  smtEngine->addToModelFunction( d_func );
+  smtEngine->addToModelCommand( clone(), Model::COMMAND_DECLARE_FUN );
   d_commandStatus = CommandSuccess::instance();
 }
 
@@ -500,7 +504,7 @@ Type DeclareTypeCommand::getType() const throw() {
 
 void DeclareTypeCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("declarations") << *this;
-  smtEngine->addToModelType( d_type );
+  smtEngine->addToModelCommand( clone(), Model::COMMAND_DECLARE_SORT );
   d_commandStatus = CommandSuccess::instance();
 }
 
@@ -1168,7 +1172,7 @@ DatatypeDeclarationCommand::getDatatypes() const throw() {
 
 void DatatypeDeclarationCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("declarations") << *this;
-  smtEngine->addToModelDatatypes( d_datatypes );
+  smtEngine->addToModelCommand( clone(), Model::COMMAND_DECLARE_DATATYPES );
   d_commandStatus = CommandSuccess::instance();
 }
 

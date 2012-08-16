@@ -16,8 +16,7 @@
 
 #include "theory/theory_engine.h"
 #include "theory/arrays/theory_arrays_model.h"
-#include "theory/quantifiers/first_order_model.h"
-#include "theory/quantifiers/term_database.h"
+#include "theory/model.h"
 
 using namespace std;
 using namespace CVC4;

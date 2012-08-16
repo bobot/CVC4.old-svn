@@ -46,105 +46,6 @@ void TheoryModel::reset(){
   d_rep_set.clear();
 }
 
-void TheoryModel::addDefineFunction( Node n ){
-  d_define_funcs.push_back( n );
-  d_defines.push_back( 0 );
-}
-
-void TheoryModel::addDefineType( TypeNode tn ){
-  d_define_types.push_back( tn );
-  d_defines.push_back( 1 );
-}
-
-void TheoryModel::addDefineDatatypes( std::vector< TypeNode >& dts ){
-  std::vector< TypeNode > dts_copy;
-  dts_copy.insert( dts_copy.begin(), dts.begin(), dts.end() );
-  d_define_datatypes.push_back( dts_copy );
-  d_defines.push_back( 2 );
-}
-
-void TheoryModel::toStreamFunction( Node n, std::ostream& out ){
-  TypeNode tn = n.getType();
-  out << "(define-fun " << n << " (";
-  if( tn.isFunction() || tn.isPredicate() ){
-    for( size_t i=0; i<tn.getNumChildren()-1; i++ ){
-      if( i>0 ) out << " ";
-      out << "($x" << (i+1) << " " << tn[i] << ")";
-    }
-    out << ") " << tn.getRangeType();
-  }else{
-    out << ") " << tn;
-  }
-  out << " ";
-  out << getValue( n );
-  out << ")" << std::endl;
-}
-
-/*
-  bool printedModel = false;
-  if( tn.isFunction() ){
-    if( options::modelFormatMode()==MODEL_FORMAT_MODE_TABLE ){
-      //specialized table format for functions
-      RepSetIterator riter( &d_rep_set );
-      riter.setFunctionDomain( n );
-      while( !riter.isFinished() ){
-        std::vector< Node > children;
-        children.push_back( n );
-        for( int i=0; i<riter.getNumTerms(); i++ ){
-          children.push_back( riter.getTerm( i ) );
-        }
-        Node nn = NodeManager::currentNM()->mkNode( APPLY_UF, children );
-        Node val = getValue( nn );
-        out << val << " ";
-        riter.increment();
-      }
-      printedModel = true;
-    }
-  }
-*/
-
-void TheoryModel::toStreamType( TypeNode tn, std::ostream& out ){
-  if( tn.isSort() ){
-    if( d_rep_set.d_type_reps.find( tn )!=d_rep_set.d_type_reps.end() ){
-      out << "; cardinality of " << tn << " is " << d_rep_set.d_type_reps[tn].size() << std::endl;
-    }
-  }
-  out << "(declare-sort " << tn << " " << tn.getNumChildren() << ")" << std::endl;
-  if( tn.isSort() ){
-    if( d_rep_set.d_type_reps.find( tn )!=d_rep_set.d_type_reps.end() ){
-      for( size_t i=0; i<d_rep_set.d_type_reps[tn].size(); i++ ){
-        if( d_rep_set.d_type_reps[tn][i].getMetaKind()==metakind::VARIABLE ){
-          out << "(declare-fun " << d_rep_set.d_type_reps[tn][i] << " () " << tn << ")" << std::endl;
-        }else{
-          out << "; rep: " << d_rep_set.d_type_reps[tn][i] << std::endl;
-        }
-      }
-    }
-  }
-}
-
-void TheoryModel::toStreamDatatypes( std::vector< TypeNode >& dts, std::ostream& out ){
-  //DatatypeDeclarationCommand ddc(
-  out << "(declare-datatypes () (";
-  if( dts.size()>1 ) out << std::endl;
-  for( size_t i=0; i<dts.size(); i++ ){
-    if( dts.size()>1 ) out << "   ";
-    const Datatype& dt = ((DatatypeType)dts[i].toType()).getDatatype();
-    out << "(" << dt.getName() << " ";
-    for(Datatype::const_iterator ctor = dt.begin(), ctor_end = dt.end(); ctor != ctor_end; ++ctor){
-      if( ctor!=dt.begin() ) out << " ";
-      out << "(" << ctor->getName();
-      for(DatatypeConstructor::const_iterator arg = ctor->begin(), arg_end = ctor->end(); arg != arg_end; ++arg){
-        out << " (" << arg->getSelector() << " " << static_cast<SelectorType>(arg->getType()).getRangeType() << ")";
-      }
-      out << ")";
-    }
-    out << ")";
-    if( dts.size()>1 ) out << std::endl;
-  }
-  out << "))" << std::endl;
-}
-
 void TheoryModel::toStream( std::ostream& out ){
   /*//for debugging
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
@@ -162,25 +63,7 @@ void TheoryModel::toStream( std::ostream& out ){
     ++eqcs_i;
   }
   */
-  int funcIndex = 0;
-  int typeIndex = 0;
-  int dtIndex = 0;
-  for( size_t i=0; i<d_defines.size(); i++ ){
-    if( d_defines[i]==0 ){
-      TypeNode tn = d_define_funcs[funcIndex].getType();
-      //do not print if it has already been printed as a representative
-      if( !tn.isSort() || !d_rep_set.hasType( tn ) || d_rep_set.getIndexFor( d_define_funcs[funcIndex] )==-1 ){
-        toStreamFunction( d_define_funcs[funcIndex], out );
-      }
-      funcIndex++;
-    }else if( d_defines[i]==1 ){
-      toStreamType( d_define_types[typeIndex], out );
-      typeIndex++;
-    }else if( d_defines[i]==2 ){
-      toStreamDatatypes( d_define_datatypes[dtIndex], out );
-      dtIndex++;
-    }
-  }
+  //need this function?
 }
 
 Node TheoryModel::getValue( TNode n ){

@@ -322,6 +322,7 @@ protected:
 public:
   DeclareFunctionCommand(const std::string& id, Expr func, Type type) throw();
   ~DeclareFunctionCommand() throw() {}
+  Expr getFunction() const throw();
   Type getType() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);

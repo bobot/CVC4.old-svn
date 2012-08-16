@@ -42,21 +42,6 @@ protected:
     *   such as contraining the interpretation of uninterpretted functions.
     */
   virtual void addTerm( Node n ) {}
-private:
-  /** List of definitions that the user has given
-    *  This is necessary for supporting the get-model command.
-    */
-  std::vector< Node > d_define_funcs;
-  std::vector< TypeNode > d_define_types;
-  std::vector< std::vector< TypeNode > > d_define_datatypes;
-  std::vector< int > d_defines;
-protected:
-  /** print the value of the function n to stream */
-  virtual void toStreamFunction( Node n, std::ostream& out );
-  /** print the value of the type tn to stream */
-  virtual void toStreamType( TypeNode tn, std::ostream& out );
-  /** print the value of the datatypes to stream */
-  virtual void toStreamDatatypes( std::vector< TypeNode >& dts, std::ostream& out );
 public:
   TheoryModel( context::Context* c, std::string name );
   virtual ~TheoryModel(){}
@@ -78,12 +63,6 @@ public:
     */
   virtual Node getInterpretedValue( TNode n ) = 0;
 public:
-  /** add defined function (for get-model) */
-  void addDefineFunction( Node n );
-  /** add defined type (for get-model) */
-  void addDefineType( TypeNode tn );
-  /** add defined datatypes (for get-model) */
-  void addDefineDatatypes( std::vector< TypeNode >& dts );
   /**
    * Get value function.  This should be called only after a ModelBuilder has called buildModel(...)
    * on this model.
@@ -101,7 +80,7 @@ public:
   /** complete all values for type
     *   Calling this function ensures that all terms of type tn exist in d_rep_set.d_type_reps[tn]
     */
-  void completeValues( TypeNode tn ){
+  void completeDomainValues( TypeNode tn ){
     d_rep_set.complete( tn );
   }
 public:

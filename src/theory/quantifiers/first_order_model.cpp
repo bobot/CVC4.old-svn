@@ -93,24 +93,6 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
   }
 }
 
-void FirstOrderModel::toStreamFunction( Node n, std::ostream& out ){
-  /*
-  if( d_uf_model.find( n )!=d_uf_model.end() ){
-    //d_uf_model[n].toStream( out );
-    Node value = d_uf_model[n].getFunctionValue();
-    out << "(" << n << " " << value << ")";
-  }else if( d_array_model.find( n )!=d_array_model.end() ){
-    Node value = d_array_model[n].getArrayValue();
-    out << "(" << n << " " << value << ")" << std::endl;
-  }
-  */
-  DefaultModel::toStreamFunction( n, out );
-}
-
-void FirstOrderModel::toStreamType( TypeNode tn, std::ostream& out ){
-  DefaultModel::toStreamType( tn, out );
-}
-
 Node FirstOrderModel::getInterpretedValue( TNode n ){
   Debug("fo-model") << "get interpreted value " << n << std::endl;
   TypeNode type = n.getType();
@@ -145,41 +127,7 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
 }
 
 void FirstOrderModel::toStream(std::ostream& out){
-#if 0
-  out << "---Current Model---" << std::endl;
-  out << "Representatives: " << std::endl;
-  d_rep_set.toStream( out );
-  out << "Functions: " << std::endl;
-  for( std::map< Node, uf::UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
-    it->second.toStream( out );
-    out << std::endl;
-  }
-#elif 0
-  d_rep_set.toStream( out );
-  //print everything not related to UF in equality engine
-  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
-  while( !eqcs_i.isFinished() ){
-    Node eqc = (*eqcs_i);
-    Node rep = getRepresentative( eqc );
-    TypeNode type = rep.getType();
-    eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
-    while( !eqc_i.isFinished() ){
-      //do not print things that have interpretations in model
-      if( !(*eqc_i).isConst() && !hasInterpretedValue( *eqc_i ) ){
-        out << "(" << (*eqc_i) << " " << rep << ")" << std::endl;
-      }
-      ++eqc_i;
-    }
-    ++eqcs_i;
-  }
-  //print functions
-  for( std::map< Node, uf::UfModel >::iterator it = d_uf_model.begin(); it != d_uf_model.end(); ++it ){
-    it->second.toStream( out );
-    out << std::endl;
-  }
-#else
-  DefaultModel::toStream( out );
-#endif
+
 }
 
 

@@ -389,22 +389,10 @@ public:
   CVC4::SExpr getAssignment() throw(ModalException, AssertionException);
 
   /**
-   * Add to Model Type.  This is used for recording which types should be reported
+   * Add to Model command.  This is used for recording a command that should be reported
    * during a get-model call.
    */
-  void addToModelType( Type& t );
-
-  /**
-   * Add to Model Function.  This is used for recording which functions should be reported
-   * during a get-model call.
-   */
-  void addToModelFunction( Expr& e );
-
-  /**
-   * Add to Model Datatypes.  This is used for recording which datatype types should be reported
-   * during a get-model call.
-   */
-  void addToModelDatatypes( std::vector< DatatypeType >& dts );
+  void addToModelCommand( Command* c, int c_type );
 
   /**
    * Get the model (only if immediately preceded by a SAT

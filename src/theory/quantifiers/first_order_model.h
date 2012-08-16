@@ -46,9 +46,6 @@ private:
   void addTerm( Node n );
   //for initialize model
   void initializeModelForTerm( Node n );
-  /** to stream functions */
-  void toStreamFunction( Node n, std::ostream& out );
-  void toStreamType( TypeNode tn, std::ostream& out );
   /** whether an axiom is asserted */
   context::CDO< bool > d_axiom_asserted;
   /** list of quantifiers asserted in the current context */
