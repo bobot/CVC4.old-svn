@@ -26,6 +26,8 @@
 //#define DISABLE_QUICK_CLIQUE_CHECKS
 //#define COMBINE_REGIONS_SMALL_INTO_LARGE
 
+//#define UF_SS_TOTALITY
+
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
@@ -454,7 +456,14 @@ void StrongSolverTheoryUf::SortRepModel::Region::debugPrint( const char* c, bool
 
 
 
-
+StrongSolverTheoryUf::SortRepModel::SortRepModel( Node n, context::Context* c, TheoryUF* th ) : RepModel( n.getType() ),
+          d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
+          d_reps( c, 0 ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ),
+          d_cardinality_assertions( c ), d_hasCard( c, false ){
+#ifndef UF_SS_TOTALITY
+  d_cardinality_term.push_back( n );
+#endif
+}
 
 /** initialize */
 void StrongSolverTheoryUf::SortRepModel::initialize( OutputChannel* out ){
@@ -469,6 +478,12 @@ void StrongSolverTheoryUf::SortRepModel::newEqClass( Node n ){
       d_regions_index = 0;
     }
     d_regions_map[n] = d_regions_index;
+#ifdef UF_SS_TOTALITY
+    //must generate totality axioms for every cardinality we have allocated thus far
+    for( std::map< int, Node >::iterator it = d_cardinality_literal.begin(); it != d_cardinality_literal.end(); ++it ){
+      addTotalityAxiom( n, it->first, &d_th->getOutputChannel() );
+    }
+#else
     Debug("uf-ss") << "StrongSolverTheoryUf: New Eq Class " << n << std::endl;
     Debug("uf-ss-debug") << d_regions_index << " " << (int)d_regions.size() << std::endl;
     if( d_regions_index<d_regions.size() ){
@@ -481,11 +496,13 @@ void StrongSolverTheoryUf::SortRepModel::newEqClass( Node n ){
     d_regions[ d_regions_index ]->addRep( n );
     d_regions_index = d_regions_index + 1;
     d_reps = d_reps + 1;
+#endif
   }
 }
 
 /** merge */
 void StrongSolverTheoryUf::SortRepModel::merge( Node a, Node b ){
+#ifndef UF_SS_TOTALITY
   //Assert( a==d_th->d_equalityEngine.getRepresentative( a ) );
   //Assert( b==d_th->d_equalityEngine.getRepresentative( b ) );
   Debug("uf-ss") << "StrongSolverTheoryUf: Merging " << a << " = " << b << "..." << std::endl;
@@ -527,10 +544,12 @@ void StrongSolverTheoryUf::SortRepModel::merge( Node a, Node b ){
     d_regions_map[b] = -1;
   }
   Debug("uf-ss") << "Done merge." << std::endl;
+#endif
 }
 
 /** assert terms are disequal */
 void StrongSolverTheoryUf::SortRepModel::assertDisequal( Node a, Node b, Node reason ){
+#ifndef UF_SS_TOTALITY
   //if they are not already disequal
   a = d_th->d_equalityEngine.getRepresentative( a );
   b = d_th->d_equalityEngine.getRepresentative( b );
@@ -567,11 +586,13 @@ void StrongSolverTheoryUf::SortRepModel::assertDisequal( Node a, Node b, Node re
     }
     //Notice() << "done" << std::endl;
   }
+#endif
 }
 
 
 /** check */
 void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChannel* out ){
+#ifndef UF_SS_TOTALITY
   if( level>=Theory::EFFORT_STANDARD && d_hasCard ){
     Assert( d_cardinality>0 );
     Debug("uf-ss") << "StrongSolverTheoryUf: Check " << level << " " << d_type << std::endl;
@@ -637,21 +658,22 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
       }
     }
   }
+#endif
 }
 
 void StrongSolverTheoryUf::SortRepModel::propagate( Theory::Effort level, OutputChannel* out ){
   //propagate the current cardinality as a decision literal, if not already asserted
-  for( int i=1; i<=d_aloc_cardinality; i++ ){
-    if( !d_hasCard || i<d_cardinality ){
-      Node cn = d_cardinality_literal[ i ];
-      Assert( !cn.isNull() );
-      if( d_cardinality_assertions.find( cn )==d_cardinality_assertions.end() ){
-        out->propagateAsDecision( cn );
-        Trace("uf-ss-prop-as-dec") << "Propagate as decision " << cn << " " << d_type << std::endl;
-        break;
-      }
-    }
-  }
+  //for( int i=1; i<=d_aloc_cardinality; i++ ){
+  //  if( !d_hasCard || i<d_cardinality ){
+  //    Node cn = d_cardinality_literal[ i ];
+  //    Assert( !cn.isNull() );
+  //    if( d_cardinality_assertions.find( cn )==d_cardinality_assertions.end() ){
+  //      out->propagateAsDecision( cn );
+  //      Trace("uf-ss-prop-as-dec") << "Propagate as decision " << cn << " " << d_type << std::endl;
+  //      break;
+  //    }
+  //  }
+  //}
 }
 
 TNode StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
@@ -670,6 +692,7 @@ TNode StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
 }
 
 bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryModel* m ){
+#ifndef UF_SS_TOTALITY
   if( m ){
 #if 0
     // ensure that the constructed model is minimal
@@ -682,7 +705,7 @@ bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryMod
           //we must ensure that this equivalence class has been accounted for
           if( d_regions_map.find( eqc )==d_regions_map.end() ){
             //split on unaccounted for term and cardinality lemma term (as default)
-            Node splitEq = eqc.eqNode( d_cardinality_lemma_term );
+            Node splitEq = eqc.eqNode( d_cardinality_term[0] );
             splitEq = Rewriter::rewrite( splitEq );
             Trace("uf-ss-minimize") << "Last chance minimize : " << splitEq << std::endl;
             out->split( splitEq );
@@ -717,6 +740,7 @@ bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryMod
       return false;
     }
   }
+#endif
   return true;
 }
 
@@ -827,8 +851,6 @@ void StrongSolverTheoryUf::SortRepModel::explainClique( std::vector< Node >& cli
   //now, make the conflict
   Node conflictNode = conflict.size()==1 ? conflict[0] : NodeManager::currentNM()->mkNode( AND, conflict );
   //add cardinality constraint
-  //Node cardNode = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_lemma_term,
-  //                                                  NodeManager::currentNM()->mkConst( Rational(d_cardinality) ) );
   Node cardNode = d_cardinality_literal[ d_cardinality ];
   //bool value;
   //bool hasValue = d_th->getValuation().hasSatValue( cardNode, value );
@@ -969,38 +991,49 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
     Trace("uf-ss-fmf") << "No model of size " << d_aloc_cardinality << " exists for type " << d_type << " in this branch" << std::endl;
   }
   d_aloc_cardinality++;
-  //add appropriate lemma
-  Node lem = getCardinalityLemma( d_aloc_cardinality, out );
+
+#ifdef UF_SS_TOTALITY
+  //must generate new cardinality lemma term
+  std::stringstream ss;
+  ss << "_c_" << d_aloc_cardinality;
+  Node var = NodeManager::currentNM()->mkVar( ss.str(), d_type );
+  Trace("mkVar") << "allocateCardinality, mkVar : " << var << " : " << d_type << std::endl;
+  //must be distinct from all other cardinality terms
+  for( int i=0; i<(int)d_cardinality_term.size(); i++ ){
+    Node lem = NodeManager::currentNM()->mkNode( NOT, var.eqNode( d_cardinality_term[i] ) );
+    d_th->getOutputChannel().lemma( lem );
+  }
+  d_cardinality_term.push_back( var );
+#endif
+
+  //add splitting lemma for cardinality constraint
+  Assert( !d_cardinality_term.empty() );
+  Node lem = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_term[0],
+                                               NodeManager::currentNM()->mkConst( Rational( d_aloc_cardinality ) ) );
+  lem = Rewriter::rewrite(lem);
+  d_cardinality_literal[ d_aloc_cardinality ] = lem;
+  lem = NodeManager::currentNM()->mkNode( OR, lem, lem.notNode() );
+  d_cardinality_lemma[ d_aloc_cardinality ] = lem;
+  //add as lemma to output channel
+  out->lemma( lem );
+  //require phase
+  out->requirePhase( d_cardinality_literal[ d_aloc_cardinality ], true );
   //add the appropriate lemma, propagate as decision
   //Trace("uf-ss-prop-as-dec") << "Propagate as decision " << lem[0] << " " << d_type << std::endl;
   //out->propagateAsDecision( lem[0] );
   d_th->getStrongSolver()->d_statistics.d_max_model_size.maxAssign( d_aloc_cardinality );
-}
 
-Node StrongSolverTheoryUf::SortRepModel::getCardinalityLemma( int c, OutputChannel* out ){
-  if( d_cardinality_lemma.find( c )==d_cardinality_lemma.end() ){
-    Assert( !d_cardinality_lemma_term.isNull() );
-    Node lem = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_lemma_term,
-                                  NodeManager::currentNM()->mkConst( Rational( c ) ) );
-    lem = Rewriter::rewrite(lem);
-    d_cardinality_literal[ c ] = lem;
-    lem = NodeManager::currentNM()->mkNode( OR, lem, lem.notNode() );
-    d_cardinality_lemma[ c ] = lem;
-    //add as lemma to output channel
-    out->lemma( lem );
-    //require phase
-    out->requirePhase( d_cardinality_literal[ c ], true );
+#ifdef UF_SS_TOTALITY
+  //must send totality axioms for each existing term
+  for( NodeIntMap::iterator it = d_regions_map.begin(); it != d_regions_map.end(); ++it ){
+    addTotalityAxiom( (*it).first, d_aloc_cardinality, &d_th->getOutputChannel() );
   }
-  return d_cardinality_lemma[ c ];
+#endif
 }
 
 bool StrongSolverTheoryUf::SortRepModel::addSplit( Region* r, OutputChannel* out ){
   if( r->hasSplits() ){
     Node s = r->getBestSplit();
-    bool mustSplit = true;
-    //if( !d_cardinality_lemma_term_eq && ( s[0]==d_cardinality_lemma_term || s[1]==d_cardinality_lemma_term ) ){
-    //  mustSplit = false;
-    //}
     //add lemma to output channel
     Assert( s!=Node::null() && s.getKind()==EQUAL );
     s = Rewriter::rewrite( s );
@@ -1010,22 +1043,28 @@ bool StrongSolverTheoryUf::SortRepModel::addSplit( Region* r, OutputChannel* out
     //Trace("uf-ss-lemma") << s[0].getType() << " " << s[1].getType() << std::endl;
     //Notice() << "*** Split on " << s << std::endl;
     //split on the equality s
-    if( mustSplit ){
-      out->split( s );
-      //tell the sat solver to explore the equals branch first
-      out->requirePhase( s, true );
-      ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
-    }else{
-      //Ideally, we should not have to do the following, given the variable we created for
-      //  the cardinality lemma is not pre-registered
-      Trace("mkVar") << "Add possibly unsound var lemma : " << s << std::endl;
-      //we are allowed to do this since we own this variable
-      out->lemma( s );
-    }
+    out->split( s );
+    //tell the sat solver to explore the equals branch first
+    out->requirePhase( s, true );
+    ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
     return true;
   }else{
     return false;
   }
+}
+
+void StrongSolverTheoryUf::SortRepModel::addTotalityAxiom( Node n, int cardinality, OutputChannel* out ){
+  Node cardLit = d_cardinality_literal[ cardinality ];
+  std::vector< Node > eqs;
+  for( int i=0; i<cardinality; i++ ){
+    eqs.push_back( n.eqNode( d_cardinality_term[i] ) );
+  }
+  Node ax = NodeManager::currentNM()->mkNode( OR, eqs );
+  Node lem = NodeManager::currentNM()->mkNode( IMPLIES, cardLit, ax );
+  Trace("uf-ss-lemma") << "*** Add totality axiom " << lem << std::endl;
+  //send as lemma to the output channel
+  d_th->getOutputChannel().lemma( lem );
+  ++( d_th->getStrongSolver()->d_statistics.d_totality_lemmas );
 }
 
 void StrongSolverTheoryUf::SortRepModel::debugPrint( const char* c ){
@@ -1461,11 +1500,13 @@ StrongSolverTheoryUf::Statistics::Statistics():
   d_clique_lemmas("StrongSolverTheoryUf::Clique_Lemmas", 0),
   d_split_lemmas("StrongSolverTheoryUf::Split_Lemmas", 0),
   d_disamb_term_lemmas("StrongSolverTheoryUf::Disambiguate_Term_Lemmas", 0),
+  d_totality_lemmas("StrongSolverTheoryUf::Totality_Lemmas", 0),
   d_max_model_size("StrongSolverTheoryUf::Max_Model_Size", 1)
 {
   StatisticsRegistry::registerStat(&d_clique_lemmas);
   StatisticsRegistry::registerStat(&d_split_lemmas);
   StatisticsRegistry::registerStat(&d_disamb_term_lemmas);
+  StatisticsRegistry::registerStat(&d_totality_lemmas);
   StatisticsRegistry::registerStat(&d_max_model_size);
 }
 
@@ -1473,6 +1514,7 @@ StrongSolverTheoryUf::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_clique_lemmas);
   StatisticsRegistry::unregisterStat(&d_split_lemmas);
   StatisticsRegistry::unregisterStat(&d_disamb_term_lemmas);
+  StatisticsRegistry::unregisterStat(&d_totality_lemmas);
   StatisticsRegistry::unregisterStat(&d_max_model_size);
 }
 

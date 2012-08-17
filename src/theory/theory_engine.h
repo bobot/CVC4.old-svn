@@ -729,6 +729,8 @@ public:
     */
   void handleUserAttribute( const char* attr, theory::Theory* t );
 
+
+  void printQfUfBenchmark();
 };/* class TheoryEngine */
 
 }/* CVC4 namespace */

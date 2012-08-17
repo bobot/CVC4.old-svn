@@ -221,17 +221,17 @@ public:
     void moveNode( Node n, int ri );
     /** allocate cardinality */
     void allocateCardinality( OutputChannel* out );
-    /** get cardinality lemma */
-    Node getCardinalityLemma( int c, OutputChannel* out );
     /** add split */
     bool addSplit( Region* r, OutputChannel* out );
+    /** add totality axiom */
+    void addTotalityAxiom( Node n, int cardinality, OutputChannel* out );
   private:
     /** cardinality */
     context::CDO< int > d_cardinality;
     /** maximum allocated cardinality */
     int d_aloc_cardinality;
     /** cardinality lemma term */
-    Node d_cardinality_lemma_term;
+    std::vector< Node > d_cardinality_term;
     /** cardinality literals */
     std::map< int, Node > d_cardinality_literal;
     /** cardinality lemmas */
@@ -241,10 +241,7 @@ public:
     /** whether a positive cardinality constraint has been asserted */
     context::CDO< bool > d_hasCard;
   public:
-    SortRepModel( Node n, context::Context* c, TheoryUF* th ) : RepModel( n.getType() ),
-        d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ),
-        d_reps( c, 0 ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ), d_cardinality_lemma_term( n ),
-        d_cardinality_assertions( c ), d_hasCard( c, false ){}
+    SortRepModel( Node n, context::Context* c, TheoryUF* th );
     virtual ~SortRepModel(){}
     /** initialize */
     void initialize( OutputChannel* out );
@@ -378,6 +375,7 @@ public:
     IntStat d_clique_lemmas;
     IntStat d_split_lemmas;
     IntStat d_disamb_term_lemmas;
+    IntStat d_totality_lemmas;
     IntStat d_max_model_size;
     Statistics();
     ~Statistics();

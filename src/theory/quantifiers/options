@@ -73,6 +73,8 @@ option ufssEagerSplits --uf-ss-eager-split bool :default false
  add splits eagerly for uf strong solver
 option ufssColoringSat --uf-ss-coloring-sat bool :default false
  use coloring-based SAT heuristic for uf strong solver
+#option ufssTotality --uf-ss-totality bool :default false
+# use totality axioms for enforcing cardinality constraints
 
 option fmfModelBasedInst /--disable-fmf-mbqi bool :default true
  disable model-based quantifier instantiation for finite model finding

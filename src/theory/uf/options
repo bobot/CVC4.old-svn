@@ -9,4 +9,7 @@ option ufSymmetryBreaker uf-symmetry-breaker --enable-symmetry-breaker/--disable
  use UF symmetry breaker (Deharbe et al., CADE 2011)
 /turns off UF symmetry breaker (Deharbe et al., CADE 2011)
 
+#option ufAbortCardinality --uf-ss-abort-card=N int :default -1 :read-write
+# set an upper limit of the cardinality for the uf strong solver to explore (-1 = no limit, default)
+
 endmodule

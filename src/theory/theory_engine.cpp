@@ -42,6 +42,10 @@
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/first_order_model.h"
 
+//hack
+#include "theory/arith/options.h"
+
+
 using namespace std;
 
 using namespace CVC4;
@@ -146,8 +150,33 @@ void TheoryEngine::preRegister(TNode preprocessed) {
   }
 }
 
+void collectGroundTerms( Node n, std::vector< Node >& defineFuns,
+                         std::vector< Node >& groundTerms ){
+  if( std::find( groundTerms.begin(), groundTerms.end(), n )==groundTerms.end() ){
+    groundTerms.push_back( n );
+    if( n.getKind()==kind::APPLY_UF ){
+      if( std::find( defineFuns.begin(), defineFuns.end(), n.getOperator() )==defineFuns.end() ){
+        defineFuns.push_back( n.getOperator() );
+      }
+    }else if( n.getNumChildren()==0 ){
+      if( std::find( defineFuns.begin(), defineFuns.end(), n )==defineFuns.end() ){
+        defineFuns.push_back( n );
+      }
+    }
+    if( n.getKind()==kind::FORALL ){
+      std::cout << "Bad ground assertion : " << n << std::endl;
+      std::cout << "...possible nested quantifiers?" << std::endl;
+      exit( -1 );
+    }
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      collectGroundTerms( n[i], defineFuns, groundTerms );
+    }
+  }
+}
+
 void TheoryEngine::printAssertions(const char* tag) {
   if (Debug.isOn(tag)) {
+
     for (TheoryId theoryId = THEORY_FIRST; theoryId < THEORY_LAST; ++theoryId) {
       Theory* theory = d_theoryTable[theoryId];
       if (theory && d_logicInfo.isTheoryEnabled(theoryId)) {
@@ -172,7 +201,6 @@ void TheoryEngine::printAssertions(const char* tag) {
         }
       }
     }
-
   }
 }
 
@@ -1320,4 +1348,146 @@ void TheoryEngine::handleUserAttribute( const char* attr, Theory* t ){
   Trace("te-attr") << "Handle user attribute " << attr << " " << t << std::endl;
   std::string str( attr );
   d_attr_handle[ str ].push_back( t );
+}
+
+void TheoryEngine::printQfUfBenchmark(){
+ //AJR-temp
+  std::vector< Node > defineFuns;
+  std::vector< Node > groundTerms;
+  std::vector< Node > groundAssertions;
+  std::vector< Node > universalQuantifiers;
+  std::vector< TypeNode > universalSorts;
+  for (TheoryId theoryId = THEORY_FIRST; theoryId < THEORY_LAST; ++theoryId) {
+    Theory* theory = d_theoryTable[theoryId];
+    if (theory && d_logicInfo.isTheoryEnabled(theoryId)) {
+      context::CDList<Assertion>::const_iterator it = theory->facts_begin(), it_end = theory->facts_end();
+      for (unsigned i = 0; it != it_end; ++ it, ++i) {
+        Node n = (*it).assertion;
+        if( n.getKind()==kind::FORALL ){
+          universalQuantifiers.push_back( n );
+          for( int j=0; j<n[0].getNumChildren(); j++ ){
+            TypeNode tn = n[0][j].getType();
+            if( std::find( universalSorts.begin(), universalSorts.end(), tn )==universalSorts.end() ){
+              universalSorts.push_back( tn );
+            }
+          }
+        }else if( std::find( groundAssertions.begin(), groundAssertions.end(), n )==groundAssertions.end() ){
+          if( n.getKind()!=kind::NOT || n[0].getKind()!=kind::FORALL ){
+            groundAssertions.push_back( n );
+          }
+        }
+      }
+    }
+  }
+  //int cardinality = options::ufAbortCardinality();
+  int cardinality = options::arithHeuristicPivots();  //hack
+  bool totalityAxioms = options::arithDioSolver();    //hack
+  std::cout << "; creating benchmark with cardinality = " << cardinality << std::endl;
+  std::cout << "; totality axioms = " << totalityAxioms << std::endl;
+  RepSet rs;
+  if( universalSorts.size()!=1 ){
+    std::cout << "Universal sorts size != 1 " << std::endl;
+    exit( -1 );
+  }
+  for( int i=0; i<cardinality; i++ ){
+    std::stringstream ss;
+    ss << "_c_" << i;
+    Node rep = NodeManager::currentNM()->mkVar( ss.str(), universalSorts[0] );
+    rs.add( rep );
+  }
+  for( int i=0; i<(int)universalQuantifiers.size(); i++ ){
+    Node f = universalQuantifiers[i];
+    std::vector< Node > vars;
+    for( int j=0; j<(int)f[0].getNumChildren(); j++ ){
+      vars.push_back( f[0][j] );
+    }
+    RepSetIterator rsi( &rs );
+    rsi.setQuantifier( f );
+    while( !rsi.isFinished() ){
+      //add all instantiations to ground assertions
+      std::vector< Node > terms;
+      for( int j=0; j<rsi.getNumTerms(); j++ ){
+        terms.push_back( rsi.getTerm( j ) );
+      }
+      Node lemma = f[1].substitute( vars.begin(), vars.end(), terms.begin(), terms.end() );
+      lemma = Rewriter::rewrite( lemma );
+      if( std::find( groundAssertions.begin(), groundAssertions.end(), lemma )==groundAssertions.end() ){
+        groundAssertions.push_back( lemma );
+      }
+      rsi.increment();
+    }
+  }
+  //now, collect all terms and definitions in groundAssertions
+  for( int i=0; i<(int)groundAssertions.size(); i++ ){
+    collectGroundTerms( groundAssertions[i], defineFuns, groundTerms );
+  }
+  std::cout << Expr::setlanguage(options::outputLanguage());
+  //declare the sorts
+  std::cout << "(set-logic QF_UF)" << std::endl;
+  std::cout << "(declare-sort " << universalSorts[0] << " 0)" << std::endl;
+  std::cout << "; functions :" << std::endl;
+  //declare the functions
+  for( int i=0; i<(int)defineFuns.size(); i++ ){
+    TypeNode tn = defineFuns[i].getType();
+    if( tn.isFunction() || tn.isSort() ){
+      std::cout << "(declare-fun " << defineFuns[i] << " (";
+      if(tn.isFunction()) {
+        for( int i=0; i<tn.getNumChildren()-1; i++ ){
+          if( i>0 ) std::cout << " ";
+          std::cout << tn[i];
+        }
+        tn = tn[ tn.getNumChildren()-1 ];
+      }
+      std::cout << ") " << tn << ")" << std::endl;
+    }
+  }
+  //constants are distinct
+  std::cout << "(assert (distinct ";
+  for( int i=0; i<cardinality; i++ ){
+    if( i>0 ) std::cout << " ";
+    std::cout << "_c_" << i;
+  }
+  std::cout << "))" << std::endl;
+  std::cout << "; ground assertions :" << std::endl;
+  //output the ground assertions
+  for( int i=0; i<(int)groundAssertions.size(); i++ ){
+    std::cout << "(assert " << groundAssertions[i] << ")" << std::endl;
+  }
+  if( totalityAxioms ){
+    //we make sure all ground terms are accounted for
+    groundTerms.clear();
+    for( int i=0; i<(int)defineFuns.size(); i++ ){
+      TypeNode tn = defineFuns[i].getType();
+      if(tn.isFunction()) {
+        RepSetIterator rsi( &rs );
+        rsi.setFunctionDomain( defineFuns[i] );
+        while( !rsi.isFinished() ){
+          std::vector< Node > terms;
+          terms.push_back( defineFuns[i] );
+          for( int j=0; j<rsi.getNumTerms(); j++ ){
+            terms.push_back( rsi.getTerm( j ) );
+          }
+          groundTerms.push_back( NodeManager::currentNM()->mkNode( kind::APPLY_UF, terms ) );
+          rsi.increment();
+        }
+      }else{
+        groundTerms.push_back( defineFuns[i] );
+      }
+    }
+    std::cout << "; totality axioms :" << std::endl;
+    //optionally, output the totality axioms
+    for( int i=0; i<(int)groundTerms.size(); i++ ){
+      if( groundTerms[i].getType()==universalSorts[0] ){
+        std::vector< Node > eqs;
+        for( int j=0; j<cardinality; j++ ){
+          eqs.push_back( groundTerms[i].eqNode( rs.d_type_reps[ universalSorts[0] ][j] ) );
+        }
+        Node ax = NodeManager::currentNM()->mkNode( kind::OR, eqs );
+        std::cout << "(assert " << ax << ")" << std::endl;
+      }
+    }
+  }
+  std::cout << "(check-sat)" << std::endl;
+  exit( 0 );
+  //AJR-temp-end
 }

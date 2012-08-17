@@ -123,6 +123,9 @@ void QuantifiersEngine::check( Theory::Effort e ){
   d_model_set = false;
   d_resetInstRound = false;
   if( e==Theory::EFFORT_LAST_CALL ){
+    if( Trace.isOn("tptp-benchmark") ){   //AJR-temp
+      d_te->printQfUfBenchmark();
+    }
     ++(d_statistics.d_instantiation_rounds_lc);
   }else if( e==Theory::EFFORT_FULL ){
     ++(d_statistics.d_instantiation_rounds);
