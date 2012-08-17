@@ -195,6 +195,8 @@ Additional CVC4 options:\n\
    --show-trace-tags      show all avalable tags for tracing\n\
    --show-sat-solvers     show all available SAT solvers\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
+   --default-dag-thresh=N dagify common subexprs appearing > N times\n\
+                          (1 == default, 0 == don't dagify)\n\
    --print-expr-types     print types with variables when printing exprs\n\
    --lazy-definition-expansion expand define-funs/LAMBDAs lazily\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
@@ -219,8 +221,8 @@ Additional CVC4 options:\n\
    --restart-int-inc=F    restart interval increase factor for the sat solver\n\
                           (F=3.0 by default)\n\
   ARITHMETIC:\n\
-   --arith-presolve-lemmas=MODE  determines which lemmas to add before solving\n\
-                          (default is 'all', see --arith-presolve-lemmas=help)\n\
+   ---unate-lemmas=MODE   determines which lemmas to add before solving\n\
+                          (default is 'all', see --unate-lemmas=help)\n\
    --arith-prop=MODE      turns on arithmetic propagation\n\
                           (default is 'old', see --arith-prop=help)\n\
    --pivot-rule=RULE      change the pivot rule for the basic variable\n\
@@ -376,10 +378,10 @@ pipe to perform on-line checking.  The --dump-to option can be used to dump\n\
 to a file.\n\
 ";
 
-static const string arithPresolveLemmasHelp = "\
+static const string arithUnateLemmasHelp = "\
 Presolve lemmas are generated before SAT search begins using the relationship\n\
 of constant terms and polynomials.\n\
-Modes currently supported by the --arith-presolve-lemmas option:\n\
+Modes currently supported by the --unate-lemmas option:\n\
 + none \n\
 + ineqs \n\
   Outputs lemmas of the general form (<= p c) implies (<= p d) for c < d.\n\
@@ -458,6 +460,7 @@ enum OptionValue {
   SHOW_CONFIG,
   STRICT_PARSING,
   DEFAULT_EXPR_DEPTH,
+  DEFAULT_DAG_THRESH,
   PRINT_EXPR_TYPES,
   UF_THEORY,
   LAZY_DEFINITION_EXPANSION,
@@ -562,6 +565,7 @@ static struct option cmdlineOptions[] = {
   { "mmap"       , no_argument      , NULL, USE_MMAP    },
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
   { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
+  { "default-dag-thresh", required_argument, NULL, DEFAULT_DAG_THRESH },
   { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
   { "uf"         , required_argument, NULL, UF_THEORY   },
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
@@ -835,6 +839,22 @@ throw(OptionException) {
         Chat.getStream() << Expr::setdepth(depth);
         Message.getStream() << Expr::setdepth(depth);
         Warning.getStream() << Expr::setdepth(depth);
+      }
+      break;
+
+    case DEFAULT_DAG_THRESH:
+      {
+        int dag = atoi(optarg);
+        if(dag < 0) {
+          throw OptionException("--default-dag-thresh requires a nonnegative argument.");
+        }
+        Debug.getStream() << Expr::dag(dag);
+        Trace.getStream() << Expr::dag(dag);
+        Notice.getStream() << Expr::dag(dag);
+        Chat.getStream() << Expr::dag(dag);
+        Message.getStream() << Expr::dag(dag);
+        Warning.getStream() << Expr::dag(dag);
+        Dump.getStream() << Expr::dag(dag);
       }
       break;
 
@@ -1162,11 +1182,11 @@ throw(OptionException) {
         arithUnateLemmaMode = EQUALITY_PRESOLVE_LEMMAS;
         break;
       } else if(!strcmp(optarg, "help")) {
-        puts(arithPresolveLemmasHelp.c_str());
+        puts(arithUnateLemmasHelp.c_str());
         exit(1);
       } else {
-        throw OptionException(string("unknown option for --arith-presolve-lemmas: `") +
-                              optarg + "'.  Try --arith-presolve-lemmas=help.");
+        throw OptionException(string("unknown option for --unate-lemmas: `") +
+                              optarg + "'.  Try --unate-lemmas=help.");
       }
       break;
 
