@@ -194,7 +194,7 @@ void TheoryDatatypes::check(Effort e) {
             }
             if( needSplit && consIndex!=-1 ) {
               Node test = NodeManager::currentNM()->mkNode( APPLY_TESTER, Node::fromExpr( dt[consIndex].getTester() ), n );
-              Debug("datatypes-split") << "*************Split for possible constructor " << test << " for " << n <<  endl;
+              Trace("dt-split") << "*************Split for possible constructor " << test << " for " << n <<  endl;
               test = Rewriter::rewrite( test );
               NodeBuilder<> nb(kind::OR);
               nb << test << test.notNode();
@@ -203,7 +203,7 @@ void TheoryDatatypes::check(Effort e) {
               d_out->requirePhase( test, true );
               return;
             }else{
-              Debug("datatypes-split") << "Do not split constructor for " << n << std::endl;
+              Trace("dt-split") << "Do not split constructor for " << n << std::endl;
             }
           }
         }
@@ -228,7 +228,7 @@ void TheoryDatatypes::flushPendingFacts(){
       Node fact = d_pending[i];
       Node exp = d_pending_exp[ fact ];
       //check to see if we have to communicate it to the rest of the system
-      if( mustCommunicateFact( fact ) ){
+      if( mustCommunicateFact( fact, exp ) ){
         Trace("dt-lemma-debug") << "Assert fact " << fact << " " << exp << std::endl;
         Node lem = fact;
         if( exp.isNull() || exp==NodeManager::currentNM()->mkConst( true ) ){
@@ -835,18 +835,26 @@ bool TheoryDatatypes::mustSpecifyModel(){
 #endif
 }
 
-bool TheoryDatatypes::mustCommunicateFact( Node n ){
-#if 0
-  //the datatypes theory makes 3 different inferences :
+bool TheoryDatatypes::mustCommunicateFact( Node n, Node exp ){
+#if 1
+  //the datatypes decision procedure makes 3 different inferences apart from the equality engine :
   //  (1) Unification : C( t1...tn ) = C( s1...sn ) => ti = si
   //  (2) Label : ~is_C1( t ) ... ~is_C{i-1}( t ) ~is_C{i+1}( t ) ... ~is_Cn( t ) => is_Ci( t )
   //  (3) Instantiate : is_C( t ) => t = C( sel_1( t ) ... sel_n( t ) )
-  //We may need to communicate (1) or (3) outwards if the conclusions involve other theories
-  if( n.getKind()==EQUAL ){
-    return true;
-  }else{
-    return false;
+  //We may need to communicate (3) outwards if the conclusions involve other theories
+  if( n.getKind()==EQUAL && exp.getKind()!=EQUAL  ){
+    for( int i=0; i<2; i++ ){
+      if( n.getKind()==APPLY_CONSTRUCTOR ){
+        for( int j=0; j<(int)n[i].getNumChildren(); j++ ){
+          if( !n[i][j].getType().isDatatype() ){
+            return true;
+          }
+        }
+      }
+    }
+    Trace("dt-lemma-debug") << "Do not need to communicate " << n << std::endl;
   }
+  return false;
 #else
   return false;
 #endif

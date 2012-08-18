@@ -123,6 +123,7 @@ void QuantifiersEngine::check( Theory::Effort e ){
   d_model_set = false;
   d_resetInstRound = false;
   if( e==Theory::EFFORT_LAST_CALL ){
+    Trace("tptp-benchmark") << std::endl;
     if( Trace.isOn("tptp-benchmark") ){   //AJR-temp
       d_te->printQfUfBenchmark();
     }

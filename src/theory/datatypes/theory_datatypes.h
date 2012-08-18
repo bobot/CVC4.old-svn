@@ -226,7 +226,7 @@ private:
     */
   bool mustSpecifyModel();
   /** must communicate fact */
-  bool mustCommunicateFact( Node n );
+  bool mustCommunicateFact( Node n, Node exp );
 private:
   //equality queries
   bool hasTerm( Node a );

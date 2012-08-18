@@ -175,28 +175,28 @@ void collectGroundTerms( Node n, std::vector< Node >& defineFuns,
 }
 
 void TheoryEngine::printAssertions(const char* tag) {
-  if (Debug.isOn(tag)) {
+  if (Trace.isOn(tag)) {
 
     for (TheoryId theoryId = THEORY_FIRST; theoryId < THEORY_LAST; ++theoryId) {
       Theory* theory = d_theoryTable[theoryId];
       if (theory && d_logicInfo.isTheoryEnabled(theoryId)) {
-        Debug(tag) << "--------------------------------------------" << std::endl;
-        Debug(tag) << "Assertions of " << theory->getId() << ": " << std::endl;
+        Trace(tag) << "--------------------------------------------" << std::endl;
+        Trace(tag) << "Assertions of " << theory->getId() << ": " << std::endl;
         context::CDList<Assertion>::const_iterator it = theory->facts_begin(), it_end = theory->facts_end();
         for (unsigned i = 0; it != it_end; ++ it, ++i) {
             if ((*it).isPreregistered) {
-              Debug(tag) << "[" << i << "]: ";
+              Trace(tag) << "[" << i << "]: ";
             } else {
-              Debug(tag) << "(" << i << "): ";
+              Trace(tag) << "(" << i << "): ";
             }
-            Debug(tag) << (*it).assertion << endl;
+            Trace(tag) << (*it).assertion << endl;
         }
 
         if (d_logicInfo.isSharingEnabled()) {
-          Debug(tag) << "Shared terms of " << theory->getId() << ": " << std::endl;
+          Trace(tag) << "Shared terms of " << theory->getId() << ": " << std::endl;
           context::CDList<TNode>::const_iterator it = theory->shared_terms_begin(), it_end = theory->shared_terms_end();
           for (unsigned i = 0; it != it_end; ++ it, ++i) {
-              Debug(tag) << "[" << i << "]: " << (*it) << endl;
+              Trace(tag) << "[" << i << "]: " << (*it) << endl;
           }
         }
       }
@@ -342,7 +342,8 @@ void TheoryEngine::check(Theory::Effort effort) {
 
       Debug("theory") << "TheoryEngine::check(" << effort << "): running check" << std::endl;
 
-      if (Debug.isOn("theory::assertions")) {
+      Trace("theory::assertions") << std::endl;
+      if (Trace.isOn("theory::assertions")) {
         printAssertions("theory::assertions");
       }
 

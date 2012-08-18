@@ -75,8 +75,13 @@ option ufssColoringSat --uf-ss-coloring-sat bool :default false
  use coloring-based SAT heuristic for uf strong solver
 option ufssTotality --uf-ss-totality bool :default false
  use totality axioms for enforcing cardinality constraints
+option ufssTotalityEager --uf-ss-totality-eager bool :default false
+ instantiation totality axioms eagerly
 option ufssAbortCardinality --uf-ss-abort-card=N int :default -1
  tells the uf strong solver a cardinality to abort at (-1 == no limit, default)
+option ufssSmartSplits --uf-ss-smart-split bool :default false
+ use smart splitting heuristic for uf strong solver
+
 
 option fmfModelBasedInst /--disable-fmf-mbqi bool :default true
  disable model-based quantifier instantiation for finite model finding

@@ -123,12 +123,13 @@ public:
       };
       ///** end class RegionNodeInfo */
     private:
+      context::CDO< unsigned > d_testCliqueSize;
+      context::CDO< unsigned > d_splitsSize;
+    public:
       //a postulated clique
       NodeBoolMap d_testClique;
-      context::CDO< unsigned > d_testCliqueSize;
       //disequalities needed for this clique to happen
       NodeBoolMap d_splits;
-      context::CDO< unsigned > d_splitsSize;
     private:
       //number of valid representatives in this region
       context::CDO< unsigned > d_reps_size;
@@ -141,9 +142,9 @@ public:
       void setRep( Node n, bool valid );
     public:
       //constructor
-      Region( SortRepModel* cf, context::Context* c ) : d_cf( cf ), d_testClique( c ), d_testCliqueSize( c, 0 ),
-        d_splits( c ), d_splitsSize( c, 0 ), d_reps_size( c, 0 ), d_total_diseq_external( c, 0 ),
-        d_total_diseq_internal( c, 0 ), d_valid( c, true ) {
+      Region( SortRepModel* cf, context::Context* c ) : d_cf( cf ), d_testCliqueSize( c, 0 ),
+        d_splitsSize( c, 0 ), d_testClique( c ), d_splits( c ), d_reps_size( c, 0 ),
+        d_total_diseq_external( c, 0 ), d_total_diseq_internal( c, 0 ), d_valid( c, true ) {
       }
       virtual ~Region(){}
       //region node infomation
@@ -178,8 +179,6 @@ public:
       void getRepresentatives( std::vector< Node >& reps );
       /** get external disequalities */
       void getNumExternalDisequalities( std::map< Node, int >& num_ext_disequalities );
-      /** get split */
-      Node getBestSplit();
     public:
       /** check for cliques */
       bool check( Theory::Effort level, int cardinality, std::vector< Node >& clique );
@@ -195,6 +194,8 @@ public:
     std::vector< Region* > d_regions;
     /** map from Nodes to index of d_regions they exist in, -1 means invalid */
     NodeIntMap d_regions_map;
+    /** the score for each node for splitting */
+    NodeIntMap d_split_score;
     /** regions used to d_region_index */
     context::CDO< unsigned > d_disequalities_index;
     /** list of all disequalities */
@@ -210,6 +211,8 @@ public:
     void explainClique( std::vector< Node >& clique, OutputChannel* out );
     /** is valid */
     bool isValid( int ri ) { return ri>=0 && ri<(int)d_regions_index && d_regions[ ri ]->d_valid; }
+    /** set split score */
+    void setSplitScore( Node n, int s );
   private:
     /** check if we need to combine region ri */
     void checkRegion( int ri, bool rec = true );
@@ -219,6 +222,7 @@ public:
     int combineRegions( int ai, int bi );
     /** move node n to region ri */
     void moveNode( Node n, int ri );
+  private:
     /** allocate cardinality */
     void allocateCardinality( OutputChannel* out );
     /** add split */

@@ -56,7 +56,6 @@ int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e )
     if( e<2 ){
       return InstStrategy::STATUS_UNFINISHED;
     }else if( e==2 ){
-      /*
       InstMatch m;
       for( int j = 0; j<(int)d_quantEngine->getTermDatabase()->getNumInstantiationConstants( f ); j++ ){
         Node i = d_quantEngine->getTermDatabase()->getInstantiationConstant( f, j );
@@ -66,8 +65,7 @@ int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e )
           m.set(i,n);
         }
       }
-      d_quantEngine->addInstantiation( f, m );
-      */
+      //d_quantEngine->addInstantiation( f, m );
     }
   }
   return InstStrategy::STATUS_UNKNOWN;
