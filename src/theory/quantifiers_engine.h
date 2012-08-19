@@ -103,7 +103,7 @@ public:
   virtual void registerQuantifier( Node n ) = 0;
   virtual void assertNode( Node n ) = 0;
   virtual void propagate( Theory::Effort level ){}
-  virtual TNode getNextDecisionRequest() { return TNode::null(); }
+  virtual Node getNextDecisionRequest() { return TNode::null(); }
   virtual Node explain(TNode n) = 0;
 };/* class QuantifiersModule */
 
@@ -218,7 +218,7 @@ public:
   /** propagate */
   void propagate( Theory::Effort level );
   /** get next decision request */
-  TNode getNextDecisionRequest();
+  Node getNextDecisionRequest();
   /** reset instantiation round */
   void resetInstantiationRound( Theory::Effort level );
 

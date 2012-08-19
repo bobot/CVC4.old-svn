@@ -562,10 +562,11 @@ public:
                   identify().c_str());
   }
 
-  /** get next decision request, if any */
-  virtual TNode getNextDecisionRequest() {
-    return TNode::null();
-  }
+  /**
+   * Return a decision request, if the theory has one, or the NULL node
+   * otherwise.
+   */
+  virtual Node getNextDecisionRequest() { return Node(); }
 
   /**
    * Statically learn from assertion "in," which has been asserted

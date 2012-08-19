@@ -635,7 +635,7 @@ void StrongSolverTheoryUf::SortRepModel::propagate( Theory::Effort level, Output
 
 }
 
-TNode StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
+Node StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
   //request the current cardinality as a decision literal, if not already asserted
   for( int i=1; i<=d_aloc_cardinality; i++ ){
     if( !d_hasCard || i<d_cardinality ){
@@ -647,7 +647,7 @@ TNode StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
       }
     }
   }
-  return TNode::null();
+  return Node::null();
 }
 
 bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryModel* m ){
@@ -1369,14 +1369,14 @@ void StrongSolverTheoryUf::propagate( Theory::Effort level ){
 }
 
 /** get next decision request */
-TNode StrongSolverTheoryUf::getNextDecisionRequest(){
+Node StrongSolverTheoryUf::getNextDecisionRequest(){
   for( std::map< TypeNode, RepModel* >::iterator it = d_rep_model.begin(); it != d_rep_model.end(); ++it ){
-    TNode n = it->second->getNextDecisionRequest();
+    Node n = it->second->getNextDecisionRequest();
     if( !n.isNull() ){
       return n;
     }
   }
-  return TNode::null();
+  return Node::null();
 }
 
 void StrongSolverTheoryUf::preRegisterTerm( TNode n ){

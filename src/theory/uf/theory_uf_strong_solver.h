@@ -62,7 +62,7 @@ public:
     /** check */
     virtual void check( Theory::Effort level, OutputChannel* out ){}
     /** get next decision request */
-    virtual TNode getNextDecisionRequest() { return TNode::null(); }
+    virtual Node getNextDecisionRequest() { return Node::null(); }
     /** minimize */
     virtual bool minimize( OutputChannel* out, TheoryModel* m ){ return true; }
     /** assert cardinality */
@@ -260,7 +260,7 @@ public:
     /** propagate */
     void propagate( Theory::Effort level, OutputChannel* out );
     /** get next decision request */
-    TNode getNextDecisionRequest();
+    Node getNextDecisionRequest();
     /** minimize */
     bool minimize( OutputChannel* out, TheoryModel* m );
     /** assert cardinality */
@@ -348,7 +348,7 @@ public:
   /** propagate */
   void propagate( Theory::Effort level );
   /** get next decision request */
-  TNode getNextDecisionRequest();
+  Node getNextDecisionRequest();
   /** preregister a term */
   void preRegisterTerm( TNode n );
   /** preregister a quantifier */

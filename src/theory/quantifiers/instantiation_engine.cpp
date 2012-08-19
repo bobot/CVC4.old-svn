@@ -381,13 +381,13 @@ void InstantiationEngine::propagate( Theory::Effort level ){
     bool value;
     if( !d_quantEngine->getValuation().hasSatValue( it->second, value ) ){
       //if not already set, propagate as decision
-      d_quantEngine->getOutputChannel().propagateAsDecision( it->second );
+      //d_quantEngine->getOutputChannel().propagateAsDecision( it->second );
       Debug("cbqi-prop-as-dec") << "CBQI: propagate as decision " << it->second << std::endl;
     }
   }
 }
 
-TNode InstantiationEngine::getNextDecisionRequest(){
+Node InstantiationEngine::getNextDecisionRequest(){
   //propagate as decision all counterexample literals that are not asserted
   for( std::map< Node, Node >::iterator it = d_ce_lit.begin(); it != d_ce_lit.end(); ++it ){
     bool value;
@@ -397,5 +397,5 @@ TNode InstantiationEngine::getNextDecisionRequest(){
       return it->second;
     }
   }
-  return TNode::null();
+  return Node::null();
 }

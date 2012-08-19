@@ -131,7 +131,7 @@ void TheoryQuantifiers::propagate(Effort level){
   //getQuantifiersEngine()->propagate( level );
 }
 
-TNode TheoryQuantifiers::getNextDecisionRequest(){
+Node TheoryQuantifiers::getNextDecisionRequest(){
   return getQuantifiersEngine()->getNextDecisionRequest();
 }
 

@@ -73,8 +73,6 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_propagationMapTimestamp(context, 0),
   d_propagatedLiterals(context),
   d_propagatedLiteralsIndex(context, 0),
-  d_decisionRequests(context),
-  d_decisionRequestsIndex(context, 0),
   d_combineTheoriesTime("TheoryEngine::combineTheoriesTime"),
   d_inPreregister(false),
   d_factsAsserted(context, false),
@@ -313,7 +311,7 @@ void TheoryEngine::check(Theory::Effort effort) {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
     if (theory::TheoryTraits<THEORY>::hasCheck && d_logicInfo.isTheoryEnabled(THEORY)) { \
-       reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->check(effort); \
+       theoryOf(THEORY)->check(effort); \
        if (d_inConflict) { \
          break; \
        } \
@@ -395,7 +393,7 @@ void TheoryEngine::check(Theory::Effort effort) {
       //AJR-temp
       Trace("gen-benchmark") << std::endl;
       if( Trace.isOn("gen-benchmark") ){
-        printQfUfBenchmark();
+        printBenchmark();
       }
       //AJR-temp-end
     }
@@ -428,7 +426,7 @@ void TheoryEngine::combineTheories() {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
   if (theory::TheoryTraits<THEORY>::isParametric && d_logicInfo.isTheoryEnabled(THEORY)) { \
-     reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->getCareGraph(careGraph); \
+    theoryOf(THEORY)->getCareGraph(careGraph); \
   }
 
   // Call on each parametric theory to give us its care graph
@@ -493,7 +491,7 @@ void TheoryEngine::propagate(Theory::Effort effort) {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
   if (theory::TheoryTraits<THEORY>::hasPropagate && d_logicInfo.isTheoryEnabled(THEORY)) { \
-    reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->propagate(effort); \
+    theoryOf(THEORY)->propagate(effort); \
   }
 
   // Propagate for each theory using the statement above
@@ -513,6 +511,25 @@ void TheoryEngine::propagate(Theory::Effort effort) {
       }
     }
   }
+}
+
+Node TheoryEngine::getNextDecisionRequest() {
+  // Definition of the statement that is to be run by every theory
+#ifdef CVC4_FOR_EACH_THEORY_STATEMENT
+#undef CVC4_FOR_EACH_THEORY_STATEMENT
+#endif
+#define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
+  if (theory::TheoryTraits<THEORY>::hasGetNextDecisionRequest && d_logicInfo.isTheoryEnabled(THEORY)) { \
+    Node n = theoryOf(THEORY)->getNextDecisionRequest(); \
+    if(! n.isNull()) { \
+      return n; \
+    } \
+  }
+
+  // Request decision from each theory using the statement above
+  CVC4_FOR_EACH_THEORY;
+
+  return TNode();
 }
 
 bool TheoryEngine::properConflict(TNode conflict) const {
@@ -553,33 +570,6 @@ bool TheoryEngine::properConflict(TNode conflict) const {
     }
   }
   return true;
-}
-
-TNode TheoryEngine::getNextDecisionRequest() {
-#if 1
-  for( int i=0; i<theory::THEORY_LAST; i++ ){
-    if( d_theoryTable[i] ){
-      TNode request = d_theoryTable[i]->getNextDecisionRequest();
-      if( !request.isNull() ){
-        Trace("prop-as-dec") << "decision request : " << request << " from " << i << std::endl;
-        return request;
-      }
-    }
-  }
-  return TNode::null();
-#else
-  Trace("te-dec-req") << "Theory engine get next decision request" << std::endl;
-  if(d_decisionRequestsIndex < d_decisionRequests.size()) {
-    TNode req = d_decisionRequests[d_decisionRequestsIndex];
-    Debug("propagateAsDecision") << "TheoryEngine requesting decision["
-                                 << d_decisionRequestsIndex << "]: "
-                                 << req << std::endl;
-    d_decisionRequestsIndex = d_decisionRequestsIndex + 1;
-    return req;
-  } else {
-    return TNode::null();
-  }
-#endif
 }
 
 bool TheoryEngine::properPropagation(TNode lit) const {
@@ -639,7 +629,7 @@ bool TheoryEngine::presolve() {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
     if (theory::TheoryTraits<THEORY>::hasPresolve) { \
-      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->presolve(); \
+      theoryOf(THEORY)->presolve(); \
       if(d_inConflict) { \
         return true; \
       } \
@@ -663,7 +653,7 @@ void TheoryEngine::postsolve() {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
     if (theory::TheoryTraits<THEORY>::hasPostsolve) { \
-      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->postsolve(); \
+      theoryOf(THEORY)->postsolve(); \
       Assert(! d_inConflict, "conflict raised during postsolve()"); \
     }
 
@@ -682,7 +672,7 @@ void TheoryEngine::notifyRestart() {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
   if (theory::TheoryTraits<THEORY>::hasNotifyRestart && d_logicInfo.isTheoryEnabled(THEORY)) { \
-    reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->notifyRestart(); \
+    theoryOf(THEORY)->notifyRestart(); \
   }
 
   // notify each theory using the statement above
@@ -696,8 +686,8 @@ void TheoryEngine::ppStaticLearn(TNode in, NodeBuilder<>& learned) {
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-  if (theory::TheoryTraits<THEORY>::hasStaticLearning) { \
-    reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->ppStaticLearn(in, learned); \
+  if (theory::TheoryTraits<THEORY>::hasPpStaticLearn) { \
+    theoryOf(THEORY)->ppStaticLearn(in, learned); \
   }
 
   // static learning for each theory using the statement above
@@ -1093,16 +1083,6 @@ bool TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
 }
 
 
-void TheoryEngine::propagateAsDecision(TNode literal, theory::TheoryId theory) {
-  Debug("theory") << "EngineOutputChannel::propagateAsDecision(" << literal << ", " << theory << ")" << std::endl;
-
-  d_propEngine->checkTime();
-
-  Assert(d_propEngine->isSatLiteral(literal.getKind() == kind::NOT ? literal[0] : literal), "OutputChannel::propagateAsDecision() requires a SAT literal (or negation of one)");
-
-  d_decisionRequests.push_back(literal);
-}
-
 theory::EqualityStatus TheoryEngine::getEqualityStatus(TNode a, TNode b) {
   Assert(a.getType().isComparableTo(b.getType()));
   if (d_sharedTerms.isShared(a) && d_sharedTerms.isShared(b)) {
@@ -1357,7 +1337,7 @@ void TheoryEngine::handleUserAttribute( const char* attr, Theory* t ){
   d_attr_handle[ str ].push_back( t );
 }
 
-void TheoryEngine::printQfUfBenchmark(){
+void TheoryEngine::printBenchmark(){
   int cardinality = options::arithHeuristicPivots(); //hack
   Trace("random-benchmark") << std::endl;
   if( Trace.isOn("random-benchmark") ){

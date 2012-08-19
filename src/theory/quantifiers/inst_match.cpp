@@ -31,8 +31,10 @@ using namespace CVC4;
 using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
-using namespace CVC4::theory::inst;
 
+namespace CVC4 {
+namespace theory {
+namespace inst {
 
 InstMatch::InstMatch() {
 }
@@ -873,3 +875,5 @@ int InstMatchGeneratorSimple::addTerm( Node f, Node t, QuantifiersEngine* qe ){
   }
   return qe->addInstantiation( f, m ) ? 1 : 0;
 }
+
+}}}

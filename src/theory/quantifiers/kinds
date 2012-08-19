@@ -8,7 +8,7 @@ theory THEORY_QUANTIFIERS ::CVC4::theory::quantifiers::TheoryQuantifiers "theory
 typechecker "theory/quantifiers/theory_quantifiers_type_rules.h"
 instantiator ::CVC4::theory::quantifiers::InstantiatorTheoryQuantifiers "theory/quantifiers/theory_quantifiers_instantiator.h"
 
-properties check propagate presolve
+properties check propagate presolve getNextDecisionRequest
 
 rewriter ::CVC4::theory::quantifiers::QuantifiersRewriter "theory/quantifiers/quantifiers_rewriter.h"
 

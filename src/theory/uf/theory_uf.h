@@ -202,7 +202,7 @@ public:
   void computeCareGraph();
 
   void propagate(Effort effort);
-  TNode getNextDecisionRequest();
+  Node getNextDecisionRequest();
 
   EqualityStatus getEqualityStatus(TNode a, TNode b);
 

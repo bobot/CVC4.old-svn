@@ -159,11 +159,11 @@ void TheoryUF::propagate(Effort effort) {
   //}
 }
 
-TNode TheoryUF::getNextDecisionRequest(){
+Node TheoryUF::getNextDecisionRequest(){
   if (d_thss != NULL) {
     return d_thss->getNextDecisionRequest();
   }else{
-    return TNode::null();
+    return Node::null();
   }
 }
 

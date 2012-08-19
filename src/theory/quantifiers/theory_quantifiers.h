@@ -61,7 +61,7 @@ public:
   void presolve();
   void check(Effort e);
   void propagate(Effort level);
-  TNode getNextDecisionRequest();
+  Node getNextDecisionRequest();
   Node getValue(TNode n);
   void collectModelInfo( TheoryModel* m, bool addConsts );
   void shutdown() { }
