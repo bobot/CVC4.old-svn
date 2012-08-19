@@ -123,10 +123,6 @@ void QuantifiersEngine::check( Theory::Effort e ){
   d_model_set = false;
   d_resetInstRound = false;
   if( e==Theory::EFFORT_LAST_CALL ){
-    Trace("tptp-benchmark") << std::endl;
-    if( Trace.isOn("tptp-benchmark") ){   //AJR-temp
-      d_te->printQfUfBenchmark();
-    }
     ++(d_statistics.d_instantiation_rounds_lc);
   }else if( e==Theory::EFFORT_FULL ){
     ++(d_statistics.d_instantiation_rounds);
@@ -311,30 +307,22 @@ bool QuantifiersEngine::addLemma( Node lem ){
   }
 }
 
-bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
+bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& vars, std::vector< Node >& terms )
 {
-    //Notice() << "***& Instantiate " << f << " with " << std::endl;
-    //for( int i=0; i<(int)terms.size(); i++ ){
-    //  Notice() << "   " << terms[i] << std::endl;
-    //}
   Assert( f.getKind()==FORALL );
   Assert( !f.hasAttribute(InstConstantAttribute()) );
-  Assert( d_term_db->d_vars[f].size()==terms.size() && d_term_db->d_vars[f].size()==f[0].getNumChildren() );
-  Node body = f[ 1 ].substitute( d_term_db->d_vars[f].begin(), d_term_db->d_vars[f].end(),
-                                 terms.begin(), terms.end() );
-  NodeBuilder<> nb(kind::OR);
-  nb << d_rewritten_quant[f].notNode() << body;
-  Node lem = nb;
+  Assert( vars.size()==terms.size() );
+  Node body = f[ 1 ].substitute( vars.begin(), vars.end(), terms.begin(), terms.end() );
+  Node lem;
+  if( d_term_db->d_vars[f].size()==vars.size() ){
+    NodeBuilder<> nb(kind::OR);
+    nb << d_rewritten_quant[f].notNode() << body;
+    lem = nb;
+  }else{
+    //doing a partial instantiation, must add quantifier for all uninstantiated variables
+  }
   if( addLemma( lem ) ){
-    //Notice() << "     Added lemma : " << body << std::endl;
-    //Notice() << "***& Instantiate " << f << " with " << std::endl;
-    //for( int i=0; i<(int)terms.size(); i++ ){
-    //  Notice() << "   " << terms[i] << std::endl;
-    //}
-
-    //Notice() << "**INST" << std::endl;
     Trace("inst") << "*** Instantiate " << f << " with " << std::endl;
-    //Notice() << "*** Instantiate " << f << " with " << std::endl;
     uint64_t maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
       if( terms[i].hasAttribute(InstConstantAttribute()) ){
@@ -345,7 +333,6 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
         Unreachable("Bad instantiation");
       }else{
         Trace("inst") << "   " << terms[i];
-        //Notice() << "   " << terms[i] << std::endl;
         //Debug("inst-engine") << " " << terms[i].getAttribute(InstLevelAttribute());
         Trace("inst") << std::endl;
         if( terms[i].hasAttribute(InstLevelAttribute()) ){
@@ -369,44 +356,41 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
   }
 }
 
-bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m ){
-  m.makeComplete( f, this );
+bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool makeComplete ){
+  //make sure there are values for each variable we are instantiating
+  if( makeComplete ){
+    m.makeComplete( f, this );
+  }
+  //make it representative, this is helpful for recognizing duplication
   m.makeRepresentative( this );
   Trace("inst-add") << "Add instantiation: " << m << std::endl;
+  //check for duplication modulo equality
   if( !d_inst_match_trie[f].addInstMatch( this, f, m, true ) ){
     Trace("inst-add") << " -> Already exists." << std::endl;
     ++(d_statistics.d_inst_duplicate);
     return false;
   }
+  //compute the vector of terms for the instantiation
   std::vector< Node > match;
   m.computeTermVec( d_term_db->d_inst_constants[f], match );
-
-  //old....
-  //m.makeRepresentative( d_eq_query );
-  //std::vector< Node > match;
-  //m.computeTermVec( this, d_inst_constants[f], match );
-
-  //Notice() << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
-  //for( int i=0; i<(int)m->d_match.size(); i++ ){
-  //  Notice() << "   " << m->d_match[i] << std::endl;
-  //}
-
-  if( addInstantiation( f, match ) ){
+  //add the instantiation
+  bool addedInst = false;
+  if( match.size()==d_term_db->d_vars[f].size() ){
+    addedInst = addInstantiation( f, d_term_db->d_vars[f], match );
+  }else{
+    //must compute the subset of variables we are instantiating
+    std::vector< Node > vars;
+    for( size_t i=0; i<d_term_db->d_vars[f].size(); i++ ){
+      Node val = m.get( getTermDatabase()->getInstantiationConstant( f, i ) );
+      if( !val.isNull() ){
+        vars.push_back( d_term_db->d_vars[f][i] );
+      }
+    }
+    addedInst = addInstantiation( f, vars, match );
+  }
+  //report the result
+  if( addedInst ){
     Trace("inst-add") << " -> Success." << std::endl;
-    //d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)d_inst_constants[f].size() - m.d_map.size()/2 );
-    //if( d_inst_constants[f].size()!=m.d_map.size() ){
-    //  //Notice() << "Unspec. " << std::endl;
-    //  //Notice() << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
-    //  //for( int i=0; i<(int)m->d_match.size(); i++ ){
-    //  //  Notice() << "   " << m->d_match[i] << std::endl;
-    //  //}
-    //  ++(d_statistics.d_inst_unspec);
-    //}
-    //if( addSplits ){
-    //  for( std::map< Node, Node >::iterator it = m->d_splits.begin(); it != m->d_splits.end(); ++it ){
-    //    addSplitEquality( it->first, it->second, true, true );
-    //  }
-    //}
     return true;
   }else{
     Trace("inst-add") << " -> Lemma already exists." << std::endl;

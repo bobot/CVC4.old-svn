@@ -98,12 +98,10 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m, bool fullModel ) {
         Debug("fmf-model-debug") << "Perform InstGen techniques for quantifiers..." << std::endl;
         for( int i=0; i<fm->getNumAssertedQuantifiers(); i++ ){
           Node f = fm->getAssertedQuantifier( i );
-          if( d_considerAxioms || !f.getAttribute(AxiomAttribute()) ){
-            if( d_quant_sat.find( f )==d_quant_sat.end() ){
-              d_addedLemmas += doInstGen( fm, f );
-              if( optOneQuantPerRoundInstGen() && d_addedLemmas>0 ){
-                break;
-              }
+          if( isQuantifierActive( f ) ){
+            d_addedLemmas += doInstGen( fm, f );
+            if( optOneQuantPerRoundInstGen() && d_addedLemmas>0 ){
+              break;
             }
           }
         }
@@ -120,7 +118,7 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m, bool fullModel ) {
         //if no immediate exceptions, build the model
         //  this model will be an approximation that will need to be tested via exhaustive instantiation
         Debug("fmf-model-debug") << "Building model..." << std::endl;
-        finishBuildModel( fm );
+        constructModel( fm );
       }
     }
   }
@@ -157,46 +155,43 @@ void ModelEngineBuilder::analyzeModel( FirstOrderModel* fm ){
 }
 
 void ModelEngineBuilder::analyzeQuantifiers( FirstOrderModel* fm ){
-  d_quant_selection_lits.clear();
   d_quant_sat.clear();
+  d_quant_selection_lit.clear();
+  d_quant_selection_lit_candidates.clear();
+  d_quant_selection_lit_terms.clear();
+  d_term_selection_lit.clear();
+  d_op_selection_terms.clear();
   d_uf_prefs.clear();
   int quantSatInit = 0;
   int nquantSatInit = 0;
   //analyze the preferences of each quantifier
   for( int i=0; i<(int)fm->getNumAssertedQuantifiers(); i++ ){
     Node f = fm->getAssertedQuantifier( i );
-    if( d_considerAxioms || !f.getAttribute(AxiomAttribute()) ){
+    if( isQuantifierActive( f ) ){
       Debug("fmf-model-prefs") << "Analyze quantifier " << f << std::endl;
+      //the pro/con preferences for this quantifier
       std::vector< Node > pro_con[2];
-      std::vector< Node > constantSatOps;
-      bool constantSatReconsider;
+      //the terms in the selection literal we choose
+      std::vector< Node > selectionLitTerms;
       //for each asserted quantifier f,
-      // - determine which literals form model basis for each quantifier
-      // - check which function/predicates have good and bad definitions according to f
+      // - determine selection literals
+      // - check which function/predicates have good and bad definitions for satisfying f
       for( std::map< Node, bool >::iterator it = d_qe->d_phase_reqs[f].begin();
            it != d_qe->d_phase_reqs[f].end(); ++it ){
+        //the literal n is phase-required for quantifier f
         Node n = it->first;
         Node gn = d_qe->getTermDatabase()->getModelBasis( n );
         Debug("fmf-model-req") << "   Req: " << n << " -> " << it->second << std::endl;
-        //calculate preference
-        int pref = 0;
         bool value;
+        //if the corresponding ground abstraction literal has a SAT value
         if( d_qe->getValuation().hasSatValue( gn, value ) ){
-          if( value!=it->second ){
-            //this literal is eligible as a selection literal
-            //  this literal will force a default values in model that (modulo exceptions) shows
-            //  that f is satisfied by the model
-            d_quant_selection_lits[f].push_back( value ? n : n.notNode() );
-            pref = 1;
-          }else{
-            pref = -1;
-          }
-        }
-        if( pref!=0 ){
-          //Store preferences for UF
-          bool isConst = false;
+          //collect the non-ground uf terms that this literal contains
+          //  and compute if all of the symbols in this literal have
+          //  constant definitions.
+          bool isConst = true;
           std::vector< Node > uf_terms;
           if( n.hasAttribute(InstConstantAttribute()) ){
+            isConst = false;
             if( gn.getKind()==APPLY_UF ){
               uf_terms.push_back( gn );
               isConst = !d_uf_prefs[gn.getOperator()].d_const_val.isNull();
@@ -204,61 +199,87 @@ void ModelEngineBuilder::analyzeQuantifiers( FirstOrderModel* fm ){
               isConst = true;
               for( int j=0; j<2; j++ ){
                 if( n[j].hasAttribute(InstConstantAttribute()) ){
-                  if( n[j].getKind()==APPLY_UF ){
-                    Node op = gn[j].getOperator();
-                    if( fm->d_uf_model_tree.find( op )!=fm->d_uf_model_tree.end() ){
-                      uf_terms.push_back( gn[j] );
-                      isConst = isConst && !d_uf_prefs[op].d_const_val.isNull();
-                    }else{
-                      isConst = false;
-                    }
+                  if( n[j].getKind()==APPLY_UF &&
+                      fm->d_uf_model_tree.find( gn[j].getOperator() )!=fm->d_uf_model_tree.end() ){
+                    uf_terms.push_back( gn[j] );
+                    isConst = isConst && !d_uf_prefs[ gn[j].getOperator() ].d_const_val.isNull();
                   }else{
                     isConst = false;
                   }
                 }
               }
             }
-          }else{
-            //ground term is always constant
-            isConst = true;
           }
-          Debug("fmf-model-prefs") << "  It is " << ( pref==1 ? "pro" : "con" );
-          Debug("fmf-model-prefs") << " the definition of " << n << std::endl;
-          if( pref==1 && isConst ){
-            d_quant_sat[f] = true;
-            //instead, just note to the model for each uf term that f is pro its definition
-            constantSatReconsider = false;
-            constantSatOps.clear();
-            for( int j=0; j<(int)uf_terms.size(); j++ ){
-              Node op = uf_terms[j].getOperator();
-              constantSatOps.push_back( op );
-              if( d_uf_prefs[op].d_reconsiderModel ){
-                constantSatReconsider = true;
+          //check if the value in the SAT solver matches the preference according to the quantifier
+          int pref = 0;
+          if( value!=it->second ){
+            //we have a possible selection literal
+            bool selectLit = d_quant_selection_lit[f].isNull();
+            bool selectLitConstraints = true;
+            //it is a constantly defined selection literal : the quantifier is sat
+            if( isConst ){
+              selectLit = selectLit || d_quant_sat.find( f )==d_quant_sat.end();
+              d_quant_sat[f] = true;
+              //check if choosing this literal would add any additional constraints to default definitions
+              selectLitConstraints = false;
+              for( int j=0; j<(int)uf_terms.size(); j++ ){
+                Node op = uf_terms[j].getOperator();
+                if( d_uf_prefs[op].d_reconsiderModel ){
+                  selectLitConstraints = true;
+                }
+              }
+              if( !selectLitConstraints ){
+                selectLit = true;
               }
             }
-            if( !constantSatReconsider ){
-              break;
+            //see if we wish to choose this as a selection literal
+             d_quant_selection_lit_candidates[f].push_back( n );
+            if( selectLit ){
+              Trace("inst-gen-debug") << "Choose selection literal " << gn << std::endl;
+              d_quant_selection_lit[f] = n;
+              selectionLitTerms.clear();
+              selectionLitTerms.insert( selectionLitTerms.begin(), uf_terms.begin(), uf_terms.end() );
+              if( !selectLitConstraints ){
+                break;
+              }
             }
+            pref = 1;
           }else{
-            int pcIndex = pref==1 ? 0 : 1;
+            pref = -1;
+          }
+          //if we are not yet SAT, so we will add to preferences
+          if( d_quant_sat.find( f )==d_quant_sat.end() ){
+            Debug("fmf-model-prefs") << "  It is " << ( pref==1 ? "pro" : "con" );
+            Debug("fmf-model-prefs") << " the definition of " << n << std::endl;
             for( int j=0; j<(int)uf_terms.size(); j++ ){
-              pro_con[pcIndex].push_back( uf_terms[j] );
+              pro_con[ pref==1 ? 0 : 1 ].push_back( uf_terms[j] );
             }
           }
         }
       }
+      //process information about selection literal for f
+      if( !d_quant_selection_lit[f].isNull() ){
+        d_quant_selection_lit_terms[f].insert( d_quant_selection_lit_terms[f].begin(), selectionLitTerms.begin(), selectionLitTerms.end() );
+        for( int i=0; i<(int)selectionLitTerms.size(); i++ ){
+          d_term_selection_lit[ selectionLitTerms[i] ] = d_quant_selection_lit[f];
+          d_op_selection_terms[ selectionLitTerms[i].getOperator() ].push_back( selectionLitTerms[i] );
+        }
+      }else{
+        Trace("inst-gen-warn") << "WARNING: " << f << " has no selection literals (is the body of f clausified?)" << std::endl;
+      }
+      //process information about requirements and preferences of quantifier f
       if( d_quant_sat.find( f )!=d_quant_sat.end() ){
         Debug("fmf-model-prefs") << "  * Constant SAT due to definition of ops: ";
-        for( int i=0; i<(int)constantSatOps.size(); i++ ){
-          Debug("fmf-model-prefs") << constantSatOps[i] << " ";
-          d_uf_prefs[constantSatOps[i]].d_reconsiderModel = false;
+        for( int i=0; i<(int)selectionLitTerms.size(); i++ ){
+          Debug("fmf-model-prefs") << selectionLitTerms[i] << " ";
+          d_uf_prefs[ selectionLitTerms[i].getOperator() ].d_reconsiderModel = false;
         }
         Debug("fmf-model-prefs") << std::endl;
         quantSatInit++;
-        d_statistics.d_pre_sat_quant += quantSatInit;
+        ++(d_statistics.d_pre_sat_quant);
       }else{
         nquantSatInit++;
-        d_statistics.d_pre_nsat_quant += quantSatInit;
+        ++(d_statistics.d_pre_nsat_quant);
         //note quantifier's value preferences to models
         for( int k=0; k<2; k++ ){
           for( int j=0; j<(int)pro_con[k].size(); j++ ){
@@ -274,15 +295,41 @@ void ModelEngineBuilder::analyzeQuantifiers( FirstOrderModel* fm ){
 }
 
 int ModelEngineBuilder::doInstGen( FirstOrderModel* fm, Node f ){
-  //we wish to add all known exceptions to our model basis literal(s)
-  //  this will help to refine our current model.
+  int addedLemmas = 0;
+  //we wish to add all known exceptions to our selection literal for f. this will help to refine our current model.
   //This step is advantageous over exhaustive instantiation, since we are adding instantiations that involve model basis terms,
   //  effectively acting as partial instantiations instead of pointwise instantiations.
-  int addedLemmas = 0;
-  for( int i=0; i<(int)d_quant_selection_lits[f].size(); i++ ){
-    bool phase = d_quant_selection_lits[f][i].getKind()!=NOT;
-    Node lit = d_quant_selection_lits[f][i].getKind()==NOT ? d_quant_selection_lits[f][i][0] : d_quant_selection_lits[f][i];
-    if( lit.hasAttribute(InstConstantAttribute()) ){  //this should always be true
+  if( !d_quant_selection_lit[f].isNull() ){
+#if 0
+    bool phase = d_quant_selection_lit[f].getKind()!=NOT;
+    Node lit = d_quant_selection_lit[f].getKind()==NOT ? d_quant_selection_lit[f][0] : d_quant_selection_lit[f];
+    Assert( lit.hasAttribute(InstConstantAttribute()) );
+    for( size_t i=0; i<d_quant_selection_lit_terms[f].size(); i++ ){
+      Node n1 = d_quant_selection_lit_terms[f][i];
+      Node op = d_quant_selection_lit_terms[f][i].getOperator();
+      //check all other selection literals involving "op"
+      for( size_t i=0; i<d_op_selection_terms[op].size(); i++ ){
+        Node n2 = d_op_selection_terms[op][i];
+        Node n2_lit = d_term_selection_lit[ n2 ];
+        if( n2_lit!=d_quant_selection_lit[f] ){
+          //match n1 and n2
+        }
+      }
+      if( addedLemmas==0 ){
+        //check all ground terms involving "op"
+        for( size_t i=0; i<fm->d_uf_terms[op].size(); i++ ){
+          Node n2 = fm->d_uf_terms[op][i];
+          if( n1!=n2 ){
+            //match n1 and n2
+          }
+        }
+      }
+    }
+#else
+    for( size_t i=0; i<d_quant_selection_lit_candidates[f].size(); i++ ){
+      bool phase = d_quant_selection_lit_candidates[f][i].getKind()!=NOT;
+      Node lit = d_quant_selection_lit_candidates[f][i].getKind()==NOT ? d_quant_selection_lit_candidates[f][i][0] : d_quant_selection_lit_candidates[f][i];
+      Assert( lit.hasAttribute(InstConstantAttribute()) );
       std::vector< Node > tr_terms;
       if( lit.getKind()==APPLY_UF ){
         //only match predicates that are contrary to this one, use literal matching
@@ -318,17 +365,16 @@ int ModelEngineBuilder::doInstGen( FirstOrderModel* fm, Node f ){
         //d_qe->d_optMatchIgnoreModelBasis = true;
         addedLemmas += tr->addInstantiations( d_quant_basis_match[f] );
       }
-    }else{
-      std::cout << f << " " << lit << std::endl;
     }
+#endif
   }
   return addedLemmas;
 }
 
-void ModelEngineBuilder::finishBuildModel( FirstOrderModel* fm ){
+void ModelEngineBuilder::constructModel( FirstOrderModel* fm ){
   //build model for UF
   for( std::map< Node, uf::UfModelTree >::iterator it = fm->d_uf_model_tree.begin(); it != fm->d_uf_model_tree.end(); ++it ){
-    finishBuildModelUf( fm, it->first );
+    constructModelUf( fm, it->first );
   }
   /*
   //build model for arrays
@@ -343,7 +389,7 @@ void ModelEngineBuilder::finishBuildModel( FirstOrderModel* fm ){
   Debug("fmf-model-debug") << "Done building models." << std::endl;
 }
 
-void ModelEngineBuilder::finishBuildModelUf( FirstOrderModel* fm, Node op ){
+void ModelEngineBuilder::constructModelUf( FirstOrderModel* fm, Node op ){
 #ifdef RECONSIDER_FUNC_CONSTANT
   if( d_uf_model_constructed[op] ){
     if( d_uf_prefs[op].d_reconsiderModel ){
@@ -437,4 +483,8 @@ ModelEngineBuilder::Statistics::Statistics():
 ModelEngineBuilder::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_pre_sat_quant);
   StatisticsRegistry::unregisterStat(&d_pre_nsat_quant);
+}
+
+bool ModelEngineBuilder::isQuantifierActive( Node f ){
+  return ( d_considerAxioms || !f.getAttribute(AxiomAttribute()) ) && d_quant_sat.find( f )==d_quant_sat.end();
 }

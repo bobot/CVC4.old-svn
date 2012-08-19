@@ -58,9 +58,9 @@ protected:
   //analyze quantifiers
   void analyzeQuantifiers( FirstOrderModel* fm );
   //build model
-  void finishBuildModel( FirstOrderModel* fm );
+  void constructModel( FirstOrderModel* fm );
   //theory-specific build models
-  void finishBuildModelUf( FirstOrderModel* fm, Node op );
+  void constructModelUf( FirstOrderModel* fm, Node op );
   //do InstGen techniques for quantifier, return number of lemmas produced
   int doInstGen( FirstOrderModel* fm, Node f );
 public:
@@ -68,12 +68,20 @@ public:
   virtual ~ModelEngineBuilder(){}
   /** number of lemmas generated while building model */
   int d_addedLemmas;
-  //map from quantifiers to if are constant SAT
-  std::map< Node, bool > d_quant_sat;
-  //map from quantifiers to the instantiation literals that their model is dependent upon
-  std::map< Node, std::vector< Node > > d_quant_selection_lits;
   //consider axioms
   bool d_considerAxioms;
+private:
+  //map from quantifiers to if are constant SAT
+  std::map< Node, bool > d_quant_sat;
+  //map from quantifiers to their selection literals
+  std::map< Node, Node > d_quant_selection_lit;
+  std::map< Node, std::vector< Node > > d_quant_selection_lit_candidates;
+  //map from quantifiers to their selection literal terms
+  std::map< Node, std::vector< Node > > d_quant_selection_lit_terms;
+  //map from terms to the selection literals they exist in
+  std::map< Node, Node > d_term_selection_lit;
+  //map from operators to terms that appear in selection literals
+  std::map< Node, std::vector< Node > > d_op_selection_terms;
 public:
   //map from quantifiers to model basis match
   std::map< Node, InstMatch > d_quant_basis_match;
@@ -92,6 +100,8 @@ public:
     ~Statistics();
   };
   Statistics d_statistics;
+  // is quantifier active?
+  bool isQuantifierActive( Node f );
 };/* class ModelEngineBuilder */
 
 }/* CVC4::theory::quantifiers namespace */

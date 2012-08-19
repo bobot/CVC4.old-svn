@@ -192,6 +192,8 @@ struct sortExternalDegree {
   bool operator() (Node i,Node j) { return (r->d_nodes[i]->getNumExternalDisequalities()>r->d_nodes[j]->getNumExternalDisequalities());}
 };
 
+int gmcCount = 0;
+
 bool StrongSolverTheoryUf::SortRepModel::Region::getMustCombine( int cardinality ){
   if( options::ufssRegions() && d_total_diseq_external>=long(cardinality) ){
     //The number of external disequalities is greater than or equal to cardinality.
@@ -216,11 +218,10 @@ bool StrongSolverTheoryUf::SortRepModel::Region::getMustCombine( int cardinality
         }
       }
     }
-    //static int gmcCount = 0;
-    //gmcCount++;
-    //if( gmcCount%100==0 ){
-    //  std::cout << gmcCount << " " << cardinality << std::endl;
-    //}
+    gmcCount++;
+    if( gmcCount%100==0 ){
+      Trace("gmc-count") << gmcCount << " " << cardinality << " sample : " << degrees.size() << std::endl;
+    }
     //this should happen relatively infrequently....
     std::sort( degrees.begin(), degrees.end() );
     for( int i=0; i<(int)degrees.size(); i++ ){
@@ -235,13 +236,18 @@ bool StrongSolverTheoryUf::SortRepModel::Region::getMustCombine( int cardinality
 bool StrongSolverTheoryUf::SortRepModel::Region::check( Theory::Effort level, int cardinality, std::vector< Node >& clique ){
   if( d_reps_size>long(cardinality) ){
     if( d_total_diseq_internal==d_reps_size*( d_reps_size - 1 ) ){
-      //quick clique check, all reps form a clique
-      for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
-        if( it->second->d_valid ){
-          clique.push_back( it->first );
+      if( d_reps_size>1 ){
+        //quick clique check, all reps form a clique
+        for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
+          if( it->second->d_valid ){
+            clique.push_back( it->first );
+          }
         }
+        Trace("quick-clique") << "Found quick clique" << std::endl;
+        return true;
+      }else{
+        return false;
       }
-      return true;
     }else if( options::ufssRegions() || options::ufssEagerSplits() || level==Theory::EFFORT_FULL ){
       //build test clique, up to size cardinality+1
       if( d_testCliqueSize<=long(cardinality) ){
@@ -411,6 +417,7 @@ void StrongSolverTheoryUf::SortRepModel::newEqClass( Node n ){
         for( std::map< int, Node >::iterator it = d_cardinality_literal.begin(); it != d_cardinality_literal.end(); ++it ){
           addTotalityAxiom( n, it->first, &d_th->getOutputChannel() );
         }
+        d_regions_map[n] = 0;
       }else{
         //regions map will store whether we need to equate this term with a constant equivalence class
         if( std::find( d_cardinality_term.begin(), d_cardinality_term.end(), n )==d_cardinality_term.end() ){
@@ -579,14 +586,14 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
               explainClique( clique, out );
               return;
             }else{
-              Debug("uf-ss-debug") << "No clique in Region #" << i << std::endl;
+              Trace("uf-ss-debug") << "No clique in Region #" << i << std::endl;
             }
           }
         }
         bool addedLemma = false;
         //do splitting on demand
         if( level==Theory::EFFORT_FULL || options::ufssEagerSplits() ){
-          Debug("uf-ss-debug") << "Add splits?" << std::endl;
+          Trace("uf-ss-debug") << "Add splits?" << std::endl;
           //see if we have any recommended splits from large regions
           for( int i=0; i<(int)d_regions_index; i++ ){
             if( d_regions[i]->d_valid && d_regions[i]->getNumReps()>d_cardinality ){
@@ -602,7 +609,7 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
         //if no added lemmas, force continuation via combination of regions
         if( level==Theory::EFFORT_FULL ){
           if( !addedLemma ){
-            Debug("uf-ss") << "No splits added." << std::endl;
+            Trace("uf-ss-debug") << "No splits added. " << d_cardinality << std::endl;
             if( !options::ufssColoringSat() ){
               bool recheck = false;
               //naive strategy, force region combination involving the first valid region
@@ -834,10 +841,19 @@ void StrongSolverTheoryUf::SortRepModel::assertCardinality( OutputChannel* out, 
   Assert( d_cardinality_literal.find( c )!=d_cardinality_literal.end() );
   d_cardinality_assertions[ d_cardinality_literal[c] ] = val;
   if( val ){
+    bool doCheckRegions = !d_hasCard;
     if( !d_hasCard || c<d_cardinality ){
       d_cardinality = c;
     }
     d_hasCard = true;
+    //should check all regions now
+    if( doCheckRegions ){
+      for( int i=0; i<(int)d_regions_index; i++ ){
+        if( d_regions[i]->d_valid ){
+          checkRegion( i );
+        }
+      }
+    }
   }else{
     //see if we need to request a new cardinality
     if( !d_hasCard ){

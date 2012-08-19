@@ -72,10 +72,15 @@ int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e )
 }
 
 Node InstantiatorTheoryDatatypes::getValueFor( Node n ){
-  return n;
-  /*  FIXME
   //simply get the ground value for n in the current model, if it exists,
   //  or return an arbitrary ground term otherwise
+  if( !n.hasAttribute(InstConstantAttribute()) ){
+    return n;
+  }else{
+    return n;
+  }
+  /*  FIXME
+
   Debug("quant-datatypes-debug")  << "get value for " << n << std::endl;
   if( !n.hasAttribute(InstConstantAttribute()) ){
     return n;

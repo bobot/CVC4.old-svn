@@ -228,9 +228,9 @@ public:
   /** add lemma lem */
   bool addLemma( Node lem );
   /** instantiate f with arguments terms */
-  bool addInstantiation( Node f, std::vector< Node >& terms );
+  bool addInstantiation( Node f, std::vector< Node >& vars, std::vector< Node >& terms );
   /** do instantiation specified by m */
-  bool addInstantiation( Node f, InstMatch& m );
+  bool addInstantiation( Node f, InstMatch& m, bool makeComplete = true );
   /** split on node n */
   bool addSplit( Node n, bool reqPhase = false, bool reqPhasePol = true );
   /** add split equality */
