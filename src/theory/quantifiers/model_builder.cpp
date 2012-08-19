@@ -87,15 +87,15 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m, bool fullModel ) {
       //initialize model
       fm->initialize( d_considerAxioms );
       //analyze the functions
-      Debug("fmf-model-debug") << "Analyzing model..." << std::endl;
+      Trace("model-engine-debug") << "Analyzing model..." << std::endl;
       analyzeModel( fm );
       //analyze the quantifiers
-      Debug("fmf-model-debug") << "Analyzing quantifiers..." << std::endl;
+      Trace("model-engine-debug") << "Analyzing quantifiers..." << std::endl;
       analyzeQuantifiers( fm );
       //if applicable, find exceptions
       if( optInstGen() ){
         //now, see if we know that any exceptions via InstGen exist
-        Debug("fmf-model-debug") << "Perform InstGen techniques for quantifiers..." << std::endl;
+        Trace("model-engine-debug") << "Perform InstGen techniques for quantifiers..." << std::endl;
         for( int i=0; i<fm->getNumAssertedQuantifiers(); i++ ){
           Node f = fm->getAssertedQuantifier( i );
           if( isQuantifierActive( f ) ){
@@ -112,12 +112,11 @@ void ModelEngineBuilder::processBuildModel( TheoryModel* m, bool fullModel ) {
             Trace("model-engine") << "No InstGen lemmas..." << std::endl;
           }
         }
-        Debug("fmf-model-debug") << "---> Added lemmas = " << d_addedLemmas << std::endl;
       }
       if( d_addedLemmas==0 ){
         //if no immediate exceptions, build the model
         //  this model will be an approximation that will need to be tested via exhaustive instantiation
-        Debug("fmf-model-debug") << "Building model..." << std::endl;
+        Trace("model-engine-debug") << "Building model..." << std::endl;
         constructModel( fm );
       }
     }
@@ -326,6 +325,7 @@ int ModelEngineBuilder::doInstGen( FirstOrderModel* fm, Node f ){
       }
     }
 #else
+    Trace("inst-gen") << "Do Inst-Gen for " << f << std::endl;
     for( size_t i=0; i<d_quant_selection_lit_candidates[f].size(); i++ ){
       bool phase = d_quant_selection_lit_candidates[f][i].getKind()!=NOT;
       Node lit = d_quant_selection_lit_candidates[f][i].getKind()==NOT ? d_quant_selection_lit_candidates[f][i][0] : d_quant_selection_lit_candidates[f][i];
@@ -386,7 +386,7 @@ void ModelEngineBuilder::constructModel( FirstOrderModel* fm ){
     it->second.setDefaultValue( fm->getRepresentative( selModelBasis ) );
   }
   */
-  Debug("fmf-model-debug") << "Done building models." << std::endl;
+  Trace("model-engine-debug") << "Done building models." << std::endl;
 }
 
 void ModelEngineBuilder::constructModelUf( FirstOrderModel* fm, Node op ){

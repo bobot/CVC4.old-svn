@@ -73,18 +73,18 @@ void ModelEngine::check( Theory::Effort e ){
         if( Trace.isOn("model-engine") ){
           clSet = double(clock())/double(CLOCKS_PER_SEC);
         }
-        Debug("fmf-model-debug") << "---Begin Instantiation Round---" << std::endl;
         ++(d_statistics.d_inst_rounds);
         //reset the quantifiers engine
         d_quantEngine->resetInstantiationRound( e );
         //initialize the model
-        Debug("fmf-model-debug") << "Build model..." << std::endl;
+        Trace("model-engine-debug") << "Build model..." << std::endl;
         d_builder.setEffort( effort );
         d_builder.buildModel( fm, false );
         //if builder has lemmas, add and return
         if( d_builder.d_addedLemmas>0 ){
           addedLemmas += (int)d_builder.d_addedLemmas;
         }else{
+          Trace("model-engine-debug") << "Verify uf ss is minimal..." << std::endl;
           //let the strong solver verify that the model is minimal
           uf::StrongSolverTheoryUf* uf_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
           //we will try to minimize with the strong solver in case there are terms
@@ -92,6 +92,7 @@ void ModelEngine::check( Theory::Effort e ){
           if( uf_ss->minimize( fm ) ){
             //for debugging
             uf_ss->debugModel( fm );
+            Trace("model-engine-debug") << "Check model..." << std::endl;
             //print debug
             Debug("fmf-model-complete") << std::endl;
             debugPrint("fmf-model-complete");
@@ -113,6 +114,7 @@ void ModelEngine::check( Theory::Effort e ){
       }
     }
     if( addedLemmas==0 ){
+      Trace("model-engine-debug") << "No lemmas added, incomplete = " << d_incomplete_check << std::endl;
       //CVC4 will answer SAT or unknown
       Trace("fmf-consistent") << std::endl;
       debugPrint("fmf-consistent");
@@ -252,7 +254,10 @@ int ModelEngine::exhaustiveInstantiate( Node f, bool useRelInstDomain ){
   //keep track of total instantiations for statistics
   int totalInst = 1;
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
-    totalInst = totalInst * (int)d_quantEngine->getModel()->d_rep_set.d_type_reps[ f[0][i].getType() ].size();
+    TypeNode tn = f[0][i].getType();
+    if( d_quantEngine->getModel()->d_rep_set.hasType( tn ) ){
+      totalInst = totalInst * (int)d_quantEngine->getModel()->d_rep_set.d_type_reps[ tn ].size();
+    }
   }
   d_totalLemmas += totalInst;
   //if we need to consider this quantifier on this iteration

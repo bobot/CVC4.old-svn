@@ -320,6 +320,8 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& vars, std
     lem = nb;
   }else{
     //doing a partial instantiation, must add quantifier for all uninstantiated variables
+    Notice() << "Partial instantiation not implemented yet." << std::endl;
+    Unimplemented();
   }
   if( addLemma( lem ) ){
     Trace("inst") << "*** Instantiate " << f << " with " << std::endl;
