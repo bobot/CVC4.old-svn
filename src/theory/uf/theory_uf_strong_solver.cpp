@@ -20,6 +20,7 @@
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers/term_database.h"
+#include "theory/uf/options.h"
 
 //#define ONE_SPLIT_REGION
 //#define DISABLE_QUICK_CLIQUE_CHECKS
@@ -37,11 +38,6 @@ void StrongSolverTheoryUf::SortRepModel::Region::addRep( Node n ) {
 }
 
 void StrongSolverTheoryUf::SortRepModel::Region::takeNode( StrongSolverTheoryUf::SortRepModel::Region* r, Node n ){
-  //Debug("uf-ss") << "takeNode " << r << " " << n << std::endl;
-  //Debug("uf-ss") << "r : " << std::endl;
-  //r->debugPrint("uf-ss");
-  //Debug("uf-ss") << "this : " << std::endl;
-  //debugPrint("uf-ss");
   Assert( !hasRep( n ) );
   Assert( r->hasRep( n ) );
   //add representative
@@ -582,8 +578,8 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
           if( d_regions[i]->d_valid ){
             std::vector< Node > clique;
             if( d_regions[i]->check( level, d_cardinality, clique ) ){
-              //explain clique
-              explainClique( clique, out );
+              //add clique lemma
+              addCliqueLemma( clique, out );
               return;
             }else{
               Trace("uf-ss-debug") << "No clique in Region #" << i << std::endl;
@@ -734,96 +730,6 @@ void StrongSolverTheoryUf::SortRepModel::getDisequalitiesToRegions( int ri, std:
   }
 }
 
-void StrongSolverTheoryUf::SortRepModel::explainClique( std::vector< Node >& clique, OutputChannel* out ){
-  Assert( d_hasCard );
-  Assert( d_cardinality>0 );
-  while( clique.size()>size_t(d_cardinality+1) ){
-    clique.pop_back();
-  }
-  //found a clique
-  Trace("uf-ss") << "Found a clique (cardinality=" << d_cardinality << ") :" << std::endl;
-  Trace("uf-ss") << "   ";
-  for( int i=0; i<(int)clique.size(); i++ ){
-    Trace("uf-ss") << clique[i] << " ";
-  }
-  Trace("uf-ss") << std::endl;
-  Debug("uf-ss") << "Finding clique disequalities..." << std::endl;
-  std::vector< Node > conflict;
-  //collect disequalities, and nodes that must be equal within representatives
-  std::map< Node, std::map< Node, bool > > explained;
-  std::map< Node, std::map< Node, bool > > nodesWithinRep;
-  for( int i=0; i<(int)d_disequalities_index; i++ ){
-    //if both sides of disequality exist in clique
-    Node r1 = d_th->d_equalityEngine.getRepresentative( d_disequalities[i][0][0] );
-    Node r2 = d_th->d_equalityEngine.getRepresentative( d_disequalities[i][0][1] );
-    if( r1!=r2 && ( explained.find( r1 )==explained.end() || explained[r1].find( r2 )==explained[r1].end() ) &&
-        std::find( clique.begin(), clique.end(), r1 )!=clique.end() &&
-        std::find( clique.begin(), clique.end(), r2 )!=clique.end() ){
-      explained[r1][r2] = true;
-      explained[r2][r1] = true;
-      conflict.push_back( d_disequalities[i] );
-      Trace("uf-ss") << "   -> disequality : " << d_disequalities[i] << std::endl;
-      nodesWithinRep[r1][ d_disequalities[i][0][0] ] = true;
-      nodesWithinRep[r2][ d_disequalities[i][0][1] ] = true;
-      if( conflict.size()==(clique.size()*( clique.size()-1 )/2) ){
-        break;
-      }
-    }
-  }
-  //Debug("uf-ss") << conflict.size() << " " << clique.size() << std::endl;
-  Assert( (int)conflict.size()==((int)clique.size()*( (int)clique.size()-1 )/2) );
-  //Assert( (int)conflict.size()==(int)clique.size()*( (int)clique.size()-1 )/2 );
-  Debug("uf-ss") << "Finding clique equalities internal to eq classes..." << std::endl;
-  //now, we must explain equalities within each equivalence class
-  for( std::map< Node, std::map< Node, bool > >::iterator it = nodesWithinRep.begin(); it != nodesWithinRep.end(); ++it ){
-    if( it->second.size()>1 ){
-      Node prev;
-      //add explanation of t1 = t2 = ... = tn
-      Trace("uf-ss") << "Explain ";
-      for( std::map< Node, bool >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
-        if( prev!=Node::null() ){
-          Trace("uf-ss") << " = ";
-          //explain it2->first and prev
-          std::vector< TNode > expl;
-          d_th->d_equalityEngine.explainEquality( it2->first, prev, true, expl );
-          for( int i=0; i<(int)expl.size(); i++ ){
-            if( std::find( conflict.begin(), conflict.end(), expl[i] )==conflict.end() ){
-              conflict.push_back( expl[i] );
-            }
-          }
-        }
-        prev = it2->first;
-        Trace("uf-ss") << prev;
-      }
-      Trace("uf-ss") << std::endl;
-    }
-  }
-  Debug("uf-ss") << "Explanation of clique (size=" << conflict.size() << ") = " << std::endl;
-  for( int i=0; i<(int)conflict.size(); i++ ){
-    Debug("uf-ss") << conflict[i] << " ";
-    //bool value;
-    //bool hasValue = d_th->getValuation().hasSatValue( conflict[i], value );
-    //Assert( hasValue );
-    //Assert( value );
-  }
-  Debug("uf-ss") << std::endl;
-  //now, make the conflict
-  Node conflictNode = conflict.size()==1 ? conflict[0] : NodeManager::currentNM()->mkNode( AND, conflict );
-  //add cardinality constraint
-  Node cardNode = d_cardinality_literal[ d_cardinality ];
-  //bool value;
-  //bool hasValue = d_th->getValuation().hasSatValue( cardNode, value );
-  //Assert( hasValue );
-  //Assert( value );
-  conflictNode = NodeManager::currentNM()->mkNode( IMPLIES, conflictNode, cardNode.notNode() );
-  Trace("uf-ss-lemma") << "*** Add clique conflict " << conflictNode << std::endl;
-  //Notice() << "*** Add clique conflict " << conflictNode << std::endl;
-  out->lemma( conflictNode );
-  ++( d_th->getStrongSolver()->d_statistics.d_clique_lemmas );
-
-  //DO_THIS: ensure that the same clique is not reported???  Check standard effort after assertDisequal can produce same clique.
-}
-
 void StrongSolverTheoryUf::SortRepModel::setSplitScore( Node n, int s ){
   if( d_split_score.find( n )!=d_split_score.end() ){
     int ss = d_split_score[ n ];
@@ -878,7 +784,7 @@ void StrongSolverTheoryUf::SortRepModel::checkRegion( int ri, bool rec ){
     std::vector< Node > clique;
     if( d_regions[ri]->check( Theory::EFFORT_STANDARD, d_cardinality, clique ) ){
       //explain clique
-      explainClique( clique, &d_th->getOutputChannel() );
+      addCliqueLemma( clique, &d_th->getOutputChannel() );
     }else if( d_regions[ri]->getMustCombine( d_cardinality ) ){
       ////alternatively, check if we can reduce the number of external disequalities by moving single nodes
       //for( std::map< Node, bool >::iterator it = d_regions[i]->d_reps.begin(); it != d_regions[i]->d_reps.end(); ++it ){
@@ -969,6 +875,16 @@ void StrongSolverTheoryUf::SortRepModel::moveNode( Node n, int ri ){
 void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out ){
   if( d_aloc_cardinality>0 ){
     Trace("uf-ss-fmf") << "No model of size " << d_aloc_cardinality << " exists for type " << d_type << " in this branch" << std::endl;
+    if( Trace.isOn("uf-ss-cliques") ){
+      Trace("uf-ss-cliques") << "Cliques of size " << (d_aloc_cardinality+1) << " : " << std::endl;
+      for( size_t i=0; i<d_cliques[ d_aloc_cardinality ].size(); i++ ){
+        Trace("uf-ss-cliques") << "  ";
+        for( size_t j=0; j<d_cliques[ d_aloc_cardinality ][i].size(); j++ ){
+          Trace("uf-ss-cliques") << d_cliques[ d_aloc_cardinality ][i][j] << " ";
+        }
+        Trace("uf-ss-cliques") << std::endl;
+      }
+    }
   }
   d_aloc_cardinality++;
 
@@ -1061,6 +977,103 @@ bool StrongSolverTheoryUf::SortRepModel::addSplit( Region* r, OutputChannel* out
   }else{
     return false;
   }
+}
+
+
+void StrongSolverTheoryUf::SortRepModel::addCliqueLemma( std::vector< Node >& clique, OutputChannel* out ){
+  Assert( d_hasCard );
+  Assert( d_cardinality>0 );
+  while( clique.size()>size_t(d_cardinality+1) ){
+    clique.pop_back();
+  }
+  if( Trace.isOn("uf-ss-cliques") ){
+    std::vector< Node > clique_vec;
+    clique_vec.insert( clique_vec.begin(), clique.begin(), clique.end() );
+    d_cliques[ d_cardinality ].push_back( clique_vec );
+  }
+
+  //found a clique
+  Debug("uf-ss-cliques") << "Found a clique (cardinality=" << d_cardinality << ") :" << std::endl;
+  Debug("uf-ss-cliques") << "   ";
+  for( int i=0; i<(int)clique.size(); i++ ){
+    Debug("uf-ss-cliques") << clique[i] << " ";
+  }
+  Debug("uf-ss-cliques") << std::endl;
+  Debug("uf-ss-cliques") << "Finding clique disequalities..." << std::endl;
+  std::vector< Node > conflict;
+  //collect disequalities, and nodes that must be equal within representatives
+  std::map< Node, std::map< Node, bool > > explained;
+  std::map< Node, std::map< Node, bool > > nodesWithinRep;
+  for( int i=0; i<(int)d_disequalities_index; i++ ){
+    //if both sides of disequality exist in clique
+    Node r1 = d_th->d_equalityEngine.getRepresentative( d_disequalities[i][0][0] );
+    Node r2 = d_th->d_equalityEngine.getRepresentative( d_disequalities[i][0][1] );
+    if( r1!=r2 && ( explained.find( r1 )==explained.end() || explained[r1].find( r2 )==explained[r1].end() ) &&
+        std::find( clique.begin(), clique.end(), r1 )!=clique.end() &&
+        std::find( clique.begin(), clique.end(), r2 )!=clique.end() ){
+      explained[r1][r2] = true;
+      explained[r2][r1] = true;
+      conflict.push_back( d_disequalities[i] );
+      Debug("uf-ss-cliques") << "   -> disequality : " << d_disequalities[i] << std::endl;
+      nodesWithinRep[r1][ d_disequalities[i][0][0] ] = true;
+      nodesWithinRep[r2][ d_disequalities[i][0][1] ] = true;
+      if( conflict.size()==(clique.size()*( clique.size()-1 )/2) ){
+        break;
+      }
+    }
+  }
+  //Debug("uf-ss-cliques") << conflict.size() << " " << clique.size() << std::endl;
+  Assert( (int)conflict.size()==((int)clique.size()*( (int)clique.size()-1 )/2) );
+  //Assert( (int)conflict.size()==(int)clique.size()*( (int)clique.size()-1 )/2 );
+  Debug("uf-ss-cliques") << "Finding clique equalities internal to eq classes..." << std::endl;
+  //now, we must explain equalities within each equivalence class
+  for( std::map< Node, std::map< Node, bool > >::iterator it = nodesWithinRep.begin(); it != nodesWithinRep.end(); ++it ){
+    if( it->second.size()>1 ){
+      Node prev;
+      //add explanation of t1 = t2 = ... = tn
+      Debug("uf-ss-cliques") << "Explain ";
+      for( std::map< Node, bool >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
+        if( prev!=Node::null() ){
+          Debug("uf-ss-cliques") << " = ";
+          //explain it2->first and prev
+          std::vector< TNode > expl;
+          d_th->d_equalityEngine.explainEquality( it2->first, prev, true, expl );
+          for( int i=0; i<(int)expl.size(); i++ ){
+            if( std::find( conflict.begin(), conflict.end(), expl[i] )==conflict.end() ){
+              conflict.push_back( expl[i] );
+            }
+          }
+        }
+        prev = it2->first;
+        Debug("uf-ss-cliques") << prev;
+      }
+      Debug("uf-ss-cliques") << std::endl;
+    }
+  }
+  Debug("uf-ss-cliques") << "Explanation of clique (size=" << conflict.size() << ") = " << std::endl;
+  for( int i=0; i<(int)conflict.size(); i++ ){
+    Debug("uf-ss-cliques") << conflict[i] << " ";
+    //bool value;
+    //bool hasValue = d_th->getValuation().hasSatValue( conflict[i], value );
+    //Assert( hasValue );
+    //Assert( value );
+  }
+  Debug("uf-ss-cliques") << std::endl;
+  //now, make the conflict
+  Node conflictNode = conflict.size()==1 ? conflict[0] : NodeManager::currentNM()->mkNode( AND, conflict );
+  //add cardinality constraint
+  Node cardNode = d_cardinality_literal[ d_cardinality ];
+  //bool value;
+  //bool hasValue = d_th->getValuation().hasSatValue( cardNode, value );
+  //Assert( hasValue );
+  //Assert( value );
+  conflictNode = NodeManager::currentNM()->mkNode( IMPLIES, conflictNode, cardNode.notNode() );
+  Trace("uf-ss-lemma") << "*** Add clique conflict " << conflictNode << std::endl;
+  //Notice() << "*** Add clique conflict " << conflictNode << std::endl;
+  out->lemma( conflictNode );
+  ++( d_th->getStrongSolver()->d_statistics.d_clique_lemmas );
+
+  //DO_THIS: ensure that the same clique is not reported???  Check standard effort after assertDisequal can produce same clique.
 }
 
 void StrongSolverTheoryUf::SortRepModel::addTotalityAxiom( Node n, int cardinality, OutputChannel* out ){

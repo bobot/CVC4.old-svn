@@ -207,8 +207,6 @@ public:
     int getNumDisequalitiesToRegion( Node n, int ri );
     /** get number of disequalities from Region r to other regions */
     void getDisequalitiesToRegions( int ri, std::map< int, int >& regions_diseq );
-    /** explain clique */
-    void explainClique( std::vector< Node >& clique, OutputChannel* out );
     /** is valid */
     bool isValid( int ri ) { return ri>=0 && ri<(int)d_regions_index && d_regions[ ri ]->d_valid; }
     /** set split score */
@@ -227,6 +225,8 @@ public:
     void allocateCardinality( OutputChannel* out );
     /** add split */
     bool addSplit( Region* r, OutputChannel* out );
+    /** add clique lemma */
+    void addCliqueLemma( std::vector< Node >& clique, OutputChannel* out );
     /** add totality axiom */
     void addTotalityAxiom( Node n, int cardinality, OutputChannel* out );
   private:
@@ -244,6 +244,8 @@ public:
     NodeBoolMap d_cardinality_assertions;
     /** whether a positive cardinality constraint has been asserted */
     context::CDO< bool > d_hasCard;
+    /** clique lemmas that have been asserted */
+    std::map< int, std::vector< std::vector< Node > > > d_cliques;
   public:
     SortRepModel( Node n, context::Context* c, TheoryUF* th );
     virtual ~SortRepModel(){}

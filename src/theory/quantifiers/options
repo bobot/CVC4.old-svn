@@ -67,22 +67,6 @@ option flipDecision --enable-flip-decision/ bool :default false
 option finiteModelFind --finite-model-find bool :default false
  use finite model finding heuristic for quantifier instantiation
 
-option ufssRegions /--disable-uf-ss-regions bool :default true
- disable region-based method for discovering cliques and splits in uf strong solver
-option ufssEagerSplits --uf-ss-eager-split bool :default false
- add splits eagerly for uf strong solver
-option ufssColoringSat --uf-ss-coloring-sat bool :default false
- use coloring-based SAT heuristic for uf strong solver
-option ufssTotality --uf-ss-totality bool :default false
- use totality axioms for enforcing cardinality constraints
-option ufssTotalityEager --uf-ss-totality-eager bool :default false
- instantiation totality axioms eagerly
-option ufssAbortCardinality --uf-ss-abort-card=N int :default -1
- tells the uf strong solver a cardinality to abort at (-1 == no limit, default)
-option ufssSmartSplits --uf-ss-smart-split bool :default false
- use smart splitting heuristic for uf strong solver
-
-
 option fmfModelBasedInst /--disable-fmf-mbqi bool :default true
  disable model-based quantifier instantiation for finite model finding
 

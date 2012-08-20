@@ -44,6 +44,7 @@
 
 //hack
 #include "theory/arith/options.h"
+#include "theory/uf/options.h"
 
 
 using namespace std;

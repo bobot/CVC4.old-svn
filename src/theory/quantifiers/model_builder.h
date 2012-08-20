@@ -70,7 +70,7 @@ public:
   int d_addedLemmas;
   //consider axioms
   bool d_considerAxioms;
-private:
+private:    ///information for InstGen
   //map from quantifiers to if are constant SAT
   std::map< Node, bool > d_quant_sat;
   //map from quantifiers to their selection literals

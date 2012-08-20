@@ -61,6 +61,7 @@
 #include "util/ite_removal.h"
 #include "theory/model.h"
 #include "printer/printer.h"
+#include "prop/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -488,7 +489,9 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
     bool qf_sat = d_logic.isPure(THEORY_BOOL) && !d_logic.isQuantified();
     bool quantifiers = d_logic.isQuantified();
     Trace("smt") << "setting simplification mode to <" << d_logic.getLogicString() << "> " << (!qf_sat && !quantifiers) << std::endl;
-    options::simplificationMode.set(qf_sat || quantifiers ? SIMPLIFICATION_MODE_NONE : SIMPLIFICATION_MODE_BATCH);
+    //simplifaction=none works better for SMT LIB benchmarks with quantifiers, not others
+    //options::simplificationMode.set(qf_sat || quantifiers ? SIMPLIFICATION_MODE_NONE : SIMPLIFICATION_MODE_BATCH);
+    options::simplificationMode.set(qf_sat ? SIMPLIFICATION_MODE_NONE : SIMPLIFICATION_MODE_BATCH);
   }
 
   // If in arrays, set the UF handler to arrays
@@ -623,6 +626,13 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
     if( options::fmfInstEngine() ){
       Trace("smt") << "setting inst when mode to LAST_CALL" << std::endl;
       options::instWhenMode.set( INST_WHEN_LAST_CALL );
+    }
+  }
+
+  //until bug 371 is fixed
+  if( ! options::minisatUseElim.wasSetByUser()){
+    if( d_logic.isQuantified() ){
+      options::minisatUseElim.set( false );
     }
   }
 }

@@ -232,10 +232,10 @@ void ModelEngineBuilder::analyzeQuantifiers( FirstOrderModel* fm ){
               }
             }
             //see if we wish to choose this as a selection literal
-             d_quant_selection_lit_candidates[f].push_back( n );
+            d_quant_selection_lit_candidates[f].push_back( value ? n : n.notNode() );
             if( selectLit ){
               Trace("inst-gen-debug") << "Choose selection literal " << gn << std::endl;
-              d_quant_selection_lit[f] = n;
+              d_quant_selection_lit[f] = value ? n : n.notNode();
               selectionLitTerms.clear();
               selectionLitTerms.insert( selectionLitTerms.begin(), uf_terms.begin(), uf_terms.end() );
               if( !selectLitConstraints ){
