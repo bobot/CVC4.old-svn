@@ -1342,7 +1342,7 @@ void TheoryEngine::printBenchmark(){
   int cardinality = options::arithHeuristicPivots(); //hack
   Trace("random-benchmark") << std::endl;
   if( Trace.isOn("random-benchmark") ){
-    srand( options::arithSimplexCheckPeriod() ); //hack
+    srand( options::ufssAbortCardinality()*options::arithHeuristicPivots() ); //hack
     int edges = options::ufssAbortCardinality(); //hack;
     std::cout << "; random graph problem " << cardinality << " " << edges << std::endl;
     std::cout << "(set-logic QF_UF)" << std::endl;

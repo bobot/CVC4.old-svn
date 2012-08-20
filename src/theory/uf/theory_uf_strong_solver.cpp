@@ -1071,6 +1071,14 @@ void StrongSolverTheoryUf::SortRepModel::addCliqueLemma( std::vector< Node >& cl
   }
   Debug("uf-ss-cliques") << std::endl;
   //now, make the conflict
+#if 1
+  conflict.push_back( d_cardinality_literal[ d_cardinality ] );
+  Node conflictNode = NodeManager::currentNM()->mkNode( AND, conflict );
+  Trace("uf-ss-lemma") << "*** Add clique conflict " << conflictNode << std::endl;
+  //Notice() << "*** Add clique conflict " << conflictNode << std::endl;
+  out->conflict( conflictNode );
+  d_conflict = true;
+#else
   Node conflictNode = conflict.size()==1 ? conflict[0] : NodeManager::currentNM()->mkNode( AND, conflict );
   //add cardinality constraint
   Node cardNode = d_cardinality_literal[ d_cardinality ];
@@ -1078,11 +1086,11 @@ void StrongSolverTheoryUf::SortRepModel::addCliqueLemma( std::vector< Node >& cl
   //bool hasValue = d_th->getValuation().hasSatValue( cardNode, value );
   //Assert( hasValue );
   //Assert( value );
-  conflictNode = NodeManager::currentNM()->mkNode( AND, conflictNode, cardNode );
+  conflictNode = NodeManager::currentNM()->mkNode( IMPLIES, conflictNode, cardNode.notNode() );
   Trace("uf-ss-lemma") << "*** Add clique conflict " << conflictNode << std::endl;
   //Notice() << "*** Add clique conflict " << conflictNode << std::endl;
-  out->conflict( conflictNode );
-  d_conflict = true;
+  out->lemma( conflictNode );
+#endif
   ++( d_th->getStrongSolver()->d_statistics.d_clique_lemmas );
 
   //DO_THIS: ensure that the same clique is not reported???  Check standard effort after assertDisequal can produce same clique.
