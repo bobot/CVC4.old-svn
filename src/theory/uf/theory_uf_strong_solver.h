@@ -67,6 +67,8 @@ public:
     virtual bool minimize( OutputChannel* out, TheoryModel* m ){ return true; }
     /** assert cardinality */
     virtual void assertCardinality( OutputChannel* out, int c, bool val ){}
+    /** is in conflict */
+    virtual bool isConflict() { return false; }
     /** get cardinality */
     virtual int getCardinality() { return -1; }
     /** has cardinality */
@@ -230,6 +232,8 @@ public:
     /** add totality axiom */
     void addTotalityAxiom( Node n, int cardinality, OutputChannel* out );
   private:
+    /** Are we in conflict */
+    context::CDO<bool> d_conflict;
     /** cardinality */
     context::CDO< int > d_cardinality;
     /** maximum allocated cardinality */
@@ -267,6 +271,8 @@ public:
     bool minimize( OutputChannel* out, TheoryModel* m );
     /** assert cardinality */
     void assertCardinality( OutputChannel* out, int c, bool val );
+    /** is in conflict */
+    bool isConflict() { return d_conflict; }
     /** get cardinality */
     int getCardinality() { return d_cardinality; }
     /** get representatives */
@@ -322,6 +328,8 @@ private:
   OutputChannel* d_out;
   /** theory uf pointer */
   TheoryUF* d_th;
+  /** Are we in conflict */
+  context::CDO<bool> d_conflict;
   /** rep model structure, one for each type */
   std::map< TypeNode, RepModel* > d_rep_model;
   /** all types */
@@ -369,6 +377,8 @@ public:
   int getNumCardinalityTypes() { return (int)d_conf_types.size(); }
   /** get type */
   TypeNode getCardinalityType( int i ) { return d_conf_types[i]; }
+  /** get is in conflict */
+  bool isConflict() { return d_conflict; }
   /** get cardinality for sort */
   int getCardinality( Node n );
   /** get representatives */

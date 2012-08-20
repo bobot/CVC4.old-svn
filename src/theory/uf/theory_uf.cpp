@@ -81,6 +81,10 @@ void TheoryUF::check(Effort level) {
     if (d_thss != NULL) {
       bool isDecision = d_valuation.isSatLiteral(fact) && d_valuation.isDecision(fact);
       d_thss->assertNode(fact, isDecision);
+      if( d_thss->isConflict() ){
+        d_conflict = true;
+        return;
+      }
     }
 
     // Do the work
@@ -99,6 +103,9 @@ void TheoryUF::check(Effort level) {
   if (d_thss != NULL) {
     if (! d_conflict) {
       d_thss->check(level);
+      if( d_thss->isConflict() ){
+        d_conflict = true;
+      }
     }
   }
 
@@ -160,7 +167,7 @@ void TheoryUF::propagate(Effort effort) {
 }
 
 Node TheoryUF::getNextDecisionRequest(){
-  if (d_thss != NULL) {
+  if (d_thss != NULL && !d_conflict) {
     return d_thss->getNextDecisionRequest();
   }else{
     return Node::null();
@@ -213,7 +220,7 @@ void TheoryUF::collectModelInfo( TheoryModel* m, bool fullModel ){
       ++eqcs_i;
     }
 #else
-    //FIXME: Uninterpretted constants do not have typing rule!!!
+    //FIXME: Uninterpretted constants are having typing rule problems
     std::map< TypeNode, TypeEnumerator* > type_enums;
     //must choose proper representatives
     // for each equivalence class, specify the constructor as a representative
