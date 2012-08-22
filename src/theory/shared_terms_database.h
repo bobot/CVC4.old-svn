@@ -246,7 +246,7 @@ public:
   /**
    * collect model info
    */
-  void collectModelInfo( theory::TheoryModel* m, bool addConsts );
+  void collectModelInfo( theory::TheoryModel* m, bool fullModel );
 protected:
 
   /**

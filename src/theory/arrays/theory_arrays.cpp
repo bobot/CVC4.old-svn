@@ -628,7 +628,6 @@ void TheoryArrays::computeCareGraph()
 
 void TheoryArrays::collectModelInfo( TheoryModel* m, bool fullModel ){
   m->assertEqualityEngine( &d_equalityEngine );
-#if 1
   //must determine proper representatives for all array equivalence classes
   //first, we collect all select terms and array equivalence classes
   std::map< Node, std::vector< Node > > selects;
@@ -671,7 +670,6 @@ void TheoryArrays::collectModelInfo( TheoryModel* m, bool fullModel ){
     //communicate to the model that it is the representative
     m->assertRepresentative( rep );
   }
-#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////

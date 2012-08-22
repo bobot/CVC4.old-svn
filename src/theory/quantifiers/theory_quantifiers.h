@@ -63,7 +63,7 @@ public:
   void propagate(Effort level);
   Node getNextDecisionRequest();
   Node getValue(TNode n);
-  void collectModelInfo( TheoryModel* m, bool addConsts );
+  void collectModelInfo( TheoryModel* m, bool fullModel );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
   bool flipDecision();

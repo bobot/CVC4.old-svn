@@ -90,7 +90,7 @@ Node TheoryQuantifiers::getValue(TNode n) {
   }
 }
 
-void TheoryQuantifiers::collectModelInfo( TheoryModel* m, bool addConsts ){
+void TheoryQuantifiers::collectModelInfo( TheoryModel* m, bool fullModel ){
 
 }
 

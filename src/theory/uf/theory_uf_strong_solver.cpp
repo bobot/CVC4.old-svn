@@ -773,7 +773,7 @@ void StrongSolverTheoryUf::SortRepModel::assertCardinality( OutputChannel* out, 
       if( options::ufssModelInference() ){
         //check if we are at decision level 0
         if( d_th->d_valuation.getAssertionLevel()==0 ){
-          Trace("uf-ss-mi") << "We have proved that no models of size " << c << " exist." << std::endl;
+          Trace("uf-ss-mi") << "We have proved that no models of size " << c << " for type " << d_type << " exist." << std::endl;
           Trace("uf-ss-mi") << "  # Clique lemmas : " << d_cliques[c].size() << std::endl;
           if( d_cliques[c].size()==1 ){
             if( d_totality_terms[c+1].empty() ){

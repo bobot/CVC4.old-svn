@@ -118,7 +118,7 @@ private:
     EqcInfo( context::Context* c );
     ~EqcInfo(){}
     //whether we have instantiatied this eqc
-    context::CDO< Node > d_inst;
+    context::CDO< bool > d_inst;
     //constructor equal to this eqc
     context::CDO< Node > d_constructor;
     //all selectors whose argument is this eqc
@@ -139,6 +139,10 @@ private:
   eq::EqualityEngine d_equalityEngine;
   /** information necessary for equivalence classes */
   std::map< Node, EqcInfo* > d_eqc_info;
+  /** map from nodes to their instantiated equivalent for each constructor type */
+  std::map< Node, std::map< int, Node > > d_inst_map;
+  /** which instantiation lemmas we have sent */
+  std::map< Node, std::vector< Node > > d_inst_lemmas;
   /** labels for each equivalence class
    * for each eqc n, d_labels[n] is testers that hold for this equivalence class, either:
    * a list of equations of the form

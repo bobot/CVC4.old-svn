@@ -438,8 +438,8 @@ void TheoryDatatypes::merge( Node t1, Node t2 ){
             }
           }
         }
-        if( eqc1->d_inst.get().isNull() && !eqc2->d_inst.get().isNull() ){
-          eqc1->d_inst.set( eqc2->d_inst );
+        if( !eqc1->d_inst && eqc2->d_inst ){
+          eqc1->d_inst.set( true );
         }
         if( cons1.isNull() && !cons2.isNull() ){
           checkInst = true;
@@ -501,7 +501,7 @@ void TheoryDatatypes::eqNotifyDisequal(TNode t1, TNode t2, TNode reason){
 }
 
 TheoryDatatypes::EqcInfo::EqcInfo( context::Context* c ) :
-d_inst( c, Node::null() ), d_constructor( c, Node::null() ), d_selectors( c, false ){
+d_inst( c, false ), d_constructor( c, Node::null() ), d_selectors( c, false ){
 
 }
 
@@ -718,32 +718,39 @@ void TheoryDatatypes::collectTerms( Node n ) {
 }
 
 Node TheoryDatatypes::getInstantiateCons( Node n, const Datatype& dt, int index ){
-  //add constructor to equivalence class
-  std::vector< Node > children;
-  children.push_back( Node::fromExpr( dt[index].getConstructor() ) );
-  for( int i=0; i<(int)dt[index].getNumArgs(); i++ ){
-    children.push_back( NodeManager::currentNM()->mkNode( APPLY_SELECTOR, Node::fromExpr( dt[index][i].getSelector() ), n ) );
+  if( !d_inst_map[n][index].isNull() ){
+    return d_inst_map[n][index];
+  }else{
+    //add constructor to equivalence class
+    std::vector< Node > children;
+    children.push_back( Node::fromExpr( dt[index].getConstructor() ) );
+    for( int i=0; i<(int)dt[index].getNumArgs(); i++ ){
+      Node nc = NodeManager::currentNM()->mkNode( APPLY_SELECTOR, Node::fromExpr( dt[index][i].getSelector() ), n );
+      Trace("dt-terms") << "Created term : " << nc << std::endl;
+      children.push_back( nc );
+    }
+    Node n_ic = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
+    collectTerms( n_ic );
+    //add type ascription for ambiguous constructor types
+    if( n_ic.getType()!=n.getType() ){
+      Assert( dt.isParametric() );
+      Debug("datatypes-parametric") << "DtInstantiate: ambiguous type for " << n_ic << ", ascribe to " << n.getType() << std::endl;
+      Debug("datatypes-parametric") << "Constructor is " << dt[index] << std::endl;
+      Type tspec = dt[index].getSpecializedConstructorType(n.getType().toType());
+      Debug("datatypes-parametric") << "Type specification is " << tspec << std::endl;
+      children[0] = NodeManager::currentNM()->mkNode(kind::APPLY_TYPE_ASCRIPTION,
+                                                     NodeManager::currentNM()->mkConst(AscriptionType(tspec)), children[0] );
+      n_ic = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
+      Assert( n_ic.getType()==n.getType() );
+    }
+    d_inst_map[n][index] = n_ic;
+    return n_ic;
   }
-  Node n_ic = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
-  collectTerms( n_ic );
-  //add type ascription for ambiguous constructor types
-  if( n_ic.getType()!=n.getType() ){
-    Assert( dt.isParametric() );
-    Debug("datatypes-parametric") << "DtInstantiate: ambiguous type for " << n_ic << ", ascribe to " << n.getType() << std::endl;
-    Debug("datatypes-parametric") << "Constructor is " << dt[index] << std::endl;
-    Type tspec = dt[index].getSpecializedConstructorType(n.getType().toType());
-    Debug("datatypes-parametric") << "Type specification is " << tspec << std::endl;
-    children[0] = NodeManager::currentNM()->mkNode(kind::APPLY_TYPE_ASCRIPTION,
-                                                   NodeManager::currentNM()->mkConst(AscriptionType(tspec)), children[0] );
-    n_ic = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
-    Assert( n_ic.getType()==n.getType() );
-  }
-  return n_ic;
 }
 
 void TheoryDatatypes::checkInstantiate( EqcInfo* eqc, Node n ){
   //add constructor to equivalence class if not done so already
-  if( hasLabel( eqc, n ) && eqc->d_inst.get().isNull() ){
+  if( hasLabel( eqc, n ) && !eqc->d_inst ){
     Node exp;
     Node tt;
     if( !eqc->d_constructor.get().isNull() ){
@@ -758,7 +765,7 @@ void TheoryDatatypes::checkInstantiate( EqcInfo* eqc, Node n ){
     //must be finite or have a selector
     if( eqc->d_selectors || dt[ index ].isFinite() || mustSpecifyModel() ){
       //instantiate this equivalence class
-      eqc->d_inst.set( NodeManager::currentNM()->mkConst( true ) );
+      eqc->d_inst = true;
       Node tt_cons = getInstantiateCons( tt, dt, index );
       Node eq;
       if( tt!=tt_cons ){
@@ -836,28 +843,28 @@ bool TheoryDatatypes::mustSpecifyModel(){
 }
 
 bool TheoryDatatypes::mustCommunicateFact( Node n, Node exp ){
-#if 1
-  //the datatypes decision procedure makes 3 different inferences apart from the equality engine :
+  //the datatypes decision procedure makes 3 "internal" inferences apart from the equality engine :
   //  (1) Unification : C( t1...tn ) = C( s1...sn ) => ti = si
   //  (2) Label : ~is_C1( t ) ... ~is_C{i-1}( t ) ~is_C{i+1}( t ) ... ~is_Cn( t ) => is_Ci( t )
   //  (3) Instantiate : is_C( t ) => t = C( sel_1( t ) ... sel_n( t ) )
   //We may need to communicate (3) outwards if the conclusions involve other theories
   if( n.getKind()==EQUAL && exp.getKind()!=EQUAL  ){
-    for( int i=0; i<2; i++ ){
-      if( n.getKind()==APPLY_CONSTRUCTOR ){
-        for( int j=0; j<(int)n[i].getNumChildren(); j++ ){
-          if( !n[i][j].getType().isDatatype() ){
-            return true;
-          }
+    Assert( n[0].getKind()!=APPLY_CONSTRUCTOR );
+    Assert( n[1].getKind()==APPLY_CONSTRUCTOR );
+    for( int j=0; j<(int)n[1].getNumChildren(); j++ ){
+      if( !n[1][j].getType().isDatatype() ){
+        //check if we have already added this lemma
+        if( std::find( d_inst_lemmas[ n[0] ].begin(), d_inst_lemmas[ n[0] ].end(), n[1] )==d_inst_lemmas[ n[0] ].end() ){
+          d_inst_lemmas[ n[0] ].push_back( n[1] );
+          return true;
+        }else{
+          return false;
         }
       }
     }
     Trace("dt-lemma-debug") << "Do not need to communicate " << n << std::endl;
   }
   return false;
-#else
-  return false;
-#endif
 }
 
 bool TheoryDatatypes::hasTerm( Node a ){

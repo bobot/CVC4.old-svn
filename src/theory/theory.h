@@ -557,10 +557,7 @@ public:
    * the model class to construct constant representatives for each equivalence
    * class.
    */
-  virtual void collectModelInfo( TheoryModel* m, bool fullModel ){
-    Unimplemented("Theory %s doesn't support Theory::collectModelInfo interface",
-                  identify().c_str());
-  }
+  virtual void collectModelInfo( TheoryModel* m, bool fullModel ){ }
 
   /**
    * Return a decision request, if the theory has one, or the NULL node

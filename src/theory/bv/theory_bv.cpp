@@ -125,7 +125,7 @@ void TheoryBV::check(Effort e)
   }
 }
 
-void TheoryBV::collectModelInfo( TheoryModel* m, bool addConsts ){
+void TheoryBV::collectModelInfo( TheoryModel* m, bool fullModel ){
 
 }
 

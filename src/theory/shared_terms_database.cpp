@@ -264,6 +264,6 @@ Node SharedTermsDatabase::explain(TNode literal) const {
   return mkAnd(assumptions);
 }
 
-void SharedTermsDatabase::collectModelInfo( theory::TheoryModel* m, bool addConsts ){
+void SharedTermsDatabase::collectModelInfo( theory::TheoryModel* m, bool fullModel ){
   m->assertEqualityEngine( &d_equalityEngine );
 }

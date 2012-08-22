@@ -598,13 +598,13 @@ bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
   return true;
 }
 
-void TheoryEngine::collectModelInfo( theory::TheoryModel* m, bool addConsts ){
+void TheoryEngine::collectModelInfo( theory::TheoryModel* m, bool fullModel ){
   //have shared term engine collectModelInfo
-  d_sharedTerms.collectModelInfo( m, addConsts );
+  d_sharedTerms.collectModelInfo( m, fullModel );
   //consult each theory to get all relevant information concerning the model
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_theoryTable[i] ){
-      d_theoryTable[i]->collectModelInfo( m, addConsts );
+      d_theoryTable[i]->collectModelInfo( m, fullModel );
     }
   }
 }
