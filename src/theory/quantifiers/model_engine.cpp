@@ -63,7 +63,8 @@ void ModelEngine::check( Theory::Effort e ){
       Trace("model-engine") << "Initialize, Added Lemmas = " << addedLemmas << std::endl;
     }
     //two effort levels: first try exhaustive instantiation without axioms, then with.
-    int startEffort = ( !fm->isAxiomAsserted() || optExhInstantiateAxioms() ) ? 1 : 0;
+    //int startEffort = ( !fm->isAxiomAsserted() || options::axiomInstMode()==AXIOM_INST_MODE_DEFAULT ) ? 1 : 0;
+    int startEffort = ( !fm->isAxiomAsserted() || true ) ? 1 : 0;
     for( int effort=startEffort; effort<2; effort++ ){
       // for effort = 0, we only instantiate non-axioms
       // for effort = 1, we instantiate everything
@@ -111,6 +112,16 @@ void ModelEngine::check( Theory::Effort e ){
             return;
           }
         }
+      }
+      if( addedLemmas==0 ){
+        //if we have not added lemmas yet and axiomInstMode=trust, then we are done
+        //if( options::axiomInstMode()==AXIOM_INST_MODE_TRUST ){
+          //we must return unknown if an axiom is asserted
+          //if( fm->isAxiomAsserted() ){
+          //  d_incomplete_check = true;
+          //}
+          //break;
+        //}
       }
     }
     if( addedLemmas==0 ){

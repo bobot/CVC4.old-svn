@@ -25,10 +25,8 @@ libquantifiers_la_SOURCES = \
 	inst_match.cpp \
 	model_engine.h \
 	model_engine.cpp \
-	inst_when_mode.cpp \
-	inst_when_mode.h \
-	literal_match_mode.cpp \
-	literal_match_mode.h \
+	modes.cpp \
+	modes.h \
 	relevant_domain.h \
 	relevant_domain.cpp \
 	term_database.h \

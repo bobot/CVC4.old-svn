@@ -394,9 +394,7 @@ StrongSolverTheoryUf::SortRepModel::SortRepModel( Node n, context::Context* c, T
           d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_split_score( c ), d_disequalities_index( c, 0 ),
           d_reps( c, 0 ), d_conflict( c, false ), d_cardinality( c, 1 ), d_aloc_cardinality( 0 ),
           d_cardinality_assertions( c ), d_hasCard( c, false ){
-  if( !options::ufssTotality() ){
-    d_cardinality_term.push_back( n );
-  }
+  d_cardinality_term = n;
 }
 
 /** initialize */
@@ -408,20 +406,20 @@ void StrongSolverTheoryUf::SortRepModel::initialize( OutputChannel* out ){
 void StrongSolverTheoryUf::SortRepModel::newEqClass( Node n ){
   if( !d_conflict ){
     if( d_regions_map.find( n )==d_regions_map.end() ){
-      if( options::ufssTotality() ){
-        if( options::ufssTotalityEager() ){
-          //must generate totality axioms for every cardinality we have allocated thus far
-          for( std::map< int, Node >::iterator it = d_cardinality_literal.begin(); it != d_cardinality_literal.end(); ++it ){
+      if( options::ufssTotalityEager() ){
+        //must generate totality axioms for every cardinality we have allocated thus far
+        for( std::map< int, Node >::iterator it = d_cardinality_literal.begin(); it != d_cardinality_literal.end(); ++it ){
+          if( applyTotality( it->first ) ){
             addTotalityAxiom( n, it->first, &d_th->getOutputChannel() );
           }
+        }
+      }
+      if( options::ufssTotality() ){
+        //regions map will store whether we need to equate this term with a constant equivalence class
+        if( std::find( d_totality_terms[0].begin(), d_totality_terms[0].end(), n )==d_totality_terms[0].end() ){
           d_regions_map[n] = 0;
         }else{
-          //regions map will store whether we need to equate this term with a constant equivalence class
-          if( std::find( d_cardinality_term.begin(), d_cardinality_term.end(), n )==d_cardinality_term.end() ){
-            d_regions_map[n] = 0;
-          }else{
-            d_regions_map[n] = -1;
-          }
+          d_regions_map[n] = -1;
         }
       }else{
         if( !options::ufssRegions() ){
@@ -453,12 +451,10 @@ void StrongSolverTheoryUf::SortRepModel::newEqClass( Node n ){
 void StrongSolverTheoryUf::SortRepModel::merge( Node a, Node b ){
   if( !d_conflict ){
     if( options::ufssTotality() ){
-      if( !options::ufssTotalityEager() ){
-        if( d_regions_map[b]==-1 ){
-          d_regions_map[a] = -1;
-        }
-        d_regions_map[b] = -1;
+      if( d_regions_map[b]==-1 ){
+        d_regions_map[a] = -1;
       }
+      d_regions_map[b] = -1;
     }else{
       //Assert( a==d_th->d_equalityEngine.getRepresentative( a ) );
       //Assert( b==d_th->d_equalityEngine.getRepresentative( b ) );
@@ -567,12 +563,13 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
       }
       return;
     }else{
-      if( options::ufssTotality() ){
+      if( applyTotality( d_cardinality ) ){
+        //if we are applying totality to this cardinality
         if( !options::ufssTotalityEager() ){
           //add totality axioms for all nodes that have not yet been equated to cardinality terms
           if( level==Theory::EFFORT_FULL ){
             for( NodeIntMap::iterator it = d_regions_map.begin(); it != d_regions_map.end(); ++it ){
-              if( d_regions_map[ (*it).first ]!=-1 ){
+              if( !options::ufssTotality() || d_regions_map[ (*it).first ]!=-1 ){
                 addTotalityAxiom( (*it).first, d_cardinality, &d_th->getOutputChannel() );
               }
             }
@@ -653,7 +650,9 @@ Node StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
 }
 
 bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryModel* m ){
-  if( !options::ufssTotality() ){
+  if( options::ufssTotality() ){
+    //do nothing
+  }else{
     if( m ){
 #if 0
       // ensure that the constructed model is minimal
@@ -666,7 +665,7 @@ bool StrongSolverTheoryUf::SortRepModel::minimize( OutputChannel* out, TheoryMod
             //we must ensure that this equivalence class has been accounted for
             if( d_regions_map.find( eqc )==d_regions_map.end() ){
               //split on unaccounted for term and cardinality lemma term (as default)
-              Node splitEq = eqc.eqNode( d_cardinality_term[0] );
+              Node splitEq = eqc.eqNode( d_cardinality_term );
               splitEq = Rewriter::rewrite( splitEq );
               Trace("uf-ss-minimize") << "Last chance minimize : " << splitEq << std::endl;
               out->split( splitEq );
@@ -771,6 +770,19 @@ void StrongSolverTheoryUf::SortRepModel::assertCardinality( OutputChannel* out, 
         }
       }
     }else{
+      if( options::ufssModelInference() ){
+        //check if we are at decision level 0
+        if( d_th->d_valuation.getAssertionLevel()==0 ){
+          Trace("uf-ss-mi") << "We have proved that no models of size " << c << " exist." << std::endl;
+          Trace("uf-ss-mi") << "  # Clique lemmas : " << d_cliques[c].size() << std::endl;
+          if( d_cliques[c].size()==1 ){
+            if( d_totality_terms[c+1].empty() ){
+              Trace("uf-ss-mi") << "*** Establish model" << std::endl;
+              //d_totality_terms[c+1].insert( d_totality_terms[c].begin(), d_cliques[c][0].begin(), d_cliques[c][0].end() );
+            }
+          }
+        }
+      }
       //see if we need to request a new cardinality
       if( !d_hasCard ){
         bool needsCard = true;
@@ -910,18 +922,18 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
       std::stringstream ss;
       ss << "_c_" << d_aloc_cardinality;
       Node var = NodeManager::currentNM()->mkVar( ss.str(), d_type );
-      d_cardinality_term.push_back( var );
+      d_totality_terms[0].push_back( var );
       Trace("mkVar") << "allocateCardinality, mkVar : " << var << " : " << d_type << std::endl;
       //must be distinct from all other cardinality terms
-      for( int i=0; i<(int)(d_cardinality_term.size()-1); i++ ){
-        Node lem = NodeManager::currentNM()->mkNode( NOT, var.eqNode( d_cardinality_term[i] ) );
+      for( int i=0; i<(int)(d_totality_terms[0].size()-1); i++ ){
+        Node lem = NodeManager::currentNM()->mkNode( NOT, var.eqNode( d_totality_terms[0][i] ) );
         d_th->getOutputChannel().lemma( lem );
       }
     }
 
     //add splitting lemma for cardinality constraint
-    Assert( !d_cardinality_term.empty() );
-    Node lem = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_term[0],
+    Assert( !d_cardinality_term.isNull() );
+    Node lem = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_term,
                                                  NodeManager::currentNM()->mkConst( Rational( d_aloc_cardinality ) ) );
     lem = Rewriter::rewrite(lem);
     d_cardinality_literal[ d_aloc_cardinality ] = lem;
@@ -936,7 +948,7 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
     //out->propagateAsDecision( lem[0] );
     d_th->getStrongSolver()->d_statistics.d_max_model_size.maxAssign( d_aloc_cardinality );
 
-    if( options::ufssTotality() && options::ufssTotalityEager() ){
+    if( applyTotality( d_aloc_cardinality ) && options::ufssTotalityEager() ){
       //must send totality axioms for each existing term
       for( NodeIntMap::iterator it = d_regions_map.begin(); it != d_regions_map.end(); ++it ){
         addTotalityAxiom( (*it).first, d_aloc_cardinality, &d_th->getOutputChannel() );
@@ -997,7 +1009,7 @@ void StrongSolverTheoryUf::SortRepModel::addCliqueLemma( std::vector< Node >& cl
   while( clique.size()>size_t(d_cardinality+1) ){
     clique.pop_back();
   }
-  if( Trace.isOn("uf-ss-cliques") ){
+  if( options::ufssModelInference() || Trace.isOn("uf-ss-cliques") ){
     std::vector< Node > clique_vec;
     clique_vec.insert( clique_vec.begin(), clique.begin(), clique.end() );
     d_cliques[ d_cardinality ].push_back( clique_vec );
@@ -1100,7 +1112,7 @@ void StrongSolverTheoryUf::SortRepModel::addTotalityAxiom( Node n, int cardinali
   Node cardLit = d_cardinality_literal[ cardinality ];
   std::vector< Node > eqs;
   for( int i=0; i<cardinality; i++ ){
-    eqs.push_back( n.eqNode( d_cardinality_term[i] ) );
+    eqs.push_back( n.eqNode( getTotalityLemmaTerm( cardinality, i ) ) );
   }
   Node ax = NodeManager::currentNM()->mkNode( OR, eqs );
   Node lem = NodeManager::currentNM()->mkNode( IMPLIES, cardLit, ax );
@@ -1108,6 +1120,20 @@ void StrongSolverTheoryUf::SortRepModel::addTotalityAxiom( Node n, int cardinali
   //send as lemma to the output channel
   d_th->getOutputChannel().lemma( lem );
   ++( d_th->getStrongSolver()->d_statistics.d_totality_lemmas );
+}
+
+/** apply totality */
+bool StrongSolverTheoryUf::SortRepModel::applyTotality( int cardinality ){
+  return options::ufssTotality() || ( options::ufssModelInference() && !d_totality_terms[cardinality].empty() );
+}
+
+/** get totality lemma terms */
+Node StrongSolverTheoryUf::SortRepModel::getTotalityLemmaTerm( int cardinality, int i ){
+  if( options::ufssTotality() ){
+    return d_totality_terms[0][i];
+  }else{
+    return d_totality_terms[cardinality][i];
+  }
 }
 
 void StrongSolverTheoryUf::SortRepModel::debugPrint( const char* c ){

@@ -239,7 +239,9 @@ public:
     /** maximum allocated cardinality */
     int d_aloc_cardinality;
     /** cardinality lemma term */
-    std::vector< Node > d_cardinality_term;
+    Node d_cardinality_term;
+    /** cardinality totality terms */
+    std::map< int, std::vector< Node > > d_totality_terms;
     /** cardinality literals */
     std::map< int, Node > d_cardinality_literal;
     /** cardinality lemmas */
@@ -250,6 +252,11 @@ public:
     context::CDO< bool > d_hasCard;
     /** clique lemmas that have been asserted */
     std::map< int, std::vector< std::vector< Node > > > d_cliques;
+  private:
+    /** apply totality */
+    bool applyTotality( int cardinality );
+    /** get totality lemma terms */
+    Node getTotalityLemmaTerm( int cardinality, int i );
   public:
     SortRepModel( Node n, context::Context* c, TheoryUF* th );
     virtual ~SortRepModel(){}

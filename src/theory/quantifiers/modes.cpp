@@ -1,8 +1,8 @@
 /*********************                                                        */
-/*! \file literal_match_mode.cpp
+/*! \file inst_when_mode.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
+ ** Major contributors: ajreynol
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
@@ -18,9 +18,30 @@
  **/
 
 #include <iostream>
-#include "theory/quantifiers/literal_match_mode.h"
+#include "theory/quantifiers/modes.h"
 
 namespace CVC4 {
+
+std::ostream& operator<<(std::ostream& out, theory::quantifiers::InstWhenMode mode) {
+  switch(mode) {
+  case theory::quantifiers::INST_WHEN_PRE_FULL:
+    out << "INST_WHEN_PRE_FULL";
+    break;
+  case theory::quantifiers::INST_WHEN_FULL:
+    out << "INST_WHEN_FULL";
+    break;
+  case theory::quantifiers::INST_WHEN_FULL_LAST_CALL:
+    out << "INST_WHEN_FULL_LAST_CALL";
+    break;
+  case theory::quantifiers::INST_WHEN_LAST_CALL:
+    out << "INST_WHEN_LAST_CALL";
+    break;
+  default:
+    out << "InstWhenMode!UNKNOWN";
+  }
+
+  return out;
+}
 
 std::ostream& operator<<(std::ostream& out, theory::quantifiers::LiteralMatchMode mode) {
   switch(mode) {
@@ -40,4 +61,23 @@ std::ostream& operator<<(std::ostream& out, theory::quantifiers::LiteralMatchMod
   return out;
 }
 
+std::ostream& operator<<(std::ostream& out, theory::quantifiers::AxiomInstMode mode) {
+  switch(mode) {
+  case theory::quantifiers::AXIOM_INST_MODE_DEFAULT:
+    out << "AXIOM_INST_MODE_DEFAULT";
+    break;
+  case theory::quantifiers::AXIOM_INST_MODE_TRUST:
+    out << "AXIOM_INST_MODE_TRUST";
+    break;
+  case theory::quantifiers::AXIOM_INST_MODE_PRIORITY:
+    out << "AXIOM_INST_MODE_PRIORITY";
+    break;
+  default:
+    out << "AxiomInstMode!UNKNOWN";
+  }
+
+  return out;
+}
+
 }/* CVC4 namespace */
+
