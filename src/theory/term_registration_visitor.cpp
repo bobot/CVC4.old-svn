@@ -17,6 +17,7 @@
 
 #include "theory/term_registration_visitor.h"
 #include "theory/theory_engine.h"
+#include "theory/quantifiers/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -197,9 +198,14 @@ bool SharedTermsVisitor::alreadyVisited(TNode current, TNode parent) const {
       TypeNode type = current.getType();
       typeTheoryId = Theory::theoryOf(type);
       if (typeTheoryId != currentTheoryId) {
-        Cardinality card = type.getCardinality();
-        if (card.isFinite()) {
+        if (options::finiteModelFind() && type.isSort()) {
+          // We're looking for finite models
           useType = true;
+        } else {
+          Cardinality card = type.getCardinality();
+          if (card.isFinite()) {
+            useType = true;
+          }
         }
       }
     }
@@ -250,9 +256,14 @@ void SharedTermsVisitor::visit(TNode current, TNode parent) {
       TypeNode type = current.getType();
       typeTheoryId = Theory::theoryOf(type);
       if (typeTheoryId != currentTheoryId) {
-        Cardinality card = type.getCardinality();
-        if (card.isFinite()) {
+        if (options::finiteModelFind() && type.isSort()) {
+          // We're looking for finite models
           useType = true;
+        } else {
+          Cardinality card = type.getCardinality();
+          if (card.isFinite()) {
+            useType = true;
+          }
         }
       }
     }
