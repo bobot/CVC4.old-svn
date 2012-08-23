@@ -311,6 +311,12 @@ public:
    */
   Expr getSelector(std::string name) const;
 
+  /**
+   * Get whether this datatype involves an external type.  If so,
+   * then we will pose additional requirements for sharing.
+   */
+  bool involvesExternalType() const;
+
 };/* class DatatypeConstructor */
 
 /**
@@ -365,7 +371,7 @@ public:
  *    list[T] = cons(car : T, cdr : list[T]) | null,
  *    tree = node(children : list[tree]) | leaf
  *  END;
- * 
+ *
  * Here, the definition of the parametric datatype list, where T is a type variable.
  * In other words, this defines a family of types list[C] where C is any concrete
  * type.  Datatypes can be parameterized over multiple type variables using the
@@ -556,6 +562,12 @@ public:
    * This Datatype must be resolved.
    */
   Expr getConstructor(std::string name) const;
+
+  /**
+   * Get whether this datatype involves an external type.  If so,
+   * then we will pose additional requirements for sharing.
+   */
+  bool involvesExternalType() const;
 
 };/* class Datatype */
 

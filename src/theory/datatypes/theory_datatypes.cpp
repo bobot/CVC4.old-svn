@@ -561,10 +561,12 @@ void TheoryDatatypes::addTester( Node t, EqcInfo* eqc, Node n ){
     int ttindex = Datatype::indexOf( tt.getOperator().toExpr() );
     Node j, jt;
     if( hasLabel( eqc, n ) ){
+      //if we already know the constructor type, check whether it is in conflict or redundant
       int jtindex = getLabelIndex( eqc, n );
       if( (jtindex==ttindex)!=tpolarity ){
         d_conflict = true;
         if( !eqc->d_constructor.get().isNull() ){
+          //conflict because equivalence class contains a constructor
           std::vector< TNode > assumptions;
           explain( t, assumptions );
           explain( eqc->d_constructor.get().eqNode( tt[0] ), assumptions );
@@ -573,6 +575,7 @@ void TheoryDatatypes::addTester( Node t, EqcInfo* eqc, Node n ){
           d_out->conflict( d_conflictNode );
           return;
         }else{
+          //conflict because the existing label is contradictory
           j = getLabel( n );
           jt = j;
         }
@@ -580,6 +583,7 @@ void TheoryDatatypes::addTester( Node t, EqcInfo* eqc, Node n ){
         return;
       }
     }else{
+      //otherwise, scan list of labels
       NodeListMap::iterator lbl_i = d_labels.find( n );
       Assert( lbl_i != d_labels.end() );
       NodeList* lbl = (*lbl_i).second;
@@ -618,6 +622,7 @@ void TheoryDatatypes::addTester( Node t, EqcInfo* eqc, Node n ){
               }
             }
             Assert( testerIndex!=-1 );
+            //we must explain why each term in the set of testers for this equivalence class is equal
             std::vector< Node > eq_terms;
             NodeBuilder<> nb(kind::AND);
             for( NodeList::const_iterator i = lbl->begin(); i != lbl->end(); i++ ) {
@@ -676,14 +681,15 @@ void TheoryDatatypes::collectModelInfo( TheoryModel* m, bool fullModel ){
   printModelDebug( "dt-model" );
   m->assertEqualityEngine( &d_equalityEngine );
   //must choose proper representatives
-  // for each equivalence class, specify the constructor as a representative
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
+    //for all equivalence classes that are datatypes
     if( eqc.getType().isDatatype() ){
       EqcInfo* ei = getOrMakeEqcInfo( eqc );
       if( ei ){
         if( !ei->d_constructor.get().isNull() ){
+          //specify that we should use the constructor as the representative
           m->assertRepresentative( ei->d_constructor.get() );
         }else{
           Trace("model-warn") << "WARNING: Datatypes: no constructor in equivalence class " << eqc << std::endl;
@@ -704,12 +710,14 @@ void TheoryDatatypes::collectTerms( Node n ) {
     collectTerms( n[i] );
   }
   if( n.getKind() == APPLY_CONSTRUCTOR ){
+    //we must take into account subterm relation when checking for cycles
     for( int i=0; i<(int)n.getNumChildren(); i++ ) {
       Debug("datatypes-cycles") << "DtCyc: Subterm " << n << " -> " << n[i] << endl;
       bool result = d_cycle_check.addEdgeNode( n, n[i] );
       d_hasSeenCycle.set( d_hasSeenCycle.get() || result );
     }
   }else if( n.getKind() == APPLY_SELECTOR ){
+    //we must also record which selectors exist
     Debug("datatypes") << "  Found selector " << n << endl;
     if (n.getType().isBoolean()) {
       d_equalityEngine.addTriggerPredicate( n );
@@ -726,10 +734,10 @@ void TheoryDatatypes::collectTerms( Node n ) {
 }
 
 void TheoryDatatypes::processNewTerm( Node n ){
-  d_newTerms.push_back( n );
   Trace("dt-terms") << "Created term : " << n << std::endl;
   //see if it is rewritten to be something different
   Node rn = Rewriter::rewrite( n );
+  //d_newTerms.push_back( rn );
   if( rn!=n ){
     Node eq = rn.eqNode( n );
     d_pending.push_back( eq );
@@ -870,33 +878,30 @@ bool TheoryDatatypes::mustCommunicateFact( Node n, Node exp ){
   //  (2) Label : ~is_C1( t ) ... ~is_C{i-1}( t ) ~is_C{i+1}( t ) ... ~is_Cn( t ) => is_Ci( t )
   //  (3) Instantiate : is_C( t ) => t = C( sel_1( t ) ... sel_n( t ) )
   //We may need to communicate (3) outwards if the conclusions involve other theories
-  if( n.getKind()==EQUAL && exp.getKind()!=EQUAL  ){
+  Trace("dt-lemma-debug") << "Compute for " << exp << " => " << n << std::endl;
+  if( n.getKind()==EQUAL && n[1].getKind()==APPLY_CONSTRUCTOR && exp.getKind()!=EQUAL  ){
+    bool addLemma = false;
 #if 1
-    Assert( n[0].getKind()!=APPLY_CONSTRUCTOR );
-    Assert( n[1].getKind()==APPLY_CONSTRUCTOR );
+    const Datatype& dt = ((DatatypeType)(n[1].getType()).toType()).getDatatype();
+    addLemma = dt.involvesExternalType();
+#else
     for( int j=0; j<(int)n[1].getNumChildren(); j++ ){
       if( !n[1][j].getType().isDatatype() ){
-        //check if we have already added this lemma
-        if( std::find( d_inst_lemmas[ n[0] ].begin(), d_inst_lemmas[ n[0] ].end(), n[1] )==d_inst_lemmas[ n[0] ].end() ){
-          d_inst_lemmas[ n[0] ].push_back( n[1] );
-          return true;
-        }else{
-          return false;
-        }
-      }
-    }
-    Trace("dt-lemma-debug") << "Do not need to communicate " << n << std::endl;
-#else
-    for( int i=0; i<2; i++ ){
-      if( n.getKind()==APPLY_CONSTRUCTOR ){
-        for( int j=0; j<(int)n[i].getNumChildren(); j++ ){
-          if( !n[i][j].getType().isDatatype() ){
-            return true;
-          }
-        }
+        addLemma = true;
+        break;
       }
     }
 #endif
+    if( addLemma ){
+      //check if we have already added this lemma
+      if( std::find( d_inst_lemmas[ n[0] ].begin(), d_inst_lemmas[ n[0] ].end(), n[1] )==d_inst_lemmas[ n[0] ].end() ){
+        d_inst_lemmas[ n[0] ].push_back( n[1] );
+        return true;
+      }else{
+        return false;
+      }
+    }
+    Trace("dt-lemma-debug") << "Do not need to communicate " << n << std::endl;
   }
   return false;
 }
