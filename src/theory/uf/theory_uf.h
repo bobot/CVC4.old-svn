@@ -228,6 +228,7 @@ public:
     d_registeredPpRewrites.insert(std::make_pair(op, callback));
   }
 
+  void notifyNewTerm( Node n );
 };/* class TheoryUF */
 
 }/* CVC4::theory::uf namespace */

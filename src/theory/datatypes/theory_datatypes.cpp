@@ -215,6 +215,14 @@ void TheoryDatatypes::check(Effort e) {
     //  printModelDebug();
     //}
   }
+  /*
+  for( size_t i = 0; i<d_newTerms.size(); i++ ){
+    if( !d_conflict ){
+      d_out->notifyNewTerm( d_newTerms[i] );
+    }
+  }
+  d_newTerms.clear();
+  */
   if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ) {
     Notice() << "TheoryDatatypes::check(): done" << endl;
   }
@@ -439,7 +447,7 @@ void TheoryDatatypes::merge( Node t1, Node t2 ){
           }
         }
         if( !eqc1->d_inst && eqc2->d_inst ){
-          eqc1->d_inst.set( true );
+          eqc1->d_inst = true;
         }
         if( cons1.isNull() && !cons2.isNull() ){
           checkInst = true;
@@ -470,7 +478,7 @@ void TheoryDatatypes::merge( Node t1, Node t2 ){
         checkInst = true;
       }
       if( checkInst ){
-        checkInstantiate( eqc1, t1 );
+        instantiate( eqc1, t1 );
         if( d_conflict ){
           return;
         }
@@ -595,7 +603,7 @@ void TheoryDatatypes::addTester( Node t, EqcInfo* eqc, Node n ){
         const Datatype& dt = ((DatatypeType)(tt[0].getType()).toType()).getDatatype();
         Debug("datatypes-labels") << "Labels at " << lbl->size() << " / " << dt.getNumConstructors() << std::endl;
         if( tpolarity ){
-          checkInstantiate( eqc, n );
+          instantiate( eqc, n );
         }else{
           //check if we have reached the maximum number of testers
           // in this case, add the positive tester
@@ -712,22 +720,36 @@ void TheoryDatatypes::collectTerms( Node n ) {
     EqcInfo* eqc = getOrMakeEqcInfo( rep, true );
     if( !eqc->d_selectors ){
       eqc->d_selectors = true;
-      checkInstantiate( eqc, rep );
+      instantiate( eqc, rep );
     }
   }
 }
 
+void TheoryDatatypes::processNewTerm( Node n ){
+  d_newTerms.push_back( n );
+  Trace("dt-terms") << "Created term : " << n << std::endl;
+  //see if it is rewritten to be something different
+  Node rn = Rewriter::rewrite( n );
+  if( rn!=n ){
+    Node eq = rn.eqNode( n );
+    d_pending.push_back( eq );
+    d_pending_exp[ eq ] = NodeManager::currentNM()->mkConst( true );
+    Trace("datatypes-infer") << "DtInfer : " << eq << ", trivial" << std::endl;
+    d_infer.push_back( eq );
+  }
+}
+
 Node TheoryDatatypes::getInstantiateCons( Node n, const Datatype& dt, int index ){
-  if( !d_inst_map[n][index].isNull() ){
-    return d_inst_map[n][index];
-  }else{
+  //if( !d_inst_map[n][index].isNull() ){
+  //  return d_inst_map[n][index];
+  //}else{
     //add constructor to equivalence class
     std::vector< Node > children;
     children.push_back( Node::fromExpr( dt[index].getConstructor() ) );
     for( int i=0; i<(int)dt[index].getNumArgs(); i++ ){
       Node nc = NodeManager::currentNM()->mkNode( APPLY_SELECTOR, Node::fromExpr( dt[index][i].getSelector() ), n );
-      Trace("dt-terms") << "Created term : " << nc << std::endl;
       children.push_back( nc );
+      processNewTerm( nc );
     }
     Node n_ic = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
     collectTerms( n_ic );
@@ -743,12 +765,12 @@ Node TheoryDatatypes::getInstantiateCons( Node n, const Datatype& dt, int index 
       n_ic = NodeManager::currentNM()->mkNode( APPLY_CONSTRUCTOR, children );
       Assert( n_ic.getType()==n.getType() );
     }
-    d_inst_map[n][index] = n_ic;
+    //d_inst_map[n][index] = n_ic;
     return n_ic;
-  }
+  //}
 }
 
-void TheoryDatatypes::checkInstantiate( EqcInfo* eqc, Node n ){
+void TheoryDatatypes::instantiate( EqcInfo* eqc, Node n ){
   //add constructor to equivalence class if not done so already
   if( hasLabel( eqc, n ) && !eqc->d_inst ){
     Node exp;
@@ -849,6 +871,7 @@ bool TheoryDatatypes::mustCommunicateFact( Node n, Node exp ){
   //  (3) Instantiate : is_C( t ) => t = C( sel_1( t ) ... sel_n( t ) )
   //We may need to communicate (3) outwards if the conclusions involve other theories
   if( n.getKind()==EQUAL && exp.getKind()!=EQUAL  ){
+#if 1
     Assert( n[0].getKind()!=APPLY_CONSTRUCTOR );
     Assert( n[1].getKind()==APPLY_CONSTRUCTOR );
     for( int j=0; j<(int)n[1].getNumChildren(); j++ ){
@@ -863,6 +886,17 @@ bool TheoryDatatypes::mustCommunicateFact( Node n, Node exp ){
       }
     }
     Trace("dt-lemma-debug") << "Do not need to communicate " << n << std::endl;
+#else
+    for( int i=0; i<2; i++ ){
+      if( n.getKind()==APPLY_CONSTRUCTOR ){
+        for( int j=0; j<(int)n[i].getNumChildren(); j++ ){
+          if( !n[i][j].getType().isDatatype() ){
+            return true;
+          }
+        }
+      }
+    }
+#endif
   }
   return false;
 }

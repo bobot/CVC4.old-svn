@@ -47,6 +47,8 @@ private:
   typedef context::CDHashMap<Node, NodeList*, NodeHashFunction> NodeListMap;
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 
+  std::vector< Node > d_newTerms;
+
   /** transitive closure to record equivalence/subterm relation.  */
   TransitiveClosureNode d_cycle_check;
   /** has seen cycle */
@@ -222,8 +224,10 @@ private:
   void collectTerms( Node n );
   /** get instantiate cons */
   Node getInstantiateCons( Node n, const Datatype& dt, int index );
+  /** process new term that was created internally */
+  void processNewTerm( Node n );
   /** check instantiate */
-  void checkInstantiate( EqcInfo* eqc, Node n );
+  void instantiate( EqcInfo* eqc, Node n );
   /** must specify model
     *  This returns true when the datatypes theory is expected to specify the constructor
     *  type for all equivalence classes.

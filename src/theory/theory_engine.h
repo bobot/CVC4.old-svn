@@ -277,6 +277,9 @@ class TheoryEngine {
     void handleUserAttribute( const char* attr, theory::Theory* t ){
       d_engine->handleUserAttribute( attr, t );
     }
+    void notifyNewTerm( Node n ){
+      d_engine->notifyNewTerm( n );
+    }
   };/* class TheoryEngine::EngineOutputChannel */
 
   /**
@@ -706,8 +709,10 @@ public:
     */
   void handleUserAttribute( const char* attr, theory::Theory* t );
 
-
+  //AJR-hacks
+  void notifyNewTerm( Node n );
   void printBenchmark();
+  //AJR-hacks-end
 };/* class TheoryEngine */
 
 }/* CVC4 namespace */
