@@ -549,12 +549,3 @@ Node TheoryUF::ppRewrite(TNode node) {
   }
 }
 
-void TheoryUF::notifyNewTerm( Node n ){
-  if( options::finiteModelFind() ){
-    if( !d_equalityEngine.hasTerm( n ) ){
-      Trace("notify-new-term") << "UF notified of term " << n << std::endl;
-      preRegisterTerm( n );
-    }
-  }
-}
-

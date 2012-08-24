@@ -47,8 +47,6 @@ private:
   typedef context::CDHashMap<Node, NodeList*, NodeHashFunction> NodeListMap;
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 
-  std::vector< Node > d_newTerms;
-
   /** transitive closure to record equivalence/subterm relation.  */
   TransitiveClosureNode d_cycle_check;
   /** has seen cycle */
@@ -163,7 +161,6 @@ private:
   std::vector< Node > d_pending;
   std::map< Node, Node > d_pending_exp;
   std::vector< Node > d_pending_merge;
-  std::map< Node, bool > d_pendingAsLemma;
 private:
   /** assert fact */
   void assertFact( Node fact, Node exp );

@@ -788,8 +788,6 @@ public:
     return d_sharedTerms.end();
   }
 
-  //AJR-hack
-  virtual void notifyNewTerm( Node n ) {}
 };/* class Theory */
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level);

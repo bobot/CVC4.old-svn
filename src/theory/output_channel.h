@@ -217,11 +217,6 @@ public:
     */
   virtual void handleUserAttribute( const char* attr, Theory* t ){}
 
-  //hack
-  /**
-    *  notify new term
-    */
-  virtual void notifyNewTerm( Node n ){}
 };/* class OutputChannel */
 
 }/* CVC4::theory namespace */

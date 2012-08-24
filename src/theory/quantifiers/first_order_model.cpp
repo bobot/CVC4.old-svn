@@ -100,8 +100,7 @@ Node FirstOrderModel::getInterpretedValue( TNode n ){
     if( d_uf_model_tree.find( n )!=d_uf_model_tree.end() ){
       if( d_uf_models.find( n )==d_uf_models.end() ){
         //use the model tree to generate the model
-        Node fn = d_uf_model_tree[n].getFunctionValue();
-        d_uf_models[n] = uf::UfModelTree::toIte( type, fn, "$x" );
+        d_uf_models[n] = d_uf_model_tree[n].getFunctionValue( "$x" );
       }
       return d_uf_models[n];
     }

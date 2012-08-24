@@ -1340,17 +1340,6 @@ void TheoryEngine::handleUserAttribute( const char* attr, Theory* t ){
 
 ////AJR-hacks....
 
-void TheoryEngine::notifyNewTerm( Node n ){
-  preRegister( n );
-
-  for (TheoryId theoryId = THEORY_FIRST; theoryId < THEORY_LAST; ++theoryId) {
-    Theory* theory = d_theoryTable[theoryId];
-    if (theory && d_logicInfo.isTheoryEnabled(theoryId)) {
-      theory->notifyNewTerm( n );
-    }
-  }
-}
-
 void TheoryEngine::printBenchmark(){
   int cardinality = options::arithHeuristicPivots(); //hack
   Trace("random-benchmark") << std::endl;

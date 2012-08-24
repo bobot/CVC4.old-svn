@@ -215,14 +215,7 @@ void TheoryDatatypes::check(Effort e) {
     //  printModelDebug();
     //}
   }
-  /*
-  for( size_t i = 0; i<d_newTerms.size(); i++ ){
-    if( !d_conflict ){
-      d_out->notifyNewTerm( d_newTerms[i] );
-    }
-  }
-  d_newTerms.clear();
-  */
+
   if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ) {
     Notice() << "TheoryDatatypes::check(): done" << endl;
   }
@@ -737,7 +730,6 @@ void TheoryDatatypes::processNewTerm( Node n ){
   Trace("dt-terms") << "Created term : " << n << std::endl;
   //see if it is rewritten to be something different
   Node rn = Rewriter::rewrite( n );
-  //d_newTerms.push_back( rn );
   if( rn!=n ){
     Node eq = rn.eqNode( n );
     d_pending.push_back( eq );
@@ -803,7 +795,6 @@ void TheoryDatatypes::instantiate( EqcInfo* eqc, Node n ){
         Debug("datatypes-inst") << "DtInstantiate : " << eqc << " " << eq << std::endl;
         d_pending.push_back( eq );
         d_pending_exp[ eq ] = exp;
-        //d_pendingAsLemma[ eq ] = true;
         Trace("datatypes-infer") << "DtInfer : " << eq << " by " << exp << std::endl;
         //eqc->d_inst.set( eq );
         d_infer.push_back( eq );
@@ -865,11 +856,9 @@ bool TheoryDatatypes::searchForCycle( Node n, Node on,
 }
 
 bool TheoryDatatypes::mustSpecifyModel(){
-#if 0
-  return options::finiteModelFind() || options::produceModels();
-#else
-  return false;
-#endif
+  return options::produceModels();
+  //return options::finiteModelFind() || options::produceModels();
+  //return false;
 }
 
 bool TheoryDatatypes::mustCommunicateFact( Node n, Node exp ){

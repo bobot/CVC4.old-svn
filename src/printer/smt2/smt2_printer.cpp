@@ -308,14 +308,6 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     // TODO user patterns
     break;
 
-  //function models
-  case kind::FUNCTION_MODEL:
-    break;
-  case kind::FUNCTION_CASE_SPLIT:
-    break;
-  case kind::FUNCTION_CASE:
-    out << "if ";
-    break;
   default:
     // fall back on however the kind prints itself; this probably
     // won't be SMT-LIB v2 compliant, but it will be clear from the

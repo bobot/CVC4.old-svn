@@ -330,8 +330,7 @@ Node DefaultModel::getInterpretedValue( TNode n ){
         }
         ufmt.setDefaultValue( this, default_v );
         ufmt.simplify();
-        Node fn = ufmt.getFunctionValue();
-        d_uf_models[n] = uf::UfModelTree::toIte( type, fn, "$x" );
+        d_uf_models[n] = ufmt.getFunctionValue( "$x" );
       }
       return d_uf_models[n];
     }else{

@@ -105,8 +105,6 @@ public:
 
   void handleUserAttribute( const char* attr, theory::Theory* t ){}
 
-  void notifyNewTerm( Node n ){}
-
   void clear() {
     d_callHistory.clear();
   }

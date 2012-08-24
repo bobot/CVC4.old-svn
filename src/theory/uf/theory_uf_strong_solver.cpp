@@ -641,7 +641,7 @@ Node StrongSolverTheoryUf::SortRepModel::getNextDecisionRequest(){
       Node cn = d_cardinality_literal[ i ];
       Assert( !cn.isNull() );
       if( d_cardinality_assertions.find( cn )==d_cardinality_assertions.end() ){
-        Trace("uf-ss-prop-as-dec") << "Propagate as decision " << d_type << " " << i << std::endl;
+        Trace("uf-ss-dec") << "Propagate as decision " << d_type << " " << i << std::endl;
         return cn;
       }
     }
@@ -749,7 +749,7 @@ void StrongSolverTheoryUf::SortRepModel::setSplitScore( Node n, int s ){
 
 void StrongSolverTheoryUf::SortRepModel::assertCardinality( OutputChannel* out, int c, bool val ){
   if( !d_conflict ){
-    Trace("uf-ss-assert") << "Assert cardinality " << d_type << " " << c << " " << val << std::endl;
+    Trace("uf-ss-assert") << "Assert cardinality " << d_type << " " << c << " " << val << " level = " << d_th->d_valuation.getAssertionLevel() << std::endl;
     Assert( d_cardinality_literal.find( c )!=d_cardinality_literal.end() );
     d_cardinality_assertions[ d_cardinality_literal[c] ] = val;
     if( val ){
