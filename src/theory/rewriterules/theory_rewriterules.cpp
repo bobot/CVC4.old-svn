@@ -526,7 +526,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
 
   if ( compute_opt && !rule->body_match.empty() ){
 
-    uf::TheoryUF* uf = static_cast<uf::TheoryUF *>(getQuantifiersEngine()->getTheoryEngine()->getTheory( theory::THEORY_UF ));
+    uf::TheoryUF* uf = static_cast<uf::TheoryUF *>(getQuantifiersEngine()->getTheoryEngine()->theoryOf( theory::THEORY_UF ));
     eq::EqualityEngine* ee =
       static_cast<eq::EqualityEngine*>(uf->getEqualityEngine());
 
@@ -592,8 +592,15 @@ void TheoryRewriteRules::collectModelInfo( TheoryModel* m, bool fullModel ){
 }
 
 Theory::PPAssertStatus TheoryRewriteRules::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
-  addRewriteRule(in);
-  d_ppAssert_on = true;
+  //TODO: here add only to the rewriterules database for ppRewrite,
+  //and not for the general one. Otherwise rewriting that occur latter
+  //on this rewriterules will be lost. But if the rewriting of the
+  //body is not done in "in", will it be done latter after
+  //substitution? Perhaps we should add the rewriterules to the
+  //database for ppRewrite also after the subtitution at the levvel of check
+
+  // addRewriteRule(in);
+  // d_ppAssert_on = true;
   return PP_ASSERT_STATUS_UNSOLVED;
 }
 

@@ -313,7 +313,6 @@ Node InstantiatorTheoryArith::getTableauxValue( ArithVar v, bool minus_delta ){
   return mkRationalNode(qmodel);
 }
 
-
 InstantiatorTheoryArith::Statistics::Statistics():
   d_instantiations("InstantiatorTheoryArith::Instantiations_Total", 0),
   d_instantiations_minus("InstantiatorTheoryArith::Instantiations_minus_delta", 0)

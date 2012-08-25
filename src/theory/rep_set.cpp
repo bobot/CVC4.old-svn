@@ -93,6 +93,7 @@ void RepSetIterator::setQuantifier( Node f ){
 }
 
 void RepSetIterator::setFunctionDomain( Node op ){
+  Assert( d_types.empty() );
   TypeNode tn = op.getType();
   for( size_t i=0; i<tn.getNumChildren()-1; i++ ){
     d_types.push_back( tn[i] );
@@ -111,7 +112,7 @@ void RepSetIterator::initialize(){
     TypeNode tn = d_types[i];
     if( tn.isSort() ){
       if( !d_rep_set->hasType( tn ) ){
-        Node var = NodeManager::currentNM()->mkVar( tn );
+        Node var = NodeManager::currentNM()->mkSkolem( tn );
         Trace("mkVar") << "RepSetIterator:: Make variable " << var << " : " << tn << std::endl;
         d_rep_set->add( var );
       }

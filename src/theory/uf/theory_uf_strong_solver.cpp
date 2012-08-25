@@ -921,7 +921,7 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
       //must generate new cardinality lemma term
       std::stringstream ss;
       ss << "_c_" << d_aloc_cardinality;
-      Node var = NodeManager::currentNM()->mkVar( ss.str(), d_type );
+      Node var = NodeManager::currentNM()->mkSkolem( ss.str(), d_type );
       d_totality_terms[0].push_back( var );
       Trace("mkVar") << "allocateCardinality, mkVar : " << var << " : " << d_type << std::endl;
       //must be distinct from all other cardinality terms
@@ -1294,6 +1294,7 @@ void StrongSolverTheoryUf::InfRepModel::getRepresentatives( std::vector< Node >&
     }
   }
 }
+
 
 /** add split function */
 bool StrongSolverTheoryUf::InfRepModel::addSplit( OutputChannel* out ){

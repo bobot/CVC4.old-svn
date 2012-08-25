@@ -87,7 +87,7 @@ void ModelEngine::check( Theory::Effort e ){
         }else{
           Trace("model-engine-debug") << "Verify uf ss is minimal..." << std::endl;
           //let the strong solver verify that the model is minimal
-          uf::StrongSolverTheoryUf* uf_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->getTheory( THEORY_UF ))->getStrongSolver();
+          uf::StrongSolverTheoryUf* uf_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->theoryOf( THEORY_UF ))->getStrongSolver();
           //we will try to minimize with the strong solver in case there are terms
           //  the strong solver was not notified of in the model
           if( uf_ss->minimize( fm ) ){

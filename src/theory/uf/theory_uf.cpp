@@ -211,7 +211,7 @@ void TheoryUF::collectModelInfo( TheoryModel* m, bool fullModel ){
         ss << Expr::setlanguage(options::outputLanguage());
         ss << "$t_" << tn << (type_count[tn]+1);
         type_count[tn]++;
-        Node rep = NodeManager::currentNM()->mkVar( ss.str(), tn );
+        Node rep = NodeManager::currentNM()->mkSkolem( ss.str(), tn );
         Trace("mkVar") << "TheoryUF::collectModelInfo:  make variable " << rep << " : " << tn << std::endl;
         //specify the constant as the representative
         m->assertEquality( eqc, rep, true );

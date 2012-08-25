@@ -601,10 +601,11 @@ bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
 void TheoryEngine::collectModelInfo( theory::TheoryModel* m, bool fullModel ){
   //have shared term engine collectModelInfo
   d_sharedTerms.collectModelInfo( m, fullModel );
-  //consult each theory to get all relevant information concerning the model
-  for( int i=0; i<theory::THEORY_LAST; i++ ){
-    if( d_theoryTable[i] ){
-      d_theoryTable[i]->collectModelInfo( m, fullModel );
+  // Consult each active theory to get all relevant information
+  // concerning the model.
+  for(TheoryId theoryId = theory::THEORY_FIRST; theoryId < theory::THEORY_LAST; ++theoryId) {
+    if(d_logicInfo.isTheoryEnabled(theoryId)) {
+      d_theoryTable[theoryId]->collectModelInfo( m, fullModel );
     }
   }
 }
@@ -715,6 +716,16 @@ void TheoryEngine::shutdown() {
 theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitutionOut) {
   TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << endl;
+
+  if(! d_logicInfo.isTheoryEnabled(Theory::theoryOf(atom)) &&
+     Theory::theoryOf(atom) != THEORY_SAT_SOLVER) {
+    stringstream ss;
+    ss << "The logic was specified as " << d_logicInfo.getLogicString()
+       << ", which doesn't include " << Theory::theoryOf(atom)
+       << ", but got an asserted fact to that theory";
+    throw Exception(ss.str());
+  }
+
   Theory::PPAssertStatus solveStatus = theoryOf(atom)->ppAssert(literal, substitutionOut);
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << endl;
   return solveStatus;
@@ -792,6 +803,15 @@ Node TheoryEngine::preprocess(TNode assertion) {
     if (find != d_ppCache.end()) {
       toVisit.pop_back();
       continue;
+    }
+
+    if(! d_logicInfo.isTheoryEnabled(Theory::theoryOf(current)) &&
+       Theory::theoryOf(current) != THEORY_SAT_SOLVER) {
+      stringstream ss;
+      ss << "The logic was specified as " << d_logicInfo.getLogicString()
+         << ", which doesn't include " << Theory::theoryOf(current)
+         << ", but got an asserted fact to that theory";
+      throw Exception(ss.str());
     }
 
     // If this is an atom, we preprocess its terms with the theory ppRewriter
@@ -875,6 +895,14 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
   Trace("theory::assertToTheory") << "TheoryEngine::assertToTheory(" << assertion << ", " << toTheoryId << ", " << fromTheoryId << ")" << std::endl;
 
   Assert(toTheoryId != fromTheoryId);
+  if(! d_logicInfo.isTheoryEnabled(toTheoryId) &&
+     toTheoryId != THEORY_SAT_SOLVER) {
+    stringstream ss;
+    ss << "The logic was specified as " << d_logicInfo.getLogicString()
+       << ", which doesn't include " << toTheoryId
+       << ", but got an asserted fact to that theory";
+    throw Exception(ss.str());
+  }
 
   if (d_inConflict) {
     return;
@@ -914,7 +942,7 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
 
   // If sending to the shared terms database, it's also simple
   if (toTheoryId == THEORY_BUILTIN) {
-    Assert(atom.getKind() == kind::EQUAL);
+    Assert(atom.getKind() == kind::EQUAL, "atom should be an EQUALity, not `%s'", atom.toString().c_str());
     if (markPropagation(assertion, assertion, toTheoryId, fromTheoryId)) {
       d_sharedTerms.assertEquality(atom, polarity, assertion);
     }
@@ -1448,7 +1476,7 @@ void TheoryEngine::printBenchmark(){
     for( int i=0; i<cardinality; i++ ){
       std::stringstream ss;
       ss << "_c_" << i;
-      Node rep = NodeManager::currentNM()->mkVar( ss.str(), universalSorts[0] );
+      Node rep = NodeManager::currentNM()->mkSkolem( ss.str(), universalSorts[0] );
       rs.add( rep );
       defineFuns.push_back( rep );
     }
