@@ -78,14 +78,12 @@ option fmfInstEngine --fmf-inst-engine bool :default false
  use instantiation engine in conjunction with finite model finding
 option fmfRelevantDomain --fmf-relevant-domain bool :default false
  use relevant domain computation, similar to complete instantiation (Ge, deMoura 09)
-option fmfExhAxioms /--disable-fmf-ei-axioms bool :default true
- disable exhaustive instantiation on axioms until no other instantiations can be found
 option fmfInstGen /--disable-fmf-inst-gen bool :default true
  disable Inst-Gen instantiation techniques for finite model finding
 option fmfInstGenOneQuantPerRound --fmf-inst-gen-one-quant-per-round bool :default false
  only perform Inst-Gen instantiation techniques on one quantifier per round
 
-#option axiomInstMode --axiom-inst=MODE CVC4::theory::quantifiers::AxiomInstMode :default CVC4::theory::quantifiers::AXIOM_INST_MODE_DEFAULT :include "theory/quantifiers/modes.h" :handler CVC4::theory::quantifiers::stringToAxiomInstMode :handler-include "theory/quantifiers/options_handlers.h"
-# policy for instantiating axioms
+option axiomInstMode --axiom-inst=MODE CVC4::theory::quantifiers::AxiomInstMode :default CVC4::theory::quantifiers::AXIOM_INST_MODE_DEFAULT :include "theory/quantifiers/modes.h" :handler CVC4::theory::quantifiers::stringToAxiomInstMode :handler-include "theory/quantifiers/options_handlers.h"
+ policy for instantiating axioms
 
 endmodule
