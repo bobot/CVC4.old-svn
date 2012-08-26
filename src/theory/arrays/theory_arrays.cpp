@@ -76,6 +76,7 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_sharedOther(c),
   d_sharedTerms(c, false),
   d_reads(c),
+  d_decisionRequests(c),
   d_permRef(c)
 {
   StatisticsRegistry::registerStat(&d_numRow);
@@ -693,7 +694,7 @@ void TheoryArrays::check(Effort e) {
             TNode k;
             std::hash_map<TNode, Node, TNodeHashFunction>::iterator it = d_diseqCache.find(fact);
             if (it == d_diseqCache.end()) {
-              Node newk = nm->mkVar(indexType);
+              Node newk = nm->mkSkolem(indexType);
 	      Dump.declareVar(newk.toExpr(),
                               "an extensional lemma index variable from the theory of arrays");
               d_diseqCache[fact] = newk;
@@ -1082,7 +1083,6 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b)
   Trace("arrays-crl")<<"Arrays::checkLemmas done.\n";
 }
 
-
 void TheoryArrays::queueRowLemma(RowLemmaType lem)
 {
   if (d_conflict || d_RowAlreadyAdded.count(lem) != 0) {
@@ -1148,8 +1148,7 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
 
   // Prefer equality between indexes so as not to introduce new read terms
   if (d_eagerIndexSplitting && !bothExist && !d_equalityEngine.areDisequal(i,j, false)) {
-    Node split = d_valuation.ensureLiteral(i.eqNode(j));
-    d_out->propagateAsDecision(split);
+    d_decisionRequests.push(i.eqNode(j));
   }
 
   // TODO: maybe add triggers here
@@ -1211,6 +1210,17 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
   }
   else {
     d_RowQueue.push(lem);
+  }
+}
+
+
+Node TheoryArrays::getNextDecisionRequest() {
+  if(! d_decisionRequests.empty()) {
+    Node n = d_valuation.ensureLiteral(d_decisionRequests.front());
+    d_decisionRequests.pop();
+    return n;
+  } else {
+    return Node::null();
   }
 }
 

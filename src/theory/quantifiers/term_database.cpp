@@ -104,7 +104,7 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
                 addedLemmas += d_ith->d_op_triggers[op][i]->addTerm( n );
               }
               //Message() << "Terms, added lemmas: " << addedLemmas << std::endl;
-              d_quantEngine->flushLemmas( &d_quantEngine->getTheoryEngine()->getTheory( THEORY_QUANTIFIERS )->getOutputChannel() );
+              d_quantEngine->flushLemmas( &d_quantEngine->getTheoryEngine()->theoryOf( THEORY_QUANTIFIERS )->getOutputChannel() );
             }
           }
         }
@@ -198,7 +198,7 @@ Node TermDb::getModelBasisTerm( TypeNode tn, int i ){
       std::stringstream ss;
       ss << Expr::setlanguage(options::outputLanguage());
       ss << "e_" << tn;
-      mbt = NodeManager::currentNM()->mkVar( ss.str(), tn );
+      mbt = NodeManager::currentNM()->mkSkolem( ss.str(), tn );
     }else{
       mbt = d_type_map[ tn ][ 0 ];
     }
@@ -342,7 +342,7 @@ Node TermDb::getFreeVariableForInstConstant( Node n ){
       d_free_vars[tn] = NodeManager::currentNM()->mkConst( z );
     }else{
       if( d_type_map[ tn ].empty() ){
-        d_free_vars[tn] = NodeManager::currentNM()->mkVar( tn );
+        d_free_vars[tn] = NodeManager::currentNM()->mkSkolem( tn );
       }else{
         d_free_vars[tn] = d_type_map[ tn ][ 0 ];
       }

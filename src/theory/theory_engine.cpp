@@ -69,8 +69,6 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_propagationMapTimestamp(context, 0),
   d_propagatedLiterals(context),
   d_propagatedLiteralsIndex(context, 0),
-  d_decisionRequests(context),
-  d_decisionRequestsIndex(context, 0),
   d_combineTheoriesTime("TheoryEngine::combineTheoriesTime"),
   d_inPreregister(false),
   d_factsAsserted(context, false),
@@ -285,7 +283,7 @@ void TheoryEngine::check(Theory::Effort effort) {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
     if (theory::TheoryTraits<THEORY>::hasCheck && d_logicInfo.isTheoryEnabled(THEORY)) { \
-       reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->check(effort); \
+       theoryOf(THEORY)->check(effort); \
        if (d_inConflict) { \
          break; \
        } \
@@ -392,7 +390,7 @@ void TheoryEngine::combineTheories() {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
   if (theory::TheoryTraits<THEORY>::isParametric && d_logicInfo.isTheoryEnabled(THEORY)) { \
-     reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->getCareGraph(careGraph); \
+    theoryOf(THEORY)->getCareGraph(careGraph); \
   }
 
   // Call on each parametric theory to give us its care graph
@@ -456,7 +454,7 @@ void TheoryEngine::propagate(Theory::Effort effort) {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
   if (theory::TheoryTraits<THEORY>::hasPropagate && d_logicInfo.isTheoryEnabled(THEORY)) { \
-    reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->propagate(effort); \
+    theoryOf(THEORY)->propagate(effort); \
   }
 
   // Propagate for each theory using the statement above
@@ -476,6 +474,25 @@ void TheoryEngine::propagate(Theory::Effort effort) {
       }
     }
   }
+}
+
+Node TheoryEngine::getNextDecisionRequest() {
+  // Definition of the statement that is to be run by every theory
+#ifdef CVC4_FOR_EACH_THEORY_STATEMENT
+#undef CVC4_FOR_EACH_THEORY_STATEMENT
+#endif
+#define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
+  if (theory::TheoryTraits<THEORY>::hasGetNextDecisionRequest && d_logicInfo.isTheoryEnabled(THEORY)) { \
+    Node n = theoryOf(THEORY)->getNextDecisionRequest(); \
+    if(! n.isNull()) { \
+      return n; \
+    } \
+  }
+
+  // Request decision from each theory using the statement above
+  CVC4_FOR_EACH_THEORY;
+
+  return TNode();
 }
 
 bool TheoryEngine::properConflict(TNode conflict) const {
@@ -544,10 +561,11 @@ bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
 }
 
 void TheoryEngine::collectModelInfo( theory::TheoryModel* m ){
-  //consult each theory to get all relevant information concerning the model
-  for( int i=0; i<theory::THEORY_LAST; i++ ){
-    if( d_theoryTable[i] ){
-      d_theoryTable[i]->collectModelInfo( m );
+  // Consult each active theory to get all relevant information
+  // concerning the model.
+  for(TheoryId theoryId = theory::THEORY_FIRST; theoryId < theory::THEORY_LAST; ++theoryId) {
+    if(d_logicInfo.isTheoryEnabled(theoryId)) {
+      d_theoryTable[theoryId]->collectModelInfo(m);
     }
   }
 }
@@ -573,7 +591,7 @@ bool TheoryEngine::presolve() {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
     if (theory::TheoryTraits<THEORY>::hasPresolve) { \
-      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->presolve(); \
+      theoryOf(THEORY)->presolve(); \
       if(d_inConflict) { \
         return true; \
       } \
@@ -597,7 +615,7 @@ void TheoryEngine::postsolve() {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
     if (theory::TheoryTraits<THEORY>::hasPostsolve) { \
-      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->postsolve(); \
+      theoryOf(THEORY)->postsolve(); \
       Assert(! d_inConflict, "conflict raised during postsolve()"); \
     }
 
@@ -616,7 +634,7 @@ void TheoryEngine::notifyRestart() {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
   if (theory::TheoryTraits<THEORY>::hasNotifyRestart && d_logicInfo.isTheoryEnabled(THEORY)) { \
-    reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->notifyRestart(); \
+    theoryOf(THEORY)->notifyRestart(); \
   }
 
   // notify each theory using the statement above
@@ -630,8 +648,8 @@ void TheoryEngine::ppStaticLearn(TNode in, NodeBuilder<>& learned) {
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-  if (theory::TheoryTraits<THEORY>::hasStaticLearning) { \
-    reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->ppStaticLearn(in, learned); \
+  if (theory::TheoryTraits<THEORY>::hasPpStaticLearn) { \
+    theoryOf(THEORY)->ppStaticLearn(in, learned); \
   }
 
   // static learning for each theory using the statement above
@@ -658,6 +676,16 @@ void TheoryEngine::shutdown() {
 theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitutionOut) {
   TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << endl;
+
+  if(! d_logicInfo.isTheoryEnabled(Theory::theoryOf(atom)) &&
+     Theory::theoryOf(atom) != THEORY_SAT_SOLVER) {
+    stringstream ss;
+    ss << "The logic was specified as " << d_logicInfo.getLogicString()
+       << ", which doesn't include " << Theory::theoryOf(atom)
+       << ", but got an asserted fact to that theory";
+    throw Exception(ss.str());
+  }
+
   Theory::PPAssertStatus solveStatus = theoryOf(atom)->ppAssert(literal, substitutionOut);
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << endl;
   return solveStatus;
@@ -735,6 +763,15 @@ Node TheoryEngine::preprocess(TNode assertion) {
     if (find != d_ppCache.end()) {
       toVisit.pop_back();
       continue;
+    }
+
+    if(! d_logicInfo.isTheoryEnabled(Theory::theoryOf(current)) &&
+       Theory::theoryOf(current) != THEORY_SAT_SOLVER) {
+      stringstream ss;
+      ss << "The logic was specified as " << d_logicInfo.getLogicString()
+         << ", which doesn't include " << Theory::theoryOf(current)
+         << ", but got an asserted fact to that theory";
+      throw Exception(ss.str());
     }
 
     // If this is an atom, we preprocess its terms with the theory ppRewriter
@@ -818,6 +855,14 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
   Trace("theory::assertToTheory") << "TheoryEngine::assertToTheory(" << assertion << ", " << toTheoryId << ", " << fromTheoryId << ")" << std::endl;
 
   Assert(toTheoryId != fromTheoryId);
+  if(! d_logicInfo.isTheoryEnabled(toTheoryId) &&
+     toTheoryId != THEORY_SAT_SOLVER) {
+    stringstream ss;
+    ss << "The logic was specified as " << d_logicInfo.getLogicString()
+       << ", which doesn't include " << toTheoryId
+       << ", but got an asserted fact to that theory";
+    throw Exception(ss.str());
+  }
 
   if (d_inConflict) {
     return;
@@ -857,7 +902,7 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
 
   // If sending to the shared terms database, it's also simple
   if (toTheoryId == THEORY_BUILTIN) {
-    Assert(atom.getKind() == kind::EQUAL);
+    Assert(atom.getKind() == kind::EQUAL, "atom should be an EQUALity, not `%s'", atom.toString().c_str());
     if (markPropagation(assertion, assertion, toTheoryId, fromTheoryId)) {
       d_sharedTerms.assertEquality(atom, polarity, assertion);
     }
@@ -1026,16 +1071,6 @@ bool TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
   return !d_inConflict;
 }
 
-
-void TheoryEngine::propagateAsDecision(TNode literal, theory::TheoryId theory) {
-  Debug("theory") << "EngineOutputChannel::propagateAsDecision(" << literal << ", " << theory << ")" << std::endl;
-
-  d_propEngine->checkTime();
-
-  Assert(d_propEngine->isSatLiteral(literal.getKind() == kind::NOT ? literal[0] : literal), "OutputChannel::propagateAsDecision() requires a SAT literal (or negation of one)");
-
-  d_decisionRequests.push_back(literal);
-}
 
 theory::EqualityStatus TheoryEngine::getEqualityStatus(TNode a, TNode b) {
   Assert(a.getType().isComparableTo(b.getType()));

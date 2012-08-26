@@ -610,7 +610,12 @@ mainCommand[CVC4::Command*& cmd]
   | OPTION_TOK
     ( str[s] | IDENTIFIER { s = AntlrInput::tokenText($IDENTIFIER); } )
     symbolicExpr[sexpr]
-    { cmd = new SetOptionCommand(s, sexpr); }
+    { if(s == "logic") {
+        cmd = new SetBenchmarkLogicCommand(sexpr.getValue());
+      } else {
+        cmd = new SetOptionCommand(s, sexpr);
+      }
+    }
 
     /* push / pop */
   | PUSH_TOK ( k=numeral { cmd = REPEAT_COMMAND(k, PushCommand()); }
@@ -1249,14 +1254,14 @@ prefixFormula[CVC4::Expr& f]
     { PARSER_STATE->pushScope(); } LPAREN
     boundVarDecl[ids,t]
     { for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
-        bvs.push_back(PARSER_STATE->mkVar(*i, t));
+        bvs.push_back(PARSER_STATE->mkBoundVar(*i, t));
       }
       ids.clear();
     }
     ( COMMA boundVarDecl[ids,t]
       {
         for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
-          bvs.push_back(PARSER_STATE->mkVar(*i, t));
+          bvs.push_back(PARSER_STATE->mkBoundVar(*i, t));
         }
         ids.clear();
       }

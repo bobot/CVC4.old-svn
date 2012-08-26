@@ -80,11 +80,6 @@ void AstPrinter::toStream(std::ostream& out, TNode n,
 
   // variable
   if(n.getMetaKind() == kind::metakind::VARIABLE) {
-    if(n.getKind() != kind::VARIABLE &&
-       n.getKind() != kind::SORT_TYPE) {
-      out << n.getKind() << ':';
-    }
-
     string s;
     if(n.getAttribute(expr::VarNameAttr(), s)) {
       out << s;
@@ -288,7 +283,10 @@ static void toStream(std::ostream& out, const SimplifyCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const GetValueCommand* c) throw() {
-  out << "GetValue( << " << c->getTerm() << " >> )";
+  out << "GetValue( << ";
+  const vector<Expr>& terms = c->getTerms();
+  copy(terms.begin(), terms.end(), ostream_iterator<Expr>(out, ", "));
+  out << " >> )";
 }
 
 static void toStream(std::ostream& out, const GetAssignmentCommand* c) throw() {

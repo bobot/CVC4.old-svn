@@ -283,19 +283,7 @@ command returns [CVC4::Command* cmd = NULL]
   | /* value query */
     GET_VALUE_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     LPAREN_TOK termList[terms,expr] RPAREN_TOK
-    { if(terms.size() == 1) {
-        $cmd = new GetValueCommand(terms[0]);
-      } else {
-        CommandSequence* seq = new CommandSequence();
-        for(std::vector<Expr>::const_iterator i = terms.begin(),
-              iend = terms.end();
-            i != iend;
-            ++i) {
-          seq->addCommand(new GetValueCommand(*i));
-        }
-        $cmd = seq;
-      }
-    }
+    { $cmd = new GetValueCommand(terms); }
   | /* get-assignment */
     GET_ASSIGNMENT_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { cmd = new GetAssignmentCommand; }
@@ -419,7 +407,7 @@ rewriterulesCommand[CVC4::Command*& cmd]
             sortedVarNames.begin(), iend = sortedVarNames.end();
           i != iend;
           ++i) {
-        args.push_back(PARSER_STATE->mkVar((*i).first, (*i).second));
+        args.push_back(PARSER_STATE->mkBoundVar((*i).first, (*i).second));
       }
       bvl = MK_EXPR(kind::BOUND_VAR_LIST, args);
     }
@@ -460,7 +448,7 @@ rewriterulesCommand[CVC4::Command*& cmd]
             sortedVarNames.begin(), iend = sortedVarNames.end();
           i != iend;
           ++i) {
-        args.push_back(PARSER_STATE->mkVar((*i).first, (*i).second));
+        args.push_back(PARSER_STATE->mkBoundVar((*i).first, (*i).second));
       }
       bvl = MK_EXPR(kind::BOUND_VAR_LIST, args);
     }
@@ -609,7 +597,7 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
             sortedVarNames.begin(), iend = sortedVarNames.end();
           i != iend;
           ++i) {
-        args.push_back(PARSER_STATE->mkVar((*i).first, (*i).second));
+        args.push_back(PARSER_STATE->mkBoundVar((*i).first, (*i).second));
       }
       Expr bvl = MK_EXPR(kind::BOUND_VAR_LIST, args);
       args.clear();
