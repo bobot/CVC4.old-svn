@@ -90,7 +90,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_quantEngine = new QuantifiersEngine(context, this);
 
   //build model information if applicable
-  d_curr_model = new theory::DefaultModel( context, "DefaultModel", false );
+  d_curr_model = new theory::DefaultModel( context, "DefaultModel", true );
   d_curr_model_builder = new theory::TheoryEngineModelBuilder( this );
 
   Rewriter::init();
@@ -728,6 +728,16 @@ theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMa
 
   Theory::PPAssertStatus solveStatus = theoryOf(atom)->ppAssert(literal, substitutionOut);
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << endl;
+  //must add substitutions to model
+  theory::TheoryModel* m = getModel();
+  if( m ){
+    for( SubstitutionMap::iterator pos = substitutionOut.begin(); pos != substitutionOut.end(); ++pos) {
+      Node n = (*pos).first;
+      Node v = (*pos).second;
+      Trace("model") << "Add substitution : " << n << " " << v << std::endl;
+      m->addSubstitution( n, v );
+    }
+  }
   return solveStatus;
 }
 

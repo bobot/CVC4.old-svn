@@ -29,16 +29,16 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 TheoryModel::TheoryModel( context::Context* c, std::string name ) :
-d_equalityEngine( c, name ){
+d_substitutions( c ), d_equalityEngine( c, name ){
   d_true = NodeManager::currentNM()->mkConst( true );
   d_false = NodeManager::currentNM()->mkConst( false );
   // The kinds we are treating as function application in congruence
-  //d_equalityEngine.addFunctionKind(kind::APPLY_UF);
-  //d_equalityEngine.addFunctionKind(kind::SELECT);
-  //d_equalityEngine.addFunctionKind(kind::STORE);
-  //d_equalityEngine.addFunctionKind(kind::APPLY_CONSTRUCTOR);
-  //d_equalityEngine.addFunctionKind(kind::APPLY_SELECTOR);
-  //d_equalityEngine.addFunctionKind(kind::APPLY_TESTER);
+  d_equalityEngine.addFunctionKind(kind::APPLY_UF);
+  d_equalityEngine.addFunctionKind(kind::SELECT);
+  d_equalityEngine.addFunctionKind(kind::STORE);
+  d_equalityEngine.addFunctionKind(kind::APPLY_CONSTRUCTOR);
+  d_equalityEngine.addFunctionKind(kind::APPLY_SELECTOR);
+  d_equalityEngine.addFunctionKind(kind::APPLY_TESTER);
 }
 
 void TheoryModel::reset(){
@@ -66,18 +66,18 @@ void TheoryModel::toStream( std::ostream& out ){
   //need this function?
 }
 
-Node TheoryModel::getValue( TNode n ){
-  Debug("model") << "TheoryModel::getValue " << n << std::endl;
+Node TheoryModel::getModelValue( TNode n ){
+  Trace("model") << "TheoryModel::getModelValue " << n << std::endl;
 
   //// special case: prop engine handles boolean vars
   //if(metakind == kind::metakind::VARIABLE && n.getType().isBoolean()) {
-  //  Debug("model") << "-> Propositional variable." << std::endl;
+  //  Trace("model") << "-> Propositional variable." << std::endl;
   //  return d_te->getPropEngine()->getValue( n );
   //}
 
   // special case: value of a constant == itself
   if( n.isConst() ) {
-    Debug("model") << "-> Constant." << std::endl;
+    Trace("model") << "-> Constant." << std::endl;
     return n;
   }
 
@@ -90,7 +90,7 @@ Node TheoryModel::getValue( TNode n ){
     }
     //evaluate the children
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      Node val = getValue( n[i] );
+      Node val = getModelValue( n[i] );
       Debug("model-debug") << i << " : " << n[i] << " -> " << val << std::endl;
       Assert( !val.isNull() );
       children.push_back( val );
@@ -105,13 +105,20 @@ Node TheoryModel::getValue( TNode n ){
 
   // special case: value of a constant == itself
   if( nn.isConst() ) {
-    Debug("model") << "-> Theory-interpreted term." << std::endl;
+    Trace("model") << "-> Theory-interpreted term." << std::endl;
     return nn;
   }else{
-    Debug("model") << "-> Model-interpreted term." << std::endl;
+    Trace("model") << "-> Model-interpreted term." << std::endl;
     //otherwise, get the interpreted value in the model
     return getInterpretedValue( nn );
   }
+}
+
+Node TheoryModel::getValue( TNode n ){
+  //apply substitutions
+  Node nn = d_substitutions.apply( n );
+  //get value in model
+  return getModelValue( nn );
 }
 
 Node TheoryModel::getDomainValue( TypeNode tn, std::vector< Node >& exclude ){
@@ -126,7 +133,7 @@ Node TheoryModel::getDomainValue( TypeNode tn, std::vector< Node >& exclude ){
   return Node::null();
 }
 
-//FIXME: use the theory enumerator to generate constants here
+//FIXME: need to ensure that theory enumerators exist for each sort
 Node TheoryModel::getNewDomainValue( TypeNode tn ){
 #if 1
   if( tn==NodeManager::currentNM()->booleanType() ){
@@ -179,6 +186,11 @@ Node TheoryModel::getNewDomainValue( TypeNode tn ){
     return Node::null();
   }
 #endif
+}
+
+/** add substitution */
+void TheoryModel::addSubstitution( TNode x, TNode t, bool invalidateCache ){
+  d_substitutions.addSubstitution( x, t, invalidateCache );
 }
 
 /** assert equality */
@@ -326,6 +338,7 @@ Node DefaultModel::getInterpretedValue( TNode n ){
           default_v = v;
         }
         if( default_v.isNull() ){
+          //choose default value from model if none exists
           default_v = getInterpretedValue( NodeManager::currentNM()->mkSkolem( type.getRangeType() ) );
         }
         ufmt.setDefaultValue( this, default_v );
@@ -337,24 +350,31 @@ Node DefaultModel::getInterpretedValue( TNode n ){
       return n;
     }
   }else{
+    Trace("model") << "Get interpreted value of " << n << std::endl;
+    //add term to equality engine, this will enforce a value if it exists
+    d_equalityEngine.addTerm( n );
     //first, see if the representative is defined
-    if( d_equalityEngine.hasTerm( n ) ){
-      n = d_equalityEngine.getRepresentative( n );
-      //this check is required since d_equalityEngine.hasTerm( n )
-      // does not ensure that n is in an equivalence class in d_equalityEngine
-      if( d_reps.find( n )!=d_reps.end() ){
-        return d_reps[n];
-      }
+    n = d_equalityEngine.getRepresentative( n );
+    //this check is required since d_equalityEngine.hasTerm( n )
+    // does not ensure that n is in an equivalence class in d_equalityEngine
+    if( d_reps.find( n )!=d_reps.end() ){
+      return d_reps[n];
     }
     //second, try to choose an existing term as value
+    Trace("model") << "Choose existing value..." << std::endl;
     std::vector< Node > v_emp;
     Node n2 = getDomainValue( type, v_emp );
     if( !n2.isNull() ){
+      //store the equality??   this is dangerous since it may cause representatives to change
+      //assertEquality( n, n2, true );
       return n2;
     }else{
       //otherwise, choose new value
+      Trace("model") << "Choose new value..." << std::endl;
       n2 = getNewDomainValue( type );
       if( !n2.isNull() ){
+        //store the equality??
+        //assertEquality( n, n2, true );
         return n2;
       }else{
         //otherwise, just return itself (this usually should not happen)
@@ -398,7 +418,7 @@ void TheoryEngineModelBuilder::buildModel( Model* m, bool fullModel ){
             Trace("model-builder") << "Rep( " << eqc << " ) = " << tm->d_reps[n] << std::endl;
             assertedReps[ eqc ] = tm->d_reps[n];
           }else{
-            if( n!=assertedReps[eqc] ){   //FIXME : this should be an assertion, EqClassIterator should not give duplicates
+            if( n!=assertedReps[eqc] ){   //FIXME : this should be an assertion (EqClassIterator should not give duplicates)
               //duplicate representative specified
               Trace("model-warn") << "Duplicate representative specified for equivalence class " << eqc << ": " << std::endl;
               Trace("model-warn") << "      " << assertedReps[eqc] << ", " << n << std::endl;
@@ -440,14 +460,14 @@ void TheoryEngineModelBuilder::buildModel( Model* m, bool fullModel ){
     normalizeRepresentative( tm, it->first, assertedReps, normalized, normalizing );
   }
   Trace("model-builder") << "Copy representatives to model..." << std::endl;
-  //assertedReps has the actual representatives we will use, now copy back to model
+  //assertedReps has the actual representatives we will use, now copy to model
   tm->d_reps.clear();
   for( std::map< Node, Node >::iterator it = assertedReps.begin(); it != assertedReps.end(); ++it ){
     tm->d_reps[ it->first ] = it->second;
     tm->d_rep_set.add( it->second );
   }
 
-  //model-specific initialization
+  //modelBuilder-specific initialization
   processBuildModel( tm, fullModel );
 }
 
@@ -471,7 +491,7 @@ Node TheoryEngineModelBuilder::normalizeRepresentative( TheoryModel* m, Node r, 
     //Message() << " -> already normalized, return " << reps[r] << std::endl;
     return reps[r];
   }else if( normalizing.find( r )!=normalizing.end() && normalizing[r] ){
-    //TODO: this case is only temporary to handle things like when store( A, e, i ) is given
+    //this case is to handle things like when store( A, e, i ) is given
     //       as a representative for array A.
     //Message() << " -> currently normalizing, give up : " << r << std::endl;
     return r;
@@ -479,9 +499,9 @@ Node TheoryEngineModelBuilder::normalizeRepresentative( TheoryModel* m, Node r, 
     normalizing[ r ] = true;
     Node retNode = normalizeNode( m, reps[r], reps, normalized, normalizing );
     normalizing[ r ] = false;
-    //Message() << " --> returned " << retNode << " for " << r << std::endl;
     normalized[ r ] = true;
     reps[ r ] = retNode;
+    //Message() << " --> returned " << retNode << " for " << r << std::endl;
     return retNode;
   }else if( m->d_equalityEngine.hasTerm( r ) ){
     normalizing[ r ] = true;

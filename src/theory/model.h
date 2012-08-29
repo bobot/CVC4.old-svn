@@ -22,6 +22,7 @@
 #include "util/model.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/rep_set.h"
+#include "theory/substitutions.h"
 
 namespace CVC4 {
 namespace theory {
@@ -42,6 +43,8 @@ protected:
     *   such as contraining the interpretation of uninterpretted functions.
     */
   virtual void addTerm( Node n ) {}
+  /** substitution map for this model */
+  SubstitutionMap d_substitutions;
 public:
   TheoryModel( context::Context* c, std::string name );
   virtual ~TheoryModel(){}
@@ -54,7 +57,7 @@ public:
   /** true/false nodes */
   Node d_true;
   Node d_false;
-public:
+protected:
   /** reset the model */
   virtual void reset();
   /** get interpreted value
@@ -62,6 +65,10 @@ public:
     *  This should function should return a representative in d_reps
     */
   virtual Node getInterpretedValue( TNode n ) = 0;
+  /**
+   * Get model value function.  This function is called by getValue
+   */
+  Node getModelValue( TNode n );
 public:
   /**
    * Get value function.  This should be called only after a ModelBuilder has called buildModel(...)
@@ -84,6 +91,8 @@ public:
     d_rep_set.complete( tn );
   }
 public:
+  /** Adds a substitution from x to t. */
+  void addSubstitution(TNode x, TNode t, bool invalidateCache = true);
   /** assert equality holds in the model */
   void assertEquality( Node a, Node b, bool polarity );
   /** assert predicate holds in the model */

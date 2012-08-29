@@ -128,6 +128,7 @@ public:
     *   Returns a representation of this function.
     */
   Node getFunctionValue( std::vector< Node >& args ){ return d_tree.getFunctionValue( args, 0, Node::null() ); }
+  /** getFunctionValue for args with set prefix */
   Node getFunctionValue( const char* argPrefix );
   /** update
     *   This will update all values in the tree to be representatives in m.

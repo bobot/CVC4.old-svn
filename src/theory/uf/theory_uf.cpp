@@ -220,7 +220,6 @@ void TheoryUF::collectModelInfo( TheoryModel* m, bool fullModel ){
       ++eqcs_i;
     }
 #else
-    //FIXME: Uninterpretted constants are having typing rule problems
     std::map< TypeNode, TypeEnumerator* > type_enums;
     //must choose proper representatives
     // for each equivalence class, specify the constructor as a representative

@@ -1742,11 +1742,10 @@ Expr SmtEngine::getValue(const Expr& e)
     throw ModalException(msg);
   }
 
-  // Apply what was learned from preprocessing
-  Node n = d_private->applySubstitutions(e.getNode());
+  // do not need to apply preprocessing substitutions (should be recorded in model already)
 
   // Normalize for the theories
-  n = Rewriter::rewrite(n);
+  Node n = Rewriter::rewrite( e.getNode() );
 
   Trace("smt") << "--- getting value of " << n << endl;
   theory::TheoryModel* m = d_theoryEngine->getModel();
