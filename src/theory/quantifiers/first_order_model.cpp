@@ -71,7 +71,7 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
       TypeNode tn = op.getType();
       tn = tn[ (int)tn.getNumChildren()-1 ];
       //only generate models for predicates and functions with uninterpreted range types
-      if( tn==NodeManager::currentNM()->booleanType() || tn.isSort() || tn.isDatatype() ){
+      if( tn==NodeManager::currentNM()->booleanType() || tn.isSort() ){
         d_uf_model_tree[ op ] = uf::UfModelTree( op );
         d_uf_model_gen[ op ].clear();
       }
@@ -304,7 +304,7 @@ Node FirstOrderModel::evaluateTerm( Node n, int& depIndex, RepSetIterator* ri ){
       std::vector< int > children_depIndex;
       //for select, pre-process read over writes
       if( n.getKind()==SELECT ){
-#if 1
+#if 0
         //std::cout << "Evaluate " << n << std::endl;
         Node sel = evaluateTerm( n[1], depIndex, ri );
         if( sel.isNull() ){
