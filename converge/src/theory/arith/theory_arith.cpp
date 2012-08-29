@@ -80,8 +80,9 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_tableauResetPeriod(10),
   d_conflicts(c),
   d_raiseConflict(d_conflicts),
+  d_tempVarMalloc(*this),
   d_congruenceManager(c, d_constraintDatabase, d_setupLiteralCallback, d_arithvarNodeMap, d_raiseConflict),
-  d_simplex(d_linEq, d_raiseConflict),
+  d_simplex(d_linEq, d_raiseConflict, d_tempVarMalloc, d_constraintDatabase),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_congruenceManager, d_raiseConflict),
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
@@ -788,8 +789,9 @@ void TheoryArith::setupVariable(const Variable& x){
   Assert(!isSetup(n));
 
   ++(d_statistics.d_statUserVariables);
-  ArithVar varN = requestArithVar(n,false);
-  setupInitialValue(varN);
+  requestArithVar(n,false);
+  //ArithVar varN = requestArithVar(n,false);
+  //setupInitialValue(varN);
 
   markSetup(n);
 }
@@ -815,8 +817,9 @@ void TheoryArith::setupVariableList(const VarList& vl){
     d_out->setIncomplete();
 
     ++(d_statistics.d_statUserVariables);
-    ArithVar av = requestArithVar(vlNode, false);
-    setupInitialValue(av);
+    requestArithVar(vlNode, false);
+    //ArithVar av = requestArithVar(vlNode, false);
+    //setupInitialValue(av);
 
     markSetup(vlNode);
   }
@@ -850,7 +853,7 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
 
     ArithVar varSlack = requestArithVar(polyNode, true);
     d_tableau.addRow(varSlack, coefficients, variables);
-    setupInitialValue(varSlack);
+    setupBasicValue(varSlack);
 
     //Add differences to the difference manager
     Polynomial::iterator i = poly.begin(), end = poly.end();
@@ -921,37 +924,88 @@ void TheoryArith::preRegisterTerm(TNode n) {
   Debug("arith::preregister") << "end arith::preRegisterTerm("<< n <<")" << endl;
 }
 
+void TheoryArith::releaseArithVar(ArithVar v){
+  Assert(d_arithvarNodeMap.hasNode(v));
+  
+  d_constraintDatabase.removeVariable(v);
+  d_arithvarNodeMap.remove(v);
+
+  d_pool.push_back(v);
+}
 
 ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
   Assert(isLeaf(x) || x.getKind() == PLUS);
   Assert(!d_arithvarNodeMap.hasArithVar(x));
   Assert(x.getType().isReal());// real or integer
 
-  ArithVar varX = d_variables.size();
-  d_variables.push_back(Node(x));
-  Debug("integers") << "isInteger[[" << x << "]]: " << x.getType().isInteger() << endl;
+  // ArithVar varX = d_variables.size();
+  // d_variables.push_back(Node(x));
 
+  bool reclaim = !d_pool.empty();
+  ArithVar varX;
+  // Debug("integers") << "isInteger[[" << x << "]]: " << x.getType().isInteger() << endl;
+
+
+  if(reclaim){
+    varX = d_pool.back();
+    d_pool.pop_back();
+
+    d_partialModel.setAssignment(varX, d_DELTA_ZERO, d_DELTA_ZERO);
+  }else{
+    varX = d_numberOfVariables;
+    ++d_numberOfVariables;
+
+    d_slackVars.push_back(true);
+    d_variableTypes.push_back(ATReal);
+
+    d_simplex.increaseMax();
+
+    d_tableau.increaseSize();
+    d_tableauSizeHasBeenModified = true;
+
+    d_partialModel.initialize(varX, d_DELTA_ZERO);
+  }
+
+  ArithType type;
   if(slack){
     //The type computation is not quite accurate for Rationals that are integral.
     //We'll use the isIntegral check from the polynomial package instead.
     Polynomial p = Polynomial::parsePolynomial(x);
-    d_variableTypes.push_back(p.isIntegral() ? ATInteger : ATReal);
+    type = p.isIntegral() ? ATInteger : ATReal;
   }else{
-    d_variableTypes.push_back(nodeToArithType(x));
+    type = nodeToArithType(x);
   }
-
-  d_slackVars.push_back(slack);
-
-  d_simplex.increaseMax();
-
-  d_arithvarNodeMap.setArithVar(x,varX);
-
-  d_tableau.increaseSize();
-  d_tableauSizeHasBeenModified = true;
+  d_variableTypes[varX] = type;
+  d_slackVars[varX] = slack;
 
   d_constraintDatabase.addVariable(varX);
 
+  d_arithvarNodeMap.setArithVar(x,varX);
+
+  // Debug("integers") << "isInteger[[" << x << "]]: " << x.getType().isInteger() << endl;
+
+  // if(slack){
+  //   //The type computation is not quite accurate for Rationals that are integral.
+  //   //We'll use the isIntegral check from the polynomial package instead.
+  //   Polynomial p = Polynomial::parsePolynomial(x);
+  //   d_variableTypes.push_back(p.isIntegral() ? ATInteger : ATReal);
+  // }else{
+  //   d_variableTypes.push_back(nodeToArithType(x));
+  // }
+
+  // d_slackVars.push_back(slack);
+
+  // d_simplex.increaseMax();
+
+  // d_tableau.increaseSize();
+  // d_tableauSizeHasBeenModified = true;
+
+  // d_constraintDatabase.addVariable(varX);
+
   Debug("arith::arithvar") << x << " |-> " << varX << endl;
+
+  Assert(!d_partialModel.hasUpperBound(varX));
+  Assert(!d_partialModel.hasLowerBound(varX));
 
   return varX;
 }
@@ -975,7 +1029,7 @@ void TheoryArith::asVectors(const Polynomial& p, std::vector<Rational>& coeffs, 
       // The only way not to get it through pre-register is if it's a foreign term
       ++(d_statistics.d_statUserVariables);
       av = requestArithVar(n,false);
-      setupInitialValue(av);
+      //setupInitialValue(av);
     } else {
       // Otherwise, we already have it's variable
       av = d_arithvarNodeMap.asArithVar(n);
@@ -989,11 +1043,12 @@ void TheoryArith::asVectors(const Polynomial& p, std::vector<Rational>& coeffs, 
 /* Requirements:
  * For basic variables the row must have been added to the tableau.
  */
-void TheoryArith::setupInitialValue(ArithVar x){
+void TheoryArith::setupBasicValue(ArithVar x){
+  Assert(d_tableau.isBasic(x));
 
-  if(!d_tableau.isBasic(x)){
-    d_partialModel.initialize(x, d_DELTA_ZERO);
-  }else{
+  // if(!d_tableau.isBasic(x)){
+  //   d_partialModel.setAssignment(x, d_DELTA_ZERO, d_DELTA_ZERO);
+  // }else{
     //If the variable is basic, assertions may have already happened and updates
     //may have occured before setting this variable up.
 
@@ -1001,9 +1056,11 @@ void TheoryArith::setupInitialValue(ArithVar x){
     //time instead of register
     DeltaRational safeAssignment = d_linEq.computeRowValue(x, true);
     DeltaRational assignment = d_linEq.computeRowValue(x, false);
-    d_partialModel.initialize(x,safeAssignment);
-    d_partialModel.setAssignment(x,assignment);
-  }
+    //d_partialModel.initialize(x,safeAssignment);
+    //d_partialModel.setAssignment(x,assignment);
+    d_partialModel.setAssignment(x,safeAssignment,assignment);
+
+    //  }
   Debug("arith") << "setupVariable("<<x<<")"<<std::endl;
 }
 
@@ -1044,7 +1101,8 @@ Node TheoryArith::dioCutting(){
   //DO NOT TOUCH THE OUTPUTSTREAM
 
   //TODO: Improve this
-  for(ArithVar v = 0, end = d_variables.size(); v != end; ++v){
+  for(ArithVar v = 0, end = getNumberOfVariables(); v != end; ++v){
+    //  for(ArithVar v = 0, end = d_variables.size(); v != end; ++v){
     if(isInteger(v)){
       const DeltaRational& dr = d_partialModel.getAssignment(v);
       if(d_partialModel.equalsUpperBound(v, dr) || d_partialModel.equalsLowerBound(v, dr)){
@@ -1398,7 +1456,8 @@ bool TheoryArith::assertionCases(Constraint constraint){
  * If this returns true, all integer variables have an integer assignment.
  */
 bool TheoryArith::hasIntegerModel(){
-  if(d_variables.size() > 0){
+  //if(d_variables.size() > 0){
+  if(getNumberOfVariables()){
     const ArithVar rrEnd = d_nextIntegerCheckVar;
     do {
       //Do not include slack variables
@@ -1408,7 +1467,7 @@ bool TheoryArith::hasIntegerModel(){
           return false;
         }
       }
-    } while((d_nextIntegerCheckVar = (1 + d_nextIntegerCheckVar == d_variables.size() ? 0 : 1 + d_nextIntegerCheckVar)) != rrEnd);
+    } while((d_nextIntegerCheckVar = (1 + d_nextIntegerCheckVar == getNumberOfVariables() ? 0 : 1 + d_nextIntegerCheckVar)) != rrEnd);
   }
   return true;
 }
@@ -1488,7 +1547,13 @@ void TheoryArith::check(Effort effortLevel){
   bool emmittedConflictOrSplit = false;
   Assert(d_conflicts.empty());
 
-  d_qflraStatus = d_simplex.findModel(fullEffort(effortLevel));
+  //d_qflraStatus = d_simplex.dualFindModel(fullEffort(effortLevel));
+  d_qflraStatus = d_simplex.dualFindModel(false);
+  
+  if(d_qflraStatus == Result::SAT_UNKNOWN){
+    d_qflraStatus = d_simplex.primalFindModel(getSatContext());
+  }
+
   switch(d_qflraStatus){
   case Result::SAT:
     if(newFacts){
@@ -1728,7 +1793,8 @@ bool TheoryArith::splitDisequalities(){
  */
 void TheoryArith::debugPrintAssertions() {
   Debug("arith::print_assertions") << "Assertions:" << endl;
-  for (ArithVar i = 0; i < d_variables.size(); ++ i) {
+  //for (ArithVar i = 0; i < d_variables.size(); ++ i) {
+  for (ArithVar i = 0; i < getNumberOfVariables(); ++ i) {
     if (d_partialModel.hasLowerBound(i)) {
       Constraint lConstr = d_partialModel.getLowerBoundConstraint(i);
       Debug("arith::print_assertions") << lConstr << endl;
@@ -1749,12 +1815,14 @@ void TheoryArith::debugPrintAssertions() {
 void TheoryArith::debugPrintModel(){
   Debug("arith::print_model") << "Model:" << endl;
 
-  for (ArithVar i = 0; i < d_variables.size(); ++ i) {
-    Debug("arith::print_model") << d_variables[i] << " : " <<
-      d_partialModel.getAssignment(i);
-    if(d_tableau.isBasic(i))
-      Debug("arith::print_model") << " (basic)";
-    Debug("arith::print_model") << endl;
+  for (ArithVar i = 0; i < getNumberOfVariables(); ++ i) {
+    if(d_arithvarNodeMap.hasNode(i)){
+      Debug("arith::print_model") << d_arithvarNodeMap.asNode(i) << " : " <<
+	d_partialModel.getAssignment(i);
+      if(d_tableau.isBasic(i))
+	Debug("arith::print_model") << " (basic)";
+      Debug("arith::print_model") << endl;
+    }
   }
 }
 
@@ -1936,7 +2004,7 @@ void TheoryArith::collectModelInfo( TheoryModel* m ){
   // TODO:
   // This is not very good for user push/pop....
   // Revisit when implementing push/pop 
-  for(ArithVar v = 0; v < d_variables.size(); ++v){
+  for(ArithVar v = 0, end = getNumberOfVariables(); v != end; ++v){
     if(!isSlackVariable(v)){
       Node term = d_arithvarNodeMap.asNode(v);
 
@@ -2012,11 +2080,12 @@ void TheoryArith::notifyRestart(){
 bool TheoryArith::entireStateIsConsistent(const string& s){
   typedef std::vector<Node>::const_iterator VarIter;
   bool result = true;
-  for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
-    ArithVar var = d_arithvarNodeMap.asArithVar(*i);
+  for(ArithVar var = 0, end = getNumberOfVariables(); var != end; ++var){
+    //  for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
+    //ArithVar var = d_arithvarNodeMap.asArithVar(*i);
     if(!d_partialModel.assignmentIsConsistent(var)){
       d_partialModel.printModel(var);
-      Warning() << s << ":" << "Assignment is not consistent for " << var << *i;
+      Warning() << s << ":" << "Assignment is not consistent for " << var << d_arithvarNodeMap.asNode(var);
       if(d_tableau.isBasic(var)){
         Warning() << " (basic)";
       }
@@ -2030,13 +2099,14 @@ bool TheoryArith::entireStateIsConsistent(const string& s){
 bool TheoryArith::unenqueuedVariablesAreConsistent(){
   typedef std::vector<Node>::const_iterator VarIter;
   bool result = true;
-  for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
-    ArithVar var = d_arithvarNodeMap.asArithVar(*i);
+  for(ArithVar var = 0, end = getNumberOfVariables(); var != end; ++var){
+    //for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
+    //ArithVar var = d_arithvarNodeMap.asArithVar(*i);
     if(!d_partialModel.assignmentIsConsistent(var)){
       if(!d_simplex.debugIsInCollectionQueue(var)){
 
         d_partialModel.printModel(var);
-        Warning() << "Unenqueued var is not consistent for " << var << *i;
+        Warning() << "Unenqueued var is not consistent for " << var <<  d_arithvarNodeMap.asNode(var);
         if(d_tableau.isBasic(var)){
           Warning() << " (basic)";
         }
@@ -2044,7 +2114,7 @@ bool TheoryArith::unenqueuedVariablesAreConsistent(){
         result = false;
       } else if(Debug.isOn("arith::consistency::initial")){
         d_partialModel.printModel(var);
-        Warning() << "Initial var is not consistent for " << var << *i;
+        Warning() << "Initial var is not consistent for " << var <<  d_arithvarNodeMap.asNode(var);
         if(d_tableau.isBasic(var)){
           Warning() << " (basic)";
         }

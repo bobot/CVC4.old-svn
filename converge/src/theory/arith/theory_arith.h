@@ -88,7 +88,13 @@ private:
    * List of the variables in the system.
    * This is needed to keep a positive ref count on slack variables.
    */
-  std::vector<Node> d_variables;
+  //std::vector<Node> d_variables;
+
+
+  ArithVar d_numberOfVariables;
+  inline ArithVar getNumberOfVariables() const { return d_numberOfVariables; }
+  std::vector<ArithVar> d_pool;
+  void releaseArithVar(ArithVar v);
 
   /**
    * The map between arith variables to nodes.
@@ -275,6 +281,18 @@ private:
    */
   void outputConflicts();
 
+  
+  class TempVarMalloc : public ArithVarMalloc {
+  private:
+    TheoryArith& d_ta;
+  public:
+    TempVarMalloc(TheoryArith& ta) : d_ta(ta) {}
+    ArithVar request(){
+      Node skolem = mkRealSkolem();
+      return d_ta.requestArithVar(skolem, false);
+    }
+    void release(ArithVar v){ d_ta.releaseArithVar(v); }
+  } d_tempVarMalloc;
 
   /**
    * A copy of the tableau.
@@ -404,7 +422,8 @@ private:
   ArithVar requestArithVar(TNode x, bool slack);
 
   /** Initial (not context dependent) sets up for a variable.*/
-  void setupInitialValue(ArithVar x);
+  //void setupInitialValue(ArithVar x);
+  void setupBasicValue(ArithVar x);
 
   /** Initial (not context dependent) sets up for a new slack variable.*/
   void setupSlack(TNode left);

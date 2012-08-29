@@ -31,7 +31,7 @@ using namespace CVC4::theory::arith;
 
 static const bool CHECK_AFTER_PIVOT = true;
 
-SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq, NodeCallBack& conflictChannel) :
+SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq, NodeCallBack& conflictChannel, ArithVarMalloc& malloc, ConstraintDatabase& cd) :
   d_conflictVariable(ARITHVAR_SENTINEL),
   d_linEq(linEq),
   d_partialModel(d_linEq.getPartialModel()),
@@ -40,7 +40,10 @@ SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq, 
   d_numVariables(0),
   d_conflictChannel(conflictChannel),
   d_pivotsInRound(),
-  d_DELTA_ZERO(0,0)
+  d_DELTA_ZERO(0,0),
+  d_arithVarMalloc(malloc),
+  d_constraintDatabase(cd),
+  d_opt(ARITHVAR_SENTINEL)
 {
   switch(ArithHeuristicPivotRule rule = options::arithHeuristicPivotRule()) {
   case MINIMUM:
@@ -74,7 +77,27 @@ SimplexDecisionProcedure::Statistics::Statistics():
   d_weakeningSuccesses("theory::arith::weakening::success",0),
   d_weakenings("theory::arith::weakening::total",0),
   d_weakenTime("theory::arith::weakening::time"),
-  d_simplexConflicts("theory::arith::simplexConflicts",0)
+  d_simplexConflicts("theory::arith::simplexConflicts",0),
+  // primal
+  d_primalTimer("theory::arith::primalTimer"),
+  d_primalCalls("theory::arith::primal::calls",0),
+  d_primalSatCalls("theory::arith::primal::calls::sat",0),
+  d_primalUnsatCalls("theory::arith::primal::calls::unsat",0),
+  d_primalPivots("theory::arith::primal::pivots",0),
+  d_primalImprovingPivots("theory::arith::primal::pivots::improving",0),
+  d_primalThresholdReachedPivot("theory::arith::primal::thresholds",0),
+  d_primalThresholdReachedPivot_dropped("theory::arith::primal::thresholds::dropped",0),
+  d_primalReachedMaxPivots("theory::arith::primal::maxpivots",0),
+  d_primalReachedMaxPivots_contractMadeProgress("theory::arith::primal::maxpivots::contract",0),
+  d_primalReachedMaxPivots_checkForConflictWorked("theory::arith::primal::maxpivots::checkworked",0),
+  d_primalGlobalMinimum("theory::arith::primal::minimum",0),
+  d_primalGlobalMinimum_rowConflictWorked("theory::arith::primal::minimum::checkworked",0),
+  d_primalGlobalMinimum_firstHalfWasSat("theory::arith::primal::minimum::firsthalf::sat",0),
+  d_primalGlobalMinimum_firstHalfWasUnsat("theory::arith::primal::minimum::firsthalf::unsat",0),
+  d_primalGlobalMinimum_contractMadeProgress("theory::arith::primal::minimum::progress",0),
+  d_unboundedFound("theory::arith::primal::unbounded",0),
+  d_unboundedFound_drive("theory::arith::primal::unbounded::drive",0),
+  d_unboundedFound_dropped("theory::arith::primal::unbounded::dropped",0)
 {
   StatisticsRegistry::registerStat(&d_statUpdateConflicts);
 
@@ -97,6 +120,35 @@ SimplexDecisionProcedure::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_weakenTime);
 
   StatisticsRegistry::registerStat(&d_simplexConflicts);
+
+  //primal  
+  StatisticsRegistry::registerStat(&d_primalTimer);
+  StatisticsRegistry::registerStat(&d_primalCalls);
+  StatisticsRegistry::registerStat(&d_primalSatCalls);
+  StatisticsRegistry::registerStat(&d_primalUnsatCalls);
+
+  StatisticsRegistry::registerStat(&d_primalPivots);
+  StatisticsRegistry::registerStat(&d_primalImprovingPivots);
+
+  StatisticsRegistry::registerStat(&d_primalThresholdReachedPivot);
+  StatisticsRegistry::registerStat(&d_primalThresholdReachedPivot_dropped);
+    
+  StatisticsRegistry::registerStat(&d_primalReachedMaxPivots);
+  StatisticsRegistry::registerStat(&d_primalReachedMaxPivots_contractMadeProgress);
+  StatisticsRegistry::registerStat(&d_primalReachedMaxPivots_checkForConflictWorked);
+
+    
+  StatisticsRegistry::registerStat(&d_primalGlobalMinimum);
+  StatisticsRegistry::registerStat(&d_primalGlobalMinimum_rowConflictWorked);
+  StatisticsRegistry::registerStat(&d_primalGlobalMinimum_firstHalfWasSat);
+  StatisticsRegistry::registerStat(&d_primalGlobalMinimum_firstHalfWasUnsat);
+  StatisticsRegistry::registerStat(&d_primalGlobalMinimum_contractMadeProgress);
+
+  
+  StatisticsRegistry::registerStat(&d_unboundedFound);
+  StatisticsRegistry::registerStat(&d_unboundedFound_drive);
+  StatisticsRegistry::registerStat(&d_unboundedFound_dropped);
+
 }
 
 SimplexDecisionProcedure::Statistics::~Statistics(){
@@ -121,10 +173,34 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_weakenTime);
 
   StatisticsRegistry::unregisterStat(&d_simplexConflicts);
+
+  //primal
+  StatisticsRegistry::unregisterStat(&d_primalTimer);
+  StatisticsRegistry::unregisterStat(&d_primalCalls);
+  StatisticsRegistry::unregisterStat(&d_primalSatCalls);
+  StatisticsRegistry::unregisterStat(&d_primalUnsatCalls);
+
+  StatisticsRegistry::unregisterStat(&d_primalPivots);
+  StatisticsRegistry::unregisterStat(&d_primalImprovingPivots);
+
+  StatisticsRegistry::unregisterStat(&d_primalThresholdReachedPivot);
+  StatisticsRegistry::unregisterStat(&d_primalThresholdReachedPivot_dropped);
+    
+  StatisticsRegistry::unregisterStat(&d_primalReachedMaxPivots);
+  StatisticsRegistry::unregisterStat(&d_primalReachedMaxPivots_contractMadeProgress);
+  StatisticsRegistry::unregisterStat(&d_primalReachedMaxPivots_checkForConflictWorked);
+
+    
+  StatisticsRegistry::unregisterStat(&d_primalGlobalMinimum);
+  StatisticsRegistry::unregisterStat(&d_primalGlobalMinimum_rowConflictWorked);
+  StatisticsRegistry::unregisterStat(&d_primalGlobalMinimum_firstHalfWasSat);
+  StatisticsRegistry::unregisterStat(&d_primalGlobalMinimum_firstHalfWasUnsat);
+  StatisticsRegistry::unregisterStat(&d_primalGlobalMinimum_contractMadeProgress);
+
+  StatisticsRegistry::unregisterStat(&d_unboundedFound);
+  StatisticsRegistry::unregisterStat(&d_unboundedFound_drive);
+  StatisticsRegistry::unregisterStat(&d_unboundedFound_dropped);
 }
-
-
-
 
 
 
@@ -132,8 +208,8 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
 ArithVar SimplexDecisionProcedure::minVarOrder(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y){
   Assert(x != ARITHVAR_SENTINEL);
   Assert(y != ARITHVAR_SENTINEL);
-  Assert(!simp.d_tableau.isBasic(x));
-  Assert(!simp.d_tableau.isBasic(y));
+  // Assert(!simp.d_tableau.isBasic(x));
+  // Assert(!simp.d_tableau.isBasic(y));
   if(x <= y){
     return x;
   } else {
@@ -240,7 +316,7 @@ bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
   }
 }
 
-Result::Sat SimplexDecisionProcedure::findModel(bool exactResult){
+Result::Sat SimplexDecisionProcedure::dualFindModel(bool exactResult){
   Assert(d_conflictVariable == ARITHVAR_SENTINEL);
   Assert(d_queue.inCollectionMode());
 
@@ -384,6 +460,8 @@ Result::Sat SimplexDecisionProcedure::findModel(bool exactResult){
 
   // return foundConflict;
 }
+
+
 
 Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
 
@@ -592,3 +670,667 @@ Node SimplexDecisionProcedure::generateConflictBelowLowerBound(ArithVar conflict
   return weakenConflict(false, conflictVar);
 }
 
+
+// responses 
+//   unbounded below(arithvar)
+//   reached threshold
+//   reached maxpivots
+//   reached GlobalMinimum
+//   
+SimplexDecisionProcedure::PrimalResponse SimplexDecisionProcedure::primal(bool useThreshold,
+									  const DeltaRational& threshold,
+									  uint32_t maxIterations)
+{
+  Assert(d_opt != ARITHVAR_SENTINEL);
+
+  for(uint32_t iteration = 0; iteration < maxIterations; iteration++){
+    if(useThreshold && d_partialModel.getAssignment(d_opt) <= threshold){
+      return ReachedThresholdValue;
+    }
+
+    PrimalResponse res = primalCheck();
+    switch(res){
+    case GlobalMinimum:
+    case FoundUnboundedVariable:
+      return res;
+    case MakeProgressOnLeaving:
+      {
+	++d_statistics.d_primalPivots;
+	if(d_partialModel.getAssignment(d_primalCarry.d_entering) != d_primalCarry.d_nextEnteringValue){
+	  ++d_statistics.d_primalImprovingPivots;
+	}
+
+	d_linEq.pivotAndUpdate(d_primalCarry.d_entering, d_primalCarry.d_leaving, d_primalCarry.d_nextEnteringValue);
+	if(Debug.isOn("primal::tableau")){
+	  d_linEq.debugCheckTableau();
+	}
+	if(Debug.isOn("primal::consistent")){ Assert(d_linEq.debugEntireLinEqIsConsistent("MakeProgressOnLeaving")); }
+      }
+      break;
+    default:
+      Unreachable();
+    }
+  }
+  return UsedMaxPivots;
+}
+
+
+/**
+ * Error set
+ * ErrorVariable |-> {ErrorVariable, InputVariable, InputConstraint}
+ */
+
+/**
+ * Returns SAT if it was able to satisfy all of the constraints in the error set
+ * Returns UNSAT if it was able to able to find an error 
+ */
+Result::Sat SimplexDecisionProcedure::primalConverge(int depth){
+
+   while(!d_currentErrorVariables.empty()){
+     PrimalResponse res = primal(true, d_DELTA_ZERO, MAX_ITERATIONS);
+
+    switch(res){
+    case FoundUnboundedVariable:
+      
+      // Drive the variable to at least 0
+      // TODO This variable should be driven to a value that makes all of the error functions including it 0
+      // It'll or another unbounded will be selected in the next round anyways so ignore for now.
+      ++d_statistics.d_unboundedFound;
+      if( d_partialModel.getAssignment(d_opt).sgn() > 0){
+	driveOptToZero(d_primalCarry.d_unbounded);
+	d_linEq.debugCheckTableau();
+	if(Debug.isOn("primal::consistent")){ Assert(d_linEq.debugEntireLinEqIsConsistent("primalConverge")); }
+
+	++d_statistics.d_unboundedFound_drive;
+      }
+      Assert(d_partialModel.getAssignment(d_opt) <= d_DELTA_ZERO);
+      {      
+	uint32_t dropped = contractErrorVariables(true);
+	Debug("primal::converge") << "primalConverge -> FoundUnboundedVariable -> dropped " << dropped  << " to " << d_currentErrorVariables.size() << endl;
+	d_statistics.d_unboundedFound_dropped += dropped;
+      }
+      break;
+    case ReachedThresholdValue:
+      ++d_statistics.d_primalThresholdReachedPivot;
+
+      Assert( d_partialModel.getAssignment(d_opt) <= d_DELTA_ZERO);
+      {
+	uint32_t dropped = contractErrorVariables(true);
+	Debug("primal::converge") << "primalConverge -> ReachedThresholdValue -> dropped " << dropped  << " to " << d_currentErrorVariables.size() << endl;
+	d_statistics.d_primalThresholdReachedPivot_dropped += dropped;
+      }
+      break;
+    case UsedMaxPivots:
+      {
+	++d_statistics.d_primalReachedMaxPivots;
+
+	// periodically attempt to do the following : 
+	//   contract the error variable
+	//   check for a conflict on an error variable
+	uint32_t dropped = contractErrorVariables(false);
+	
+	if( checkForRowConflicts() ){ // try to periodically look for a row 
+	  Debug("primal::converge") << "primalConverge -> UsedMaxPivots -> unsat " << endl;
+
+	  ++d_statistics.d_primalReachedMaxPivots_checkForConflictWorked;
+	  return Result::UNSAT; // row conflicts are minimal so stop.
+	}
+
+	if(dropped > 0){
+	  Debug("primal::converge") << "primalConverge -> UsedMaxPivots -> dropped " << dropped  << " to " << d_currentErrorVariables.size() << endl;
+	  ++d_statistics.d_primalReachedMaxPivots_contractMadeProgress;
+	}else{
+	  Debug("primal::converge") << "primalConverge -> UsedMaxPivots -> nothing " << endl;
+	}
+      }
+      break;
+    case GlobalMinimum:
+      ++d_statistics.d_primalGlobalMinimum;
+
+      // If the minimum is positive, this is unsat.
+      // However, the optimization row is not necessarily a minimal conflict
+      if(d_partialModel.getAssignment(d_opt).sgn() > 0){
+
+	if(d_currentErrorVariables.size() == 1){
+	  // The optimization function is exactly the same as the last remaining variable
+	  // The conflict for the row is the same as the conflict for the optimization function.
+	  bool foundConflict = checkForRowConflicts();
+	  Assert(foundConflict);
+	  Debug("primal::converge") << "primalConverge -> GlobalMinimum -> one variable" << endl;
+
+	  return Result::UNSAT;
+	}else{
+	  // There are at least 2 error variables.
+	  // Look for a minimal conflict
+
+
+	  if(checkForRowConflicts() ){
+	    Debug("primal::converge") << "primalConverge -> GlobalMinimum -> postitive -> rowconflict " << endl;
+		  
+	    ++d_statistics.d_primalGlobalMinimum_rowConflictWorked;
+	    return Result::UNSAT;
+	  }
+
+	  uint32_t dropped = contractErrorVariables(false);
+	  
+	  Debug("primal::converge") << "primalConverge -> GlobalMinimum -> postitive -> dropped " << dropped  << " to " << d_currentErrorVariables.size() << endl;
+	  if(dropped > 0){
+	    ++d_statistics.d_primalGlobalMinimum_contractMadeProgress;
+	  }
+
+	  ErrorMap half;
+	  d_currentErrorVariables.splitInto(half);
+
+	  Debug("primal::converge") << "primalConverge -> GlobalMinimum -> recursion " << depth << endl;
+
+
+	  reconstructOptimizationFunction();
+	  Result::Sat resultOnRemaining = primalConverge(depth + 1);
+
+	  if(resultOnRemaining == Result::UNSAT){
+	    Debug("primal::converge") << "primalConverge -> GlobalMinimum -> recursion " << depth << " was unsat " << endl;
+	    ++d_statistics.d_primalGlobalMinimum_firstHalfWasUnsat;
+	    clearErrorVariables(half);
+	    return Result::UNSAT;
+	  }else{
+	    ++d_statistics.d_primalGlobalMinimum_firstHalfWasSat;
+	    Debug("primal::converge") << "primalConverge -> GlobalMinimum -> recursion " << depth << " was sat " << endl;
+
+	    Assert(resultOnRemaining == Result::SAT);
+	    Assert(d_currentErrorVariables.empty());
+	    d_currentErrorVariables.addAll(half);
+	    reconstructOptimizationFunction();
+	    return primalConverge(depth + 1);
+	  }
+	}
+
+      }else{
+	// if the optimum is <= 0
+	// drop all of the satisfied variables and continue;
+	uint32_t dropped = contractErrorVariables(true);
+	Debug("primal::converge") << "primalConverge -> GlobalMinimum -> negative -> dropped "<< dropped  << " to " << d_currentErrorVariables.size() << endl;
+
+	++d_statistics.d_primalGlobalMinimum_contractMadeProgress;
+      }
+      break;
+    default:
+      Unreachable();
+    }
+   }
+
+   return Result::SAT;
+}
+
+
+Result::Sat SimplexDecisionProcedure::primalFindModel(context::Context* satContext){
+  Assert(d_primalCarry.isClear());
+
+  // Reduce the queue to only contain violations
+  reduceQueue();
+
+  if(d_queue.empty()){
+    return Result::SAT;
+  }
+  TimerStat::CodeTimer codeTimer(d_statistics.d_primalTimer);
+  
+  ++d_statistics.d_primalCalls;
+
+  Debug("primalFindModel") << "primalFindModel() begin" << endl;
+
+  const int PAUSE_RATE = 100;
+  if(Debug.isOn("primal::pause") && d_statistics.d_primalCalls.getData() % PAUSE_RATE  == 0){
+    cout << "waiting for input: ";
+    std::string dummy;
+    std::getline(std::cin, dummy);
+  }
+
+  // TODO restore the tableau by ejecting variables
+  Tableau copy(d_tableau);
+
+  Result::Sat answer;
+  {
+    // This is needed because of the fiddling with the partial model
+    context::Context::ScopedPush speculativePush(satContext);
+
+    constructErrorVariables();
+    constructOptimizationFunction();
+    if(Debug.isOn("primal::tableau")){ d_linEq.debugCheckTableau(); }
+    if(Debug.isOn("primal::consistent")){ d_linEq.debugEntireLinEqIsConsistent("primalFindModel 1"); }
+    answer = primalConverge(0);
+  }
+  removeOptimizationFunction();
+
+
+  // exit
+  uint32_t nc = d_tableau.getNumColumns();
+  d_tableau = copy;
+  while(d_tableau.getNumColumns() < nc){
+    d_tableau.increaseSize();
+  }
+
+  clearErrorVariables(d_currentErrorVariables);
+
+  reduceQueue();
+
+  if(Debug.isOn("primal::tableau")){ d_linEq.debugCheckTableau(); }
+
+  if(Debug.isOn("primal::consistent")){ d_linEq.debugEntireLinEqIsConsistent("primalFindModel2"); }
+  Debug("primalFindModel") << "primalFindModel() end " << answer << endl;
+
+  // The set of variables in conflict with their bounds will still be a subset of the
+  // variables that are in conflict with their bounds in the beginning.
+  // The basic variables are the same because of the copy.
+  // Thus it is safe to not try to not recompute the queue of violating variables
+
+  if(answer == Result::UNSAT){
+    // This needs to be done in a different context level than the push
+    reportConflict(d_primalCarry.d_conflict);
+    ++d_statistics.d_primalUnsatCalls;
+  }else{
+    ++d_statistics.d_primalSatCalls;
+  }
+  
+  d_primalCarry.clear();
+
+  return answer;
+}
+
+/** Clears the ErrorMap and relase the resources associated with it.
+ * There are a couple of error maps around
+ */
+void SimplexDecisionProcedure::clearErrorVariables(SimplexDecisionProcedure::ErrorMap& es){
+  while(!es.empty()){
+    ArithVar e = es.back();
+
+    ErrorInfo info = es.get(e);
+    releaseVariable(info.d_boundVariable);
+    releaseVariable(e);
+
+    cout << " TODO thinks is going to need to be relaxed for conflicts " << endl;
+    // Assert(info.d_violatedConstraint ==
+    // 	   (info.d_violatedConstraint->isUpperBound() ?
+    // 	    d_partialModel.getUpperBoundConstraint(info.d_inputVariable) : 
+    // 	    d_partialModel.getLowerBoundConstraint(info.d_inputVariable)));
+
+    es.pop_back();
+  }
+}
+
+void SimplexDecisionProcedure::constructErrorVariables(){
+  Assert(d_currentErrorVariables.empty());
+  Assert(!d_queue.empty());
+
+  for(ArithPriorityQueue::const_iterator iter = d_queue.begin(), end = d_queue.end(); iter != end; ++iter){
+    ArithVar input = *iter;
+
+    Assert(d_tableau.isBasic(input));
+    Assert(!d_partialModel.assignmentIsConsistent(input));
+
+    ArithVar bound = requestVariable();
+
+    bool ub = d_partialModel.strictlyGreaterThanUpperBound(input,
+							   d_partialModel.getAssignment(input));
+
+    Constraint original =  ub ? d_partialModel.getUpperBoundConstraint(input)
+      :  d_partialModel.getLowerBoundConstraint(input);
+
+    Constraint boundIsValue = d_constraintDatabase.getConstraint(bound, Equality, original->getValue());
+    boundIsValue->setPsuedoConstraint();
+
+    d_partialModel.setAssignment(bound, boundIsValue->getValue());
+    d_partialModel.setUpperBoundConstraint(boundIsValue);
+    d_partialModel.setLowerBoundConstraint(boundIsValue);
+
+    // if ub
+    // then  error = x - boundIsValue
+    // else  error = boundIsValue - x
+
+    ArithVar error = requestVariable();
+
+    DeltaRational diff = ub ?
+      d_partialModel.getAssignment(input) - boundIsValue->getValue() :
+      boundIsValue->getValue() - d_partialModel.getAssignment(input);
+
+    d_partialModel.setAssignment(error, diff);
+
+    vector<Rational> coeffs;
+    vector<ArithVar> variables;
+    variables.push_back(input);
+    coeffs.push_back(ub ? Rational(1) : Rational(-1));
+    variables.push_back(bound);
+    coeffs.push_back(ub ? Rational(-1) : Rational(1));
+
+    d_tableau.addRow(error, coeffs, variables);
+
+    if(ub){
+      d_partialModel.forceRelaxUpperBound(input);
+    }else{
+      d_partialModel.forceRelaxLowerBound(input);
+    }
+    Debug("primal") << "(" << error <<", " << input << ", " << bound <<", " << original <<")" << endl;
+    Debug("primal") << "ub "<< ub << " " <<  d_partialModel.getAssignment(input)  << " " <<  boundIsValue->getValue() <<")" << endl;
+
+    d_currentErrorVariables.set(error, ErrorInfo(error, input, bound, original));
+  }
+
+  if(Debug.isOn("primal::tableau")){ d_linEq.debugCheckTableau(); }
+  if(Debug.isOn("primal::consistent")){  d_linEq.debugEntireLinEqIsConsistent("constructErrorVariables");}
+  Assert(!d_currentErrorVariables.empty());
+}
+
+
+
+/** Returns true if it has found a row conflict for any of the error variables. */
+bool SimplexDecisionProcedure::checkForRowConflicts(){
+  for(ErrorMap::const_iterator iter = d_currentErrorVariables.begin(), end = d_currentErrorVariables.end(); iter != end; ++iter){
+    ArithVar error = *iter;
+    if(d_tableau.isBasic(error) && d_partialModel.getAssignment(error).sgn() > 0){
+
+      ArithVar x_j = selectSlackLowerBound(error);
+      if(x_j == ARITHVAR_SENTINEL ){
+	assertErrorVariableIsBelowZero(error, true);
+
+	Node conflict = generateConflictAboveUpperBound(error);
+	Assert(!conflict.isNull());
+
+        d_primalCarry.d_conflict = conflict;
+        return true; // conflict discovered and reported
+      }
+    }
+  }
+  return false;
+}
+
+void SimplexDecisionProcedure::assertErrorVariableIsBelowZero(ArithVar e, bool forError){
+  Assert(d_currentErrorVariables.isKey(e));
+  ErrorInfo info = d_currentErrorVariables.get(e);
+  Constraint original = info.d_violatedConstraint;
+
+  Constraint temporary = d_constraintDatabase.getConstraint(e, UpperBound, d_DELTA_ZERO);
+  temporary->impliedBy(original);
+
+  if(original->isUpperBound()){
+    d_partialModel.setUpperBoundConstraint(original);
+  }else if(original->isLowerBound()){
+    d_partialModel.setLowerBoundConstraint(original);
+  } else {
+    Assert(original->isEquality());
+    d_partialModel.setUpperBoundConstraint(original);
+    d_partialModel.setLowerBoundConstraint(original);
+  }
+  d_partialModel.setUpperBoundConstraint(temporary);
+
+  Assert(forError || d_partialModel.assignmentIsConsistent(e));
+  Assert(forError || d_partialModel.assignmentIsConsistent(info.d_inputVariable));
+}
+
+uint32_t SimplexDecisionProcedure::contractErrorVariables(bool guaranteedSuccess){
+  uint32_t entrySize = d_currentErrorVariables.size();
+  Debug("primal::contract") << "contractErrorVariables() begin : " << d_currentErrorVariables.size() << endl;
+
+  std::vector<ArithVar> toRemove;
+  for(ErrorMap::const_iterator iter = d_currentErrorVariables.begin(), end = d_currentErrorVariables.end(); iter != end; ++iter){
+    ArithVar e = *iter;
+    if(d_partialModel.getAssignment(e).sgn() <= 0){
+      toRemove.push_back(e);
+    }
+  }
+
+  Assert(!guaranteedSuccess || !toRemove.empty());
+
+  if(!toRemove.empty()){
+    while(!toRemove.empty()){
+      ArithVar e = toRemove.back();
+      toRemove.pop_back();
+      assertErrorVariableIsBelowZero(e, false);
+      d_currentErrorVariables.remove(e);
+    }
+
+    reconstructOptimizationFunction();
+  }    
+
+  Debug("primal::contract") << "contractErrorVariables() end : " << d_currentErrorVariables.size() << endl;
+  
+  uint32_t exitSize = d_currentErrorVariables.size();
+
+  Assert(exitSize <= entrySize);
+  Assert(!guaranteedSuccess|| exitSize < entrySize);
+  return entrySize - exitSize;
+}
+
+void SimplexDecisionProcedure::removeOptimizationFunction(){
+  Assert(d_opt != ARITHVAR_SENTINEL);
+  Assert(d_tableau.isBasic(d_opt));
+  
+  d_tableau.removeBasicRow(d_opt);
+  releaseVariable(d_opt);
+
+  d_opt = ARITHVAR_SENTINEL;
+
+  Assert(d_opt == ARITHVAR_SENTINEL);
+}
+
+void SimplexDecisionProcedure::constructOptimizationFunction(){
+  Assert(d_opt == ARITHVAR_SENTINEL);
+  
+  d_opt = requestVariable();
+
+  std::vector<Rational> coeffs;
+  std::vector<ArithVar> variables;
+  for(ErrorMap::const_iterator iter = d_currentErrorVariables.begin(), end = d_currentErrorVariables.end(); iter != end; ++iter){
+    ArithVar e = *iter;
+    coeffs.push_back(Rational(1));
+    variables.push_back(e);
+  }
+  d_tableau.addRow(d_opt, coeffs, variables);
+
+  DeltaRational newAssignment = d_linEq.computeRowValue(d_opt, false);
+  d_partialModel.setAssignment(d_opt, newAssignment);
+
+  if(Debug.isOn("primal::tableau")){ d_linEq.debugCheckTableau(); }
+
+
+  if(Debug.isOn("primal::consistent")){
+    d_linEq.debugEntireLinEqIsConsistent("constructOptimizationFunction");
+  }
+
+  Assert(d_opt != ARITHVAR_SENTINEL);
+}
+
+void SimplexDecisionProcedure::reconstructOptimizationFunction(){
+  removeOptimizationFunction();
+  constructOptimizationFunction();
+}
+
+
+
+/* TODO:
+ * Very naive implementation. Recomputes everything every time.
+ * Currently looks for the variable that can decrease the optimization function the most.
+ * 
+ */
+SimplexDecisionProcedure::PrimalResponse SimplexDecisionProcedure::primalCheck()
+{
+  Debug("primal") << "primalCheck() begin" << endl;
+
+  ArithVar leaving = ARITHVAR_SENTINEL;
+  ArithVar entering =  ARITHVAR_SENTINEL;
+  DeltaRational leavingShift; // The amount the leaving variable can change by without making the tableau inconsistent
+  DeltaRational leavingDelta; // The amount the optimization function changes by selecting leaving
+  
+  for( Tableau::RowIterator ri = d_tableau.basicRowIterator(d_opt); !ri.atEnd(); ++ri){
+    const Tableau::Entry& e = *ri;
+
+    ArithVar curr = e.getColVar();
+    if(curr == d_opt){ continue; }
+
+
+    int sgn = e.getCoefficient().sgn();
+    Assert(sgn != 0);
+    if( (sgn < 0 && d_partialModel.strictlyBelowUpperBound(curr)) ||
+	(sgn > 0 && d_partialModel.strictlyAboveLowerBound(curr)) ){
+
+
+      ArithVar currEntering;
+      bool bounded;
+      DeltaRational currShift = computeShift(curr, sgn < 0, bounded, currEntering);
+
+      if(!bounded){
+	Debug("primal") << "primalCheck() end : unbounded" << endl;
+	d_primalCarry.d_unbounded = curr;
+	return FoundUnboundedVariable;
+      }
+
+      DeltaRational currDelta = currShift * e.getCoefficient();
+
+      int cmp = currDelta.cmp(leavingDelta);
+      
+      // Cases:
+      // 1) No candidate yet, 
+      // 2) there is a candidate with a strictly better update, or
+      // 3) there is a candidate with the same update value that has a smaller value in the variable ordering.
+      //
+      // Case 3 covers Bland's rule.
+      if(entering == ARITHVAR_SENTINEL || cmp < 0){
+	leaving = curr;
+      }else if( cmp == 0 ){
+	leaving = minVarOrder(*this, curr, leaving);
+      }
+
+      if(leaving == curr){
+	leavingShift = currShift;
+	leavingDelta = currDelta;
+	entering = currEntering;
+      }
+    }
+  }
+
+  if(leaving == ARITHVAR_SENTINEL){
+    Debug("primal") << "primalCheck() end : global" << endl;
+    return GlobalMinimum; // No variable in the optimization function can be improved
+  }else{
+    const Tableau::Entry& enterLeavingEntry = d_tableau.findEntry(d_tableau.basicToRowIndex(entering), leaving);
+    Assert(!enterLeavingEntry.blank());
+
+    d_primalCarry.d_leaving = leaving;
+    d_primalCarry.d_entering = entering;
+    d_primalCarry.d_nextEnteringValue = d_partialModel.getAssignment(entering)
+      + leavingShift * enterLeavingEntry.getCoefficient();
+
+    Debug("primal") << "primalCheck() end : progress" << endl
+		    << leaving << " to " << entering << " ~ "
+		    << d_partialModel.getAssignment(leaving) << " ~ "  << leavingShift
+		    << " ~ " << enterLeavingEntry.getCoefficient()
+		    << " ~ " << d_primalCarry.d_nextEnteringValue << endl;
+    return MakeProgressOnLeaving;
+  }
+}
+
+
+DeltaRational SimplexDecisionProcedure::computeShift(ArithVar leaving, bool increasing, bool& bounded, ArithVar& entering){
+  // The selection for the leaving variable
+  entering = ARITHVAR_SENTINEL;
+
+  // if bounded is true, shift has a meaningful value
+  bounded = false;
+
+  static int instance = 0;
+  Debug("primal") << "computeshift " << ++instance  << " " << leaving << endl;
+
+  // Once the shift is known to be 0, we select the minimum leaving variable according to variable order.
+  bool blandMode = false;
+
+  DeltaRational shift;
+
+  
+
+  const DeltaRational& assignment = d_partialModel.getAssignment(leaving);
+
+  
+  for(Tableau::ColIterator colIter = d_tableau.colIterator(leaving);!colIter.atEnd(); ++colIter){
+    const Tableau::Entry& e = *colIter;
+    
+    ArithVar basic = d_tableau.rowIndexToBasic(e.getRowIndex());
+    if(basic == d_opt) continue;
+
+    int esgn = e.getCoefficient().sgn();
+    bool basicInc = (increasing  == (esgn > 0));
+    // If both are true, increasing the variable entering increases the basic variable
+    // If both are false, the entering variable is decreasing, but the coefficient is negative and the basic variable is increasing
+    // If exactly one is false, the basic variable is decreasing.
+
+    Debug("primal::shift") << basic << " " << d_partialModel.hasUpperBound(basic) << " "
+		    << d_partialModel.hasLowerBound(basic) << " "
+		    << e.getCoefficient() << endl;
+
+    if( (basicInc && d_partialModel.hasUpperBound(basic))||
+	(!basicInc && d_partialModel.hasLowerBound(basic))){
+
+      bool notAtTheBound =
+	(basicInc && d_partialModel.strictlyBelowUpperBound(basic)) ||
+	(!basicInc && d_partialModel.strictlyAboveLowerBound(basic));
+
+      if(notAtTheBound && !blandMode){
+	DeltaRational diff = basicInc ?
+	  (d_partialModel.getUpperBound(basic) - d_partialModel.getAssignment(basic)) / e.getCoefficient() :
+	  (d_partialModel.getLowerBound(basic) - d_partialModel.getAssignment(basic)) / e.getCoefficient();
+
+	if(! bounded ||
+	   (increasing && diff < shift) || // a new min for increasing
+	   (!increasing && diff > shift)){ // a new max for decreasing
+	  bounded = true;
+	  shift = diff;
+	  entering = basic;
+	}
+      }else if (!notAtTheBound) { // basic is already exactly at the bound
+	if(!blandMode){ // Enter into using Bland's rule
+	  blandMode = true;
+	  bounded = true;
+	  shift = d_DELTA_ZERO;
+	  entering = basic;
+	}else{
+	  entering = minVarOrder(*this, entering, basic); // Bland's rule.
+	}
+      }
+    } // else this basic variable cannot be violated by increasing/decreasing entering
+    else if(entering == ARITHVAR_SENTINEL){
+      entering = basic;
+    }
+  }
+
+  if(!blandMode && (increasing ? d_partialModel.hasUpperBound(leaving) : d_partialModel.hasLowerBound(leaving) )){
+    Assert(entering != ARITHVAR_SENTINEL);
+    bounded = true;
+    DeltaRational diff = increasing ? d_partialModel.getUpperBound(leaving) - assignment : d_partialModel.getLowerBound(leaving) - assignment;
+    if((increasing) ? (diff < shift) : ( diff > shift)){
+      shift = diff;
+    }
+  }
+
+  Assert(increasing ? shift.sgn() >=0 : shift.sgn() <= 0);
+
+  return shift;
+}
+
+
+/**
+ * Given an variable on the optimization row that can be used to decrease the value of the optimization function
+ * arbitrarily and an optimization function that is strictly positive in the current model,
+ * driveOptToZero updates the value of unbounded s.t. the value of d_opt is exactly 0.
+ */
+void SimplexDecisionProcedure::driveOptToZero(ArithVar unbounded){
+  Assert(d_partialModel.getAssignment(d_opt) > d_DELTA_ZERO);
+
+  const Tableau::Entry& e = d_tableau.findEntry(d_tableau.basicToRowIndex(d_opt), unbounded);
+  Assert(!e.blank());
+
+  DeltaRational theta = (-d_partialModel.getAssignment(d_opt))/ (e.getCoefficient());
+  Assert((e.getCoefficient().sgn() > 0) ? (theta.sgn() < 0) : (theta.sgn() > 0));
+
+  DeltaRational newAssignment = d_partialModel.getAssignment(unbounded) + theta;
+  d_linEq.update(unbounded, newAssignment);
+
+  if(Debug.isOn("primal::consistent")){ Assert(d_linEq.debugEntireLinEqIsConsistent("driveOptToZero")); }
+
+  Assert(d_partialModel.getAssignment(d_opt) == d_DELTA_ZERO);
+}

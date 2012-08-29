@@ -106,8 +106,21 @@ private:
   /** Stores to the DeltaRational constant 0. */
   DeltaRational d_DELTA_ZERO;
 
+  //TODO make an option
+  const static uint32_t MAX_ITERATIONS = 20;
+
+
+  /** Used for requesting d_opt, bound and error variables for primal.*/
+  ArithVarMalloc& d_arithVarMalloc;
+
+  /** Used for constructing temporary variables, bound and error variables for primal.*/
+  ConstraintDatabase& d_constraintDatabase;
+
 public:
-  SimplexDecisionProcedure(LinearEqualityModule& linEq, NodeCallBack& conflictChannel);
+  SimplexDecisionProcedure(LinearEqualityModule& linEq,
+			   NodeCallBack& conflictChannel,
+			   ArithVarMalloc& variables,
+			   ConstraintDatabase& constraintDatabase);
 
   /**
    * This must be called when the value of a basic variable may now voilate one
@@ -123,7 +136,7 @@ public:
    * This is done by a simplex search through the possible bases of the tableau.
    *
    * If all of the variables can be made consistent with their bounds
-   * false is returned. Otherwise true is returned, and at least 1 conflict
+   * SAT is returned. Otherwise UNSAT is returned, and at least 1 conflict
    * was reported on the conflictCallback passed to the Module.
    *
    * Tableau pivoting is performed so variables may switch from being basic to
@@ -131,9 +144,23 @@ public:
    *
    * Corresponds to the "check()" procedure in [Cav06].
    */
-  Result::Sat findModel(bool exactResult);
+  Result::Sat dualFindModel(bool exactResult);
+
+
+  /**
+   * Tries to update the assignments of the variables s.t. all of the assignments
+   * are consistent with their bounds.
+   *
+   * This is a REALLY heavy hammer consider calling dualFindModel(false) first.
+   *
+   * !!!!!!!!!!!!!IMPORTANT!!!!!!!!!!!!!!
+   * This procedure needs to temporarily relax contraints to contruct a satisfiable system.
+   * To do this, it is going to do a sat push.
+   */
+  Result::Sat primalFindModel(context::Context* satContext);
 
 private:
+  
 
   /**
    * A PreferenceFunction takes a const ref to the SimplexDecisionProcedure,
@@ -172,9 +199,13 @@ private:
   static ArithVar minBoundAndRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
 
 
-
-
-private:
+  /**
+   * This is the main simplex for DPLL(T) loop.
+   * It runs for at most maxIterations.
+   *
+   * Returns true iff it has found a conflict.
+   * d_conflictVariable will be set and the conflict for this row is reported.
+   */
   bool searchForFeasibleSolution(uint32_t maxIterations);
 
   enum SearchPeriod {BeforeDiffSearch, DuringDiffSearch, AfterDiffSearch, DuringVarOrderSearch, AfterVarOrderSearch};
@@ -269,7 +300,120 @@ private:
   Node weakenConflict(bool aboveUpper, ArithVar basicVar);
   Constraint weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic);
 
+  /** Gets a fresh variable from TheoryArith. */
+  ArithVar requestVariable(){
+    return d_arithVarMalloc.request();
+  }
 
+  /** Releases a requested variable from TheoryArith.*/
+  void releaseVariable(ArithVar v){
+    d_arithVarMalloc.release(v);
+  }
+
+
+  /** An error info keeps the information associated with the construction of an ErrorVariable. */
+  struct ErrorInfo {
+    /** The error variable. */
+    ArithVar d_errorVariable;
+
+    /** The input variable for which the error variable was constructed.*/
+    ArithVar d_inputVariable;
+
+    /** The bound variable that stores the value of the violated constraint.*/
+    ArithVar d_boundVariable;
+    
+    /** The violated constraint this was constructed to try to satisfy.*/
+    Constraint d_violatedConstraint;
+    
+    ErrorInfo(ArithVar error, ArithVar input, ArithVar bound, const Constraint original)
+    : d_errorVariable(error), d_inputVariable(input), d_boundVariable(bound), d_violatedConstraint(original){}
+
+    ErrorInfo() :
+    d_errorVariable(ARITHVAR_SENTINEL), d_inputVariable(ARITHVAR_SENTINEL), d_boundVariable(ARITHVAR_SENTINEL), d_violatedConstraint(NullConstraint){}
+
+  };
+
+  typedef DenseMap<ErrorInfo> ErrorMap;
+
+  /** A map from the error variables to the associated ErrorInfo.*/
+  ErrorMap d_currentErrorVariables;
+
+  /** The variable for the optimization function.*/
+  ArithVar d_opt; 
+
+  /**
+   * A PrimalResponse represents the state that the primal simplex solver is in.
+   */
+  enum PrimalResponse {
+    // The optimization can decrease arbitrarily on some variable in the function
+    FoundUnboundedVariable,
+    // The optimization function has reached a threshold value and is checking back in
+    ReachedThresholdValue,
+    // Simplex has used up its pivot bound and is checking back in with its caller
+    UsedMaxPivots,
+
+    //Simplex can make progress on the pair of entering and leaving variables
+    MakeProgressOnLeaving,
+
+    // Simplex has reached a minimum for its optimization function
+    GlobalMinimum
+  };
+
+  /**
+   * These fields are for sticking information for passing information back with the PrimalRespones.
+   * These fields should be ignored as unsafe/unknown unless you have a PrimalResponse that states
+   * the field makes sense.
+   */
+  struct PrimalPassBack {
+  public:
+    /**
+     * A variable s.t. its value can be increased/decreased arbitrarily to change the optimization function
+     * arbitrarily low.
+     */
+    ArithVar d_unbounded;
+    
+    /** The leaving variable selection for primal simplex. */
+    ArithVar d_leaving;
+
+    /** The entering variable selection for primal simplex. */
+    ArithVar d_entering;
+
+    /** The new value for the leaving variable value for primal simplex.*/
+    DeltaRational d_nextEnteringValue;
+
+    /** A minimized conflict*/
+    Node d_conflict;
+
+    PrimalPassBack() { clear(); }
+    void clear(){
+      d_unbounded = (d_leaving = (d_entering = ARITHVAR_SENTINEL));
+      d_nextEnteringValue = DeltaRational();
+      d_conflict = Node::null();
+    }
+
+    bool isClear() const {
+      return d_unbounded == ARITHVAR_SENTINEL &&
+	d_leaving == ARITHVAR_SENTINEL &&
+	d_entering == ARITHVAR_SENTINEL &&
+	d_nextEnteringValue.sgn() == 0 &&
+	d_conflict.isNull();
+    }
+  } d_primalCarry;
+
+  PrimalResponse primal(bool useThreshold, const DeltaRational& threshold, uint32_t maxIterations);
+  PrimalResponse primalCheck();
+  Result::Sat primalConverge(int depth);
+  void driveOptToZero(ArithVar unbounded);
+  uint32_t contractErrorVariables(bool guaranteedSuccess);
+  bool checkForRowConflicts();
+  void clearErrorVariables(ErrorMap& es);
+  void constructErrorVariables();
+  void constructOptimizationFunction();
+  void removeOptimizationFunction();
+  void reconstructOptimizationFunction();
+
+  void assertErrorVariableIsBelowZero(ArithVar e, bool forError);
+  DeltaRational computeShift(ArithVar entering, bool increasing, bool& bounded, ArithVar& leaving);
 
   /** These fields are designed to be accessible to TheoryArith methods. */
   class Statistics {
@@ -289,6 +433,35 @@ private:
 
 
     IntStat d_simplexConflicts;
+
+    // Primal stuffs
+    TimerStat d_primalTimer;
+    IntStat d_primalCalls;
+    IntStat d_primalSatCalls;
+    IntStat d_primalUnsatCalls;
+
+    IntStat d_primalPivots;
+    IntStat d_primalImprovingPivots;
+
+    IntStat d_primalThresholdReachedPivot;
+    IntStat d_primalThresholdReachedPivot_dropped;
+    
+    IntStat d_primalReachedMaxPivots;
+    IntStat d_primalReachedMaxPivots_contractMadeProgress;
+    IntStat d_primalReachedMaxPivots_checkForConflictWorked;
+
+    
+    IntStat d_primalGlobalMinimum;
+    IntStat d_primalGlobalMinimum_rowConflictWorked;
+    IntStat d_primalGlobalMinimum_firstHalfWasSat;
+    IntStat d_primalGlobalMinimum_firstHalfWasUnsat;
+    IntStat d_primalGlobalMinimum_contractMadeProgress;
+
+
+    IntStat d_unboundedFound;
+    IntStat d_unboundedFound_drive;
+    IntStat d_unboundedFound_dropped;
+
 
     Statistics();
     ~Statistics();
