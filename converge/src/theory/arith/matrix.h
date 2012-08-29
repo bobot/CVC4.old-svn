@@ -380,6 +380,8 @@ protected:
   uint32_t d_entriesInUse;
   MatrixEntryVector<T> d_entries;
 
+  std::vector<RowIndex> d_pool;
+
   T d_zero;
 
 public:
@@ -449,6 +451,23 @@ protected:
     d_entries.freeEntry(id);
   }
 
+ private:
+  RowIndex requestRowIndex(){
+    if(d_pool.empty()){
+      RowIndex ridx = d_rows.size();
+      d_rows.push_back(RowVectorT(&d_entries));
+      return ridx;
+    }else{
+      RowIndex rid = d_pool.back();
+      d_pool.pop_back();
+      return rid;
+    }
+  }
+
+  void releaseRowIndex(RowIndex rid){
+    d_pool.push_back(rid);
+  }
+
 public:
 
   size_t getNumRows() const {
@@ -488,8 +507,11 @@ public:
    */
   RowIndex addRow(const std::vector<T>& coeffs,
                   const std::vector<ArithVar>& variables){
-    RowIndex ridx = d_rows.size();
-    d_rows.push_back(RowVectorT(&d_entries));
+
+    RowIndex ridx = requestRowIndex();
+
+    //RowIndex ridx = d_rows.size();
+    //d_rows.push_back(RowVectorT(&d_entries));
 
     std::vector<Rational>::const_iterator coeffIter = coeffs.begin();
     std::vector<ArithVar>::const_iterator varsIter = variables.begin();
@@ -704,6 +726,7 @@ public:
       EntryID id = i.getID();
       removeEntry(id);
     }
+    releaseRowIndex(rid);
   }
 
 
@@ -836,8 +859,10 @@ private:
   // Set of all of the basic variables in the tableau.
   // ArithVarMap<RowIndex> : ArithVar |-> RowIndex
   BasicToRowMap d_basic2RowIndex;
+
   // RowIndex |-> Basic Variable
-  std::vector<ArithVar> d_rowIndex2basic;
+  typedef DenseMap<ArithVar> RowIndexToBasicMap;
+  RowIndexToBasicMap d_rowIndex2basic;
 
 public:
 
@@ -884,10 +909,6 @@ public:
   RowIterator basicRowIterator(ArithVar basic) const {
     return getRow(basicToRowIndex(basic)).begin();
   }
-
-  // RowIterator rowIterator(RowIndex r) const {
-  //   return getRow(r).begin();
-  // }
 
   /**
    * Adds a row to the tableau.

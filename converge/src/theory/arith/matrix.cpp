@@ -249,7 +249,7 @@ void Tableau::rowPivot(ArithVar basicOld, ArithVar basicNew){
 
   d_basic2RowIndex.remove(basicOld);
   d_basic2RowIndex.set(basicNew, rid);
-  d_rowIndex2basic[rid] = basicNew;
+  d_rowIndex2basic.set(rid, basicNew);
 }
 
 // void Tableau::addEntry(ArithVar row, ArithVar col, const Rational& coeff){
@@ -399,10 +399,11 @@ void Tableau::addRow(ArithVar basic,
   RowIndex newRow = Matrix<Rational>::addRow(coefficients, variables);
   addEntry(newRow, basic, Rational(-1));
 
-  Assert(d_rowIndex2basic.size() == newRow);
+  Assert(!d_basic2RowIndex.isKey(basic));
+  Assert(!d_rowIndex2basic.isKey(newRow));
 
   d_basic2RowIndex.set(basic, newRow);
-  d_rowIndex2basic.push_back(basic);
+  d_rowIndex2basic.set(newRow, basic);
 
 
   if(Debug.isOn("matrix")){ printMatrix(); }
@@ -560,6 +561,14 @@ void ReducedRowVector::enqueueNonBasicVariablesAndCoefficients(std::vector< Arit
 //   return newId;
 // }
 
+void Tableau::removeBasicRow(ArithVar basic){
+  RowIndex rid = basicToRowIndex(basic);
+
+  removeRow(rid);
+  d_basic2RowIndex.remove(basic);
+  d_rowIndex2basic.remove(rid);
+  
+}
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */
