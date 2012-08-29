@@ -48,13 +48,17 @@ public:
     return d_nodeToArithVarMap.find(x) != d_nodeToArithVarMap.end();
   }
 
+  inline bool hasNode(ArithVar a) const {
+    return d_arithVarToNodeMap.find(a) != d_arithVarToNodeMap.end();
+  }
+
   inline ArithVar asArithVar(TNode x) const{
     Assert(hasArithVar(x));
     Assert((d_nodeToArithVarMap.find(x))->second <= ARITHVAR_SENTINEL);
     return (d_nodeToArithVarMap.find(x))->second;
   }
   inline Node asNode(ArithVar a) const{
-    Assert(d_arithVarToNodeMap.find(a) != d_arithVarToNodeMap.end());
+    Assert(hasNode(a));
     return (d_arithVarToNodeMap.find(a))->second;
   }
 
@@ -63,6 +67,14 @@ public:
     Assert(d_arithVarToNodeMap.find(a) == d_arithVarToNodeMap.end());
     d_arithVarToNodeMap[a] = x;
     d_nodeToArithVarMap[x] = a;
+  }
+  
+  inline void remove(ArithVar x){
+    Assert(hasNode(x));
+    Node node = asNode(x);
+    
+    d_nodeToArithVarMap.erase(d_nodeToArithVarMap.find(node));
+    d_arithVarToNodeMap.erase(d_arithVarToNodeMap.find(x));
   }
 
   const ArithVarToNodeMap& getArithVarToNodeMap() const {
