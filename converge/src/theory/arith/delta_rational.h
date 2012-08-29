@@ -113,6 +113,10 @@ public:
     return (k == other.k) && (c == other.c);
   }
 
+  bool operator!=(const DeltaRational& other) const{
+    return (*this == other);
+  }
+
   bool operator<=(const DeltaRational& other) const{
     int cmp = c.cmp(other.c);
     return (cmp < 0) || ((cmp==0)&&(k <= other.k));
