@@ -27,6 +27,8 @@
 #include <sstream>
 #include <cln/rational.h>
 #include <cln/input.h>
+#include <cln/io.h>
+#include <cln/output.h>
 #include <cln/rational_io.h>
 #include <cln/number_io.h>
 
@@ -87,7 +89,7 @@ public:
    * For more information about what is a valid rational string,
    * see GMP's documentation for mpq_set_str().
    */
-  explicit Rational(const char * s, int base = 10) throw (std::invalid_argument){
+  explicit Rational(const char* s, unsigned base = 10) throw (std::invalid_argument){
     cln::cl_read_flags flags;
 
     flags.syntax = cln::syntax_rational;
@@ -101,7 +103,7 @@ public:
       throw std::invalid_argument(ss.str());
     }
   }
-  Rational(const std::string& s, int base = 10) throw (std::invalid_argument){
+  Rational(const std::string& s, unsigned base = 10) throw (std::invalid_argument){
     cln::cl_read_flags flags;
 
     flags.syntax = cln::syntax_rational;
@@ -299,8 +301,11 @@ public:
 
   /** Returns a string representing the rational in the given base. */
   std::string toString(int base = 10) const {
+    cln::cl_print_flags flags;
+    flags.rational_base = base;
+    flags.rational_readably = false;
     std::stringstream ss;
-    fprint(ss, d_value);
+    print_rational(ss, flags, d_value);
     return ss.str();
   }
 

@@ -2,6 +2,7 @@
 UNIT_TESTS = \
 	theory/logic_info_white \
 	theory/theory_engine_white \
+	theory/theory_black \
 	theory/theory_white \
 	theory/theory_arith_white \
 	theory/theory_bv_white \
@@ -104,7 +105,7 @@ EXTRA_DIST = \
 	$(TEST_DEPS_DIST)
 
 MOSTLYCLEANFILES = $(UNIT_TESTS) $(UNIT_TESTS:%=%.cpp) $(UNIT_TESTS:%=%.lo)
-DISTCLEANFILES = $(UNIT_TESTS:%=.deps/%.Plo)
+DISTCLEANFILES = $(UNIT_TESTS:%=@DEPDIR@/%.Plo)
 
 # the tests automake infrastructure doesn't clean up .o files :-(
 # handle both .libs and _libs variants

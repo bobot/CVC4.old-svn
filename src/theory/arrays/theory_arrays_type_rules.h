@@ -22,6 +22,7 @@
 #define __CVC4__THEORY__ARRAYS__THEORY_ARRAYS_TYPE_RULES_H
 
 #include "theory/arrays/theory_arrays_rewriter.h" // for array-constant attributes
+#include "theory/type_enumerator.h"
 
 namespace CVC4 {
 namespace theory {
@@ -37,7 +38,7 @@ struct ArraySelectTypeRule {
         throw TypeCheckingExceptionPrivate(n, "array select operating on non-array");
       }
       TypeNode indexType = n[1].getType(check);
-      if(!indexType.isSubtypeOf(arrayType.getArrayIndexType())){
+      if(!indexType.isComparableTo(arrayType.getArrayIndexType())){
         throw TypeCheckingExceptionPrivate(n, "array select not indexed with correct type for array");
       }
     }
@@ -48,24 +49,31 @@ struct ArraySelectTypeRule {
 struct ArrayStoreTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
     throw (TypeCheckingExceptionPrivate, AssertionException) {
-    Assert(n.getKind() == kind::STORE);
-    TypeNode arrayType = n[0].getType(check);
-    if( check ) {
-      if(!arrayType.isArray()) {
-        throw TypeCheckingExceptionPrivate(n, "array store operating on non-array");
+    if (n.getKind() == kind::STORE) {
+      TypeNode arrayType = n[0].getType(check);
+      if( check ) {
+        if(!arrayType.isArray()) {
+          throw TypeCheckingExceptionPrivate(n, "array store operating on non-array");
+        }
+        TypeNode indexType = n[1].getType(check);
+        TypeNode valueType = n[2].getType(check);
+        if(!indexType.isComparableTo(arrayType.getArrayIndexType())){
+          throw TypeCheckingExceptionPrivate(n, "array store not indexed with correct type for array");
+        }
+        if(!valueType.isComparableTo(arrayType.getArrayConstituentType())){
+          Debug("array-types") << "array type: "<< arrayType.getArrayConstituentType() << std::endl;
+          Debug("array-types") << "value types: " << valueType << std::endl;
+          throw TypeCheckingExceptionPrivate(n, "array store not assigned with correct type for array");
+        }
       }
-      TypeNode indexType = n[1].getType(check);
-      TypeNode valueType = n[2].getType(check);
-      if(!indexType.isSubtypeOf(arrayType.getArrayIndexType())){
-        throw TypeCheckingExceptionPrivate(n, "array store not indexed with correct type for array");
-      }
-      if(!valueType.isSubtypeOf(arrayType.getArrayConstituentType())){
-	Debug("array-types") << "array type: "<< arrayType.getArrayConstituentType() << std::endl;
-	Debug("array-types") << "value types: " << valueType << std::endl;
-        throw TypeCheckingExceptionPrivate(n, "array store not assigned with correct type for array");
-      }
+      return arrayType;
     }
-    return arrayType;
+    else {
+      Assert(n.getKind() == kind::STORE_ALL);
+      ArrayStoreAll storeAll = n.getConst<ArrayStoreAll>();
+      ArrayType arrayType = storeAll.getType();
+      return TypeNode::fromType(arrayType);
+    }
   }
 
   inline static bool computeIsConst(NodeManager* nodeManager, TNode n)
@@ -116,14 +124,13 @@ struct ArrayStoreTypeRule {
     // that is written to more than the default value.  If so, it is not in
     // normal form.
 
-    // Get the most frequently written value from n[0]
+    // Get the most frequently written value for n[0]
     TNode mostFrequentValue;
     unsigned mostFrequentValueCount = 0;
     store = n[0];
     if (store.getKind() == kind::STORE) {
-      // TODO: look up most frequent value and count
-      mostFrequentValue = n.getAttribute(ArrayConstantMostFrequentValueAttr());
-      mostFrequentValueCount = n.getAttribute(ArrayConstantMostFrequentValueCountAttr());
+      mostFrequentValue = store.getAttribute(ArrayConstantMostFrequentValueAttr());
+      mostFrequentValueCount = store.getAttribute(ArrayConstantMostFrequentValueCountAttr());
     }
 
     // Compute the most frequently written value for n
@@ -140,8 +147,6 @@ struct ArrayStoreTypeRule {
         (compare == Cardinality::EQUAL && (!(defaultValue < mostFrequentValue)))) {
       return false;
     }
-
-    // TODO: store mostFrequentValue and mostFrequentValueCount for this node
     n.setAttribute(ArrayConstantMostFrequentValueAttr(), mostFrequentValue);
     n.setAttribute(ArrayConstantMostFrequentValueCountAttr(), mostFrequentValueCount);
     return true;
@@ -163,11 +168,11 @@ struct ArrayTableFunTypeRule {
         throw TypeCheckingExceptionPrivate(n, "array table fun arg 1 is non-array");
       }
       TypeNode indexType = n[2].getType(check);
-      if(!indexType.isSubtypeOf(arrayType.getArrayIndexType())){
+      if(!indexType.isComparableTo(arrayType.getArrayIndexType())){
         throw TypeCheckingExceptionPrivate(n, "array table fun arg 2 does not match type of array");
       }
       indexType = n[3].getType(check);
-      if(!indexType.isSubtypeOf(arrayType.getArrayIndexType())){
+      if(!indexType.isComparableTo(arrayType.getArrayIndexType())){
         throw TypeCheckingExceptionPrivate(n, "array table fun arg 3 does not match type of array");
       }
     }
@@ -175,7 +180,7 @@ struct ArrayTableFunTypeRule {
   }
 };/* struct ArrayTableFunTypeRule */
 
-struct CardinalityComputer {
+struct ArraysProperties {
   inline static Cardinality computeCardinality(TypeNode type) {
     Assert(type.getKind() == kind::ARRAY_TYPE);
 
@@ -184,7 +189,15 @@ struct CardinalityComputer {
 
     return valueCard ^ indexCard;
   }
-};/* struct CardinalityComputer */
+
+  inline static bool isWellFounded(TypeNode type) {
+    return type[0].isWellFounded() && type[1].isWellFounded();
+  }
+
+  inline static Node mkGroundTerm(TypeNode type) {
+    return *TypeEnumerator(type);
+  }
+};/* struct ArraysProperties */
 
 }/* CVC4::theory::arrays namespace */
 }/* CVC4::theory namespace */

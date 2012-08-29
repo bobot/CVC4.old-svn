@@ -101,7 +101,7 @@ BUILT_SOURCES = \
 	options.cpp \
 	options_holder.h
 
-DISTCLEANFILES = \
+CLEANFILES = \
 	$(OPTIONS_FILES_SRCS) \
 	$(BUILT_SOURCES) \
 	options-stamp
@@ -156,9 +156,9 @@ endif
 # expression (no |, no \<, ...).
 Debug_tags.tmp Trace_tags.tmp:
 	$(AM_V_GEN)\
-	grep '\<$(@:_tags.tmp=) *( *\".*\" *)' \
+	grep '\<$(@:_tags.tmp=)\(\.isOn\)* *( *\".*\" *)' \
 		`find @srcdir@/../ -name "*.cpp" -or -name "*.h" -or -name "*.cc" -or -name "*.g"` | \
-	sed 's/^$(@:_tags.tmp=) *( *\"\([^"]*\)\".*/\1/;s/.*[^a-zA-Z0-9_]$(@:_tags.tmp=) *( *\"\([^"]*\)\".*/\1/' | sort | uniq >"$@"
+	sed 's/^$(@:_tags.tmp=)\(\.isOn\)* *( *\"\([^"]*\)\".*/\2/;s/.*[^a-zA-Z0-9_]$(@:_tags.tmp=)\(\.isOn\)* *( *\"\([^"]*\)\".*/\2/' | LC_ALL=C sort | uniq >"$@"
 
 MOSTLYCLEANFILES = \
 	Debug_tags \
@@ -178,11 +178,17 @@ options-stamp: options_holder_template.h options_template.cpp ../smt/smt_options
 		@top_builddir@/doc/cvc4.1_template @top_builddir@/doc/cvc4.1 \
 		-t \
 		@srcdir@/base_options_template.h @srcdir@/base_options_template.cpp \
-		$(foreach o,$(OPTIONS_FILES),"$(srcdir)/$(o)" "$(dir $(builddir)/$(o))") \
+		$(foreach o,$(OPTIONS_FILES),"$(srcdir)/$(o)" "$(patsubst %/,%,$(dir $(o)))") \
 	)
 	touch "$@"
 
 $(OPTIONS_FILES):;
+
+# This rule is ugly.  It's needed to ensure that automake's dependence
+# includes are available during distclean, even though they come from
+# directories that are cleaned first.  Without this rule, "distclean"
+# fails.
+%.Plo:; $(MKDIR_P) "$(dir $@)" && : > "$@"
 
 .PHONY: exprs-builts
 exprs-builts:; $(AM_V_at)[ "$(FROM_EXPR)" != 1 ] && $(MAKE) -C ../expr builts || true
