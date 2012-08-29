@@ -373,6 +373,10 @@ void ConstraintValue::setAssertedToTheTheory(TNode witness) {
   d_database->pushAssertionOrderWatch(this, witness);
 }
 
+bool ConstraintValue::isPsuedoConstraint() const {
+  return d_proof == d_database->d_psuedoConstraintProof;
+}
+
 bool ConstraintValue::isSelfExplaining() const {
   return d_proof == d_database->d_selfExplainingProof;
 }
@@ -483,6 +487,9 @@ ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Co
 
   d_equalityEngineProof = d_proofs.size();
   d_proofs.push_back(NullConstraint);
+
+  d_psuedoConstraintProof = d_proofs.size();
+  d_proofs.push_back(NullConstraint);
 }
 
 Constraint ConstraintDatabase::getConstraint(ArithVar v, ConstraintType t, const DeltaRational& r){
@@ -568,8 +575,32 @@ ConstraintDatabase::Statistics::~Statistics(){
 }
 
 void ConstraintDatabase::addVariable(ArithVar v){
-  Assert(v == d_varDatabases.size());
-  d_varDatabases.push_back(new PerVariableDatabase(v));
+  if(d_reclaimable.isMember(v)){
+    SortedConstraintMap& scm = getVariableSCM(v);
+
+    std::vector<Constraint> constraintList;
+
+    for(SortedConstraintMapIterator i = scm.begin(), end = scm.end(); i != end; ++i){
+      (i->second).push_into(constraintList);
+    }
+    while(!constraintList.empty()){
+      Constraint c = constraintList.back();
+      constraintList.pop_back();
+      Assert(c->safeToGarbageCollect());
+      delete c;
+    }
+    Assert(scm.empty());
+
+    d_reclaimable.remove(v);
+  }else{
+    Assert(v == d_varDatabases.size());
+    d_varDatabases.push_back(new PerVariableDatabase(v));
+  }
+}
+
+void ConstraintDatabase::removeVariable(ArithVar v){
+  Assert(!d_reclaimable.isMember(v));
+  d_reclaimable.add(v);
 }
 
 bool ConstraintValue::safeToGarbageCollect() const{
@@ -804,6 +835,13 @@ void ConstraintValue::impliedBy(const std::vector<Constraint>& b){
   }
 }
 
+void ConstraintValue::setPsuedoConstraint(){
+  Assert(truthIsUnknown());
+  Assert(!hasLiteral());
+  
+  d_database->pushProofWatch(this, d_database->d_psuedoConstraintProof);
+}
+
 void ConstraintValue::setEqualityEngineProof(){
   Assert(truthIsUnknown());
   Assert(hasLiteral());
@@ -820,6 +858,7 @@ void ConstraintValue::markAsTrue(){
 void ConstraintValue::markAsTrue(Constraint imp){
   Assert(truthIsUnknown());
   Assert(imp->hasProof());
+  Assert(!imp->isPsuedoConstraint());
 
   d_database->d_proofs.push_back(NullConstraint);
   d_database->d_proofs.push_back(imp);
@@ -831,6 +870,8 @@ void ConstraintValue::markAsTrue(Constraint impA, Constraint impB){
   Assert(truthIsUnknown());
   Assert(impA->hasProof());
   Assert(impB->hasProof());
+  Assert(!impA->isPsuedoConstraint());
+  Assert(!impB->isPsuedoConstraint());
 
   d_database->d_proofs.push_back(NullConstraint);
   d_database->d_proofs.push_back(impA);
@@ -847,6 +888,7 @@ void ConstraintValue::markAsTrue(const vector<Constraint>& a){
   for(vector<Constraint>::const_iterator i = a.begin(), end = a.end(); i != end; ++i){
     Constraint c_i = *i;
     Assert(c_i->hasProof());
+    Assert(!c_i->isPsuedoConstraint());
     d_database->d_proofs.push_back(c_i);
   }
 
@@ -863,7 +905,7 @@ SortedConstraintMap& ConstraintValue::constraintSet() const{
 bool ConstraintValue::proofIsEmpty() const{
   Assert(hasProof());
   bool result = d_database->d_proofs[d_proof] == NullConstraint;
-  Assert((!result) || isSelfExplaining() || hasEqualityEngineProof());
+  Assert((!result) || isSelfExplaining() || hasEqualityEngineProof() || isPsuedoConstraint());
   return result;
 }
 
@@ -871,10 +913,14 @@ void ConstraintValue::explainBefore(NodeBuilder<>& nb, AssertionOrder order) con
   Assert(hasProof());
   Assert(!isSelfExplaining() || assertedToTheTheory());
 
+
   if(assertedBefore(order)){
     nb << getWitness();
   }else if(hasEqualityEngineProof()){
     d_database->eeExplain(this, nb);
+  }else if(isPsuedoConstraint()){
+    // do nothing
+    cout << "Get rid of me" << endl;
   }else{
     Assert(!isSelfExplaining());
     ProofId p = d_proof;
@@ -892,6 +938,8 @@ Node ConstraintValue::explainBefore(AssertionOrder order) const{
     return getWitness();
   }else if(hasEqualityEngineProof()){
     return d_database->eeExplain(this);
+  }else if(isPsuedoConstraint()){
+    return mkBoolNode(true);
   }else{
     Assert(!proofIsEmpty());
     //Force the selection of the layer above if the node is assertedToTheTheory()!

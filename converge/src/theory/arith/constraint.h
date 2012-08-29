@@ -487,6 +487,15 @@ public:
   void setEqualityEngineProof();
   bool hasEqualityEngineProof() const;
 
+
+  /**
+   * There cannot be a literal associated with this constraint.
+   * The explanation is the constant true.
+   * explainInto() does nothing.
+   */
+  void setPsuedoConstraint();
+  bool isPsuedoConstraint() const;
+
   /**
    * Returns a explanation of the constraint that is appropriate for conflicts.
    *
@@ -696,6 +705,14 @@ private:
    */
   ProofId d_equalityEngineProof;
 
+  /**
+   * Marks a node as being true always.
+   * This is only okay for purely internal things.
+   *
+   * This is a special proof that is always a member of the list.
+   */
+  ProofId d_psuedoConstraintProof;
+
   typedef context::CDList<Constraint, ConstraintValue::ProofCleanup> ProofCleanupList;
   typedef context::CDList<Constraint, ConstraintValue::CanBePropagatedCleanup> CBPList;
   typedef context::CDList<Constraint, ConstraintValue::AssertionOrderCleanup> AOList;
@@ -819,6 +836,7 @@ public:
 
   void addVariable(ArithVar v);
   bool variableDatabaseIsSetup(ArithVar v) const;
+  void removeVariable(ArithVar v);
 
   Node eeExplain(ConstConstraint c) const;
   void eeExplain(ConstConstraint c, NodeBuilder<>& nb) const;
@@ -868,6 +886,8 @@ public:
 
 private:
   void raiseUnateConflict(Constraint ant, Constraint cons);
+
+  DenseSet d_reclaimable;
 
   class Statistics {
   public:
