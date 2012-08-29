@@ -143,6 +143,11 @@ public:
   /** Debugging information for a pivot. */
   void debugPivot(ArithVar x_i, ArithVar x_j);
 
+  /**
+   * 
+   */
+  bool debugEntireLinEqIsConsistent(const std::string& s);
+
 
 private:
   /** These fields are designed to be accessible to TheoryArith methods. */
