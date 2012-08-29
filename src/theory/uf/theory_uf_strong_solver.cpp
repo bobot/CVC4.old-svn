@@ -406,7 +406,7 @@ void StrongSolverTheoryUf::SortRepModel::initialize( OutputChannel* out ){
 void StrongSolverTheoryUf::SortRepModel::newEqClass( Node n ){
   if( !d_conflict ){
     if( d_regions_map.find( n )==d_regions_map.end() ){
-      if( options::ufssTotalityEager() ){
+      if( !options::ufssTotalityLazy() ){
         //must generate totality axioms for every cardinality we have allocated thus far
         for( std::map< int, Node >::iterator it = d_cardinality_literal.begin(); it != d_cardinality_literal.end(); ++it ){
           if( applyTotality( it->first ) ){
@@ -565,7 +565,7 @@ void StrongSolverTheoryUf::SortRepModel::check( Theory::Effort level, OutputChan
     }else{
       if( applyTotality( d_cardinality ) ){
         //if we are applying totality to this cardinality
-        if( !options::ufssTotalityEager() ){
+        if( options::ufssTotalityLazy() ){
           //add totality axioms for all nodes that have not yet been equated to cardinality terms
           if( level==Theory::EFFORT_FULL ){
             for( NodeIntMap::iterator it = d_regions_map.begin(); it != d_regions_map.end(); ++it ){
@@ -948,7 +948,7 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
     //out->propagateAsDecision( lem[0] );
     d_th->getStrongSolver()->d_statistics.d_max_model_size.maxAssign( d_aloc_cardinality );
 
-    if( applyTotality( d_aloc_cardinality ) && options::ufssTotalityEager() ){
+    if( applyTotality( d_aloc_cardinality ) && !options::ufssTotalityLazy() ){
       //must send totality axioms for each existing term
       for( NodeIntMap::iterator it = d_regions_map.begin(); it != d_regions_map.end(); ++it ){
         addTotalityAxiom( (*it).first, d_aloc_cardinality, &d_th->getOutputChannel() );

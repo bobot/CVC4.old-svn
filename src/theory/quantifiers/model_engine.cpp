@@ -87,28 +87,21 @@ void ModelEngine::check( Theory::Effort e ){
           Trace("model-engine-debug") << "Verify uf ss is minimal..." << std::endl;
           //let the strong solver verify that the model is minimal
           uf::StrongSolverTheoryUf* uf_ss = ((uf::TheoryUF*)d_quantEngine->getTheoryEngine()->theoryOf( THEORY_UF ))->getStrongSolver();
-          //we will try to minimize with the strong solver in case there are terms
-          //  the strong solver was not notified of in the model
-          if( uf_ss->minimize( fm ) ){
-            //for debugging
-            uf_ss->debugModel( fm );
-            Trace("model-engine-debug") << "Check model..." << std::endl;
-            //print debug
-            Debug("fmf-model-complete") << std::endl;
-            debugPrint("fmf-model-complete");
-            //successfully built an acceptable model, now check it
-            checkModel( addedLemmas );
-            //print debug information
-            if( Trace.isOn("model-engine") ){
-              Trace("model-engine") << "Instantiate axioms : " << ( d_builder.d_considerAxioms ? "yes" : "no" ) << std::endl;
-              Trace("model-engine") << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
-              Trace("model-engine") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
-              double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-              Trace("model-engine") << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
-            }
-          }else{
-            Trace("model-engine") << "Strong solver minimized model" << std::endl;
-            return;
+          //for debugging, this will if there are terms in the model that the strong solver was not notified of
+          uf_ss->debugModel( fm );
+          Trace("model-engine-debug") << "Check model..." << std::endl;
+          //print debug
+          Debug("fmf-model-complete") << std::endl;
+          debugPrint("fmf-model-complete");
+          //successfully built an acceptable model, now check it
+          checkModel( addedLemmas );
+          //print debug information
+          if( Trace.isOn("model-engine") ){
+            Trace("model-engine") << "Instantiate axioms : " << ( d_builder.d_considerAxioms ? "yes" : "no" ) << std::endl;
+            Trace("model-engine") << "Added Lemmas = " << addedLemmas << " / " << d_triedLemmas << " / ";
+            Trace("model-engine") << d_testLemmas << " / " << d_relevantLemmas << " / " << d_totalLemmas << std::endl;
+            double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
+            Trace("model-engine") << "Finished model engine, time = " << (clSet2-clSet) << std::endl;
           }
         }
       }

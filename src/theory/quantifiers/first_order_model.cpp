@@ -71,7 +71,7 @@ void FirstOrderModel::initializeModelForTerm( Node n ){
       TypeNode tn = op.getType();
       tn = tn[ (int)tn.getNumChildren()-1 ];
       //only generate models for predicates and functions with uninterpreted range types
-      if( tn==NodeManager::currentNM()->booleanType() || tn.isSort() ){
+      if( tn==NodeManager::currentNM()->booleanType() || tn.isSort() || tn.isDatatype() ){
         d_uf_model_tree[ op ] = uf::UfModelTree( op );
         d_uf_model_gen[ op ].clear();
       }
@@ -257,7 +257,8 @@ int FirstOrderModel::evaluate( Node n, int& depIndex, RepSetIterator* ri ){
       Debug("fmf-eval-debug") << "Evaluate literal: return " << retVal << ", depIndex = " << depIndex << std::endl;
     }else{
       ++d_eval_lits_unknown;
-      Debug("fmf-eval-amb") << "Neither true nor false : " << n << std::endl;
+      Trace("fmf-eval-amb") << "Neither true nor false : " << n << std::endl;
+      Trace("fmf-eval-amb") << "   value : " << val << std::endl;
       //std::cout << "Neither true nor false : " << n << std::endl;
       //std::cout << "  Value : " << val << std::endl;
       //for( int i=0; i<(int)n.getNumChildren(); i++ ){
@@ -303,9 +304,9 @@ Node FirstOrderModel::evaluateTerm( Node n, int& depIndex, RepSetIterator* ri ){
       std::vector< int > children_depIndex;
       //for select, pre-process read over writes
       if( n.getKind()==SELECT ){
-#if 0
+#if 1
         //std::cout << "Evaluate " << n << std::endl;
-        Node sel = evaluateTerm( n[1], depIndex );
+        Node sel = evaluateTerm( n[1], depIndex, ri );
         if( sel.isNull() ){
           depIndex = ri->getNumTerms()-1;
           return Node::null();
@@ -317,17 +318,17 @@ Node FirstOrderModel::evaluateTerm( Node n, int& depIndex, RepSetIterator* ri ){
         int tempIndex;
         int eval = 1;
         while( arr.getKind()==STORE && eval!=0 ){
-          eval = evaluate( sel.eqNode( arr[1] ), tempIndex );
+          eval = evaluate( sel.eqNode( arr[1] ), tempIndex, ri );
           depIndex = tempIndex > depIndex ? tempIndex : depIndex;
           if( eval==1 ){
-            val = evaluateTerm( arr[2], tempIndex );
+            val = evaluateTerm( arr[2], tempIndex, ri );
             depIndex = tempIndex > depIndex ? tempIndex : depIndex;
             return val;
           }else if( eval==-1 ){
             arr = arr[0];
           }
         }
-        arr = evaluateTerm( arr, tempIndex );
+        arr = evaluateTerm( arr, tempIndex, ri );
         depIndex = tempIndex > depIndex ? tempIndex : depIndex;
         val = NodeManager::currentNM()->mkNode( SELECT, arr, sel );
 #else
