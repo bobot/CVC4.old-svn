@@ -190,7 +190,9 @@ Node TheoryModel::getNewDomainValue( TypeNode tn ){
 
 /** add substitution */
 void TheoryModel::addSubstitution( TNode x, TNode t, bool invalidateCache ){
-  d_substitutions.addSubstitution( x, t, invalidateCache );
+  if( !d_substitutions.hasSubstitution( x ) ){
+    d_substitutions.addSubstitution( x, t, invalidateCache );
+  }
 }
 
 /** assert equality */
