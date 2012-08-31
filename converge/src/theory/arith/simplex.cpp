@@ -79,7 +79,8 @@ SimplexDecisionProcedure::Statistics::Statistics():
   d_weakenTime("theory::arith::weakening::time"),
   d_simplexConflicts("theory::arith::simplexConflicts",0),
   // primal
-  d_primalTimer("theory::arith::primalTimer"),
+  d_primalTimer("theory::arith::primal::overall::timer"),
+  d_internalTimer("theory::arith::primal::internal::timer"),
   d_primalCalls("theory::arith::primal::calls",0),
   d_primalSatCalls("theory::arith::primal::calls::sat",0),
   d_primalUnsatCalls("theory::arith::primal::calls::unsat",0),
@@ -123,6 +124,8 @@ SimplexDecisionProcedure::Statistics::Statistics():
 
   //primal  
   StatisticsRegistry::registerStat(&d_primalTimer);
+  StatisticsRegistry::registerStat(&d_internalTimer);
+
   StatisticsRegistry::registerStat(&d_primalCalls);
   StatisticsRegistry::registerStat(&d_primalSatCalls);
   StatisticsRegistry::registerStat(&d_primalUnsatCalls);
@@ -176,6 +179,8 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
 
   //primal
   StatisticsRegistry::unregisterStat(&d_primalTimer);
+  StatisticsRegistry::unregisterStat(&d_internalTimer);
+
   StatisticsRegistry::unregisterStat(&d_primalCalls);
   StatisticsRegistry::unregisterStat(&d_primalSatCalls);
   StatisticsRegistry::unregisterStat(&d_primalUnsatCalls);
@@ -233,6 +238,21 @@ ArithVar SimplexDecisionProcedure::minColLength(const SimplexDecisionProcedure& 
   }
 }
 
+ArithVar SimplexDecisionProcedure::minRowLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y){
+  Assert(x != ARITHVAR_SENTINEL);
+  Assert(y != ARITHVAR_SENTINEL);
+  Assert(simp.d_tableau.isBasic(x));
+  Assert(simp.d_tableau.isBasic(y));
+  uint32_t xLen = simp.d_tableau.getRowLength(simp.d_tableau.basicToRowIndex(x));
+  uint32_t yLen = simp.d_tableau.getRowLength(simp.d_tableau.basicToRowIndex(y));
+  if( xLen > yLen){
+     return y;
+  } else if( xLen == yLen ){
+    return minVarOrder(simp,x,y);
+  }else{
+    return x;
+  }
+}
 ArithVar SimplexDecisionProcedure::minBoundAndRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y){
   Assert(x != ARITHVAR_SENTINEL);
   Assert(y != ARITHVAR_SENTINEL);
@@ -675,7 +695,7 @@ Node SimplexDecisionProcedure::generateConflictBelowLowerBound(ArithVar conflict
 //   unbounded below(arithvar)
 //   reached threshold
 //   reached maxpivots
-//   reached GlobalMinimum
+//   reached GlobalMinimumd
 //   
 SimplexDecisionProcedure::PrimalResponse SimplexDecisionProcedure::primal(bool useThreshold,
 									  const DeltaRational& threshold,
@@ -693,12 +713,28 @@ SimplexDecisionProcedure::PrimalResponse SimplexDecisionProcedure::primal(bool u
     case GlobalMinimum:
     case FoundUnboundedVariable:
       return res;
+    case NoProgressOnLeaving:
+      ++d_statistics.d_primalPivots;
+      ++d_pivotsSinceOptProgress;
+      ++d_pivotsSinceLastCheck;
+      ++d_pivotsSinceErrorProgress;
+
+      d_linEq.pivotAndUpdate(d_primalCarry.d_entering, d_primalCarry.d_leaving, d_partialModel.getAssignment(d_primalCarry.d_entering));
+
+      if(Debug.isOn("primal::tableau")){
+	d_linEq.debugCheckTableau();
+      }
+      if(Debug.isOn("primal::consistent")){ Assert(d_linEq.debugEntireLinEqIsConsistent("MakeProgressOnLeaving")); }
+
+      break;
     case MakeProgressOnLeaving:
       {
 	++d_statistics.d_primalPivots;
-	if(d_partialModel.getAssignment(d_primalCarry.d_entering) != d_primalCarry.d_nextEnteringValue){
-	  ++d_statistics.d_primalImprovingPivots;
-	}
+	++d_statistics.d_primalImprovingPivots;
+
+	d_pivotsSinceOptProgress = 0;
+	++d_pivotsSinceErrorProgress;
+	++d_pivotsSinceLastCheck;
 
 	d_linEq.pivotAndUpdate(d_primalCarry.d_entering, d_primalCarry.d_leaving, d_primalCarry.d_nextEnteringValue);
 	if(Debug.isOn("primal::tableau")){
@@ -725,13 +761,14 @@ SimplexDecisionProcedure::PrimalResponse SimplexDecisionProcedure::primal(bool u
  * Returns UNSAT if it was able to able to find an error 
  */
 Result::Sat SimplexDecisionProcedure::primalConverge(int depth){
+  d_pivotsSinceLastCheck = 0;
 
-   while(!d_currentErrorVariables.empty()){
-     PrimalResponse res = primal(true, d_DELTA_ZERO, MAX_ITERATIONS);
+  while(!d_currentErrorVariables.empty()){
+    PrimalResponse res = primal(true, d_DELTA_ZERO, MAX_ITERATIONS - d_pivotsSinceLastCheck);
 
     switch(res){
     case FoundUnboundedVariable:
-      
+
       // Drive the variable to at least 0
       // TODO This variable should be driven to a value that makes all of the error functions including it 0
       // It'll or another unbounded will be selected in the next round anyways so ignore for now.
@@ -762,6 +799,7 @@ Result::Sat SimplexDecisionProcedure::primalConverge(int depth){
       break;
     case UsedMaxPivots:
       {
+	d_pivotsSinceLastCheck = 0;
 	++d_statistics.d_primalReachedMaxPivots;
 
 	// periodically attempt to do the following : 
@@ -845,6 +883,7 @@ Result::Sat SimplexDecisionProcedure::primalConverge(int depth){
 	}
 
       }else{
+
 	// if the optimum is <= 0
 	// drop all of the satisfied variables and continue;
 	uint32_t dropped = contractErrorVariables(true);
@@ -879,7 +918,7 @@ Result::Sat SimplexDecisionProcedure::primalFindModel(context::Context* satConte
 
   const int PAUSE_RATE = 100;
   if(Debug.isOn("primal::pause") && d_statistics.d_primalCalls.getData() % PAUSE_RATE  == 0){
-    cout << "waiting for input: ";
+    Debug("primal::pause") << "waiting for input: ";
     std::string dummy;
     std::getline(std::cin, dummy);
   }
@@ -889,6 +928,8 @@ Result::Sat SimplexDecisionProcedure::primalFindModel(context::Context* satConte
 
   Result::Sat answer;
   {
+    TimerStat::CodeTimer codeTimer(d_statistics.d_internalTimer);
+
     // This is needed because of the fiddling with the partial model
     context::Context::ScopedPush speculativePush(satContext);
 
@@ -1134,6 +1175,9 @@ void SimplexDecisionProcedure::constructOptimizationFunction(){
     d_linEq.debugEntireLinEqIsConsistent("constructOptimizationFunction");
   }
 
+  d_pivotsSinceOptProgress = 0;
+  d_pivotsSinceErrorProgress = 0;
+
   Assert(d_opt != ARITHVAR_SENTINEL);
 }
 
@@ -1155,9 +1199,11 @@ SimplexDecisionProcedure::PrimalResponse SimplexDecisionProcedure::primalCheck()
 
   ArithVar leaving = ARITHVAR_SENTINEL;
   ArithVar entering =  ARITHVAR_SENTINEL;
-  DeltaRational leavingShift; // The amount the leaving variable can change by without making the tableau inconsistent
-  DeltaRational leavingDelta; // The amount the optimization function changes by selecting leaving
+  DeltaRational leavingShift = d_DELTA_ZERO; // The amount the leaving variable can change by without making the tableau inconsistent
+  DeltaRational leavingDelta = d_DELTA_ZERO; // The amount the optimization function changes by selecting leaving
   
+  Assert(d_improvementCandidates.empty());
+
   for( Tableau::RowIterator ri = d_tableau.basicRowIterator(d_opt); !ri.atEnd(); ++ri){
     const Tableau::Entry& e = *ri;
 
@@ -1170,44 +1216,83 @@ SimplexDecisionProcedure::PrimalResponse SimplexDecisionProcedure::primalCheck()
     if( (sgn < 0 && d_partialModel.strictlyBelowUpperBound(curr)) ||
 	(sgn > 0 && d_partialModel.strictlyAboveLowerBound(curr)) ){
 
+      d_improvementCandidates.push_back(&e);
+    }
+  }
 
-      ArithVar currEntering;
-      bool bounded;
-      DeltaRational currShift = computeShift(curr, sgn < 0, bounded, currEntering);
+  if(d_improvementCandidates.empty()){
+    Debug("primal") << "primalCheck() end : global" << endl;
+    return GlobalMinimum; // No variable in the optimization function can be improved
+  }
+  
+  DeltaRational minimumShift;
+  DeltaRational currShift;
+  for(EntryVector::const_iterator ci = d_improvementCandidates.begin(), end_ci = d_improvementCandidates.end(); ci != end_ci; ++ci){
+    const Tableau::Entry& e = *(*ci);
+    ArithVar curr = e.getColVar();
 
-      if(!bounded){
-	Debug("primal") << "primalCheck() end : unbounded" << endl;
-	d_primalCarry.d_unbounded = curr;
-	return FoundUnboundedVariable;
-      }
+    ArithVar currEntering;
+    bool progress;
+    
+    minimumShift = (leaving == ARITHVAR_SENTINEL ) ? leavingDelta/(e.getCoefficient().abs()) : d_DELTA_ZERO;
+    int sgn = e.getCoefficient().sgn();
+    computeShift(curr, sgn < 0, progress, currEntering, currShift, minimumShift);
 
-      DeltaRational currDelta = currShift * e.getCoefficient();
+    if(currEntering == ARITHVAR_SENTINEL){
+      d_improvementCandidates.clear();
 
-      int cmp = currDelta.cmp(leavingDelta);
-      
-      // Cases:
-      // 1) No candidate yet, 
-      // 2) there is a candidate with a strictly better update, or
-      // 3) there is a candidate with the same update value that has a smaller value in the variable ordering.
-      //
-      // Case 3 covers Bland's rule.
-      if(entering == ARITHVAR_SENTINEL || cmp < 0){
-	leaving = curr;
-      }else if( cmp == 0 ){
-	leaving = minVarOrder(*this, curr, leaving);
-      }
+      Debug("primal") << "primalCheck() end : unbounded" << endl;
+      d_primalCarry.d_unbounded = curr;
+      return FoundUnboundedVariable;
+    }else if(progress) {
+      leaving = curr;
+      leavingShift = currShift;
+      leavingDelta = currShift * e.getCoefficient();
+      entering = currEntering;
 
-      if(leaving == curr){
-	leavingShift = currShift;
-	leavingDelta = currDelta;
-	entering = currEntering;
+      Assert(leavingDelta < d_DELTA_ZERO);
+
+      const int RECHECK_PERIOD = 10;
+      if(d_pivotsSinceErrorProgress % RECHECK_PERIOD != 0){
+	// we can make progress, stop
+	break;
       }
     }
   }
 
   if(leaving == ARITHVAR_SENTINEL){
-    Debug("primal") << "primalCheck() end : global" << endl;
-    return GlobalMinimum; // No variable in the optimization function can be improved
+    cout << "Nothing can make progress " << endl;
+
+    const uint32_t THRESHOLD = 20;
+    if(d_pivotsSinceOptProgress <= THRESHOLD){
+
+      int index = rand() % d_improvementCandidates.size();
+      leaving =  (*d_improvementCandidates[index]).getColVar();
+      entering = selectFirstValid(leaving, (*d_improvementCandidates[index]).getCoefficient().sgn() < 0);
+    }else{ // Bland's rule
+      bool increasing;
+      for(EntryVector::const_iterator ci = d_improvementCandidates.begin(), end_ci = d_improvementCandidates.end(); ci != end_ci; ++ci){
+	const Tableau::Entry& e = *(*ci);
+	ArithVar curr = e.getColVar();
+	leaving = (leaving == ARITHVAR_SENTINEL) ? curr : minVarOrder(*this, curr, leaving);
+	if(leaving == curr){
+	  increasing = (e.getCoefficient().sgn() < 0);
+	}
+      }
+      
+      entering = selectMinimumValid(leaving, increasing);
+    }
+    Assert(leaving != ARITHVAR_SENTINEL);
+    Assert(entering != ARITHVAR_SENTINEL);
+
+    d_primalCarry.d_leaving = leaving;
+    d_primalCarry.d_entering = entering;
+
+    d_primalCarry.d_nextEnteringValue = d_partialModel.getAssignment(entering);
+
+    Debug("primal") << "primalCheck() end : no progress made " <<  leaving << " to " << entering << " (" << d_pivotsSinceOptProgress << ")"<< endl;
+    d_improvementCandidates.clear();
+    return NoProgressOnLeaving;
   }else{
     const Tableau::Entry& enterLeavingEntry = d_tableau.findEntry(d_tableau.basicToRowIndex(entering), leaving);
     Assert(!enterLeavingEntry.blank());
@@ -1222,31 +1307,150 @@ SimplexDecisionProcedure::PrimalResponse SimplexDecisionProcedure::primalCheck()
 		    << d_partialModel.getAssignment(leaving) << " ~ "  << leavingShift
 		    << " ~ " << enterLeavingEntry.getCoefficient()
 		    << " ~ " << d_primalCarry.d_nextEnteringValue << endl;
+
+    d_improvementCandidates.clear();
     return MakeProgressOnLeaving;
   }
+
+  //   anyProgress = true;
+
+  //     DeltaRational currDelta = currShift * e.getCoefficient();
+
+  //     int cmp = currDelta.cmp(leavingDelta);
+      
+  //     // Cases:
+  //     // 1) No candidate yet, 
+  //     // 2) there is a candidate with a strictly better update, or
+  //     // 3) there is a candidate with the same update value that has a smaller value in the variable ordering.
+  //     //
+  //     // Case 3 covers Bland's rule.
+  //     if(entering == ARITHVAR_SENTINEL || cmp < 0){
+  // 	leaving = curr;
+  //     }else if( cmp == 0 ){
+  // 	leaving = minVarOrder(*this, curr, leaving);
+  //     }
+
+  //     if(leaving == curr){
+  // 	leavingShift = currShift;
+  // 	leavingDelta = currDelta;
+  // 	entering = currEntering;
+  //     }
+  //   }
+  // }
+
+  // if(leaving == ARITHVAR_SENTINEL){
+  //   Debug("primal") << "primalCheck() end : global" << endl;
+  //   return GlobalMinimum; // No variable in the optimization function can be improved
+  // }else{
+  //   const Tableau::Entry& enterLeavingEntry = d_tableau.findEntry(d_tableau.basicToRowIndex(entering), leaving);
+  //   Assert(!enterLeavingEntry.blank());
+
+  //   d_primalCarry.d_leaving = leaving;
+  //   d_primalCarry.d_entering = entering;
+  //   d_primalCarry.d_nextEnteringValue = d_partialModel.getAssignment(entering)
+  //     + leavingShift * enterLeavingEntry.getCoefficient();
+
+  //   Debug("primal") << "primalCheck() end : progress" << endl
+  // 		    << leaving << " to " << entering << " ~ "
+  // 		    << d_partialModel.getAssignment(leaving) << " ~ "  << leavingShift
+  // 		    << " ~ " << enterLeavingEntry.getCoefficient()
+  // 		    << " ~ " << d_primalCarry.d_nextEnteringValue << endl;
+  //   return MakeProgressOnLeaving;
+  // }
+}
+
+ArithVar SimplexDecisionProcedure::selectMinimumValid(ArithVar v, bool increasing){
+  ArithVar minimum = ARITHVAR_SENTINEL;
+  for(Tableau::ColIterator colIter = d_tableau.colIterator(v);!colIter.atEnd(); ++colIter){
+    const Tableau::Entry& e = *colIter;
+    ArithVar basic = d_tableau.rowIndexToBasic(e.getRowIndex());
+    if(basic == d_opt) continue;
+
+    
+    int esgn = e.getCoefficient().sgn();
+    bool basicInc = (increasing  == (esgn > 0));
+
+    if(!(basicInc ? d_partialModel.strictlyBelowUpperBound(basic) :
+	 d_partialModel.strictlyAboveLowerBound(basic))){
+      if(minimum == ARITHVAR_SENTINEL){
+	minimum = basic;
+      }else{
+	minimum = minVarOrder(*this, basic, minimum);
+      }
+    }
+  }
+  return minimum;
+}
+
+ArithVar SimplexDecisionProcedure::selectFirstValid(ArithVar v, bool increasing){
+  ArithVar minimum = ARITHVAR_SENTINEL;
+
+  for(Tableau::ColIterator colIter = d_tableau.colIterator(v);!colIter.atEnd(); ++colIter){
+    const Tableau::Entry& e = *colIter;
+    ArithVar basic = d_tableau.rowIndexToBasic(e.getRowIndex());
+    if(basic == d_opt) continue;
+
+    int esgn = e.getCoefficient().sgn();
+    bool basicInc = (increasing  == (esgn > 0));
+
+    if(!(basicInc ? d_partialModel.strictlyBelowUpperBound(basic) :
+	 d_partialModel.strictlyAboveLowerBound(basic))){
+      if(minimum == ARITHVAR_SENTINEL){
+	minimum = basic;
+      }else{
+	minimum = minRowLength(*this, basic, minimum);
+      }
+    }
+  }
+  return minimum;
 }
 
 
-DeltaRational SimplexDecisionProcedure::computeShift(ArithVar leaving, bool increasing, bool& bounded, ArithVar& entering){
-  // The selection for the leaving variable
-  entering = ARITHVAR_SENTINEL;
 
-  // if bounded is true, shift has a meaningful value
-  bounded = false;
+void SimplexDecisionProcedure::computeShift(ArithVar leaving, bool increasing, bool& progress, ArithVar& entering, DeltaRational& shift, const DeltaRational& minimumShift){
+  Assert(increasing ? (minimumShift >= d_DELTA_ZERO) : (minimumShift <= d_DELTA_ZERO) );
 
   static int instance = 0;
   Debug("primal") << "computeshift " << ++instance  << " " << leaving << endl;
 
-  // Once the shift is known to be 0, we select the minimum leaving variable according to variable order.
-  bool blandMode = false;
+  // The selection for the leaving variable
+  entering = ARITHVAR_SENTINEL;
 
-  DeltaRational shift;
+  // no progress is initially made
+  progress = false;
 
-  
+  bool bounded = false;
 
-  const DeltaRational& assignment = d_partialModel.getAssignment(leaving);
+  if(increasing ? d_partialModel.hasUpperBound(leaving) : d_partialModel.hasLowerBound(leaving)){
+    const DeltaRational& assignment = d_partialModel.getAssignment(leaving);
 
-  
+    bounded = true;
+
+    DeltaRational diff = increasing ? d_partialModel.getUpperBound(leaving) - assignment : d_partialModel.getLowerBound(leaving) - assignment;
+    Assert(increasing ? diff.sgn() >=0 : diff.sgn() <= 0);
+    if((increasing) ? (diff < minimumShift) : ( diff > minimumShift)){
+      Assert(!progress);
+      entering = leaving; // My my my, what an ugly hack
+      return; // no progress is possible stop
+    }
+  }
+
+  // shift has a meaningful value once entering has a meaningful value
+  // if increasing,
+  // then  shift > minimumShift >= 0
+  // else  shift < minimumShift <= 0
+  //
+  // Maintain the following invariant:
+  //
+  // if increasing,
+  //    if e_ij > 0, diff >= shift > minimumShift >= 0
+  //    if e_ij < 0, diff >= shift > minimumShift >= 0
+  // if !increasing,
+  //    if e_ij > 0, diff <= shift < minimumShift <= 0
+  //    if e_ij < 0, diff <= shift < minimumShift <= 0
+  // if increasing == (e_ij > 0), diff = (d_partialModel.getUpperBound(basic) - d_partialModel.getAssignment(basic)) / e.getCoefficient()
+  // if increasing != (e_ij > 0), diff = (d_partialModel.getLowerBound(basic) - d_partialModel.getAssignment(basic)) / e.getCoefficient()
+
   for(Tableau::ColIterator colIter = d_tableau.colIterator(leaving);!colIter.atEnd(); ++colIter){
     const Tableau::Entry& e = *colIter;
     
@@ -1260,56 +1464,152 @@ DeltaRational SimplexDecisionProcedure::computeShift(ArithVar leaving, bool incr
     // If exactly one is false, the basic variable is decreasing.
 
     Debug("primal::shift") << basic << " " << d_partialModel.hasUpperBound(basic) << " "
-		    << d_partialModel.hasLowerBound(basic) << " "
-		    << e.getCoefficient() << endl;
+			   << d_partialModel.hasLowerBound(basic) << " "
+			   << e.getCoefficient() << endl;
 
     if( (basicInc && d_partialModel.hasUpperBound(basic))||
 	(!basicInc && d_partialModel.hasLowerBound(basic))){
 
-      bool notAtTheBound =
-	(basicInc && d_partialModel.strictlyBelowUpperBound(basic)) ||
-	(!basicInc && d_partialModel.strictlyAboveLowerBound(basic));
-
-      if(notAtTheBound && !blandMode){
+      if(!(basicInc ? d_partialModel.strictlyBelowUpperBound(basic) :
+	   d_partialModel.strictlyAboveLowerBound(basic))){
+	// diff == 0, as diff > minimumShift >= 0 or diff < minimumShift <= 0
+	Assert(!progress);
+	entering = basic;
+	return;
+      }else{
 	DeltaRational diff = basicInc ?
 	  (d_partialModel.getUpperBound(basic) - d_partialModel.getAssignment(basic)) / e.getCoefficient() :
 	  (d_partialModel.getLowerBound(basic) - d_partialModel.getAssignment(basic)) / e.getCoefficient();
 
-	if(! bounded ||
-	   (increasing && diff < shift) || // a new min for increasing
-	   (!increasing && diff > shift)){ // a new max for decreasing
-	  bounded = true;
-	  shift = diff;
-	  entering = basic;
-	}
-      }else if (!notAtTheBound) { // basic is already exactly at the bound
-	if(!blandMode){ // Enter into using Bland's rule
-	  blandMode = true;
-	  bounded = true;
-	  shift = d_DELTA_ZERO;
-	  entering = basic;
+	if( entering == ARITHVAR_SENTINEL ){
+	  if(increasing ? (diff <= minimumShift) : (diff >= minimumShift)){
+	    Assert(!progress);
+	    entering = basic;
+	    return;
+	  }else{
+	    Assert(increasing ? (diff > minimumShift) : (diff < minimumShift));
+	    shift = diff;
+	    entering = basic;
+	    bounded = true;
+	  }
 	}else{
-	  entering = minVarOrder(*this, entering, basic); // Bland's rule.
+	  if( increasing ? (diff < shift) : diff > shift){
+	    // a new min for increasing
+	    // a new max for decreasing
+
+	    if(increasing ? (diff <= minimumShift) : (diff >= minimumShift)){
+	      Assert(!progress);
+	      entering = basic;
+	      return;
+	    }else{
+	      Assert(increasing ? (diff > minimumShift) : (diff < minimumShift));
+	      shift = diff;
+	      entering = basic;
+	    }
+	  }
 	}
       }
-    } // else this basic variable cannot be violated by increasing/decreasing entering
-    else if(entering == ARITHVAR_SENTINEL){
-      entering = basic;
     }
   }
-
-  if(!blandMode && (increasing ? d_partialModel.hasUpperBound(leaving) : d_partialModel.hasLowerBound(leaving) )){
+  
+  if(!bounded){
+    // A totally unbounded variable
+    Assert(entering == ARITHVAR_SENTINEL);
+    progress = true;
+    return;
+  }else if(entering == ARITHVAR_SENTINEL){
+    // We have a variable that is bounded only by its maximum
+    for(Tableau::ColIterator colIter = d_tableau.colIterator(leaving);!colIter.atEnd(); ++colIter){
+      const Tableau::Entry& e = *colIter;
+    
+      ArithVar basic = d_tableau.rowIndexToBasic(e.getRowIndex());
+      if(basic == d_opt) continue;
+      else{
+	entering = basic;
+	break;
+      }
+    }
     Assert(entering != ARITHVAR_SENTINEL);
-    bounded = true;
+    
+    Assert(increasing ? d_partialModel.hasUpperBound(leaving) : d_partialModel.hasLowerBound(leaving));
+
+    const DeltaRational& assignment = d_partialModel.getAssignment(leaving);
     DeltaRational diff = increasing ? d_partialModel.getUpperBound(leaving) - assignment : d_partialModel.getLowerBound(leaving) - assignment;
-    if((increasing) ? (diff < shift) : ( diff > shift)){
-      shift = diff;
+    
+    shift = diff;
+
+    Assert(increasing ? shift.sgn() >=0 : shift.sgn() <= 0);
+    Assert(increasing ? shift > minimumShift : shift < minimumShift);
+
+    progress = true;
+    return;
+  }else{
+    Assert(bounded);
+    progress = true;
+
+    if((increasing ? d_partialModel.hasUpperBound(leaving) : d_partialModel.hasLowerBound(leaving) )){
+      Assert(entering != ARITHVAR_SENTINEL);
+      const DeltaRational& assignment = d_partialModel.getAssignment(leaving);
+      DeltaRational diff = increasing ? d_partialModel.getUpperBound(leaving) - assignment : d_partialModel.getLowerBound(leaving) - assignment;
+      if((increasing) ? (diff < shift) : ( diff > shift)){
+	shift = diff;
+      }
     }
+
+    Assert(increasing ? shift.sgn() >=0 : shift.sgn() <= 0);
+    Assert(increasing ? shift > minimumShift : shift < minimumShift);
+    return;
   }
+  
+  
+	// if(! bounded ||
+	//    (increasing && diff < shift) || // a new min for increasing
+	//    (!increasing && diff > shift)){ // a new max for decreasing
+	//   bounded = true;
+	//   shift = diff;
+	//   entering = basic;
+	// }
+      // }
 
-  Assert(increasing ? shift.sgn() >=0 : shift.sgn() <= 0);
+      // if(notAtTheBound && !blandMode){
+      // 	DeltaRational diff = basicInc ?
+      // 	  (d_partialModel.getUpperBound(basic) - d_partialModel.getAssignment(basic)) / e.getCoefficient() :
+      // 	  (d_partialModel.getLowerBound(basic) - d_partialModel.getAssignment(basic)) / e.getCoefficient();
 
-  return shift;
+      // 	if(! bounded ||
+      // 	   (increasing && diff < shift) || // a new min for increasing
+      // 	   (!increasing && diff > shift)){ // a new max for decreasing
+      // 	  bounded = true;
+      // 	  shift = diff;
+      // 	  entering = basic;
+      // 	}
+      // }else if (!notAtTheBound) { // basic is already exactly at the bound
+      // 	if(!blandMode){ // Enter into using Bland's rule
+      // 	  blandMode = true;
+      // 	  bounded = true;
+      // 	  shift = d_DELTA_ZERO;
+      // 	  entering = basic;
+      // 	}else{
+      // 	  entering = minVarOrder(*this, entering, basic); // Bland's rule.
+      // 	}
+      // }
+     // else this basic variable cannot be violated by increasing/decreasing entering
+  
+
+   
+
+  // if(!blandMode && (increasing ? d_partialModel.hasUpperBound(leaving) : d_partialModel.hasLowerBound(leaving) )){
+  //   Assert(entering != ARITHVAR_SENTINEL);
+  //   bounded = true;
+  //   DeltaRational diff = increasing ? d_partialModel.getUpperBound(leaving) - assignment : d_partialModel.getLowerBound(leaving) - assignment;
+  //   if((increasing) ? (diff < shift) : ( diff > shift)){
+  //     shift = diff;
+  //   }
+  // }
+
+  // Assert(increasing ? shift.sgn() >=0 : shift.sgn() <= 0);
+
+  // return shift;
 }
 
 

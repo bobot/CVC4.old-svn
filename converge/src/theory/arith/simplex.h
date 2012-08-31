@@ -186,6 +186,7 @@ private:
    * during the VarOrder stage of findModel.
    */
   static ArithVar minColLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
+  static ArithVar minRowLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
 
   /**
    * minBoundAndRowCount is a PreferenceFunction for preferring a variable
@@ -347,13 +348,18 @@ private:
   enum PrimalResponse {
     // The optimization can decrease arbitrarily on some variable in the function
     FoundUnboundedVariable,
+
     // The optimization function has reached a threshold value and is checking back in
     ReachedThresholdValue,
+
     // Simplex has used up its pivot bound and is checking back in with its caller
     UsedMaxPivots,
 
     //Simplex can make progress on the pair of entering and leaving variables
     MakeProgressOnLeaving,
+
+    //Simplex is not at a minimum but no leaving variable can be changed to help
+    NoProgressOnLeaving,
 
     // Simplex has reached a minimum for its optimization function
     GlobalMinimum
@@ -400,6 +406,13 @@ private:
     }
   } d_primalCarry;
 
+  uint32_t d_pivotsSinceErrorProgress;
+  uint32_t d_pivotsSinceOptProgress;
+  uint32_t d_pivotsSinceLastCheck;
+
+  typedef std::vector< const Tableau::Entry* > EntryVector;
+  EntryVector d_improvementCandidates;
+
   PrimalResponse primal(bool useThreshold, const DeltaRational& threshold, uint32_t maxIterations);
   PrimalResponse primalCheck();
   Result::Sat primalConverge(int depth);
@@ -411,9 +424,11 @@ private:
   void constructOptimizationFunction();
   void removeOptimizationFunction();
   void reconstructOptimizationFunction();
+  ArithVar selectMinimumValid(ArithVar v, bool increasing);
+  ArithVar selectFirstValid(ArithVar v, bool increasing);
 
   void assertErrorVariableIsBelowZero(ArithVar e, bool forError);
-  DeltaRational computeShift(ArithVar entering, bool increasing, bool& bounded, ArithVar& leaving);
+  void computeShift(ArithVar leaving, bool increasing, bool& progress, ArithVar& entering, DeltaRational& shift, const DeltaRational& minimumShift);
 
   /** These fields are designed to be accessible to TheoryArith methods. */
   class Statistics {
@@ -436,6 +451,8 @@ private:
 
     // Primal stuffs
     TimerStat d_primalTimer;
+    TimerStat d_internalTimer;
+
     IntStat d_primalCalls;
     IntStat d_primalSatCalls;
     IntStat d_primalUnsatCalls;

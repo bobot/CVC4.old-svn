@@ -82,7 +82,7 @@ void LinearEqualityModule::update(ArithVar x_i, const DeltaRational& v){
   if(Debug.isOn("paranoid:check_tableau")){  debugCheckTableau(); }
 }
 
-void LinearEqualityModule::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaRational& v){
+void LinearEqualityModule::pivotAndUpdate(ArithVar x_i, ArithVar x_j, const DeltaRational& v){
   Assert(x_i != x_j);
 
   TimerStat::CodeTimer codeTimer(d_statistics.d_pivotTime);
