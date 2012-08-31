@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file expr_template.h
+/*! \file expr.h
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
@@ -403,6 +403,7 @@ public:
    * @param types set to true to ascribe types to the output
    * expressions (might break language compliance, but good for
    * debugging expressions)
+   * @param dag the dagification threshold to use (0 == off)
    * @param language the language in which to output
    */
   void toStream(std::ostream& out, int toDepth = -1, bool types = false, size_t dag = 1,
@@ -665,7 +666,7 @@ class CVC4_PUBLIC ExprSetDepth {
    * The default depth to print, for ostreams that haven't yet had a
    * setdepth() applied to them.
    */
-  static const int s_defaultPrintDepth = 3;
+  static const int s_defaultPrintDepth = -1;
 
   /**
    * When this manipulator is used, the depth is stored here.
@@ -960,7 +961,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 964 "${template}"
+#line 965 "${template}"
 
 namespace expr {
 

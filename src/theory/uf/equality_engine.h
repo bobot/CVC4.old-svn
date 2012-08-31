@@ -58,7 +58,7 @@ public:
   /**
    * Notifies about a trigger equality that became true or false.
    *
-   * @param eq the equality that became true or false
+   * @param equality the equality that became true or false
    * @param value the value of the equality
    */
   virtual bool eqNotifyTriggerEquality(TNode equality, bool value) = 0;
@@ -686,7 +686,7 @@ public:
    * @param p the (non-negated) predicate
    * @param polarity true if asserting the predicate, false if
    *                 asserting the negated predicate
-   * @param the reason to keep for building explanations
+   * @param reason the reason to keep for building explanations
    */
   void assertPredicate(TNode p, bool polarity, TNode reason);
 
@@ -696,7 +696,7 @@ public:
    * @param eq the (non-negated) equality
    * @param polarity true if asserting the equality, false if
    *                 asserting the negated equality
-   * @param the reason to keep for building explanations
+   * @param reason the reason to keep for building explanations
    */
   void assertEquality(TNode eq, bool polarity, TNode reason);
 
@@ -733,7 +733,7 @@ public:
    * it's own notification.
    *
    * @param t the trigger term
-   * @param tag tag for this trigger (do NOT use THEORY_LAST)
+   * @param theoryTag tag for this trigger (do NOT use THEORY_LAST)
    */
   void addTriggerTerm(TNode t, TheoryId theoryTag);
 
