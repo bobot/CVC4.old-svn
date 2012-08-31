@@ -698,9 +698,6 @@ public:
     */
   void handleUserAttribute( const char* attr, theory::Theory* t );
 
-  //AJR-hacks
-  void printBenchmark();
-  //AJR-hacks-end
 };/* class TheoryEngine */
 
 }/* CVC4 namespace */
