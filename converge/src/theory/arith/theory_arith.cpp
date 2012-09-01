@@ -1551,7 +1551,7 @@ void TheoryArith::check(Effort effortLevel){
   d_qflraStatus = d_simplex.dualFindModel(false);
   
   if(d_qflraStatus == Result::SAT_UNKNOWN){
-    d_qflraStatus = d_simplex.primalFindModel(getSatContext());
+    d_qflraStatus = d_simplex.primalFindModel();
   }
 
   switch(d_qflraStatus){

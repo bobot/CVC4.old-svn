@@ -157,7 +157,7 @@ public:
    * This procedure needs to temporarily relax contraints to contruct a satisfiable system.
    * To do this, it is going to do a sat push.
    */
-  Result::Sat primalFindModel(context::Context* satContext);
+  Result::Sat primalFindModel();
 
 private:
   
@@ -313,25 +313,47 @@ private:
 
 
   /** An error info keeps the information associated with the construction of an ErrorVariable. */
-  struct ErrorInfo {
-    /** The error variable. */
-    ArithVar d_errorVariable;
+  class ErrorInfo {
+  private:
+    /** The variable for which the error variable was constructed.*/
+    ArithVar d_variable;
 
-    /** The input variable for which the error variable was constructed.*/
-    ArithVar d_inputVariable;
-
-    /** The bound variable that stores the value of the violated constraint.*/
-    ArithVar d_boundVariable;
+    // If false -> lowerbound
+    bool d_upperbound;
     
     /** The violated constraint this was constructed to try to satisfy.*/
-    Constraint d_violatedConstraint;
+    Constraint d_violated;
     
-    ErrorInfo(ArithVar error, ArithVar input, ArithVar bound, const Constraint original)
-    : d_errorVariable(error), d_inputVariable(input), d_boundVariable(bound), d_violatedConstraint(original){}
+  public:
+    ErrorInfo(ArithVar error, bool ub, const Constraint original)
+      : d_variable(error), d_upperbound(ub), d_violated(original) {}
 
     ErrorInfo() :
-    d_errorVariable(ARITHVAR_SENTINEL), d_inputVariable(ARITHVAR_SENTINEL), d_boundVariable(ARITHVAR_SENTINEL), d_violatedConstraint(NullConstraint){}
+    d_variable(ARITHVAR_SENTINEL), d_upperbound(false), d_violated(NullConstraint){}
 
+    inline ArithVar getVariable() const {
+      return d_variable;
+    }
+
+    inline bool isUpperbound() const {
+      return d_upperbound;
+    }
+
+    inline bool errorIsLeqZero(const ArithPartialModel& d_pm) const{
+      return isUpperbound() ?
+	(d_pm.getAssignment(d_variable) <= d_violated->getValue()) :
+	(d_pm.getAssignment(d_variable) >= d_violated->getValue());
+    }
+
+    inline Constraint getConstraint() const {
+      return d_violated;
+    }
+
+    inline DeltaRational getErrorAmount(const ArithPartialModel& d_pm) const {
+      return isUpperbound() ?
+	(d_pm.getAssignment(d_variable) - d_violated->getValue()) :
+	(d_violated->getValue() - d_pm.getAssignment(d_variable));
+    }
   };
 
   typedef DenseMap<ErrorInfo> ErrorMap;
@@ -339,8 +361,26 @@ private:
   /** A map from the error variables to the associated ErrorInfo.*/
   ErrorMap d_currentErrorVariables;
 
-  /** The variable for the optimization function.*/
-  ArithVar d_opt; 
+  /** The optimization function is implicitly defined as
+   * f_i  = d_optRow - d_negOptConstant
+   *
+   * d_optRow is a basic variable in the tableau.
+   * The tableau maintains that it is equal to the sum of -1^{!ub} * the error variables in
+   * d_currentErrorVariables.
+   *
+   * d_negOptConstant is explicitly the negation of the sum of the bounds that were violated
+   *
+   * assignment(f_i) <= 0 iff assignment(d_optRow) <= d_negOptConstant
+   */
+  /** The variable for the variable part of the optimization function.*/
+  ArithVar d_optRow; 
+
+  /** The constant part of the optimization function.*/
+  DeltaRational d_negOptConstant;
+
+  inline bool belowThreshold() const {
+    return d_partialModel.getAssignment(d_optRow) <= d_negOptConstant;
+  }
 
   /**
    * A PrimalResponse represents the state that the primal simplex solver is in.
@@ -387,22 +427,17 @@ private:
     /** The new value for the leaving variable value for primal simplex.*/
     DeltaRational d_nextEnteringValue;
 
-    /** A minimized conflict*/
-    Node d_conflict;
-
     PrimalPassBack() { clear(); }
     void clear(){
       d_unbounded = (d_leaving = (d_entering = ARITHVAR_SENTINEL));
       d_nextEnteringValue = DeltaRational();
-      d_conflict = Node::null();
     }
 
     bool isClear() const {
       return d_unbounded == ARITHVAR_SENTINEL &&
 	d_leaving == ARITHVAR_SENTINEL &&
 	d_entering == ARITHVAR_SENTINEL &&
-	d_nextEnteringValue.sgn() == 0 &&
-	d_conflict.isNull();
+	d_nextEnteringValue.sgn() == 0;
     }
   } d_primalCarry;
 
@@ -413,13 +448,13 @@ private:
   typedef std::vector< const Tableau::Entry* > EntryVector;
   EntryVector d_improvementCandidates;
 
-  PrimalResponse primal(bool useThreshold, const DeltaRational& threshold, uint32_t maxIterations);
+  PrimalResponse primal(uint32_t maxIterations);
   PrimalResponse primalCheck();
   Result::Sat primalConverge(int depth);
   void driveOptToZero(ArithVar unbounded);
   uint32_t contractErrorVariables(bool guaranteedSuccess);
   bool checkForRowConflicts();
-  void clearErrorVariables(ErrorMap& es);
+  void restoreErrorVariables(ErrorMap& es);
   void constructErrorVariables();
   void constructOptimizationFunction();
   void removeOptimizationFunction();
@@ -427,7 +462,7 @@ private:
   ArithVar selectMinimumValid(ArithVar v, bool increasing);
   ArithVar selectFirstValid(ArithVar v, bool increasing);
 
-  void assertErrorVariableIsBelowZero(ArithVar e, bool forError);
+  void reassertErrorConstraint(ArithVar e, ErrorMap& es, bool definitelyTrue, bool definitelyFalse);
   void computeShift(ArithVar leaving, bool increasing, bool& progress, ArithVar& entering, DeltaRational& shift, const DeltaRational& minimumShift);
 
   /** These fields are designed to be accessible to TheoryArith methods. */
