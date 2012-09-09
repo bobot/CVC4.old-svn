@@ -698,6 +698,8 @@ public:
     */
   void handleUserAttribute( const char* attr, theory::Theory* t );
 
+
+  void printBenchmark();
 };/* class TheoryEngine */
 
 }/* CVC4 namespace */

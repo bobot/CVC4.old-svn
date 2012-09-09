@@ -1009,10 +1009,54 @@ void StrongSolverTheoryUf::SortRepModel::addCliqueLemma( std::vector< Node >& cl
   while( clique.size()>size_t(d_cardinality+1) ){
     clique.pop_back();
   }
-  if( options::ufssModelInference() || Trace.isOn("uf-ss-cliques") ){
+  if( options::ufssCliqueLemmas() ){
+    //add as lemma
+    std::vector< Node > eqs;
+    for( int i=0; i<(int)clique.size(); i++ ){
+      for( int j=0; j<i; j++ ){
+        eqs.push_back( clique[i].eqNode( clique[j] ) );
+      }
+    }
+    eqs.push_back( d_cardinality_literal[ d_cardinality ].notNode() );
+    Node lem = NodeManager::currentNM()->mkNode( OR, eqs );
+    out->lemma( lem );
+    return;
+  }
+  if( options::ufssCliqueLemmas() || options::ufssModelInference() || Trace.isOn("uf-ss-cliques") ){
     std::vector< Node > clique_vec;
     clique_vec.insert( clique_vec.begin(), clique.begin(), clique.end() );
-    d_cliques[ d_cardinality ].push_back( clique_vec );
+    //first check if we've already seen it
+    int foundIndex = -1;
+    for( size_t i=0; i<d_cliques[ d_cardinality ].size(); i++ ){
+      bool isThis = true;
+      std::vector< bool > found;
+      found.resize( clique_vec.size(), false );
+      //if each member of a previous clique is equal to this current clique
+      for( size_t j=0; j<d_cliques[ d_cardinality ][i].size(); j++ ){
+        bool foundEq = false;
+        for( size_t k=0; k<clique_vec.size(); k++ ){
+          if( !found[k] && d_th->getEqualityEngine()->areEqual( d_cliques[ d_cardinality ][i][j], clique_vec[k] ) ){
+            found[k] = true;
+            foundEq = true;
+            break;
+          }
+        }
+        if( !foundEq ){
+          isThis = false;
+          break;
+        }
+      }
+      if( isThis ){
+        foundIndex = i;
+        break;
+      }
+    }
+    if( foundIndex==-1 ){
+      d_cliques[ d_cardinality ].push_back( clique_vec );
+      d_cliques_count[ d_cardinality ].push_back( 1 );
+    }else{
+      d_cliques_count[ d_cardinality ][ foundIndex ]++;
+    }
   }
 
   //found a clique

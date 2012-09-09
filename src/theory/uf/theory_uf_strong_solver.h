@@ -252,6 +252,8 @@ public:
     context::CDO< bool > d_hasCard;
     /** clique lemmas that have been asserted */
     std::map< int, std::vector< std::vector< Node > > > d_cliques;
+    std::map< int, std::vector< int > > d_cliques_count;
+    std::map< int, int > d_cliques_count_total;
   private:
     /** apply totality */
     bool applyTotality( int cardinality );
