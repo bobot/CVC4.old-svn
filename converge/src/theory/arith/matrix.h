@@ -780,6 +780,15 @@ public:
     }
   }
 
+  void loadSignQueries(RowIndex rid, DenseMap<int>& target) const{
+  
+    RowIterator i = getRow(rid).begin(), i_end = getRow(rid).end();
+    for(; i != i_end; ++i){
+      const MatrixEntry<T>& entry = *i;
+      target.set(entry.getColVar(), entry.getCoefficient().sgn());
+    }
+  }
+
 protected:
   uint32_t numNonZeroEntries() const { return size(); }
 
@@ -934,7 +943,6 @@ public:
   void pivot(ArithVar basicOld, ArithVar basicNew);
 
   void removeBasicRow(ArithVar basic);
-
 
 private:
   /* Changes the basic variable on the row for basicOld to basicNew. */
