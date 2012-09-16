@@ -50,6 +50,13 @@ std::ostream& operator<<(std::ostream&, const Command*) throw() CVC4_PUBLIC;
 std::ostream& operator<<(std::ostream&, const CommandStatus&) throw() CVC4_PUBLIC;
 std::ostream& operator<<(std::ostream&, const CommandStatus*) throw() CVC4_PUBLIC;
 
+class CVC4_PUBLIC ExportToUnsupportedException : public Exception {
+public:
+  ExportToUnsupportedException() throw() :
+    Exception("exportTo unsupported for command") {
+  }
+};/* class ExportToUnsupportedException */
+
 /** The status an SMT benchmark can have */
 enum BenchmarkStatus {
   /** Benchmark is satisfiable */
@@ -211,8 +218,17 @@ public:
 
   std::string toString() const throw();
 
-  /** Either the command hasn't run yet, or it completed successfully. */
+  /**
+   * Either the command hasn't run yet, or it completed successfully
+   * (CommandSuccess, not CommandUnsupported or CommandFailure).
+   */
   bool ok() const throw();
+
+  /**
+   * The command completed in a failure state (CommandFailure, not
+   * CommandSuccess or CommandUnsupported).
+   */
+  bool fail() const throw();
 
   /** Get the command status (it's NULL if we haven't run yet). */
   const CommandStatus* getCommandStatus() const throw() { return d_commandStatus; }
@@ -224,7 +240,8 @@ public:
    * variableMap for the translation and extending it with any new
    * mappings.
    */
-  virtual Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) = 0;
+  virtual Command* exportTo(ExprManager* exprManager,
+                            ExprManagerMapCollection& variableMap) = 0;
 
   /**
    * Clone this Command (make a shallow copy).
@@ -458,6 +475,21 @@ public:
   Command* clone() const;
 };/* class SimplifyCommand */
 
+class CVC4_PUBLIC ExpandDefinitionsCommand : public Command {
+protected:
+  Expr d_term;
+  Expr d_result;
+public:
+  ExpandDefinitionsCommand(Expr term) throw();
+  ~ExpandDefinitionsCommand() throw() {}
+  Expr getTerm() const throw();
+  void invoke(SmtEngine* smtEngine) throw();
+  Expr getResult() const throw();
+  void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class ExpandDefinitionsCommand */
+
 class CVC4_PUBLIC GetValueCommand : public Command {
 protected:
   std::vector<Expr> d_terms;
@@ -513,6 +545,18 @@ public:
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
 };/* class GetProofCommand */
+
+class CVC4_PUBLIC GetUnsatCoreCommand : public Command {
+protected:
+  //UnsatCore* d_result;
+public:
+  GetUnsatCoreCommand() throw();
+  ~GetUnsatCoreCommand() throw() {}
+  void invoke(SmtEngine* smtEngine) throw();
+  void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class GetUnsatCoreCommand */
 
 class CVC4_PUBLIC GetAssertionsCommand : public Command {
 protected:

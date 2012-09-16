@@ -19,14 +19,20 @@ pcvc4_SOURCES = \
 	main.cpp \
 	portfolio.cpp \
 	portfolio.h \
-	driver_portfolio.cpp
+	portfolio_util.cpp \
+	portfolio_util.h \
+	command_executor.cpp \
+	command_executor_portfolio.cpp \
+	command_executor.h \
+	command_executor_portfolio.h \
+	driver_unified.cpp
 pcvc4_LDADD = \
 	libmain.a \
 	@builddir@/../parser/libcvc4parser.la \
 	@builddir@/../libcvc4.la \
 	@builddir@/../lib/libreplacements.la \
 	$(READLINE_LIBS)
-pcvc4_CPPFLAGS = $(AM_CPPFLAGS) $(BOOST_CPPFLAGS)
+pcvc4_CPPFLAGS = $(AM_CPPFLAGS) $(BOOST_CPPFLAGS) -DPORTFOLIO_BUILD
 pcvc4_LDADD += $(BOOST_THREAD_LIBS) -lpthread
 pcvc4_LDADD += $(BOOST_THREAD_LDFLAGS)
 
@@ -39,7 +45,8 @@ endif
 
 cvc4_SOURCES = \
 	main.cpp \
-	driver.cpp
+	command_executor.cpp \
+	driver_unified.cpp
 cvc4_LDADD = \
 	libmain.a \
 	@builddir@/../parser/libcvc4parser.la \

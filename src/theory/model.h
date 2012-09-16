@@ -37,12 +37,6 @@ class TheoryModel : public Model
 {
   friend class TheoryEngineModelBuilder;
 protected:
-  /** add term function
-    *   This should be called on all terms that exist in the model.
-    *   addTerm( n ) will do any model-specific processing necessary for n,
-    *   such as contraining the interpretation of uninterpretted functions.
-    */
-  virtual void addTerm( Node n ) {}
   /** substitution map for this model */
   SubstitutionMap d_substitutions;
 public:
@@ -75,6 +69,7 @@ public:
    * on this model.
    */
   Node getValue( TNode n );
+
   /** get existing domain value, with possible exclusions
     *   This function returns a term in d_rep_set.d_type_reps[tn] but not in exclude
     */
@@ -93,6 +88,12 @@ public:
 public:
   /** Adds a substitution from x to t. */
   void addSubstitution(TNode x, TNode t, bool invalidateCache = true);
+  /** add term function
+    *   addTerm( n ) will do any model-specific processing necessary for n,
+    *   such as contraining the interpretation of uninterpretted functions,
+    *   and adding n to the equality engine of this model
+    */
+  virtual void addTerm( Node n );
   /** assert equality holds in the model */
   void assertEquality( Node a, Node b, bool polarity );
   /** assert predicate holds in the model */
@@ -113,12 +114,17 @@ public:
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
 public:
+  /** get value function for Exprs. */
+  Expr getValue( const Expr& expr );
+  /** get cardinality for sort */
+  Cardinality getCardinality( const Type& t );
+  /** to stream function */
+  void toStream( std::ostream& out );
+public:
   /** print representative debug function */
   void printRepresentativeDebug( const char* c, Node r );
   /** print representative function */
   void printRepresentative( std::ostream& out, Node r );
-  /** to stream function */
-  void toStream( std::ostream& out );
 };
 
 /** Default model class

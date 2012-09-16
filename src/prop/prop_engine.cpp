@@ -29,6 +29,7 @@
 #include "util/Assert.h"
 #include "options/options.h"
 #include "smt/options.h"
+#include "main/options.h"
 #include "util/output.h"
 #include "util/result.h"
 #include "expr/expr.h"
@@ -271,8 +272,7 @@ bool PropEngine::isRunning() const {
 
 void PropEngine::interrupt() throw(ModalException) {
   if(! d_inCheckSat) {
-    throw ModalException("SAT solver is not currently solving anything; "
-                         "cannot interrupt it");
+    return;
   }
 
   d_interrupted = true;

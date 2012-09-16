@@ -22,6 +22,9 @@
 #include <iostream>
 #include <vector>
 
+#include "expr/expr.h"
+#include "util/cardinality.h"
+
 namespace CVC4 {
 
 class Command;
@@ -40,18 +43,25 @@ private:
   std::vector< Command* > d_commands;
   std::vector< int > d_command_types;
 public:
+  /** virtual destructor */
+  virtual ~Model() {}
   /** add command */
   virtual void addCommand( Command* c, int c_type ){
     d_commands.push_back( c );
     d_command_types.push_back( c_type );
   }
   /** get number of commands to report */
-  int getNumCommands() { return (int)d_commands.size(); }
+  size_t getNumCommands() { return d_commands.size(); }
   /** get command */
   Command* getCommand( int i ) { return d_commands[i]; }
   /** get type of command */
   int getCommandType( int i ) { return d_command_types[i]; }
 public:
+  /** get value for expression */
+  virtual Expr getValue( const Expr& expr ) = 0;
+  /** get cardinality for sort */
+  virtual Cardinality getCardinality( const Type& t ) = 0;
+  /** to stream function */
   virtual void toStream(std::ostream& out) = 0;
 };/* class Model */
 

@@ -226,6 +226,11 @@ Additional CVC4 options:${remaining_documentation}";
 
 #line 228 "${template}"
 
+static const std::string optionsFootnote = "\n\
+[*] Each of these options has a --no-OPTIONNAME variant, which reverses the\n\
+    sense of the option.\n\
+";
+
 static const std::string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
   auto           attempt to automatically determine the input language\n\
@@ -248,12 +253,14 @@ std::string Options::getDescription() const {
 }
 
 void Options::printUsage(const std::string msg, std::ostream& out) {
-  out << msg << optionsDescription << std::endl << std::flush;
+  out << msg << optionsDescription << std::endl
+      << optionsFootnote << std::endl << std::flush;
 }
 
 void Options::printShortUsage(const std::string msg, std::ostream& out) {
-  out << msg << mostCommonOptionsDescription << std::endl << std::endl
-      << "For full usage, please use --help." << std::endl << std::flush;
+  out << msg << mostCommonOptionsDescription << std::endl
+      << optionsFootnote << std::endl
+      << "For full usage, please use --help." << std::endl << std::endl << std::flush;
 }
 
 void Options::printLanguageHelp(std::ostream& out) {
@@ -288,7 +295,7 @@ static struct option cmdlineOptions[] = {${all_modules_long_options}
   { NULL, no_argument, NULL, '\0' }
 };/* cmdlineOptions */
 
-#line 292 "${template}"
+#line 299 "${template}"
 
 static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
@@ -336,8 +343,12 @@ public:
 
 }/* CVC4::options namespace */
 
-/** Parse argc/argv and put the result into a CVC4::Options. */
-int Options::parseOptions(int argc, char* main_argv[]) throw(OptionException) {
+/**
+ * Parse argc/argv and put the result into a CVC4::Options.
+ * The return value is what's left of the command line (that is, the
+ * non-option arguments).
+ */
+std::vector<std::string> Options::parseOptions(int argc, char* main_argv[]) throw(OptionException) {
   options::OptionsGuard guard(&s_current, this);
 
   const char *progName = main_argv[0];
@@ -364,21 +375,29 @@ int Options::parseOptions(int argc, char* main_argv[]) throw(OptionException) {
 
   int extra_optind = 0, main_optind = 0;
   int old_optind;
+  int *optind_ref = &main_optind;
 
   char** argv = main_argv;
 
+  std::vector<std::string> nonOptions;
+
   for(;;) {
     int c = -1;
+    optopt = 0;
     Debug("preemptGetopt") << "top of loop, extra_optind == " << extra_optind << ", extra_argc == " << extra_argc << std::endl;
     if((extra_optind == 0 ? 1 : extra_optind) < extra_argc) {
 #if HAVE_DECL_OPTRESET
       optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
 #endif /* HAVE_DECL_OPTRESET */
       old_optind = optind = extra_optind;
+      optind_ref = &extra_optind;
       argv = extra_argv;
       Debug("preemptGetopt") << "in preempt code, next arg is " << extra_argv[optind == 0 ? 1 : optind] << std::endl;
+      if(extra_argv[extra_optind == 0 ? 1 : extra_optind][0] != '-') {
+        InternalError("preempted args cannot give non-options command-line args (found `%s')", extra_argv[extra_optind == 0 ? 1 : extra_optind]);
+      }
       c = getopt_long(extra_argc, extra_argv,
-                      ":${all_modules_short_options}",
+                      "+:${all_modules_short_options}",
                       cmdlineOptions, NULL);
       Debug("preemptGetopt") << "in preempt code, c == " << c << " (`" << char(c) << "') optind == " << optind << std::endl;
       if(optind >= extra_argc) {
@@ -400,12 +419,25 @@ int Options::parseOptions(int argc, char* main_argv[]) throw(OptionException) {
       optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
 #endif /* HAVE_DECL_OPTRESET */
       old_optind = optind = main_optind;
+      optind_ref = &main_optind;
       argv = main_argv;
+      if(main_optind < argc && main_argv[main_optind][0] != '-') {
+        do {
+          if(main_optind != 0) {
+            nonOptions.push_back(main_argv[main_optind]);
+          }
+          ++main_optind;
+        } while(main_optind < argc && main_argv[main_optind][0] != '-');
+        continue;
+      }
       c = getopt_long(argc, main_argv,
-                      ":${all_modules_short_options}",
+                      "+:${all_modules_short_options}",
                       cmdlineOptions, NULL);
       main_optind = optind;
+      Debug("options") << "[ next option will be at pos: " << optind << " ]" << std::endl;
+      if(optind < argc) Debug("options") << "next is option: " << argv[optind] << std::endl;
       if(c == -1) {
+        Debug("options") << "done with option parsing" << std::endl;
         break;
       }
     }
@@ -415,7 +447,7 @@ int Options::parseOptions(int argc, char* main_argv[]) throw(OptionException) {
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 419 "${template}"
+#line 451 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the
@@ -431,27 +463,45 @@ ${all_modules_option_handlers}
 
     case '?':
     default:
-      if(optopt == 0 &&
-         !strncmp(argv[optind - 1], "--thread", 8) &&
-         strlen(argv[optind - 1]) > 8 &&
-         isdigit(argv[optind - 1][8])) {
+      if( ( optopt == 0 || ( optopt >= ${long_option_value_begin} && optopt <= ${long_option_value_end} ) ) &&
+          !strncmp(argv[optind - 1], "--thread", 8) &&
+          strlen(argv[optind - 1]) > 8 ) {
+        if(! isdigit(argv[optind - 1][8])) {
+          throw OptionException(std::string("can't understand option `") + argv[optind - 1] + "': expected something like --threadN=\"--option1 --option2\", where N is a nonnegative integer");
+        }
         std::vector<std::string>& threadArgv = d_holder->threadArgv;
-        int tnum = atoi(argv[optind - 1] + 8);
-        threadArgv.resize(tnum + 1);
+        char *end;
+        long tnum = strtol(argv[optind - 1] + 8, &end, 10);
+        if(tnum < 0 || (*end != '\0' && *end != '=')) {
+          throw OptionException(std::string("can't understand option `") + argv[optind - 1] + "': expected something like --threadN=\"--option1 --option2\", where N is a nonnegative integer");
+        }
+        if(threadArgv.size() <= size_t(tnum)) {
+          threadArgv.resize(tnum + 1);
+        }
         if(threadArgv[tnum] != "") {
           threadArgv[tnum] += " ";
         }
-        const char* p = strchr(argv[optind - 1] + 9, '=');
-        if(p == NULL) { // e.g., we have --thread0 "foo"
-          threadArgv[tnum] += argv[optind++];
+        if(*end == '\0') { // e.g., we have --thread0 "foo"
+          if(argc <= optind) {
+            throw OptionException(std::string("option `") + argv[optind - 1] + "' missing its required argument");
+          }
+          Debug("options") << "thread " << tnum << " gets option " << argv[optind] << std::endl;
+          threadArgv[tnum] += argv[(*optind_ref)++];
         } else { // e.g., we have --thread0="foo"
-          threadArgv[tnum] += p + 1;
+          if(end[1] == '\0') {
+            throw OptionException(std::string("option `") + argv[optind - 1] + "' missing its required argument");
+          }
+          Debug("options") << "thread " << tnum << " gets option " << (end + 1) << std::endl;
+          threadArgv[tnum] += end + 1;
         }
+        Debug("options") << "thread " << tnum << " now has " << threadArgv[tnum] << std::endl;
         break;
       }
 
       // This can be a long or short option, and the way to get at the name of it is different.
-      if(optopt == 0) { // was a long option
+      if(optopt == 0 ||
+         ( optopt >= ${long_option_value_begin} && optopt <= ${long_option_value_end} )) {
+        // was a long option
         throw OptionException(std::string("can't understand option `") + argv[optind - 1] + "'");
       } else { // was a short option
         throw OptionException(std::string("can't understand option `-") + char(optopt) + "'");
@@ -463,7 +513,9 @@ ${all_modules_option_handlers}
     throw OptionException(std::string("The use of --incremental with --proof is not yet supported"));
   }
 
-  return optind;
+  Debug("options") << "returning " << nonOptions.size() << " non-option arguments." << std::endl;
+
+  return nonOptions;
 }
 
 #undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT

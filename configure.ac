@@ -783,12 +783,15 @@ AC_PATH_PROG(CXXTESTGEN, cxxtestgen.pl, [], [$CXXTEST:$PATH])
 if test -z "$CXXTESTGEN"; then
   AC_PATH_PROG(CXXTESTGEN, cxxtestgen.py, [], [$CXXTEST:$PATH])
 fi
+if test -z "$CXXTESTGEN"; then
+  AC_PATH_PROG(CXXTESTGEN, cxxtestgen, [], [$CXXTEST:$PATH])
+fi
 if test "$enable_unit_testing" = "no"; then
   AC_MSG_NOTICE([unit tests disabled by user request.])
   CXXTESTGEN=
   CXXTEST=
 elif test -z "$CXXTESTGEN"; then
-  AC_MSG_NOTICE([unit tests disabled, neither cxxtestgen.pl nor cxxtestgen.py found.])
+  AC_MSG_NOTICE([unit tests disabled, could not find cxxtestgen.pl or cxxtestgen.py or cxxtestgen])
 elif test -z "$CXXTEST"; then
   CXXTEST=`dirname "$CXXTESTGEN"`
   AC_MSG_CHECKING([for location of CxxTest headers])
@@ -1110,7 +1113,7 @@ CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/tls.h])
 
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.1_template])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.5])
-CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3_template])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4parser.3])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4compat.3])
 

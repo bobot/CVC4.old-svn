@@ -75,6 +75,8 @@ namespace smt {
 
   class SmtEnginePrivate;
   class SmtScope;
+
+  void beforeSearch(std::string, bool, SmtEngine*) throw(ModalException);
 }/* CVC4::smt namespace */
 
 // TODO: SAT layer (esp. CNF- versus non-clausal solvers under the
@@ -135,6 +137,11 @@ class CVC4_PUBLIC SmtEngine {
   LogicInfo d_logic;
 
   /**
+   * Number of internal pops that have been deferred.
+   */
+  unsigned d_pendingPops;
+
+  /**
    * Whether or not this SmtEngine has been fully initialized (that is,
    * the ).  This post-construction initialization is automatically
    * triggered by the use of the SmtEngine; e.g. when setLogic() is
@@ -193,6 +200,12 @@ class CVC4_PUBLIC SmtEngine {
   smt::SmtEnginePrivate* d_private;
 
   /**
+   * Check that a generated Model (via getModel()) actually satisfies
+   * all user assertions.
+   */
+  void checkModel() throw(InternalErrorException);
+
+  /**
    * This is something of an "init" procedure, but is idempotent; call
    * as often as you like.  Should be called whenever the final options
    * and logic for the problem are set (at least, those options that are
@@ -238,7 +251,9 @@ class CVC4_PUBLIC SmtEngine {
 
   void internalPush();
 
-  void internalPop();
+  void internalPop(bool immediate = false);
+
+  void doPendingPops();
 
   /**
    * Internally handle the setting of a logic.  This function should always
@@ -248,6 +263,7 @@ class CVC4_PUBLIC SmtEngine {
 
   friend class ::CVC4::smt::SmtEnginePrivate;
   friend class ::CVC4::smt::SmtScope;
+  friend void ::CVC4::smt::beforeSearch(std::string, bool, SmtEngine*) throw(ModalException);
 
   StatisticsRegistry* d_statisticsRegistry;
 
@@ -274,6 +290,8 @@ class CVC4_PUBLIC SmtEngine {
   IntStat d_numAssertionsPre;
   /** Num of assertions after ite removal */
   IntStat d_numAssertionsPost;
+  /** time spent in checkModel() */
+  TimerStat d_checkModelTime;
 
 public:
 
@@ -355,13 +373,19 @@ public:
   /**
    * Simplify a formula without doing "much" work.  Does not involve
    * the SAT Engine in the simplification, but uses the current
-   * assertions and the current partial model, if one has been
-   * constructed.
+   * definitions, assertions, and the current partial model, if one
+   * has been constructed.  It also involves theory normalization.
    *
    * @todo (design) is this meant to give an equivalent or an
    * equisatisfiable formula?
    */
   Expr simplify(const Expr& e) throw(TypeCheckingException);
+
+  /**
+   * Expand the definitions in a term or formula.  No other
+   * simplification or normalization is done.
+   */
+  Expr expandDefinitions(const Expr& e) throw(TypeCheckingException);
 
   /**
    * Get the assigned value of an expr (only if immediately preceded
@@ -413,11 +437,6 @@ public:
    * SmtEngine is set to operate interactively.
    */
   std::vector<Expr> getAssertions() throw(ModalException, AssertionException);
-
-  /**
-   * Get the current context level.
-   */
-  size_t getStackLevel() const;
 
   /**
    * Push a user-level context.
@@ -541,17 +560,6 @@ public:
 
   Result getStatusOfLastCommand() const {
     return d_status;
-  }
-
-  /**
-   * Used as a predicate for options preprocessor.
-   */
-  static void beforeSearch(std::string option, bool value, SmtEngine* smt) throw(ModalException) {
-    if(smt != NULL && smt->d_fullyInited) {
-      std::stringstream ss;
-      ss << "cannot change option `" << option << "' after final initialization (i.e., after logic has been set)";
-      throw ModalException(ss.str());
-    }
   }
 
   /**

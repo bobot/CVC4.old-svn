@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file driver.cpp
+/*! \file driver_unified.cpp
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: cconway
@@ -11,9 +11,8 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Driver for (sequential) CVC4 executable (cvc4)
- **
- ** Driver for (sequential) CVC4 executable (cvc4).
+ ** \brief Driver for CVC4 executable (cvc4) unified for both
+ ** sequential and portfolio versions
  **/
 
 #include <cstdlib>
@@ -32,11 +31,14 @@
 #include "parser/parser_builder.h"
 #include "parser/parser_exception.h"
 #include "expr/expr_manager.h"
-#include "smt/smt_engine.h"
 #include "expr/command.h"
 #include "util/Assert.h"
 #include "util/configuration.h"
 #include "options/options.h"
+#include "main/command_executor.h"
+# ifdef PORTFOLIO_BUILD
+#    include "main/command_executor_portfolio.h"
+# endif
 #include "main/options.h"
 #include "smt/options.h"
 #include "theory/uf/options.h"
@@ -49,8 +51,6 @@ using namespace std;
 using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
-
-static bool doCommand(SmtEngine&, Command*, Options&);
 
 namespace CVC4 {
   namespace main {
@@ -98,7 +98,14 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   progPath = argv[0];
 
   // Parse the options
-  int firstArgIndex = opts.parseOptions(argc, argv);
+  vector<string> filenames = opts.parseOptions(argc, argv);
+
+# ifndef PORTFOLIO_BUILD
+  if( opts.wasSetByUser(options::threads) ||
+      ! opts[options::threadArgv].empty() ) {
+    throw OptionException("Thread options cannot be used with sequential CVC4.  Please build and use the portfolio binary `pcvc4'.");
+  }
+# endif
 
   progName = opts[options::binary_name].c_str();
 
@@ -121,13 +128,12 @@ int runCvc4(int argc, char* argv[], Options& opts) {
 #endif /* CVC4_COMPETITION_MODE */
 
   // We only accept one input file
-  if(argc > firstArgIndex + 1) {
+  if(filenames.size() > 1) {
     throw Exception("Too many input files specified.");
   }
 
   // If no file supplied we will read from standard input
-  const bool inputFromStdin =
-    firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
+  const bool inputFromStdin = filenames.empty() || filenames[0] == "-";
 
   // if we're reading from stdin on a TTY, default to interactive mode
   if(!opts.wasSetByUser(options::interactive)) {
@@ -157,7 +163,7 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   }
 
   // Auto-detect input language by filename extension
-  const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
+  const char* filename = inputFromStdin ? "<stdin>" : filenames[0].c_str();
 
   if(opts[options::inputLanguage] == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
@@ -218,12 +224,24 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   // important even for muzzled builds (to get result output right)
   *opts[options::out] << Expr::setlanguage(opts[options::outputLanguage]);
 
-  // Create the expression manager
+  // Create the expression manager using appropriate options
+# ifndef PORTFOLIO_BUILD
   ExprManager exprMgr(opts);
+# else
+  vector<Options> threadOpts   = parseThreadSpecificOptions(opts);
+  ExprManager exprMgr(threadOpts[0]);
+# endif
+
+  CommandExecutor* cmdExecutor = 
+# ifndef PORTFOLIO_BUILD
+    new CommandExecutor(exprMgr, opts);
+# else
+    new CommandExecutorPortfolio(exprMgr, opts, threadOpts);
+#endif
 
   // Create the SmtEngine
   StatisticsRegistry driverStats("driver");
-  SmtEngine smt(&exprMgr);
+  pStatistics->registerStat_(&driverStats);
 
   Parser* replayParser = NULL;
   if( opts[options::replayFilename] != "" ) {
@@ -241,12 +259,6 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   if( opts[options::replayLog] != NULL ) {
     *opts[options::replayLog] << Expr::setlanguage(opts[options::outputLanguage]) << Expr::setdepth(-1);
   }
-
-  // signal handlers need access
-  pStatistics = smt.getStatisticsRegistry();
-  exprMgr.getStatisticsRegistry()->setName("ExprManager");
-  pStatistics->registerStat_(exprMgr.getStatisticsRegistry());
-  pStatistics->registerStat_(&driverStats);
 
   // Timer statistic
   RegisterStatistic statTotalTime(&driverStats, &s_totalTime);
@@ -274,7 +286,7 @@ int runCvc4(int argc, char* argv[], Options& opts) {
       replayParser->useDeclarationsFrom(shell.getParser());
     }
     while((cmd = shell.readCommand())) {
-      status = doCommand(smt,cmd, opts) && status;
+      status = cmdExecutor->doCommand(cmd) && status;
       delete cmd;
     }
   } else {
@@ -293,12 +305,12 @@ int runCvc4(int argc, char* argv[], Options& opts) {
       // have the replay parser use the file's declarations
       replayParser->useDeclarationsFrom(parser);
     }
-    while((cmd = parser->nextCommand()) && status) {
+    while(status && (cmd = parser->nextCommand())) {
       if(dynamic_cast<QuitCommand*>(cmd) != NULL) {
         delete cmd;
         break;
       }
-      status = doCommand(smt, cmd, opts) && status;
+      status = cmdExecutor->doCommand(cmd);
       delete cmd;
     }
     // Remove the parser
@@ -314,7 +326,7 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   int returnValue;
   string result = "unknown";
   if(status) {
-    result = smt.getInfo("status").getValue();
+    result = cmdExecutor->getSmtEngineStatus();
 
     if(result == "sat") {
       returnValue = 10;
@@ -342,38 +354,6 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   if(opts[options::statistics]) {
     pStatistics->flushInformation(*opts[options::err]);
   }
-
+  exit(returnValue);
   return returnValue;
-}
-
-/** Executes a command. Deletes the command after execution. */
-static bool doCommand(SmtEngine& smt, Command* cmd, Options& opts) {
-  if( opts[options::parseOnly] ) {
-    return true;
-  }
-
-  // assume no error
-  bool status = true;
-
-  CommandSequence *seq = dynamic_cast<CommandSequence*>(cmd);
-  if(seq != NULL) {
-    for(CommandSequence::iterator subcmd = seq->begin();
-        subcmd != seq->end();
-        ++subcmd) {
-      status = doCommand(smt, *subcmd, opts) && status;
-    }
-  } else {
-    if(opts[options::verbosity] > 0) {
-      *opts[options::out] << "Invoking: " << *cmd << endl;
-    }
-
-    if(opts[options::verbosity] >= 0) {
-      cmd->invoke(&smt, *opts[options::out]);
-    } else {
-      cmd->invoke(&smt);
-    }
-    status = status && cmd->ok();
-  }
-
-  return status;
 }

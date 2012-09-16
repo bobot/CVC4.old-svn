@@ -42,7 +42,6 @@
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/first_order_model.h"
 
-//hack
 #include "theory/arith/options.h"
 #include "theory/uf/options.h"
 
@@ -292,7 +291,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   // initialize the quantifiers engine
   d_quantEngine = new QuantifiersEngine(context, this);
 
-  //build model information if applicable
+  // build model information if applicable
   d_curr_model = new theory::DefaultModel( context, "DefaultModel", true );
   d_curr_model_builder = new theory::TheoryEngineModelBuilder( this );
 
@@ -311,6 +310,9 @@ TheoryEngine::~TheoryEngine() {
       delete d_theoryOut[theoryId];
     }
   }
+
+  delete d_curr_model_builder;
+  delete d_curr_model;
 
   delete d_quantEngine;
 
