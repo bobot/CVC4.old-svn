@@ -21,9 +21,9 @@ option doStaticLearning static-learning /--no-static-learning bool :default true
 
 option expandDefinitions expand-definitions bool :default false
  always expand symbol definitions in output
-common-option produceModels produce-models -m --produce-models bool :default false :predicate CVC4::smt::beforeSearch :predicate-include "smt/smt_engine.h"
+common-option produceModels produce-models -m --produce-models bool :default true :predicate CVC4::smt::beforeSearch :predicate-include "smt/smt_engine.h"
  support the get-value and get-model commands
-option checkModels check-models --check-models bool :predicate CVC4::smt::beforeSearch :predicate-include "smt/options_handlers.h"
+option checkModels check-models --check-models bool :default true :predicate CVC4::smt::beforeSearch :predicate-include "smt/options_handlers.h"
  after SAT/INVALID, double-check that the generated model satisfies all user assertions
 common-option proof produce-proofs --proof bool :default false :predicate CVC4::smt::proofEnabledBuild CVC4::smt::beforeSearch :predicate-include "smt/options_handlers.h"
  turn on proof generation

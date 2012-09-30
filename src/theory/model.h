@@ -27,9 +27,6 @@
 namespace CVC4 {
 namespace theory {
 
-class QuantifiersEngine;
-class TheoryEngineModelBuilder;
-
 /** Theory Model class
  *    For Model m, should call m.initialize() before using
  */
@@ -133,6 +130,71 @@ public:
   std::map< Node, Node > d_uf_models;
 };
 
+/*
+ * Class that encapsulates a map from types to sets of nodes
+ */
+class TypeSet {
+public:
+  typedef std::hash_map<TypeNode, std::set<Node>*, TypeNodeHashFunction> TypeSetMap;
+  typedef TypeSetMap::iterator iterator;
+private:
+  TypeSetMap d_typeSet;
+
+  public:
+  ~TypeSet() {
+    iterator it;
+    for (it = d_typeSet.begin(); it != d_typeSet.end(); ++it) {
+      if ((*it).second != NULL) {
+        delete (*it).second;
+      }
+    }
+  }
+
+  void add(TypeNode t, TNode n)
+  {
+    iterator it = d_typeSet.find(t);
+    std::set<Node>* s;
+    if (it == d_typeSet.end()) {
+      s = new std::set<Node>;
+      d_typeSet[t] = s;
+    }
+    else {
+      s = (*it).second;
+    }
+    s->insert(n);
+  }
+
+  std::set<Node>* getSet(TypeNode t)
+  {
+    iterator it = d_typeSet.find(t);
+    if (it == d_typeSet.end()) {
+      return NULL;
+    }
+    return (*it).second;
+  }
+
+  iterator begin()
+  {
+    return d_typeSet.begin();
+  }
+
+  iterator end()
+  {
+    return d_typeSet.end();
+  }
+
+  static TypeNode getType(iterator it)
+  {
+    return (*it).first;
+  }
+
+  static std::set<Node>& getSet(iterator it)
+  {
+    return *(*it).second;
+  }
+
+};    
+
 /** TheoryEngineModelBuilder class
   *    This model builder will consult all theories in a theory engine for
   *    collectModelInfo( ... ) when building a model.
@@ -142,24 +204,22 @@ class TheoryEngineModelBuilder : public ModelBuilder
 protected:
   /** pointer to theory engine */
   TheoryEngine* d_te;
+  typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
+  NodeMap d_normalizedCache;
+
   /** process build model */
-  virtual void processBuildModel( TheoryModel* m, bool fullModel );
+  virtual void processBuildModel(TheoryModel* m, bool fullModel);
   /** choose representative for unconstrained equivalence class */
-  virtual Node chooseRepresentative( TheoryModel* m, Node eqc, bool fullModel );
+  virtual Node chooseRepresentative(TheoryModel* m, Node eqc, bool fullModel);
   /** normalize representative */
-  Node normalizeRepresentative( TheoryModel* m, Node r, std::map< Node, Node >& reps,
-                                std::map< Node, bool >& normalized,
-                                std::map< Node, bool >& normalizing );
-  Node normalizeNode( TheoryModel* m, Node r, std::map< Node, Node >& reps,
-                      std::map< Node, bool >& normalized,
-                      std::map< Node, bool >& normalizing );
+  Node normalize(TheoryModel* m, Node r, std::map<Node, Node>& constantReps);
 public:
-  TheoryEngineModelBuilder( TheoryEngine* te );
+  TheoryEngineModelBuilder(TheoryEngine* te);
   virtual ~TheoryEngineModelBuilder(){}
   /** Build model function.
    *    Should be called only on TheoryModels m
    */
-  void buildModel( Model* m, bool fullModel );
+  void buildModel(Model* m, bool fullModel);
 };
 
 }
