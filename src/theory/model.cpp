@@ -95,11 +95,18 @@ Node TheoryModel::getModelValue( TNode n )
         // Existing function
         return d_uf_models[n];
       }
-      // Unknown function symbol
-      TypeEnumerator te(t);
-      return *te;
+      // Unknown function symbol: return LAMBDA x. c, where c is the first constant in the enumeration of the range type
+      vector<TypeNode> argTypes = t.getArgTypes();
+      vector<Node> args;
+      NodeManager* nm = NodeManager::currentNM();
+      for (unsigned i = 0; i < argTypes.size(); ++i) {
+        args.push_back(nm->mkBoundVar(argTypes[i]));
+      }
+      Node boundVarList = nm->mkNode(kind::BOUND_VAR_LIST, args);
+      TypeEnumerator te(t.getRangeType());
+      return nm->mkNode(kind::LAMBDA, boundVarList, *te);
     }
-    // if func models not enabled, throw an error?
+    // TODO: if func models not enabled, throw an error?
     Unreachable();
   }
 
