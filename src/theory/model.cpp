@@ -418,6 +418,7 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
 
     // eqc is the equivalence class representative
     Node eqc = (*eqcs_i);
+    Trace("model-builder") << "Processing EC: " << eqc << endl;
     Assert(tm->d_equalityEngine.getRepresentative(eqc) == eqc);
     TypeNode eqct = eqc.getType();
     Assert(assertedReps.find(eqc) == assertedReps.end());
@@ -428,17 +429,19 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
     eq::EqClassIterator eqc_i = eq::EqClassIterator(eqc, &tm->d_equalityEngine);
     for ( ; !eqc_i.isFinished(); ++eqc_i) {
       Node n = *eqc_i;
+      Trace("model-builder") << "  Processing Term: " << n << endl;
       // Record as rep if this node was specified as a representative
       if (tm->d_reps.find(n) != tm->d_reps.end()){
         Assert(rep.isNull());
         rep = tm->d_reps[n];
         Assert(!rep.isNull() );
-        Trace("model-builder") << "Rep( " << eqc << " ) = " << rep << std::endl;
+        Trace("model-builder") << "  Rep( " << eqc << " ) = " << rep << std::endl;
       }
       // Record as const_rep if this node is constant
       if (n.isConst()) {
         Assert(const_rep.isNull());
         const_rep = n;
+        Trace("model-builder") << "  ConstRep( " << eqc << " ) = " << const_rep << std::endl;
       }
       //model-specific processing of the term
       tm->addTerm(n);
@@ -463,6 +466,7 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
   // Need to ensure that each EC has a constant representative.
 
   // Phase 1: For types that do not have asserted reps, assign the unassigned EC's using type enumeration
+  Trace("model-builder") << "Starting phase 1..." << std::endl;
   TypeSet::iterator it;
   for (it = typeNoRepSet.begin(); it != typeNoRepSet.end(); ++it) {
     set<Node>& noRepSet = TypeSet::getSet(it);
@@ -490,13 +494,14 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
         constSet = typeConstSet.getSet(t);
       }
       constantReps[*i] = *te;
+      Trace("model-builder") << "  Setting constant rep of " << (*i) << " to " << *te << endl;
       ++te;
     }
   }
 
   // Phase 2: Substitute into asserted reps using constReps.
   // Iterate until a fixed point is reached.
-
+  Trace("model-builder") << "Starting phase 1..." << std::endl;
   bool changed;
   do {
     changed = false;
