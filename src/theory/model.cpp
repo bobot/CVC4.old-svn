@@ -450,7 +450,7 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
     // Assign representative for this EC
     if (!const_rep.isNull()) {
       // Theories should not specify a rep if there is already a constant in the EC
-      Assert(rep.isNull());
+      Assert(rep.isNull() || rep == const_rep);
       constantReps[eqc] = const_rep;
       typeConstSet.add(eqct, const_rep);
     }
@@ -502,7 +502,8 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
       }
     } while (changed);
 
-    if (noRepSet.empty()) {
+    // Skip next step if nothing to do or if fullModel is false (meaning we shouldn't choose any representatives that aren't forced)
+    if (noRepSet.empty() || !fullModel) {
       continue;
     }
 
@@ -541,50 +542,74 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
         Assert(assertedReps.find(*i) != assertedReps.end());
         Node rep = assertedReps[*i];
         Node normalized = normalize(tm, rep, constantReps);
+        Trace("model-builder") << "  Normalizing rep (" << rep << "), normalized to (" << normalized << ")" << endl;
         if (normalized.isConst()) {
           changed = true;
           constantReps[*i] = normalized;
           set<Node>::iterator i2 = i;
           ++i;
           repSet.erase(i2);
+          assertedReps.erase(*i);
         }
         else {
+          if (normalized != rep) {
+            assertedReps[*i] = normalized;
+            changed = true;
+          }
           ++i;
         }
       }
     }
   } while (changed);
 
-  // Assert that all representatives have been converted to constants
-  for (it = typeRepSet.begin(); it != typeRepSet.end(); ++it) {
-    set<Node>& repSet = TypeSet::getSet(it);
-    Assert(repSet.empty());
+  if (fullModel) {
+    // Assert that all representatives have been converted to constants
+    for (it = typeRepSet.begin(); it != typeRepSet.end(); ++it) {
+      set<Node>& repSet = TypeSet::getSet(it);
+      Assert(repSet.empty());
+    }
   }
 
   Trace("model-builder") << "Copy representatives to model..." << std::endl;
-  //constantReps has the actual representatives we will use, now copy to model
   tm->d_reps.clear();
   for( std::map< Node, Node >::iterator it = constantReps.begin(); it != constantReps.end(); ++it ){
     tm->d_reps[ it->first ] = it->second;
     tm->d_rep_set.add( it->second );
   }
 
-  //modelBuilder-specific initialization
-  processBuildModel( tm, fullModel );
-
-  // Check that every term evaluates to its representative in the model
-  for (eqcs_i = eq::EqClassesIterator(&tm->d_equalityEngine); !eqcs_i.isFinished(); ++eqcs_i) {
-    // eqc is the equivalence class representative
-    Node eqc = (*eqcs_i);
-    Assert(constantReps.find(eqc) != constantReps.end());
-    Node rep = constantReps[eqc];
-    eq::EqClassIterator eqc_i = eq::EqClassIterator(eqc, &tm->d_equalityEngine);
-    for ( ; !eqc_i.isFinished(); ++eqc_i) {
-      Node n = *eqc_i;
-      Assert(tm->getValue(*eqc_i) == rep);
+  if (!fullModel) {
+    // Make sure every EC has a rep
+    for( std::map< Node, Node >::iterator it = assertedReps.begin(); it != assertedReps.end(); ++it ){
+      tm->d_reps[ it->first ] = it->second;
+      tm->d_rep_set.add( it->second );
+    }
+    for (it = typeNoRepSet.begin(); it != typeNoRepSet.end(); ++it) {
+      set<Node>& noRepSet = TypeSet::getSet(it);
+      set<Node>::iterator i;
+      for (i = noRepSet.begin(); i != noRepSet.end(); ++i) {
+        tm->d_reps[*i] = *i;
+        tm->d_rep_set.add(*i);
+      }
     }
   }
 
+  //modelBuilder-specific initialization
+  processBuildModel( tm, fullModel );
+
+  if (fullModel) {
+    // Check that every term evaluates to its representative in the model
+    for (eqcs_i = eq::EqClassesIterator(&tm->d_equalityEngine); !eqcs_i.isFinished(); ++eqcs_i) {
+      // eqc is the equivalence class representative
+      Node eqc = (*eqcs_i);
+      Assert(constantReps.find(eqc) != constantReps.end());
+      Node rep = constantReps[eqc];
+      eq::EqClassIterator eqc_i = eq::EqClassIterator(eqc, &tm->d_equalityEngine);
+      for ( ; !eqc_i.isFinished(); ++eqc_i) {
+        Node n = *eqc_i;
+        Assert(tm->getValue(*eqc_i) == rep);
+      }
+    }
+  }
 }
 
 
