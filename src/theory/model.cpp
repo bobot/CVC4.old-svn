@@ -662,6 +662,7 @@ void TheoryEngineModelBuilder::processBuildModel(TheoryModel* m, bool fullModel)
         Node val = ufmt.getFunctionValue( "$x" );
         Trace("model-builder") << "  Assigning (" << n << ") to (" << val << ")" << endl;
         m->d_uf_models[n] = val;
+        //ufmt.debugPrint( std::cout, m );
       }
     }
   }
