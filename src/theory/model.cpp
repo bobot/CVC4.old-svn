@@ -465,7 +465,7 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
 
   // Need to ensure that each EC has a constant representative.
 
-  // Phase 1: For types that do not have asserted reps, assign the unassigned EC's using type enumeration
+  // Phase 1: For types that do not have asserted reps, assign the unassigned EC's using either evaluation or type enumeration
   Trace("model-builder") << "Starting phase 1..." << std::endl;
   TypeSet::iterator it;
   for (it = typeNoRepSet.begin(); it != typeNoRepSet.end(); ++it) {
@@ -476,9 +476,37 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
     TypeNode t = TypeSet::getType(it);
     Assert(typeRepSet.getSet(t) == NULL);
 
-    set<Node>* constSet = typeConstSet.getSet(t);
-    set<Node>::iterator i;
+    set<Node>::iterator i, i2;
+    bool changed;
 
+    // Find value for this EC using evaluation if possible
+    do {
+      changed = false;
+      d_normalizedCache.clear();
+      for (i = noRepSet.begin(); i != noRepSet.end(); ) {
+        i2 = i;
+        ++i;
+        eq::EqClassIterator eqc_i = eq::EqClassIterator(*i2, &tm->d_equalityEngine);
+        for ( ; !eqc_i.isFinished(); ++eqc_i) {
+          Node n = *eqc_i;
+          Node normalized = normalize(tm, n, constantReps);
+          if (normalized.isConst()) {
+            typeConstSet.add(t, normalized);
+            constantReps[*i2] = normalized;
+            Trace("model-builder") << "  Eval: Setting constant rep of " << (*i2) << " to " << normalized << endl;
+            changed = true;
+            noRepSet.erase(i2);
+            break;
+          }
+        }
+      }
+    } while (changed);
+
+    if (noRepSet.empty()) {
+      continue;
+    }
+
+    set<Node>* constSet = typeConstSet.getSet(t);
     TypeEnumerator te(t);
     for (i = noRepSet.begin(); i != noRepSet.end(); ++i) {
       Assert(!te.isFinished());
@@ -494,14 +522,14 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
         constSet = typeConstSet.getSet(t);
       }
       constantReps[*i] = *te;
-      Trace("model-builder") << "  Setting constant rep of " << (*i) << " to " << *te << endl;
+      Trace("model-builder") << "  New Const: Setting constant rep of " << (*i) << " to " << *te << endl;
       ++te;
     }
   }
 
   // Phase 2: Substitute into asserted reps using constReps.
   // Iterate until a fixed point is reached.
-  Trace("model-builder") << "Starting phase 1..." << std::endl;
+  Trace("model-builder") << "Starting phase 2..." << std::endl;
   bool changed;
   do {
     changed = false;
@@ -560,7 +588,7 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
 }
 
 
-Node TheoryEngineModelBuilder::normalize(TheoryModel* m, Node r, std::map< Node, Node >& constantReps)
+Node TheoryEngineModelBuilder::normalize(TheoryModel* m, TNode r, std::map< Node, Node >& constantReps)
 {
   std::map<Node, Node>::iterator itMap = constantReps.find(r);
   if (itMap != constantReps.end()) {
@@ -578,13 +606,19 @@ Node TheoryEngineModelBuilder::normalize(TheoryModel* m, Node r, std::map< Node,
     }
     bool childrenConst = true;
     for (size_t i=0; i < r.getNumChildren(); ++i) {
-      Node ri = normalize(m, m->d_equalityEngine.getRepresentative(r[i]), constantReps);
+      Node ri = r[i];
       if (!ri.isConst()) {
-        childrenConst = false;
+        if (m->d_equalityEngine.hasTerm(ri)) {
+          ri = m->d_equalityEngine.getRepresentative(ri);
+        }
+        ri = normalize(m, ri, constantReps);
+        if (!ri.isConst()) {
+          childrenConst = false;
+        }
       }
       children.push_back(ri);
     }
-    Node retNode = NodeManager::currentNM()->mkNode( r.getKind(), children );
+    retNode = NodeManager::currentNM()->mkNode( r.getKind(), children );
     if (childrenConst) {
       retNode = Rewriter::rewrite(retNode);
     }
@@ -597,18 +631,25 @@ Node TheoryEngineModelBuilder::normalize(TheoryModel* m, Node r, std::map< Node,
 void TheoryEngineModelBuilder::processBuildModel(TheoryModel* m, bool fullModel)
 {
   if (fullModel) {
+    Trace("model-builder") << "Assigning function values..." << endl;
     //construct function values
     for( std::map< Node, std::vector< Node > >::iterator it = m->d_uf_terms.begin(); it != m->d_uf_terms.end(); ++it ){
-      Trace("model-func") << "Creating function value..." << it->first << std::endl;
       Node n = it->first;
       if( m->d_uf_models.find( n )==m->d_uf_models.end() ){
         TypeNode type = n.getType();
         uf::UfModelTree ufmt( n );
-        Node default_v;
+        Node default_v, un, simp, v;
         for( size_t i=0; i<it->second.size(); i++ ){
-          Node un = it->second[i];
-          Node v = m->getRepresentative( un );
-          ufmt.setValue( m, un, v );
+          un = it->second[i];
+          vector<TNode> children;
+          children.push_back(n);
+          for (size_t j = 0; j < un.getNumChildren(); ++j) {
+            children.push_back(m->getRepresentative(un[j]));
+          }
+          simp = NodeManager::currentNM()->mkNode(un.getKind(), children);
+          v = m->getRepresentative(un);
+          Trace("model-builder") << "  Setting (" << simp << ") to (" << v << ")" << endl;
+          ufmt.setValue(m, simp, v);
           default_v = v;
         }
         if( default_v.isNull() ){
@@ -618,7 +659,9 @@ void TheoryEngineModelBuilder::processBuildModel(TheoryModel* m, bool fullModel)
         }
         ufmt.setDefaultValue( m, default_v );
         ufmt.simplify();
-        m->d_uf_models[n] = ufmt.getFunctionValue( "$x" );
+        Node val = ufmt.getFunctionValue( "$x" );
+        Trace("model-builder") << "  Assigning (" << n << ") to (" << val << ")" << endl;
+        m->d_uf_models[n] = val;
       }
     }
   }

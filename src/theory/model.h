@@ -212,7 +212,7 @@ protected:
   /** choose representative for unconstrained equivalence class */
   virtual Node chooseRepresentative(TheoryModel* m, Node eqc, bool fullModel);
   /** normalize representative */
-  Node normalize(TheoryModel* m, Node r, std::map<Node, Node>& constantReps);
+  Node normalize(TheoryModel* m, TNode r, std::map<Node, Node>& constantReps);
 public:
   TheoryEngineModelBuilder(TheoryEngine* te);
   virtual ~TheoryEngineModelBuilder(){}
