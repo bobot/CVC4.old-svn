@@ -36,7 +36,7 @@ TheoryModel::TheoryModel( context::Context* c, std::string name, bool enableFunc
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
   d_equalityEngine.addFunctionKind(kind::SELECT);
-  d_equalityEngine.addFunctionKind(kind::STORE);
+  //  d_equalityEngine.addFunctionKind(kind::STORE);
   d_equalityEngine.addFunctionKind(kind::APPLY_CONSTRUCTOR);
   d_equalityEngine.addFunctionKind(kind::APPLY_SELECTOR);
   d_equalityEngine.addFunctionKind(kind::APPLY_TESTER);
@@ -143,7 +143,6 @@ Node TheoryModel::getModelValue( TNode n )
   Node val = d_equalityEngine.getRepresentative(n);
   Assert(d_reps.find(val) != d_reps.end());
   val = d_reps[val];
-  Assert(val.isConst());
   return val;
 }
 
@@ -170,7 +169,7 @@ Node TheoryModel::getInterpretedValue( TNode n ){
     }else{
       return n;
     }
-  }else{
+  } else{
     Trace("model-debug") << "check rep..." << std::endl;
     Node ret;
     //check if the representative is defined
@@ -469,12 +468,10 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
   Trace("model-builder") << "Starting phase 1..." << std::endl;
   TypeSet::iterator it;
   for (it = typeNoRepSet.begin(); it != typeNoRepSet.end(); ++it) {
+    TypeNode t = TypeSet::getType(it);
+    Trace("model-builder") << "  Working on type: " << t << endl;
     set<Node>& noRepSet = TypeSet::getSet(it);
     Assert(!noRepSet.empty());
-    // This assertion may be too strong, but hopefully not: we expect that for every type, either all of its EC's have asserted reps (or constants)
-    // or none of its EC's have asserted reps.
-    TypeNode t = TypeSet::getType(it);
-    Assert(typeRepSet.getSet(t) == NULL);
 
     set<Node>::iterator i, i2;
     bool changed;
@@ -507,24 +504,15 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
       continue;
     }
 
-    set<Node>* constSet = typeConstSet.getSet(t);
-    TypeEnumerator te(t);
+    // This assertion may be too strong, but hopefully not: we expect that for every type, either all of its EC's have asserted reps (or constants)
+    // or none of its EC's have asserted reps.
+    Assert(typeRepSet.getSet(t) == NULL);
+
+    Node n;
     for (i = noRepSet.begin(); i != noRepSet.end(); ++i) {
-      Assert(!te.isFinished());
-      if (constSet != NULL) {
-        while (constSet->find(*te) != constSet->end()) {
-          ++te;
-          Assert(!te.isFinished());
-        }
-        constSet->insert(*te);
-      }
-      else {
-        typeConstSet.add(t, *te);
-        constSet = typeConstSet.getSet(t);
-      }
-      constantReps[*i] = *te;
-      Trace("model-builder") << "  New Const: Setting constant rep of " << (*i) << " to " << *te << endl;
-      ++te;
+      n = typeConstSet.nextTypeEnum(t);
+      constantReps[*i] = n;
+      Trace("model-builder") << "  New Const: Setting constant rep of " << (*i) << " to " << n << endl;
     }
   }
 
@@ -546,10 +534,10 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
         if (normalized.isConst()) {
           changed = true;
           constantReps[*i] = normalized;
+          assertedReps.erase(*i);
           set<Node>::iterator i2 = i;
           ++i;
           repSet.erase(i2);
-          assertedReps.erase(*i);
         }
         else {
           if (normalized != rep) {
@@ -572,16 +560,17 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
 
   Trace("model-builder") << "Copy representatives to model..." << std::endl;
   tm->d_reps.clear();
-  for( std::map< Node, Node >::iterator it = constantReps.begin(); it != constantReps.end(); ++it ){
-    tm->d_reps[ it->first ] = it->second;
-    tm->d_rep_set.add( it->second );
+  std::map< Node, Node >::iterator itMap;
+  for (itMap = constantReps.begin(); itMap != constantReps.end(); ++itMap) {
+    tm->d_reps[itMap->first] = itMap->second;
+    tm->d_rep_set.add(itMap->second);
   }
 
   if (!fullModel) {
     // Make sure every EC has a rep
-    for( std::map< Node, Node >::iterator it = assertedReps.begin(); it != assertedReps.end(); ++it ){
-      tm->d_reps[ it->first ] = it->second;
-      tm->d_rep_set.add( it->second );
+    for (itMap = assertedReps.begin(); itMap != assertedReps.end(); ++itMap ) {
+      tm->d_reps[itMap->first] = itMap->second;
+      tm->d_rep_set.add(itMap->second);
     }
     for (it = typeNoRepSet.begin(); it != typeNoRepSet.end(); ++it) {
       set<Node>& noRepSet = TypeSet::getSet(it);

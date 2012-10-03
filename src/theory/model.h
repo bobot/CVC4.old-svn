@@ -23,6 +23,7 @@
 #include "theory/uf/equality_engine.h"
 #include "theory/rep_set.h"
 #include "theory/substitutions.h"
+#include "theory/type_enumerator.h"
 
 namespace CVC4 {
 namespace theory {
@@ -136,9 +137,11 @@ public:
 class TypeSet {
 public:
   typedef std::hash_map<TypeNode, std::set<Node>*, TypeNodeHashFunction> TypeSetMap;
+  typedef std::hash_map<TypeNode, TypeEnumerator*, TypeNodeHashFunction> TypeToTypeEnumMap;
   typedef TypeSetMap::iterator iterator;
 private:
   TypeSetMap d_typeSet;
+  TypeToTypeEnumMap d_teMap;
 
   public:
   ~TypeSet() {
@@ -146,6 +149,12 @@ private:
     for (it = d_typeSet.begin(); it != d_typeSet.end(); ++it) {
       if ((*it).second != NULL) {
         delete (*it).second;
+      }
+    }
+    TypeToTypeEnumMap::iterator it2;
+    for (it2 = d_teMap.begin(); it2 != d_teMap.end(); ++it2) {
+      if ((*it2).second != NULL) {
+        delete (*it2).second;
       }
     }
   }
@@ -171,6 +180,39 @@ private:
       return NULL;
     }
     return (*it).second;
+  }
+
+  Node nextTypeEnum(TypeNode t)
+  {
+    TypeEnumerator* te;
+    TypeToTypeEnumMap::iterator it = d_teMap.find(t);
+    if (it == d_teMap.end()) {
+      te = new TypeEnumerator(t);
+      d_teMap[t] = te;
+    }
+    else {
+      te = (*it).second;
+    }
+    Assert(!te->isFinished());
+
+    iterator itSet = d_typeSet.find(t);
+    std::set<Node>* s;
+    if (itSet == d_typeSet.end()) {
+      s = new std::set<Node>;
+      d_typeSet[t] = s;
+    }
+    else {
+      s = (*itSet).second;
+    }
+    Node n = **te;
+    while (s->find(n) != s->end()) {
+      Assert(!te->isFinished());
+      ++(*te);
+      n = **te;
+    }
+    s->insert(n);
+    ++(*te);
+    return n;
   }
 
   iterator begin()
