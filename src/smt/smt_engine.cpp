@@ -261,6 +261,11 @@ class SmtEnginePrivate : public NodeManagerListener {
    */
   bool simplifyAssertions() throw(TypeCheckingException);
 
+  /**
+   * contains quantifiers
+   */
+  bool containsQuantifiers( Node n );
+
 public:
 
   SmtEnginePrivate(SmtEngine& smt) :
@@ -302,7 +307,7 @@ public:
     d_smt.addToModelCommand(c.clone());
   }
 
-  void nmNotifyNewSkolem(TNode n, std::string comment) {
+  void nmNotifyNewSkolem(TNode n, const std::string& comment) {
     std::string id = n.getAttribute(expr::VarNameAttr());
     DeclareFunctionCommand c(id,
                              n.toExpr(),
@@ -351,6 +356,11 @@ public:
    */
   Node expandDefinitions(TNode n, hash_map<Node, Node, NodeHashFunction>& cache)
     throw(TypeCheckingException);
+
+  /**
+   * pre-skolemize quantifiers
+   */
+  Node preSkolemizeQuantifiers( Node n, bool polarity, std::vector< Node >& fvs );
 
 };/* class SmtEnginePrivate */
 
@@ -417,7 +427,7 @@ void SmtEngine::finishInit() {
   d_decisionEngine = new DecisionEngine(d_context, d_userContext);
   d_decisionEngine->init();   // enable appropriate strategies
 
-  d_propEngine = new PropEngine(d_theoryEngine, d_decisionEngine, d_context);
+  d_propEngine = new PropEngine(d_theoryEngine, d_decisionEngine, d_context, d_userContext);
 
   d_theoryEngine->setPropEngine(d_propEngine);
   d_theoryEngine->setDecisionEngine(d_decisionEngine);
@@ -564,6 +574,10 @@ void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
   SmtScope smts(this);
 
   setLogic(LogicInfo(s));
+}
+
+LogicInfo SmtEngine::getLogicInfo() const {
+  return d_logic;
 }
 
 // This function is called when d_logic has just been changed.
@@ -996,6 +1010,104 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashF
     Node node = nb;
     cache[n] = n == node ? Node::null() : node;
     return node;
+  }
+}
+
+Node SmtEnginePrivate::preSkolemizeQuantifiers( Node n, bool polarity, std::vector< Node >& fvs ){
+  Trace("pre-sk") << "Pre-skolem " << n << " " << polarity << " " << fvs.size() << std::endl;
+  if( n.getKind()==kind::NOT ){
+    Node nn = preSkolemizeQuantifiers( n[0], !polarity, fvs );
+    return nn.negate();
+  }else if( n.getKind()==kind::FORALL ){
+    if( polarity ){
+      std::vector< Node > children;
+      children.push_back( n[0] );
+      //add children to current scope
+      std::vector< Node > fvss;
+      fvss.insert( fvss.begin(), fvs.begin(), fvs.end() );
+      for( int i=0; i<(int)n[0].getNumChildren(); i++ ){
+        fvss.push_back( n[0][i] );
+      }
+      //process body
+      children.push_back( preSkolemizeQuantifiers( n[1], polarity, fvss ) );
+      if( n.getNumChildren()==3 ){
+        children.push_back( n[2] );
+      }
+      //return processed quantifier
+      return NodeManager::currentNM()->mkNode( kind::FORALL, children );
+    }else{
+      //process body
+      Node nn = preSkolemizeQuantifiers( n[1], polarity, fvs );
+      //now, substitute skolems for the variables
+      std::vector< TypeNode > argTypes;
+      for( int i=0; i<(int)fvs.size(); i++ ){
+        argTypes.push_back( fvs[i].getType() );
+      }
+      //calculate the variables and substitution
+      std::vector< Node > vars;
+      std::vector< Node > subs;
+      for( int i=0; i<(int)n[0].getNumChildren(); i++ ){
+        vars.push_back( n[0][i] );
+      }
+      for( int i=0; i<(int)n[0].getNumChildren(); i++ ){
+        //make the new function symbol
+        if( argTypes.empty() ){
+          Node s = NodeManager::currentNM()->mkSkolem( "sk_$$", n[0][i].getType(), "created during pre-skolemization" );
+          subs.push_back( s );
+        }else{
+          TypeNode typ = NodeManager::currentNM()->mkFunctionType( argTypes, n[0][i].getType() );
+          Node op = NodeManager::currentNM()->mkSkolem( "skop_$$", typ, "op created during pre-skolemization" );
+          NoMatchAttribute nma;
+          op.setAttribute(nma,true);
+          std::vector< Node > funcArgs;
+          funcArgs.push_back( op );
+          funcArgs.insert( funcArgs.end(), fvs.begin(), fvs.end() );
+          subs.push_back( NodeManager::currentNM()->mkNode( kind::APPLY_UF, funcArgs ) );
+        }
+      }
+      //apply substitution
+      nn = nn.substitute( vars.begin(), vars.end(), subs.begin(), subs.end() );
+      return nn;
+    }
+  }else{
+    //check if it contains a quantifier as a subterm
+    bool containsQuant = false;
+    if( n.getType().isBoolean() ){
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        if( containsQuantifiers( n[i] ) ){
+          containsQuant = true;
+          break;
+        }
+      }
+    }
+    //if so, we will write this node
+    if( containsQuant ){
+      if( n.getKind()==kind::ITE || n.getKind()==kind::IFF || n.getKind()==kind::XOR || n.getKind()==kind::IMPLIES ){
+        Node nn;
+        //must remove structure
+        if( n.getKind()==kind::ITE ){
+          nn = NodeManager::currentNM()->mkNode( kind::AND,
+                 NodeManager::currentNM()->mkNode( kind::OR, n[0].notNode(), n[1] ),
+                 NodeManager::currentNM()->mkNode( kind::OR, n[0], n[2] ) );
+        }else if( n.getKind()==kind::IFF || n.getKind()==kind::XOR ){
+          nn = NodeManager::currentNM()->mkNode( kind::AND,
+                 NodeManager::currentNM()->mkNode( kind::OR, n[0].notNode(), n.getKind()==kind::XOR ? n[1].notNode() : n[1] ),
+                 NodeManager::currentNM()->mkNode( kind::OR, n[0], n.getKind()==kind::XOR ? n[1] : n[1].notNode() ) );
+        }else if( n.getKind()==kind::IMPLIES ){
+          nn = NodeManager::currentNM()->mkNode( kind::OR, n[0].notNode(), n[1] );
+        }
+        return preSkolemizeQuantifiers( nn, polarity, fvs );
+      }else{
+        Assert( n.getKind() == kind::AND || n.getKind() == kind::OR );
+        std::vector< Node > children;
+        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+          children.push_back( preSkolemizeQuantifiers( n[i], polarity, fvs ) );
+        }
+        return NodeManager::currentNM()->mkNode( n.getKind(), children );
+      }
+    }else{
+      return n;
+    }
   }
 }
 
@@ -1454,6 +1566,20 @@ bool SmtEnginePrivate::simplifyAssertions()
   return true;
 }
 
+
+bool SmtEnginePrivate::containsQuantifiers( Node n ){
+  if( n.getKind()==kind::FORALL ){
+    return true;
+  }else{
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( containsQuantifiers( n[i] ) ){
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
 Result SmtEngine::check() {
   Assert(d_fullyInited);
   Assert(d_pendingPops == 0);
@@ -1554,6 +1680,19 @@ void SmtEnginePrivate::processAssertions() {
     d_assertionsToPreprocess[i] =
       Rewriter::rewrite(d_topLevelSubstitutions.apply(d_assertionsToPreprocess[i]));
     Trace("simplify") << "  got " << d_assertionsToPreprocess[i] << endl;
+  }
+
+  if( options::preSkolemQuant() ){
+    //apply pre-skolemization to existential quantifiers
+    for (unsigned i = 0; i < d_assertionsToPreprocess.size(); ++ i) {
+      Node prev = d_assertionsToPreprocess[i];
+      std::vector< Node > fvs;
+      d_assertionsToPreprocess[i] = Rewriter::rewrite( preSkolemizeQuantifiers( d_assertionsToPreprocess[i], true, fvs ) );
+      if( prev!=d_assertionsToPreprocess[i] ){
+        Trace("quantifiers-rewrite") << "*** Pre-skolemize " << prev << std::endl;
+        Trace("quantifiers-rewrite") << "   ...got " << d_assertionsToPreprocess[i] << std::endl;
+      }
+    }
   }
 
   Chat() << "simplifying assertions..." << endl;
@@ -1745,8 +1884,8 @@ Result SmtEngine::checkSat(const BoolExpr& e) throw(TypeCheckingException) {
   Trace("smt") << "SmtEngine::checkSat(" << e << ") => " << r << endl;
 
   // Check that SAT results generate a model correctly.
-  if(options::checkModels() && r.asSatisfiabilityResult() == Result::SAT) {
-    checkModel();
+  if(options::checkModels() && r.asSatisfiabilityResult() != Result::UNSAT) {
+    checkModel(/* hard failure iff */ ! r.isUnknown());
   }
 
   return r;
@@ -1809,8 +1948,8 @@ Result SmtEngine::query(const BoolExpr& e) throw(TypeCheckingException) {
   Trace("smt") << "SMT query(" << e << ") ==> " << r << endl;
 
   // Check that SAT results generate a model correctly.
-  if(options::checkModels() && r.asSatisfiabilityResult() == Result::SAT) {
-    checkModel();
+  if(options::checkModels() && r.asSatisfiabilityResult() != Result::UNSAT) {
+    checkModel(/* hard failure iff */ ! r.isUnknown());
   }
 
   return r;
@@ -2040,7 +2179,7 @@ Model* SmtEngine::getModel() throw(ModalException) {
   return d_theoryEngine->getModel();
 }
 
-void SmtEngine::checkModel() {
+void SmtEngine::checkModel(bool hardFailure) {
   // --check-model implies --interactive, which enables the assertion list,
   // so we should be ok.
   Assert(d_assertionList != NULL, "don't have an assertion list to check in SmtEngine::checkModel()");
@@ -2146,12 +2285,17 @@ void SmtEngine::checkModel() {
     if(n != NodeManager::currentNM()->mkConst(true)) {
       Notice() << "SmtEngine::checkModel(): *** PROBLEM: EXPECTED `TRUE' ***" << endl;
       stringstream ss;
-      ss << "SmtEngine::checkModel(): ERRORS SATISFYING ASSERTIONS WITH MODEL:" << endl
+      ss << "SmtEngine::checkModel(): "
+         << "ERRORS SATISFYING ASSERTIONS WITH MODEL:" << endl
          << "assertion:     " << *i << endl
          << "simplifies to: " << n << endl
          << "expected `true'." << endl
          << "Run with `--check-models -v' for additional diagnostics.";
-      InternalError(ss.str());
+      if(hardFailure) {
+        InternalError(ss.str());
+      } else {
+        Warning() << ss.str() << endl;
+      }
     }
   }
   Notice() << "SmtEngine::checkModel(): all assertions checked out OK !" << endl;

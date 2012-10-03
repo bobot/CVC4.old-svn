@@ -407,8 +407,8 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
   // Collect model info from the theories
   Trace("model-builder") << "TheoryEngineModelBuilder: Collect model info..." << std::endl;
   d_te->collectModelInfo(tm, fullModel);
-  Trace("model-builder") << "Collect representatives..." << std::endl;
 
+  Trace("model-builder") << "Collect representatives..." << std::endl;
   // Process all terms in the equality engine, store representatives for each EC
   std::map< Node, Node > assertedReps, constantReps;
   TypeSet typeConstSet, typeRepSet, typeNoRepSet;
