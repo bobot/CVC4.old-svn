@@ -47,6 +47,7 @@ class TheoryBV : public Theory {
 
   BitblastSolver d_bitblastSolver;
   EqualitySolver d_equalitySolver;
+  Slicer         d_slicer; 
 public:
 
   TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
@@ -67,6 +68,7 @@ public:
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
   Node ppRewrite(TNode t);
 
+  void presolve();
 private:
 
   class Statistics {

@@ -42,6 +42,7 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
     d_sharedTermsSet(c),
     d_bitblastSolver(c, this),
     d_equalitySolver(c, this),
+    d_slicer(),
     d_statistics(),
     d_conflict(c, false),
     d_literalsToPropagate(c),
@@ -75,6 +76,10 @@ void TheoryBV::preRegisterTerm(TNode node) {
     return;
   }
 
+  if (node.getKind() == kind::EQUAL) {
+    d_slicer.addEquality(node); 
+  }
+  
   d_bitblastSolver.preRegister(node);
   d_equalitySolver.preRegister(node);
 }
@@ -180,7 +185,6 @@ Theory::PPAssertStatus TheoryBV::ppAssert(TNode in, SubstitutionMap& outSubstitu
   return PP_ASSERT_STATUS_UNSOLVED;
 }
 
-
 Node TheoryBV::ppRewrite(TNode t)
 {
   if (RewriteRule<BitwiseEq>::applies(t)) {
@@ -190,6 +194,9 @@ Node TheoryBV::ppRewrite(TNode t)
   return t;
 }
 
+void TheoryBV::presolve() {
+  // todo assert sliced things
+}
 
 bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
 {
