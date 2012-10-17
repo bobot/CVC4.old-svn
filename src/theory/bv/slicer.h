@@ -23,32 +23,41 @@
 
 
 namespace CVC4 {
+
+class Integer;
+
 namespace theory {
 namespace bv {
 
-typedef std::vector<uint32_t> Base; 
+typedef CVC4::Integer Base; 
 typedef __gnu_cxx::hash_map<TNode, Base, TNodeHashFunction> BaseMap; 
-typedef __gnu_cxx::hash_map<TNode, std::vector<TNode>, TNodeHashFunction > EqualityMap; 
-
+typedef __gnu_cxx::hash_map<TNode, std::list<TNode>*, TNodeHashFunction > EqualityGraph; 
+typedef __gnu_cxx::hash_map<TNode, std::list<TNode>*, TNodeHashFunction >::iterator EqualityGraphIterator; 
 class Slicer {
   std::vector<TNode> d_equalities;
   BaseMap d_bases;
-  EqualityMap d_equalityMap; 
-  
+  EqualityMap d_edgeMap; 
   
 public:
   void Slicer();
+  void computeCoarsestBase();
   /** 
-   * Process the given equality. The equality should not contain terms
-   * have an extract over an axtract. 
+   * Takes an equality that is of the following form:
+   *          a1 a2 ... an = b1 b2 ... bk
+   * where ai, and bi are either variables or extracts over variables,
+   * and consecutive extracts have been merged. 
    * 
    * @param node 
    */
-  void addEquality(TNode node);
-  void computeCoarsestBase(); 
-
+  void processEquality(TNode node); 
 private:
-  
+  void processSimpleEquality(TNode node);
+  void splitEqualities(TNode node, std::vector<Node>& equalities);
+  TNode addSimpleTerm(TNode t);
+  void addEqualityEdge(TNode node);
+  Base getBase(TNode node);
+  void updateBase(TNode node, const Base& base);
+
 
 } /* Slicer class */
 
