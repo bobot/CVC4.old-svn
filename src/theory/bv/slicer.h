@@ -18,6 +18,11 @@
 
 #include "cvc4_private.h"
 
+#include <vector>
+#include <list>
+#include <ext/hash_map>
+#include "expr/node.h"
+
 #ifndef __CVC4__THEORY__BV__SLICER_BV_H
 #define __CVC4__THEORY__BV__SLICER_BV_H
 
@@ -36,10 +41,10 @@ typedef __gnu_cxx::hash_map<TNode, std::list<TNode>*, TNodeHashFunction >::itera
 class Slicer {
   std::vector<TNode> d_equalities;
   BaseMap d_bases;
-  EqualityMap d_edgeMap; 
+  EqualityGraph d_edgeMap; 
   
 public:
-  void Slicer();
+  Slicer();
   void computeCoarsestBase();
   /** 
    * Takes an equality that is of the following form:
@@ -54,12 +59,12 @@ private:
   void processSimpleEquality(TNode node);
   void splitEqualities(TNode node, std::vector<Node>& equalities);
   TNode addSimpleTerm(TNode t);
-  void addEqualityEdge(TNode node);
+  void addEqualityEdge(TNode n1, TNode n2);
   Base getBase(TNode node);
   void updateBase(TNode node, const Base& base);
 
 
-} /* Slicer class */
+}; /* Slicer class */
 
 }/* CVC4::theory::bv namespace */
 }/* CVC4::theory namespace */

@@ -31,6 +31,7 @@
 #include "theory/bv/bv_subtheory.h"
 #include "theory/bv/bv_subtheory_eq.h"
 #include "theory/bv/bv_subtheory_bitblast.h"
+#include "theory/bv/slicer.h"
 
 namespace CVC4 {
 namespace theory {
