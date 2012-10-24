@@ -345,6 +345,19 @@ Type::operator TupleType() const throw(IllegalArgumentException) {
   return TupleType(*this);
 }
 
+/** Is this a record type? */
+bool Type::isRecord() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isRecord();
+}
+
+/** Cast to a record type */
+Type::operator RecordType() const throw(IllegalArgumentException) {
+  NodeManagerScope nms(d_nodeManager);
+  CheckArgument(isNull() || isRecord(), this);
+  return RecordType(*this);
+}
+
 /** Is this a symbolic expression type? */
 bool Type::isSExpr() const {
   NodeManagerScope nms(d_nodeManager);
@@ -440,6 +453,10 @@ Type FunctionType::getRangeType() const {
   return makeType(d_typeNode->getRangeType());
 }
 
+size_t TupleType::getLength() const {
+  return d_typeNode->getTupleLength();
+}
+
 vector<Type> TupleType::getTypes() const {
   NodeManagerScope nms(d_nodeManager);
   vector<Type> types;
@@ -450,6 +467,11 @@ vector<Type> TupleType::getTypes() const {
     types.push_back(makeType(*it));
   }
   return types;
+}
+
+const Record& RecordType::getRecord() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->getRecord();
 }
 
 vector<Type> SExprType::getTypes() const {
@@ -554,6 +576,11 @@ FunctionType::FunctionType(const Type& t) throw(IllegalArgumentException) :
 TupleType::TupleType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
   CheckArgument(isNull() || isTuple(), this);
+}
+
+RecordType::RecordType(const Type& t) throw(IllegalArgumentException) :
+  Type(t) {
+  CheckArgument(isNull() || isRecord(), this);
 }
 
 SExprType::SExprType(const Type& t) throw(IllegalArgumentException) :

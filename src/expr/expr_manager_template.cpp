@@ -517,6 +517,11 @@ TupleType ExprManager::mkTupleType(const std::vector<Type>& types) {
   return TupleType(Type(d_nodeManager, new TypeNode(d_nodeManager->mkTupleType(typeNodes))));
 }
 
+RecordType ExprManager::mkRecordType(const Record& rec) {
+  NodeManagerScope nms(d_nodeManager);
+  return RecordType(Type(d_nodeManager, new TypeNode(d_nodeManager->mkRecordType(rec))));
+}
+
 SExprType ExprManager::mkSExprType(const std::vector<Type>& types) {
   NodeManagerScope nms(d_nodeManager);
   std::vector<TypeNode> typeNodes;

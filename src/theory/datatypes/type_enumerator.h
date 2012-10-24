@@ -147,6 +147,139 @@ public:
 
 };/* DatatypesEnumerator */
 
+class TupleEnumerator : public TypeEnumeratorBase<TupleEnumerator> {
+  TypeEnumerator** d_enumerators;
+
+  void deleteEnumerators() throw() {
+    if(d_enumerators != NULL) {
+      for(size_t i = 0; i < getType().getNumChildren(); ++i) {
+        delete d_enumerators[i];
+      }
+      delete [] d_enumerators;
+      d_enumerators = NULL;
+    }
+  }
+
+public:
+
+  TupleEnumerator(TypeNode type) throw() :
+    TypeEnumeratorBase<TupleEnumerator>(type) {
+    Assert(type.isTuple());
+    d_enumerators = new TypeEnumerator*[type.getNumChildren()];
+    for(size_t i = 0; i < type.getNumChildren(); ++i) {
+      d_enumerators[i] = new TypeEnumerator(type[i]);
+    }
+  }
+
+  ~TupleEnumerator() throw() {
+    deleteEnumerators();
+  }
+
+  Node operator*() throw(NoMoreValuesException) {
+    if(isFinished()) {
+      throw NoMoreValuesException(getType());
+    }
+
+    NodeBuilder<> nb(kind::TUPLE);
+    for(size_t i = 0; i < getType().getNumChildren(); ++i) {
+      nb << **d_enumerators[i];
+    }
+    return Node(nb);
+  }
+
+  TupleEnumerator& operator++() throw() {
+    if(isFinished()) {
+      return *this;
+    }
+
+    size_t i;
+    for(i = 0; i < getType().getNumChildren(); ++i) {
+      if(d_enumerators[i]->isFinished()) {
+        *d_enumerators[i] = TypeEnumerator(getType()[i]);
+      } else {
+        ++*d_enumerators[i];
+        return *this;
+      }
+    }
+
+    deleteEnumerators();
+
+    return *this;
+  }
+
+  bool isFinished() throw() {
+    return d_enumerators == NULL;
+  }
+
+};/* TupleEnumerator */
+
+class RecordEnumerator : public TypeEnumeratorBase<RecordEnumerator> {
+  TypeEnumerator** d_enumerators;
+
+  void deleteEnumerators() throw() {
+    if(d_enumerators != NULL) {
+      for(size_t i = 0; i < getType().getNumChildren(); ++i) {
+        delete d_enumerators[i];
+      }
+      delete [] d_enumerators;
+      d_enumerators = NULL;
+    }
+  }
+
+public:
+
+  RecordEnumerator(TypeNode type) throw() :
+    TypeEnumeratorBase<RecordEnumerator>(type) {
+    Assert(type.isRecord());
+    d_enumerators = new TypeEnumerator*[type.getNumChildren()];
+    for(size_t i = 0; i < type.getNumChildren(); ++i) {
+      d_enumerators[i] = new TypeEnumerator(type[i]);
+    }
+  }
+
+  ~RecordEnumerator() throw() {
+    deleteEnumerators();
+  }
+
+  Node operator*() throw(NoMoreValuesException) {
+    if(isFinished()) {
+      throw NoMoreValuesException(getType());
+    }
+
+    NodeBuilder<> nb(kind::RECORD);
+    nb << getType();
+    for(size_t i = 0; i < getType().getNumChildren(); ++i) {
+      nb << **d_enumerators[i];
+    }
+    return Node(nb);
+  }
+
+  RecordEnumerator& operator++() throw() {
+    if(isFinished()) {
+      return *this;
+    }
+
+    size_t i;
+    for(i = 0; i < getType().getNumChildren(); ++i) {
+      if(d_enumerators[i]->isFinished()) {
+        *d_enumerators[i] = TypeEnumerator(getType()[i]);
+      } else {
+        ++*d_enumerators[i];
+        return *this;
+      }
+    }
+
+    deleteEnumerators();
+
+    return *this;
+  }
+
+  bool isFinished() throw() {
+    return d_enumerators == NULL;
+  }
+
+};/* RecordEnumerator */
+
 }/* CVC4::theory::datatypes namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

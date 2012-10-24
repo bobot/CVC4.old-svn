@@ -142,6 +142,11 @@ std::vector<TypeNode> TypeNode::getParamTypes() const {
   return params;
 }
 
+size_t TypeNode::getTupleLength() const {
+  Assert(isTuple());
+  return getNumChildren();
+}
+
 vector<TypeNode> TypeNode::getTupleTypes() const {
   Assert(isTuple());
   vector<TypeNode> types;
@@ -149,6 +154,11 @@ vector<TypeNode> TypeNode::getTupleTypes() const {
     types.push_back((*this)[i]);
   }
   return types;
+}
+
+const Record& TypeNode::getRecord() const {
+  Assert(isRecord());
+  return getConst<Record>();
 }
 
 vector<TypeNode> TypeNode::getSExprTypes() const {

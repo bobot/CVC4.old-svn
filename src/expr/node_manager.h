@@ -717,6 +717,14 @@ public:
   inline TypeNode mkTupleType(const std::vector<TypeNode>& types);
 
   /**
+   * Make a record type with the description from rec.
+   *
+   * @param rec a description of the record
+   * @returns the record type
+   */
+  inline TypeNode mkRecordType(const Record& rec);
+
+  /**
    * Make a symbolic expression type with types from
    * <code>types</code>. <code>types</code> may have any number of
    * elements.
@@ -1065,6 +1073,10 @@ inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
     typeNodes.push_back(types[i]);
   }
   return mkTypeNode(kind::TUPLE_TYPE, typeNodes);
+}
+
+inline TypeNode NodeManager::mkRecordType(const Record& rec) {
+  return mkTypeConst(rec);
 }
 
 inline TypeNode NodeManager::mkSExprType(const std::vector<TypeNode>& types) {

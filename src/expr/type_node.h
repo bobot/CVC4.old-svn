@@ -536,8 +536,17 @@ public:
   /** Is this a tuple type? */
   bool isTuple() const;
 
+  /** Get the length of a tuple type */
+  size_t getTupleLength() const;
+
   /** Get the constituent types of a tuple type */
   std::vector<TypeNode> getTupleTypes() const;
+
+  /** Is this a record type? */
+  bool isRecord() const;
+
+  /** Get the description of the record type */
+  const Record& getRecord() const;
 
   /** Is this a symbolic expression type? */
   bool isSExpr() const;
@@ -875,6 +884,12 @@ inline TypeNode TypeNode::getRangeType() const {
 inline bool TypeNode::isTuple() const {
   return getKind() == kind::TUPLE_TYPE ||
     ( isPredicateSubtype() && getSubtypeBaseType().isTuple() );
+}
+
+/** Is this a record type? */
+inline bool TypeNode::isRecord() const {
+  return getKind() == kind::RECORD_TYPE ||
+    ( isPredicateSubtype() && getSubtypeBaseType().isRecord() );
 }
 
 /** Is this a symbolic expression type? */
