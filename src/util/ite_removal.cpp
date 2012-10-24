@@ -43,6 +43,7 @@ Node RemoveITE::run(TNode node, std::vector<Node>& output,
   if(i != d_iteCache.end()) {
     Node cachedRewrite = (*i).second;
     Debug("ite") << "removeITEs: in-cache: " << cachedRewrite << endl;
+    stringstream ss;  ss << cachedRewrite;  if(ss.str()=="termITE_2047") { Debug("ite-mgd") << "found 2047 at user level " << d_u->getLevel() << std::endl; }
     return cachedRewrite.isNull() ? Node(node) : cachedRewrite;
   }
 
@@ -52,6 +53,7 @@ Node RemoveITE::run(TNode node, std::vector<Node>& output,
     if(!nodeType.isBoolean()) {
       // Make the skolem to represent the ITE
       Node skolem = nodeManager->mkSkolem("termITE_$$", nodeType, "a variable introduced due to term-level ITE removal");
+      Debug("ite-mgd") << "ITE REMOVAL: added new skolem " << skolem << " at user level " << d_u->getLevel() << std::endl;
 
       // The new assertion
       Node newAssertion =
