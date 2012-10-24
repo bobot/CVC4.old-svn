@@ -692,7 +692,7 @@ theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMa
        << ", which doesn't include " << Theory::theoryOf(atom)
        << ", but got a preprocessing-time fact for that theory." << endl
        << "The fact:" << endl
-       << assertion;
+       << literal;
     throw ModalException(ss.str());
   }
 

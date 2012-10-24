@@ -1,3 +1,1 @@
-This branch is for development of Boolean terms support, already in progress.
-
--- Morgan Deters <mdeters@cs.nyu.edu>  Wed, 24 Oct 2012 16:18:09 -0400
+* Boolean terms support (resolves bug 217)
