@@ -2,6 +2,7 @@
 ( set-info :source | SMT-COMP'06 organizers |)
 ( set-info :smt-lib-version 2.0)
 ( set-info :category "check")
+( set-info :status sat)
 ( declare-fun x1 () Bool)
 ( declare-fun x2 () Real)
 ( declare-fun x3 () Real)
