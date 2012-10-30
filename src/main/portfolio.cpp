@@ -2,19 +2,15 @@
 /*! \file portfolio.cpp
  ** \verbatim
  ** Original author: kshitij
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief [[ Add one-line brief description here ]]
- **
- ** [[ Add lengthier description here ]]
- ** \todo document this file
+ ** \brief Provides (somewhat) generic functionality to simulate a
+ ** (potentially cooperative) race
  **/
 
 #include <boost/function.hpp>
@@ -25,21 +21,20 @@
 
 #include "smt/smt_engine.h"
 #include "util/result.h"
-#include "util/options.h"
-
-using namespace boost;
+#include "options/options.h"
 
 namespace CVC4 {
 
-mutex mutex_done;
-mutex mutex_main_wait;
-condition condition_var_main_wait;
+boost::mutex mutex_done;
+boost::mutex mutex_main_wait;
+boost::condition condition_var_main_wait;
 
-bool global_flag_done = false;
-int global_winner = -1;
+bool global_flag_done;
+int global_winner;
 
 template<typename S>
-void runThread(int thread_id, function<S()> threadFn, S& returnValue) {
+void runThread(int thread_id, boost::function<S()> threadFn, S& returnValue)
+{
   returnValue = threadFn();
 
   if( mutex_done.try_lock() ) {
@@ -54,15 +49,20 @@ void runThread(int thread_id, function<S()> threadFn, S& returnValue) {
 
 template<typename T, typename S>
 std::pair<int, S> runPortfolio(int numThreads,
-                               function<T()> driverFn,
-                               function<S()> threadFns[],
+                               boost::function<T()> driverFn,
+                               boost::function<S()> threadFns[],
                                bool optionWaitToJoin) {
-  thread thread_driver;
-  thread threads[numThreads];
+  boost::thread thread_driver;
+  boost::thread threads[numThreads];
   S threads_returnValue[numThreads];
 
+  global_flag_done = false;
+  global_winner = -1;
+
   for(int t = 0; t < numThreads; ++t) {
-    threads[t] = thread(bind(runThread<S>, t, threadFns[t], ref(threads_returnValue[t]) ));
+    threads[t] = 
+      boost::thread(boost::bind(runThread<S>, t, threadFns[t],
+                                boost::ref(threads_returnValue[t]) ) );
   }
 
   if(not driverFn.empty())
@@ -87,7 +87,10 @@ std::pair<int, S> runPortfolio(int numThreads,
 
 // instantiation
 template
-std::pair<int, Result>
-runPortfolio<void, Result>(int, boost::function<void()>, boost::function<Result()>*, bool);
+std::pair<int, bool>
+runPortfolio<void, bool>(int,
+                         boost::function<void()>, 
+                         boost::function<bool()>*,
+                         bool);
 
 }/* CVC4 namespace */

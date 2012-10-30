@@ -2,12 +2,10 @@
 /*! \file node_manager_black.h
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: dejan
- ** Minor contributors (to current version): taking, mdeters
+ ** Major contributors: mdeters, dejan
+ ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -53,7 +51,7 @@ public:
   }
 
   void testMkNodeNot() {
-    Node x = d_nodeManager->mkVar("x",d_nodeManager->booleanType());
+    Node x = d_nodeManager->mkSkolem("x",d_nodeManager->booleanType());
     Node n = d_nodeManager->mkNode(NOT, x);
     TS_ASSERT_EQUALS( n.getNumChildren(), 1u );
     TS_ASSERT_EQUALS( n.getKind(), NOT);
@@ -61,8 +59,8 @@ public:
   }
 
   void testMkNodeBinary() {
-    Node x = d_nodeManager->mkVar("x",d_nodeManager->booleanType());
-    Node y = d_nodeManager->mkVar("y",d_nodeManager->booleanType());
+    Node x = d_nodeManager->mkSkolem("x",d_nodeManager->booleanType());
+    Node y = d_nodeManager->mkSkolem("y",d_nodeManager->booleanType());
     Node n = d_nodeManager->mkNode(IMPLIES, x, y);
     TS_ASSERT_EQUALS( n.getNumChildren(), 2u );
     TS_ASSERT_EQUALS( n.getKind(), IMPLIES);
@@ -71,9 +69,9 @@ public:
   }
 
   void testMkNodeThreeChildren() {
-    Node x = d_nodeManager->mkVar("x",d_nodeManager->booleanType());
-    Node y = d_nodeManager->mkVar("y",d_nodeManager->booleanType());
-    Node z = d_nodeManager->mkVar("z",d_nodeManager->booleanType());
+    Node x = d_nodeManager->mkSkolem("x",d_nodeManager->booleanType());
+    Node y = d_nodeManager->mkSkolem("y",d_nodeManager->booleanType());
+    Node z = d_nodeManager->mkSkolem("z",d_nodeManager->booleanType());
     Node n = d_nodeManager->mkNode(AND, x, y, z);
     TS_ASSERT_EQUALS( n.getNumChildren(), 3u );
     TS_ASSERT_EQUALS( n.getKind(), AND);
@@ -83,10 +81,10 @@ public:
   }
 
   void testMkNodeFourChildren() {
-    Node x1 = d_nodeManager->mkVar("x1",d_nodeManager->booleanType());
-    Node x2 = d_nodeManager->mkVar("x2",d_nodeManager->booleanType());
-    Node x3 = d_nodeManager->mkVar("x3",d_nodeManager->booleanType());
-    Node x4 = d_nodeManager->mkVar("x4",d_nodeManager->booleanType());
+    Node x1 = d_nodeManager->mkSkolem("x1",d_nodeManager->booleanType());
+    Node x2 = d_nodeManager->mkSkolem("x2",d_nodeManager->booleanType());
+    Node x3 = d_nodeManager->mkSkolem("x3",d_nodeManager->booleanType());
+    Node x4 = d_nodeManager->mkSkolem("x4",d_nodeManager->booleanType());
     Node n = d_nodeManager->mkNode(AND, x1, x2, x3, x4);
     TS_ASSERT_EQUALS( n.getNumChildren(), 4u );
     TS_ASSERT_EQUALS( n.getKind(), AND );
@@ -97,11 +95,11 @@ public:
   }
 
   void testMkNodeFiveChildren() {
-    Node x1 = d_nodeManager->mkVar("x1",d_nodeManager->booleanType());
-    Node x2 = d_nodeManager->mkVar("x2",d_nodeManager->booleanType());
-    Node x3 = d_nodeManager->mkVar("x3",d_nodeManager->booleanType());
-    Node x4 = d_nodeManager->mkVar("x4",d_nodeManager->booleanType());
-    Node x5 = d_nodeManager->mkVar("x5",d_nodeManager->booleanType());
+    Node x1 = d_nodeManager->mkSkolem("x1",d_nodeManager->booleanType());
+    Node x2 = d_nodeManager->mkSkolem("x2",d_nodeManager->booleanType());
+    Node x3 = d_nodeManager->mkSkolem("x3",d_nodeManager->booleanType());
+    Node x4 = d_nodeManager->mkSkolem("x4",d_nodeManager->booleanType());
+    Node x5 = d_nodeManager->mkSkolem("x5",d_nodeManager->booleanType());
     Node n = d_nodeManager->mkNode(AND, x1, x2, x3, x4, x5);
     TS_ASSERT_EQUALS( n.getNumChildren(), 5u );
     TS_ASSERT_EQUALS( n.getKind(), AND);
@@ -113,9 +111,9 @@ public:
   }
 
   void testMkNodeVectorOfNodeChildren() {
-    Node x1 = d_nodeManager->mkVar("x1",d_nodeManager->booleanType());
-    Node x2 = d_nodeManager->mkVar("x2",d_nodeManager->booleanType());
-    Node x3 = d_nodeManager->mkVar("x3",d_nodeManager->booleanType());
+    Node x1 = d_nodeManager->mkSkolem("x1",d_nodeManager->booleanType());
+    Node x2 = d_nodeManager->mkSkolem("x2",d_nodeManager->booleanType());
+    Node x3 = d_nodeManager->mkSkolem("x3",d_nodeManager->booleanType());
     std::vector<Node> args;
     args.push_back(x1);
     args.push_back(x2);
@@ -129,9 +127,9 @@ public:
   }
 
   void testMkNodeVectorOfTNodeChildren() {
-    Node x1 = d_nodeManager->mkVar("x1",d_nodeManager->booleanType());
-    Node x2 = d_nodeManager->mkVar("x2",d_nodeManager->booleanType());
-    Node x3 = d_nodeManager->mkVar("x3",d_nodeManager->booleanType());
+    Node x1 = d_nodeManager->mkSkolem("x1",d_nodeManager->booleanType());
+    Node x2 = d_nodeManager->mkSkolem("x2",d_nodeManager->booleanType());
+    Node x3 = d_nodeManager->mkSkolem("x3",d_nodeManager->booleanType());
     std::vector<TNode> args;
     args.push_back(x1);
     args.push_back(x2);
@@ -144,18 +142,10 @@ public:
     }
   }
 
-  void testMkVarWithNoName() {
-    TypeNode booleanType = d_nodeManager->booleanType();
-    Node x = d_nodeManager->mkVar(booleanType);
-    TS_ASSERT_EQUALS(x.getKind(),VARIABLE);
-    TS_ASSERT_EQUALS(x.getNumChildren(),0u);
-    TS_ASSERT_EQUALS(x.getType(),booleanType);
-  }
-
   void testMkVarWithName() {
     TypeNode booleanType = d_nodeManager->booleanType();
-    Node x = d_nodeManager->mkVar("x", booleanType);
-    TS_ASSERT_EQUALS(x.getKind(),VARIABLE);
+    Node x = d_nodeManager->mkSkolem("x", booleanType, "", NodeManager::SKOLEM_EXACT_NAME);
+    TS_ASSERT_EQUALS(x.getKind(),SKOLEM);
     TS_ASSERT_EQUALS(x.getNumChildren(),0u);
     TS_ASSERT_EQUALS(x.getAttribute(VarNameAttr()),"x");
     TS_ASSERT_EQUALS(x.getType(),booleanType);
@@ -188,7 +178,6 @@ public:
     TypeNode t3 = d_nodeManager->mkSort("T");
     TS_ASSERT( t.isBoolean() );
     TS_ASSERT( !t.isFunction() );
-    TS_ASSERT( !t.isKind() );
     TS_ASSERT( !t.isNull() );
     TS_ASSERT( !t.isPredicate() );
     TS_ASSERT( !t.isSort() );
@@ -199,26 +188,6 @@ public:
     TS_ASSERT_EQUALS( bt, t);
   }
 
-  void testKindType() {
-    TypeNode t = d_nodeManager->kindType();
-    TypeNode t2 = d_nodeManager->kindType();
-    TypeNode t3 = d_nodeManager->mkSort("T");
-
-    TS_ASSERT( !t.isBoolean() );
-    TS_ASSERT( !t.isFunction() );
-    TS_ASSERT( t.isKind() );
-    TS_ASSERT( !t.isNull() );
-    TS_ASSERT( !t.isPredicate() );
-    TS_ASSERT( !t.isSort() );
-
-    TS_ASSERT_EQUALS(t, t2);
-    TS_ASSERT( t != t3);
-
-    TypeNode kt = t;
-    TS_ASSERT_EQUALS( kt, t );
-    // TODO: Is there a way to get the type of otherType (it should == t)?
-  }
-
   void testMkFunctionTypeBoolToBool() {
     TypeNode booleanType = d_nodeManager->booleanType();
     TypeNode t = d_nodeManager->mkFunctionType(booleanType,booleanType);
@@ -226,7 +195,6 @@ public:
 
     TS_ASSERT( !t.isBoolean() );
     TS_ASSERT( t.isFunction() );
-    TS_ASSERT( !t.isKind() );
     TS_ASSERT( !t.isNull() );
     TS_ASSERT( t.isPredicate() );
     TS_ASSERT( !t.isSort() );
@@ -255,7 +223,6 @@ public:
 
     TS_ASSERT( !t.isBoolean() );
     TS_ASSERT( t.isFunction() );
-    TS_ASSERT( !t.isKind() );
     TS_ASSERT( !t.isNull() );
     TS_ASSERT( !t.isPredicate() );
     TS_ASSERT( !t.isSort() );
@@ -286,7 +253,6 @@ public:
 
     TS_ASSERT( !t.isBoolean() );
     TS_ASSERT( t.isFunction() );
-    TS_ASSERT( !t.isKind() );
     TS_ASSERT( !t.isNull() );
     TS_ASSERT( !t.isPredicate() );
     TS_ASSERT( !t.isSort() );
@@ -317,7 +283,6 @@ public:
 
     TS_ASSERT( !t.isBoolean() );
     TS_ASSERT( t.isFunction() );
-    TS_ASSERT( !t.isKind() );
     TS_ASSERT( !t.isNull() );
     TS_ASSERT( t.isPredicate() );
     TS_ASSERT( !t.isSort() );
@@ -337,7 +302,7 @@ public:
   /* This test is only valid if assertions are enabled. */
   void testMkNodeTooFew() {
 #ifdef CVC4_ASSERTIONS
-    Node x = d_nodeManager->mkVar( d_nodeManager->booleanType() );
+    Node x = d_nodeManager->mkSkolem( "x", d_nodeManager->booleanType() );
     TS_ASSERT_THROWS( d_nodeManager->mkNode(AND, x), AssertionException );
 #endif
   }
@@ -349,7 +314,7 @@ public:
     const unsigned int max = metakind::getUpperBoundForKind(AND);
     TypeNode boolType = d_nodeManager->booleanType();
     for( unsigned int i = 0; i <= max; ++i ) {
-      vars.push_back( d_nodeManager->mkVar(boolType) );
+      vars.push_back( d_nodeManager->mkSkolem("i", boolType) );
     }
     TS_ASSERT_THROWS( d_nodeManager->mkNode(AND, vars), AssertionException );
 #endif

@@ -2,12 +2,10 @@
 /*! \file theory_bv_type_rules.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: mdeters, cconway
+ ** Major contributors: lianah, mdeters, cconway
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -69,25 +67,6 @@ public:
       }
     }
     return nodeManager->mkBitVectorType(1);
-  }
-};
-
-class BitVectorArithRule {
-public:
-  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-      throw (TypeCheckingExceptionPrivate, AssertionException) {
-    unsigned maxWidth = 0;
-    TNode::iterator it = n.begin();
-    TNode::iterator it_end = n.end();
-    // TODO: optimize unary neg
-    for (; it != it_end; ++ it) {
-      TypeNode t = (*it).getType(check);
-      if (check && !t.isBitVector()) {
-        throw TypeCheckingExceptionPrivate(n, "expecting bit-vector terms");
-      }
-      maxWidth = std::max( maxWidth, t.getBitVectorSize() );
-    }
-    return nodeManager->mkBitVectorType(maxWidth);
   }
 };
 

@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -76,17 +74,17 @@ public:
     d_nm = new NodeManager(d_context, NULL);
     d_scope = new NodeManagerScope(d_nm);
 
-    a = d_nm->mkVar("a", d_nm->booleanType());
-    b = d_nm->mkVar("b", d_nm->booleanType());
-    c = d_nm->mkVar("c", d_nm->booleanType());
-    d = d_nm->mkVar("d", d_nm->booleanType());
-    e = d_nm->mkVar("e", d_nm->booleanType());
-    f = d_nm->mkVar("f", d_nm->mkFunctionType(d_nm->booleanType(),
-                                              d_nm->booleanType()));
-    g = d_nm->mkVar("g", d_nm->mkFunctionType(d_nm->booleanType(),
-                                              d_nm->booleanType()));
-    h = d_nm->mkVar("h", d_nm->mkFunctionType(d_nm->booleanType(),
-                                              d_nm->booleanType()));
+    a = d_nm->mkSkolem("a", d_nm->booleanType());
+    b = d_nm->mkSkolem("b", d_nm->booleanType());
+    c = d_nm->mkSkolem("c", d_nm->booleanType());
+    d = d_nm->mkSkolem("d", d_nm->booleanType());
+    e = d_nm->mkSkolem("e", d_nm->booleanType());
+    f = d_nm->mkSkolem("f", d_nm->mkFunctionType(d_nm->booleanType(),
+                                                 d_nm->booleanType()));
+    g = d_nm->mkSkolem("g", d_nm->mkFunctionType(d_nm->booleanType(),
+                                                 d_nm->booleanType()));
+    h = d_nm->mkSkolem("h", d_nm->mkFunctionType(d_nm->booleanType(),
+                                                 d_nm->booleanType()));
     fa = d_nm->mkNode(kind::APPLY_UF, f, a);
     fb = d_nm->mkNode(kind::APPLY_UF, f, b);
     fc = d_nm->mkNode(kind::APPLY_UF, f, c);
@@ -135,7 +133,7 @@ public:
 
 #ifdef CVC4_ASSERTIONS
     in = Node();
-    TS_ASSERT_THROWS( BooleanSimplification::negate(in), IllegalArgumentException );
+    TS_ASSERT_THROWS( BooleanSimplification::negate(in), AssertArgumentException );
 #endif /* CVC4_ASSERTIONS */
   }
 
@@ -170,7 +168,7 @@ public:
 
 #ifdef CVC4_ASSERTIONS
     in = d_nm->mkNode(kind::AND, a, b);
-    TS_ASSERT_THROWS( BooleanSimplification::simplifyClause(in), IllegalArgumentException );
+    TS_ASSERT_THROWS( BooleanSimplification::simplifyClause(in), AssertArgumentException );
 #endif /* CVC4_ASSERTIONS */
   }
 
@@ -195,7 +193,7 @@ public:
 
 #ifdef CVC4_ASSERTIONS
     in = d_nm->mkNode(kind::OR, a, b);
-    TS_ASSERT_THROWS( BooleanSimplification::simplifyHornClause(in), IllegalArgumentException );
+    TS_ASSERT_THROWS( BooleanSimplification::simplifyHornClause(in), AssertArgumentException );
 #endif /* CVC4_ASSERTIONS */
   }
 
@@ -216,7 +214,7 @@ public:
 
 #ifdef CVC4_ASSERTIONS
     in = d_nm->mkNode(kind::OR, a, b);
-    TS_ASSERT_THROWS( BooleanSimplification::simplifyConflict(in), IllegalArgumentException );
+    TS_ASSERT_THROWS( BooleanSimplification::simplifyConflict(in), AssertArgumentException );
 #endif /* CVC4_ASSERTIONS */
   }
 

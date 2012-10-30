@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -38,7 +36,7 @@ typedef expr::Attribute<expr::attr::DatatypeConstructorTypeGroundTermTag, Node> 
 
 struct DatatypeConstructorTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw(TypeCheckingExceptionPrivate) {
+    throw(TypeCheckingExceptionPrivate, AssertionException) {
     Assert(n.getKind() == kind::APPLY_CONSTRUCTOR);
     TypeNode consType = n.getOperator().getType(check);
     Type t = consType.getConstructorRangeType().toType();
@@ -73,12 +71,26 @@ struct DatatypeConstructorTypeRule {
           Debug("typecheck-idt") << "typecheck cons arg: " << childType << " " << (*tchild_it) << std::endl;
           TypeNode argumentType = *tchild_it;
           if(!childType.isSubtypeOf(argumentType)) {
-            throw TypeCheckingExceptionPrivate(n, "bad type for constructor argument");
+            std::stringstream ss;
+            ss << "bad type for constructor argument:\nexpected: " << argumentType << "\ngot     : " << childType;
+            throw TypeCheckingExceptionPrivate(n, ss.str());
           }
         }
       }
       return consType.getConstructorRangeType();
     }
+  }
+
+  inline static bool computeIsConst(NodeManager* nodeManager, TNode n)
+    throw(AssertionException) {
+    Assert(n.getKind() == kind::APPLY_CONSTRUCTOR);
+    NodeManagerScope nms(nodeManager);
+    for(TNode::const_iterator i = n.begin(); i != n.end(); ++i) {
+      if( ! (*i).isConst() ) {
+        return false;
+      }
+    }
+    return true;
   }
 };/* struct DatatypeConstructorTypeRule */
 

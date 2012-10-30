@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -28,7 +26,7 @@
 #include "theory/arith/matrix.h"
 #include "theory/arith/partial_model.h"
 
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 
 #include <vector>
 
@@ -50,7 +48,7 @@ namespace arith {
  *   to determine which to dequeue first.
  *
  * - Variable Order Queue
- *   This mode uses the variable order to determine which ArithVar is deuqued first.
+ *   This mode uses the variable order to determine which ArithVar is dequeued first.
  *
  * The transitions between the modes of operation are:
  *  Collection => Difference Queue
@@ -119,7 +117,7 @@ private:
   /**
    * Priority Queue of the basic variables that may be inconsistent.
    * Variables are ordered according to which violates its bound the most.
-   * This is a heuristic and makes no guarentees to terminate!
+   * This is a heuristic and makes no guarantees to terminate!
    * This heuristic comes from Alberto Griggio's thesis.
    */
   DifferenceArray d_diffQueue;
@@ -136,6 +134,11 @@ private:
    */
   ArithVarArray d_varOrderQueue;
 
+  /**
+   * A superset of the basic variables that may be inconsistent.
+   * This is empty during DiffOrderMode, and otherwise it is the same set as candidates
+   * or varOrderQueue.
+   */
   DenseSet d_varSet;
 
   /**
@@ -211,6 +214,18 @@ public:
   /** Clears the queue. */
   void clear();
 
+
+  /**
+   * Reduces the queue to only contain the subset that is still basic
+   * and inconsistent.
+   *Currently, O(n log n) for an easy obviously correct implementation in all modes..
+   */
+  void reduce();
+
+  bool collectionModeContains(ArithVar v) const {
+    Assert(inCollectionMode());
+    return d_varSet.isMember(v);
+  }
 
   class const_iterator {
   private:

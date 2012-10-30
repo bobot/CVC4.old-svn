@@ -5,9 +5,7 @@
  ** Major contributors: dejan
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -28,7 +26,31 @@
 
 namespace CVC4 {
 namespace theory {
+
+class TheoryModel;
+
 namespace bv {
+
+enum SubTheory {
+  SUB_EQUALITY = 1,
+  SUB_BITBLAST = 2
+};
+
+inline std::ostream& operator << (std::ostream& out, SubTheory subtheory) {
+  switch (subtheory) {
+  case SUB_BITBLAST:
+    out << "BITBLASTER";
+    break;
+  case SUB_EQUALITY:
+    out << "EQUALITY";
+    break;
+  default:
+    Unreachable();
+    break;
+  }
+  return out;
+}
+
 
 const bool d_useEqualityEngine = true;
 const bool d_useSatPropagation = true;
@@ -61,7 +83,7 @@ public:
   virtual bool  addAssertions(const std::vector<TNode>& assertions, Theory::Effort e) = 0;
   virtual void  explain(TNode literal, std::vector<TNode>& assumptions) = 0;
   virtual void  preRegister(TNode node) {}
-
+  virtual void  collectModelInfo(TheoryModel* m) = 0; 
 }; 
 
 }

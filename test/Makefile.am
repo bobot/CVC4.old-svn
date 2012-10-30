@@ -40,12 +40,16 @@ subdirs_to_check = \
 	regress/regress0/bv/core \
 	regress/regress0/arrays \
 	regress/regress0/aufbv \
+	regress/regress0/auflia \
 	regress/regress0/datatypes \
+	regress/regress0/quantifiers \
+	regress/regress0/rewriterules \
 	regress/regress0/lemmas \
 	regress/regress0/push-pop \
 	regress/regress0/precedence \
 	regress/regress0/preprocess \
 	regress/regress0/unconstrained \
+	regress/regress0/decision \
 	regress/regress1 \
 	regress/regress2 \
 	regress/regress3
@@ -54,15 +58,18 @@ check-recursive: check-pre
 .PHONY: check-pre
 check-pre:
 	@rm -f $(subdirs_to_check:=/test-suite.log)
+
+if AUTOMAKE_1_11
+# automake 1.11 version
 check-local:
 	@$(am__tty_colors); \
 	echo $${blu}===============================  TESTING SUMMARY  =============================$$std; \
 	if test -s "unit/test-suite.log"; then :; else \
 		echo "$${red}Unit tests did not run; maybe there were compilation problems ?$$std"; \
-        fi; \
+	fi; \
 	if test -s "system/test-suite.log"; then :; else \
 		echo "$${red}System tests did not run; maybe there were compilation problems ?$$std"; \
-        fi; \
+	fi; \
 	for dir in $(subdirs_to_check); do \
 		log=$$dir/test-suite.log; \
 		if test -s "$$log"; then \
@@ -76,3 +83,32 @@ check-local:
 		fi; \
 	done; \
 	echo $${blu}===============================  TESTING SUMMARY  =============================$$std
+else
+# automake 1.12 version
+check-local:
+	@$(am__tty_colors); \
+	echo $${blu}===============================  TESTING SUMMARY  =============================$$std; \
+	if test -s "unit/test-suite.log"; then :; else \
+		echo "$${red}Unit tests did not run; maybe there were compilation problems ?$$std"; \
+	fi; \
+	if test -s "system/test-suite.log"; then :; else \
+		echo "$${red}System tests did not run; maybe there were compilation problems ?$$std"; \
+	fi; \
+	for dir in $(subdirs_to_check); do \
+		log=$$dir/test-suite.log; \
+		if test -s "$$log"; then \
+			status="`head -n 11 $$log | tail -7`"; \
+			nicestatus="`echo $$status | sed 's/# [A-Z]*: 0 *//g;s/# \([A-Z]*\): \([0-9]*\)/\2 \1,/g;s/, *$$//;'`"; \
+			if	echo "$$status" | grep -q '# FAIL:  0' && \
+				echo "$$status" | grep -q '# XPASS: 0' && \
+				echo "$$status" | grep -q '# ERROR: 0' && \
+				echo "$$status" | grep -q '# SKIP:  0'; then \
+				printf "$$grn%-30s in $$dir$$std\\n" "$$nicestatus"; \
+			else \
+				echo "$$red$$nicestatus"; \
+				echo "    @abs_builddir@/$$log$$std"; \
+			fi; \
+		fi; \
+	done; \
+	echo $${blu}===============================  TESTING SUMMARY  =============================$$std
+endif

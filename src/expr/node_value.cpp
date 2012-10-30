@@ -5,9 +5,7 @@
  ** Major contributors: dejan
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -25,6 +23,7 @@
 #include "expr/kind.h"
 #include "expr/metakind.h"
 #include "util/language.h"
+#include "options/options.h"
 #include "printer/printer.h"
 #include <sstream>
 
@@ -37,11 +36,12 @@ NodeValue NodeValue::s_null(0);
 
 string NodeValue::toString() const {
   stringstream ss;
-  OutputLanguage outputLanguage = (this == &s_null) ? language::output::LANG_AST : Options::current()->outputLanguage;
-  toStream(ss, -1, false,
-           outputLanguage == language::output::LANG_AUTO ?
+
+  OutputLanguage outlang = (this == &s_null) ? language::output::LANG_AST : options::outputLanguage();
+  toStream(ss, -1, false, false,
+           outlang == language::output::LANG_AUTO ?
              language::output::LANG_AST :
-             outputLanguage);
+             outlang);
   return ss.str();
 }
 

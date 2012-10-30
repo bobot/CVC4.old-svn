@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): taking, cconway
+ ** Minor contributors (to current version): bobot, taking, barrett, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -36,7 +34,7 @@
 #include "expr/kind.h"
 #include "expr/metakind.h"
 #include "expr/expr.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 #include "util/configuration.h"
 #include "util/output.h"
 #include "util/exception.h"
@@ -100,6 +98,13 @@ public:
 
 };/* class TypeCheckingExceptionPrivate */
 
+class UnknownTypeException : public TypeCheckingExceptionPrivate {
+public:
+
+  UnknownTypeException(NodeTemplate<false> node) throw();
+
+};/* class UnknownTypeException */
+
 /**
  * \typedef NodeTemplate<true> Node;
  *
@@ -159,6 +164,14 @@ namespace kind {
   }/* CVC4::kind::metakind namespace */
 }/* CVC4::kind namespace */
 
+// for hash_maps, hash_sets..
+struct NodeHashFunction {
+  inline size_t operator()(Node node) const;
+};/* struct NodeHashFunction */
+struct TNodeHashFunction {
+  inline size_t operator()(TNode node) const;
+};/* struct TNodeHashFunction */
+
 /**
  * Encapsulation of an NodeValue pointer.  The reference count is
  * maintained in the NodeValue if ref_count is true.
@@ -166,17 +179,6 @@ namespace kind {
  */
 template <bool ref_count>
 class NodeTemplate {
-
-  // for hash_maps, hash_sets..
-  template <bool ref_count1>
-  struct HashFunction {
-    size_t operator()(CVC4::NodeTemplate<ref_count1> node) const {
-      return (size_t) node.getId();
-    }
-  };/* struct HashFunction */
-
-  typedef HashFunction<false> TNodeHashFunction;
-
   /**
    * The NodeValue has access to the private constructors, so that the
    * iterators can can create new nodes.
@@ -234,6 +236,8 @@ class NodeTemplate {
     }
   }
 
+public:
+
   /**
    * Cache-aware, recursive version of substitute() used by the public
    * member function with a similar signature.
@@ -257,8 +261,6 @@ class NodeTemplate {
   template <class Iterator>
   Node substitute(Iterator substitutionsBegin, Iterator substitutionsEnd,
                   std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const;
-
-public:
 
   /** Default constructor, makes a null expression. */
   NodeTemplate() : d_nv(&expr::NodeValue::s_null) { }
@@ -445,10 +447,7 @@ public:
    * Returns true if this node represents a constant
    * @return true if const
    */
-  inline bool isConst() const {
-    assertTNodeNotExpired();
-    return getMetaKind() == kind::metakind::CONSTANT;
-  }
+  inline bool isConst() const;
 
   /**
    * Returns true if this node represents a constant
@@ -457,6 +456,14 @@ public:
   inline bool isVar() const {
     assertTNodeNotExpired();
     return getMetaKind() == kind::metakind::VARIABLE;
+  }
+
+  inline bool isClosure() const {
+    assertTNodeNotExpired();
+    return getKind() == kind::LAMBDA ||
+           getKind() == kind::FORALL ||
+           getKind() == kind::EXISTS ||
+           getKind() == kind::REWRITE_RULE;
   }
 
   /**
@@ -895,28 +902,41 @@ inline std::ostream& operator<<(std::ostream& out, TNode n) {
   return out;
 }
 
+/**
+ * Serializes a vector of node to the given stream.
+ *
+ * @param out the output stream to use
+ * @param ns the vector of nodes to output to the stream
+ * @return the stream
+ */
+template<bool ref_count>
+inline std::ostream& operator<<(std::ostream& out,
+                                const std::vector< NodeTemplate<ref_count> > & ns) {
+  for(typename std::vector< NodeTemplate<ref_count> >::const_iterator
+        i=ns.begin(), end=ns.end();
+      i != end; ++i){
+    out << *i;
+  }
+  return out;
+}
+
+
 }/* CVC4 namespace */
 
 #include <ext/hash_map>
 
 #include "expr/attribute.h"
 #include "expr/node_manager.h"
+#include "expr/type_checker.h"
 
 namespace CVC4 {
 
-// for hash_maps, hash_sets..
-struct NodeHashFunction {
-  size_t operator()(CVC4::Node node) const {
-    return (size_t) node.getId();
-  }
-};/* struct NodeHashFunction */
-
-// for hash_maps, hash_sets..
-struct TNodeHashFunction {
-  size_t operator()(CVC4::TNode node) const {
-    return (size_t) node.getId();
-  }
-};/* struct TNodeHashFunction */
+inline size_t NodeHashFunction::operator()(Node node) const {
+  return node.getId();
+}
+inline size_t TNodeHashFunction::operator()(TNode node) const {
+  return node.getId();
+}
 
 struct TNodePairHashFunction {
   size_t operator()(const std::pair<CVC4::TNode, CVC4::TNode>& pair ) const {
@@ -1252,6 +1272,42 @@ TypeNode NodeTemplate<ref_count>::getType(bool check) const
   assertTNodeNotExpired();
 
   return NodeManager::currentNM()->getType(*this, check);
+}
+
+/** Is this node constant? (and has that been computed yet?) */
+struct IsConstTag { };
+struct IsConstComputedTag { };
+typedef expr::Attribute<IsConstTag, bool> IsConstAttr;
+typedef expr::Attribute<IsConstComputedTag, bool> IsConstComputedAttr;
+
+template <bool ref_count>
+inline bool
+NodeTemplate<ref_count>::isConst() const {
+  assertTNodeNotExpired();
+  Debug("isConst") << "Node::isConst() for: " << *this << std::endl;
+  if(isNull()) {
+    return false;
+  }
+  switch(getMetaKind()) {
+  case kind::metakind::CONSTANT:
+    Debug("isConst") << "Node::isConst() returning true, it's a CONSTANT" << std::endl;
+    return true;
+  case kind::metakind::VARIABLE:
+    Debug("isConst") << "Node::isConst() returning false, it's a VARIABLE" << std::endl;
+    return false;
+  default:
+    if(getAttribute(IsConstComputedAttr())) {
+      bool bval = getAttribute(IsConstAttr());
+      Debug("isConst") << "Node::isConst() returning cached value " << (bval ? "true" : "false") << " for: " << *this << std::endl;
+      return bval;
+    } else {
+      bool bval = expr::TypeChecker::computeIsConst(NodeManager::currentNM(), *this);
+      Debug("isConst") << "Node::isConst() computed value " << (bval ? "true" : "false") << " for: " << *this << std::endl;
+      const_cast< NodeTemplate<ref_count>* >(this)->setAttribute(IsConstAttr(), bval);
+      const_cast< NodeTemplate<ref_count>* >(this)->setAttribute(IsConstComputedAttr(), true);
+      return bval;
+    }
+  }
 }
 
 template <bool ref_count>

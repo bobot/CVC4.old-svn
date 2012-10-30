@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): acsys, cconway
+ ** Minor contributors (to current version): lianah, acsys, cconway, dejan, bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -28,11 +26,11 @@
 #include "cvc4autoconfig.h"
 
 #if defined(CVC4_DEBUG) && defined(CVC4_TRACING)
-#  include "util/Debug_tags.h"
+#  include "options/Debug_tags.h"
 #endif /* CVC4_DEBUG && CVC4_TRACING */
 
 #ifdef CVC4_TRACING
-#  include "util/Trace_tags.h"
+#  include "options/Trace_tags.h"
 #endif /* CVC4_TRACING */
 
 using namespace std;

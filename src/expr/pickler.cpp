@@ -1,13 +1,11 @@
 /*********************                                                        */
 /*! \file pickler.cpp
  ** \verbatim
- ** Original author: kshitij
- ** Major contributors: taking, mdeters
- ** Minor contributors (to current version): none
+ ** Original author: mdeters
+ ** Major contributors: none
+ ** Minor contributors (to current version): taking, dejan, kshitij
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -30,7 +28,7 @@
 #include "expr/node_value.h"
 #include "expr/expr_manager_scope.h"
 #include "expr/variable_type_map.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 #include "expr/kind.h"
 #include "expr/metakind.h"
 #include "util/output.h"
@@ -129,7 +127,7 @@ Pickler::~Pickler() {
 }
 
 void Pickler::toPickle(Expr e, Pickle& p)
-  throw(AssertionException, PicklingException) {
+  throw(PicklingException) {
   Assert(NodeManager::fromExprManager(e.getExprManager()) == d_private->d_nm);
   Assert(d_private->atDefaultState());
 
@@ -469,6 +467,13 @@ Pickle& Pickle::operator = (const Pickle& other) {
 
 Pickle::~Pickle() {
   delete d_data;
+}
+
+uint64_t MapPickler::variableFromMap(uint64_t x) const 
+{
+  VarMap::const_iterator i = d_fromMap.find(x);
+  Assert(i != d_fromMap.end());
+  return i->second;
 }
 
 }/* CVC4::expr::pickle namespace */

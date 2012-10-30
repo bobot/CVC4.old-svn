@@ -6,8 +6,9 @@
 
 theory THEORY_DATATYPES ::CVC4::theory::datatypes::TheoryDatatypes "theory/datatypes/theory_datatypes.h"
 typechecker "theory/datatypes/theory_datatypes_type_rules.h"
+instantiator ::CVC4::theory::datatypes::InstantiatorTheoryDatatypes "theory/datatypes/theory_datatypes_instantiator.h"
 
-properties check presolve parametric
+properties check presolve parametric propagate
 
 rewriter ::CVC4::theory::datatypes::DatatypesRewriter "theory/datatypes/datatypes_rewriter.h"
 
@@ -43,7 +44,7 @@ parameterized APPLY_TESTER TESTER_TYPE 1: "tester application"
 
 constant DATATYPE_TYPE \
     ::CVC4::Datatype \
-    "::CVC4::DatatypeHashStrategy" \
+    "::CVC4::DatatypeHashFunction" \
     "util/datatype.h" \
     "datatype type"
 cardinality DATATYPE_TYPE \
@@ -53,6 +54,10 @@ well-founded DATATYPE_TYPE \
     "%TYPE%.getConst<Datatype>().isWellFounded()" \
     "%TYPE%.getConst<Datatype>().mkGroundTerm(%TYPE%.toType())" \
     "util/datatype.h"
+
+enumerator DATATYPE_TYPE \
+    "::CVC4::theory::datatypes::DatatypesEnumerator" \
+    "theory/datatypes/type_enumerator.h"
 
 operator PARAMETRIC_DATATYPE 1: "parametric datatype"
 cardinality PARAMETRIC_DATATYPE \
@@ -67,7 +72,7 @@ parameterized APPLY_TYPE_ASCRIPTION ASCRIPTION_TYPE 1 \
     "type ascription, for datatype constructor applications"
 constant ASCRIPTION_TYPE \
     ::CVC4::AscriptionType \
-    ::CVC4::AscriptionTypeHashStrategy \
+    ::CVC4::AscriptionTypeHashFunction \
     "util/ascription_type.h" \
     "a type parameter for type ascription"
 
@@ -75,5 +80,8 @@ typerule APPLY_CONSTRUCTOR ::CVC4::theory::datatypes::DatatypeConstructorTypeRul
 typerule APPLY_SELECTOR ::CVC4::theory::datatypes::DatatypeSelectorTypeRule
 typerule APPLY_TESTER ::CVC4::theory::datatypes::DatatypeTesterTypeRule
 typerule APPLY_TYPE_ASCRIPTION ::CVC4::theory::datatypes::DatatypeAscriptionTypeRule
+
+# constructor applications are constant if they are applied only to constants
+construle APPLY_CONSTRUCTOR ::CVC4::theory::datatypes::DatatypeConstructorTypeRule
 
 endtheory

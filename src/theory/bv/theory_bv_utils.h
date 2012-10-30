@@ -2,12 +2,10 @@
 /*! \file theory_bv_utils.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters, lianah
+ ** Minor contributors (to current version): barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -68,7 +66,7 @@ inline Node mkFalse() {
 
 inline Node mkVar(unsigned size) {
   NodeManager* nm =  NodeManager::currentNM();
-  return nm->mkVar(nm->mkBitVectorType(size)); 
+  return nm->mkSkolem("bv_$$", nm->mkBitVectorType(size), "is a variable created by the theory of bitvectors"); 
 }
 
 inline Node mkAnd(std::vector<TNode>& children) {
@@ -95,12 +93,10 @@ inline Node mkAnd(std::vector<TNode>& children) {
 }
 
 inline Node mkSortedNode(Kind kind, std::vector<Node>& children) {
-  Assert (kind == kind::BITVECTOR_PLUS ||
-          kind == kind::BITVECTOR_MULT ||
-          kind == kind::BITVECTOR_AND ||
+  Assert (kind == kind::BITVECTOR_AND ||
           kind == kind::BITVECTOR_OR ||
           kind == kind::BITVECTOR_XOR);
-
+  Assert(children.size() > 0);
   if (children.size() == 1) {
     return children[0]; 
   }
@@ -126,9 +122,7 @@ inline Node mkNode(Kind kind, TNode child1, TNode child2) {
 
 
 inline Node mkSortedNode(Kind kind, TNode child1, TNode child2) {
-  Assert (kind == kind::BITVECTOR_PLUS ||
-          kind == kind::BITVECTOR_MULT ||
-          kind == kind::BITVECTOR_AND ||
+  Assert (kind == kind::BITVECTOR_AND ||
           kind == kind::BITVECTOR_OR ||
           kind == kind::BITVECTOR_XOR);
   

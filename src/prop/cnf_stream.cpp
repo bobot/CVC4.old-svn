@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters, dejan
- ** Minor contributors (to current version): cconway
+ ** Minor contributors (to current version): kshitij, lianah, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,7 @@
 #include "theory/theory_engine.h"
 #include "theory/theory.h"
 #include "expr/node.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 #include "util/output.h"
 #include "expr/command.h"
 #include "expr/expr.h"
@@ -44,8 +42,9 @@ namespace CVC4 {
 namespace prop {
 
 
-CnfStream::CnfStream(SatSolver *satSolver, Registrar* registrar, bool fullLitToNodeMap) :
+CnfStream::CnfStream(SatSolver *satSolver, Registrar* registrar, context::Context* context, bool fullLitToNodeMap) :
   d_satSolver(satSolver),
+  d_booleanVariables(context),
   d_fullLitToNodeMap(fullLitToNodeMap),
   d_registrar(registrar) {
 }
@@ -66,23 +65,23 @@ void CnfStream::recordTranslation(TNode node, bool alwaysRecord) {
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(SatSolver* satSolver, Registrar* registrar, bool fullLitToNodeMap) :
-  CnfStream(satSolver, registrar, fullLitToNodeMap) {
+TseitinCnfStream::TseitinCnfStream(SatSolver* satSolver, Registrar* registrar, context::Context* context, bool fullLitToNodeMap) :
+  CnfStream(satSolver, registrar, context, fullLitToNodeMap) {
 }
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
   Debug("cnf") << "Inserting into stream " << c << endl;
   if(Dump.isOn("clauses")) {
     if(c.size() == 1) {
-      Dump("clauses") << AssertCommand(BoolExpr(getSatVarNode(c[0]).toExpr()));
+      Dump("clauses") << AssertCommand(Expr(getNode(c[0]).toExpr()));
     } else {
       Assert(c.size() > 1);
       NodeBuilder<> b(kind::OR);
       for(unsigned int i = 0; i < c.size(); ++i) {
-        b << getSatVarNode(c[i]);
+        b << getNode(c[i]);
       }
       Node n(b);
-      Dump("clauses") << AssertCommand(BoolExpr(n.toExpr()));
+      Dump("clauses") << AssertCommand(Expr(n.toExpr()));
     }
   }
   d_satSolver->addClause(c, d_removable);
@@ -136,12 +135,12 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
     return;
   }
 
-  CheckArgument(n.getType().isBoolean(), n,
-                "CnfStream::ensureLiteral() requires a node of Boolean type.\n"
-                "got node: %s\n"
-                "its type: %s\n",
-                n.toString().c_str(),
-                n.getType().toString().c_str());
+  AlwaysAssertArgument(n.getType().isBoolean(), n,
+                       "CnfStream::ensureLiteral() requires a node of Boolean type.\n"
+                       "got node: %s\n"
+                       "its type: %s\n",
+                       n.toString().c_str(),
+                       n.getType().toString().c_str());
 
   bool negated CVC4_UNUSED = false;
   SatLiteral lit;
@@ -152,7 +151,7 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
   }
 
   if( theory::Theory::theoryOf(n) == theory::THEORY_BOOL &&
-      n.getMetaKind() != kind::metakind::VARIABLE ) {
+      !n.isVar() ) {
     // If we were called with something other than a theory atom (or
     // Boolean variable), we get a SatLiteral that is definitionally
     // equal to it.
@@ -192,25 +191,25 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
     d_translationCache[node].literal = lit;
     d_translationCache[node.notNode()].literal = ~lit;
 
-    if(Dump.isOn("clauses")) {
+    /*if(Dump.isOn("clauses")) {
       
       // Name new boolean var
       stringstream kss;
-      NodeManager* nm = NodeManager::currentNM();
+      // NodeManager* nm = NodeManager::currentNM();
       kss << "sat_var_" << lit.getSatVariable();
 
-      Node sat_var_node = nm->mkVar(kss.str(), nm->booleanType());
+      // Node sat_var_node = nm->mkVar(kss.str(), nm->booleanType());
 
       // for dumping
-      Dump("clauses") << DeclareFunctionCommand(kss.str(), nm->booleanType().toType() );
+      // Dump("clauses") << DeclareFunctionCommand(kss.str(), sat_var_node.toExpr(), nm->booleanType().toType() );
       if(theoryLiteral == true) {
-        Dump("clauses") << MappingCommand( sat_var_node.toExpr(), node.toExpr() );
+        // Dump("clauses") << MappingCommand( sat_var_node.toExpr(), node.toExpr() );
       } else{
         // remember in (the SatVar) node cache, so we can use these nodes 
-        d_nodeCacheSatVar[lit] = sat_var_node;
-        d_nodeCacheSatVar[~lit] = sat_var_node.notNode();
+        // d_nodeCacheSatVar[lit] = sat_var_node;
+        // d_nodeCacheSatVar[~lit] = sat_var_node.notNode();
       }
-    }
+    }*/
   } else {
     // We already have a literal
     lit = getLiteral(node);
@@ -226,7 +225,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
 
   // If it's a theory literal, need to store it for back queries
   if ( theoryLiteral || d_fullLitToNodeMap ||
-       ( CVC4_USE_REPLAY && Options::current()->replayLog != NULL ) ||
+       ( CVC4_USE_REPLAY && options::replayLog() != NULL ) ||
        (Dump.isOn("clauses")) ) {
     d_nodeCache[lit] = node;
     d_nodeCache[~lit] = node.notNode();
@@ -254,37 +253,25 @@ TNode CnfStream::getNode(const SatLiteral& literal) {
   return find->second;
 }
 
-TNode CnfStream::getSatVarNode(const SatLiteral& literal) {
-  Debug("cnf") << "getSatVarNode(" << literal << ")" << endl;
-  NodeCache2::iterator find = d_nodeCacheSatVar.find(literal);
-
-  TNode n;
-
-  if( find == d_nodeCacheSatVar.end() )
-    n = getNode(literal);
-  else
-    n = find->second;
-
-  // Assert(d_translationCache.find(find->second) != d_translationCache.end());
-  Debug("cnf") << "getSatVarNode(" << literal << ") => " << n << endl;
-  return n;
+void CnfStream::getBooleanVariables(std::vector<TNode>& outputVariables) const {
+  context::CDList<TNode>::const_iterator it, it_end;
+  for (it = d_booleanVariables.begin(); it != d_booleanVariables.end(); ++ it) {
+    outputVariables.push_back(*it);
+  }
 }
 
 SatLiteral CnfStream::convertAtom(TNode node) {
   Debug("cnf") << "convertAtom(" << node << ")" << endl;
 
   Assert(!isTranslated(node), "atom already mapped!");
-  // boolean variables are not theory literals
-  bool theoryLiteral = node.getKind() != kind::VARIABLE;
-  SatLiteral lit = newLiteral(node, theoryLiteral);
 
-  if(node.getKind() == kind::CONST_BOOLEAN) {
-    if(node.getConst<bool>()) {
-      assertClause(node, lit);
-    } else {
-      assertClause(node, ~lit);
-    }
+  // Is this a variable add it to the list
+  if (node.isVar()) {
+    d_booleanVariables.push_back(node);
   }
+
+  // Make a new literal (variables are not considered theory literals)
+  SatLiteral lit = newLiteral(node, !node.isVar());
 
   // We have a literal, so it has to be recorded.  The definitional clauses
   // go away on user-pop, so this literal will have to be re-vivified if it's

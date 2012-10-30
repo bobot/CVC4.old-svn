@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -67,6 +65,8 @@ public:
   }
 
 private:
+
+  context::Context d_context;
 
   /** The propagation queue */
   std::vector<TNode> d_propagationQueue;
@@ -234,27 +234,35 @@ public:
   /**
    * Construct a new CircuitPropagator.
    */
-  CircuitPropagator(context::Context* context, std::vector<Node>& outLearnedLiterals,
+  CircuitPropagator(std::vector<Node>& outLearnedLiterals,
                     bool enableForward = true, bool enableBackward = true) :
+    d_context(),
     d_propagationQueue(),
-    d_propagationQueueClearer(context, d_propagationQueue),
-    d_conflict(context, false),
+    d_propagationQueueClearer(&d_context, d_propagationQueue),
+    d_conflict(&d_context, false),
     d_learnedLiterals(outLearnedLiterals),
-    d_learnedLiteralClearer(context, outLearnedLiterals),
+    d_learnedLiteralClearer(&d_context, outLearnedLiterals),
     d_backEdges(),
-    d_backEdgesClearer(context, d_backEdges),
-    d_seen(context),
-    d_state(context),
+    d_backEdgesClearer(&d_context, d_backEdges),
+    d_seen(&d_context),
+    d_state(&d_context),
     d_forwardPropagation(enableForward),
     d_backwardPropagation(enableBackward) {
   }
 
+  // Use custom context to ensure propagator is reset after use
+  void initialize()
+  { d_context.push(); }
+
+  void finish()
+  { d_context.pop(); }
+
   /** Assert for propagation */
-  void assert(TNode assertion);
+  void assertTrue(TNode assertion);
 
   /**
    * Propagate through the asserted circuit propagator. New information discovered by the propagator
-   * are put in the subsitutions vector used in construction.
+   * are put in the substitutions vector used in construction.
    *
    * @return true iff conflict found
    */

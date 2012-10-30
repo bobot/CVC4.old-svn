@@ -5,9 +5,7 @@
  ** Major contributors: ajreynol
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -28,6 +26,7 @@
 #include "expr/node.h"
 #include "util/recursion_breaker.h"
 #include "util/matcher.h"
+#include "util/cvc4_assert.h"
 
 using namespace std;
 
@@ -67,11 +66,11 @@ const Datatype& Datatype::datatypeOf(Expr item) {
 
 size_t Datatype::indexOf(Expr item) {
   ExprManagerScope ems(item);
-  AssertArgument(item.getType().isConstructor() ||
-                 item.getType().isTester() ||
-                 item.getType().isSelector(),
-                 item,
-                 "arg must be a datatype constructor, selector, or tester");
+  CheckArgument(item.getType().isConstructor() ||
+                item.getType().isTester() ||
+                item.getType().isSelector(),
+                item,
+                "arg must be a datatype constructor, selector, or tester");
   TNode n = Node::fromExpr(item);
   if( item.getKind()==kind::APPLY_TYPE_ASCRIPTION ){
     return indexOf( item[0] );
@@ -87,29 +86,27 @@ void Datatype::resolve(ExprManager* em,
                        const std::vector<Type>& replacements,
                        const std::vector< SortConstructorType >& paramTypes,
                        const std::vector< DatatypeType >& paramReplacements)
-  throw(AssertionException, DatatypeResolutionException) {
+  throw(IllegalArgumentException, DatatypeResolutionException) {
 
-  AssertArgument(em != NULL, "cannot resolve a Datatype with a NULL expression manager");
-  CheckArgument(!d_resolved, "cannot resolve a Datatype twice");
-  AssertArgument(resolutions.find(d_name) != resolutions.end(),
+  CheckArgument(em != NULL, em, "cannot resolve a Datatype with a NULL expression manager");
+  CheckArgument(!d_resolved, this, "cannot resolve a Datatype twice");
+  CheckArgument(resolutions.find(d_name) != resolutions.end(), resolutions,
                 "Datatype::resolve(): resolutions doesn't contain me!");
-  AssertArgument(placeholders.size() == replacements.size(), placeholders,
+  CheckArgument(placeholders.size() == replacements.size(), placeholders,
                 "placeholders and replacements must be the same size");
-  AssertArgument(paramTypes.size() == paramReplacements.size(), paramTypes,
+  CheckArgument(paramTypes.size() == paramReplacements.size(), paramTypes,
                 "paramTypes and paramReplacements must be the same size");
   CheckArgument(getNumConstructors() > 0, *this, "cannot resolve a Datatype that has no constructors");
   DatatypeType self = (*resolutions.find(d_name)).second;
-  AssertArgument(&self.getDatatype() == this, "Datatype::resolve(): resolutions doesn't contain me!");
+  CheckArgument(&self.getDatatype() == this, resolutions, "Datatype::resolve(): resolutions doesn't contain me!");
   d_resolved = true;
   size_t index = 0;
   for(iterator i = begin(), i_end = end(); i != i_end; ++i) {
     (*i).resolve(em, self, resolutions, placeholders, replacements, paramTypes, paramReplacements);
-    Assert((*i).isResolved());
     Node::fromExpr((*i).d_constructor).setAttribute(DatatypeIndexAttr(), index);
     Node::fromExpr((*i).d_tester).setAttribute(DatatypeIndexAttr(), index++);
   }
   d_self = self;
-  Assert(index == getNumConstructors());
 }
 
 void Datatype::addConstructor(const DatatypeConstructor& c) {
@@ -118,7 +115,7 @@ void Datatype::addConstructor(const DatatypeConstructor& c) {
   d_constructors.push_back(c);
 }
 
-Cardinality Datatype::getCardinality() const throw(AssertionException) {
+Cardinality Datatype::getCardinality() const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), this, "this datatype is not yet resolved");
   RecursionBreaker<const Datatype*, DatatypeHashFunction> breaker(__PRETTY_FUNCTION__, this);
   if(breaker.isRecursion()) {
@@ -131,7 +128,7 @@ Cardinality Datatype::getCardinality() const throw(AssertionException) {
   return c;
 }
 
-bool Datatype::isFinite() const throw(AssertionException) {
+bool Datatype::isFinite() const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), this, "this datatype is not yet resolved");
 
   // we're using some internals, so we have to set up this library context
@@ -157,7 +154,7 @@ bool Datatype::isFinite() const throw(AssertionException) {
   return true;
 }
 
-bool Datatype::isWellFounded() const throw(AssertionException) {
+bool Datatype::isWellFounded() const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), this, "this datatype is not yet resolved");
 
   // we're using some internals, so we have to set up this library context
@@ -191,7 +188,7 @@ bool Datatype::isWellFounded() const throw(AssertionException) {
   return false;
 }
 
-Expr Datatype::mkGroundTerm( Type t ) const throw(AssertionException) {
+Expr Datatype::mkGroundTerm( Type t ) const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), this, "this datatype is not yet resolved");
 
   // we're using some internals, so we have to set up this library context
@@ -274,16 +271,16 @@ Expr Datatype::mkGroundTerm( Type t ) const throw(AssertionException) {
   }
 }
 
-DatatypeType Datatype::getDatatypeType() const throw(AssertionException) {
+DatatypeType Datatype::getDatatypeType() const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), *this, "Datatype must be resolved to get its DatatypeType");
-  Assert(!d_self.isNull() && !DatatypeType(d_self).isParametric());
+  CheckArgument(!d_self.isNull() && !DatatypeType(d_self).isParametric(), this);
   return DatatypeType(d_self);
 }
 
 DatatypeType Datatype::getDatatypeType(const std::vector<Type>& params)
-  const throw(AssertionException) {
+  const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), *this, "Datatype must be resolved to get its DatatypeType");
-  Assert(!d_self.isNull() && DatatypeType(d_self).isParametric());
+  CheckArgument(!d_self.isNull() && DatatypeType(d_self).isParametric(), this);
   return DatatypeType(d_self).instantiate(params);
 }
 
@@ -379,19 +376,34 @@ Expr Datatype::getConstructor(std::string name) const {
   return (*this)[name].getConstructor();
 }
 
+bool Datatype::involvesExternalType() const{
+  for(const_iterator i = begin(); i != end(); ++i) {
+    if( (*i).involvesExternalType() ){
+      return true;
+    }
+  }
+  return false;
+}
+
 void DatatypeConstructor::resolve(ExprManager* em, DatatypeType self,
                                   const std::map<std::string, DatatypeType>& resolutions,
                                   const std::vector<Type>& placeholders,
                                   const std::vector<Type>& replacements,
                                   const std::vector< SortConstructorType >& paramTypes,
                                   const std::vector< DatatypeType >& paramReplacements)
-  throw(AssertionException, DatatypeResolutionException) {
+  throw(IllegalArgumentException, DatatypeResolutionException) {
 
-  AssertArgument(em != NULL, "cannot resolve a Datatype with a NULL expression manager");
+  CheckArgument(em != NULL, em, "cannot resolve a Datatype with a NULL expression manager");
   CheckArgument(!isResolved(),
                 "cannot resolve a Datatype constructor twice; "
                 "perhaps the same constructor was added twice, "
                 "or to two datatypes?");
+
+  // we're using some internals, so we have to set up this library context
+  ExprManagerScope ems(*em);
+
+  NodeManager* nm = NodeManager::fromExprManager(em);
+  TypeNode selfTypeNode = TypeNode::fromType(self);
   size_t index = 0;
   for(iterator i = begin(), i_end = end(); i != i_end; ++i) {
     if((*i).d_selector.isNull()) {
@@ -399,7 +411,7 @@ void DatatypeConstructor::resolve(ExprManager* em, DatatypeType self,
       string typeName = (*i).d_name.substr((*i).d_name.find('\0') + 1);
       (*i).d_name.resize((*i).d_name.find('\0'));
       if(typeName == "") {
-        (*i).d_selector = em->mkVar((*i).d_name, em->mkSelectorType(self, self));
+        (*i).d_selector = nm->mkSkolem((*i).d_name, nm->mkSelectorType(selfTypeNode, selfTypeNode), "is a selector", NodeManager::SKOLEM_EXACT_NAME | NodeManager::SKOLEM_NO_NOTIFY).toExpr();
       } else {
         map<string, DatatypeType>::const_iterator j = resolutions.find(typeName);
         if(j == resolutions.end()) {
@@ -409,7 +421,7 @@ void DatatypeConstructor::resolve(ExprManager* em, DatatypeType self,
               << "of constructor \"" << d_name << "\"";
           throw DatatypeResolutionException(msg.str());
         } else {
-          (*i).d_selector = em->mkVar((*i).d_name, em->mkSelectorType(self, (*j).second));
+          (*i).d_selector = nm->mkSkolem((*i).d_name, nm->mkSelectorType(selfTypeNode, TypeNode::fromType((*j).second)), "is a selector", NodeManager::SKOLEM_EXACT_NAME | NodeManager::SKOLEM_NO_NOTIFY).toExpr();
         }
       }
     } else {
@@ -422,7 +434,7 @@ void DatatypeConstructor::resolve(ExprManager* em, DatatypeType self,
       if(!paramTypes.empty() ) {
         range = doParametricSubstitution( range, paramTypes, paramReplacements );
       }
-      (*i).d_selector = em->mkVar((*i).d_name, em->mkSelectorType(self, range));
+      (*i).d_selector = nm->mkSkolem((*i).d_name, nm->mkSelectorType(selfTypeNode, TypeNode::fromType(range)), "is a selector", NodeManager::SKOLEM_EXACT_NAME | NodeManager::SKOLEM_NO_NOTIFY).toExpr();
     }
     Node::fromExpr((*i).d_selector).setAttribute(DatatypeIndexAttr(), index++);
     (*i).d_resolved = true;
@@ -435,10 +447,9 @@ void DatatypeConstructor::resolve(ExprManager* em, DatatypeType self,
   // fails above, we want Constuctor::isResolved() to remain "false".
   // Further, mkConstructorType() iterates over the selectors, so
   // should get the results of any resolutions we did above.
-  d_tester = em->mkVar(d_name.substr(d_name.find('\0') + 1), em->mkTesterType(self));
-  d_name.resize(d_name.find('\0'));
-  d_constructor = em->mkVar(d_name, em->mkConstructorType(*this, self));
-  //associate constructor with all selectors
+  d_tester = nm->mkSkolem(getTesterName(), nm->mkTesterType(selfTypeNode), "is a tester", NodeManager::SKOLEM_EXACT_NAME | NodeManager::SKOLEM_NO_NOTIFY).toExpr();
+  d_constructor = nm->mkSkolem(getName(), nm->mkConstructorType(*this, selfTypeNode), "is a constructor", NodeManager::SKOLEM_EXACT_NAME | NodeManager::SKOLEM_NO_NOTIFY).toExpr();
+  // associate constructor with all selectors
   for(iterator i = begin(), i_end = end(); i != i_end; ++i) {
     (*i).d_constructor = d_constructor;
   }
@@ -503,7 +514,11 @@ void DatatypeConstructor::addArg(std::string selectorName, Type selectorType) {
   // create the proper selector type)
   CheckArgument(!isResolved(), this, "cannot modify a finalized Datatype constructor");
   CheckArgument(!selectorType.isNull(), selectorType, "cannot add a null selector type");
-  Expr type = selectorType.getExprManager()->mkVar(selectorType);
+
+  // we're using some internals, so we have to set up this library context
+  ExprManagerScope ems(selectorType);
+
+  Expr type = NodeManager::currentNM()->mkSkolem("unresolved_" + selectorName, TypeNode::fromType(selectorType), "is an unresolved selector type placeholder", NodeManager::SKOLEM_EXACT_NAME | NodeManager::SKOLEM_NO_NOTIFY).toExpr();
   Debug("datatypes") << type << endl;
   d_args.push_back(DatatypeConstructorArg(selectorName, type));
 }
@@ -529,11 +544,11 @@ void DatatypeConstructor::addArg(std::string selectorName, DatatypeSelfType) {
 }
 
 std::string DatatypeConstructor::getName() const throw() {
-  string name = d_name;
-  if(!isResolved()) {
-    name.resize(name.find('\0'));
-  }
-  return name;
+  return d_name.substr(0, d_name.find('\0'));
+}
+
+std::string DatatypeConstructor::getTesterName() const throw() {
+  return d_name.substr(d_name.find('\0') + 1);
 }
 
 Expr DatatypeConstructor::getConstructor() const {
@@ -559,7 +574,7 @@ Expr DatatypeConstructor::getTester() const {
   return d_tester;
 }
 
-Cardinality DatatypeConstructor::getCardinality() const throw(AssertionException) {
+Cardinality DatatypeConstructor::getCardinality() const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), this, "this datatype constructor is not yet resolved");
 
   Cardinality c = 1;
@@ -571,7 +586,7 @@ Cardinality DatatypeConstructor::getCardinality() const throw(AssertionException
   return c;
 }
 
-bool DatatypeConstructor::isFinite() const throw(AssertionException) {
+bool DatatypeConstructor::isFinite() const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), this, "this datatype constructor is not yet resolved");
 
   // we're using some internals, so we have to set up this library context
@@ -597,7 +612,7 @@ bool DatatypeConstructor::isFinite() const throw(AssertionException) {
   return true;
 }
 
-bool DatatypeConstructor::isWellFounded() const throw(AssertionException) {
+bool DatatypeConstructor::isWellFounded() const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), this, "this datatype constructor is not yet resolved");
 
   // we're using some internals, so we have to set up this library context
@@ -641,7 +656,7 @@ bool DatatypeConstructor::isWellFounded() const throw(AssertionException) {
   return true;
 }
 
-Expr DatatypeConstructor::mkGroundTerm( Type t ) const throw(AssertionException) {
+Expr DatatypeConstructor::mkGroundTerm( Type t ) const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), this, "this datatype constructor is not yet resolved");
 
   // we're using some internals, so we have to set up this library context
@@ -666,7 +681,7 @@ Expr DatatypeConstructor::mkGroundTerm( Type t ) const throw(AssertionException)
   groundTerms.push_back(getConstructor());
 
   // for each selector, get a ground term
-  Assert( t.isDatatype() );
+  CheckArgument( t.isDatatype(), t );
   std::vector< Type > instTypes;
   std::vector< Type > paramTypes;
   if( DatatypeType(t).isParametric() ){
@@ -680,7 +695,7 @@ Expr DatatypeConstructor::mkGroundTerm( Type t ) const throw(AssertionException)
     }
     groundTerms.push_back(selType.mkGroundTerm());
   }
-  
+
   groundTerm = getConstructor().getExprManager()->mkExpr(kind::APPLY_CONSTRUCTOR, groundTerms);
   if( groundTerm.getType()!=t ){
     Assert( Datatype::datatypeOf( d_constructor ).isParametric() );
@@ -711,6 +726,15 @@ const DatatypeConstructorArg& DatatypeConstructor::operator[](std::string name) 
 
 Expr DatatypeConstructor::getSelector(std::string name) const {
   return (*this)[name].getSelector();
+}
+
+bool DatatypeConstructor::involvesExternalType() const{
+  for(const_iterator i = begin(); i != end(); ++i) {
+    if(! SelectorType((*i).getSelector().getType()).getRangeType().isDatatype()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 DatatypeConstructorArg::DatatypeConstructorArg(std::string name, Expr selector) :

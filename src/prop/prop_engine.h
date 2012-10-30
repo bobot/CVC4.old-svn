@@ -2,12 +2,10 @@
 /*! \file prop_engine.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: taking, dejan
- ** Minor contributors (to current version): cconway, barrett, kshitij
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): barrett, cconway, lianah, kshitij, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -24,7 +22,7 @@
 #define __CVC4__PROP_ENGINE_H
 
 #include "expr/node.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/result.h"
 #include "smt/modal_exception.h"
 #include <sys/time.h>
@@ -157,7 +155,7 @@ public:
   /**
    * Create a PropEngine with a particular decision and theory engine.
    */
-  PropEngine(TheoryEngine*, DecisionEngine*, context::Context*);
+  PropEngine(TheoryEngine*, DecisionEngine*, context::Context* satContext, context::Context* userContext);
 
   /**
    * Destructor.
@@ -192,6 +190,37 @@ public:
    * on an activity heuristic (or not)
    */
   void assertLemma(TNode node, bool negated, bool removable);
+
+  /**
+   * If ever n is decided upon, it must be in the given phase.  This
+   * occurs *globally*, i.e., even if the literal is untranslated by
+   * user pop and retranslated, it keeps this phase.  The associated
+   * variable will _always_ be phase-locked.
+   *
+   * @param n the node in question; must have an associated SAT literal
+   * @param phase the phase to use
+   */
+  void requirePhase(TNode n, bool phase);
+
+  /**
+   * Backtracks to and flips the most recent unflipped decision, and
+   * returns TRUE.  If the decision stack is nonempty but all
+   * decisions have been flipped already, the state is backtracked to
+   * the root decision, which is re-flipped to the original phase (and
+   * FALSE is returned).  If the decision stack is empty, the state is
+   * unchanged and FALSE is returned.
+   *
+   * @return true if a decision was flipped as requested; false if the
+   * root decision was reflipped, or if no decisions are on the stack.
+   */
+  bool flipDecision();
+
+  /**
+   * Return whether the given literal is a SAT decision.  Either phase
+   * is permitted; that is, if "lit" is a SAT decision, this function
+   * returns true for both lit and the negation of lit.
+   */
+  bool isDecision(Node lit) const;
 
   /**
    * Checks the current context for satisfiability.
@@ -233,6 +262,11 @@ public:
    * Check if the node has a value and return it if yes.
    */
   bool hasValue(TNode node, bool& value) const;
+
+  /**
+   * Returns the Boolean variables known to the SAT solver.
+   */
+  void getBooleanVariables(std::vector<TNode>& outputVariables) const;
 
   /**
    * Ensure that the given node will have a designated SAT literal

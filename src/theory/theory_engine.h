@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): cconway, barrett, taking
+ ** Minor contributors (to current version): cconway, bobot, kshitij, taking, barrett, lianah, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -25,7 +23,6 @@
 #include <vector>
 #include <utility>
 
-#include "decision/decision_engine.h"
 #include "expr/node.h"
 #include "expr/command.h"
 #include "prop/prop_engine.h"
@@ -37,19 +34,23 @@
 #include "theory/shared_terms_database.h"
 #include "theory/term_registration_visitor.h"
 #include "theory/valuation.h"
-#include "util/options.h"
-#include "util/stats.h"
+#include "theory/interrupted.h"
+#include "options/options.h"
+#include "smt/options.h"
+#include "util/statistics_registry.h"
 #include "util/hash.h"
 #include "util/cache.h"
+#include "util/cvc4_assert.h"
 #include "theory/ite_simplifier.h"
 #include "theory/unconstrained_simplifier.h"
+#include "theory/model.h"
 
 namespace CVC4 {
 
 /**
- * A pair of a theory and a node. This is used to mark the flow of 
+ * A pair of a theory and a node. This is used to mark the flow of
  * propagations between theories.
- */ 
+ */
 struct NodeTheoryPair {
   Node node;
   theory::TheoryId theory;
@@ -58,7 +59,7 @@ struct NodeTheoryPair {
   : node(node), theory(theory), timestamp(timestamp) {}
   NodeTheoryPair()
   : theory(theory::THEORY_LAST) {}
-  // Comparison doesn't take into account the timestamp  
+  // Comparison doesn't take into account the timestamp
   bool operator == (const NodeTheoryPair& pair) const {
     return node == pair.node && theory == pair.theory;
   }
@@ -72,6 +73,12 @@ struct NodeTheoryPairHashFunction {
   }
 };/* struct NodeTheoryPairHashFunction */
 
+namespace theory {
+  class Instantiator;
+}/* CVC4::theory namespace */
+
+class DecisionEngine;
+
 /**
  * This is essentially an abstraction for a collection of theories.  A
  * TheoryEngine provides services to a PropEngine, making various
@@ -79,7 +86,7 @@ struct NodeTheoryPairHashFunction {
  * CVC4.
  */
 class TheoryEngine {
-  
+
   /** Shared terms database can use the internals notify the theories */
   friend class SharedTermsDatabase;
 
@@ -114,6 +121,20 @@ class TheoryEngine {
    * The database of shared terms.
    */
   SharedTermsDatabase d_sharedTerms;
+
+  /**
+   * The quantifiers engine
+   */
+  theory::QuantifiersEngine* d_quantEngine;
+
+  /**
+   * Default model object
+   */
+  theory::TheoryModel* d_curr_model;
+  /**
+   * Model builder object
+   */
+  theory::TheoryEngineModelBuilder* d_curr_model_builder;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
   typedef std::hash_map<TNode, Node, TNodeHashFunction> TNodeMap;
@@ -151,25 +172,28 @@ class TheoryEngine {
 
   public:
 
-    IntStat conflicts, propagations, lemmas, propagationsAsDecisions;
+    IntStat conflicts, propagations, lemmas, requirePhase, flipDecision;
 
     Statistics(theory::TheoryId theory):
       conflicts(mkName("theory<", theory, ">::conflicts"), 0),
       propagations(mkName("theory<", theory, ">::propagations"), 0),
       lemmas(mkName("theory<", theory, ">::lemmas"), 0),
-      propagationsAsDecisions(mkName("theory<", theory, ">::propagationsAsDecisions"), 0)
+      requirePhase(mkName("theory<", theory, ">::requirePhase"), 0),
+      flipDecision(mkName("theory<", theory, ">::flipDecision"), 0)
     {
       StatisticsRegistry::registerStat(&conflicts);
       StatisticsRegistry::registerStat(&propagations);
       StatisticsRegistry::registerStat(&lemmas);
-      StatisticsRegistry::registerStat(&propagationsAsDecisions);
+      StatisticsRegistry::registerStat(&requirePhase);
+      StatisticsRegistry::registerStat(&flipDecision);
     }
 
     ~Statistics() {
       StatisticsRegistry::unregisterStat(&conflicts);
       StatisticsRegistry::unregisterStat(&propagations);
       StatisticsRegistry::unregisterStat(&lemmas);
-      StatisticsRegistry::unregisterStat(&propagationsAsDecisions);
+      StatisticsRegistry::unregisterStat(&requirePhase);
+      StatisticsRegistry::unregisterStat(&flipDecision);
     }
   };/* class TheoryEngine::Statistics */
 
@@ -206,6 +230,11 @@ class TheoryEngine {
     {
     }
 
+    void safePoint() throw(theory::Interrupted, AssertionException) {
+      if (d_engine->d_interrupted)
+        throw theory::Interrupted(); 
+   }
+
     void conflict(TNode conflictNode) throw(AssertionException) {
       Trace("theory::conflict") << "EngineOutputChannel<" << d_theory << ">::conflict(" << conflictNode << ")" << std::endl;
       ++ d_statistics.conflicts;
@@ -220,13 +249,6 @@ class TheoryEngine {
       return d_engine->propagate(literal, d_theory);
     }
 
-    void propagateAsDecision(TNode literal) throw(AssertionException) {
-      Trace("theory::propagate") << "EngineOutputChannel<" << d_theory << ">::propagateAsDecision(" << literal << ")" << std::endl;
-      ++ d_statistics.propagationsAsDecisions;
-      d_engine->d_outputChannelUsed = true;
-      d_engine->propagateAsDecision(literal, d_theory);
-    }
-
     theory::LemmaStatus lemma(TNode lemma, bool removable = false) throw(TypeCheckingExceptionPrivate, AssertionException) {
       Trace("theory::lemma") << "EngineOutputChannel<" << d_theory << ">::lemma(" << lemma << ")" << std::endl;
       ++ d_statistics.lemmas;
@@ -234,14 +256,32 @@ class TheoryEngine {
       return d_engine->lemma(lemma, false, removable);
     }
 
+    void requirePhase(TNode n, bool phase)
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::requirePhase("
+                      << n << ", " << phase << ")" << std::endl;
+      ++ d_statistics.requirePhase;
+      d_engine->d_propEngine->requirePhase(n, phase);
+    }
+
+    bool flipDecision()
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::flipDecision()" << std::endl;
+      ++ d_statistics.flipDecision;
+      return d_engine->d_propEngine->flipDecision();
+    }
+
     void setIncomplete() throw(AssertionException) {
+      Trace("theory") << "TheoryEngine::setIncomplete()" << std::endl;
       d_engine->setIncomplete(d_theory);
     }
 
     void spendResource() throw() {
       d_engine->spendResource();
     }
-
+    void handleUserAttribute( const char* attr, theory::Theory* t ){
+      d_engine->handleUserAttribute( attr, t );
+    }
   };/* class TheoryEngine::EngineOutputChannel */
 
   /**
@@ -309,19 +349,6 @@ class TheoryEngine {
   context::CDO<unsigned> d_propagatedLiteralsIndex;
 
   /**
-   * Decisions that are requested via propagateAsDecision().  The theory
-   * can only request decisions on nodes that have an assigned litearl in
-   * the SAT solver and are hence referenced in the SAT solver (making the
-   * use of TNode safe).
-   */
-  context::CDList<TNode> d_decisionRequests;
-
-  /**
-   * The index of the next decision requested by a theory.
-   */
-  context::CDO<unsigned> d_decisionRequestsIndex;
-
-  /**
    * Called by the output channel to propagate literals and facts
    * @return false if immediate conflict
    */
@@ -357,21 +384,28 @@ class TheoryEngine {
    * Adds a new lemma, returning its status.
    */
   theory::LemmaStatus lemma(TNode node, bool negated, bool removable);
-  
+
+  RemoveITE& d_iteRemover;
+
   /** Time spent in theory combination */
   TimerStat d_combineTheoriesTime;
 
   Node d_true;
   Node d_false;
 
+  /** Whether we were just interrupted (or not) */
+  bool d_interrupted; 
+  
 public:
 
   /** Constructs a theory engine */
-  TheoryEngine(context::Context* context, context::UserContext* userContext, const LogicInfo& logic);
+  TheoryEngine(context::Context* context, context::UserContext* userContext, RemoveITE& iteRemover, const LogicInfo& logic);
 
   /** Destroys a theory engine */
   ~TheoryEngine();
 
+  void interrupt() throw(ModalException); 
+  
   /**
    * Adds a theory. Only one theory per TheoryId can be present, so if
    * there is another theory it will be deleted.
@@ -380,7 +414,7 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo);
+    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo, getQuantifiersEngine());
   }
 
   inline void setPropEngine(prop::PropEngine* propEngine) {
@@ -398,6 +432,27 @@ public:
    */
   inline prop::PropEngine* getPropEngine() const {
     return d_propEngine;
+  }
+
+  /**
+   * Get a pointer to the underlying sat context.
+   */
+  inline context::Context* getSatContext() const {
+    return d_context;
+  }
+
+  /**
+   * Get a pointer to the underlying user context.
+   */
+  inline context::Context* getUserContext() const {
+    return d_userContext;
+  }
+
+  /**
+   * Get a pointer to the underlying quantifiers engine.
+   */
+  theory::QuantifiersEngine* getQuantifiersEngine() const {
+    return d_quantEngine;
   }
 
 private:
@@ -433,12 +488,12 @@ private:
   void assertToTheory(TNode assertion, theory::TheoryId toTheoryId, theory::TheoryId fromTheoryId);
 
   /**
-   * Marks a theory propagation from a theory to a theory where a 
+   * Marks a theory propagation from a theory to a theory where a
    * theory could be the THEORY_SAT_SOLVER for literals coming from
    * or being propagated to the SAT solver. If the receiving theory
    * already recieved the literal, the method returns false, otherwise
    * it returns true.
-   * 
+   *
    * @param assertion the normalized assertion being sent
    * @param originalAssertion the actual assertion that was sent
    * @param toTheoryId the theory that is on the receiving end
@@ -449,7 +504,7 @@ private:
 
   /**
    * Computes the explanation by travarsing the propagation graph and
-   * asking relevant theories to explain the propagations. Initially 
+   * asking relevant theories to explain the propagations. Initially
    * the explanation vector should contain only the element (node, theory)
    * where the node is the one to be explained, and the theory is the
    * theory that sent the literal.
@@ -464,7 +519,7 @@ public:
   void preprocessStart();
 
   /**
-   * Runs theory specific preprocesssing on the non-Boolean parts of
+   * Runs theory specific preprocessing on the non-Boolean parts of
    * the formula.  This is only called on input assertions, after ITEs
    * have been removed.
    */
@@ -561,18 +616,7 @@ public:
     }
   }
 
-  TNode getNextDecisionRequest() {
-    if(d_decisionRequestsIndex < d_decisionRequests.size()) {
-      TNode req = d_decisionRequests[d_decisionRequestsIndex];
-      Debug("propagateAsDecision") << "TheoryEngine requesting decision["
-                                   << d_decisionRequestsIndex << "]: "
-                                   << req << std::endl;
-      d_decisionRequestsIndex = d_decisionRequestsIndex + 1;
-      return req;
-    } else {
-      return TNode::null();
-    }
-  }
+  Node getNextDecisionRequest();
 
   bool properConflict(TNode conflict) const;
   bool properPropagation(TNode lit) const;
@@ -584,9 +628,19 @@ public:
   Node getExplanation(TNode node);
 
   /**
-   * Returns the value of the given node.
+   * collect model info
    */
-  Node getValue(TNode node);
+  void collectModelInfo( theory::TheoryModel* m, bool fullModel );
+
+  /**
+   * Get the current model
+   */
+  theory::TheoryModel* getModel();
+
+  /**
+   * Get the model builder
+   */
+  theory::TheoryEngineModelBuilder* getModelBuilder() { return d_curr_model_builder; }
 
   /**
    * Get the theory associated to a given Node.
@@ -594,19 +648,16 @@ public:
    * @returns the theory, or NULL if the TNode is
    * of built-in type.
    */
-  inline theory::Theory* theoryOf(TNode node) {
+  inline theory::Theory* theoryOf(TNode node) const {
     return d_theoryTable[theory::Theory::theoryOf(node)];
   }
 
   /**
-   * Get the theory associated to a the given theory id. It will also mark the
-   * theory as currently active, we assume that theories are called only through
-   * theoryOf.
+   * Get the theory associated to a the given theory id.
    *
-   * @returns the theory, or NULL if the TNode is
-   * of built-in type.
+   * @returns the theory
    */
-  inline theory::Theory* theoryOf(theory::TheoryId theoryId) {
+  inline theory::Theory* theoryOf(theory::TheoryId theoryId) const {
     return d_theoryTable[theoryId];
   }
 
@@ -640,6 +691,29 @@ public:
 
   Node ppSimpITE(TNode assertion);
   void ppUnconstrainedSimp(std::vector<Node>& assertions);
+
+  SharedTermsDatabase* getSharedTermsDatabase() { return &d_sharedTerms; }
+
+private:
+  std::map< std::string, std::vector< theory::Theory* > > d_attr_handle;
+public:
+
+  /** Set user attribute
+    * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
+    *  via the syntax (! n :attr)
+    */
+  void setUserAttribute( std::string& attr, Node n );
+
+  /** Handle user attribute
+    *   Associates theory t with the attribute attr.  Theory t will be
+    *   notifed whenever an attribute of name attr is set.
+    */
+  void handleUserAttribute( const char* attr, theory::Theory* t );
+
+  /** Check that the theory assertions are satisfied in the model
+   *  This function is called from the smt engine's checkModel routine
+   */
+  void checkTheoryAssertionsWithModel();
 
 };/* class TheoryEngine */
 

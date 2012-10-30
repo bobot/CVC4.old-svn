@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -111,7 +109,7 @@ bool resolve(const Lit v, LitSet& clause1, LitSet& clause2, bool s) {
   } else {
     // literal appears negative in the first clause
     if( !clause1.count(~var) || !clause2.count(var)) {
-      Debug("proof:sat") << "proof:resolve: Mising literal ";
+      Debug("proof:sat") << "proof:resolve: Missing literal ";
       printLit(var);
       Debug("proof:sat") << endl; 
       return false; 

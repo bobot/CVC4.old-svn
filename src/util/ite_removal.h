@@ -2,12 +2,10 @@
 /*! \file ite_removal.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: kshitij, mdeters
+ ** Minor contributors (to current version): barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,14 +21,22 @@
 #include <vector>
 #include "expr/node.h"
 #include "util/dump.h"
+#include "context/context.h"
+#include "context/cdhashmap.h"
 
 namespace CVC4 {
 
 typedef std::hash_map<Node, unsigned, NodeHashFunction> IteSkolemMap;
 
 class RemoveITE {
+  typedef context::CDHashMap<Node, Node, NodeHashFunction> ITECache;
+  ITECache d_iteCache;
 
 public:
+
+  RemoveITE(context::UserContext* u) :
+    d_iteCache(u) {
+  }
 
   /**
    * Removes the ITE nodes by introducing skolem variables. All
@@ -39,7 +45,7 @@ public:
    * assertions containing the new Boolean ite created in conjunction
    * with that skolem variable.
    */
-  static void run(std::vector<Node>& assertions, IteSkolemMap& iteSkolemMap);
+  void run(std::vector<Node>& assertions, IteSkolemMap& iteSkolemMap);
 
   /**
    * Removes the ITE from the node by introducing skolem
@@ -48,8 +54,8 @@ public:
    * variables to the index in assertions containing the new Boolean
    * ite created in conjunction with that skolem variable.
    */
-  static Node run(TNode node, std::vector<Node>& additionalAssertions,
-                  IteSkolemMap& iteSkolemMap);
+  Node run(TNode node, std::vector<Node>& additionalAssertions,
+           IteSkolemMap& iteSkolemMap);
 
 };/* class RemoveTTE */
 

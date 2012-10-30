@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -71,8 +69,8 @@ public:
     TS_ASSERT_THROWS(colorsDT["blue"]["foo"], IllegalArgumentException);
 
     TS_ASSERT(colorsType.getDatatype().isFinite());
-    TS_ASSERT(colorsType.getDatatype().getCardinality() == 4);
-    TS_ASSERT(ctor.getType().getCardinality() == 1);
+    TS_ASSERT(colorsType.getDatatype().getCardinality().compare(4) == Cardinality::EQUAL);
+    TS_ASSERT(ctor.getType().getCardinality().compare(1) == Cardinality::EQUAL);
     TS_ASSERT(colorsType.getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << colorsType.getDatatype().getName() << endl
                          << "  is " << colorsType.mkGroundTerm() << endl;
@@ -108,7 +106,7 @@ public:
     Debug("datatypes") << apply << std::endl;
 
     TS_ASSERT(! natType.getDatatype().isFinite());
-    TS_ASSERT(natType.getDatatype().getCardinality() == Cardinality::INTEGERS);
+    TS_ASSERT(natType.getDatatype().getCardinality().compare(Cardinality::INTEGERS) == Cardinality::EQUAL);
     TS_ASSERT(natType.getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << natType.getDatatype().getName() << endl
                          << "  is " << natType.mkGroundTerm() << endl;
@@ -149,7 +147,7 @@ public:
     TS_ASSERT_THROWS(treeType.getConstructor("leff"), IllegalArgumentException);
 
     TS_ASSERT(! treeType.getDatatype().isFinite());
-    TS_ASSERT(treeType.getDatatype().getCardinality() == Cardinality::INTEGERS);
+    TS_ASSERT(treeType.getDatatype().getCardinality().compare(Cardinality::INTEGERS) == Cardinality::EQUAL);
     TS_ASSERT(treeType.getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << treeType.getDatatype().getName() << endl
                          << "  is " << treeType.mkGroundTerm() << endl;
@@ -183,7 +181,7 @@ public:
     Debug("datatypes") << listType << std::endl;
 
     TS_ASSERT(! listType.getDatatype().isFinite());
-    TS_ASSERT(listType.getDatatype().getCardinality() == Cardinality::INTEGERS);
+    TS_ASSERT(listType.getDatatype().getCardinality().compare(Cardinality::INTEGERS) == Cardinality::EQUAL);
     TS_ASSERT(listType.getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << listType.getDatatype().getName() << endl
                          << "  is " << listType.mkGroundTerm() << endl;
@@ -217,7 +215,7 @@ public:
     Debug("datatypes") << listType << std::endl;
 
     TS_ASSERT(! listType.getDatatype().isFinite());
-    TS_ASSERT(listType.getDatatype().getCardinality() == Cardinality::REALS);
+    TS_ASSERT(listType.getDatatype().getCardinality().compare(Cardinality::REALS) == Cardinality::EQUAL);
     TS_ASSERT(listType.getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << listType.getDatatype().getName() << endl
                          << "  is " << listType.mkGroundTerm() << endl;
@@ -251,7 +249,7 @@ public:
     Debug("datatypes") << listType << std::endl;
 
     TS_ASSERT(! listType.getDatatype().isFinite());
-    TS_ASSERT(listType.getDatatype().getCardinality() == Cardinality::INTEGERS);
+    TS_ASSERT(listType.getDatatype().getCardinality().compare(Cardinality::INTEGERS) == Cardinality::EQUAL);
     TS_ASSERT(listType.getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << listType.getDatatype().getName() << endl
                          << "  is " << listType.mkGroundTerm() << endl;
@@ -316,7 +314,7 @@ public:
     TS_ASSERT(dtts[1].getDatatype().isResolved());
 
     TS_ASSERT(! dtts[0].getDatatype().isFinite());
-    TS_ASSERT(dtts[0].getDatatype().getCardinality() == Cardinality::INTEGERS);
+    TS_ASSERT(dtts[0].getDatatype().getCardinality().compare(Cardinality::INTEGERS) == Cardinality::EQUAL);
     TS_ASSERT(dtts[0].getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << dtts[0].getDatatype().getName() << endl
                          << "  is " << dtts[0].mkGroundTerm() << endl;
@@ -333,7 +331,7 @@ public:
     }
 
     TS_ASSERT(! dtts[1].getDatatype().isFinite());
-    TS_ASSERT(dtts[1].getDatatype().getCardinality() == Cardinality::INTEGERS);
+    TS_ASSERT(dtts[1].getDatatype().getCardinality().compare(Cardinality::INTEGERS) == Cardinality::EQUAL);
     TS_ASSERT(dtts[1].getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << dtts[1].getDatatype().getName() << endl
                          << "  is " << dtts[1].mkGroundTerm() << endl;
@@ -364,7 +362,7 @@ public:
     TS_ASSERT_DIFFERS(dtts[0], dtts2[0]);
 
     TS_ASSERT(! dtts2[0].getDatatype().isFinite());
-    TS_ASSERT(dtts2[0].getDatatype().getCardinality() == Cardinality::INTEGERS);
+    TS_ASSERT(dtts2[0].getDatatype().getCardinality().compare(Cardinality::INTEGERS) == Cardinality::EQUAL);
     TS_ASSERT(dtts2[0].getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << dtts2[0].getDatatype().getName() << endl
                          << "  is " << dtts2[0].mkGroundTerm() << endl;
@@ -381,7 +379,7 @@ public:
     }
 
     TS_ASSERT(! dtts2[1].getDatatype().isFinite());
-    TS_ASSERT(dtts2[1].getDatatype().getCardinality() == Cardinality::INTEGERS);
+    TS_ASSERT(dtts2[1].getDatatype().getCardinality().compare(Cardinality::INTEGERS) == Cardinality::EQUAL);
     TS_ASSERT(dtts2[1].getDatatype().isWellFounded());
     Debug("groundterms") << "ground term of " << dtts2[1].getDatatype().getName() << endl
                          << "  is " << dtts2[1].mkGroundTerm() << endl;
@@ -411,7 +409,7 @@ public:
     Debug("datatypes") << treeType << std::endl;
 
     TS_ASSERT(! treeType.getDatatype().isFinite());
-    TS_ASSERT(treeType.getDatatype().getCardinality() == Cardinality::INTEGERS);
+    TS_ASSERT(treeType.getDatatype().getCardinality().compare(Cardinality::INTEGERS) == Cardinality::EQUAL);
     TS_ASSERT(! treeType.getDatatype().isWellFounded());
     TS_ASSERT_THROWS_ANYTHING( treeType.mkGroundTerm() );
     TS_ASSERT_THROWS_ANYTHING( treeType.getDatatype().mkGroundTerm( treeType ) );

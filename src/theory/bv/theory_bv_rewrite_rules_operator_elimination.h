@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file theory_bv_rewrite_rules_core.h
+/*! \file theory_bv_rewrite_rules_operator_elimination.h
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: none
- ** Minor contributors (to current version): 
+ ** Major contributors: barrett
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -65,7 +63,7 @@ bool RewriteRule<SgtEliminate>::applies(TNode node) {
 
 template<>
 Node RewriteRule<SgtEliminate>::apply(TNode node) {
-  BVDebug("bv-rewrite") << "RgewriteRule<UgtEliminate>(" << node << ")" << std::endl;
+  BVDebug("bv-rewrite") << "RewriteRule<SgtEliminate>(" << node << ")" << std::endl;
   TNode a = node[0];
   TNode b = node[1];
   Node result = utils::mkNode(kind::BITVECTOR_SLT, b, a);
@@ -221,7 +219,8 @@ Node RewriteRule<RotateRightEliminate>::apply(TNode node) {
 
 template<>
 bool RewriteRule<NandEliminate>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_NAND);
+  return (node.getKind() == kind::BITVECTOR_NAND &&
+          node.getNumChildren() == 2);
 }
 
 template<>
@@ -236,7 +235,8 @@ Node RewriteRule<NandEliminate>::apply(TNode node) {
 
 template<>
 bool RewriteRule<NorEliminate>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_NOR);
+  return (node.getKind() == kind::BITVECTOR_NOR &&
+          node.getNumChildren() == 2);
 }
 
 template<>
@@ -251,7 +251,8 @@ Node RewriteRule<NorEliminate>::apply(TNode node) {
 
 template<>
 bool RewriteRule<XnorEliminate>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_XNOR);
+  return (node.getKind() == kind::BITVECTOR_XNOR &&
+          node.getNumChildren() == 2);
 }
 
 template<>
@@ -327,34 +328,50 @@ bool RewriteRule<SmodEliminate>::applies(TNode node) {
 template<>
 Node RewriteRule<SmodEliminate>::apply(TNode node) {
   BVDebug("bv-rewrite") << "RewriteRule<SmodEliminate>(" << node << ")" << std::endl;
-  TNode a = node[0];
-  TNode b = node[1];
-  unsigned size = utils::getSize(a);
+  TNode s = node[0];
+  TNode t = node[1];
+  unsigned size = utils::getSize(s);
   
-  Node one     = utils::mkConst(1, 1);
-  Node zero    = utils::mkConst(1, 0);
-  Node a_lt_0  = utils::mkNode(kind::EQUAL, utils::mkExtract(a, size-1, size-1), one);
-  Node b_lt_0  = utils::mkNode(kind::EQUAL, utils::mkExtract(b, size-1, size-1), one);
-  
-  Node a_gte_0  = utils::mkNode(kind::EQUAL, utils::mkExtract(a, size-1, size-1), zero);
-  Node b_gte_0  = utils::mkNode(kind::EQUAL, utils::mkExtract(b, size-1, size-1), zero); 
+  // (bvsmod s t) abbreviates
+  //     (let ((?msb_s ((_ extract |m-1| |m-1|) s))
+  //           (?msb_t ((_ extract |m-1| |m-1|) t)))
+  //       (let ((abs_s (ite (= ?msb_s #b0) s (bvneg s)))
+  //             (abs_t (ite (= ?msb_t #b0) t (bvneg t))))
+  //         (let ((u (bvurem abs_s abs_t)))
+  //           (ite (= u (_ bv0 m))
+  //                u
+  //           (ite (and (= ?msb_s #b0) (= ?msb_t #b0))
+  //                u
+  //           (ite (and (= ?msb_s #b1) (= ?msb_t #b0))
+  //                (bvadd (bvneg u) t)
+  //           (ite (and (= ?msb_s #b0) (= ?msb_t #b1))
+  //                (bvadd u t)
+  //                (bvneg u))))))))
 
-  Node abs_a   = utils::mkNode(kind::ITE, a_lt_0, utils::mkNode(kind::BITVECTOR_NEG, a), a);
-  Node abs_b   = utils::mkNode(kind::ITE, b_lt_0, utils::mkNode(kind::BITVECTOR_NEG, b), b);
+  Node msb_s = utils::mkExtract(s, size-1, size-1);
+  Node msb_t = utils::mkExtract(t, size-1, size-1);
 
-  Node a_urem_b   = utils::mkNode(kind::BITVECTOR_UREM, abs_a, abs_b);
-  Node neg_rem = utils::mkNode(kind::BITVECTOR_NEG, a_urem_b);
+  Node bit1    = utils::mkConst(1, 1);
+  Node bit0    = utils::mkConst(1, 0);
 
-  
-  Node aneg_bpos = utils::mkNode(kind::AND, a_lt_0, b_gte_0);
-  Node apos_bneg = utils::mkNode(kind::AND, a_gte_0, b_lt_0);
-  Node aneg_bneg = utils::mkNode(kind::AND, a_lt_0, b_lt_0);
-                                 
-  Node result = utils::mkNode(kind::ITE, aneg_bpos, utils::mkNode(kind::BITVECTOR_PLUS, neg_rem, b), 
-                              utils::mkNode(kind::ITE, apos_bneg, utils::mkNode(kind::BITVECTOR_PLUS, a_urem_b, b),
-                                            utils::mkNode(kind::ITE, aneg_bneg, neg_rem,
-                                                             a_urem_b)));
+  Node abs_s = msb_s.eqNode(bit0).iteNode(s, utils::mkNode(kind::BITVECTOR_NEG, s));
+  Node abs_t = msb_t.eqNode(bit0).iteNode(t, utils::mkNode(kind::BITVECTOR_NEG, t));
+
+  Node u = utils::mkNode(kind::BITVECTOR_UREM, abs_s, abs_t);
+  Node neg_u = utils::mkNode(kind::BITVECTOR_NEG, u);
+
+  Node cond0 = u.eqNode(utils::mkConst(size, 0));
+  Node cond1 = msb_s.eqNode(bit0).andNode(msb_t.eqNode(bit0));
+  Node cond2 = msb_s.eqNode(bit1).andNode(msb_t.eqNode(bit0));
+  Node cond3 = msb_s.eqNode(bit0).andNode(msb_t.eqNode(bit1));
+
+  Node result = cond0.iteNode(u,
+                cond1.iteNode(u,
+                cond2.iteNode(utils::mkNode(kind::BITVECTOR_PLUS, neg_u, t),
+                cond3.iteNode(utils::mkNode(kind::BITVECTOR_PLUS, u, t), neg_u))));
+
   return result;
+
 }
 
 

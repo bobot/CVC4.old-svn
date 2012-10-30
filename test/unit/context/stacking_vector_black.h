@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -46,13 +44,13 @@ public:
     d_scope = new NodeManagerScope(d_nm);
     d_vectorPtr = new StackingVector<TNode>(d_ctxt);
 
-    a = d_nm->mkVar("a", d_nm->realType());
-    b = d_nm->mkVar("b", d_nm->realType());
-    c = d_nm->mkVar("c", d_nm->realType());
-    d = d_nm->mkVar("d", d_nm->realType());
-    e = d_nm->mkVar("e", d_nm->realType());
-    f = d_nm->mkVar("f", d_nm->realType());
-    g = d_nm->mkVar("g", d_nm->realType());
+    a = d_nm->mkSkolem("a", d_nm->realType());
+    b = d_nm->mkSkolem("b", d_nm->realType());
+    c = d_nm->mkSkolem("c", d_nm->realType());
+    d = d_nm->mkSkolem("d", d_nm->realType());
+    e = d_nm->mkSkolem("e", d_nm->realType());
+    f = d_nm->mkSkolem("f", d_nm->realType());
+    g = d_nm->mkSkolem("g", d_nm->realType());
   }
 
   void tearDown() {

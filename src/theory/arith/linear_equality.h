@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -38,7 +36,7 @@
 #include "theory/arith/matrix.h"
 #include "theory/arith/constraint.h"
 
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 
 namespace CVC4 {
 namespace theory {
@@ -63,7 +61,7 @@ private:
 public:
 
   /**
-   * Initailizes a LinearEqualityModule with a partial model, a tableau,
+   * Initializes a LinearEqualityModule with a partial model, a tableau,
    * and a callback function for when basic variables update their values.
    */
   LinearEqualityModule(ArithPartialModel& pm, Tableau& t, ArithVarCallBack& f):
@@ -145,7 +143,7 @@ public:
 
 
 private:
-  /** These fields are designed to be accessable to TheoryArith methods. */
+  /** These fields are designed to be accessible to TheoryArith methods. */
   class Statistics {
   public:
     IntStat d_statPivots, d_statUpdates;

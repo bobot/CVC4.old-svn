@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): cconway, dejan
+ ** Minor contributors (to current version): kshitij, cconway, dejan, bobot, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -43,6 +41,7 @@ namespace CVC4 {
 class SmtEngine;
 class Command;
 class CommandStatus;
+class Model;
 
 std::ostream& operator<<(std::ostream&, const Command&) throw() CVC4_PUBLIC;
 std::ostream& operator<<(std::ostream&, const Command*) throw() CVC4_PUBLIC;
@@ -210,8 +209,17 @@ public:
 
   std::string toString() const throw();
 
-  /** Either the command hasn't run yet, or it completed successfully. */
+  /**
+   * Either the command hasn't run yet, or it completed successfully
+   * (CommandSuccess, not CommandUnsupported or CommandFailure).
+   */
   bool ok() const throw();
+
+  /**
+   * The command completed in a failure state (CommandFailure, not
+   * CommandSuccess or CommandUnsupported).
+   */
+  bool fail() const throw();
 
   /** Get the command status (it's NULL if we haven't run yet). */
   const CommandStatus* getCommandStatus() const throw() { return d_commandStatus; }
@@ -223,7 +231,8 @@ public:
    * variableMap for the translation and extending it with any new
    * mappings.
    */
-  virtual Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) = 0;
+  virtual Command* exportTo(ExprManager* exprManager,
+                            ExprManagerMapCollection& variableMap) = 0;
 
   /**
    * Clone this Command (make a shallow copy).
@@ -279,11 +288,11 @@ public:
 
 class CVC4_PUBLIC AssertCommand : public Command {
 protected:
-  BoolExpr d_expr;
+  Expr d_expr;
 public:
-  AssertCommand(const BoolExpr& e) throw();
+  AssertCommand(const Expr& e) throw();
   ~AssertCommand() throw() {}
-  BoolExpr getExpr() const throw();
+  Expr getExpr() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
@@ -316,10 +325,12 @@ public:
 
 class CVC4_PUBLIC DeclareFunctionCommand : public DeclarationDefinitionCommand {
 protected:
+  Expr d_func;
   Type d_type;
 public:
-  DeclareFunctionCommand(const std::string& id, Type type) throw();
+  DeclareFunctionCommand(const std::string& id, Expr func, Type type) throw();
   ~DeclareFunctionCommand() throw() {}
+  Expr getFunction() const throw();
   Type getType() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
@@ -387,15 +398,36 @@ public:
   Command* clone() const;
 };/* class DefineNamedFunctionCommand */
 
+/**
+ * The command when an attribute is set by a user.  In SMT-LIBv2 this is done
+ *  via the syntax (! expr :atrr)
+ */
+class CVC4_PUBLIC SetUserAttributeCommand : public Command {
+protected:
+  std::string d_attr;
+  Expr d_expr;
+  //std::vector<Expr> d_expr_values;
+  //std::string d_str_value;
+public:
+  SetUserAttributeCommand( const std::string& attr, Expr expr ) throw();
+  //SetUserAttributeCommand( const std::string& id, Expr expr, std::vector<Expr>& values ) throw();
+  //SetUserAttributeCommand( const std::string& id, Expr expr, std::string& value ) throw();
+  ~SetUserAttributeCommand() throw() {}
+  void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class SetUserAttributeCommand */
+
+
 class CVC4_PUBLIC CheckSatCommand : public Command {
 protected:
-  BoolExpr d_expr;
+  Expr d_expr;
   Result d_result;
 public:
   CheckSatCommand() throw();
-  CheckSatCommand(const BoolExpr& expr) throw();
+  CheckSatCommand(const Expr& expr) throw();
   ~CheckSatCommand() throw() {}
-  BoolExpr getExpr() const throw();
+  Expr getExpr() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Result getResult() const throw();
   void printResult(std::ostream& out) const throw();
@@ -405,12 +437,12 @@ public:
 
 class CVC4_PUBLIC QueryCommand : public Command {
 protected:
-  BoolExpr d_expr;
+  Expr d_expr;
   Result d_result;
 public:
-  QueryCommand(const BoolExpr& e) throw();
+  QueryCommand(const Expr& e) throw();
   ~QueryCommand() throw() {}
-  BoolExpr getExpr() const throw();
+  Expr getExpr() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Result getResult() const throw();
   void printResult(std::ostream& out) const throw();
@@ -434,14 +466,30 @@ public:
   Command* clone() const;
 };/* class SimplifyCommand */
 
-class CVC4_PUBLIC GetValueCommand : public Command {
+class CVC4_PUBLIC ExpandDefinitionsCommand : public Command {
 protected:
   Expr d_term;
   Expr d_result;
 public:
-  GetValueCommand(Expr term) throw();
-  ~GetValueCommand() throw() {}
+  ExpandDefinitionsCommand(Expr term) throw();
+  ~ExpandDefinitionsCommand() throw() {}
   Expr getTerm() const throw();
+  void invoke(SmtEngine* smtEngine) throw();
+  Expr getResult() const throw();
+  void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class ExpandDefinitionsCommand */
+
+class CVC4_PUBLIC GetValueCommand : public Command {
+protected:
+  std::vector<Expr> d_terms;
+  Expr d_result;
+public:
+  GetValueCommand(Expr term) throw();
+  GetValueCommand(const std::vector<Expr>& terms) throw();
+  ~GetValueCommand() throw() {}
+  const std::vector<Expr>& getTerms() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Expr getResult() const throw();
   void printResult(std::ostream& out) const throw();
@@ -462,6 +510,21 @@ public:
   Command* clone() const;
 };/* class GetAssignmentCommand */
 
+class CVC4_PUBLIC GetModelCommand : public Command {
+protected:
+  Model* d_result;
+  SmtEngine* d_smtEngine;
+public:
+  GetModelCommand() throw();
+  ~GetModelCommand() throw() {}
+  void invoke(SmtEngine* smtEngine) throw();
+  // Model is private to the library -- for now
+  //Model* getResult() const throw();
+  void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class GetModelCommand */
+
 class CVC4_PUBLIC GetProofCommand : public Command {
 protected:
   Proof* d_result;
@@ -474,6 +537,18 @@ public:
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
 };/* class GetProofCommand */
+
+class CVC4_PUBLIC GetUnsatCoreCommand : public Command {
+protected:
+  //UnsatCore* d_result;
+public:
+  GetUnsatCoreCommand() throw();
+  ~GetUnsatCoreCommand() throw() {}
+  void invoke(SmtEngine* smtEngine) throw();
+  void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class GetUnsatCoreCommand */
 
 class CVC4_PUBLIC GetAssertionsCommand : public Command {
 protected:
@@ -582,6 +657,72 @@ public:
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
 };/* class DatatypeDeclarationCommand */
+
+class CVC4_PUBLIC RewriteRuleCommand : public Command {
+public:
+  typedef std::vector< std::vector< Expr > > Triggers;
+protected:
+  typedef std::vector< Expr > VExpr;
+  VExpr d_vars;
+  VExpr d_guards;
+  Expr d_head;
+  Expr d_body;
+  Triggers d_triggers;
+public:
+  RewriteRuleCommand(const std::vector<Expr>& vars,
+                     const std::vector<Expr>& guards,
+                     Expr head,
+                     Expr body,
+                     const Triggers& d_triggers) throw();
+  RewriteRuleCommand(const std::vector<Expr>& vars,
+                     Expr head,
+                     Expr body) throw();
+  ~RewriteRuleCommand() throw() {}
+  const std::vector<Expr>& getVars() const throw();
+  const std::vector<Expr>& getGuards() const throw();
+  Expr getHead() const throw();
+  Expr getBody() const throw();
+  const Triggers& getTriggers() const throw();
+  void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class RewriteRuleCommand */
+
+class CVC4_PUBLIC PropagateRuleCommand : public Command {
+public:
+  typedef std::vector< std::vector< Expr > > Triggers;
+protected:
+  typedef std::vector< Expr > VExpr;
+  VExpr d_vars;
+  VExpr d_guards;
+  VExpr d_heads;
+  Expr d_body;
+  Triggers d_triggers;
+  bool d_deduction;
+public:
+  PropagateRuleCommand(const std::vector<Expr>& vars,
+                       const std::vector<Expr>& guards,
+                       const std::vector<Expr>& heads,
+                       Expr body,
+                       const Triggers& d_triggers,
+                       /* true if we want a deduction rule */
+                       bool d_deduction = false) throw();
+  PropagateRuleCommand(const std::vector<Expr>& vars,
+                       const std::vector<Expr>& heads,
+                       Expr body,
+                       bool d_deduction = false) throw();
+  ~PropagateRuleCommand() throw() {}
+  const std::vector<Expr>& getVars() const throw();
+  const std::vector<Expr>& getGuards() const throw();
+  const std::vector<Expr>& getHeads() const throw();
+  Expr getBody() const throw();
+  const Triggers& getTriggers() const throw();
+  bool isDeduction() const throw();
+  void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class PropagateRuleCommand */
+
 
 class CVC4_PUBLIC QuitCommand : public Command {
 public:

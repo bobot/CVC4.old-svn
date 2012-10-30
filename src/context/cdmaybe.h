@@ -1,8 +1,21 @@
-/**
- * This implements a CDMaybe.
- * This has either been set in the context or it has not.
- * T must have a default constructor and support assignment.
- */
+/*********************                                                        */
+/*! \file cdmaybe.h
+ ** \verbatim
+ ** Original author: taking
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief A context-dependent "maybe" template type
+ **
+ ** This implements a CDMaybe.
+ ** This has either been set in the context or it has not.
+ ** Template parameter T must have a default constructor and support
+ ** assignment.
+ **/
 
 #include "cvc4_private.h"
 
@@ -33,7 +46,7 @@ public:
     d_flag.set(true);
   }
 
-}; /* class CDRaised */
+};/* class CDRaised */
 
 template <class T>
 class CDMaybe {
@@ -58,7 +71,7 @@ public:
     Assert(isSet());
     return d_data.get().second;
   }
-}; /* class CDMaybe<T> */
+};/* class CDMaybe<T> */
 
 }/* CVC4::context namespace */
 }/* CVC4 namespace */

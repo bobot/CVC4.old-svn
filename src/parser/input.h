@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -29,7 +27,6 @@
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "parser/parser_exception.h"
-#include "util/Assert.h"
 #include "util/language.h"
 
 namespace CVC4 {
@@ -68,7 +65,7 @@ protected:
 public:
 
   /** Destructor. */
-  virtual ~InputStream() { 
+  virtual ~InputStream() {
     if( d_fileIsTemporary ) {
       remove(d_name.c_str());
     }
@@ -108,22 +105,25 @@ public:
     * @param filename the input filename
     * @param useMmap true if the parser should use memory-mapped I/O (default: false)
     */
-  static Input* newFileInput(InputLanguage lang, 
-                             const std::string& filename, 
+  static Input* newFileInput(InputLanguage lang,
+                             const std::string& filename,
                              bool useMmap = false)
-    throw (InputStreamException, AssertionException);
+    throw (InputStreamException);
 
   /** Create an input for the given stream.
    *
    * @param lang the input language
    * @param input the input stream
    * @param name the name of the stream, for use in error messages
+   * @param lineBuffered whether this Input should be line-buffered
+   * (false, the default, means that the entire Input might be read
+   * before being lexed and parsed)
    */
-  static Input* newStreamInput(InputLanguage lang, 
-                               std::istream& input, 
+  static Input* newStreamInput(InputLanguage lang,
+                               std::istream& input,
                                const std::string& name,
                                bool lineBuffered = false)
-    throw (InputStreamException, AssertionException);
+    throw (InputStreamException);
 
   /** Create an input for the given string
    *
@@ -131,10 +131,10 @@ public:
    * @param input the input string
    * @param name the name of the stream, for use in error messages
    */
-  static Input* newStringInput(InputLanguage lang, 
-                               const std::string& input, 
+  static Input* newStringInput(InputLanguage lang,
+                               const std::string& input,
                                const std::string& name)
-    throw (InputStreamException, AssertionException);
+    throw (InputStreamException);
 
 
   /** Destructor. Frees the input stream and closes the input. */
@@ -145,6 +145,11 @@ public:
 
   /** Get the language that this Input is reading. */
   virtual InputLanguage getLanguage() const throw() = 0;
+
+  /** Retrieve the name of the input stream */
+  const std::string getInputStreamName(){
+    return getInputStream()->getName();
+  }
 
 protected:
 
@@ -164,7 +169,7 @@ protected:
    * @throws ParserException if an error is encountered during parsing.
    */
   virtual Command* parseCommand()
-    throw (ParserException, TypeCheckingException, AssertionException) = 0;
+    throw (ParserException, TypeCheckingException) = 0;
 
   /**
    * Issue a warning to the user, with source file, line, and column info.
@@ -175,7 +180,7 @@ protected:
    * Throws a <code>ParserException</code> with the given message.
    */
   virtual void parseError(const std::string& msg)
-    throw (ParserException, AssertionException) = 0;
+    throw (ParserException) = 0;
 
   /** Parse an expression from the input by invoking the
    * implementation-specific parsing method. Returns a null
@@ -184,7 +189,7 @@ protected:
    * @throws ParserException if an error is encountered during parsing.
    */
   virtual Expr parseExpr()
-    throw (ParserException, TypeCheckingException, AssertionException) = 0;
+    throw (ParserException, TypeCheckingException) = 0;
 
   /** Set the Parser object for this input. */
   virtual void setParser(Parser& parser) = 0;

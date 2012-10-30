@@ -2,12 +2,10 @@
 /*! \file bitblaster.cpp
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -25,6 +23,8 @@
 #include "prop/sat_solver_factory.h"
 #include "theory/bv/theory_bv_rewrite_rules_simplification.h"
 #include "theory/bv/theory_bv.h"
+#include "theory/bv/options.h"
+#include "theory/model.h"
 
 using namespace std;
 
@@ -53,6 +53,7 @@ std::string toString(Bits&  bits) {
 /////// Bitblaster 
 
 Bitblaster::Bitblaster(context::Context* c, bv::TheoryBV* bv) :
+    d_bv(bv),
     d_bvOutput(bv->d_out),
     d_termCache(),
     d_bitblastedAtoms(),
@@ -60,7 +61,7 @@ Bitblaster::Bitblaster(context::Context* c, bv::TheoryBV* bv) :
     d_statistics()
   {
     d_satSolver = prop::SatSolverFactory::createMinisat(c);
-    d_cnfStream = new TseitinCnfStream(d_satSolver, new NullRegistrar());
+    d_cnfStream = new TseitinCnfStream(d_satSolver, new NullRegistrar(), new Context());
 
     MinisatNotify* notify = new MinisatNotify(d_cnfStream, bv);
     d_satSolver->setNotify(notify); 
@@ -94,17 +95,15 @@ void Bitblaster::bbAtom(TNode node) {
   BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
   ++d_statistics.d_numAtoms;
   // the bitblasted definition of the atom
-  Node atom_bb = d_atomBBStrategies[node.getKind()](node, this);
+  Node atom_bb = Rewriter::rewrite(d_atomBBStrategies[node.getKind()](node, this));
   // asserting that the atom is true iff the definition holds
   Node atom_definition = mkNode(kind::IFF, node, atom_bb);
-  // do boolean simplifications if possible
-  Node rewritten = Rewriter::rewrite(atom_definition);
 
-  if (!Options::current()->bitvectorEagerBitblast) {
-    d_cnfStream->convertAndAssert(rewritten, true, false);
+  if (!options::bitvectorEagerBitblast()) {
+    d_cnfStream->convertAndAssert(atom_definition, true, false);
     d_bitblastedAtoms.insert(node);
   } else {
-    d_bvOutput->lemma(rewritten, false);
+    d_bvOutput->lemma(atom_definition, false);
   }
 }
 
@@ -152,7 +151,7 @@ Node Bitblaster::bbOptimize(TNode node) {
 /// Public methods
 
 void Bitblaster::addAtom(TNode atom) {
-  if (!Options::current()->bitvectorEagerBitblast) {
+  if (!options::bitvectorEagerBitblast()) {
     d_cnfStream->ensureLiteral(atom);
     SatLiteral lit = d_cnfStream->getLiteral(atom);
     d_satSolver->addMarkerLiteral(lit);
@@ -171,10 +170,14 @@ void Bitblaster::explain(TNode atom, std::vector<TNode>& explanation) {
 /** 
  * Asserts the clauses corresponding to the atom to the Sat Solver
  * by turning on the marker literal (i.e. setting it to false)
- * @param node the atom to be aserted
+ * @param node the atom to be asserted
  * 
  */
  
+bool Bitblaster::propagate() {
+  return d_satSolver->propagate() == prop::SAT_VALUE_TRUE;
+}
+
 bool Bitblaster::assertToSat(TNode lit, bool propagate) {
   // strip the not
   TNode atom; 
@@ -337,7 +340,7 @@ Bitblaster::Statistics::~Statistics() {
 }
 
 bool Bitblaster::MinisatNotify::notify(prop::SatLiteral lit) {
-  return d_bv->storePropagation(d_cnf->getNode(lit), TheoryBV::SUB_BITBLAST);
+  return d_bv->storePropagation(d_cnf->getNode(lit), SUB_BITBLAST);
 };
 
 void Bitblaster::MinisatNotify::notify(prop::SatClause& clause) {
@@ -352,6 +355,10 @@ void Bitblaster::MinisatNotify::notify(prop::SatClause& clause) {
     d_bv->d_out->lemma(d_cnf->getNode(clause[0]));
   }
 };
+
+void Bitblaster::MinisatNotify::safePoint() {
+  d_bv->d_out->safePoint(); 
+}
 
 EqualityStatus Bitblaster::getEqualityStatus(TNode a, TNode b) {
 
@@ -388,6 +395,42 @@ EqualityStatus Bitblaster::getEqualityStatus(TNode a, TNode b) {
 
   } else {
     return EQUALITY_UNKNOWN;
+  }
+}
+
+
+bool Bitblaster::isSharedTerm(TNode node) {
+  return d_bv->d_sharedTermsSet.find(node) != d_bv->d_sharedTermsSet.end(); 
+}
+
+Node Bitblaster::getVarValue(TNode a) {
+  Assert (d_termCache.find(a) != d_termCache.end()); 
+  Bits bits = d_termCache[a];
+  Integer value(0); 
+  for (int i = bits.size() -1; i >= 0; --i) {
+    SatValue bit_value;
+    if (d_cnfStream->hasLiteral(bits[i])) { 
+      SatLiteral bit = d_cnfStream->getLiteral(bits[i]);
+      bit_value = d_satSolver->value(bit);
+      Assert (bit_value != SAT_VALUE_UNKNOWN);
+    } else {
+      // the bit is unconstrainted so we can give it an arbitrary value 
+      bit_value = SAT_VALUE_FALSE;
+    }
+    Integer bit_int = bit_value == SAT_VALUE_TRUE ? Integer(1) : Integer(0); 
+    value = value * 2 + bit_int;  
+  }
+  return utils::mkConst(BitVector(bits.size(), value));  
+}
+
+void Bitblaster::collectModelInfo(TheoryModel* m) {
+  __gnu_cxx::hash_set<TNode, TNodeHashFunction>::iterator it = d_variables.begin();
+  for (; it!= d_variables.end(); ++it) {
+    TNode var = *it;
+    if (Theory::theoryOf(var) == theory::THEORY_BV || isSharedTerm(var)) {
+      Node const_value = getVarValue(var);
+      m->assertEquality(var, const_value, true); 
+    }
   }
 }
 

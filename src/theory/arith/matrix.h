@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -22,7 +20,6 @@
 #pragma once
 
 #include "expr/node.h"
-#include "expr/attribute.h"
 
 #include "util/index.h"
 #include "util/dense_map.h"
@@ -336,7 +333,7 @@ public:
   typedef typename SuperT::const_iterator const_iterator;
 
   RowVector(MatrixEntryVector<T>* mev) : SuperT(mev){}
-};
+};/* class RowVector<T> */
 
 template <class T>
   class ColumnVector : public MatrixVector<T, false>
@@ -347,7 +344,7 @@ public:
   typedef typename SuperT::const_iterator const_iterator;
 
   ColumnVector(MatrixEntryVector<T>* mev) : SuperT(mev){}
-};
+};/* class ColumnVector<T> */
 
 template <class T>
 class Matrix {
@@ -853,6 +850,14 @@ public:
     return d_basic2RowIndex.isKey(v);
   }
 
+  void debugPrintIsBasic(ArithVar v) const {
+    if(isBasic(v)){
+      Warning() << v << " is basic." << std::endl;
+    }else{
+      Warning() << v << " is non-basic." << std::endl;
+    }
+  }
+
   BasicIterator beginBasic() const {
     return d_basic2RowIndex.begin();
   }
@@ -911,7 +916,7 @@ private:
   /* Changes the basic variable on the row for basicOld to basicNew. */
   void rowPivot(ArithVar basicOld, ArithVar basicNew);
 
-};
+};/* class Tableau */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: cconway, dejan
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): taking, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,6 @@
 
 #include "expr/expr_manager.h"
 #include "expr/expr.h"
-#include "util/Assert.h"
 #include "util/exception.h"
 
 using namespace CVC4;
@@ -345,6 +342,8 @@ public:
   void testIsConst() {
     /* bool isConst() const; */
 
+    Debug.on("isConst");
+
     TS_ASSERT(!a_bool->isConst());
     TS_ASSERT(!b_bool->isConst());
     TS_ASSERT(!c_bool_and->isConst());
@@ -352,6 +351,60 @@ public:
     TS_ASSERT(plus_op->isConst());
     TS_ASSERT(!d_apply_fun_bool->isConst());
     TS_ASSERT(!null->isConst());
+
+    // more complicated "constants" exist in datatypes and arrays theories
+    Datatype list("list");
+    DatatypeConstructor consC("cons");
+    consC.addArg("car", d_em->integerType());
+    consC.addArg("cdr", DatatypeSelfType());
+    list.addConstructor(consC);
+    list.addConstructor(DatatypeConstructor("nil"));
+    DatatypeType listType = d_em->mkDatatypeType(list);
+    Expr cons = listType.getDatatype().getConstructor("cons");
+    Expr nil = listType.getDatatype().getConstructor("nil");
+    Expr x = d_em->mkVar("x", d_em->integerType());
+    Expr cons_x_nil = d_em->mkExpr(APPLY_CONSTRUCTOR, cons, x, d_em->mkExpr(APPLY_CONSTRUCTOR, nil));
+    Expr cons_1_nil = d_em->mkExpr(APPLY_CONSTRUCTOR, cons, d_em->mkConst(Rational(1)), d_em->mkExpr(APPLY_CONSTRUCTOR, nil));
+    Expr cons_1_cons_2_nil = d_em->mkExpr(APPLY_CONSTRUCTOR, cons, d_em->mkConst(Rational(1)), d_em->mkExpr(APPLY_CONSTRUCTOR, cons, d_em->mkConst(Rational(2)), d_em->mkExpr(APPLY_CONSTRUCTOR, nil)));
+    TS_ASSERT(d_em->mkExpr(APPLY_CONSTRUCTOR, nil).isConst());
+    TS_ASSERT(!cons_x_nil.isConst());
+    TS_ASSERT(cons_1_nil.isConst());
+    TS_ASSERT(cons_1_cons_2_nil.isConst());
+
+    ArrayType arrType = d_em->mkArrayType(d_em->integerType(), d_em->integerType());
+    Expr zero = d_em->mkConst(Rational(0));
+    Expr one = d_em->mkConst(Rational(1));
+    Expr storeAll = d_em->mkConst(ArrayStoreAll(arrType, zero));
+    TS_ASSERT(storeAll.isConst());
+
+    Expr arr = d_em->mkExpr(STORE, storeAll, zero, zero);
+    TS_ASSERT(!arr.isConst());
+    arr = d_em->mkExpr(STORE, storeAll, zero, one);
+    TS_ASSERT(arr.isConst());
+    Expr arr2 = d_em->mkExpr(STORE, arr, one, zero);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = d_em->mkExpr(STORE, arr, one, one);
+    TS_ASSERT(arr2.isConst());
+    arr2 = d_em->mkExpr(STORE, arr, zero, one);
+    TS_ASSERT(!arr2.isConst());
+
+    arrType = d_em->mkArrayType(d_em->mkBitVectorType(1), d_em->mkBitVectorType(1));
+    zero = d_em->mkConst(BitVector(1,unsigned(0)));
+    one = d_em->mkConst(BitVector(1,unsigned(1)));
+    storeAll = d_em->mkConst(ArrayStoreAll(arrType, zero));
+    TS_ASSERT(storeAll.isConst());
+
+    arr = d_em->mkExpr(STORE, storeAll, zero, zero);
+    TS_ASSERT(!arr.isConst());
+    arr = d_em->mkExpr(STORE, storeAll, zero, one);
+    TS_ASSERT(arr.isConst());
+    arr2 = d_em->mkExpr(STORE, arr, one, zero);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = d_em->mkExpr(STORE, arr, one, one);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = d_em->mkExpr(STORE, arr, zero, one);
+    TS_ASSERT(!arr2.isConst());
+
   }
 
   void testGetConst() {

@@ -2,12 +2,10 @@
 /*! \file arith_priority_queue.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -240,10 +238,41 @@ void ArithPriorityQueue::transitionToVariableOrderMode() {
 
 void ArithPriorityQueue::transitionToCollectionMode() {
   Assert(inDifferenceMode() || inVariableOrderMode());
-  Assert(d_diffQueue.empty());
   Assert(d_candidates.empty());
+
+  if(inDifferenceMode()){
+    Assert(d_varSet.empty());
+    Assert(d_varOrderQueue.empty());
+    Assert(inDifferenceMode());
+
+    DifferenceArray::const_iterator i = d_diffQueue.begin(), end = d_diffQueue.end();
+    for(; i != end; ++i){
+      ArithVar var = (*i).variable();
+      if(basicAndInconsistent(var) && !d_varSet.isMember(var)){
+        d_candidates.push_back(var);
+        d_varSet.add(var);
+      }
+    }
+    d_diffQueue.clear();
+  }else{
+    Assert(d_diffQueue.empty());
+    Assert(inVariableOrderMode());
+
+    d_varSet.purge();
+
+    ArithVarArray::const_iterator i = d_varOrderQueue.begin(), end = d_varOrderQueue.end();
+    for(; i != end; ++i){
+      ArithVar var = *i;
+      if(basicAndInconsistent(var)){
+        d_candidates.push_back(var);
+        d_varSet.add(var); // cannot have duplicates.
+      }
+    }
+    d_varOrderQueue.clear();
+  }
+
+  Assert(d_diffQueue.empty());
   Assert(d_varOrderQueue.empty());
-  Assert(d_varSet.empty());
 
   Debug("arith::priorityqueue") << "transitionToCollectionMode()" << endl;
 
@@ -294,4 +323,24 @@ std::ostream& CVC4::theory::arith::operator<<(std::ostream& out, ArithPriorityQu
   }
 
   return out;
+}
+
+void  ArithPriorityQueue::reduce(){
+  vector<ArithVar> contents;
+
+  if(inCollectionMode()){
+    contents = d_candidates;
+  } else {
+    ArithVar res = ARITHVAR_SENTINEL;
+    while((res = dequeueInconsistentBasicVariable()) != ARITHVAR_SENTINEL){
+      contents.push_back(res);
+    }
+  }
+  clear();
+  for(vector<ArithVar>::const_iterator iter = contents.begin(), end = contents.end(); iter != end; ++iter){
+    ArithVar curr = *iter;
+    if(d_tableau.isBasic(curr)){
+      enqueueIfInconsistent(curr);
+    }
+  }
 }

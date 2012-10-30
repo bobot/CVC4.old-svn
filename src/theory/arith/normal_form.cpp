@@ -2,12 +2,10 @@
 /*! \file normal_form.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters
- ** Minor contributors (to current version): dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): dejan, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,6 +24,17 @@ using namespace std;
 namespace CVC4 {
 namespace theory{
 namespace arith {
+
+bool Variable::isDivMember(Node n){
+  switch(n.getKind()){
+  case kind::DIVISION:
+  case kind::INTS_DIVISION:
+  case kind::INTS_MODULUS:
+    return Polynomial::isMember(n[0]) && Polynomial::isMember(n[1]);
+  default:
+    return false;
+  }
+}
 
 bool VarList::isSorted(iterator start, iterator end) {
   return __gnu_cxx::is_sorted(start, end);
@@ -495,11 +504,14 @@ Polynomial Comparison::normalizedVariablePart() const {
       Polynomial right = getRight();
       if(right.isConstant()){
         return left;
-      }else if(right.containsConstant()){
-        Polynomial noConstant = right.getTail();
-        return left - noConstant;
       }else{
-        return left - right;
+        Polynomial noConstant = right.containsConstant() ? right.getTail() : right;
+        Polynomial diff = left - noConstant;
+        if(diff.leadingCoefficientIsPositive()){
+          return diff;
+        }else{
+          return -diff;
+        }
       }
     }
   default:
@@ -529,10 +541,26 @@ DeltaRational Comparison::normalizedDeltaRational() const {
   case kind::EQUAL:
   case kind::DISTINCT:
     {
-      Monomial firstRight = getRight().getHead();
+      Polynomial right = getRight();
+      Monomial firstRight = right.getHead();
       if(firstRight.isConstant()){
-        return DeltaRational(firstRight.getConstant().getValue(), 0);
-      }else{
+        DeltaRational c = DeltaRational(firstRight.getConstant().getValue(), 0);
+        Polynomial left = getLeft();
+        if(!left.allIntegralVariables()){
+          return c;
+          //this is a qpolynomial and the sign of the leading
+          //coefficient will not change after the diff below
+        } else{
+          // the polynomial may be a z polynomial in which case
+          // taking the diff is the simplest and obviously correct means
+          Polynomial diff = right.singleton() ? left : left - right.getTail();
+          if(diff.leadingCoefficientIsPositive()){
+            return c;
+          }else{
+            return -c;
+          }
+        }
+      }else{ // The constant is 0 sign cannot change
         return DeltaRational(0, 0);
       }
     }

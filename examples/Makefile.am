@@ -1,3 +1,5 @@
+SUBDIRS = nra-translate hashsmt .
+
 AM_CPPFLAGS = \
 	-I@srcdir@/../src/include -I@srcdir@/../src -I@builddir@/../src $(ANTLR_INCLUDES)
 AM_CXXFLAGS = -Wall
@@ -69,6 +71,10 @@ simple_vc_cxx_LINK = $(CXXLINK)
 simple_vc_compat_cxx_LINK = $(CXXLINK)
 simple_vc_compat_c_LINK = $(LINK)
 endif
+
+# for installation
+examplesdir = $(docdir)/$(subdir)
+examples_DATA = $(DIST_SOURCES) $(EXTRA_DIST)
 
 MOSTLYCLEANFILES = $(noinst_DATA)
 

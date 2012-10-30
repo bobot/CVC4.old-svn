@@ -2,12 +2,10 @@
 /*! \file equality_engine.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): bobot, lianah, taking, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -22,6 +20,7 @@
 #pragma once
 
 #include <queue>
+#include <deque>
 #include <vector>
 #include <ext/hash_map>
 
@@ -29,7 +28,7 @@
 #include "expr/kind_map.h"
 #include "context/cdo.h"
 #include "util/output.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "theory/rewriter.h"
 #include "theory/theory.h"
 
@@ -38,6 +37,9 @@
 namespace CVC4 {
 namespace theory {
 namespace eq {
+
+class EqClassesIterator;
+class EqClassIterator;
 
 /**
  * Interface for equality engine notifications. All the notifications
@@ -54,7 +56,7 @@ public:
   /**
    * Notifies about a trigger equality that became true or false.
    *
-   * @param eq the equality that became true or false
+   * @param equality the equality that became true or false
    * @param value the value of the equality
    */
   virtual bool eqNotifyTriggerEquality(TNode equality, bool value) = 0;
@@ -62,7 +64,7 @@ public:
   /**
    * Notifies about a trigger predicate that became true or false.
    *
-   * @param predicate the trigger predicate that bacame true or false
+   * @param predicate the trigger predicate that became true or false
    * @param value the value of the predicate
    */
   virtual bool eqNotifyTriggerPredicate(TNode predicate, bool value) = 0;
@@ -78,13 +80,47 @@ public:
   virtual bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) = 0;
 
   /**
-   * Notifies about the merge of two constant terms.
+   * Notifies about the merge of two constant terms. After this, all work is suspended and all you
+   * can do is ask for explanations.
    *
    * @param t1 a constant term
-   * @param t2 a constnat term
+   * @param t2 a constant term
    */
-  virtual bool eqNotifyConstantTermMerge(TNode t1, TNode t2) = 0;
-};
+  virtual void eqNotifyConstantTermMerge(TNode t1, TNode t2) = 0;
+
+  /**
+   * Notifies about the creation of a new equality class.
+   *
+   * @param t the term forming the new class
+   */
+  virtual void eqNotifyNewClass(TNode t) = 0;
+
+  /**
+   * Notifies about the merge of two classes (just before the merge).
+   *
+   * @param t1 a term
+   * @param t2 a term
+   */
+  virtual void eqNotifyPreMerge(TNode t1, TNode t2) = 0;
+
+  /**
+   * Notifies about the merge of two classes (just after the merge).
+   *
+   * @param t1 a term
+   * @param t2 a term
+   */
+  virtual void eqNotifyPostMerge(TNode t1, TNode t2) = 0;
+
+  /**
+   * Notifies about the disequality of two terms.
+   *
+   * @param t1 a term
+   * @param t2 a term
+   * @param reason the reason
+   */
+  virtual void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) = 0;
+
+};/* class EqualityEngineNotify */
 
 /**
  * Implementation of the notification interface that ignores all the
@@ -95,15 +131,22 @@ public:
   bool eqNotifyTriggerEquality(TNode equality, bool value) { return true; }
   bool eqNotifyTriggerPredicate(TNode predicate, bool value) { return true; }
   bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) { return true; }
-  bool eqNotifyConstantTermMerge(TNode t1, TNode t2) { return true; }
-};
+  void eqNotifyConstantTermMerge(TNode t1, TNode t2) { }
+  void eqNotifyNewClass(TNode t) { }
+  void eqNotifyPreMerge(TNode t1, TNode t2) { }
+  void eqNotifyPostMerge(TNode t1, TNode t2) { }
+  void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { }
+};/* class EqualityEngineNotifyNone */
 
 
 /**
- * Class for keeping an incremental congurence closure over a set of terms. It provides
+ * Class for keeping an incremental congruence closure over a set of terms. It provides
  * notifications via an EqualityEngineNotify object.
  */
 class EqualityEngine : public context::ContextNotifyObj {
+
+  friend class EqClassesIterator;
+  friend class EqClassIterator;
 
   /** Default implementation of the notification object */
   static EqualityEngineNotifyNone s_notifyNone;
@@ -139,7 +182,7 @@ public:
       StatisticsRegistry::unregisterStat(&functionTermsCount);
       StatisticsRegistry::unregisterStat(&constantTermsCount);
     }
-  };
+  };/* struct EqualityEngine::statistics */
 
   /**
    * Store the application lookup, with enough information to backtrack
@@ -181,7 +224,7 @@ private:
   /** Number of application lookups, for backtracking.  */
   context::CDO<DefaultSizeType> d_applicationLookupsCount;
 
-  /** Map from ids to the nodes (these need to be nodes as we pick-up the opreators) */
+  /** Map from ids to the nodes (these need to be nodes as we pick up the operators) */
   std::vector<Node> d_nodes;
 
   /** A context-dependents count of nodes */
@@ -211,7 +254,7 @@ private:
     /** Equality constructor */
     Equality(EqualityNodeId lhs = null_id, EqualityNodeId rhs = null_id)
     : lhs(lhs), rhs(rhs) {}
-  };
+  };/* struct EqualityEngine::Equality */
 
   /** The ids of the classes we have merged */
   std::vector<Equality> d_assertedEqualities;
@@ -252,11 +295,11 @@ private:
 
     /** The reason of this edge */
     TNode getReason() const { return d_reason; }
-};
+  };/* class EqualityEngine::EqualityEdge */
 
   /**
    * All the equality edges (twice as many as the number of asserted equalities. If an equality
-   * t1 = t2 is asserted, the edges added are -> t2, -> t1 (in this order). Hance, having the index
+   * t1 = t2 is asserted, the edges added are -> t2, -> t1 (in this order). Hence, having the index
    * of one of the edges you can reconstruct the original equality.
    */
   std::vector<EqualityEdge> d_equalityEdges;
@@ -267,7 +310,7 @@ private:
   std::string edgesToString(EqualityEdgeId edgeId) const;
 
   /**
-   * Map from a node to it's first edge in the equality graph. Edges are added to the front of the
+   * Map from a node to its first edge in the equality graph. Edges are added to the front of the
    * list which makes the insertion/backtracking easy.
    */
   std::vector<EqualityEdgeId> d_equalityGraph;
@@ -296,7 +339,7 @@ private:
    */
   bool merge(EqualityNode& class1, EqualityNode& class2, std::vector<TriggerId>& triggers);
 
-  /** Undo the mereg of class2 into class1 */
+  /** Undo the merge of class2 into class1 */
   void undoMerge(EqualityNode& class1, EqualityNode& class2, EqualityNodeId class2Id);
 
   /** Backtrack the information if necessary */
@@ -313,7 +356,7 @@ private:
 
     Trigger(EqualityNodeId classId = null_id, TriggerId nextTrigger = null_trigger)
     : classId(classId), nextTrigger(nextTrigger) {}
-  };
+  };/* struct EqualityEngine::Trigger */
 
   /**
    * Vector of triggers. Triggers come in pairs for an
@@ -339,7 +382,7 @@ private:
   std::vector<TriggerId> d_nodeTriggers;
 
   /**
-   * Map from ids to wheather they are constants (constants are always 
+   * Map from ids to whether they are constants (constants are always
    * representatives of their class.
    */
   std::vector<bool> d_isConstant;
@@ -352,9 +395,15 @@ private:
   }
 
   /**
-   * Map from ids to wheather they are Boolean.
+   * Map from ids to whether they are Boolean.
    */
   std::vector<bool> d_isBoolean;
+
+  /**
+   * Map from ids to whether the nods is internal. An internal node is a node
+   * that corresponds to a partially currified node, for example.
+   */
+  std::vector<bool> d_isInternal;
 
   /**
    * Adds the trigger with triggerId to the beginning of the trigger list of the node with id nodeId.
@@ -371,10 +420,10 @@ private:
   EqualityNodeId newNode(TNode t);
 
   /** Propagation queue */
-  std::queue<MergeCandidate> d_propagationQueue;
+  std::deque<MergeCandidate> d_propagationQueue;
 
   /** Enqueue to the propagation queue */
-  void enqueue(const MergeCandidate& candidate);
+  void enqueue(const MergeCandidate& candidate, bool back = true);
 
   /** Do the propagation */
   void propagate();
@@ -382,7 +431,7 @@ private:
   /**
    * Get an explanation of the equality t1 = t2. Returns the asserted equalities that
    * imply t1 = t2. Returns TNodes as the assertion equalities should be hashed somewhere
-   * else. 
+   * else.
    */
   void getExplanation(EqualityEdgeId t1Id, EqualityNodeId t2Id, std::vector<TNode>& equalities) const;
 
@@ -395,7 +444,7 @@ private:
   Node d_true;
   /** True node id */
   EqualityNodeId d_trueId;
-  
+
   /** The false node */
   Node d_false;
   /** False node id */
@@ -435,22 +484,22 @@ private:
     EqualityNodeId getTrigger(TheoryId tag) const {
       return triggers[Theory::setIndex(tag, tags)];
     }
-  };
+  };/* struct EqualityEngine::TriggerTermSet */
 
   /** Internal tags for creating a new set */
   Theory::Set d_newSetTags;
-  
+
   /** Internal triggers for creating a new set */
   EqualityNodeId d_newSetTriggers[THEORY_LAST];
-  
+
   /** Size of the internal triggers array */
-  unsigned d_newSetTriggersSize; 
+  unsigned d_newSetTriggersSize;
 
   /** The information about trigger terms is stored in this easily maintained memory. */
   char* d_triggerDatabase;
 
   /** Allocated size of the trigger term database */
-  DefaultSizeType d_triggerDatabaseAllocatedSize ;
+  DefaultSizeType d_triggerDatabaseAllocatedSize;
 
   /** Reference for the trigger terms set */
   typedef DefaultSizeType TriggerTermSetRef;
@@ -479,9 +528,9 @@ private:
   struct TriggerSetUpdate {
     EqualityNodeId classId;
     TriggerTermSetRef oldValue;
-    TriggerSetUpdate(EqualityNodeId classId = null_id, TriggerTermSetRef oldValue = null_set_id) 
+    TriggerSetUpdate(EqualityNodeId classId = null_id, TriggerTermSetRef oldValue = null_set_id)
     : classId(classId), oldValue(oldValue) {}
-  };
+  };/* struct EqualityEngine::TriggerSetUpdate */
 
   /**
    * List of trigger updates for backtracking.
@@ -521,10 +570,32 @@ private:
   std::vector<EqualityPair> d_deducedDisequalityReasons;
 
   /**
-   * Stores a propagated disequality for explanation purpooses and remembers the reasons.
+   * Size of the memory for disequality reasons.
    */
-  bool storePropagatedDisequality(TNode lhs, TNode rhs, unsigned reasonsCount) const;
-  
+  context::CDO<size_t> d_deducedDisequalityReasonsSize;
+
+  /**
+   * Map from equalities to the tags that have received the notification.
+   */
+  typedef context::CDHashMap<EqualityPair, Theory::Set, EqualityPairHashFunction> PropagatedDisequalitiesMap;
+  PropagatedDisequalitiesMap d_propagatedDisequalities;
+
+  /**
+   * Has this equality been propagated to anyone.
+   */
+  bool hasPropagatedDisequality(EqualityNodeId lhsId, EqualityNodeId rhsId) const;
+
+  /**
+   * Has this equality been propagated to the tag owner.
+   */
+  bool hasPropagatedDisequality(TheoryId tag, EqualityNodeId lhsId, EqualityNodeId rhsId) const;
+
+  /**
+   * Stores a propagated disequality for explanation purposes and remembers the reasons. The
+   * reasons should be pushed on the reasons vector.
+   */
+  void storePropagatedDisequality(TheoryId tag, EqualityNodeId lhsId, EqualityNodeId rhsId);
+
   /**
    * An equality tagged with a set of tags.
    */
@@ -532,10 +603,10 @@ private:
     /** Id of the equality */
     EqualityNodeId equalityId;
     /** TriggerSet reference for the class of one of the sides */
-    TriggerTermSetRef triggerSetRef;  
+    TriggerTermSetRef triggerSetRef;
     /** Is trigger equivalent to the lhs (rhs otherwise) */
     bool lhs;
-    
+
     TaggedEquality(EqualityNodeId equalityId = null_id, TriggerTermSetRef triggerSetRef = null_set_id, bool lhs = true)
     : equalityId(equalityId), triggerSetRef(triggerSetRef), lhs(lhs) {}
   };
@@ -558,9 +629,9 @@ private:
 
   /**
    * Propagates the remembered disequalities with given tags the original triggers for those tags,
-   * and the set of disequalities produced by above. 
+   * and the set of disequalities produced by above.
    */
-  bool propagateTriggerTermDisequalities(Theory::Set tags, 
+  bool propagateTriggerTermDisequalities(Theory::Set tags,
     TriggerTermSetRef triggerSetRef, const TaggedEqualitiesSet& disequalitiesToNotify);
 
   /** Name of the equality engine */
@@ -569,12 +640,12 @@ private:
 public:
 
   /**
-   * Initialize the equality engine, given the notification class. 
+   * Initialize the equality engine, given the notification class.
    */
   EqualityEngine(EqualityEngineNotify& notify, context::Context* context, std::string name);
 
   /**
-   * Initialize the equality engine with no notification class. 
+   * Initialize the equality engine with no notification class.
    */
   EqualityEngine(context::Context* context, std::string name);
 
@@ -613,23 +684,28 @@ public:
 
   /**
    * Adds a predicate p with given polarity. The predicate asserted
-   * should be in the coungruence closure kinds (otherwise it's 
+   * should be in the congruence closure kinds (otherwise it's
    * useless.
    *
    * @param p the (non-negated) predicate
-   * @param polarity true if asserting the predicate, false if 
+   * @param polarity true if asserting the predicate, false if
    *                 asserting the negated predicate
-   * @param the reason to keep for building explanations
+   * @param reason the reason to keep for building explanations
    */
   void assertPredicate(TNode p, bool polarity, TNode reason);
+
+  /**
+   * Adds predicate p and q and makes them equal. 
+   */
+  void mergePredicates(TNode p, TNode q, TNode reason);
 
   /**
    * Adds an equality eq with the given polarity to the database.
    *
    * @param eq the (non-negated) equality
-   * @param polarity true if asserting the equality, false if 
+   * @param polarity true if asserting the equality, false if
    *                 asserting the negated equality
-   * @param the reason to keep for building explanations
+   * @param reason the reason to keep for building explanations
    */
   void assertEquality(TNode eq, bool polarity, TNode reason);
 
@@ -639,20 +715,20 @@ public:
   TNode getRepresentative(TNode t) const;
 
   /**
-   * Add all the terms where the given term appears as a first child 
+   * Add all the terms where the given term appears as a first child
    * (directly or implicitly).
    */
   void getUseListTerms(TNode t, std::set<TNode>& output);
 
   /**
-   * Get an explanation of the equality t1 = t2 begin true of false. 
+   * Get an explanation of the equality t1 = t2 begin true of false.
    * Returns the reasons (added when asserting) that imply it
    * in the assertions vector.
    */
   void explainEquality(TNode t1, TNode t2, bool polarity, std::vector<TNode>& assertions) const;
 
   /**
-   * Get an explanation of the predicate being true or false. 
+   * Get an explanation of the predicate being true or false.
    * Returns the reasons (added when asserting) that imply imply it
    * in the assertions vector.
    */
@@ -662,16 +738,16 @@ public:
    * Add term to the set of trigger terms with a corresponding tag. The notify class will get
    * notified when two trigger terms with the same tag become equal or dis-equal. The notification
    * will not happen on all the terms, but only on the ones that are represent the class. Note that
-   * a term can be added more than once with different tags, and each tag apperance will merit
+   * a term can be added more than once with different tags, and each tag appearance will merit
    * it's own notification.
    *
    * @param t the trigger term
-   * @param tag tag for this trigger (do NOT use THEORY_LAST)
+   * @param theoryTag tag for this trigger (do NOT use THEORY_LAST)
    */
   void addTriggerTerm(TNode t, TheoryId theoryTag);
 
   /**
-   * Returns true if t is a trigger term or in the same equivalence 
+   * Returns true if t is a trigger term or in the same equivalence
    * class as some other trigger term.
    */
   bool isTriggerTerm(TNode t, TheoryId theoryTag) const;
@@ -714,13 +790,105 @@ public:
   size_t getSize(TNode t);
 
   /**
-   * Returns true if the engine is in a consistents state.
+   * Returns true if the engine is in a consistent state.
    */
   bool consistent() const { return !d_done; }
 
 };
 
-} // Namespace uf
+class EqClassesIterator {
+
+  const eq::EqualityEngine* d_ee;
+  size_t d_it;
+public:
+
+  EqClassesIterator(): d_ee(NULL), d_it(0){ }
+  EqClassesIterator(const eq::EqualityEngine* ee) : d_ee(ee) {
+    d_it = 0;
+    // Go to the first non-internal node that is it's own representative
+    if (d_it < d_ee->d_nodesCount && (d_ee->d_isInternal[d_it] || d_ee->getRepresentative(d_ee->d_nodes[d_it]) != d_ee->d_nodes[d_it])) {
+      ++*this;
+    }
+  }
+  Node operator*() const {
+    return d_ee->d_nodes[d_it];
+  }
+  bool operator==(const EqClassesIterator& i) const {
+    return d_ee == i.d_ee && d_it == i.d_it;
+  }
+  bool operator!=(const EqClassesIterator& i) const {
+    return !(*this == i);
+  }
+  EqClassesIterator& operator++() {
+    ++d_it;
+    while (d_it<d_ee->d_nodesCount && (d_ee->d_isInternal[d_it] || d_ee->getRepresentative(d_ee->d_nodes[d_it]) != d_ee->d_nodes[d_it])) {
+      ++d_it;
+    }
+    return *this;
+  }
+  EqClassesIterator operator++(int) {
+    EqClassesIterator i = *this;
+    ++*this;
+    return i;
+  }
+  bool isFinished() const {
+    return d_it>=d_ee->d_nodesCount;
+  }
+};/* class EqClassesIterator */
+
+class EqClassIterator {
+
+  const eq::EqualityEngine* d_ee;
+
+  /** Starting node */
+  EqualityNodeId d_start;
+
+  /** Current node */
+  EqualityNodeId d_current;
+
+public:
+
+  EqClassIterator(): d_ee(NULL), d_start(null_id), d_current(null_id) { }
+  EqClassIterator(Node eqc, const eq::EqualityEngine* ee) : d_ee(ee) {
+    Assert( d_ee->getRepresentative(eqc) == eqc );
+    d_current = d_start = d_ee->getNodeId(eqc);
+  }
+  Node operator*() const {
+    return d_ee->d_nodes[d_current];
+  }
+  bool operator==(const EqClassIterator& i) const {
+    return d_ee == i.d_ee && d_current == i.d_current;
+  }
+  bool operator!=(const EqClassIterator& i) const {
+    return !(*this == i);
+  }
+  EqClassIterator& operator++() {
+    Assert(!isFinished());
+
+    // Find the next one
+    do {
+      d_current = d_ee->getEqualityNode(d_current).getNext();
+    } while (d_ee->d_isInternal[d_current]);
+
+    Assert(d_start == d_ee->getEqualityNode(d_current).getFind());
+
+    if (d_current == d_start) {
+      // we end when we have cycled back to the original representative
+      d_current = null_id;
+    }
+    return *this;
+  }
+  EqClassIterator operator++(int) {
+    EqClassIterator i = *this;
+    ++*this;
+    return i;
+  }
+  bool isFinished() const {
+    return d_current == null_id;
+  }
+};/* class EqClassIterator */
+
+} // Namespace eq
 } // Namespace theory
 } // Namespace CVC4
 

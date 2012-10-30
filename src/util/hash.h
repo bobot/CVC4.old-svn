@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,6 +24,7 @@
 namespace __gnu_cxx {}
 
 #include <ext/hash_map>
+#include <ext/hash_set>
 
 namespace __gnu_cxx {
 
@@ -53,11 +52,12 @@ struct StringHashFunction {
   }
 };/* struct StringHashFunction */
 
-struct StringHashStrategy {
-  static size_t hash(const std::string& str) {
-    return std::hash<const char*>()(str.c_str());
+template <class T, class U, class HashT = std::hash<T>, class HashU = std::hash<U> >
+struct PairHashFunction {
+  size_t operator()(const std::pair<T, U>& pr) const {
+    return HashT()(pr.first) ^ HashU()(pr.second);
   }
-};/* struct StringHashStrategy */
+};/* struct PairHashFunction */
 
 }/* CVC4 namespace */
 

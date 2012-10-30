@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -27,8 +25,8 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 using namespace CVC4::theory::uf::tim;
 
-TheoryUFTim::TheoryUFTim(Context* c, UserContext* u, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_UF, c, u, out, valuation),
+TheoryUFTim::TheoryUFTim(Context* c, UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
+  Theory(THEORY_UF, c, u, out, valuation, qe),
   d_assertions(c),
   d_pending(c),
   d_currentPendingIdx(c,0),

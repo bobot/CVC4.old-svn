@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): barrett, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -18,6 +16,12 @@
  **/
 
 #include "theory/uf/theory_uf.h"
+#include "theory/uf/options.h"
+#include "theory/quantifiers/options.h"
+#include "theory/uf/theory_uf_instantiator.h"
+#include "theory/uf/theory_uf_strong_solver.h"
+#include "theory/model.h"
+#include "theory/type_enumerator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -25,9 +29,12 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 
 /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) :
-  Theory(THEORY_UF, c, u, out, valuation, logicInfo),
+TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
+  Theory(THEORY_UF, c, u, out, valuation, logicInfo, qe),
   d_notify(*this),
+  /* The strong theory solver can be notified by EqualityEngine::init(),
+   * so make sure it's initialized first. */
+  d_thss(options::finiteModelFind() ? new StrongSolverTheoryUf(c, u, out, this) : NULL),
   d_equalityEngine(d_notify, c, "theory::uf::TheoryUF"),
   d_conflict(c, false),
   d_literalsToPropagate(c),
@@ -36,7 +43,7 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
-}/* TheoryUF::TheoryUF() */
+}
 
 static Node mkAnd(const std::vector<TNode>& conjunctions) {
   Assert(conjunctions.size() > 0);
@@ -62,21 +69,41 @@ static Node mkAnd(const std::vector<TNode>& conjunctions) {
 
 void TheoryUF::check(Effort level) {
 
-  while (!done() && !d_conflict) 
+  while (!done() && !d_conflict)
   {
     // Get all the assertions
     Assertion assertion = get();
     TNode fact = assertion.assertion;
 
     Debug("uf") << "TheoryUF::check(): processing " << fact << std::endl;
+    if (d_thss != NULL) {
+      bool isDecision = d_valuation.isSatLiteral(fact) && d_valuation.isDecision(fact);
+      d_thss->assertNode(fact, isDecision);
+      if( d_thss->isConflict() ){
+        d_conflict = true;
+        return;
+      }
+    }
 
     // Do the work
     bool polarity = fact.getKind() != kind::NOT;
     TNode atom = polarity ? fact : fact[0];
     if (atom.getKind() == kind::EQUAL) {
       d_equalityEngine.assertEquality(atom, polarity, fact);
+    } else if (atom.getKind() == kind::CARDINALITY_CONSTRAINT) {
+      // do nothing
     } else {
       d_equalityEngine.assertPredicate(atom, polarity, fact);
+    }
+  }
+
+
+  if (d_thss != NULL) {
+    if (! d_conflict) {
+      d_thss->check(level);
+      if( d_thss->isConflict() ){
+        d_conflict = true;
+      }
     }
   }
 
@@ -84,6 +111,10 @@ void TheoryUF::check(Effort level) {
 
 void TheoryUF::preRegisterTerm(TNode node) {
   Debug("uf") << "TheoryUF::preRegisterTerm(" << node << ")" << std::endl;
+
+  if (d_thss != NULL) {
+    d_thss->preRegisterTerm(node);
+  }
 
   switch (node.getKind()) {
   case kind::EQUAL:
@@ -101,6 +132,9 @@ void TheoryUF::preRegisterTerm(TNode node) {
     }
     // Remember the function and predicate terms
     d_functionsTerms.push_back(node);
+    break;
+  case kind::CARDINALITY_CONSTRAINT:
+    //do nothing
     break;
   default:
     // Variables etc
@@ -124,6 +158,20 @@ bool TheoryUF::propagate(TNode literal) {
   return ok;
 }/* TheoryUF::propagate(TNode) */
 
+void TheoryUF::propagate(Effort effort) {
+  //if (d_thss != NULL) {
+  //  return d_thss->propagate(effort);
+  //}
+}
+
+Node TheoryUF::getNextDecisionRequest(){
+  if (d_thss != NULL && !d_conflict) {
+    return d_thss->getNextDecisionRequest();
+  }else{
+    return Node::null();
+  }
+}
+
 void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
   // Do the work
   bool polarity = literal.getKind() != kind::NOT;
@@ -142,11 +190,36 @@ Node TheoryUF::explain(TNode literal) {
   return mkAnd(assumptions);
 }
 
+void TheoryUF::collectModelInfo( TheoryModel* m, bool fullModel ){
+  m->assertEqualityEngine( &d_equalityEngine );
+  // if( fullModel ){
+  //   std::map< TypeNode, TypeEnumerator* > type_enums;
+  //   //must choose proper representatives
+  //   // for each equivalence class, specify fresh constant as representative
+  //   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+  //   while( !eqcs_i.isFinished() ){
+  //     Node eqc = (*eqcs_i);
+  //     TypeNode tn = eqc.getType();
+  //     if( tn.isSort() ){
+  //       if( type_enums.find( tn )==type_enums.end() ){
+  //         type_enums[tn] = new TypeEnumerator( tn );
+  //       }
+  //       Node rep = *(*type_enums[tn]);
+  //       ++(*type_enums[tn]);
+  //       //specify the constant as the representative
+  //       m->assertEquality( eqc, rep, true );
+  //       m->assertRepresentative( rep );
+  //     }
+  //     ++eqcs_i;
+  //   }
+  // }
+}
+
 void TheoryUF::presolve() {
   // TimerStat::CodeTimer codeTimer(d_presolveTimer);
 
   Debug("uf") << "uf: begin presolve()" << endl;
-  if(Options::current()->ufSymmetryBreaker) {
+  if(options::ufSymmetryBreaker()) {
     vector<Node> newClauses;
     d_symb.apply(newClauses);
     for(vector<Node>::const_iterator i = newClauses.begin();
@@ -266,7 +339,7 @@ void TheoryUF::ppStaticLearn(TNode n, NodeBuilder<>& learned) {
     }
   }
 
-  if(Options::current()->ufSymmetryBreaker) {
+  if(options::ufSymmetryBreaker()) {
     d_symb.assertFormula(n);
   }
 }/* TheoryUF::ppStaticLearn() */
@@ -387,7 +460,7 @@ void TheoryUF::computeCareGraph() {
 }/* TheoryUF::computeCareGraph() */
 
 void TheoryUF::conflict(TNode a, TNode b) {
-  if (Theory::theoryOf(a) == theory::THEORY_BOOL) {
+  if (a.getKind() == kind::CONST_BOOLEAN) {
     d_conflictNode = explain(a.iffNode(b));
   } else {
     d_conflictNode = explain(a.eqNode(b));
@@ -395,3 +468,55 @@ void TheoryUF::conflict(TNode a, TNode b) {
   d_out->conflict(d_conflictNode);
   d_conflict = true;
 }
+
+void TheoryUF::eqNotifyNewClass(TNode t) {
+  if (d_thss != NULL) {
+    d_thss->newEqClass(t);
+  }
+  // this can be called very early, during initialization
+  if (!getLogicInfo().isLocked() || getLogicInfo().isQuantified()) {
+    ((InstantiatorTheoryUf*) getInstantiator())->newEqClass(t);
+  }
+}
+
+void TheoryUF::eqNotifyPreMerge(TNode t1, TNode t2) {
+  if (getLogicInfo().isQuantified()) {
+    ((InstantiatorTheoryUf*) getInstantiator())->merge(t1, t2);
+  }
+}
+
+void TheoryUF::eqNotifyPostMerge(TNode t1, TNode t2) {
+  if (d_thss != NULL) {
+    d_thss->merge(t1, t2);
+  }
+}
+
+void TheoryUF::eqNotifyDisequal(TNode t1, TNode t2, TNode reason) {
+  if (d_thss != NULL) {
+    d_thss->assertDisequal(t1, t2, reason);
+  }
+  if (getLogicInfo().isQuantified()) {
+    ((InstantiatorTheoryUf*) getInstantiator())->assertDisequal(t1, t2, reason);
+  }
+}
+
+Node TheoryUF::ppRewrite(TNode node) {
+
+  if (node.getKind() != kind::APPLY_UF) {
+    return node;
+  }
+
+  // perform the callbacks requested by TheoryUF::registerPpRewrite()
+  RegisterPpRewrites::iterator c = d_registeredPpRewrites.find(node.getOperator());
+  if (c == d_registeredPpRewrites.end()) {
+    return node;
+  } else {
+    Node res = c->second->ppRewrite(node);
+    if (res != node) {
+      return ppRewrite(res);
+    } else {
+      return res;
+    }
+  }
+}
+

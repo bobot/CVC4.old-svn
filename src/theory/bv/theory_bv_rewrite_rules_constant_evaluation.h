@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file theory_bv_rewrite_rules_core.h
+/*! \file theory_bv_rewrite_rules_constant_evaluation.h
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: none
- ** Minor contributors (to current version): 
+ ** Major contributors: barrett
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -30,12 +28,15 @@ namespace bv {
 
 template<> inline
 bool RewriteRule<EvalAnd>::applies(TNode node) {
+  Unreachable();
   return (node.getKind() == kind::BITVECTOR_AND &&
+          node.getNumChildren() == 2 &&
           utils::isBVGroundTerm(node));
 }
 
 template<> inline
 Node RewriteRule<EvalAnd>::apply(TNode node) {
+  Unreachable();
   BVDebug("bv-rewrite") << "RewriteRule<EvalAnd>(" << node << ")" << std::endl;
   BitVector a = node[0].getConst<BitVector>();
   BitVector b = node[1].getConst<BitVector>();
@@ -46,12 +47,15 @@ Node RewriteRule<EvalAnd>::apply(TNode node) {
 
 template<> inline
 bool RewriteRule<EvalOr>::applies(TNode node) {
+  Unreachable();
   return (node.getKind() == kind::BITVECTOR_OR &&
+          node.getNumChildren() == 2 &&
           utils::isBVGroundTerm(node));
 }
 
 template<> inline
 Node RewriteRule<EvalOr>::apply(TNode node) {
+  Unreachable();
   BVDebug("bv-rewrite") << "RewriteRule<EvalOr>(" << node << ")" << std::endl;
   BitVector a = node[0].getConst<BitVector>();
   BitVector b = node[1].getConst<BitVector>();
@@ -62,12 +66,15 @@ Node RewriteRule<EvalOr>::apply(TNode node) {
 
 template<> inline
 bool RewriteRule<EvalXor>::applies(TNode node) {
+  Unreachable();
   return (node.getKind() == kind::BITVECTOR_XOR &&
+          node.getNumChildren() == 2 &&
           utils::isBVGroundTerm(node));
 }
 
 template<> inline
 Node RewriteRule<EvalXor>::apply(TNode node) {
+  Unreachable();
   BVDebug("bv-rewrite") << "RewriteRule<EvalXor>(" << node << ")" << std::endl;
   BitVector a = node[0].getConst<BitVector>();
   BitVector b = node[1].getConst<BitVector>();
@@ -101,7 +108,7 @@ template<> inline
 Node RewriteRule<EvalNot>::apply(TNode node) {
   BVDebug("bv-rewrite") << "RewriteRule<EvalNot>(" << node << ")" << std::endl;
   BitVector a = node[0].getConst<BitVector>();
-  BitVector res = ~ a;  
+  BitVector res = ~ a;
   return utils::mkConst(res);
 }
 
@@ -135,10 +142,11 @@ bool RewriteRule<EvalMult>::applies(TNode node) {
 template<> inline
 Node RewriteRule<EvalMult>::apply(TNode node) {
   BVDebug("bv-rewrite") << "RewriteRule<EvalMult>(" << node << ")" << std::endl;
-  BitVector a = node[0].getConst<BitVector>();
-  BitVector b = node[1].getConst<BitVector>();
-  BitVector res = a * b;
-  
+  TNode::iterator child_it = node.begin();
+  BitVector res = (*child_it).getConst<BitVector>();
+  for(++child_it; child_it != node.end(); ++child_it) {
+    res = res * (*child_it).getConst<BitVector>();
+  }
   return utils::mkConst(res);
 }
 
@@ -151,10 +159,11 @@ bool RewriteRule<EvalPlus>::applies(TNode node) {
 template<> inline
 Node RewriteRule<EvalPlus>::apply(TNode node) {
   BVDebug("bv-rewrite") << "RewriteRule<EvalPlus>(" << node << ")" << std::endl;
-  BitVector a = node[0].getConst<BitVector>();
-  BitVector b = node[1].getConst<BitVector>();
-  BitVector res = a + b;
-  
+  TNode::iterator child_it = node.begin();
+  BitVector res = (*child_it).getConst<BitVector>();
+  for(++child_it; child_it != node.end(); ++child_it) {
+    res = res + (*child_it).getConst<BitVector>();
+  }
   return utils::mkConst(res);
 }
 

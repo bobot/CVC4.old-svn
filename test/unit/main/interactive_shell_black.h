@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,7 +24,7 @@
 #include "main/interactive_shell.h"
 #include "parser/parser_builder.h"
 #include "util/language.h"
-#include "util/options.h"
+#include "options/options.h"
 
 using namespace CVC4;
 using namespace std;
@@ -59,9 +57,9 @@ private:
     d_exprManager = new ExprManager;
     d_sin = new stringstream;
     d_sout = new stringstream;
-    d_options.in = d_sin;
-    d_options.out = d_sout;
-    d_options.inputLanguage = language::input::LANG_CVC4;
+    d_options.set(options::in, d_sin);
+    d_options.set(options::out, d_sout);
+    d_options.set(options::inputLanguage, language::input::LANG_CVC4);
   }
 
   void tearDown() {

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): taking, cconway
+ ** Minor contributors (to current version): taking, kshitij, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,7 +18,7 @@
 #include "expr/node.h"
 #include "expr/expr_manager_scope.h"
 #include "expr/variable_type_map.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 
 #include <vector>
 #include <iterator>
@@ -32,7 +30,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 36 "${template}"
+#line 34 "${template}"
 
 using namespace CVC4::kind;
 using namespace std;
@@ -114,13 +112,18 @@ namespace expr {
 static Node exportConstant(TNode n, NodeManager* to);
 
 Node exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap) {
-  if(n.getMetaKind() == kind::metakind::CONSTANT) {
+  if(theory::kindToTheoryId(n.getKind()) == theory::THEORY_DATATYPES) {
+    throw ExportUnsupportedException
+       ("export of node belonging to theory of DATATYPES kinds unsupported");
+  }
+
+  if(n.getMetaKind() == metakind::CONSTANT) {
     return exportConstant(n, NodeManager::fromExprManager(to));
-  } else if(n.getMetaKind() == kind::metakind::VARIABLE) {
+  } else if(n.isVar()) {
     Expr from_e(from, new Node(n));
     Expr& to_e = vmap.d_typeMap[from_e];
     if(! to_e.isNull()) {
-Debug("export") << "+ mapped `" << from_e << "' to `" << to_e << "'" << std::endl;
+      Debug("export") << "+ mapped `" << from_e << "' to `" << to_e << "'" << std::endl;
       return to_e.getNode();
     } else {
       // construct new variable in other manager:
@@ -128,11 +131,31 @@ Debug("export") << "+ mapped `" << from_e << "' to `" << to_e << "'" << std::end
       std::string name;
       Type type = from->exportType(from_e.getType(), to, vmap);
       if(Node::fromExpr(from_e).getAttribute(VarNameAttr(), name)) {
-        to_e = to->mkVar(name, type);// FIXME thread safety
-Debug("export") << "+ exported var `" << from_e << "'[" << from_e.getId() << "] with name `" << name << "' and type `" << from_e.getType() << "' to `" << to_e << "'[" << to_e.getId() << "] with type `" << type << "'" << std::endl;
+        // temporarily set the node manager to NULL; this gets around
+        // a check that mkVar isn't called internally
+        NodeManagerScope nullScope(NULL);
+
+        if(n.getKind() == kind::BOUND_VAR_LIST || n.getKind() == kind::BOUND_VARIABLE) {
+          to_e = to->mkBoundVar(name, type);// FIXME thread safety
+        } else if(n.getKind() == kind::VARIABLE) {
+          to_e = to->mkVar(name, type);// FIXME thread safety
+        } else if(n.getKind() == kind::SKOLEM) {
+          // skolems are only available at the Node level (not the Expr level)
+          TypeNode typeNode = TypeNode::fromType(type);
+          NodeManager* to_nm = NodeManager::fromExprManager(to);
+          Node n = to_nm->mkSkolem(name, typeNode, "is a skolem variable imported from another ExprManager");// FIXME thread safety
+          to_e = n.toExpr();
+        } else {
+          Unhandled();
+        }
+
+        Debug("export") << "+ exported var `" << from_e << "'[" << from_e.getId() << "] with name `" << name << "' and type `" << from_e.getType() << "' to `" << to_e << "'[" << to_e.getId() << "] with type `" << type << "'" << std::endl;
       } else {
+        // temporarily set the node manager to NULL; this gets around
+        // a check that mkVar isn't called internally
+        NodeManagerScope nullScope(NULL);
         to_e = to->mkVar(type);// FIXME thread safety
-Debug("export") << "+ exported unnamed var `" << from_e << "' with type `" << from_e.getType() << "' to `" << to_e << "' with type `" << type << "'" << std::endl;
+        Debug("export") << "+ exported unnamed var `" << from_e << "' with type `" << from_e.getType() << "' to `" << to_e << "' with type `" << type << "'" << std::endl;
       }
       uint64_t to_int = (uint64_t)(to_e.getNode().d_nv);
       uint64_t from_int = (uint64_t)(from_e.getNode().d_nv);
@@ -143,16 +166,16 @@ Debug("export") << "+ exported unnamed var `" << from_e << "' with type `" << fr
     }
   } else {
     std::vector<Node> children;
-Debug("export") << "n: " << n << std::endl;
+    Debug("export") << "n: " << n << std::endl;
     if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
-Debug("export") << "+ parameterized, op is " << n.getOperator() << std::endl;
+      Debug("export") << "+ parameterized, op is " << n.getOperator() << std::endl;
       children.reserve(n.getNumChildren() + 1);
       children.push_back(exportInternal(n.getOperator(), from, to, vmap));
     } else {
       children.reserve(n.getNumChildren());
     }
     for(TNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
-Debug("export") << "+ child: " << *i << std::endl;
+      Debug("export") << "+ child: " << *i << std::endl;
       children.push_back(exportInternal(*i, from, to, vmap));
     }
     if(Debug.isOn("export")) {
@@ -168,7 +191,7 @@ Debug("export") << "+ child: " << *i << std::endl;
 
 }/* CVC4::expr namespace */
 
-Expr Expr::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+Expr Expr::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) const {
   Assert(d_exprManager != exprManager,
          "No sense in cloning an Expr in the same ExprManager");
   ExprManagerScope ems(*this);
@@ -281,6 +304,7 @@ Type Expr::getType(bool check) const throw (TypeCheckingException) {
 }
 
 Expr Expr::substitute(Expr e, Expr replacement) const {
+  ExprManagerScope ems(*this);
   return Expr(d_exprManager, new Node(d_node->substitute(TNode(*e.d_node), TNode(*replacement.d_node))));
 }
 
@@ -304,6 +328,7 @@ static inline NodeIteratorAdaptor<Iterator> mkNodeIteratorAdaptor(Iterator i) {
 
 Expr Expr::substitute(const std::vector<Expr> exes,
                       const std::vector<Expr>& replacements) const {
+  ExprManagerScope ems(*this);
   return Expr(d_exprManager,
               new Node(d_node->substitute(mkNodeIteratorAdaptor(exes.begin()),
                                           mkNodeIteratorAdaptor(exes.end()),
@@ -330,31 +355,39 @@ static inline NodePairIteratorAdaptor<Iterator> mkNodePairIteratorAdaptor(Iterat
 }
 
 Expr Expr::substitute(const std::hash_map<Expr, Expr, ExprHashFunction> map) const {
+  ExprManagerScope ems(*this);
   return Expr(d_exprManager, new Node(d_node->substitute(mkNodePairIteratorAdaptor(map.begin()), mkNodePairIteratorAdaptor(map.end()))));
 }
 
 Expr::const_iterator::const_iterator() :
   d_iterator(NULL) {
 }
-Expr::const_iterator::const_iterator(void* v) :
+Expr::const_iterator::const_iterator(ExprManager* em, void* v) :
+  d_exprManager(em),
   d_iterator(v) {
 }
 Expr::const_iterator::const_iterator(const const_iterator& it) {
   if(it.d_iterator == NULL) {
     d_iterator = NULL;
   } else {
+    d_exprManager = it.d_exprManager;
+    ExprManagerScope ems(*d_exprManager);
     d_iterator = new Node::iterator(*reinterpret_cast<Node::iterator*>(it.d_iterator));
   }
 }
 Expr::const_iterator& Expr::const_iterator::operator=(const const_iterator& it) {
   if(d_iterator != NULL) {
+    ExprManagerScope ems(*d_exprManager);
     delete reinterpret_cast<Node::iterator*>(d_iterator);
   }
+  d_exprManager = it.d_exprManager;
+  ExprManagerScope ems(*d_exprManager);
   d_iterator = new Node::iterator(*reinterpret_cast<Node::iterator*>(it.d_iterator));
   return *this;
 }
 Expr::const_iterator::~const_iterator() {
   if(d_iterator != NULL) {
+    ExprManagerScope ems(*d_exprManager);
     delete reinterpret_cast<Node::iterator*>(d_iterator);
   }
 }
@@ -367,26 +400,31 @@ bool Expr::const_iterator::operator==(const const_iterator& it) const {
 }
 Expr::const_iterator& Expr::const_iterator::operator++() {
   Assert(d_iterator != NULL);
+  ExprManagerScope ems(*d_exprManager);
   ++*reinterpret_cast<Node::iterator*>(d_iterator);
   return *this;
 }
 Expr::const_iterator Expr::const_iterator::operator++(int) {
   Assert(d_iterator != NULL);
+  ExprManagerScope ems(*d_exprManager);
   const_iterator it = *this;
   ++*reinterpret_cast<Node::iterator*>(d_iterator);
   return it;
 }
 Expr Expr::const_iterator::operator*() const {
   Assert(d_iterator != NULL);
+  ExprManagerScope ems(*d_exprManager);
   return (**reinterpret_cast<Node::iterator*>(d_iterator)).toExpr();
 }
 
 Expr::const_iterator Expr::begin() const {
-  return Expr::const_iterator(new Node::iterator(d_node->begin()));
+  ExprManagerScope ems(*d_exprManager);
+  return Expr::const_iterator(d_exprManager, new Node::iterator(d_node->begin()));
 }
 
 Expr::const_iterator Expr::end() const {
-  return Expr::const_iterator(new Node::iterator(d_node->end()));
+  ExprManagerScope ems(*d_exprManager);
+  return Expr::const_iterator(d_exprManager, new Node::iterator(d_node->end()));
 }
 
 std::string Expr::toString() const {
@@ -399,10 +437,6 @@ bool Expr::isNull() const {
   ExprManagerScope ems(*this);
   Assert(d_node != NULL, "Unexpected NULL expression pointer!");
   return d_node->isNull();
-}
-
-Expr::operator bool() const {
-  return !isNull();
 }
 
 bool Expr::isVariable() const {
@@ -431,20 +465,13 @@ TNode Expr::getTNode() const throw() {
   return *d_node;
 }
 
-BoolExpr::BoolExpr() {
-}
-
-BoolExpr::BoolExpr(const Expr& e) :
-  Expr(e) {
-}
-
-BoolExpr BoolExpr::notExpr() const {
+Expr Expr::notExpr() const {
   Assert(d_exprManager != NULL,
          "Don't have an expression manager for this expression!");
   return d_exprManager->mkExpr(NOT, *this);
 }
 
-BoolExpr BoolExpr::andExpr(const BoolExpr& e) const {
+Expr Expr::andExpr(const Expr& e) const {
   Assert(d_exprManager != NULL,
          "Don't have an expression manager for this expression!");
   CheckArgument(d_exprManager == e.d_exprManager, e,
@@ -452,7 +479,7 @@ BoolExpr BoolExpr::andExpr(const BoolExpr& e) const {
   return d_exprManager->mkExpr(AND, *this, e);
 }
 
-BoolExpr BoolExpr::orExpr(const BoolExpr& e) const {
+Expr Expr::orExpr(const Expr& e) const {
   Assert(d_exprManager != NULL,
          "Don't have an expression manager for this expression!");
   CheckArgument(d_exprManager == e.d_exprManager, e,
@@ -460,7 +487,7 @@ BoolExpr BoolExpr::orExpr(const BoolExpr& e) const {
   return d_exprManager->mkExpr(OR, *this, e);
 }
 
-BoolExpr BoolExpr::xorExpr(const BoolExpr& e) const {
+Expr Expr::xorExpr(const Expr& e) const {
   Assert(d_exprManager != NULL,
          "Don't have an expression manager for this expression!");
   CheckArgument(d_exprManager == e.d_exprManager, e,
@@ -468,7 +495,7 @@ BoolExpr BoolExpr::xorExpr(const BoolExpr& e) const {
   return d_exprManager->mkExpr(XOR, *this, e);
 }
 
-BoolExpr BoolExpr::iffExpr(const BoolExpr& e) const {
+Expr Expr::iffExpr(const Expr& e) const {
   Assert(d_exprManager != NULL,
          "Don't have an expression manager for this expression!");
   CheckArgument(d_exprManager == e.d_exprManager, e,
@@ -476,7 +503,7 @@ BoolExpr BoolExpr::iffExpr(const BoolExpr& e) const {
   return d_exprManager->mkExpr(IFF, *this, e);
 }
 
-BoolExpr BoolExpr::impExpr(const BoolExpr& e) const {
+Expr Expr::impExpr(const Expr& e) const {
   Assert(d_exprManager != NULL,
          "Don't have an expression manager for this expression!");
   CheckArgument(d_exprManager == e.d_exprManager, e,
@@ -484,23 +511,13 @@ BoolExpr BoolExpr::impExpr(const BoolExpr& e) const {
   return d_exprManager->mkExpr(IMPLIES, *this, e);
 }
 
-BoolExpr BoolExpr::iteExpr(const BoolExpr& then_e,
-                           const BoolExpr& else_e) const {
+Expr Expr::iteExpr(const Expr& then_e,
+                           const Expr& else_e) const {
   Assert(d_exprManager != NULL,
          "Don't have an expression manager for this expression!");
   CheckArgument(d_exprManager == then_e.d_exprManager, then_e,
                 "Different expression managers!");
   CheckArgument(d_exprManager == else_e.d_exprManager, else_e,
-                "Different expression managers!");
-  return d_exprManager->mkExpr(ITE, *this, then_e, else_e);
-}
-
-Expr BoolExpr::iteExpr(const Expr& then_e, const Expr& else_e) const {
-  Assert(d_exprManager != NULL,
-         "Don't have an expression manager for this expression!");
-  CheckArgument(d_exprManager == then_e.getExprManager(), then_e,
-                "Different expression managers!");
-  CheckArgument(d_exprManager == else_e.getExprManager(), else_e,
                 "Different expression managers!");
   return d_exprManager->mkExpr(ITE, *this, then_e, else_e);
 }
@@ -522,7 +539,7 @@ ${getConst_implementations}
 namespace expr {
 
 static Node exportConstant(TNode n, NodeManager* to) {
-  Assert(n.getMetaKind() == kind::metakind::CONSTANT);
+  Assert(n.isConst());
   switch(n.getKind()) {
 ${exportConstant_cases}
 

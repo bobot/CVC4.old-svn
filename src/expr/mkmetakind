@@ -2,7 +2,7 @@
 #
 # mkmetakind
 # Morgan Deters <mdeters@cs.nyu.edu> for CVC4
-# Copyright (c) 2010-2011  The CVC4 Project
+# Copyright (c) 2010-2012  The CVC4 Project
 #
 # The purpose of this script is to create metakind.h from a template
 # and a list of theory kinds.
@@ -17,7 +17,7 @@
 # Output is to standard out.
 #
 
-copyright=2010-2011
+copyright=2010-2012
 
 cat <<EOF
 /*********************                                                        */
@@ -80,6 +80,12 @@ function theory {
 // #include \"theory/$b/$2\""
 }
 
+function instantiator {
+  # instantiator class header
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
+}
+
 function properties {
   # properties prop*
   lineno=${BASH_LINENO[0]}
@@ -93,6 +99,12 @@ function endtheory {
   seen_endtheory=true
 }
 
+function enumerator {
+  # enumerator KIND enumerator-class header
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
+}
+
 function typechecker {
   # typechecker header
   lineno=${BASH_LINENO[0]}
@@ -101,6 +113,12 @@ function typechecker {
 
 function typerule {
   # typerule OPERATOR typechecking-class
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
+}
+
+function construle {
+  # construle OPERATOR isconst-checking-class
   lineno=${BASH_LINENO[0]}
   check_theory_seen
 }
@@ -175,7 +193,7 @@ function constant {
     fi
   fi
   if ! expr "$3" : '\(::*\)' >/dev/null; then
-    echo "$kf:$lineno: warning: constant $1 hasher \`$3' isn't fully-qualified (e.g., ::CVC4::RationalHashFcn)" >&2
+    echo "$kf:$lineno: warning: constant $1 hasher \`$3' isn't fully-qualified (e.g., ::CVC4::RationalHashFunction)" >&2
   fi
 
   if [ -n "$4" ]; then
@@ -234,7 +252,7 @@ struct ConstantMapReverse< ::CVC4::kind::$1 > {
   metakind_constHashes="${metakind_constHashes}
   case kind::$1:
 #line $lineno \"$kf\"
-    return $3::hash(nv->getConst< $2 >());
+    return $3()(nv->getConst< $2 >());
 "
   metakind_constPrinters="${metakind_constPrinters}
   case kind::$1:
@@ -281,11 +299,6 @@ function register_metakind {
     fi
   else
     echo "$kf:$lineno: can't parse range \`$nc' in definition of $k" >&2
-    exit 1
-  fi
-
-  if [ $mk = OPERATOR -a $lb = 0 ]; then
-    echo "$kf:$lineno: error in range \`$nc' for \`$k': $mk-kinded kinds must always take at least one child" >&2
     exit 1
   fi
 

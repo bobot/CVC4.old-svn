@@ -2,12 +2,10 @@
 /*! \file rational_cln_imp.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -25,12 +23,15 @@
 #include <gmp.h>
 #include <string>
 #include <sstream>
+#include <cassert>
 #include <cln/rational.h>
 #include <cln/input.h>
+#include <cln/io.h>
+#include <cln/output.h>
 #include <cln/rational_io.h>
 #include <cln/number_io.h>
 
-#include "util/Assert.h"
+#include "util/exception.h"
 #include "util/integer.h"
 
 namespace CVC4 {
@@ -69,7 +70,8 @@ private:
 
 public:
 
-  /** Creates a rational from a decimal string (e.g., <code>"1.5"</code>).
+  /**
+   * Creates a rational from a decimal string (e.g., <code>"1.5"</code>).
    *
    * @param dec a string encoding a decimal number in the format
    * <code>[0-9]*\.[0-9]*</code>
@@ -86,7 +88,7 @@ public:
    * For more information about what is a valid rational string,
    * see GMP's documentation for mpq_set_str().
    */
-  explicit Rational(const char * s, int base = 10) throw (std::invalid_argument){
+  explicit Rational(const char* s, unsigned base = 10) throw (std::invalid_argument){
     cln::cl_read_flags flags;
 
     flags.syntax = cln::syntax_rational;
@@ -100,7 +102,7 @@ public:
       throw std::invalid_argument(ss.str());
     }
   }
-  Rational(const std::string& s, int base = 10) throw (std::invalid_argument){
+  Rational(const std::string& s, unsigned base = 10) throw (std::invalid_argument){
     cln::cl_read_flags flags;
 
     flags.syntax = cln::syntax_rational;
@@ -128,6 +130,11 @@ public:
   Rational(signed long int n) : d_value(n) { }
   Rational(unsigned long int n) : d_value(n) { }
 
+#ifdef CVC4_NEED_INT64_T_OVERLOADS
+  Rational(int64_t n) : d_value(static_cast<long>(n)) { }
+  Rational(uint64_t n) : d_value(static_cast<unsigned long>(n)) { }
+#endif /* CVC4_NEED_INT64_T_OVERLOADS */
+
   /**
    * Constructs a canonical Rational from a numerator and denominator.
    */
@@ -143,6 +150,15 @@ public:
   Rational(unsigned long int n, unsigned long int d) : d_value(n) {
     d_value /= d;
   }
+
+#ifdef CVC4_NEED_INT64_T_OVERLOADS
+  Rational(int64_t n, int64_t d) : d_value(static_cast<long>(n)) {
+    d_value /= static_cast<long>(d);
+  }
+  Rational(uint64_t n, uint64_t d) : d_value(static_cast<unsigned long>(n)) {
+    d_value /= static_cast<unsigned long>(d);
+  }
+#endif /* CVC4_NEED_INT64_T_OVERLOADS */
 
   Rational(const Integer& n, const Integer& d) :
     d_value(n.get_cl_I())
@@ -166,8 +182,17 @@ public:
    * Returns the value of denominator of the Rational.
    * Note that this makes a deep copy of the denominator.
    */
-  Integer getDenominator() const{
+  Integer getDenominator() const {
     return Integer(cln::denominator(d_value));
+  }
+
+  /**
+   * Get a double representation of this Rational, which is
+   * approximate: truncation may occur, overflow may result in
+   * infinity, and underflow may result in zero.
+   */
+  double getDouble() const {
+    return cln::double_approx(d_value);
   }
 
   Rational inverse() const {
@@ -187,7 +212,7 @@ public:
     }else if(cln::minusp(d_value)){
        return -1;
     }else{
-      Assert(cln::plusp(d_value));
+      assert(cln::plusp(d_value));
       return 1;
     }
   }
@@ -289,8 +314,11 @@ public:
 
   /** Returns a string representing the rational in the given base. */
   std::string toString(int base = 10) const {
+    cln::cl_print_flags flags;
+    flags.rational_base = base;
+    flags.rational_readably = false;
     std::stringstream ss;
-    fprint(ss, d_value);
+    print_rational(ss, flags, d_value);
     return ss.str();
   }
 
@@ -304,13 +332,13 @@ public:
 
 };/* class Rational */
 
-struct RationalHashStrategy {
-  static inline size_t hash(const CVC4::Rational& r) {
+struct RationalHashFunction {
+  inline size_t operator()(const CVC4::Rational& r) const {
     return r.hash();
   }
-};/* struct RationalHashStrategy */
+};/* struct RationalHashFunction */
 
-std::ostream& operator<<(std::ostream& os, const Rational& n);
+CVC4_PUBLIC std::ostream& operator<<(std::ostream& os, const Rational& n);
 
 }/* CVC4 namespace */
 

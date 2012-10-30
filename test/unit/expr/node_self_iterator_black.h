@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -57,8 +55,8 @@ public:
   }
 
   void testSelfIteration() {
-    Node x = d_nodeManager->mkVar("x", *d_booleanType);
-    Node y = d_nodeManager->mkVar("y", *d_booleanType);
+    Node x = d_nodeManager->mkSkolem("x", *d_booleanType);
+    Node y = d_nodeManager->mkSkolem("y", *d_booleanType);
     Node x_and_y = x && y;
     NodeSelfIterator i = x_and_y, j = NodeSelfIterator::self(x_and_y);
     TS_ASSERT(i != x_and_y.end());

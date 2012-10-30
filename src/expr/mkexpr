@@ -2,7 +2,7 @@
 #
 # mkexpr
 # Morgan Deters <mdeters@cs.nyu.edu> for CVC4
-# Copyright (c) 2010-2011  The CVC4 Project
+# Copyright (c) 2010-2012  The CVC4 Project
 #
 # The purpose of this script is to create {expr,expr_manager}.{h,cpp}
 # from template files and a list of theory kinds.  Basically it just
@@ -15,7 +15,7 @@
 # Output is to standard out.
 #
 
-copyright=2010-2011
+copyright=2010-2012
 
 filename=`basename "$1" | sed 's,_template,,'`
 
@@ -62,6 +62,9 @@ mkConst_instantiations=
 mkConst_implementations=
 exportConstant_cases=
 
+typerules=
+construles=
+
 seen_theory=false
 seen_theory_builtin=false
 
@@ -95,6 +98,12 @@ function rewriter {
   check_theory_seen
 }
 
+function instantiator {
+  # instantiator class header
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
+}
+
 function properties {
   # properties prop*
   lineno=${BASH_LINENO[0]}
@@ -106,6 +115,12 @@ function endtheory {
   lineno=${BASH_LINENO[0]}
   check_theory_seen
   seen_endtheory=true
+}
+
+function enumerator {
+  # enumerator KIND enumerator-class header
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
 }
 
 function typechecker {
@@ -124,6 +139,16 @@ function typerule {
   case kind::$1:
     typeNode = $2::computeType(nodeManager, n, check);
     break;
+"
+}
+
+function construle {
+  # isconst OPERATOR isconst-checking-class
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
+  construles="${construles}
+  case kind::$1:
+    return $2::computeIsConst(nodeManager, n);
 "
 }
 
@@ -250,6 +275,7 @@ for var in \
     exportConstant_cases \
     typechecker_includes \
     typerules \
+    construles \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
 done

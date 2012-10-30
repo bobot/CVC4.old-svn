@@ -2,12 +2,10 @@
 /*! \file valuation.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): taking, barrett, dejan
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): taking, ajreynol, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -24,7 +22,6 @@
 #define __CVC4__THEORY__VALUATION_H
 
 #include "expr/node.h"
-#include "theory/substitutions.h"
 
 namespace CVC4 {
 
@@ -64,8 +61,6 @@ public:
   Valuation(TheoryEngine* engine) :
     d_engine(engine) {
   }
-
-  Node getValue(TNode n) const;
 
   /*
    * Return true if n has an associated SAT literal
@@ -111,6 +106,19 @@ public:
    * as well as CNF conversion
    */
   Node ensureLiteral(TNode n) CVC4_WARN_UNUSED_RESULT;
+
+  /**
+   * Returns whether the given lit (which must be a SAT literal) is a decision
+   * literal or not.  Throws an exception if lit is not a SAT literal.  "lit" may
+   * be in either phase; that is, if "lit" is a SAT literal, this function returns
+   * true both for lit and the negation of lit.
+   */
+  bool isDecision(Node lit) const;
+
+  /**
+   * Get the assertion level of the SAT solver.
+   */
+  unsigned getAssertionLevel() const;
 
 };/* class Valuation */
 

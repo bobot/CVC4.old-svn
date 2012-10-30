@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters, dejan
- ** Minor contributors (to current version): barrett, cconway
+ ** Minor contributors (to current version): barrett, lianah, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -30,6 +28,7 @@
 #include "expr/node.h"
 #include "prop/theory_proxy.h"
 #include "prop/registrar.h"
+#include "context/cdlist.h"
 
 #include <ext/hash_map>
 
@@ -70,6 +69,9 @@ protected:
 
   /** The SAT solver we will be using */
   SatSolver *d_satSolver;
+
+  /** Boolean variables that we translated */
+  context::CDList<TNode> d_booleanVariables;
 
   TranslationCache d_translationCache;
   NodeCache d_nodeCache;
@@ -204,10 +206,11 @@ public:
    * set of clauses and sends them to the given sat solver.
    * @param satSolver the sat solver to use
    * @param registrar the entity that takes care of preregistration of Nodes
+   * @param context the context that the CNF should respect
    * @param fullLitToNodeMap maintain a full SAT-literal-to-Node mapping,
    * even for non-theory literals
    */
-  CnfStream(SatSolver* satSolver, Registrar* registrar, bool fullLitToNodeMap = false);
+  CnfStream(SatSolver* satSolver, Registrar* registrar, context::Context* context, bool fullLitToNodeMap = false);
 
   /**
    * Destructs a CnfStream.  This implementation does nothing, but we
@@ -242,7 +245,7 @@ public:
    * @param literal the literal from the sat solver
    * @return the actual node
    */
-  TNode getSatVarNode(const SatLiteral& literal);
+  // TNode getSatVarNode(const SatLiteral& literal);
 
   /**
    * Returns true if the node has been cached in the translation cache.
@@ -273,6 +276,11 @@ public:
    * node? E.g., it needs to be a boolean? -Chris]
    */
   SatLiteral getLiteral(TNode node);
+
+  /**
+   * Returns the Boolean variables from the input problem.
+   */
+  void getBooleanVariables(std::vector<TNode>& outputVariables) const;
 
   const TranslationCache& getTranslationCache() const {
     return d_translationCache;
@@ -324,7 +332,7 @@ public:
    * @param fullLitToNodeMap maintain a full SAT-literal-to-Node mapping,
    * even for non-theory literals
    */
-  TseitinCnfStream(SatSolver* satSolver, Registrar* registrar, bool fullLitToNodeMap = false);
+  TseitinCnfStream(SatSolver* satSolver, Registrar* registrar, context::Context* context, bool fullLitToNodeMap = false);
 
 private:
 
@@ -361,7 +369,7 @@ private:
   /**
    * Transforms the node into CNF recursively.
    * @param node the formula to transform
-   * @param negated wheather the literal is negated
+   * @param negated whether the literal is negated
    * @return the literal representing the root of the formula
    */
   SatLiteral toCNF(TNode node, bool negated = false);

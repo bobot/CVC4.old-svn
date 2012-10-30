@@ -2,12 +2,10 @@
 /*! \file command.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Major contributors: bobot
+ ** Minor contributors (to current version): kshitij, dejan, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,10 +24,13 @@
 #include "expr/command.h"
 #include "expr/expr_manager_scope.h"
 #include "smt/smt_engine.h"
-#include "smt/bad_option_exception.h"
+#include "options/options.h"
+#include "smt/options.h"
+#include "smt/smt_engine_scope.h"
 #include "util/output.h"
 #include "util/dump.h"
 #include "util/sexpr.h"
+#include "util/util_model.h"
 #include "expr/node.h"
 #include "printer/printer.h"
 
@@ -90,6 +91,10 @@ Command::~Command() throw() {
 bool Command::ok() const throw() {
   // either we haven't run the command yet, or it ran successfully
   return d_commandStatus == NULL || dynamic_cast<const CommandSuccess*>(d_commandStatus) != NULL;
+}
+
+bool Command::fail() const throw() {
+  return d_commandStatus != NULL && dynamic_cast<const CommandFailure*>(d_commandStatus) != NULL;
 }
 
 void Command::invoke(SmtEngine* smtEngine, std::ostream& out) throw() {
@@ -172,11 +177,11 @@ Command* EchoCommand::clone() const {
 
 /* class AssertCommand */
 
-AssertCommand::AssertCommand(const BoolExpr& e) throw() :
+AssertCommand::AssertCommand(const Expr& e) throw() :
   d_expr(e) {
 }
 
-BoolExpr AssertCommand::getExpr() const throw() {
+Expr AssertCommand::getExpr() const throw() {
   return d_expr;
 }
 
@@ -243,11 +248,11 @@ Command* PopCommand::clone() const {
 
 /* class CheckSatCommand */
 
-CheckSatCommand::CheckSatCommand(const BoolExpr& expr) throw() :
+CheckSatCommand::CheckSatCommand(const Expr& expr) throw() :
   d_expr(expr) {
 }
 
-BoolExpr CheckSatCommand::getExpr() const throw() {
+Expr CheckSatCommand::getExpr() const throw() {
   return d_expr;
 }
 
@@ -290,11 +295,11 @@ Command* CheckSatCommand::clone() const {
 
 /* class QueryCommand */
 
-QueryCommand::QueryCommand(const BoolExpr& e) throw() :
+QueryCommand::QueryCommand(const Expr& e) throw() :
   d_expr(e) {
 }
 
-BoolExpr QueryCommand::getExpr() const throw() {
+Expr QueryCommand::getExpr() const throw() {
   return d_expr;
 }
 
@@ -422,7 +427,9 @@ CommandSequence::const_iterator CommandSequence::begin() const throw() {
 Command* CommandSequence::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   CommandSequence* seq = new CommandSequence();
   for(iterator i = begin(); i != end(); ++i) {
-    seq->addCommand((*i)->exportTo(exprManager, variableMap));
+    Command* cmd_to_export = *i;
+    Command* cmd = cmd_to_export->exportTo(exprManager, variableMap);
+    seq->addCommand(cmd);
   }
   seq->d_index = d_index;
   return seq;
@@ -463,9 +470,14 @@ std::string DeclarationDefinitionCommand::getSymbol() const throw() {
 
 /* class DeclareFunctionCommand */
 
-DeclareFunctionCommand::DeclareFunctionCommand(const std::string& id, Type t) throw() :
+DeclareFunctionCommand::DeclareFunctionCommand(const std::string& id, Expr func, Type t) throw() :
   DeclarationDefinitionCommand(id),
+  d_func(func),
   d_type(t) {
+}
+
+Expr DeclareFunctionCommand::getFunction() const throw() {
+  return d_func;
 }
 
 Type DeclareFunctionCommand::getType() const throw() {
@@ -473,17 +485,17 @@ Type DeclareFunctionCommand::getType() const throw() {
 }
 
 void DeclareFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
-  Dump("declarations") << *this;
+  d_commandStatus = CommandSuccess::instance();
 }
 
 Command* DeclareFunctionCommand::exportTo(ExprManager* exprManager,
                                           ExprManagerMapCollection& variableMap) {
-  return new DeclareFunctionCommand(d_symbol,
+  return new DeclareFunctionCommand(d_symbol, d_func.exportTo(exprManager, variableMap),
                                     d_type.exportTo(exprManager, variableMap));
 }
 
 Command* DeclareFunctionCommand::clone() const {
-  return new DeclareFunctionCommand(d_symbol, d_type);
+  return new DeclareFunctionCommand(d_symbol, d_func, d_type);
 }
 
 /* class DeclareTypeCommand */
@@ -503,7 +515,7 @@ Type DeclareTypeCommand::getType() const throw() {
 }
 
 void DeclareTypeCommand::invoke(SmtEngine* smtEngine) throw() {
-  Dump("declarations") << *this;
+  d_commandStatus = CommandSuccess::instance();
 }
 
 Command* DeclareTypeCommand::exportTo(ExprManager* exprManager,
@@ -542,7 +554,6 @@ Type DefineTypeCommand::getType() const throw() {
 }
 
 void DefineTypeCommand::invoke(SmtEngine* smtEngine) throw() {
-  Dump("declarations") << *this;
   d_commandStatus = CommandSuccess::instance();
 }
 
@@ -592,7 +603,6 @@ Expr DefineFunctionCommand::getFormula() const throw() {
 }
 
 void DefineFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
-  //Dump("declarations") << *this; -- done by SmtEngine
   try {
     if(!d_func.isNull()) {
       smtEngine->defineFunction(d_func, d_formals, d_formula);
@@ -646,7 +656,44 @@ Command* DefineNamedFunctionCommand::clone() const {
   return new DefineNamedFunctionCommand(d_symbol, d_func, d_formals, d_formula);
 }
 
-/* class Simplify */
+/* class SetUserAttribute */
+
+SetUserAttributeCommand::SetUserAttributeCommand( const std::string& attr, Expr expr ) throw() :
+  d_attr( attr ), d_expr( expr ){
+}
+/*
+SetUserAttributeCommand::SetUserAttributeCommand( const std::string& id, Expr expr,
+                                                  std::vector<Expr>& values ) throw() :
+  d_id( id ), d_expr( expr ){
+  d_expr_values.insert( d_expr_values.begin(), values.begin(), values.end() );
+}
+
+SetUserAttributeCommand::SetUserAttributeCommand( const std::string& id, Expr expr,
+                                                  std::string& value ) throw() :
+  d_id( id ), d_expr( expr ), d_str_value( value ){
+}
+*/
+void SetUserAttributeCommand::invoke(SmtEngine* smtEngine) throw(){
+  try {
+    if(!d_expr.isNull()) {
+      smtEngine->setUserAttribute( d_attr, d_expr );
+    }
+    d_commandStatus = CommandSuccess::instance();
+  } catch(exception& e) {
+    d_commandStatus = new CommandFailure(e.what());
+  }
+}
+
+Command* SetUserAttributeCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap){
+  Expr expr = d_expr.exportTo(exprManager, variableMap);
+  return new SetUserAttributeCommand( d_attr, expr );
+}
+
+Command* SetUserAttributeCommand::clone() const{
+  return new SetUserAttributeCommand( d_attr, d_expr );
+}
+
+/* class SimplifyCommand */
 
 SimplifyCommand::SimplifyCommand(Expr term) throw() :
   d_term(term) {
@@ -685,20 +732,74 @@ Command* SimplifyCommand::clone() const {
   return c;
 }
 
-/* class GetValueCommand */
+/* class ExpandDefinitionsCommand */
 
-GetValueCommand::GetValueCommand(Expr term) throw() :
+ExpandDefinitionsCommand::ExpandDefinitionsCommand(Expr term) throw() :
   d_term(term) {
 }
 
-Expr GetValueCommand::getTerm() const throw() {
+Expr ExpandDefinitionsCommand::getTerm() const throw() {
   return d_term;
+}
+
+void ExpandDefinitionsCommand::invoke(SmtEngine* smtEngine) throw() {
+  d_result = smtEngine->expandDefinitions(d_term);
+  d_commandStatus = CommandSuccess::instance();
+}
+
+Expr ExpandDefinitionsCommand::getResult() const throw() {
+  return d_result;
+}
+
+void ExpandDefinitionsCommand::printResult(std::ostream& out) const throw() {
+  if(! ok()) {
+    this->Command::printResult(out);
+  } else {
+    out << d_result << endl;
+  }
+}
+
+Command* ExpandDefinitionsCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  ExpandDefinitionsCommand* c = new ExpandDefinitionsCommand(d_term.exportTo(exprManager, variableMap));
+  c->d_result = d_result.exportTo(exprManager, variableMap);
+  return c;
+}
+
+Command* ExpandDefinitionsCommand::clone() const {
+  ExpandDefinitionsCommand* c = new ExpandDefinitionsCommand(d_term);
+  c->d_result = d_result;
+  return c;
+}
+
+/* class GetValueCommand */
+
+GetValueCommand::GetValueCommand(Expr term) throw() :
+  d_terms() {
+  d_terms.push_back(term);
+}
+
+GetValueCommand::GetValueCommand(const std::vector<Expr>& terms) throw() :
+  d_terms(terms) {
+  CheckArgument(terms.size() >= 1, terms, "cannot get-value of an empty set of terms");
+}
+
+const std::vector<Expr>& GetValueCommand::getTerms() const throw() {
+  return d_terms;
 }
 
 void GetValueCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
-    d_result = d_term.getExprManager()->mkExpr(kind::TUPLE, d_term,
-                                               smtEngine->getValue(d_term));
+    vector<Node> result;
+    NodeManager* nm = NodeManager::fromExprManager(smtEngine->getExprManager());
+    for(std::vector<Expr>::const_iterator i = d_terms.begin(); i != d_terms.end(); ++i) {
+      Assert(nm == NodeManager::fromExprManager((*i).getExprManager()));
+      smt::SmtScope scope(smtEngine);
+      Node request = Node::fromExpr(options::expandDefinitions() ? smtEngine->expandDefinitions(*i) : *i);
+      Node value = Node::fromExpr(smtEngine->getValue(*i));
+      result.push_back(nm->mkNode(kind::SEXPR, request, value));
+    }
+    Node n = nm->mkNode(kind::SEXPR, result);
+    d_result = nm->toExpr(n);
     d_commandStatus = CommandSuccess::instance();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -713,18 +814,23 @@ void GetValueCommand::printResult(std::ostream& out) const throw() {
   if(! ok()) {
     this->Command::printResult(out);
   } else {
+    Expr::dag::Scope scope(out, false);
     out << d_result << endl;
   }
 }
 
 Command* GetValueCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
-  GetValueCommand* c = new GetValueCommand(d_term.exportTo(exprManager, variableMap));
+  vector<Expr> exportedTerms;
+  for(std::vector<Expr>::const_iterator i = d_terms.begin(); i != d_terms.end(); ++i) {
+    exportedTerms.push_back((*i).exportTo(exprManager, variableMap));
+  }
+  GetValueCommand* c = new GetValueCommand(exportedTerms);
   c->d_result = d_result.exportTo(exprManager, variableMap);
   return c;
 }
 
 Command* GetValueCommand::clone() const {
-  GetValueCommand* c = new GetValueCommand(d_term);
+  GetValueCommand* c = new GetValueCommand(d_terms);
   c->d_result = d_result;
   return c;
 }
@@ -767,6 +873,49 @@ Command* GetAssignmentCommand::clone() const {
   return c;
 }
 
+/* class GetModelCommand */
+
+GetModelCommand::GetModelCommand() throw() {
+}
+
+void GetModelCommand::invoke(SmtEngine* smtEngine) throw() {
+  try {
+    d_result = smtEngine->getModel();
+    d_smtEngine = smtEngine;
+    d_commandStatus = CommandSuccess::instance();
+  } catch(exception& e) {
+    d_commandStatus = new CommandFailure(e.what());
+  }
+}
+
+/* Model is private to the library -- for now
+Model* GetModelCommand::getResult() const throw() {
+  return d_result;
+}
+*/
+
+void GetModelCommand::printResult(std::ostream& out) const throw() {
+  if(! ok()) {
+    this->Command::printResult(out);
+  } else {
+    out << *d_result;
+  }
+}
+
+Command* GetModelCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetModelCommand* c = new GetModelCommand();
+  c->d_result = d_result;
+  c->d_smtEngine = d_smtEngine;
+  return c;
+}
+
+Command* GetModelCommand::clone() const {
+  GetModelCommand* c = new GetModelCommand();
+  c->d_result = d_result;
+  c->d_smtEngine = d_smtEngine;
+  return c;
+}
+
 /* class GetProofCommand */
 
 GetProofCommand::GetProofCommand() throw() {
@@ -805,6 +954,44 @@ Command* GetProofCommand::clone() const {
   return c;
 }
 
+/* class GetUnsatCoreCommand */
+
+GetUnsatCoreCommand::GetUnsatCoreCommand() throw() {
+}
+
+void GetUnsatCoreCommand::invoke(SmtEngine* smtEngine) throw() {
+  /*
+  try {
+    d_result = smtEngine->getUnsatCore();
+    d_commandStatus = CommandSuccess::instance();
+  } catch(exception& e) {
+    d_commandStatus = new CommandFailure(e.what());
+  }
+  */
+  d_commandStatus = new CommandUnsupported();
+}
+
+void GetUnsatCoreCommand::printResult(std::ostream& out) const throw() {
+  if(! ok()) {
+    this->Command::printResult(out);
+  } else {
+    //do nothing -- unsat cores not yet supported
+    // d_result->toStream(out);
+  }
+}
+
+Command* GetUnsatCoreCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetUnsatCoreCommand* c = new GetUnsatCoreCommand();
+  //c->d_result = d_result;
+  return c;
+}
+
+Command* GetUnsatCoreCommand::clone() const {
+  GetUnsatCoreCommand* c = new GetUnsatCoreCommand();
+  //c->d_result = d_result;
+  return c;
+}
+
 /* class GetAssertionsCommand */
 
 GetAssertionsCommand::GetAssertionsCommand() throw() {
@@ -814,7 +1001,9 @@ void GetAssertionsCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
     stringstream ss;
     const vector<Expr> v = smtEngine->getAssertions();
+    ss << "(\n";
     copy( v.begin(), v.end(), ostream_iterator<Expr>(ss, "\n") );
+    ss << ")\n";
     d_result = ss.str();
     d_commandStatus = CommandSuccess::instance();
   } catch(exception& e) {
@@ -861,7 +1050,7 @@ void SetBenchmarkStatusCommand::invoke(SmtEngine* smtEngine) throw() {
     stringstream ss;
     ss << d_status;
     SExpr status = ss.str();
-    smtEngine->setInfo(":status", status);
+    smtEngine->setInfo("status", status);
     d_commandStatus = CommandSuccess::instance();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -922,7 +1111,7 @@ void SetInfoCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
     smtEngine->setInfo(d_flag, d_sexpr);
     d_commandStatus = CommandSuccess::instance();
-  } catch(BadOptionException&) {
+  } catch(UnrecognizedOptionException&) {
     d_commandStatus = new CommandUnsupported();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -949,11 +1138,14 @@ std::string GetInfoCommand::getFlag() const throw() {
 
 void GetInfoCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
+    vector<SExpr> v;
+    v.push_back(SExpr(SExpr::Keyword(string(":") + d_flag)));
+    v.push_back(smtEngine->getInfo(d_flag));
     stringstream ss;
-    ss << smtEngine->getInfo(d_flag);
+    ss << SExpr(v);
     d_result = ss.str();
     d_commandStatus = CommandSuccess::instance();
-  } catch(BadOptionException&) {
+  } catch(UnrecognizedOptionException&) {
     d_commandStatus = new CommandUnsupported();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -1003,7 +1195,7 @@ void SetOptionCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
     smtEngine->setOption(d_flag, d_sexpr);
     d_commandStatus = CommandSuccess::instance();
-  } catch(BadOptionException&) {
+  } catch(UnrecognizedOptionException&) {
     d_commandStatus = new CommandUnsupported();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -1030,9 +1222,14 @@ std::string GetOptionCommand::getFlag() const throw() {
 
 void GetOptionCommand::invoke(SmtEngine* smtEngine) throw() {
   try {
-    d_result = smtEngine->getOption(d_flag).getValue();
+    vector<SExpr> v;
+    v.push_back(SExpr(SExpr::Keyword(string(":") + d_flag)));
+    v.push_back(smtEngine->getOption(d_flag));
+    stringstream ss;
+    ss << SExpr(v);
+    d_result = ss.str();
     d_commandStatus = CommandSuccess::instance();
-  } catch(BadOptionException&) {
+  } catch(UnrecognizedOptionException&) {
     d_commandStatus = new CommandUnsupported();
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
@@ -1080,17 +1277,233 @@ DatatypeDeclarationCommand::getDatatypes() const throw() {
 }
 
 void DatatypeDeclarationCommand::invoke(SmtEngine* smtEngine) throw() {
-  Dump("declarations") << *this;
   d_commandStatus = CommandSuccess::instance();
 }
 
 Command* DatatypeDeclarationCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
-  Warning() << "We currently do not support exportTo with Datatypes" << std::endl;
-  return NULL;
+  throw ExportUnsupportedException
+          ("export of DatatypeDeclarationCommand unsupported");
 }
 
 Command* DatatypeDeclarationCommand::clone() const {
   return new DatatypeDeclarationCommand(d_datatypes);
+}
+
+/* class RewriteRuleCommand */
+
+RewriteRuleCommand::RewriteRuleCommand(const std::vector<Expr>& vars,
+                                       const std::vector<Expr>& guards,
+                                       Expr head, Expr body,
+                                       const Triggers& triggers) throw() :
+  d_vars(vars), d_guards(guards), d_head(head), d_body(body), d_triggers(triggers) {
+}
+
+RewriteRuleCommand::RewriteRuleCommand(const std::vector<Expr>& vars,
+                                       Expr head, Expr body) throw() :
+  d_vars(vars), d_head(head), d_body(body) {
+}
+
+const std::vector<Expr>& RewriteRuleCommand::getVars() const throw() {
+  return d_vars;
+}
+
+const std::vector<Expr>& RewriteRuleCommand::getGuards() const throw() {
+  return d_guards;
+}
+
+Expr RewriteRuleCommand::getHead() const throw() {
+  return d_head;
+}
+
+Expr RewriteRuleCommand::getBody() const throw() {
+  return d_body;
+}
+
+const RewriteRuleCommand::Triggers& RewriteRuleCommand::getTriggers() const throw() {
+  return d_triggers;
+}
+
+void RewriteRuleCommand::invoke(SmtEngine* smtEngine) throw() {
+  try {
+    ExprManager* em = smtEngine->getExprManager();
+    /** build vars list */
+    Expr vars = em->mkExpr(kind::BOUND_VAR_LIST, d_vars);
+    /** build guards list */
+    Expr guards;
+    if(d_guards.size() == 0) guards = em->mkConst<bool>(true);
+    else if(d_guards.size() == 1) guards = d_guards[0];
+    else guards = em->mkExpr(kind::AND,d_guards);
+    /** build expression */
+    Expr expr;
+    if( d_triggers.empty() ){
+      expr = em->mkExpr(kind::RR_REWRITE,vars,guards,d_head,d_body);
+    } else {
+      /** build triggers list */
+      std::vector<Expr> vtriggers;
+      vtriggers.reserve(d_triggers.size());
+      for(Triggers::const_iterator i = d_triggers.begin(),
+            end = d_triggers.end(); i != end; ++i){
+        vtriggers.push_back(em->mkExpr(kind::INST_PATTERN,*i));
+      }
+      Expr triggers = em->mkExpr(kind::INST_PATTERN_LIST,vtriggers);
+      expr = em->mkExpr(kind::RR_REWRITE,vars,guards,d_head,d_body,triggers);
+    }
+    smtEngine->assertFormula(expr);
+    d_commandStatus = CommandSuccess::instance();
+  } catch(exception& e) {
+    d_commandStatus = new CommandFailure(e.what());
+  }
+}
+
+Command* RewriteRuleCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  /** Convert variables */
+  VExpr vars; vars.reserve(d_vars.size());
+  for(VExpr::iterator i = d_vars.begin(), end = d_vars.end();
+      i == end; ++i){
+    vars.push_back(i->exportTo(exprManager, variableMap));
+  };
+  /** Convert guards */
+  VExpr guards; guards.reserve(d_guards.size());
+  for(VExpr::iterator i = d_guards.begin(), end = d_guards.end();
+      i == end; ++i){
+    guards.push_back(i->exportTo(exprManager, variableMap));
+  };
+  /** Convert triggers */
+  Triggers triggers; triggers.resize(d_triggers.size());
+  for(size_t i = 0, end = d_triggers.size();
+      i < end; ++i){
+    triggers[i].reserve(d_triggers[i].size());
+    for(VExpr::iterator j = d_triggers[i].begin(), jend = d_triggers[i].end();
+        j == jend; ++i){
+      triggers[i].push_back(j->exportTo(exprManager, variableMap));
+    };
+  };
+  /** Convert head and body */
+  Expr head = d_head.exportTo(exprManager, variableMap);
+  Expr body = d_body.exportTo(exprManager, variableMap);
+  /** Create the converted rules */
+  return new RewriteRuleCommand(vars, guards, head, body, triggers);
+}
+
+Command* RewriteRuleCommand::clone() const {
+  return new RewriteRuleCommand(d_vars, d_guards, d_head, d_body, d_triggers);
+}
+
+/* class PropagateRuleCommand */
+
+PropagateRuleCommand::PropagateRuleCommand(const std::vector<Expr>& vars,
+                                           const std::vector<Expr>& guards,
+                                           const std::vector<Expr>& heads,
+                                           Expr body,
+                                           const Triggers& triggers,
+                                           bool deduction) throw() :
+  d_vars(vars), d_guards(guards), d_heads(heads), d_body(body), d_triggers(triggers), d_deduction(deduction) {
+}
+
+PropagateRuleCommand::PropagateRuleCommand(const std::vector<Expr>& vars,
+                                           const std::vector<Expr>& heads,
+                                           Expr body,
+                                           bool deduction) throw() :
+  d_vars(vars), d_heads(heads), d_body(body), d_deduction(deduction) {
+}
+
+const std::vector<Expr>& PropagateRuleCommand::getVars() const throw() {
+  return d_vars;
+}
+
+const std::vector<Expr>& PropagateRuleCommand::getGuards() const throw() {
+  return d_guards;
+}
+
+const std::vector<Expr>& PropagateRuleCommand::getHeads() const throw() {
+  return d_heads;
+}
+
+Expr PropagateRuleCommand::getBody() const throw() {
+  return d_body;
+}
+
+const PropagateRuleCommand::Triggers& PropagateRuleCommand::getTriggers() const throw() {
+  return d_triggers;
+}
+
+bool PropagateRuleCommand::isDeduction() const throw() {
+  return d_deduction;
+}
+
+void PropagateRuleCommand::invoke(SmtEngine* smtEngine) throw() {
+  try {
+    ExprManager* em = smtEngine->getExprManager();
+    /** build vars list */
+    Expr vars = em->mkExpr(kind::BOUND_VAR_LIST, d_vars);
+    /** build guards list */
+    Expr guards;
+    if(d_guards.size() == 0) guards = em->mkConst<bool>(true);
+    else if(d_guards.size() == 1) guards = d_guards[0];
+    else guards = em->mkExpr(kind::AND,d_guards);
+    /** build heads list */
+    Expr heads;
+    if(d_heads.size() == 1) heads = d_heads[0];
+    else heads = em->mkExpr(kind::AND,d_heads);
+    /** build expression */
+    Expr expr;
+    if( d_triggers.empty() ){
+      expr = em->mkExpr(kind::RR_REWRITE,vars,guards,heads,d_body);
+    } else {
+      /** build triggers list */
+      std::vector<Expr> vtriggers;
+      vtriggers.reserve(d_triggers.size());
+      for(Triggers::const_iterator i = d_triggers.begin(),
+            end = d_triggers.end(); i != end; ++i){
+        vtriggers.push_back(em->mkExpr(kind::INST_PATTERN,*i));
+      }
+      Expr triggers = em->mkExpr(kind::INST_PATTERN_LIST,vtriggers);
+      expr = em->mkExpr(kind::RR_REWRITE,vars,guards,heads,d_body,triggers);
+    }
+    smtEngine->assertFormula(expr);
+    d_commandStatus = CommandSuccess::instance();
+  } catch(exception& e) {
+    d_commandStatus = new CommandFailure(e.what());
+  }
+}
+
+Command* PropagateRuleCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  /** Convert variables */
+  VExpr vars; vars.reserve(d_vars.size());
+  for(VExpr::iterator i = d_vars.begin(), end = d_vars.end();
+      i == end; ++i){
+    vars.push_back(i->exportTo(exprManager, variableMap));
+  };
+  /** Convert guards */
+  VExpr guards; guards.reserve(d_guards.size());
+  for(VExpr::iterator i = d_guards.begin(), end = d_guards.end();
+      i == end; ++i){
+    guards.push_back(i->exportTo(exprManager, variableMap));
+  };
+  /** Convert heads */
+  VExpr heads; heads.reserve(d_heads.size());
+  for(VExpr::iterator i = d_heads.begin(), end = d_heads.end();
+      i == end; ++i){
+    heads.push_back(i->exportTo(exprManager, variableMap));
+  };
+  /** Convert triggers */
+  Triggers triggers; triggers.resize(d_triggers.size());
+  for(size_t i = 0, end = d_triggers.size();
+      i < end; ++i){
+    triggers[i].reserve(d_triggers[i].size());
+    for(VExpr::iterator j = d_triggers[i].begin(), jend = d_triggers[i].end();
+        j == jend; ++i){
+      triggers[i].push_back(j->exportTo(exprManager, variableMap));
+    };
+  };
+  /** Convert head and body */
+  Expr body = d_body.exportTo(exprManager, variableMap);
+  /** Create the converted rules */
+  return new PropagateRuleCommand(vars, guards, heads, body, triggers);
+}
+
+Command* PropagateRuleCommand::clone() const {
+  return new PropagateRuleCommand(d_vars, d_guards, d_heads, d_body, d_triggers);
 }
 
 /* output stream insertion operator for benchmark statuses */
@@ -1146,7 +1559,7 @@ void MappingCommand::invoke(SmtEngine* smtEngine) throw() {
   // b << d_boolvar << d_expr;
   // Node n(b);
   
-  smtEngine->addMapping(d_boolvar, d_expr);
+  //smtEngine->addMapping(d_boolvar, d_expr);
   /*** Figure out later what exactly to do ***/
 
   // try {

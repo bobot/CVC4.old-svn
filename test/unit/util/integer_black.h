@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -281,6 +279,26 @@ public:
     string res = ss.str();
 
     TS_ASSERT_EQUALS(res, large.toString());
+  }
+
+  void testBaseInference() {
+    TS_ASSERT_EQUALS(Integer("0xa", 0), 10);
+    TS_ASSERT_EQUALS(Integer("0xff", 0), 255);
+    TS_ASSERT_EQUALS(Integer("011", 0), 9);
+    TS_ASSERT_EQUALS(Integer("0b1010", 0), 10);
+    TS_ASSERT_EQUALS(Integer("-1", 0), -1);
+    TS_ASSERT_EQUALS(Integer("42", 0), 42);
+  }
+
+  void testParseErrors() {
+    TS_ASSERT_THROWS(Integer("abracadabra"), std::invalid_argument);
+    TS_ASSERT_THROWS(Integer("+-1"), std::invalid_argument);
+    TS_ASSERT_THROWS(Integer("-+1"), std::invalid_argument);
+    TS_ASSERT_THROWS(Integer("5i"), std::invalid_argument);
+    TS_ASSERT_THROWS(Integer("10xyz"), std::invalid_argument);
+    TS_ASSERT_THROWS(Integer("0xff", 10), std::invalid_argument);
+    TS_ASSERT_THROWS(Integer("#x5", 0), std::invalid_argument);
+    TS_ASSERT_THROWS(Integer("0b123", 0), std::invalid_argument);
   }
 
   void testPow() {

@@ -8,12 +8,19 @@ noinst_LTLIBRARIES = libsmt.la
 libsmt_la_SOURCES = \
 	smt_engine.cpp \
 	smt_engine.h \
+	smt_engine_scope.cpp \
+	smt_engine_scope.h \
+	command_list.cpp \
+	command_list.h \
 	modal_exception.h \
-	bad_option_exception.h \
-	no_such_function_exception.h
+	simplification_mode.h \
+	simplification_mode.cpp
+
+nodist_libsmt_la_SOURCES = \
+	smt_options.cpp
 
 EXTRA_DIST = \
-	bad_option_exception.i \
-	no_such_function_exception.i \
+	options_handlers.h \
+	smt_options_template.cpp \
 	modal_exception.i \
 	smt_engine.i

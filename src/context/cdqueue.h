@@ -2,12 +2,10 @@
 /*! \file cdqueue.h
  ** \verbatim
  ** Original author: bobot
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: taking
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -63,7 +61,7 @@ protected:
    *  We assume that the base class do the job inside their copy constructor.
    */
   ContextObj* save(ContextMemoryManager* pCMM) {
-    ContextObj* data = new(pCMM) CDQueue<T>(*this);
+    ContextObj* data = new(pCMM) CDQueue<T, CleanUp, Allocator>(*this);
     // We save the d_size in d_lastsave and we should never destruct below this
     // indices before the corresponding restore.
     d_lastsave = ParentType::d_size;
@@ -83,7 +81,7 @@ protected:
    * the list pointer and the allocated size are not changed.
    */
   void restore(ContextObj* data) {
-    CDQueue<T>* qdata = static_cast<CDQueue<T>*>(data);
+    CDQueue<T, CleanUp, Allocator>* qdata = static_cast<CDQueue<T, CleanUp, Allocator>*>(data);
     d_iter = qdata->d_iter;
     d_lastsave = qdata->d_lastsave;
     ParentType::restore(data);
@@ -144,7 +142,7 @@ public:
   }
 
   /**
-   * Returns the most recent item added to the list.
+   * Returns the most recent item added to the queue.
    */
   const T& back() const {
     Assert(!empty(), "CDQueue::back() called on empty list");

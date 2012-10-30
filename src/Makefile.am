@@ -17,7 +17,7 @@ AM_CPPFLAGS = \
 	-I@srcdir@/include -I@srcdir@ -I@builddir@
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-SUBDIRS = lib expr util context theory prop decision smt printer proof . parser compat bindings main
+SUBDIRS = lib options expr util context theory prop decision smt printer proof . parser compat bindings main
 
 lib_LTLIBRARIES = libcvc4.la
 if HAVE_CXXTESTGEN
@@ -33,6 +33,7 @@ nodist_EXTRA_libcvc4_la_SOURCES = dummy.cpp
 libcvc4_noinst_la_SOURCES = subversion_versioninfo.cpp
 libcvc4_la_SOURCES = subversion_versioninfo.cpp
 libcvc4_la_LIBADD = \
+	@builddir@/options/liboptions.la \
 	@builddir@/util/libutil.la \
 	@builddir@/expr/libexpr.la \
 	@builddir@/context/libcontext.la \
@@ -43,9 +44,9 @@ libcvc4_la_LIBADD = \
 	@builddir@/printer/libprinter.la \
 	@builddir@/smt/libsmt.la \
 	@builddir@/theory/libtheory.la \
-	@builddir@/decision/libdecision.la \
-	@builddir@/lib/libreplacements.la
+	@builddir@/decision/libdecision.la
 libcvc4_noinst_la_LIBADD = \
+	@builddir@/options/liboptions.la \
 	@builddir@/util/libutil.la \
 	@builddir@/expr/libexpr.la \
 	@builddir@/context/libcontext.la \
@@ -56,8 +57,14 @@ libcvc4_noinst_la_LIBADD = \
 	@builddir@/printer/libprinter.la \
 	@builddir@/smt/libsmt.la \
 	@builddir@/theory/libtheory.la \
-	@builddir@/decision/libdecision.la \
+	@builddir@/decision/libdecision.la
+
+if CVC4_NEEDS_REPLACEMENT_FUNCTIONS
+libcvc4_la_LIBADD += \
 	@builddir@/lib/libreplacements.la
+libcvc4_noinst_la_LIBADD += \
+	@builddir@/lib/libreplacements.la
+endif
 
 CLEANFILES = \
 	subversion_versioninfo.cpp \
@@ -65,6 +72,7 @@ CLEANFILES = \
 	svninfo
 
 EXTRA_DIST = \
+	include/cvc4_private_library.h \
 	include/cvc4parser_private.h \
 	include/cvc4parser_public.h \
 	include/cvc4_private.h \
@@ -104,6 +112,9 @@ install-data-local:
 	(echo include/cvc4.h; \
 	 echo include/cvc4_public.h; \
 	 echo include/cvc4parser_public.h; \
+	 echo util/tls.h; \
+	 echo util/integer.h; \
+	 echo util/rational.h; \
 	 find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
 	(cd "$(srcdir)" && find * -name '*.h' | \
@@ -131,6 +142,9 @@ uninstall-local:
 	-(echo include/cvc4.h; \
 	  echo include/cvc4_public.h; \
 	  echo include/cvc4parser_public.h; \
+	  echo util/tls.h; \
+	  echo util/integer.h; \
+	  echo util/rational.h; \
 	  find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
 	(cd "$(srcdir)" && find * -name '*.h' | \
@@ -146,3 +160,34 @@ uninstall-local:
 	-rmdir "$(DESTDIR)$(includedir)/cvc4/bindings"
 	-rmdir "$(DESTDIR)$(includedir)/cvc4"
 	-rmdir "$(DESTDIR)$(libdir)/ocaml/cvc4"
+
+# clean up the .fix files
+mostlyclean-local:
+	(echo include/cvc4.h; \
+	 echo include/cvc4_public.h; \
+	 echo include/cvc4parser_public.h; \
+	 echo util/tls.h; \
+	 echo util/integer.h; \
+	 echo util/rational.h; \
+	 find * -name '*.h.fix' | \
+		xargs grep -l '^# *include  *<cvc4/cvc4.*_public\.h>' | \
+		sed 's,\.fix$$,,'; \
+	(cd "$(srcdir)" && find * -name '*.h' | \
+		xargs grep -l '^# *include  *"cvc4.*_public\.h"')) | \
+	while read f; do \
+		if expr "$$f" : ".*_\(template\|private\|test_utils\)\.h$$" &>/dev/null; then \
+			continue; \
+		fi; \
+		d="$$(echo "$$f" | sed 's,^include/,,')"; \
+		if [ -e "$$f" ]; then \
+			path="$$f"; \
+			fixpath="$$f.fix"; \
+		else \
+			path="$(srcdir)/$$f"; \
+			fixpath="$(builddir)/$$f.fix"; \
+			$(MKDIR_P) "`dirname "$$fixpath"`"; \
+		fi; \
+		echo rm -f "$$fixpath"; \
+		rm -f "$$fixpath"; \
+	done
+

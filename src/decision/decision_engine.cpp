@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: kshitij
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): taking, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -21,13 +19,16 @@
 #include "decision/relevancy.h"
 
 #include "expr/node.h"
-#include "util/options.h"
+#include "decision/options.h"
+#include "decision/decision_mode.h"
+
+#include "smt/options.h"
 
 using namespace std;
 
 namespace CVC4 {
 
-  DecisionEngine::DecisionEngine(context::Context *sc,
+DecisionEngine::DecisionEngine(context::Context *sc,
                                  context::Context *uc) :
   d_enabledStrategies(),
   d_needIteSkolemMap(),
@@ -37,28 +38,41 @@ namespace CVC4 {
   d_satSolver(NULL),
   d_satContext(sc),
   d_userContext(uc),
-  d_result(SAT_VALUE_UNKNOWN)
+  d_result(sc, SAT_VALUE_UNKNOWN),
+  d_engineState(0)
 {
-  const Options* options = Options::current();
   Trace("decision") << "Creating decision engine" << std::endl;
+}
 
-  if(options->incrementalSolving) return;
+void DecisionEngine::init()
+{
+  Assert(d_engineState == 0);
+  d_engineState = 1;
 
-  if(options->decisionMode == Options::DECISION_STRATEGY_INTERNAL) { }
-  if(options->decisionMode == Options::DECISION_STRATEGY_JUSTIFICATION) {
+  Trace("decision-init") << "DecisionEngine::init()" << std::endl;
+  if(options::incrementalSolving()) return;
+
+  Trace("decision-init") << " * options->decisionMode: " 
+                         << options::decisionMode() << std:: endl;
+  Trace("decision-init") << " * options->decisionStopOnly: "
+                         << options::decisionStopOnly() << std::endl;
+
+  if(options::decisionMode() == decision::DECISION_STRATEGY_INTERNAL) { }
+  if(options::decisionMode() == decision::DECISION_STRATEGY_JUSTIFICATION) {
     ITEDecisionStrategy* ds = 
       new decision::JustificationHeuristic(this, d_satContext);
     enableStrategy(ds);
     d_needIteSkolemMap.push_back(ds);
   }
-  if(options->decisionMode == Options::DECISION_STRATEGY_RELEVANCY) {
+  if(options::decisionMode() == decision::DECISION_STRATEGY_RELEVANCY) {
     RelevancyStrategy* ds = 
-      new decision::Relevancy(this, d_satContext, options->decisionOptions);
+      new decision::Relevancy(this, d_satContext);
     enableStrategy(ds);
     d_needIteSkolemMap.push_back(ds);
     d_relevancyStrategy = ds;
   }
 }
+
 
 void DecisionEngine::enableStrategy(DecisionStrategy* ds)
 {

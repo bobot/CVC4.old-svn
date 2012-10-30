@@ -1,10 +1,15 @@
-SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes lemmas push-pop preprocess unconstrained
+SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers rewriterules lemmas push-pop preprocess unconstrained decision
+DIST_SUBDIRS = . arith precedence uf uflra uflia bv arrays aufbv auflia datatypes quantifiers rewriterules lemmas push-pop preprocess unconstrained decision
 
 BINARY = cvc4
-if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../run_regression $(RUN_REGRESSION_ARGS) --proof @top_builddir@/src/main/$(BINARY)
-else
-TESTS_ENVIRONMENT = @srcdir@/../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+LOG_COMPILER = @srcdir@/../run_regression
+AM_LOG_FLAGS = $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+
+if AUTOMAKE_1_11
+# old-style (pre-automake 1.12) test harness
+TESTS_ENVIRONMENT = \
+	$(TESTS_ENVIRONMENT) $(LOG_COMPILER) \
+	$(AM_LOG_FLAGS) $(LOG_FLAGS)
 endif
 
 MAKEFLAGS = -k
@@ -42,7 +47,9 @@ SMT2_TESTS = \
 	simple-lra.smt2 \
 	simple-rdl.smt2 \
 	simple-uf.smt2 \
-	simplification_bug4.smt2
+	simplification_bug4.smt2 \
+	parallel-let.smt2 \
+	get-value-incremental.smt2
 
 # Regression tests for PL inputs
 CVC_TESTS = \
@@ -82,7 +89,21 @@ CVC_TESTS = \
 	wiki.19.cvc \
 	wiki.20.cvc \
 	wiki.21.cvc \
-	simplification_bug3.cvc
+	simplification_bug3.cvc \
+	queries0.cvc
+
+# Regression tests for TPTP inputs
+TPTP_TESTS = \
+	tptp_parser.p \
+	tptp_parser2.p \
+	tptp_parser3.p \
+	tptp_parser4.p \
+	tptp_parser5.p \
+	tptp_parser6.p \
+	tptp_parser7.p \
+	tptp_parser8.p \
+	tptp_parser9.p \
+	tptp_parser10.p
 
 # Regression tests derived from bug reports
 BUG_TESTS = \
@@ -93,22 +114,33 @@ BUG_TESTS = \
 	bug167.smt \
 	bug168.smt \
 	bug187.smt2 \
+	bug216.smt2 \
 	bug220.smt2 \
 	bug239.smt \
+	bug274.cvc \
+	bug288.smt \
+	bug288b.smt \
+	bug288c.smt \
+	bug296.smt2 \
 	buggy-ite.smt2 \
 	bug303.smt2 \
 	bug310.cvc \
-	bug339.smt2
+	bug322.cvc \
+	bug322b.cvc \
+	bug339.smt2 \
+	bug365.smt2 \
+	bug382.smt2 \
+	bug383.smt2 \
+	bug398.smt2 \
+	bug421.smt2 \
+	bug421b.smt2 \
+	bug425.cvc
 
-TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
+TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(TPTP_TESTS) $(BUG_TESTS)
 
 EXTRA_DIST = $(TESTS) \
-	bug216.smt2 \
-	bug216.smt2.expect \
-	bug288b.smt \
-	bug288c.smt \
-	bug288.smt \
-	simplification_bug4.smt2.expect
+	simplification_bug4.smt2.expect \
+	bug216.smt2.expect
 
 if CVC4_BUILD_PROFILE_COMPETITION
 else

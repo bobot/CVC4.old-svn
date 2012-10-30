@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: cconway, mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -44,10 +42,9 @@ public:
       for(; argument_it != argument_it_end; ++argument_it, ++argument_type_it) {
         TypeNode currentArgument = (*argument_it).getType();
         TypeNode currentArgumentType = *argument_type_it;
-        if(!currentArgument.isSubtypeOf(currentArgumentType)) {
+        if(!currentArgument.isComparableTo(currentArgumentType)) {
           std::stringstream ss;
-          ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
-             << "argument types is not a subtype of the function's argument type:\n"
+          ss << "argument type is not a subtype of the function's argument type:\n"
              << "argument:  " << *argument_it << "\n"
              << "has type:  " << (*argument_it).getType() << "\n"
              << "not subtype: " << *argument_type_it;
@@ -58,6 +55,20 @@ public:
     return fType.getRangeType();
   }
 };/* class UfTypeRule */
+
+class CardinalityConstraintTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw(TypeCheckingExceptionPrivate) {
+    if( check ) {
+      TypeNode valType = n[1].getType(check);
+      if( valType != nodeManager->integerType() ) {
+        throw TypeCheckingExceptionPrivate(n, "cardinality constraint must be integer");
+      }
+    }
+    return nodeManager->booleanType();
+  }
+};/* class CardinalityConstraintTypeRule */
 
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */

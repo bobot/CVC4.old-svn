@@ -2,12 +2,10 @@
 /*! \file normal_form.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters
- ** Minor contributors (to current version): dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): dejan, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -49,7 +47,7 @@ namespace arith {
  *
  * variable := n
  *   where
- *     n.getMetaKind() == metakind::VARIABLE or is foreign
+ *     n.isVar() or is foreign
  *     n.getType() \in {Integer, Real}
  *
  * constant := n
@@ -211,7 +209,6 @@ namespace arith {
  *      | (+ [monomial]) -> [monomial]
  */
 
-
 /**
  * A NodeWrapper is a class that is a thinly veiled container of a Node object.
  */
@@ -232,9 +229,17 @@ public:
 
   // TODO: check if it's a theory leaf also
   static bool isMember(Node n) {
-    if (n.getKind() == kind::CONST_RATIONAL) return false;
-    if (isRelationOperator(n.getKind())) return false;
-    return Theory::isLeafOf(n, theory::THEORY_ARITH);
+    Kind k = n.getKind();
+    if (k == kind::CONST_RATIONAL) return false;
+    if (isRelationOperator(k)) return false;
+    if (Theory::isLeafOf(n, theory::THEORY_ARITH)) return true;
+    if (k == kind::INTS_DIVISION || k == kind::INTS_MODULUS || k == kind::DIVISION) return isDivMember(n);
+    return false;
+  }
+
+  static bool isDivMember(Node n);
+  bool isDivLike() const{
+    return isDivMember(getNode());
   }
 
   bool isNormalForm() { return isMember(getNode()); }
@@ -244,7 +249,7 @@ public:
   }
 
   bool isMetaKindVariable() const {
-    return getNode().getMetaKind() == kind::metakind::VARIABLE;
+    return getNode().isVar();
   }
 
   bool operator<(const Variable& v) const {
@@ -854,6 +859,15 @@ public:
     return getHead().isConstant();
   }
 
+  uint32_t size() const{
+    if(singleton()){
+      return 1;
+    }else{
+      Assert(getNode().getKind() == kind::PLUS);
+      return getNode().getNumChildren();
+    }
+  }
+
   Monomial getHead() const {
     return *(begin());
   }
@@ -968,7 +982,7 @@ public:
    */
   static Node computeQR(const Polynomial& p, const Integer& z);
 
-  /** Returns the coefficient assiociated with the VarList in the polynomial. */
+  /** Returns the coefficient associated with the VarList in the polynomial. */
   Constant getCoefficient(const VarList& vl) const;
 
   uint32_t maxLength() const{
@@ -1032,7 +1046,7 @@ public:
  * is known to implicitly be equal to 0.
  *
  * SumPairs do not have unique representations due to the potential for p = 0.
- * This makes them inappropraite for normal forms.
+ * This makes them inappropriate for normal forms.
  */
 class SumPair : public NodeWrapper {
 private:

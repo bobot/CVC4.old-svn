@@ -1,285 +1,150 @@
 /*********************                                                        */
 /*! \file theory_black.h
  ** \verbatim
- ** Original author: taking
- ** Major contributors: barrett, mdeters
+ ** Original author: barrett
+ ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Black box testing of CVC4::theory::Theory.
+ ** \brief Black box testing of CVC4::theory
  **
- ** Black box testing of CVC4::theory::Theory.
+ ** Black box testing of CVC4::theory
  **/
 
 #include <cxxtest/TestSuite.h>
 
-#include "theory/theory.h"
-#include "expr/node.h"
-#include "expr/node_manager.h"
-#include "context/context.h"
-
+//Used in some of the tests
 #include <vector>
+#include <sstream>
+
+#include "expr/expr_manager.h"
+#include "expr/node_value.h"
+#include "expr/node_builder.h"
+#include "expr/node_manager.h"
+#include "expr/node.h"
+#include "smt/smt_engine.h"
+#include "smt/smt_engine_scope.h"
+#include "theory/rewriter.h"
 
 using namespace CVC4;
-using namespace CVC4::theory;
-using namespace CVC4::expr;
+using namespace CVC4::kind;
 using namespace CVC4::context;
-
 using namespace std;
-
-/**
- * Very basic OutputChannel for testing simple Theory Behaviour.
- * Stores a call sequence for the output channel
- */
-enum OutputChannelCallType{CONFLICT, PROPAGATE, LEMMA, EXPLANATION};
-class TestOutputChannel : public OutputChannel {
-private:
-  void push(OutputChannelCallType call, TNode n) {
-    d_callHistory.push_back(make_pair(call, n));
-  }
-
-public:
-  vector< pair<OutputChannelCallType, Node> > d_callHistory;
-
-  TestOutputChannel() {}
-
-  ~TestOutputChannel() {}
-
-  void safePoint() throw(Interrupted, AssertionException) {}
-
-  void conflict(TNode n)
-    throw(AssertionException) {
-    push(CONFLICT, n);
-  }
-
-  bool propagate(TNode n)
-    throw(AssertionException) {
-    push(PROPAGATE, n);
-    return true;
-  }
-
-  void propagateAsDecision(TNode n)
-    throw(AssertionException) {
-    // ignore
-  }
-
-  LemmaStatus lemma(TNode n, bool removable)
-    throw(AssertionException) {
-    push(LEMMA, n);
-    return LemmaStatus(Node::null(), 0);
-  }
-
-  void setIncomplete()
-    throw(AssertionException) {
-    Unreachable();
-  }
-
-  void clear() {
-    d_callHistory.clear();
-  }
-
-  Node getIthNode(int i) {
-    Node tmp = (d_callHistory[i]).second;
-    return tmp;
-  }
-
-  OutputChannelCallType getIthCallType(int i) {
-    return (d_callHistory[i]).first;
-  }
-
-  unsigned getNumCalls() {
-    return d_callHistory.size();
-  }
-};
-
-class DummyTheory : public Theory {
-public:
-  set<Node> d_registered;
-  vector<Node> d_getSequence;
-
-  DummyTheory(Context* ctxt, UserContext* uctxt, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) :
-    Theory(theory::THEORY_BUILTIN, ctxt, uctxt, out, valuation, logicInfo) {
-  }
-
-  void registerTerm(TNode n) {
-    // check that we registerTerm() a term only once
-    TS_ASSERT(d_registered.find(n) == d_registered.end());
-
-    for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
-      // check that registerTerm() is called in reverse topological order
-      TS_ASSERT(d_registered.find(*i) != d_registered.end());
-    }
-
-    d_registered.insert(n);
-  }
-
-  Node getWrapper() {
-    Node n = get();
-    d_getSequence.push_back(n);
-    return n;
-  }
-
-  bool doneWrapper() {
-    return done();
-  }
-
-  void check(Effort e) {
-    while(!done()) {
-      getWrapper();
-    }
-  }
-
-  void presolve() {
-    Unimplemented();
-  }
-  void preRegisterTerm(TNode n) {}
-  void propagate(Effort level) {}
-  void explain(TNode n, Effort level) {}
-  Node getValue(TNode n) { return Node::null(); }
-  string identify() const { return "DummyTheory"; }
-};/* class DummyTheory */
+using namespace CVC4::theory;
+using namespace CVC4::smt;
 
 class TheoryBlack : public CxxTest::TestSuite {
+private:
 
-  Context* d_ctxt;
-  UserContext* d_uctxt;
+  ExprManager* d_em;
+  SmtEngine* d_smt;
   NodeManager* d_nm;
-  NodeManagerScope* d_scope;
-  LogicInfo* d_logicInfo;
-
-  TestOutputChannel d_outputChannel;
-
-  DummyTheory* d_dummy;
-
-  Node atom0;
-  Node atom1;
+  SmtScope* d_scope;
 
 public:
 
   void setUp() {
-    d_ctxt = new Context();
-    d_uctxt = new UserContext();
-    d_nm = new NodeManager(d_ctxt, NULL);
-    d_scope = new NodeManagerScope(d_nm);
-    d_logicInfo = new LogicInfo();
-
-    d_dummy = new DummyTheory(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL), *d_logicInfo);
-    d_outputChannel.clear();
-    atom0 = d_nm->mkConst(true);
-    atom1 = d_nm->mkConst(false);
+    d_em = new ExprManager();
+    d_smt = new SmtEngine(d_em);
+    d_nm = NodeManager::fromExprManager(d_em);
+    d_scope = new SmtScope(d_smt);
   }
 
   void tearDown() {
-    atom1 = Node::null();
-    atom0 = Node::null();
-    delete d_dummy;
-    delete d_logicInfo;
-    delete d_scope;
-    delete d_nm;
-    delete d_uctxt;
-    delete d_ctxt;
+    delete d_em;
   }
 
-  void testEffort(){
-    Theory::Effort s = Theory::EFFORT_STANDARD;
-    Theory::Effort f = Theory::EFFORT_FULL;
+  void testArrayConst() {
+    TypeNode arrType = d_nm->mkArrayType(d_nm->integerType(), d_nm->integerType());
+    Node zero = d_nm->mkConst(Rational(0));
+    Node one = d_nm->mkConst(Rational(1));
+    Node storeAll = d_nm->mkConst(ArrayStoreAll(arrType.toType(), zero.toExpr()));
+    TS_ASSERT(storeAll.isConst());
 
-    TS_ASSERT( Theory::standardEffortOnly(s));
-    TS_ASSERT(!Theory::standardEffortOnly(f));
+    Node arr = d_nm->mkNode(STORE, storeAll, zero, zero);
+    TS_ASSERT(!arr.isConst());
+    arr = Rewriter::rewrite(arr);
+    TS_ASSERT(arr.isConst());
+    arr = d_nm->mkNode(STORE, storeAll, zero, one);
+    TS_ASSERT(arr.isConst());
+    Node arr2 = d_nm->mkNode(STORE, arr, one, zero);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = Rewriter::rewrite(arr2);
+    TS_ASSERT(arr2.isConst());
+    arr2 = d_nm->mkNode(STORE, arr, one, one);
+    TS_ASSERT(arr2.isConst());
+    arr2 = d_nm->mkNode(STORE, arr, zero, one);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = Rewriter::rewrite(arr2);
+    TS_ASSERT(arr2.isConst());
 
-    TS_ASSERT(!Theory::fullEffort(s));
-    TS_ASSERT( Theory::fullEffort(f));
+    arrType = d_nm->mkArrayType(d_nm->mkBitVectorType(1), d_nm->mkBitVectorType(1));
+    zero = d_nm->mkConst(BitVector(1,unsigned(0)));
+    one = d_nm->mkConst(BitVector(1,unsigned(1)));
+    storeAll = d_nm->mkConst(ArrayStoreAll(arrType.toType(), zero.toExpr()));
+    TS_ASSERT(storeAll.isConst());
 
-    TS_ASSERT( Theory::standardEffortOrMore(s));
-    TS_ASSERT( Theory::standardEffortOrMore(f));
+    arr = d_nm->mkNode(STORE, storeAll, zero, zero);
+    TS_ASSERT(!arr.isConst());
+    arr = Rewriter::rewrite(arr);
+    TS_ASSERT(arr.isConst());
+    arr = d_nm->mkNode(STORE, storeAll, zero, one);
+    TS_ASSERT(arr.isConst());
+    arr2 = d_nm->mkNode(STORE, arr, one, zero);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = Rewriter::rewrite(arr2);
+    TS_ASSERT(arr2.isConst());
+    arr2 = d_nm->mkNode(STORE, arr, one, one);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = Rewriter::rewrite(arr2);
+    TS_ASSERT(arr2.isConst());
+    arr2 = d_nm->mkNode(STORE, arr, zero, one);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = Rewriter::rewrite(arr2);
+    TS_ASSERT(arr2.isConst());
+
+    arrType = d_nm->mkArrayType(d_nm->mkBitVectorType(2), d_nm->mkBitVectorType(2));
+    zero = d_nm->mkConst(BitVector(2,unsigned(0)));
+    one = d_nm->mkConst(BitVector(2,unsigned(1)));
+    Node two = d_nm->mkConst(BitVector(2,unsigned(2)));
+    Node three = d_nm->mkConst(BitVector(2,unsigned(3)));
+    storeAll = d_nm->mkConst(ArrayStoreAll(arrType.toType(), one.toExpr()));
+    TS_ASSERT(storeAll.isConst());
+
+    arr = d_nm->mkNode(STORE, storeAll, zero, zero);
+    TS_ASSERT(arr.isConst());
+    arr2 = d_nm->mkNode(STORE, arr, one, zero);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = Rewriter::rewrite(arr2);
+    TS_ASSERT(arr2.isConst());
+
+    arr = d_nm->mkNode(STORE, storeAll, one, three);
+    TS_ASSERT(arr.isConst());
+    arr2 = d_nm->mkNode(STORE, arr, one, one);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = Rewriter::rewrite(arr2);
+    TS_ASSERT(arr2 == storeAll);
+
+    arr2 = d_nm->mkNode(STORE, arr, zero, zero);
+    TS_ASSERT(!arr2.isConst());
+    TS_ASSERT(Rewriter::rewrite(arr2).isConst());
+    arr2 = d_nm->mkNode(STORE, arr2, two, two);
+    TS_ASSERT(!arr2.isConst());
+    TS_ASSERT(Rewriter::rewrite(arr2).isConst());
+    arr2 = d_nm->mkNode(STORE, arr2, three, one);
+    TS_ASSERT(!arr2.isConst());
+    TS_ASSERT(Rewriter::rewrite(arr2).isConst());
+    arr2 = d_nm->mkNode(STORE, arr2, three, three);
+    TS_ASSERT(!arr2.isConst());
+    TS_ASSERT(Rewriter::rewrite(arr2).isConst());
+    arr2 = d_nm->mkNode(STORE, arr2, two, zero);
+    TS_ASSERT(!arr2.isConst());
+    arr2 = Rewriter::rewrite(arr2);
+    TS_ASSERT(arr2.isConst());
+
   }
 
-  void testDone() {
-    TS_ASSERT(d_dummy->doneWrapper());
-
-    d_dummy->assertFact(atom0, true);
-    d_dummy->assertFact(atom1, true);
-
-    TS_ASSERT(!d_dummy->doneWrapper());
-
-    d_dummy->check(Theory::EFFORT_FULL);
-
-    TS_ASSERT(d_dummy->doneWrapper());
-  }
-
-  // FIXME: move this to theory_engine test?
-//   void testRegisterTerm() {
-//     TS_ASSERT(d_dummy->doneWrapper());
-
-//     TypeNode typeX = d_nm->booleanType();
-//     TypeNode typeF = d_nm->mkFunctionType(typeX, typeX);
-
-//     Node x = d_nm->mkVar("x",typeX);
-//     Node f = d_nm->mkVar("f",typeF);
-//     Node f_x = d_nm->mkNode(kind::APPLY_UF, f, x);
-//     Node f_f_x = d_nm->mkNode(kind::APPLY_UF, f, f_x);
-//     Node f_x_eq_x = f_x.eqNode(x);
-//     Node x_eq_f_f_x = x.eqNode(f_f_x);
-
-//     d_dummy->assertFact(f_x_eq_x);
-//     d_dummy->assertFact(x_eq_f_f_x);
-
-//     Node got = d_dummy->getWrapper();
-
-//     TS_ASSERT_EQUALS(got, f_x_eq_x);
-
-//     TS_ASSERT_EQUALS(5u, d_dummy->d_registered.size());
-//     TS_ASSERT(d_dummy->d_registered.find(x) != d_dummy->d_registered.end());
-//     TS_ASSERT(d_dummy->d_registered.find(f) != d_dummy->d_registered.end());
-//     TS_ASSERT(d_dummy->d_registered.find(f_x) != d_dummy->d_registered.end());
-//     TS_ASSERT(d_dummy->d_registered.find(f_x_eq_x) != d_dummy->d_registered.end());
-//     TS_ASSERT(d_dummy->d_registered.find(d_nm->operatorOf(kind::EQUAL)) != d_dummy->d_registered.end());
-//     TS_ASSERT(d_dummy->d_registered.find(f_f_x) == d_dummy->d_registered.end());
-//     TS_ASSERT(d_dummy->d_registered.find(x_eq_f_f_x) == d_dummy->d_registered.end());
-
-//     TS_ASSERT(!d_dummy->doneWrapper());
-
-//     got = d_dummy->getWrapper();
-
-//     TS_ASSERT_EQUALS(got, x_eq_f_f_x);
-
-//     TS_ASSERT_EQUALS(7u, d_dummy->d_registered.size());
-//     TS_ASSERT(d_dummy->d_registered.find(f_f_x) != d_dummy->d_registered.end());
-//     TS_ASSERT(d_dummy->d_registered.find(x_eq_f_f_x) != d_dummy->d_registered.end());
-
-//     TS_ASSERT(d_dummy->doneWrapper());
-//   }
-
-  void testOutputChannelAccessors() {
-    /* void setOutputChannel(OutputChannel& out)  */
-    /* OutputChannel& getOutputChannel() */
-
-    TestOutputChannel theOtherChannel;
-
-    TS_ASSERT_EQUALS(&(d_dummy->getOutputChannel()), &d_outputChannel);
-
-    d_dummy->setOutputChannel(theOtherChannel);
-
-    TS_ASSERT_EQUALS(&(d_dummy->getOutputChannel()), &theOtherChannel);
-
-    const OutputChannel& oc = d_dummy->getOutputChannel();
-
-    TS_ASSERT_EQUALS(&oc, &theOtherChannel);
-  }
-
-  void testOutputChannel() {
-    Node n = atom0.orNode(atom1);
-    d_outputChannel.lemma(n, false);
-    d_outputChannel.split(atom0);
-    Node s = atom0.orNode(atom0.notNode());
-    TS_ASSERT_EQUALS(d_outputChannel.d_callHistory.size(), 2u);
-    TS_ASSERT_EQUALS(d_outputChannel.d_callHistory[0], make_pair(LEMMA, n));
-    TS_ASSERT_EQUALS(d_outputChannel.d_callHistory[1], make_pair(LEMMA, s));
-    d_outputChannel.d_callHistory.clear();
-  }
 };

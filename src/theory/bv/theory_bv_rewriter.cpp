@@ -2,12 +2,10 @@
 /*! \file theory_bv_rewriter.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Major contributors: lianah
+ ** Minor contributors (to current version): taking, mdeters, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -107,7 +105,7 @@ RewriteResponse TheoryBVRewriter::RewriteUle(TNode node, bool preregister){
       RewriteRule<UleZero>,
       RewriteRule<UleSelf>
       >::apply(node);
-  return RewriteResponse(REWRITE_DONE, resultNode); 
+  return RewriteResponse(resultNode == node ? REWRITE_DONE : REWRITE_AGAIN, resultNode); 
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSle(TNode node, bool preregister){
@@ -319,13 +317,14 @@ RewriteResponse TheoryBVRewriter::RewriteMult(TNode node, bool preregister) {
 }
 
 RewriteResponse TheoryBVRewriter::RewritePlus(TNode node, bool preregister) {
-  Node resultNode = node;
-
-  resultNode = LinearRewriteStrategy
+  if (preregister) {
+    return RewriteResponse(REWRITE_DONE, node);
+  }
+  Node resultNode = LinearRewriteStrategy
     < RewriteRule<FlattenAssocCommut>, 
       RewriteRule<PlusCombineLikeTerms>
       // RewriteRule<PlusLiftConcat> 
-      >::apply(resultNode);
+      >::apply(node);
   if (resultNode == node) {
     return RewriteResponse(REWRITE_DONE, resultNode);
   } else {
@@ -385,7 +384,6 @@ RewriteResponse TheoryBVRewriter::RewriteUdiv(TNode node, bool preregister){
 
 RewriteResponse TheoryBVRewriter::RewriteUrem(TNode node, bool preregister) {
   Node resultNode = node;
-  return RewriteResponse(REWRITE_DONE, resultNode); 
 
   if(RewriteRule<UremPow2>::applies(node)) {
     resultNode = RewriteRule<UremPow2>::run <false> (node);
@@ -516,22 +514,23 @@ RewriteResponse TheoryBVRewriter::RewriteEqual(TNode node, bool preregister) {
     Node resultNode = LinearRewriteStrategy
       < RewriteRule<FailEq>,
         RewriteRule<SimplifyEq>,
-        RewriteRule<ReflexivityEq>,
-        RewriteRule<BitwiseEq>
+        RewriteRule<ReflexivityEq>
         >::apply(node);
     return RewriteResponse(REWRITE_DONE, resultNode); 
-  }
-  else if(RewriteRule<BitwiseEq>::applies(node)) {
-    Node resultNode = RewriteRule<BitwiseEq>::run<false>(node);
-    return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
   }
   else {
     Node resultNode = LinearRewriteStrategy
       < RewriteRule<FailEq>,
         RewriteRule<SimplifyEq>,
-        RewriteRule<ReflexivityEq>,
-        RewriteRule<SolveEq>
+        RewriteRule<ReflexivityEq>
         >::apply(node);
+
+    if(RewriteRule<SolveEq>::applies(resultNode)) {
+      resultNode = RewriteRule<SolveEq>::run<false>(resultNode);
+      if (resultNode != node) {
+        return RewriteResponse(REWRITE_AGAIN_FULL, resultNode);
+      }
+    }
     return RewriteResponse(REWRITE_DONE, resultNode); 
   }
 }

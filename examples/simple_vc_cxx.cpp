@@ -20,7 +20,7 @@
 
 #include <iostream>
 
-//#include <cvc4.h> // use this after CVC4 is properly installed
+//#include <cvc4/cvc4.h> // use this after CVC4 is properly installed
 #include "smt/smt_engine.h"
 
 using namespace std;
@@ -37,21 +37,21 @@ int main() {
 
   Expr x = em.mkVar("x", integer);
   Expr y = em.mkVar("y", integer);
-  Expr zero = em.mkConst(Integer(0));
+  Expr zero = em.mkConst(Rational(0));
 
   Expr x_positive = em.mkExpr(kind::GT, x, zero);
   Expr y_positive = em.mkExpr(kind::GT, y, zero);
 
-  Expr two = em.mkConst(Integer(2));
+  Expr two = em.mkConst(Rational(2));
   Expr twox = em.mkExpr(kind::MULT, two, x);
   Expr twox_plus_y = em.mkExpr(kind::PLUS, twox, y);
 
-  Expr three = em.mkConst(Integer(3));
+  Expr three = em.mkConst(Rational(3));
   Expr twox_plus_y_geq_3 = em.mkExpr(kind::GEQ, twox_plus_y, three);
 
-  BoolExpr formula =
-    BoolExpr(em.mkExpr(kind::AND, x_positive, y_positive)).
-    impExpr(BoolExpr(twox_plus_y_geq_3));
+  Expr formula =
+    em.mkExpr(kind::AND, x_positive, y_positive).
+    impExpr(twox_plus_y_geq_3);
 
   cout << "Checking validity of formula " << formula << " with CVC4." << endl;
   cout << "CVC4 should report VALID." << endl;

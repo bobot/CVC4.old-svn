@@ -2,12 +2,10 @@
 /*! \file rational_gmp_imp.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,6 +24,7 @@
 #include <string>
 
 #include "util/integer.h"
+#include "util/exception.h"
 
 namespace CVC4 {
 
@@ -62,7 +61,8 @@ private:
 
 public:
 
-  /** Creates a rational from a decimal string (e.g., <code>"1.5"</code>).
+  /**
+   * Creates a rational from a decimal string (e.g., <code>"1.5"</code>).
    *
    * @param dec a string encoding a decimal number in the format
    * <code>[0-9]*\.[0-9]*</code>
@@ -80,7 +80,7 @@ public:
    * For more information about what is a valid rational string,
    * see GMP's documentation for mpq_set_str().
    */
-  explicit Rational(const char * s, int base = 10): d_value(s,base) {
+  explicit Rational(const char* s, unsigned base = 10): d_value(s, base) {
     d_value.canonicalize();
   }
   Rational(const std::string& s, unsigned base = 10) : d_value(s, base) {
@@ -110,6 +110,15 @@ public:
     d_value.canonicalize();
   }
 
+#ifdef CVC4_NEED_INT64_T_OVERLOADS
+  Rational(int64_t n) : d_value(static_cast<long>(n), 1) {
+    d_value.canonicalize();
+  }
+  Rational(uint64_t n) : d_value(static_cast<unsigned long>(n), 1) {
+    d_value.canonicalize();
+  }
+#endif /* CVC4_NEED_INT64_T_OVERLOADS */
+
   /**
    * Constructs a canonical Rational from a numerator and denominator.
    */
@@ -125,6 +134,15 @@ public:
   Rational(unsigned long int n, unsigned long int d) : d_value(n,d) {
     d_value.canonicalize();
   }
+
+#ifdef CVC4_NEED_INT64_T_OVERLOADS
+  Rational(int64_t n, int64_t d) : d_value(static_cast<long>(n), static_cast<long>(d)) {
+    d_value.canonicalize();
+  }
+  Rational(uint64_t n, uint64_t d) : d_value(static_cast<unsigned long>(n), static_cast<unsigned long>(d)) {
+    d_value.canonicalize();
+  }
+#endif /* CVC4_NEED_INT64_T_OVERLOADS */
 
   Rational(const Integer& n, const Integer& d) :
     d_value(n.get_mpz(), d.get_mpz())
@@ -153,6 +171,15 @@ public:
    */
   Integer getDenominator() const {
     return Integer(d_value.get_den());
+  }
+
+  /**
+   * Get a double representation of this Rational, which is
+   * approximate: truncation may occur, overflow may result in
+   * infinity, and underflow may result in zero.
+   */
+  double getDouble() const {
+    return d_value.get_d();
   }
 
   Rational inverse() const {
@@ -286,13 +313,13 @@ public:
 
 };/* class Rational */
 
-struct RationalHashStrategy {
-  static inline size_t hash(const CVC4::Rational& r) {
+struct RationalHashFunction {
+  inline size_t operator()(const CVC4::Rational& r) const {
     return r.hash();
   }
-};/* struct RationalHashStrategy */
+};/* struct RationalHashFunction */
 
-std::ostream& operator<<(std::ostream& os, const Rational& n);
+CVC4_PUBLIC std::ostream& operator<<(std::ostream& os, const Rational& n);
 
 }/* CVC4 namespace */
 

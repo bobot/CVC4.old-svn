@@ -2,12 +2,10 @@
 /*! \file cdlist.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): taking
+ ** Major contributors: taking
+ ** Minor contributors (to current version): bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -30,7 +28,7 @@
 #include "context/context.h"
 #include "context/context_mm.h"
 #include "context/cdlist_forward.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 
 #include <boost/static_assert.hpp>
 
@@ -226,9 +224,9 @@ public:
    * Main constructor: d_list starts as NULL, size is 0
    */
   CDList(Context* context,
-            bool callDestructor = true,
-            const CleanUp& cleanup = CleanUp(),
-            const Allocator& alloc = Allocator()) :
+         bool callDestructor = true,
+         const CleanUp& cleanup = CleanUp(),
+         const Allocator& alloc = Allocator()) :
     ContextObj(context),
     d_list(NULL),
     d_size(0),
@@ -442,8 +440,8 @@ class CDList <T, CleanUp, ContextMemoryAllocator<T> > : public ContextObj {
    *
    * Explanation:
    * If ContextMemoryAllocator is used and d_list grows at a deeper context level
-   * the reallocated will be reallocated in a context memory regaion that can be
-   * detroyed on pop. To support this, a full copy of d_list would have to be made.
+   * the reallocated will be reallocated in a context memory region that can be
+   * destroyed on pop. To support this, a full copy of d_list would have to be made.
    * As this is unacceptable for performance in other situations, we do not do
    * this.
    */

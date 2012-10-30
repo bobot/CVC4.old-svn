@@ -2,12 +2,10 @@
 /*! \file antlr_input.h
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: none
- ** Minor contributors (to current version): dejan, mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): taking, bobot, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -27,12 +25,12 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <cassert>
 
 #include "parser/bounded_token_buffer.h"
 #include "parser/parser_exception.h"
 #include "parser/input.h"
 
-#include "util/Assert.h"
 #include "util/bitvector.h"
 #include "util/integer.h"
 #include "util/rational.h"
@@ -73,13 +71,13 @@ public:
    */
   static AntlrInputStream* newFileInputStream(const std::string& name, 
                                               bool useMmap = false)
-    throw (InputStreamException, AssertionException);
+    throw (InputStreamException);
 
   /** Create an input from an istream. */
   static AntlrInputStream* newStreamInputStream(std::istream& input, 
                                                 const std::string& name,
                                                 bool lineBuffered = false)
-    throw (InputStreamException, AssertionException);
+    throw (InputStreamException);
 
   /** Create a string input.
    *
@@ -88,7 +86,7 @@ public:
    */
   static AntlrInputStream* newStringInputStream(const std::string& input, 
                                                 const std::string& name)
-    throw (InputStreamException, AssertionException);
+    throw (InputStreamException);
 };/* class AntlrInputStream */
 
 class Parser;
@@ -130,8 +128,12 @@ class AntlrInput : public Input {
   static void lexerError(pANTLR3_BASE_RECOGNIZER recognizer);
 
   /** Returns the next available lexer token from the current input stream. */
+  /* - auxillary function */
   static pANTLR3_COMMON_TOKEN
   nextTokenStr (pANTLR3_TOKEN_SOURCE toksource);
+  /* - main function */
+  static pANTLR3_COMMON_TOKEN
+  nextToken (pANTLR3_TOKEN_SOURCE toksource);
 
   /* Since we own d_tokenStream and it needs to be freed, we need to prevent
    * copy construction and assignment.
@@ -182,6 +184,9 @@ public:
   /** Retrieve the remaining text in this input. */
   std::string getUnparsedText();
 
+  /** Get the ANTLR3 lexer for this input. */
+  pANTLR3_LEXER getAntlr3Lexer(){ return d_lexer; };
+
 protected:
   /** Create an input. This input takes ownership of the given input stream,
    * and will delete it at destruction time.
@@ -205,7 +210,7 @@ protected:
    * Throws a <code>ParserException</code> with the given message.
    */
   void parseError(const std::string& msg)
-    throw (ParserException, AssertionException);
+    throw (ParserException);
 
   /** Set the ANTLR3 lexer for this input. */
   void setAntlr3Lexer(pANTLR3_LEXER pLexer);
@@ -244,16 +249,18 @@ inline std::string AntlrInput::tokenText(pANTLR3_COMMON_TOKEN token) {
 inline std::string AntlrInput::tokenTextSubstr(pANTLR3_COMMON_TOKEN token,
                                                size_t index,
                                                size_t n) {
+
   ANTLR3_MARKER start = token->getStartIndex(token);
+  // Its the last character of the token (not the one just after)
   ANTLR3_MARKER end = token->getStopIndex(token);
-  Assert( start < end );
+  assert( start < end );
   if( index > (size_t) end - start ) {
     std::stringstream ss;
     ss << "Out-of-bounds substring index: " << index;
     throw std::invalid_argument(ss.str());
   }
   start += index;
-  if( n==0 || n >= (size_t) end - start ) {
+  if( n==0 || n > (size_t) end - start ) {
     return std::string( (const char *)start, end-start+1 );
   } else {
     return std::string( (const char *)start, n );

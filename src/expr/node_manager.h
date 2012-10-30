@@ -5,9 +5,7 @@
  ** Major contributors: cconway, dejan
  ** Minor contributors (to current version): acsys, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -39,9 +37,8 @@
 #include "expr/node_value.h"
 #include "context/context.h"
 #include "util/subrange_bound.h"
-#include "util/configuration_private.h"
 #include "util/tls.h"
-#include "util/options.h"
+#include "options/options.h"
 
 namespace CVC4 {
 
@@ -54,8 +51,8 @@ class TypeChecker;
 // Definition of an attribute for the variable name.
 // TODO: hide this attribute behind a NodeManager interface.
 namespace attr {
-  struct VarNameTag {};
-  struct SortArityTag {};
+  struct VarNameTag { };
+  struct SortArityTag { };
 }/* CVC4::expr::attr namespace */
 
 typedef Attribute<attr::VarNameTag, std::string> VarNameAttr;
@@ -63,11 +60,33 @@ typedef Attribute<attr::SortArityTag, uint64_t> SortArityAttr;
 
 }/* CVC4::expr namespace */
 
+/**
+ * An interface that an interested party can implement and then subscribe
+ * to NodeManager events via NodeManager::subscribeEvents(this).
+ */
+class NodeManagerListener {
+public:
+  virtual ~NodeManagerListener() { }
+  virtual void nmNotifyNewSort(TypeNode tn) { }
+  virtual void nmNotifyNewSortConstructor(TypeNode tn) { }
+  virtual void nmNotifyInstantiateSortConstructor(TypeNode ctor, TypeNode sort) { }
+  virtual void nmNotifyNewDatatypes(const std::vector<DatatypeType>& datatypes) { }
+  virtual void nmNotifyNewVar(TNode n) { }
+  virtual void nmNotifyNewSkolem(TNode n, const std::string& comment) { }
+};/* class NodeManagerListener */
+
 class NodeManager {
   template <unsigned nchild_thresh> friend class CVC4::NodeBuilder;
   friend class NodeManagerScope;
   friend class expr::NodeValue;
   friend class expr::TypeChecker;
+
+  // friends so they can access mkVar() here, which is private
+  friend Expr ExprManager::mkVar(const std::string&, Type);
+  friend Expr ExprManager::mkVar(Type);
+
+  // friend so it can access NodeManager's d_listeners and notify clients
+  friend std::vector<DatatypeType> ExprManager::mkMutualDatatypeTypes(const std::vector<Datatype>&, const std::set<Type>&);
 
   /** Predicate for use with STL algorithms */
   struct NodeValueReferenceCountNonZero {
@@ -75,7 +94,7 @@ class NodeManager {
   };
 
   typedef __gnu_cxx::hash_set<expr::NodeValue*,
-                              expr::NodeValuePoolHashFcn,
+                              expr::NodeValuePoolHashFunction,
                               expr::NodeValuePoolEq> NodeValuePool;
   typedef __gnu_cxx::hash_set<expr::NodeValue*,
                               expr::NodeValueIDHashFunction,
@@ -83,7 +102,7 @@ class NodeManager {
 
   static CVC4_THREADLOCAL(NodeManager*) s_current;
 
-  Options d_options;
+  Options* d_options;
   StatisticsRegistry* d_statisticsRegistry;
 
   NodeValuePool d_nodeValuePool;
@@ -132,6 +151,11 @@ class NodeManager {
    * plusOperator->getConst<CVC4::Kind>(), you get kind::PLUS back.
    */
   Node d_operators[kind::LAST_KIND];
+
+  /**
+   * A list of subscribers for NodeManager events.
+   */
+  std::vector<NodeManagerListener*> d_listeners;
 
   /**
    * Look up a NodeValue in the pool associated to this NodeManager.
@@ -230,8 +254,8 @@ class NodeManager {
   };/* struct NodeManager::NVStorage<N> */
 
   // attribute tags
-  struct TypeTag {};
-  struct TypeCheckedTag;
+  struct TypeTag { };
+  struct TypeCheckedTag { };
 
   // NodeManager's attributes.  These aren't exposed outside of this
   // class; use the getters.
@@ -257,6 +281,20 @@ class NodeManager {
 
   void init();
 
+  /**
+   * Create a variable with the given name and type.  NOTE that no
+   * lookup is done on the name.  If you mkVar("a", type) and then
+   * mkVar("a", type) again, you have two variables.  The NodeManager
+   * version of this is private to avoid internal uses of mkVar() from
+   * within CVC4.  Such uses should employ mkSkolem() instead.
+   */
+  Node mkVar(const std::string& name, const TypeNode& type);
+  Node* mkVarPtr(const std::string& name, const TypeNode& type);
+
+  /** Create a variable with the given type. */
+  Node mkVar(const TypeNode& type);
+  Node* mkVarPtr(const TypeNode& type);
+
 public:
 
   explicit NodeManager(context::Context* ctxt, ExprManager* exprManager);
@@ -267,23 +305,36 @@ public:
   static NodeManager* currentNM() { return s_current; }
 
   /** Get this node manager's options (const version) */
-  const Options* getOptions() const {
-    return &d_options;
+  const Options& getOptions() const {
+    return *d_options;
   }
 
   /** Get this node manager's options (non-const version) */
-  Options* getOptions() {
-    return &d_options;
+  Options& getOptions() {
+    return *d_options;
   }
 
   /** Set this node manager's options */
-  void setOptions(const Options &options) {
-    d_options = options;
+  void setOptions(Options &options) {
+    d_options = &options;
   }
 
   /** Get this node manager's statistics registry */
-  StatisticsRegistry* getStatisticsRegistry() const {
+  StatisticsRegistry* getStatisticsRegistry() const throw() {
     return d_statisticsRegistry;
+  }
+
+  /** Subscribe to NodeManager events */
+  void subscribeEvents(NodeManagerListener* listener) {
+    Assert(std::find(d_listeners.begin(), d_listeners.end(), listener) == d_listeners.end(), "listener already subscribed");
+    d_listeners.push_back(listener);
+  }
+
+  /** Unsubscribe from NodeManager events */
+  void unsubscribeEvents(NodeManagerListener* listener) {
+    std::vector<NodeManagerListener*>::iterator elt = std::find(d_listeners.begin(), d_listeners.end(), listener);
+    Assert(elt != d_listeners.end(), "listener not subscribed");
+    d_listeners.erase(elt);
   }
 
   // general expression-builders
@@ -352,20 +403,48 @@ public:
   template <bool ref_count>
   Node* mkNodePtr(TNode opNode, const std::vector<NodeTemplate<ref_count> >& children);
 
+  Node mkBoundVar(const std::string& name, const TypeNode& type);
+  Node* mkBoundVarPtr(const std::string& name, const TypeNode& type);
+
+  Node mkBoundVar(const TypeNode& type);
+  Node* mkBoundVarPtr(const TypeNode& type);
+
   /**
-   * Create a variable with the given name and type.  NOTE that no
-   * lookup is done on the name.  If you mkVar("a", type) and then
-   * mkVar("a", type) again, you have two variables.
+   * Optional flags used to control behavior of NodeManager::mkSkolem().
+   * They should be composed with a bitwise OR (e.g.,
+   * "SKOLEM_NO_NOTIFY | SKOLEM_EXACT_NAME").  Of course, SKOLEM_DEFAULT
+   * cannot be composed in such a manner.
    */
-  Node mkVar(const std::string& name, const TypeNode& type);
-  Node* mkVarPtr(const std::string& name, const TypeNode& type);
+  enum SkolemFlags {
+    SKOLEM_DEFAULT = 0,   /**< default behavior */
+    SKOLEM_NO_NOTIFY = 1, /**< do not notify subscribers */
+    SKOLEM_EXACT_NAME = 2 /**< do not make the name unique by adding the id */
+  };/* enum SkolemFlags */
 
-  /** Create a variable with the given type. */
-  Node mkVar(const TypeNode& type);
-  Node* mkVarPtr(const TypeNode& type);
+  /**
+   * Create a skolem constant with the given name, type, and comment.
+   *
+   * @param name the name of the new skolem variable.  This name can
+   * contain the special character sequence "$$", in which case the
+   * $$ is replaced with the Node ID.  That way a family of skolem
+   * variables can be made with unique identifiers, used in dump,
+   * tracing, and debugging output.  By convention, you should probably
+   * call mkSkolem() with a custom name appended with "_$$".
+   *
+   * @param type the type of the skolem variable to create
+   *
+   * @param comment a comment for dumping output; if declarations are
+   * being dumped, this is included in a comment before the declaration
+   * and can be quite useful for debugging
+   *
+   * @param flags an optional mask of bits from SkolemFlags to control
+   * mkSkolem() behavior
+   */
+  Node mkSkolem(const std::string& name, const TypeNode& type,
+                const std::string& comment = "", int flags = SKOLEM_DEFAULT);
 
-  /** Create a skolem constant with the given type. */
-  Node mkSkolem(const TypeNode& type);
+  /** Create a instantiation constant with the given type. */
+  Node mkInstConstant(const TypeNode& type);
 
   /**
    * Create a constant of type T.  It will have the appropriate
@@ -581,8 +660,14 @@ public:
   /** Get the (singleton) type for strings. */
   inline TypeNode stringType();
 
-  /** Get the (singleton) type for sorts. */
-  inline TypeNode kindType();
+  /** Get the bound var list type. */
+  inline TypeNode boundVarListType();
+
+  /** Get the instantiation pattern type. */
+  inline TypeNode instPatternType();
+
+  /** Get the instantiation pattern type. */
+  inline TypeNode instPatternListType();
 
   /**
    * Get the (singleton) type for builtin operators (that is, the type
@@ -628,13 +713,23 @@ public:
 
   /**
    * Make a tuple type with types from
-   * <code>types</code>. <code>types</code> must have at least two
-   * elements.
+   * <code>types</code>. <code>types</code> must have at least one
+   * element.
    *
    * @param types a vector of types
    * @returns the tuple type (types[0], ..., types[n])
    */
   inline TypeNode mkTupleType(const std::vector<TypeNode>& types);
+
+  /**
+   * Make a symbolic expression type with types from
+   * <code>types</code>. <code>types</code> may have any number of
+   * elements.
+   *
+   * @param types a vector of types
+   * @returns the symbolic expression type (types[0], ..., types[n])
+   */
+  inline TypeNode mkSExprType(const std::vector<TypeNode>& types);
 
   /** Make the type of bitvectors of size <code>size</code> */
   inline TypeNode mkBitVectorType(unsigned size);
@@ -654,10 +749,10 @@ public:
   /** Make a new (anonymous) sort of arity 0. */
   inline TypeNode mkSort();
 
-  /** Make a new sort with the given name and arity. */
+  /** Make a new sort with the given name of arity 0. */
   inline TypeNode mkSort(const std::string& name);
 
-  /** Make a new sort with the given name and arity. */
+  /** Make a new sort by parameterizing the given sort constructor. */
   inline TypeNode mkSort(TypeNode constructor,
                          const std::vector<TypeNode>& children);
 
@@ -784,18 +879,18 @@ public:
     // Expr is destructed, there's no active node manager.
     //Assert(nm != NULL);
     NodeManager::s_current = nm;
-    Options::s_current = nm ? &nm->d_options : NULL;
+    Options::s_current = nm ? nm->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << NodeManager::s_current << "\n";
   }
 
   ~NodeManagerScope() {
     NodeManager::s_current = d_oldNodeManager;
-    Options::s_current = d_oldNodeManager ? &d_oldNodeManager->d_options : NULL;
+    Options::s_current = d_oldNodeManager ? d_oldNodeManager->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << "returning to " << NodeManager::s_current << "\n";
   }
-};
+};/* class NodeManagerScope */
 
 
 template <class AttrKind>
@@ -897,9 +992,19 @@ inline TypeNode NodeManager::stringType() {
   return TypeNode(mkTypeConst<TypeConstant>(STRING_TYPE));
 }
 
-/** Get the (singleton) type for sorts. */
-inline TypeNode NodeManager::kindType() {
-  return TypeNode(mkTypeConst<TypeConstant>(KIND_TYPE));
+/** Get the bound var list type. */
+inline TypeNode NodeManager::boundVarListType() {
+  return TypeNode(mkTypeConst<TypeConstant>(BOUND_VAR_LIST_TYPE));
+}
+
+/** Get the instantiation pattern type. */
+inline TypeNode NodeManager::instPatternType() {
+  return TypeNode(mkTypeConst<TypeConstant>(INST_PATTERN_TYPE));
+}
+
+/** Get the instantiation pattern type. */
+inline TypeNode NodeManager::instPatternListType() {
+  return TypeNode(mkTypeConst<TypeConstant>(INST_PATTERN_LIST_TYPE));
 }
 
 /** Get the (singleton) type for builtin operators. */
@@ -954,20 +1059,25 @@ NodeManager::mkPredicateType(const std::vector<TypeNode>& sorts) {
 }
 
 inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
-  Assert(types.size() >= 2);
+  Assert(types.size() >= 1);
   std::vector<TypeNode> typeNodes;
   for (unsigned i = 0; i < types.size(); ++ i) {
-    /* FIXME when congruence closure no longer abuses tuples */
-#if 0
     CheckArgument(!types[i].isFunctionLike(), types,
                   "cannot put function-like types in tuples");
     if(types[i].isBoolean()) {
       WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a tuple type with a Boolean argument)" << std::endl;
     }
-#endif /* 0 */
     typeNodes.push_back(types[i]);
   }
   return mkTypeNode(kind::TUPLE_TYPE, typeNodes);
+}
+
+inline TypeNode NodeManager::mkSExprType(const std::vector<TypeNode>& types) {
+  std::vector<TypeNode> typeNodes;
+  for (unsigned i = 0; i < types.size(); ++ i) {
+    typeNodes.push_back(types[i]);
+  }
+  return mkTypeNode(kind::SEXPR_TYPE, typeNodes);
 }
 
 inline TypeNode NodeManager::mkBitVectorType(unsigned size) {
@@ -1086,13 +1196,23 @@ inline TypeNode NodeManager::mkSort() {
   NodeBuilder<1> nb(this, kind::SORT_TYPE);
   Node sortTag = NodeBuilder<0>(this, kind::SORT_TAG);
   nb << sortTag;
-  return nb.constructTypeNode();
+  TypeNode tn = nb.constructTypeNode();
+  for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
+    (*i)->nmNotifyNewSort(tn);
+  }
+  return tn;
 }
 
 inline TypeNode NodeManager::mkSort(const std::string& name) {
-  TypeNode type = mkSort();
-  setAttribute(type, expr::VarNameAttr(), name);
-  return type;
+  NodeBuilder<1> nb(this, kind::SORT_TYPE);
+  Node sortTag = NodeBuilder<0>(this, kind::SORT_TAG);
+  nb << sortTag;
+  TypeNode tn = nb.constructTypeNode();
+  setAttribute(tn, expr::VarNameAttr(), name);
+  for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
+    (*i)->nmNotifyNewSort(tn);
+  }
+  return tn;
 }
 
 inline TypeNode NodeManager::mkSort(TypeNode constructor,
@@ -1113,6 +1233,9 @@ inline TypeNode NodeManager::mkSort(TypeNode constructor,
   nb.append(children);
   TypeNode type = nb.constructTypeNode();
   setAttribute(type, expr::VarNameAttr(), name);
+  for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
+    (*i)->nmNotifyInstantiateSortConstructor(constructor, type);
+  }
   return type;
 }
 
@@ -1125,6 +1248,9 @@ inline TypeNode NodeManager::mkSortConstructor(const std::string& name,
   TypeNode type = nb.constructTypeNode();
   setAttribute(type, expr::VarNameAttr(), name);
   setAttribute(type, expr::SortArityAttr(), arity);
+  for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
+    (*i)->nmNotifyNewSortConstructor(type);
+  }
   return type;
 }
 
@@ -1336,16 +1462,37 @@ inline TypeNode NodeManager::mkTypeNode(Kind kind,
 
 
 inline Node NodeManager::mkVar(const std::string& name, const TypeNode& type) {
-  Node n = mkVar(type);
+  Node n = NodeBuilder<0>(this, kind::VARIABLE);
   setAttribute(n, TypeAttr(), type);
+  setAttribute(n, TypeCheckedAttr(), true);
   setAttribute(n, expr::VarNameAttr(), name);
+  for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
+    (*i)->nmNotifyNewVar(n);
+  }
   return n;
 }
 
 inline Node* NodeManager::mkVarPtr(const std::string& name,
                                    const TypeNode& type) {
-  Node* n = mkVarPtr(type);
+  Node* n = NodeBuilder<0>(this, kind::VARIABLE).constructNodePtr();
   setAttribute(*n, TypeAttr(), type);
+  setAttribute(*n, TypeCheckedAttr(), true);
+  setAttribute(*n, expr::VarNameAttr(), name);
+  for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
+    (*i)->nmNotifyNewVar(*n);
+  }
+  return n;
+}
+
+inline Node NodeManager::mkBoundVar(const std::string& name, const TypeNode& type) {
+  Node n = mkBoundVar(type);
+  setAttribute(n, expr::VarNameAttr(), name);
+  return n;
+}
+
+inline Node* NodeManager::mkBoundVarPtr(const std::string& name,
+                                        const TypeNode& type) {
+  Node* n = mkBoundVarPtr(type);
   setAttribute(*n, expr::VarNameAttr(), name);
   return n;
 }
@@ -1354,6 +1501,9 @@ inline Node NodeManager::mkVar(const TypeNode& type) {
   Node n = NodeBuilder<0>(this, kind::VARIABLE);
   setAttribute(n, TypeAttr(), type);
   setAttribute(n, TypeCheckedAttr(), true);
+  for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
+    (*i)->nmNotifyNewVar(n);
+  }
   return n;
 }
 
@@ -1361,13 +1511,30 @@ inline Node* NodeManager::mkVarPtr(const TypeNode& type) {
   Node* n = NodeBuilder<0>(this, kind::VARIABLE).constructNodePtr();
   setAttribute(*n, TypeAttr(), type);
   setAttribute(*n, TypeCheckedAttr(), true);
+  for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
+    (*i)->nmNotifyNewVar(*n);
+  }
   return n;
 }
 
-inline Node NodeManager::mkSkolem(const TypeNode& type) {
-  Node n = NodeBuilder<0>(this, kind::SKOLEM);
+inline Node NodeManager::mkBoundVar(const TypeNode& type) {
+  Node n = NodeBuilder<0>(this, kind::BOUND_VARIABLE);
   setAttribute(n, TypeAttr(), type);
   setAttribute(n, TypeCheckedAttr(), true);
+  return n;
+}
+
+inline Node* NodeManager::mkBoundVarPtr(const TypeNode& type) {
+  Node* n = NodeBuilder<0>(this, kind::BOUND_VARIABLE).constructNodePtr();
+  setAttribute(*n, TypeAttr(), type);
+  setAttribute(*n, TypeCheckedAttr(), true);
+  return n;
+}
+
+inline Node NodeManager::mkInstConstant(const TypeNode& type) {
+  Node n = NodeBuilder<0>(this, kind::INST_CONSTANT);
+  n.setAttribute(TypeAttr(), type);
+  n.setAttribute(TypeCheckedAttr(), true);
   return n;
 }
 

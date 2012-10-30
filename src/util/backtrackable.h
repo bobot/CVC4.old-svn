@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -145,7 +143,7 @@ void List<T>::append (const T& d) {
     new(head)ListNode<T> (d, head->next);
     //head->data = d;
     head->empty = false;
-    //Assert(tail == head); FIXME: do I need this because this list might be empty but appende to another one
+    //Assert(tail == head); FIXME: do I need this because this list might be empty but append to another one
     uninitialized = false;
 
   } else {

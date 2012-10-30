@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -37,7 +35,7 @@ BooleanSimplification::push_back_associative_commute_recursive
       }
     }else{
       if(negateNode){
-        if(child.getMetaKind() == kind::metakind::CONSTANT) {
+        if(child.isConst()) {
           if((k == kind::AND && child.getConst<bool>()) ||
              (k == kind::OR && !child.getConst<bool>())) {
             buffer.clear();
@@ -48,7 +46,7 @@ BooleanSimplification::push_back_associative_commute_recursive
           buffer.push_back(negate(child));
         }
       }else{
-        if(child.getMetaKind() == kind::metakind::CONSTANT) {
+        if(child.isConst()) {
           if((k == kind::OR && child.getConst<bool>()) ||
              (k == kind::AND && !child.getConst<bool>())) {
             buffer.clear();

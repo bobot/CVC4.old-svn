@@ -2,12 +2,10 @@
 /*! \file decision_strategy.h
  ** \verbatim
  ** Original author: kshitij
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -15,6 +13,8 @@
  **
  ** Decision strategy
  **/
+
+#include "cvc4_private.h"
 
 #ifndef __CVC4__DECISION__DECISION_STRATEGY_H
 #define __CVC4__DECISION__DECISION_STRATEGY_H
@@ -27,14 +27,14 @@ namespace CVC4 {
 class DecisionEngine;
 
 namespace context {
-class Context;
-}
+  class Context;
+}/* CVC4::context namespace */
 
 namespace decision {
 
 class DecisionStrategy {
 protected:
-   DecisionEngine* d_decisionEngine;
+  DecisionEngine* d_decisionEngine;
 public:
   DecisionStrategy(DecisionEngine* de, context::Context *c) :
     d_decisionEngine(de) {
@@ -47,7 +47,7 @@ public:
   virtual bool needIteSkolemMap() { return false; }
   
   virtual void notifyAssertionsAvailable() { return; }
-};
+};/* class DecisionStrategy */
 
 class ITEDecisionStrategy : public DecisionStrategy {
 public:
@@ -61,7 +61,7 @@ public:
   virtual void addAssertions(const std::vector<Node> &assertions,
                              unsigned assertionsEnd,
                              IteSkolemMap iteSkolemMap) = 0;
-};
+};/* class ITEDecisionStrategy */
 
 class RelevancyStrategy : public ITEDecisionStrategy {
 public:
@@ -71,10 +71,9 @@ public:
 
   virtual bool isRelevant(TNode n) = 0;
   virtual prop::SatValue getPolarity(TNode n) = 0;
-};
+};/* class RelevancyStrategy */
 
-
-}/* decision namespace */
+}/* CVC4::decision namespace */
 }/* CVC4 namespace */
 
 #endif /* __CVC4__DECISION__DECISION_STRATEGY_H */

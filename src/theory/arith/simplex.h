@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): kshitij, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -60,8 +58,9 @@
 #include "context/cdlist.h"
 
 #include "util/dense_map.h"
-#include "util/options.h"
-#include "util/stats.h"
+#include "options/options.h"
+#include "util/statistics_registry.h"
+#include "util/result.h"
 
 #include <queue>
 
@@ -130,7 +129,7 @@ public:
    *
    * Corresponds to the "check()" procedure in [Cav06].
    */
-  bool findModel();
+  Result::Sat findModel(bool exactResult);
 
 private:
 
@@ -218,6 +217,29 @@ private:
 public:
   void increaseMax() {d_numVariables++;}
 
+
+  void clearQueue() {
+    d_queue.clear();
+  }
+
+
+  bool debugIsInCollectionQueue(ArithVar var) const{
+    Assert(d_queue.inCollectionMode());
+    return d_queue.collectionModeContains(var);
+  }
+
+  void reduceQueue(){
+    d_queue.reduce();
+  }
+
+  ArithPriorityQueue::const_iterator queueBegin() const{
+    return d_queue.begin();
+  }
+
+  ArithPriorityQueue::const_iterator queueEnd() const{
+    return d_queue.end();
+  }
+
 private:
 
   /** Reports a conflict to on the output channel. */
@@ -247,7 +269,7 @@ private:
 
 
 
-  /** These fields are designed to be accessable to TheoryArith methods. */
+  /** These fields are designed to be accessible to TheoryArith methods. */
   class Statistics {
   public:
     IntStat d_statUpdateConflicts;

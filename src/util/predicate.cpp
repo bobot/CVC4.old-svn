@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,7 +18,7 @@
 
 #include "expr/expr.h"
 #include "util/predicate.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 
 using namespace std;
 
@@ -49,7 +47,7 @@ operator<<(std::ostream& out, const Predicate& p) {
   return out;
 }
 
-size_t PredicateHashStrategy::hash(const Predicate& p) {
+size_t PredicateHashFunction::operator()(const Predicate& p) const {
   ExprHashFunction h;
   return h(p.d_witness) * 5039 + h(p.d_predicate);
 }

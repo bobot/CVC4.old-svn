@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: lianah
- ** Minor contributors (to current version): mdeters
+ ** Minor contributors (to current version): barrett, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -22,7 +20,7 @@
 #include "cvc4_private.h"
 #include "theory/theory.h"
 #include "context/context.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "theory/bv/theory_bv_utils.h"
 #include "expr/command.h"
 #include <sstream>
@@ -118,12 +116,7 @@ enum RewriteRuleId {
   UleMax,
   NotUlt,
   NotUle,
-  MultOne,
-  MultZero,
   MultPow2,
-  PlusZero,
-  PlusSelf,
-  PlusNegSelf,
   NegIdemp,
   UdivPow2,
   UdivOne,
@@ -242,12 +235,7 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case OrOne :       out << "OrOne";        return out;
   case XorOne :       out << "XorOne";        return out;
   case XorZero :       out << "XorZero";        return out;
-  case MultOne :       out << "MultOne";        return out;
-  case MultZero :       out << "MultZero";        return out;
   case MultPow2 :            out << "MultPow2";             return out;
-  case PlusZero :            out << "PlusZero";             return out;
-  case PlusSelf :            out << "PlusSelf";             return out;
-  case PlusNegSelf :            out << "PlusNegSelf";             return out;
   case NegIdemp :            out << "NegIdemp";             return out;
   case UdivPow2 :            out << "UdivPow2";             return out;
   case UdivOne :            out << "UdivOne";             return out;
@@ -465,12 +453,7 @@ struct AllRewriteRules {
   RewriteRule<SubEliminate> rule82; 
   RewriteRule<XorOne> rule83;
   RewriteRule<XorZero> rule84;
-  RewriteRule<MultOne> rule85;
-  RewriteRule<MultZero> rule86;
   RewriteRule<MultPow2> rule87;
-  RewriteRule<PlusZero> rule88;
-  RewriteRule<PlusSelf> rule89;
-  RewriteRule<PlusNegSelf> rule90;
   RewriteRule<NegIdemp> rule91;
   RewriteRule<UdivPow2> rule92;
   RewriteRule<UdivOne> rule93;

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): dejan, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -80,11 +78,6 @@ void AstPrinter::toStream(std::ostream& out, TNode n,
 
   // variable
   if(n.getMetaKind() == kind::metakind::VARIABLE) {
-    if(n.getKind() != kind::VARIABLE &&
-       n.getKind() != kind::SORT_TYPE) {
-      out << n.getKind() << ':';
-    }
-
     string s;
     if(n.getAttribute(expr::VarNameAttr(), s)) {
       out << s;
@@ -94,7 +87,7 @@ void AstPrinter::toStream(std::ostream& out, TNode n,
     if(types) {
       // print the whole type, but not *its* type
       out << ":";
-      n.getType().toStream(out, -1, false, 0, language::output::LANG_AST);
+      n.getType().toStream(out, language::output::LANG_AST);
     }
 
     return;
@@ -157,6 +150,7 @@ void AstPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<DefineNamedFunctionCommand>(out, c) ||
      tryToStream<SimplifyCommand>(out, c) ||
      tryToStream<GetValueCommand>(out, c) ||
+     tryToStream<GetModelCommand>(out, c) ||
      tryToStream<GetAssignmentCommand>(out, c) ||
      tryToStream<GetAssertionsCommand>(out, c) ||
      tryToStream<SetBenchmarkStatusCommand>(out, c) ||
@@ -191,6 +185,15 @@ void AstPrinter::toStream(std::ostream& out, const CommandStatus* s) const throw
 
 }/* AstPrinter::toStream(CommandStatus*) */
 
+void AstPrinter::toStream(std::ostream& out, Model& m) const throw() {
+  out << "Model()";
+}
+
+void AstPrinter::toStream(std::ostream& out, Model& m, const Command* c) const throw() {
+  // shouldn't be called; only the non-Command* version above should be
+  Unreachable();
+}
+
 static void toStream(std::ostream& out, const EmptyCommand* c)  throw() {
   out << "EmptyCommand(" << c->getName() << ")";
 }
@@ -208,7 +211,7 @@ static void toStream(std::ostream& out, const PopCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const CheckSatCommand* c) throw() {
-  BoolExpr e = c->getExpr();
+  Expr e = c->getExpr();
   if(e.isNull()) {
     out << "CheckSat()";
   } else {
@@ -288,7 +291,14 @@ static void toStream(std::ostream& out, const SimplifyCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const GetValueCommand* c) throw() {
-  out << "GetValue( << " << c->getTerm() << " >> )";
+  out << "GetValue( << ";
+  const vector<Expr>& terms = c->getTerms();
+  copy(terms.begin(), terms.end(), ostream_iterator<Expr>(out, ", "));
+  out << " >> )";
+}
+
+static void toStream(std::ostream& out, const GetModelCommand* c) throw() {
+  out << "GetModel()";
 }
 
 static void toStream(std::ostream& out, const GetAssignmentCommand* c) throw() {

@@ -203,8 +203,21 @@ if test -n "${enable_replay+set}"; then
 fi
 AC_MSG_RESULT([$with_build])
 
-AM_INIT_AUTOMAKE([1.11 no-define tar-pax parallel-tests color-tests])
+AM_INIT_AUTOMAKE([1.11 no-define tar-pax parallel-tests color-tests subdir-objects])
 AC_CONFIG_HEADERS([cvc4autoconfig.h])
+
+# automake 1.12 changes the test driver mechanism in a way that is
+# completely incompatible with 1.11.  We figure out here which version
+# we're using in order to set up test makefiles correctly.
+# See http://lists.gnu.org/archive/html/automake/2012-04/msg00060.html
+if test -z "$am__api_version"; then
+  AC_MSG_ERROR([Cannot determine automake API version ?!])
+fi
+case "$am__api_version" in
+  1.11*) automake111=true ;;
+  *) automake111=false ;;
+esac
+AM_CONDITIONAL([AUTOMAKE_1_11], [$automake111])
 
 # Initialize libtool's configuration options.
 _LT_SET_OPTION([LT_INIT],[win32-dll])
@@ -293,7 +306,7 @@ else
   CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }$CLN_CFLAGS"
   CVC4CXXFLAGS="${CVC4CXXFLAGS:+$CVC4CXXFLAGS }$CLN_CFLAGS"
   CVC4CFLAGS="${CVC4CFLAGS:+$CVC4CFLAGS }$CLN_CFLAGS"
-  LIBS="${LIBS:+$LIBS }$CLN_LIBS"
+  LIBS="$CLN_LIBS${LIBS:+ $LIBS}"
   cvc4_cln_or_gmp=cln
 fi
 
@@ -366,6 +379,7 @@ echo ./config.status "\$@"
 EOF
     chmod +x config.reconfig
   fi
+  ln -sf "$target/$build_type/config.log" "builds/config.log"
   exit $exitval
 else
   AC_MSG_RESULT([this one (user-specified)])
@@ -394,7 +408,7 @@ case "$with_build" in
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
     ;;
   debug) # unoptimized, debug symbols, assertions, tracing, dumping
-    CVC4CPPFLAGS=-DCVC4_DEBUG
+    CVC4CPPFLAGS='-DCVC4_DEBUG'
     CVC4CXXFLAGS='-fno-inline'
     CVC4CFLAGS='-fno-inline'
     CVC4LDFLAGS=
@@ -466,9 +480,14 @@ if test -z "${enable_static_binary+set}"; then
   enable_static_binary=no
 fi
 AC_MSG_RESULT([$enable_static_binary])
-if test "$enable_static_binary" = yes -a "$enable_static" != yes; then
-  enable_static=yes
-  AC_MSG_WARN([forcing static-library building, --enable-static-binary given])
+if test "$enable_static_binary" = yes; then
+  if test "$target_vendor" = apple; then
+    AC_MSG_ERROR([[Statically-linked binaries are not supported on Mac OS.  See https://developer.apple.com/library/mac/#qa/qa2001/qa1118.html]])
+  fi
+  if test "$enable_static" != yes; then
+    enable_static=yes
+    AC_MSG_WARN([forcing static-library building, --enable-static-binary given])
+  fi
 fi
 
 AC_MSG_CHECKING([whether to support proof in libcvc4])
@@ -696,6 +715,25 @@ namespace __gnu_cxx { template<> struct hash<uint64_t> {}; }])],
                   [AC_MSG_RESULT([yes])])
 AC_LANG_POP([C++])
 
+# Check whether "long" and "int64_t" are distinct types w.r.t. overloading.
+# Even if they have the same size, they can be distinct, and some platforms
+# can have problems with ambiguous function calls when auto-converting
+# int64_t to long, and others will complain if you overload a function
+# that takes an int64_t with one that takes a long (giving a redefinition
+# error).  So we have to keep both happy.  Probably the same underlying
+# issue as the hash specialization above, but let's check separately
+# for flexibility.
+AC_MSG_CHECKING([for the relationship between long and int64_t])
+AC_LANG_PUSH([C++])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+#include <stdint.h>
+void foo(long) {}
+void foo(int64_t) {}])],
+                  [AC_MSG_RESULT([no relationship detected]); CVC4_NEED_INT64_T_OVERLOADS=1],
+                  [AC_MSG_RESULT([typedef or similar]); CVC4_NEED_INT64_T_OVERLOADS=0])
+AC_LANG_POP([C++])
+AC_SUBST([CVC4_NEED_INT64_T_OVERLOADS])
+
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
@@ -749,6 +787,12 @@ else
   AC_CHECK_PROG(LFSC, "$LFSC", [], [])
 fi
 AM_CONDITIONAL([PROOF_REGRESSIONS], [test -n "$LFSC" -a "$enable_proof" = yes])
+if test -n "$LFSC" -a "$enable_proof" = yes; then
+  TESTS_ENVIRONMENT="${TESTS_ENVIRONMENT:+$TESTS_ENVIRONMENT }LFSC=\"$LFSC $LFSCARGS\""
+  RUN_REGRESSION_ARGS="${RUN_REGRESSION_ARGS:+$RUN_REGRESSION_ARGS }--proof"
+fi
+AC_SUBST([TESTS_ENVIRONMENT])
+AC_SUBST([RUN_REGRESSION_ARGS])
 if test -z "$LFSC"; then
   support_proof_tests='no, lfsc proof checker unavailable'
 elif test "$enable_proof" = yes; then
@@ -764,12 +808,15 @@ AC_PATH_PROG(CXXTESTGEN, cxxtestgen.pl, [], [$CXXTEST:$PATH])
 if test -z "$CXXTESTGEN"; then
   AC_PATH_PROG(CXXTESTGEN, cxxtestgen.py, [], [$CXXTEST:$PATH])
 fi
+if test -z "$CXXTESTGEN"; then
+  AC_PATH_PROG(CXXTESTGEN, cxxtestgen, [], [$CXXTEST:$PATH])
+fi
 if test "$enable_unit_testing" = "no"; then
   AC_MSG_NOTICE([unit tests disabled by user request.])
   CXXTESTGEN=
   CXXTEST=
 elif test -z "$CXXTESTGEN"; then
-  AC_MSG_NOTICE([unit tests disabled, neither cxxtestgen.pl nor cxxtestgen.py found.])
+  AC_MSG_NOTICE([unit tests disabled, could not find cxxtestgen.pl or cxxtestgen.py or cxxtestgen])
 elif test -z "$CXXTEST"; then
   CXXTEST=`dirname "$CXXTESTGEN"`
   AC_MSG_CHECKING([for location of CxxTest headers])
@@ -830,7 +877,10 @@ fi
 # Checks for libraries.
 
 # Check for libreadline (defined in config/readline.m4)
+AC_ARG_WITH([readline], [AS_HELP_STRING([--with-readline], [support the readline library])], [], [with_readline=check])
 CVC4_CHECK_FOR_READLINE
+AC_DEFINE_UNQUOTED([HAVE_LIBREADLINE], $have_libreadline, [Define to 1 to use libreadline])
+AC_SUBST([READLINE_LIBS])
 
 AC_SEARCH_LIBS([clock_gettime], [rt],
                [AC_DEFINE([HAVE_CLOCK_GETTIME], [1],
@@ -849,7 +899,7 @@ AC_LIB_ANTLR
 # supported by the build host).
 CVC4_CHECK_BINDINGS([c java])dnl csharp perl php python ruby tcl ocaml])
 
-# Checks for header files.
+# Checks for header files and their contents.
 AC_CHECK_HEADERS([getopt.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -862,6 +912,9 @@ AC_CHECK_HEADERS([getopt.h unistd.h])
 
 AC_CHECK_DECLS([optreset], [], [], [#include <getopt.h>])
 
+# check with which standard strerror_r() complies
+AC_FUNC_STRERROR_R
+
 # require boost library
 BOOST_REQUIRE()
 
@@ -873,16 +926,28 @@ if test "$enable_static_binary" = yes; then
   LDFLAGS="-static $LDFLAGS"
 fi
 cvc4_has_threads=yes
-BOOST_THREADS([], [AC_MSG_WARN([disabling multithreaded support])
-                   cvc4_has_threads=no])
+AC_ARG_ENABLE([thread-support],
+    AS_HELP_STRING([--disable-thread-support], [do not support multithreaded-capable library]))
+if test "$enable_thread_support" = no; then
+  cvc4_has_threads=no
+  if test "$with_portfolio" = yes; then
+    AC_MSG_ERROR([user gave both --with-portfolio and --disable-thread-support, which are contradictory])
+  fi
+else
+  BOOST_THREADS([], [AC_MSG_WARN([disabling multithreaded support])
+                     cvc4_has_threads=no])
+fi
 LDFLAGS="$cvc4_save_LDFLAGS"
 if test $cvc4_has_threads = no; then
-  if test x$with_portfolio = xyes; then
+  if test "$enable_thread_support" = yes; then
+    AC_MSG_ERROR([user gave --enable-thread-support but could not build with threads; maybe boost threading library is missing?])
+  fi
+  if test "$with_portfolio" = yes; then
     AC_MSG_ERROR([user gave --with-portfolio but could not build with threads; maybe boost threading library is missing?])
   fi
   with_portfolio=no
 fi
-if test x$with_portfolio != xyes; then
+if test "$with_portfolio" != yes; then
   with_portfolio=no
 fi
 AM_CONDITIONAL([CVC4_BUILD_PCVC4], [test "$with_portfolio" = yes])
@@ -1010,7 +1075,7 @@ AC_DEFINE_UNQUOTED(CVC4_RELEASE, ${CVC4_RELEASE}, [Release component of the vers
 AC_DEFINE_UNQUOTED(CVC4_EXTRAVERSION, ["${CVC4_EXTRAVERSION}"], [Extraversion component of the version of CVC4.])
 AC_DEFINE_UNQUOTED(CVC4_RELEASE_STRING, ["${CVC4_RELEASE_STRING}"], [Full release string for CVC4.])
 
-CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }$CVC4CPPFLAGS"
+CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }${BOOST_CPPFLAGS:+$BOOST_CPPFLAGS }$CVC4CPPFLAGS"
 CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }$CVC4CXXFLAGS -Wno-deprecated"
 CFLAGS="${CFLAGS:+$CFLAGS }$CVC4CFLAGS -Wno-deprecated -fexceptions"
 LDFLAGS="${LDFLAGS:+$LDFLAGS }$CVC4LDFLAGS"
@@ -1050,6 +1115,7 @@ fi
 AC_SUBST(CVC4_USE_CLN_IMP)
 AC_SUBST(CVC4_USE_GMP_IMP)
 
+# month/year for man pages
 MAN_DATE=`date '+%B %Y'`
 AC_SUBST(MAN_DATE)
 
@@ -1069,13 +1135,17 @@ else
   AC_SUBST([CVC4_HAS_THREADS], 0)
 fi
 
+AM_CONDITIONAL([CVC4_NEEDS_REPLACEMENT_FUNCTIONS], [test -n "$LTLIBOBJS"])
+
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/integer.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/tls.h])
 
-CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.1])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.1_template])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.5])
-CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3_template])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/SmtEngine.3cvc_template])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/options.3cvc_template])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4parser.3])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4compat.3])
 
@@ -1146,6 +1216,14 @@ if test -z "$CVC4_LANGUAGE_BINDINGS"; then
   CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild="N/A"
 fi
 
+bindings_to_be_built=none
+if test -n "$CVC4_LANGUAGE_BINDINGS"; then
+  bindings_to_be_built="$CVC4_LANGUAGE_BINDINGS"
+  if test -z "$SWIG"; then
+    bindings_to_be_built="$bindings_to_be_built (for CVC3 compatibility layer only; SWIG not found)"
+  fi
+fi
+
 cat <<EOF
 
 CVC4 $VERSION
@@ -1173,7 +1251,7 @@ Static libs  : $enable_static
 Shared libs  : $enable_shared
 Static binary: $enable_static_binary
 Compat lib   : $CVC4_BUILD_LIBCOMPAT
-Bindings     : ${CVC4_LANGUAGE_BINDINGS:-none}
+Bindings     : $bindings_to_be_built
 
 Multithreaded: $support_multithreaded
 TLS support  : $CVC4_TLS_explanation

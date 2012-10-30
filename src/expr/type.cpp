@@ -5,9 +5,7 @@
  ** Major contributors: dejan, mdeters
  ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,7 @@
 #include "expr/node_manager.h"
 #include "expr/type.h"
 #include "expr/type_node.h"
-#include "util/Assert.h"
+#include "util/exception.h"
 
 using namespace std;
 
@@ -77,9 +75,19 @@ Expr Type::mkGroundTerm() const {
   return d_typeNode->mkGroundTerm().toExpr();
 }
 
+bool Type::isSubtypeOf(Type t) const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isSubtypeOf(*t.d_typeNode);
+}
+
+bool Type::isComparableTo(Type t) const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isComparableTo(*t.d_typeNode);
+}
+
 Type& Type::operator=(const Type& t) {
-  Assert(d_typeNode != NULL, "Unexpected NULL typenode pointer!");
-  Assert(t.d_typeNode != NULL, "Unexpected NULL typenode pointer!");
+  CheckArgument(d_typeNode != NULL, this, "Unexpected NULL typenode pointer!");
+  CheckArgument(t.d_typeNode != NULL, t, "Unexpected NULL typenode pointer!");
 
   if(this != &t) {
     if(d_nodeManager == t.d_nodeManager) {
@@ -168,7 +176,7 @@ ExprManager* Type::getExprManager() const {
   return d_nodeManager->toExprManager();
 }
 
-Type Type::exportTo(ExprManager* exprManager, ExprManagerMapCollection& vmap) {
+Type Type::exportTo(ExprManager* exprManager, ExprManagerMapCollection& vmap) const {
   return ExprManager::exportType(*this, exprManager, vmap);
 }
 
@@ -192,9 +200,9 @@ bool Type::isBoolean() const {
 }
 
 /** Cast to a Boolean type */
-Type::operator BooleanType() const throw(AssertionException) {
+Type::operator BooleanType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isBoolean());
+  CheckArgument(isNull() || isBoolean(), this);
   return BooleanType(*this);
 }
 
@@ -205,9 +213,9 @@ bool Type::isInteger() const {
 }
 
 /** Cast to a integer type */
-Type::operator IntegerType() const throw(AssertionException) {
+Type::operator IntegerType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isInteger());
+  CheckArgument(isNull() || isInteger(), this);
   return IntegerType(*this);
 }
 
@@ -218,9 +226,9 @@ bool Type::isReal() const {
 }
 
 /** Cast to a real type */
-Type::operator RealType() const throw(AssertionException) {
+Type::operator RealType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isReal());
+  CheckArgument(isNull() || isReal(), this);
   return RealType(*this);
 }
 
@@ -231,9 +239,9 @@ bool Type::isString() const {
 }
 
 /** Cast to a string type */
-Type::operator StringType() const throw(AssertionException) {
+Type::operator StringType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isString());
+  CheckArgument(isNull() || isString(), this);
   return StringType(*this);
 }
 
@@ -244,16 +252,16 @@ bool Type::isBitVector() const {
 }
 
 /** Cast to a bit-vector type */
-Type::operator BitVectorType() const throw(AssertionException) {
+Type::operator BitVectorType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isBitVector());
+  CheckArgument(isNull() || isBitVector(), this);
   return BitVectorType(*this);
 }
 
 /** Cast to a Constructor type */
-Type::operator DatatypeType() const throw(AssertionException) {
+Type::operator DatatypeType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isDatatype());
+  CheckArgument(isNull() || isDatatype(), this);
   return DatatypeType(*this);
 }
 
@@ -264,9 +272,9 @@ bool Type::isDatatype() const {
 }
 
 /** Cast to a Constructor type */
-Type::operator ConstructorType() const throw(AssertionException) {
+Type::operator ConstructorType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isConstructor());
+  CheckArgument(isNull() || isConstructor(), this);
   return ConstructorType(*this);
 }
 
@@ -277,9 +285,9 @@ bool Type::isConstructor() const {
 }
 
 /** Cast to a Selector type */
-Type::operator SelectorType() const throw(AssertionException) {
+Type::operator SelectorType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isSelector());
+  CheckArgument(isNull() || isSelector(), this);
   return SelectorType(*this);
 }
 
@@ -290,9 +298,9 @@ bool Type::isSelector() const {
 }
 
 /** Cast to a Tester type */
-Type::operator TesterType() const throw(AssertionException) {
+Type::operator TesterType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isTester());
+  CheckArgument(isNull() || isTester(), this);
   return TesterType(*this);
 }
 
@@ -318,9 +326,9 @@ bool Type::isPredicate() const {
 }
 
 /** Cast to a function type */
-Type::operator FunctionType() const throw(AssertionException) {
+Type::operator FunctionType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isFunction());
+  CheckArgument(isNull() || isFunction(), this);
   return FunctionType(*this);
 }
 
@@ -331,10 +339,23 @@ bool Type::isTuple() const {
 }
 
 /** Cast to a tuple type */
-Type::operator TupleType() const throw(AssertionException) {
+Type::operator TupleType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isTuple());
+  CheckArgument(isNull() || isTuple(), this);
   return TupleType(*this);
+}
+
+/** Is this a symbolic expression type? */
+bool Type::isSExpr() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isSExpr();
+}
+
+/** Cast to a symbolic expression type */
+Type::operator SExprType() const throw(IllegalArgumentException) {
+  NodeManagerScope nms(d_nodeManager);
+  CheckArgument(isNull() || isSExpr(), this);
+  return SExprType(*this);
 }
 
 /** Is this an array type? */
@@ -344,7 +365,7 @@ bool Type::isArray() const {
 }
 
 /** Cast to an array type */
-Type::operator ArrayType() const throw(AssertionException) {
+Type::operator ArrayType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
   return ArrayType(*this);
 }
@@ -356,9 +377,9 @@ bool Type::isSort() const {
 }
 
 /** Cast to a sort type */
-Type::operator SortType() const throw(AssertionException) {
+Type::operator SortType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isSort());
+  CheckArgument(isNull() || isSort(), this);
   return SortType(*this);
 }
 
@@ -369,9 +390,9 @@ bool Type::isSortConstructor() const {
 }
 
 /** Cast to a sort constructor type */
-Type::operator SortConstructorType() const throw(AssertionException) {
+Type::operator SortConstructorType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isSortConstructor());
+  CheckArgument(isNull() || isSortConstructor(), this);
   return SortConstructorType(*this);
 }
 
@@ -382,9 +403,9 @@ bool Type::isPredicateSubtype() const {
 }
 
 /** Cast to a predicate subtype */
-Type::operator PredicateSubtype() const throw(AssertionException) {
+Type::operator PredicateSubtype() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isPredicateSubtype());
+  CheckArgument(isNull() || isPredicateSubtype(), this);
   return PredicateSubtype(*this);
 }
 
@@ -395,23 +416,10 @@ bool Type::isSubrange() const {
 }
 
 /** Cast to a predicate subtype */
-Type::operator SubrangeType() const throw(AssertionException) {
+Type::operator SubrangeType() const throw(IllegalArgumentException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isSubrange());
+  CheckArgument(isNull() || isSubrange(), this);
   return SubrangeType(*this);
-}
-
-/** Is this a kind type (i.e., the type of a type)? */
-bool Type::isKind() const {
-  NodeManagerScope nms(d_nodeManager);
-  return d_typeNode->isKind();
-}
-
-/** Cast to a kind type */
-Type::operator KindType() const throw(AssertionException) {
-  NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isKind());
-  return KindType(*this);
 }
 
 vector<Type> FunctionType::getArgTypes() const {
@@ -428,7 +436,7 @@ vector<Type> FunctionType::getArgTypes() const {
 
 Type FunctionType::getRangeType() const {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isNull() || isFunction());
+  CheckArgument(isNull() || isFunction(), this);
   return makeType(d_typeNode->getRangeType());
 }
 
@@ -436,6 +444,18 @@ vector<Type> TupleType::getTypes() const {
   NodeManagerScope nms(d_nodeManager);
   vector<Type> types;
   vector<TypeNode> typeNodes = d_typeNode->getTupleTypes();
+  vector<TypeNode>::iterator it = typeNodes.begin();
+  vector<TypeNode>::iterator it_end = typeNodes.end();
+  for(; it != it_end; ++ it) {
+    types.push_back(makeType(*it));
+  }
+  return types;
+}
+
+vector<Type> SExprType::getTypes() const {
+  NodeManagerScope nms(d_nodeManager);
+  vector<Type> types;
+  vector<TypeNode> typeNodes = d_typeNode->getSExprTypes();
   vector<TypeNode>::iterator it = typeNodes.begin();
   vector<TypeNode>::iterator it_end = typeNodes.end();
   for(; it != it_end; ++ it) {
@@ -481,92 +501,92 @@ SortType SortConstructorType::instantiate(const std::vector<Type>& params) const
   return SortType(makeType(d_nodeManager->mkSort(*d_typeNode, paramsNodes)));
 }
 
-BooleanType::BooleanType(const Type& t) throw(AssertionException) :
+BooleanType::BooleanType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isBoolean());
+  CheckArgument(isNull() || isBoolean(), this);
 }
 
-IntegerType::IntegerType(const Type& t) throw(AssertionException) :
+IntegerType::IntegerType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isInteger());
+  CheckArgument(isNull() || isInteger(), this);
 }
 
-RealType::RealType(const Type& t) throw(AssertionException) :
+RealType::RealType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isReal());
+  CheckArgument(isNull() || isReal(), this);
 }
 
-StringType::StringType(const Type& t) throw(AssertionException) :
+StringType::StringType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isString());
+  CheckArgument(isNull() || isString(), this);
 }
 
-BitVectorType::BitVectorType(const Type& t) throw(AssertionException) :
+BitVectorType::BitVectorType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isBitVector());
+  CheckArgument(isNull() || isBitVector(), this);
 }
 
-DatatypeType::DatatypeType(const Type& t) throw(AssertionException) :
+DatatypeType::DatatypeType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isDatatype());
+  CheckArgument(isNull() || isDatatype(), this);
 }
 
-ConstructorType::ConstructorType(const Type& t) throw(AssertionException) :
+ConstructorType::ConstructorType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isConstructor());
+  CheckArgument(isNull() || isConstructor(), this);
 }
 
-SelectorType::SelectorType(const Type& t) throw(AssertionException) :
+SelectorType::SelectorType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isSelector());
+  CheckArgument(isNull() || isSelector(), this);
 }
 
-TesterType::TesterType(const Type& t) throw(AssertionException) :
+TesterType::TesterType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isTester());
+  CheckArgument(isNull() || isTester(), this);
 }
 
-FunctionType::FunctionType(const Type& t) throw(AssertionException) :
+FunctionType::FunctionType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isFunction());
+  CheckArgument(isNull() || isFunction(), this);
 }
 
-TupleType::TupleType(const Type& t) throw(AssertionException) :
+TupleType::TupleType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isTuple());
+  CheckArgument(isNull() || isTuple(), this);
 }
 
-ArrayType::ArrayType(const Type& t) throw(AssertionException) :
+SExprType::SExprType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isArray());
+  CheckArgument(isNull() || isSExpr(), this);
 }
 
-KindType::KindType(const Type& t) throw(AssertionException) :
+ArrayType::ArrayType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isKind());
+  CheckArgument(isNull() || isArray(), this);
 }
 
-SortType::SortType(const Type& t) throw(AssertionException) :
+SortType::SortType(const Type& t) throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isSort());
+  CheckArgument(isNull() || isSort(), this);
 }
 
 SortConstructorType::SortConstructorType(const Type& t)
-  throw(AssertionException) :
+  throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isSortConstructor());
+  CheckArgument(isNull() || isSortConstructor(), this);
 }
 
 PredicateSubtype::PredicateSubtype(const Type& t)
-  throw(AssertionException) :
+  throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isPredicateSubtype());
+  CheckArgument(isNull() || isPredicateSubtype(), this);
 }
 
 SubrangeType::SubrangeType(const Type& t)
-  throw(AssertionException) :
+  throw(IllegalArgumentException) :
   Type(t) {
-  Assert(isNull() || isSubrange());
+  CheckArgument(isNull() || isSubrange(), this);
 }
 
 unsigned BitVectorType::getSize() const {
@@ -603,7 +623,7 @@ std::vector<Type> ConstructorType::getArgTypes() const {
 
 const Datatype& DatatypeType::getDatatype() const {
   if( d_typeNode->isParametricDatatype() ) {
-    Assert( (*d_typeNode)[0].getKind() == kind::DATATYPE_TYPE );
+    CheckArgument( (*d_typeNode)[0].getKind() == kind::DATATYPE_TYPE, this);
     const Datatype& dt = (*d_typeNode)[0].getConst<Datatype>();
     return dt;
   } else {

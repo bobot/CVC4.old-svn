@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: taking
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): ajreynol, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -43,7 +41,8 @@
 
 #include "theory/arith/constraint.h"
 
-#include "util/stats.h"
+#include "util/statistics_registry.h"
+#include "util/result.h"
 
 #include <vector>
 #include <map>
@@ -53,13 +52,29 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
+class InstantiatorTheoryArith;
+
 /**
  * Implementation of QF_LRA.
  * Based upon:
  * http://research.microsoft.com/en-us/um/people/leonardo/cav06.pdf
  */
 class TheoryArith : public Theory {
+  friend class InstantiatorTheoryArith;
 private:
+  bool d_nlIncomplete;
+  // TODO A better would be:
+  //context::CDO<bool> d_nlIncomplete;
+
+  enum Result::Sat d_qflraStatus;
+  // check()
+  //   !done() -> d_qflraStatus = Unknown
+  //   fullEffort(e) -> simplex returns either sat or unsat
+  //   !fullEffort(e) -> simplex returns either sat, unsat or unknown
+  //                     if unknown, save the assignment
+  //                     if unknown, the simplex priority queue cannot be emptied
+  int d_unknownsInARow;
+
   bool rowImplication(ArithVar v, bool upperBound, const DeltaRational& r);
 
   /**
@@ -92,6 +107,8 @@ private:
     d_setupNodes.insert(n);
   }
 
+  void interpretDivLike(const Variable& x);
+
   void setupVariable(const Variable& x);
   void setupVariableList(const VarList& vl);
   void setupPolynomial(const Polynomial& poly);
@@ -109,6 +126,12 @@ private:
       }
     }
   } d_setupLiteralCallback;
+
+  /**
+   * A superset of all of the assertions that currently are not the literal for
+   * their constraint do not match constraint literals. Not just the witnesses.
+   */
+  context::CDHashMap<TNode, Constraint, TNodeHashFunction> d_assertionsThatDoNotMatchTheirLiterals;
 
   /**
    * (For the moment) the type hierarchy goes as:
@@ -181,6 +204,8 @@ private:
    */
   std::deque<Constraint> d_currentPropagationList;
 
+  context::CDQueue<Constraint> d_learnedBounds;
+
   /**
    * Manages information about the assignment and upper and lower bounds on
    * variables.
@@ -202,18 +227,6 @@ private:
    * model (each in a read-only fashion).
    */
   DioSolver d_diosolver;
-
-  /**
-   * Some integer variables can be replaced with pseudoboolean
-   * variables internally.  This map is built up at static learning
-   * time for top-level asserted expressions of the shape "x = 0 OR x
-   * = 1".  This substitution map is then applied in preprocess().
-   *
-   * Note that expressions of the shape "x >= 0 AND x <= 1" are
-   * already substituted for PB versions at solve() time and won't
-   * appear here.
-   */
-  SubstitutionMap* d_pbSubstitutions;
 
   /** Counts the number of notifyRestart() calls to the theory. */
   uint32_t d_restartsCounter;
@@ -242,15 +255,36 @@ private:
     void operator()(Node n){
       d_list.push_back(n);
     }
-  };
-  PushCallBack d_conflictCallBack;
+  } d_raiseConflict;
+
+  /** Returns true iff a conflict has been raised. */
+  inline bool inConflict() const {
+    return !d_conflicts.empty();
+  }
+  /**
+   * Outputs the contents of d_conflicts onto d_out.
+   * Must be inConflict().
+   */
+  void outputConflicts();
 
 
   /**
-   * A copy of the tableau immediately after removing variables
-   * without bounds in presolve().
+   * A copy of the tableau.
+   * This is equivalent  to the original tableau if d_tableauSizeHasBeenModified
+   * is false.
+   * The set of basic and non-basic variables may differ from d_tableau.
    */
   Tableau d_smallTableauCopy;
+
+  /**
+   * Returns true if all of the basic variables in the simplex queue of
+   * basic variables that violate their bounds in the current tableau
+   * are basic in d_smallTableauCopy.
+   *
+   * d_tableauSizeHasBeenModified must be false when calling this.
+   * Simplex's priority queue must be in collection mode.
+   */
+  bool safeToReset() const;
 
   /** This keeps track of difference equalities. Mostly for sharing. */
   ArithCongruenceManager d_congruenceManager;
@@ -268,8 +302,11 @@ private:
   /** Internal model value for the node */
   DeltaRational getDeltaValue(TNode n);
 
+  /** TODO : get rid of this. */ 
+  DeltaRational getDeltaValueWithNonlinear(TNode n, bool& failed);
+
 public:
-  TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
+  TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   virtual ~TheoryArith();
 
   /**
@@ -281,7 +318,7 @@ public:
   void propagate(Effort e);
   Node explain(TNode n);
 
-  Node getValue(TNode n);
+  void collectModelInfo( TheoryModel* m, bool fullModel );
 
   void shutdown(){ }
 
@@ -330,7 +367,7 @@ private:
   /**
    * Splits the disequalities in d_diseq that are violated using lemmas on demand.
    * returns true if any lemmas were issued.
-   * returns false if all disequalities are satisified in the current model.
+   * returns false if all disequalities are satisfied in the current model.
    */
   bool splitDisequalities();
 
@@ -383,15 +420,15 @@ private:
    * a node describing this conflict is returned.
    * If this new bound is not in conflict, Node::null() is returned.
    */
-  Node AssertLower(Constraint constraint);
-  Node AssertUpper(Constraint constraint);
-  Node AssertEquality(Constraint constraint);
-  Node AssertDisequality(Constraint constraint);
+  bool AssertLower(Constraint constraint);
+  bool AssertUpper(Constraint constraint);
+  bool AssertEquality(Constraint constraint);
+  bool AssertDisequality(Constraint constraint);
 
   /** Tracks the bounds that were updated in the current round. */
   DenseSet d_updatedBounds;
 
-  /** Tracks the basic variables where propagatation might be possible. */
+  /** Tracks the basic variables where propagation might be possible. */
   DenseSet d_candidateBasics;
 
   bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
@@ -420,10 +457,11 @@ private:
    * Returns a conflict if one was found.
    * Returns Node::null if no conflict was found.
    */
-  Node assertionCases(TNode assertion);
+  Constraint constraintFromFactQueue();
+  bool assertionCases(Constraint c);
 
   /**
-   * Returns the basic variable with the shorted row containg a non-basic variable.
+   * Returns the basic variable with the shorted row containing a non-basic variable.
    * If no such row exists, return ARITHVAR_SENTINEL.
    */
   ArithVar findShortestBasicRow(ArithVar variable);
@@ -432,7 +470,8 @@ private:
    * Debugging only routine!
    * Returns true iff every variable is consistent in the partial model.
    */
-  bool entireStateIsConsistent();
+  bool entireStateIsConsistent(const std::string& locationHint);
+  bool unenqueuedVariablesAreConsistent();
 
   bool isImpliedUpperBound(ArithVar var, Node exp);
   bool isImpliedLowerBound(ArithVar var, Node exp);
@@ -449,7 +488,7 @@ private:
   /** Debugging only routine. Prints the model. */
   void debugPrintModel();
 
-  /** These fields are designed to be accessable to TheoryArith methods. */
+  /** These fields are designed to be accessible to TheoryArith methods. */
   class Statistics {
   public:
     IntStat d_statAssertUpperConflicts, d_statAssertLowerConflicts;
@@ -473,6 +512,14 @@ private:
 
     TimerStat d_boundComputationTime;
     IntStat d_boundComputations, d_boundPropagations;
+
+    IntStat d_unknownChecks;
+    IntStat d_maxUnknownsInARow;
+    AverageStat d_avgUnknownsInARow;
+
+    IntStat d_revertsOnConflicts;
+    IntStat d_commitsOnConflicts;
+    IntStat d_nontrivialSatChecks;
 
     Statistics();
     ~Statistics();

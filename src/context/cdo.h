@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): barrett
+ ** Minor contributors (to current version): barrett, bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -22,7 +20,7 @@
 #define __CVC4__CONTEXT__CDO_H
 
 #include "context/context.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 
 namespace CVC4 {
 namespace context {
@@ -59,7 +57,7 @@ protected:
    * using the ContextMemoryManager.
    */
   virtual ContextObj* save(ContextMemoryManager* pCMM) {
-    Debug("context") << "save cdo " << this << " (value " << get() << ")";
+    Debug("context") << "save cdo " << this;
     ContextObj* p = new(pCMM) CDO<T>(*this);
     Debug("context") << " to " << p << std::endl;
     return p;
@@ -70,7 +68,7 @@ protected:
    * saved data back from the saved copy using operator= for T.
    */
   virtual void restore(ContextObj* pContextObj) {
-    //Debug("context") << "restore cdo " << this << " from " << get();
+    //Debug("context") << "restore cdo " << this;
     d_data = ((CDO<T>*) pContextObj)->d_data;
     //Debug("context") << " to " << get() << std::endl;
   }

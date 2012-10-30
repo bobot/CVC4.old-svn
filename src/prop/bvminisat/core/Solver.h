@@ -52,6 +52,7 @@ public:
    */
   virtual void notify(vec<Lit>& learnt) = 0;
 
+  virtual void safePoint() = 0;
 };
 
 //=================================================================================================
@@ -105,7 +106,8 @@ public:
     bool    solve        (Lit p, Lit q, Lit r);     // Search for a model that respects three assumptions.
     bool    okay         () const;                  // FALSE means solver is in a conflicting state
     lbool   assertAssumption(Lit p, bool propagate);  // Assert a new assumption, start BCP if propagate = true
-    void    popAssumption();                        // Pop an assumption
+    lbool   propagateAssumptions();                   // Do BCP over asserted assumptions
+    void    popAssumption();                          // Pop an assumption
 
     void    toDimacs     (FILE* f, const vec<Lit>& assumps);            // Write CNF to file in DIMACS-format.
     void    toDimacs     (const char *file, const vec<Lit>& assumps);
@@ -409,6 +411,8 @@ inline void     Solver::interrupt(){ asynch_interrupt = true; }
 inline void     Solver::clearInterrupt(){ asynch_interrupt = false; }
 inline void     Solver::budgetOff(){ conflict_budget = propagation_budget = -1; }
 inline bool     Solver::withinBudget() const {
+    Assert (notify); 
+    notify->safePoint(); 
     return !asynch_interrupt &&
            (conflict_budget    < 0 || conflicts < (uint64_t)conflict_budget) &&
            (propagation_budget < 0 || propagations < (uint64_t)propagation_budget); }

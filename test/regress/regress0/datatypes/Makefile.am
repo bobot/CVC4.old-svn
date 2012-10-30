@@ -1,10 +1,14 @@
 SUBDIRS = .
 
-BINARY=cvc4
-if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) --proof @top_builddir@/src/main/$(BINARY)
-else
-TESTS_ENVIRONMENT = @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+BINARY = cvc4
+LOG_COMPILER = @srcdir@/../../run_regression
+AM_LOG_FLAGS = $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+
+if AUTOMAKE_1_11
+# old-style (pre-automake 1.12) test harness
+TESTS_ENVIRONMENT = \
+	$(TESTS_ENVIRONMENT) $(LOG_COMPILER) \
+	$(AM_LOG_FLAGS) $(LOG_FLAGS)
 endif
 
 MAKEFLAGS = -k
@@ -15,7 +19,7 @@ MAKEFLAGS = -k
 TESTS =	\
 	tuple.cvc \
 	rec1.cvc \
-	rec2.cvc \
+	rec4.cvc \
 	datatype.cvc \
 	datatype0.cvc \
 	datatype1.cvc \
@@ -32,13 +36,16 @@ TESTS =	\
 	typed_v3l20092.cvc \
 	typed_v5l30069.cvc \
 	v10l40099.cvc \
-	v1l20009.cvc \
 	v2l40025.cvc \
 	v3l60006.cvc \
 	v5l30058.cvc \
-	bug286.cvc
+	bug286.cvc \
+	wrong-sel-simp.cvc \
+	rec2.cvc
 
-FAILING_TESTS = rec5.cvc
+FAILING_TESTS = \
+	rec5.cvc \
+	datatype-dump.cvc
 
 EXTRA_DIST = $(TESTS)
 
@@ -51,7 +58,7 @@ endif
 # and make sure to distribute it
 EXTRA_DIST += \
 	error.cvc \
-	rec4.cvc
+	$(FAILING_TESTS)
 
 # synonyms for "check"
 .PHONY: regress regress0 test

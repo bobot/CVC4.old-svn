@@ -5,9 +5,7 @@
  ** Major contributors: mdeters, cconway
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -24,7 +22,6 @@
 #include "expr/type.h"
 #include "parser/antlr_input.h"
 #include "util/output.h"
-#include "util/Assert.h"
 
 using namespace std;
 using namespace CVC4;
@@ -57,7 +54,7 @@ InputStream *Input::getInputStream() {
 Input* Input::newFileInput(InputLanguage lang,
                            const std::string& filename,
                            bool useMmap)
-  throw (InputStreamException, AssertionException) {
+  throw (InputStreamException) {
   AntlrInputStream *inputStream = 
     AntlrInputStream::newFileInputStream(filename, useMmap);
   return AntlrInput::newInput(lang, *inputStream);
@@ -67,7 +64,7 @@ Input* Input::newStreamInput(InputLanguage lang,
                              std::istream& input, 
                              const std::string& name,
                              bool lineBuffered)
-  throw (InputStreamException, AssertionException) {
+  throw (InputStreamException) {
   AntlrInputStream *inputStream = 
     AntlrInputStream::newStreamInputStream(input, name, lineBuffered);
   return AntlrInput::newInput(lang, *inputStream);
@@ -76,7 +73,7 @@ Input* Input::newStreamInput(InputLanguage lang,
 Input* Input::newStringInput(InputLanguage lang,
                              const std::string& str,
                              const std::string& name)
-  throw (InputStreamException, AssertionException) {
+  throw (InputStreamException) {
   AntlrInputStream *inputStream = AntlrInputStream::newStringInputStream(str, name);
   return AntlrInput::newInput(lang, *inputStream);
 }

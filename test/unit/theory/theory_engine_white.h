@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): taking, cconway
+ ** Minor contributors (to current version): taking, ajreynol, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -34,16 +32,19 @@
 #include "expr/node_manager.h"
 #include "expr/kind.h"
 #include "context/context.h"
+#include "smt/smt_engine.h"
+#include "smt/smt_engine_scope.h"
 #include "util/rational.h"
 #include "util/integer.h"
-#include "util/options.h"
-#include "util/Assert.h"
+#include "options/options.h"
+#include "util/cvc4_assert.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::expr;
 using namespace CVC4::context;
 using namespace CVC4::kind;
+using namespace CVC4::smt;
 
 using namespace std;
 
@@ -60,10 +61,19 @@ class FakeOutputChannel : public OutputChannel {
   LemmaStatus lemma(TNode n, bool removable) throw(AssertionException) {
     Unimplemented();
   }
+  void requirePhase(TNode, bool) throw(AssertionException) {
+    Unimplemented();
+  }
+  bool flipDecision() throw(AssertionException) {
+    Unimplemented();
+  }
   void explanation(TNode n) throw(AssertionException) {
     Unimplemented();
   }
   void setIncomplete() throw(AssertionException) {
+    Unimplemented();
+  }
+  void handleUserAttribute( const char* attr, Theory* t ){
     Unimplemented();
   }
 };/* class FakeOutputChannel */
@@ -107,8 +117,8 @@ class FakeTheory : public Theory {
   // static std::deque<RewriteItem> s_expected;
 
 public:
-  FakeTheory(context::Context* ctxt, context::UserContext* uctxt, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) :
-    Theory(theoryId, ctxt, uctxt, out, valuation, logicInfo)
+  FakeTheory(context::Context* ctxt, context::UserContext* uctxt, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
+    Theory(theoryId, ctxt, uctxt, out, valuation, logicInfo, qe)
   { }
 
   /** Register an expected rewrite call */
@@ -227,49 +237,47 @@ class TheoryEngineWhite : public CxxTest::TestSuite {
   Context* d_ctxt;
   UserContext* d_uctxt;
 
+  ExprManager* d_em;
   NodeManager* d_nm;
-  NodeManagerScope* d_scope;
+  SmtEngine* d_smt;
+  SmtScope* d_scope;
   FakeOutputChannel *d_nullChannel;
   TheoryEngine* d_theoryEngine;
-  LogicInfo* d_logicInfo;
 
 public:
 
   void setUp() {
-    d_ctxt = new Context();
-    d_uctxt = new UserContext();
+    d_em = new ExprManager();
+    d_smt = new SmtEngine(d_em);
+    d_nm = NodeManager::fromExprManager(d_em);
+    d_scope = new SmtScope(d_smt);
 
-    d_nm = new NodeManager(d_ctxt, NULL);
-    d_scope = new NodeManagerScope(d_nm);
+    d_ctxt = d_smt->d_context;
+    d_uctxt = d_smt->d_userContext;
 
     d_nullChannel = new FakeOutputChannel();
 
-    // create the TheoryEngine
-    d_logicInfo = new LogicInfo();
-    d_theoryEngine = new TheoryEngine(d_ctxt, d_uctxt, *d_logicInfo);
-
+    d_theoryEngine = d_smt->d_theoryEngine;
+    for(TheoryId id = THEORY_FIRST; id != THEORY_LAST; ++id) {
+      delete d_theoryEngine->d_theoryOut[id];
+      delete d_theoryEngine->d_theoryTable[id];
+      d_theoryEngine->d_theoryOut[id] = NULL;
+      d_theoryEngine->d_theoryTable[id] = NULL;
+    }
     d_theoryEngine->addTheory< FakeTheory<THEORY_BUILTIN> >(THEORY_BUILTIN);
     d_theoryEngine->addTheory< FakeTheory<THEORY_BOOL> >(THEORY_BOOL);
     d_theoryEngine->addTheory< FakeTheory<THEORY_UF> >(THEORY_UF);
     d_theoryEngine->addTheory< FakeTheory<THEORY_ARITH> >(THEORY_ARITH);
     d_theoryEngine->addTheory< FakeTheory<THEORY_ARRAY> >(THEORY_ARRAY);
     d_theoryEngine->addTheory< FakeTheory<THEORY_BV> >(THEORY_BV);
-
-    //Debug.on("theory-rewrite");
   }
 
   void tearDown() {
-    d_theoryEngine->shutdown();
-    delete d_theoryEngine;
-    delete d_logicInfo;
-
     delete d_nullChannel;
 
     delete d_scope;
-    delete d_nm;
-
-    delete d_uctxt;
-    delete d_ctxt;
+    delete d_smt;
+    delete d_em;
   }
 
   void testRewriterSimple() {

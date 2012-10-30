@@ -2,12 +2,10 @@
 /*! \file substitutions.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan
+ ** Major contributors: barrett, dejan
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -68,7 +66,7 @@ private:
   bool d_cacheInvalidated;
 
   /** Internal method that performs substitution */
-  Node internalSubstitute(TNode t, NodeCache& substitutionCache);
+  Node internalSubstitute(TNode t);
 
   /** Helper class to invalidate cache on user pop */
   class CacheInvalidator : public context::ContextNotifyObj {
@@ -91,6 +89,10 @@ private:
    */
   CacheInvalidator d_cacheInvalidator;
 
+  // Helper list and method for simplifyLHS methods
+  // std::vector<std::pair<Node, Node> > d_worklist;
+  // void processWorklist(std::vector<std::pair<Node, Node> >& equalities, bool rewrite);
+
 public:
 
   SubstitutionMap(context::Context* context) :
@@ -102,23 +104,29 @@ public:
   }
 
   /**
-   * Adds a substitution from x to t.  Typically you also want to apply this
-   * substitution to the existing set (backSub), but you do not need to
-   * apply the existing set to the new substitution (forwardSub).  However,
-   * the method allows you to do either.  Probably you should not do both,
-   * as it will be very difficult to maintain the invariant that no
-   * left-hand side appears on any right-hand side.
+   * Adds a substitution from x to t.
    */
-  void addSubstitution(TNode x, TNode t,
-                       bool invalidateCache = true,
-                       bool backSub = true,
-                       bool forwardSub = false);
+  void addSubstitution(TNode x, TNode t, bool invalidateCache = true);
 
   /**
    * Returns true iff x is in the substitution map
    */
-  bool hasSubstitution(TNode x)
-    { return d_substitutions.find(x) != d_substitutions.end(); }
+  bool hasSubstitution(TNode x) const {
+    return d_substitutions.find(x) != d_substitutions.end();
+  }
+
+  /**
+   * Returns the substitution mapping that was given for x via
+   * addSubstitution().  Note that the returned value might itself
+   * be in the map; for the actual substitution that would be
+   * performed for x, use .apply(x).  This getSubstitution() function
+   * is mainly intended for constructing assertions about what has
+   * already been put in the map.
+   */
+  TNode getSubstitution(TNode x) const {
+    AssertArgument(hasSubstitution(x), x, "element not in this substitution map");
+    return (*d_substitutions.find(x)).second;
+  }
 
   /**
    * Apply the substitutions to the node.
@@ -158,10 +166,29 @@ public:
   // should best interact with cache invalidation on context
   // pops.
 
+  /*
+  // Simplify right-hand sides of current map using the given substitutions
+  void simplifyRHS(const SubstitutionMap& subMap);
+
+  // Simplify right-hand sides of current map with lhs -> rhs
+  void simplifyRHS(TNode lhs, TNode rhs);
+
+  // Simplify left-hand sides of current map using the given substitutions
+  void simplifyLHS(const SubstitutionMap& subMap,
+                   std::vector<std::pair<Node,Node> >& equalities,
+                   bool rewrite = true);
+
+  // Simplify left-hand sides of current map with lhs -> rhs and then add lhs -> rhs to the substitutions set
+  void simplifyLHS(TNode lhs, TNode rhs,
+                   std::vector<std::pair<Node,Node> >& equalities,
+                   bool rewrite = true);
+  */
+
   /**
    * Print to the output stream
    */
   void print(std::ostream& out) const;
+  void debugPrint() const;
 
 };/* class SubstitutionMap */
 

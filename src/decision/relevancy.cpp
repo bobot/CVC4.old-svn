@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file relevancy.h
+/*! \file relevancy.cpp
  ** \verbatim
  ** Original author: kshitij
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -34,7 +32,7 @@ void Relevancy::setJustified(TNode n)
 {
   Debug("decision") << " marking [" << n.getId() << "]"<< n << "as justified" << std::endl;
   d_justified.insert(n);
-  if(d_opt.computeRelevancy) {
+  if(options::decisionComputeRelevancy()) {
     d_relevancy[n] = d_maxRelevancy[n];
     updateRelevancy(n);
   }
@@ -68,7 +66,7 @@ void Relevancy::computeITEs(TNode n, IteList &l)
   }
 }
 
-const IteList& Relevancy::getITEs(TNode n)
+const Relevancy::IteList& Relevancy::getITEs(TNode n)
 {
   IteCache::iterator it = d_iteCache.find(n);
   if(it != d_iteCache.end()) {
@@ -117,7 +115,7 @@ bool Relevancy::findSplitterRec(TNode node,
   if(d_polarityCache.find(node) == d_polarityCache.end()) {
     d_polarityCache[node] = desiredVal;
   } else {
-    Assert(d_multipleBacktrace || d_opt.computeRelevancy);
+    Assert(d_multipleBacktrace || options::decisionComputeRelevancy());
     return true;
   }
 
@@ -143,7 +141,7 @@ bool Relevancy::findSplitterRec(TNode node,
 
   /* Good luck, hope you can get what you want */
   Assert(litVal == desiredVal || litVal == SAT_VALUE_UNKNOWN, 
-         "invariant voilated");
+         "invariant violated");
 
   /* What type of node is this */
   Kind k = node.getKind();	
@@ -289,7 +287,7 @@ bool Relevancy::handleOrFalse(TNode node, SatValue desiredVal) {
   bool ret = false;
   for(int i = 0; i < n; ++i) {
     if (findSplitterRec(node[i], desiredVal)) {
-      if(!d_opt.computeRelevancy) 
+      if(!options::decisionComputeRelevancy()) 
         return true;
       else
         ret = true;

@@ -1,13 +1,11 @@
 /*********************                                                        */
 /*! \file bv_subtheory_eq.h
  ** \verbatim
- ** Original author: lianah
- ** Major contributors: dejan
- ** Minor contributors (to current version): none
+ ** Original author: dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): lianah, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -18,6 +16,7 @@
 
 #pragma once
 
+#include "cvc4_private.h"
 #include "theory/bv/bv_subtheory.h"
 
 namespace CVC4 {
@@ -32,14 +31,18 @@ class EqualitySolver : public SubtheorySolver {
   // NotifyClass: handles call-back from congruence closure module
 
   class NotifyClass : public eq::EqualityEngineNotify {
-    TheoryBV* d_bv;
+    EqualitySolver& d_solver;
 
   public:
-    NotifyClass(TheoryBV* bv): d_bv(bv) {}
+    NotifyClass(EqualitySolver& solver): d_solver(solver) {}
     bool eqNotifyTriggerEquality(TNode equality, bool value);
     bool eqNotifyTriggerPredicate(TNode predicate, bool value);
     bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value);
-    bool eqNotifyConstantTermMerge(TNode t1, TNode t2);
+    void eqNotifyConstantTermMerge(TNode t1, TNode t2);
+    void eqNotifyNewClass(TNode t) { }
+    void eqNotifyPreMerge(TNode t1, TNode t2) { }
+    void eqNotifyPostMerge(TNode t1, TNode t2) { }
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { }
 };
 
 
@@ -49,6 +52,12 @@ class EqualitySolver : public SubtheorySolver {
   /** Equality engine */
   eq::EqualityEngine d_equalityEngine;
 
+  /** Store a propagation to the bv solver */
+  bool storePropagation(TNode literal);
+  
+  /** Store a conflict from merging two constants */
+  void conflict(TNode a, TNode b);
+
 public:
 
   EqualitySolver(context::Context* c, TheoryBV* bv);
@@ -56,6 +65,7 @@ public:
   void  preRegister(TNode node);
   bool  addAssertions(const std::vector<TNode>& assertions, Theory::Effort e);
   void  explain(TNode literal, std::vector<TNode>& assumptions);
+  void  collectModelInfo(TheoryModel* m);
   void  addSharedTerm(TNode t) {
     d_equalityEngine.addTriggerTerm(t, THEORY_BV);
   }

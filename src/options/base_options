@@ -1,0 +1,132 @@
+#
+# Option specification file for CVC4
+#
+# This is essentially a shell script interpreted with special commands.
+#
+# Lines starting with whitespace are special.  They are passed in their entirety (minus
+# the first whitespace char) to the "doc" command.  Lines starting with a single slash
+# are stripped of this initial character and interpreted by the "doc-alt" command.  A period
+# "." in the first column of a line, followed optionally by whitespace but without any other
+# content on the line, is interpreted as an empty string passed to doc.  (This allows
+# multi-paragraph documentation for options.)  Lines may be continued with a backslash (\)
+# at the end of a line.
+#
+# commands are:
+#
+#   module ID "include-file" name
+#
+#     Identifies the module.  Must be the first command in the file.  ID is a suitable
+#     identifier for a preprocessor definition, and should be unique; name is a "pretty"
+#     name used for the benefit of the end CVC4 user in, e.g., option listings.
+#
+#   common-option SPECIFICATION
+#   option SPECIFICATION
+#   expert-option SPECIFICATION
+#   undocumented-option SPECIFICATION
+#
+#     These commands declare (respectively) common options presented first to the user,
+#     standard options that the user might want to see with "--help" documentation,
+#     expert options that should be marked as expert-only, and options that should not
+#     appear in normal option documentation (even if documentation is included here).
+#
+#     SPECIFICATIONs take this form:
+#
+#       SPECIFICATION ::= (internal-name | -) [-short-option/-alternate-short-option] [--long-option/--alternate-long-option] [smt-option-name] C++-type [ATTRIBUTEs...]
+#       ATTRIBUTE ::=   :include include-files..
+#                     | :default C++-expression
+#                     | :handler custom-option-handlers..
+#                     | :handler-include include-files..
+#                     | :read-only
+#                     | :read-write
+#                     | :link linked-options..
+#
+#   common-alias ALIAS_SPECIFICATION
+#   alias ALIAS_SPECIFICATION
+#   expert-alias ALIAS_SPECIFICATION
+#   undocumented-alias ALIAS_SPECIFICATION
+#
+#       ALIAS_SPECIFICATION ::=   (-short-option | --long-option) = (-option[=argument] | --long-option[=argument])+
+#                               | (-short-option=ARG | --long-option=ARG) = (-option[=ARG|argument] | --long-option[=ARG|argument])+
+#
+#     The alias command creates a new short or long option, and binds it
+#     to act the same way as if the options to the right of "=" were passed.
+#     For example, if there are options to --disable-warning-1 and
+#     --disable-warning-2, etc., a useful alias might be:
+#
+#       alias --disable-all-warnings = --disable-warning-1 --disable-warning-2
+#
+#     It's also possible to pass an argument through to another option.
+#     This alias makes "--output-language" synonymous with "--output-lang".
+#     Without the "=L" parts, --output-language would not take an argument,
+#     and option processing would fail (because --output-lang expects one).
+#
+#       alias --output-language=L = --output-lang=L
+#
+#     You can also ignore such an argument:
+#
+#       alias --some-option=VALUE = --other-option --option2=foo --option3=bar
+#
+#     or use it for multiple options on the right-hand side, etc.
+#
+#   warning message
+#
+#     Warn about something during processing (like a FIXME).
+#
+#   endmodule
+#
+#     This file should end with the "endmodule" command, and nothing should follow it.
+#
+
+module BASE "options/base_options.h" Base
+
+option binary_name std::string
+
+option in std::istream* :default &std::cin :include <iostream>
+option out std::ostream* :default &std::cout :include <iostream>
+option err std::ostream* :default &std::cerr :include <iostream>
+
+common-option inputLanguage input-language -L --lang=LANG InputLanguage :handler CVC4::options::stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :read-write
+ force input language (default is "auto"; see --lang help)
+common-option outputLanguage output-language --output-lang=LANG OutputLanguage :handler CVC4::options::stringToOutputLanguage :include "util/language.h" :default language::output::LANG_AUTO :read-write
+ force output language (default is "auto"; see --output-lang help)
+option languageHelp bool
+
+# Allow also --language and --output-language, it's a common mistake to
+# type these, but no need to document it.
+undocumented-alias --language=L = --lang=L
+undocumented-alias --output-language=L = --output-lang=L
+
+option verbosity verbosity int :read-write :default 0 :predicate CVC4::options::setVerbosity :predicate-include "options/base_options_handlers.h"
+ the verbosity level of CVC4
+common-option - -v --verbose void :handler CVC4::options::increaseVerbosity
+ increase verbosity (may be repeated)
+common-option - -q --quiet void :handler CVC4::options::decreaseVerbosity
+ decrease verbosity (may be repeated)
+
+common-option statistics statistics --stats bool
+ give statistics on exit
+undocumented-alias --statistics = --stats
+undocumented-alias --no-statistics = --no-stats
+
+option parseOnly parse-only --parse-only bool :read-write
+ exit after parsing input
+
+option preprocessOnly preprocess-only --preprocess-only bool
+ exit after preprocessing input
+
+option segvNoSpin --segv-nospin bool
+ don't spin on segfault waiting for gdb
+
+option - trace -t --trace=TAG argument :handler CVC4::options::addTraceTag
+ trace something (e.g. -t pushpop), can repeat
+option - debug -d --debug=TAG argument :handler CVC4::options::addDebugTag
+ debug something (e.g. -d arith), can repeat
+
+option printSuccess print-success --print-success bool :predicate CVC4::options::setPrintSuccess :predicate-include "options/base_options_handlers.h"
+ print the "success" output required of SMT-LIBv2
+
+alias --smtlib = --lang=smt2 --output-lang=smt2 --strict-parsing --default-expr-depth=-1 --print-success --incremental --abstract-values
+ SMT-LIBv2 compliance mode (implies other options)
+undocumented-alias --smtlib2 = --smtlib
+
+endmodule

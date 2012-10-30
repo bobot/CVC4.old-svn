@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: cconway, mdeters
- ** Minor contributors (to current version): ajreynol
+ ** Minor contributors (to current version): kshitij, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,8 +18,8 @@
 #include "expr/expr_manager.h"
 #include "expr/variable_type_map.h"
 #include "context/context.h"
-#include "util/options.h"
-#include "util/stats.h"
+#include "options/options.h"
+#include "util/statistics_registry.h"
 
 #include <map>
 
@@ -31,7 +29,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 35 "${template}"
+#line 33 "${template}"
 
 #ifdef CVC4_STATISTICS_ON
   #define INC_STAT(kind) \
@@ -40,29 +38,29 @@ ${includes}
       stringstream statName; \
       statName << "expr::ExprManager::" << kind; \
       d_exprStatistics[kind] = new IntStat(statName.str(), 0); \
-      StatisticsRegistry::registerStat(d_exprStatistics[kind]); \
+      d_nodeManager->getStatisticsRegistry()->registerStat_(d_exprStatistics[kind]); \
     } \
     ++ *(d_exprStatistics[kind]); \
   }
-  #define INC_STAT_VAR(type) \
+  #define INC_STAT_VAR(type, bound_var) \
   { \
     TypeNode* typeNode = Type::getTypeNode(type); \
     TypeConstant type = typeNode->getKind() == kind::TYPE_CONSTANT ? typeNode->getConst<TypeConstant>() : LAST_TYPE; \
     if (d_exprStatisticsVars[type] == NULL) { \
       stringstream statName; \
       if (type == LAST_TYPE) { \
-        statName << "expr::ExprManager::VARIABLE:Parametrized type"; \
+        statName << "expr::ExprManager::" << ((bound_var) ? "BOUND_VARIABLE" : "VARIABLE") << ":Parameterized type"; \
       } else { \
-        statName << "expr::ExprManager::VARIABLE:" << type; \
+        statName << "expr::ExprManager::" << ((bound_var) ? "BOUND_VARIABLE" : "VARIABLE") << ":" << type; \
       } \
       d_exprStatisticsVars[type] = new IntStat(statName.str(), 0); \
-      StatisticsRegistry::registerStat(d_exprStatisticsVars[type]); \
+      d_nodeManager->getStatisticsRegistry()->registerStat_(d_exprStatisticsVars[type]); \
     } \
     ++ *(d_exprStatisticsVars[type]); \
   }
 #else
   #define INC_STAT(kind)
-  #define INC_STAT_VAR(type)
+  #define INC_STAT_VAR(type, bound_var)
 #endif
 
 using namespace std;
@@ -78,7 +76,7 @@ ExprManager::ExprManager() :
   for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
     d_exprStatistics[i] = NULL;
   }
-  for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
+  for (unsigned i = 0; i < LAST_TYPE; ++ i) {
     d_exprStatisticsVars[i] = NULL;
   }
 #endif
@@ -88,7 +86,7 @@ ExprManager::ExprManager(const Options& options) :
   d_ctxt(new Context()),
   d_nodeManager(new NodeManager(d_ctxt, this, options)) {
 #ifdef CVC4_STATISTICS_ON
-  for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
+  for (unsigned i = 0; i < LAST_TYPE; ++ i) {
     d_exprStatisticsVars[i] = NULL;
   }
   for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
@@ -105,13 +103,13 @@ ExprManager::~ExprManager() throw() {
 #ifdef CVC4_STATISTICS_ON
     for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
       if (d_exprStatistics[i] != NULL) {
-        StatisticsRegistry::unregisterStat(d_exprStatistics[i]);
+        d_nodeManager->getStatisticsRegistry()->unregisterStat_(d_exprStatistics[i]);
         delete d_exprStatistics[i];
       }
     }
-    for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
+    for (unsigned i = 0; i < LAST_TYPE; ++ i) {
       if (d_exprStatisticsVars[i] != NULL) {
-        StatisticsRegistry::unregisterStat(d_exprStatisticsVars[i]);
+        d_nodeManager->getStatisticsRegistry()->unregisterStat_(d_exprStatisticsVars[i]);
         delete d_exprStatisticsVars[i];
       }
     }
@@ -126,11 +124,15 @@ ExprManager::~ExprManager() throw() {
   }
 }
 
-const Options* ExprManager::getOptions() const {
+StatisticsRegistry* ExprManager::getStatisticsRegistry() throw() {
+  return d_nodeManager->getStatisticsRegistry();
+}
+
+const Options& ExprManager::getOptions() const {
   return d_nodeManager->getOptions();
 }
 
-void ExprManager::setOptions(const Options &options) {
+void ExprManager::setOptions(Options &options) {
   d_nodeManager->setOptions(options);
 }
 
@@ -142,11 +144,6 @@ BooleanType ExprManager::booleanType() const {
 StringType ExprManager::stringType() const {
   NodeManagerScope nms(d_nodeManager);
   return StringType(Type(d_nodeManager, new TypeNode(d_nodeManager->stringType())));
-}
-
-KindType ExprManager::kindType() const {
-  NodeManagerScope nms(d_nodeManager);
-  return KindType(Type(d_nodeManager, new TypeNode(d_nodeManager->kindType())));
 }
 
 RealType ExprManager::realType() const {
@@ -516,12 +513,21 @@ FunctionType ExprManager::mkPredicateType(const std::vector<Type>& sorts) {
 
 TupleType ExprManager::mkTupleType(const std::vector<Type>& types) {
   NodeManagerScope nms(d_nodeManager);
-  Assert( types.size() >= 2 );
+  Assert( types.size() >= 1 );
   std::vector<TypeNode> typeNodes;
   for (unsigned i = 0, i_end = types.size(); i < i_end; ++ i) {
      typeNodes.push_back(*types[i].d_typeNode);
   }
   return TupleType(Type(d_nodeManager, new TypeNode(d_nodeManager->mkTupleType(typeNodes))));
+}
+
+SExprType ExprManager::mkSExprType(const std::vector<Type>& types) {
+  NodeManagerScope nms(d_nodeManager);
+  std::vector<TypeNode> typeNodes;
+  for (unsigned i = 0, i_end = types.size(); i < i_end; ++ i) {
+     typeNodes.push_back(*types[i].d_typeNode);
+  }
+  return SExprType(Type(d_nodeManager, new TypeNode(d_nodeManager->mkSExprType(typeNodes))));
 }
 
 BitVectorType ExprManager::mkBitVectorType(unsigned size) const {
@@ -648,6 +654,10 @@ ExprManager::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes,
     // Now run some checks, including a check to make sure that no
     // selector is function-valued.
     checkResolvedDatatype(*i);
+  }
+
+  for(std::vector<NodeManagerListener*>::iterator i = d_nodeManager->d_listeners.begin(); i != d_nodeManager->d_listeners.end(); ++i) {
+    (*i)->nmNotifyNewDatatypes(dtts);
   }
 
   return dtts;
@@ -799,17 +809,33 @@ StatisticsRegistry* ExprManager::getStatisticsRegistry() const{
 }
 
 Expr ExprManager::mkVar(const std::string& name, Type type) {
+  Assert(NodeManager::currentNM() == NULL, "ExprManager::mkVar() should only be called externally, not from within CVC4 code.  Please use mkSkolem().");
   NodeManagerScope nms(d_nodeManager);
   Node* n = d_nodeManager->mkVarPtr(name, *type.d_typeNode);
   Debug("nm") << "set " << name << " on " << *n << std::endl;
-  INC_STAT_VAR(type);
+  INC_STAT_VAR(type, false);
   return Expr(this, n);
 }
 
 Expr ExprManager::mkVar(Type type) {
+  Assert(NodeManager::currentNM() == NULL, "ExprManager::mkVar() should only be called externally, not from within CVC4 code.  Please use mkSkolem().");
   NodeManagerScope nms(d_nodeManager);
-  INC_STAT_VAR(type);
+  INC_STAT_VAR(type, false);
   return Expr(this, d_nodeManager->mkVarPtr(*type.d_typeNode));
+}
+
+Expr ExprManager::mkBoundVar(const std::string& name, Type type) {
+  NodeManagerScope nms(d_nodeManager);
+  Node* n = d_nodeManager->mkBoundVarPtr(name, *type.d_typeNode);
+  Debug("nm") << "set " << name << " on " << *n << std::endl;
+  INC_STAT_VAR(type, true);
+  return Expr(this, n);
+}
+
+Expr ExprManager::mkBoundVar(Type type) {
+  NodeManagerScope nms(d_nodeManager);
+  INC_STAT_VAR(type, true);
+  return Expr(this, d_nodeManager->mkBoundVarPtr(*type.d_typeNode));
 }
 
 Expr ExprManager::mkAssociative(Kind kind,
@@ -894,19 +920,35 @@ Context* ExprManager::getContext() const {
   return d_ctxt;
 }
 
+Statistics ExprManager::getStatistics() const throw() {
+  return Statistics(*d_nodeManager->getStatisticsRegistry());
+}
+
+SExpr ExprManager::getStatistic(const std::string& name) const throw() {
+  return d_nodeManager->getStatisticsRegistry()->getStatistic(name);
+}
+
 namespace expr {
 
 Node exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
 
 TypeNode exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* to, ExprManagerMapCollection& vmap) {
   Debug("export") << "type: " << n << std::endl;
-  Assert(n.getKind() == kind::SORT_TYPE ||
-         n.getMetaKind() != kind::metakind::PARAMETERIZED,
-         "PARAMETERIZED-kinded types (other than SORT_KIND) not supported");
+  if(theory::kindToTheoryId(n.getKind()) == theory::THEORY_DATATYPES) {
+    throw ExportUnsupportedException
+      ("export of types belonging to theory of DATATYPES kinds unsupported");
+  }
+  if(n.getMetaKind() == kind::metakind::PARAMETERIZED &&
+     n.getKind() != kind::SORT_TYPE) { 
+    throw ExportUnsupportedException
+      ("export of PARAMETERIZED-kinded types (other than SORT_KIND) not supported");
+  }
   if(n.getKind() == kind::TYPE_CONSTANT) {
     return to->mkTypeConst(n.getConst<TypeConstant>());
   } else if(n.getKind() == kind::BITVECTOR_TYPE) {
     return to->mkBitVectorType(n.getConst<BitVectorSize>());
+  } else if(n.getKind() == kind::SUBRANGE_TYPE) {
+    return to->mkSubrangeType(n.getSubrangeBounds());
   }
   Type from_t = from->toType(n);
   Type& to_t = vmap.d_typeMap[from_t];

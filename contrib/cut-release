@@ -4,7 +4,11 @@
 #
 
 function isthatright {
-  echo -n "Does that look right? [y/n] "
+  if [ -z "$1" ]; then
+    echo -n "Does that look right? [y/n] "
+  else
+    echo -n "$1? [y/n] "
+  fi
   while read yn; do
     if [ "$yn" = y -o "$yn" = Y -o "$yn" = yes -o "$yn" = YES -o "$yn" = Yes ]; then
       break
@@ -43,10 +47,10 @@ if echo "$version" | grep '[^a-zA-Z0-9_.+(){}^%#-]' &>/dev/null; then
   exit 1
 fi
 
-vs=($(echo "$version" | sed 's,^\([0-9]*\)\.\([0-9]*\)\(\.\([0-9]*\)\)\?\(.*\),\1 \2 \4 \5,'))
+eval "declare -a vs=($(echo "$version" | sed 's,^\([0-9]*\)\.\([0-9]*\)\(\.\([0-9]*\)\)\?\(.*\),[0]=\1 [1]=\2 [2]=\4 [3]=\5,'))"
 major=${vs[0]}
-minor=${vs[1]}
-release=${vs[2]-0}
+minor=${vs[1]}; if [ -z "$minor" ]; then minor=0; fi
+release=${vs[2]}; if [ -z "$release" ]; then release=0; fi
 extra=${vs[3]}
 echo
 echo "Major  : $major"
@@ -111,6 +115,20 @@ if [ -n "$suspect_files" ]; then
   $dryrun || exit 1
 fi
 
+echo "Checking NEWS file for recent updates..."
+if [ -n "$(svn status -q NEWS)" ]; then
+  echo "+ It's locally modified."
+else
+  echo -n "+ "
+  svn info NEWS | grep '^Last Changed Date: '
+  echo
+  echo "You should probably make sure to put some notes in the NEWS file"
+  echo "for this release, indicating the most important changes from the"
+  echo "last release."
+  echo
+  isthatright "Continue without updating NEWS"
+fi
+
 echo "Adjusting version info lines in configure.ac..."
 if ! grep '^m4_define(_CVC4_MAJOR,  *[0-9][0-9]* *)' configure.ac &>/dev/null ||
    ! grep '^m4_define(_CVC4_MINOR,  *[0-9][0-9]* *)' configure.ac &>/dev/null ||
@@ -149,14 +167,14 @@ echo "Building and checking distribution \`cvc4-$version'..."
 if ! $SHELL -c '\
 	version="'$version'"; \
 	set -ex; \
-	./autogen.sh; \
+	./autogen.sh || echo "autoconf failed; does library_versions have something to match $version?"; \
 	mkdir "release-$version"; \
 	cd "release-$version"; \
-	../configure production-cln-staticbinary --disable-shared --enable-unit-testing --with-cudd --with-readline; \
+	../configure production-cln-staticbinary --disable-shared --enable-unit-testing --without-cudd --with-readline --with-portfolio; \
 	make dist "$@"; \
 	tar xf "cvc4-$version.tar.gz"; \
 	cd "cvc4-$version"; \
-	./configure production-cln-staticbinary --disable-shared --enable-unit-testing --with-cudd --with-readline; \
+	./configure production-cln-staticbinary --disable-shared --enable-unit-testing --without-cudd --with-readline --with-portfolio; \
 	make check "$@"; \
 	make distcheck "$@"; \
 '; then
@@ -192,9 +210,14 @@ cp -p "release-$version/cvc4-$version.tar.gz" .
 gpg -b --armor "cvc4-$version.tar.gz"
 
 echo
-echo "Signing binary..."
+echo "Signing cvc4 binary..."
 cp -p "release-$version/src/main/cvc4" "cvc4-$version"
 gpg -b --armor "cvc4-$version"
+
+echo
+echo "Signing pcvc4 binary..."
+cp -p "release-$version/src/main/pcvc4" "pcvc4-$version"
+gpg -b --armor "pcvc4-$version"
 
 echo
 echo "About to run: svn commit -m \"Cutting release $version.\""
@@ -205,6 +228,27 @@ echo
 echo "About to run: svn copy -m \"Cutting release $version.\" \"$root\" \"https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version\""
 isthatright
 $dryrun || svn copy -m "Cutting release $version." "$root" "https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version"
+
+echo
+if [ "$(svn info | grep '^URL: https://subversive.cims.nyu.edu/cvc4/cvc4/trunk$')" ]; then
+  if [ "$release" = 0 ]; then
+    echo "About to run: svn copy -m \"Branching release $version for bugfixes.\" \"https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version\" \"https://subversive.cims.nyu.edu/cvc4/cvc4/branches/releases/$version.x\""
+    isthatright
+    $dryrun || svn copy -m "Branching release $version for bugfixes." "https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version" "https://subversive.cims.nyu.edu/cvc4/cvc4/branches/releases/$version.x"
+  else
+    echo "Not branching, because this is a minor release (i.e., not a \"dot-oh\""
+    echo "release), so I'm guessing you have a devel repository outside of trunk"
+    echo "somewhere?  You can still make a branch manually, of course."
+  fi
+else
+  echo "Not branching, because it appears there already is a branch"
+  echo "to work with for version $version ..?  (You're not on trunk.)"
+  echo "You can still make a branch manually, of course."
+fi
+
+echo
+echo "Done.  Next steps are to upload and advertise these packages and to add"
+echo "a $version release to Bugzilla."
 
 trap '' EXIT
 

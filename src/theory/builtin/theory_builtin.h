@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -29,9 +27,8 @@ namespace builtin {
 
 class TheoryBuiltin : public Theory {
 public:
-  TheoryBuiltin(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) :
-    Theory(THEORY_BUILTIN, c, u, out, valuation, logicInfo) {}
-  Node getValue(TNode n);
+  TheoryBuiltin(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
+    Theory(THEORY_BUILTIN, c, u, out, valuation, logicInfo, qe) {}
   std::string identify() const { return std::string("TheoryBuiltin"); }
 };/* class TheoryBuiltin */
 

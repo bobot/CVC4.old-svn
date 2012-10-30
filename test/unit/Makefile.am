@@ -3,9 +3,10 @@ UNIT_TESTS = \
 	theory/logic_info_white \
 	theory/theory_engine_white \
 	theory/theory_black \
+	theory/theory_white \
 	theory/theory_arith_white \
-	theory/union_find_black \
 	theory/theory_bv_white \
+	theory/type_enumerator_white \
 	expr/expr_public \
 	expr/expr_manager_public \
 	expr/node_white \
@@ -17,30 +18,29 @@ UNIT_TESTS = \
 	expr/node_manager_white \
 	expr/attribute_white \
 	expr/attribute_black \
-	expr/declaration_scope_black \
+	expr/symbol_table_black \
 	expr/node_self_iterator_black \
 	expr/type_cardinality_public \
 	expr/type_node_white \
 	parser/parser_black \
 	parser/parser_builder_black \
-	prop/cnf_stream_black \
+	prop/cnf_stream_white \
 	context/context_black \
 	context/context_white \
 	context/context_mm_black \
 	context/cdo_black \
 	context/cdlist_black \
 	context/cdlist_context_memory_black \
-	context/cdcirclist_white \
 	context/cdmap_black \
 	context/cdmap_white \
 	context/cdvector_black \
 	context/stacking_map_black \
 	context/stacking_vector_black \
+	util/array_store_all_black \
 	util/assert_white \
 	util/bitvector_black \
 	util/datatype_black \
 	util/configuration_black \
-	util/congruence_closure_white \
 	util/output_black \
 	util/exception_black \
 	util/integer_black \
@@ -104,7 +104,26 @@ EXTRA_DIST = \
 	$(UNIT_TESTS:%=%.h) \
 	$(TEST_DEPS_DIST)
 
-MOSTLYCLEANFILES = $(UNIT_TESTS) $(UNIT_TESTS:%=%.cpp)
+MOSTLYCLEANFILES = $(UNIT_TESTS) $(UNIT_TESTS:%=%.cpp) $(UNIT_TESTS:%=%.lo)
+DISTCLEANFILES = $(UNIT_TESTS:%=@DEPDIR@/%.Plo)
+
+# the tests automake infrastructure doesn't clean up .o files :-(
+# handle both .libs and _libs variants
+mostlyclean-local:
+	@for f in $(UNIT_TESTS); do \
+		dir="$$(dirname "$$f")"; fil="$$(basename "$$f")"; \
+		for junk in	"$$dir/.libs/$$fil.o" \
+				"$$dir/_libs/$$fil.o" \
+				"$$dir/.libs/lt-$$fil" \
+				"$$dir/_libs/lt-$$fil" \
+				"$$dir/.libs/$$fil" \
+				"$$dir/_libs/$$fil"; do \
+			if test -e "$$junk"; then \
+				echo "rm -f \"$$junk\""; \
+				rm -f "$$junk"; \
+			fi; \
+		done; \
+	done
 
 @mk_include@ @srcdir@/Makefile.tests
 

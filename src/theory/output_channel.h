@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): taking, barrett
+ ** Minor contributors (to current version): taking, dejan, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -21,11 +19,13 @@
 #ifndef __CVC4__THEORY__OUTPUT_CHANNEL_H
 #define __CVC4__THEORY__OUTPUT_CHANNEL_H
 
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 #include "theory/interrupted.h"
 
 namespace CVC4 {
 namespace theory {
+
+class Theory;
 
 /**
  * A LemmaStatus, returned from OutputChannel::lemma(), provides information
@@ -108,24 +108,6 @@ public:
   virtual bool propagate(TNode n) throw(AssertionException) = 0;
 
   /**
-   * Request that the core make a decision on this atom.  The decision
-   * will be "as soon as possible," but due to other propagation and
-   * conflict-detection work going on internally, the request is queued
-   * up and may be behind other such requests.  The request will be
-   * silently dropped if the atom has a definite value at the point the
-   * request would be serviced.  This request is also context-dependent
-   * on the search context, meaning that it will be dropped completely
-   * if a conflict is found before it is serviced.  Each request will only
-   * be serviced a single time, even though the atom may become undefined
-   * due to backtracking.
-   *
-   * @param atom the atom to decide upon (or the negation of an
-   * atom---the decision will be in the phase provided); must be
-   * associated to a SAT literal.
-   */
-  virtual void propagateAsDecision(TNode n) throw(AssertionException) = 0;
-
-  /**
    * Tell the core that a valid theory lemma at decision level 0 has
    * been detected.  (This requests a split.)
    *
@@ -149,6 +131,64 @@ public:
   }
 
   /**
+   * If a decision is made on n, it must be in the phase specified.
+   * Note that this is enforced *globally*, i.e., it is completely
+   * context-INdependent.  If you ever requirePhase() on a literal,
+   * it is phase-locked forever and ever.  If it is to ever have the
+   * other phase as its assignment, it will be because it has been
+   * propagated that way (or it's a unit, at decision level 0).
+   *
+   * @param n - a theory atom with a SAT literal assigned; must have
+   * been pre-registered
+   * @param phase - the phase to decide on n
+   */
+  virtual void requirePhase(TNode n, bool phase)
+    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
+
+  /**
+   * Flips the most recent unflipped decision to the other phase and
+   * returns true.  If all decisions have been flipped, the root
+   * decision is re-flipped and flipDecision() returns false.  If no
+   * decisions (flipped nor unflipped) are on the decision stack, the
+   * state is not affected and flipDecision() returns false.
+   *
+   * For example, if l1, l2, and l3 are all decision literals, and
+   * have been decided in positive phase, a series of flipDecision()
+   * calls has the following effects:
+   *
+   * l1 l2 l3 <br/>
+   * l1 l2 ~l3 <br/>
+   * l1 ~l2 <br/>
+   * ~l1 <br/>
+   * l1 (and flipDecision() returns false)
+   *
+   * Naturally, flipDecision() might be interleaved with search.  For example:
+   *
+   * l1 l2 l3 <br/>
+   * flipDecision() <br/>
+   * l1 l2 ~l3 <br/>
+   * flipDecision() <br/>
+   * l1 ~l2 <br/>
+   * SAT decides l3 <br/>
+   * l1 ~l2 l3 <br/>
+   * flipDecision() <br/>
+   * l1 ~l2 ~l3 <br/>
+   * flipDecision() <br/>
+   * ~l1 <br/>
+   * SAT decides l2 <br/>
+   * ~l1 l2 <br/>
+   * flipDecision() <br/>
+   * ~l1 ~l2 <br/>
+   * flipDecision() returns FALSE<br/>
+   * l1
+   *
+   * @return true if a decision was flipped; false if no decision
+   * could be flipped, or if the root decision was re-flipped
+   */
+  virtual bool flipDecision()
+    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
+
+  /**
    * Notification from a theory that it realizes it is incomplete at
    * this context level.  If SAT is later determined by the
    * TheoryEngine, it should actually return an UNKNOWN result.
@@ -166,8 +206,14 @@ public:
    * long-running operations, they cannot rely on resource() to break
    * out of infinite or intractable computations.
    */
-  virtual void spendResource() throw() {
-  }
+  virtual void spendResource() throw() {}
+
+  /** Handle user attribute
+    *   Associates theory t with the attribute attr.  Theory t will be
+    *   notifed whenever an attribute of name attr is set on a node.
+    *   This can happen through, for example, the SMT LIB v2 language.
+    */
+  virtual void handleUserAttribute( const char* attr, Theory* t ){}
 
 };/* class OutputChannel */
 

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): ajreynol, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,6 +21,7 @@
 
 #include "theory/theory.h"
 #include "context/context.h"
+#include "theory/model.h"
 
 namespace CVC4 {
 namespace theory {
@@ -30,11 +29,9 @@ namespace booleans {
 
 class TheoryBool : public Theory {
 public:
-  TheoryBool(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) :
-    Theory(THEORY_BOOL, c, u, out, valuation, logicInfo) {
+  TheoryBool(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
+    Theory(THEORY_BOOL, c, u, out, valuation, logicInfo, qe) {
   }
-
-  Node getValue(TNode n);
 
   PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
 

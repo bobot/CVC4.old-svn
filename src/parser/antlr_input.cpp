@@ -2,12 +2,10 @@
 /*! \file antlr_input.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -32,10 +30,10 @@
 #include "expr/command.h"
 #include "expr/type.h"
 #include "parser/cvc/cvc_input.h"
-#include "parser/smt/smt_input.h"
+#include "parser/smt1/smt1_input.h"
 #include "parser/smt2/smt2_input.h"
+#include "parser/tptp/tptp_input.h"
 #include "util/output.h"
-#include "util/Assert.h"
 
 using namespace std;
 using namespace CVC4;
@@ -50,7 +48,7 @@ AntlrInputStream::AntlrInputStream(std::string name,
                                    bool fileIsTemporary) :
   InputStream(name,fileIsTemporary),
   d_input(input) {
-  AlwaysAssert( input != NULL );
+  assert( input != NULL );
 }
 
 AntlrInputStream::~AntlrInputStream() {
@@ -64,7 +62,7 @@ pANTLR3_INPUT_STREAM AntlrInputStream::getAntlr3InputStream() const {
 AntlrInputStream*
 AntlrInputStream::newFileInputStream(const std::string& name,
                                      bool useMmap)
-  throw (InputStreamException, AssertionException) {
+  throw (InputStreamException) {
   pANTLR3_INPUT_STREAM input = NULL;
   if( useMmap ) {
     input = MemoryMappedInputBufferNew(name);
@@ -86,7 +84,7 @@ AntlrInputStream*
 AntlrInputStream::newStreamInputStream(std::istream& input,
                                        const std::string& name,
                                        bool lineBuffered)
-  throw (InputStreamException, AssertionException) {
+  throw (InputStreamException) {
 
   pANTLR3_INPUT_STREAM inputStream = NULL;
 
@@ -161,10 +159,10 @@ AntlrInputStream::newStreamInputStream(std::istream& input,
 AntlrInputStream*
 AntlrInputStream::newStringInputStream(const std::string& input,
                                        const std::string& name)
-  throw (InputStreamException, AssertionException) {
+  throw (InputStreamException) {
   char* inputStr = strdup(input.c_str());
   char* nameStr = strdup(name.c_str());
-  AlwaysAssert( inputStr!=NULL && nameStr!=NULL );
+  assert( inputStr!=NULL && nameStr!=NULL );
 #ifdef CVC4_ANTLR3_OLD_INPUT_STREAM
   pANTLR3_INPUT_STREAM inputStream =
       antlr3NewAsciiStringInPlaceStream((pANTLR3_UINT8) inputStr,
@@ -193,16 +191,22 @@ AntlrInput* AntlrInput::newInput(InputLanguage lang, AntlrInputStream& inputStre
     input = new CvcInput(inputStream);
     break;
   }
-  case LANG_SMTLIB:
-    input = new SmtInput(inputStream);
+  case LANG_SMTLIB_V1:
+    input = new Smt1Input(inputStream);
     break;
 
   case LANG_SMTLIB_V2:
     input = new Smt2Input(inputStream);
     break;
 
+  case LANG_TPTP:
+    input = new TptpInput(inputStream);
+    break;
+
   default:
-    Unhandled(lang);
+    std::stringstream ss;
+    ss << "internal error: unhandled language " << lang << " in AntlrInput::newInput";
+    throw ParserException(ss.str());
   }
 
   return input;
@@ -256,11 +260,11 @@ pANTLR3_COMMON_TOKEN_STREAM AntlrInput::getTokenStream() {
 
 void AntlrInput::lexerError(pANTLR3_BASE_RECOGNIZER recognizer) {
   pANTLR3_LEXER lexer = (pANTLR3_LEXER)(recognizer->super);
-  AlwaysAssert(lexer!=NULL);
+  assert(lexer!=NULL);
   Parser *parser = (Parser*)(lexer->super);
-  AlwaysAssert(parser!=NULL);
+  assert(parser!=NULL);
   AntlrInput *input = (AntlrInput*) parser->getInput();
-  AlwaysAssert(input!=NULL);
+  assert(input!=NULL);
 
   /* Call the error display routine *if* there's not already a 
    * parse error pending.  If a parser error is pending, this
@@ -275,7 +279,7 @@ void AntlrInput::warning(const std::string& message) {
 }
 
 void AntlrInput::parseError(const std::string& message)
-  throw (ParserException, AssertionException) {
+  throw (ParserException) {
   Debug("parser") << "Throwing exception: "
       << getInputStream()->getName() << ":"
       << d_lexer->getLine(d_lexer) << "."
@@ -312,7 +316,7 @@ void AntlrInput::setAntlr3Lexer(pANTLR3_LEXER pLexer) {
   // Override default lexer error reporting
   d_lexer->rec->reportError = &lexerError;
   // Override default nextToken function, just to prevent exceptions escaping.
-  d_lexer->rec->state->tokSource->nextToken = &nextTokenStr;
+  d_lexer->rec->state->tokSource->nextToken = &nextToken;
 }
 
 void AntlrInput::setParser(Parser& parser) {

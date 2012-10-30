@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: mdeters
- ** Minor contributors (to current version): dejan, ajreynol
+ ** Minor contributors (to current version): dejan, bobot, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -24,11 +22,12 @@
 #include <string>
 #include <set>
 #include <list>
+#include <cassert>
 
 #include "parser/input.h"
 #include "parser/parser_exception.h"
 #include "expr/expr.h"
-#include "expr/declaration_scope.h"
+#include "expr/symbol_table.h"
 #include "expr/kind.h"
 #include "expr/expr_stream.h"
 
@@ -117,15 +116,15 @@ class CVC4_PUBLIC Parser {
    * The declaration scope that is "owned" by this parser.  May or
    * may not be the current declaration scope in use.
    */
-  DeclarationScope d_declScopeAllocated;
+  SymbolTable d_symtabAllocated;
 
   /**
    * This current symbol table used by this parser.  Initially points
-   * to d_declScopeAllocated, but can be changed (making this parser
+   * to d_symtabAllocated, but can be changed (making this parser
    * delegate its definitions and lookups to another parser).
    * See useDeclarationsFrom().
    */
-  DeclarationScope* d_declScope;
+  SymbolTable* d_symtab;
 
   /** How many anonymous functions we've created. */
   size_t d_anonymousFunctionCount;
@@ -337,16 +336,22 @@ public:
   Type getType(const std::string& var_name, SymbolType type = SYM_VARIABLE);
 
   /** Create a new CVC4 variable expression of the given type. */
-  Expr mkVar(const std::string& name, const Type& type);
+  Expr mkVar(const std::string& name, const Type& type,
+             bool levelZero = false);
 
   /**
    * Create a set of new CVC4 variable expressions of the given type.
    */
   std::vector<Expr>
-  mkVars(const std::vector<std::string> names, const Type& type);
+    mkVars(const std::vector<std::string> names, const Type& type,
+           bool levelZero = false);
+
+  /** Create a new CVC4 bound variable expression of the given type. */
+  Expr mkBoundVar(const std::string& name, const Type& type);
 
   /** Create a new CVC4 function expression of the given type. */
-  Expr mkFunction(const std::string& name, const Type& type);
+  Expr mkFunction(const std::string& name, const Type& type,
+                  bool levelZero = false);
 
   /**
    * Create a new CVC4 function expression of the given type,
@@ -356,10 +361,12 @@ public:
   Expr mkAnonymousFunction(const std::string& prefix, const Type& type);
 
   /** Create a new variable definition (e.g., from a let binding). */
-  void defineVar(const std::string& name, const Expr& val);
+  void defineVar(const std::string& name, const Expr& val,
+                       bool levelZero = false);
 
   /** Create a new function definition (e.g., from a define-fun). */
-  void defineFunction(const std::string& name, const Expr& val);
+  void defineFunction(const std::string& name, const Expr& val,
+                      bool levelZero = false);
 
   /** Create a new type definition. */
   void defineType(const std::string& name, const Type& type);
@@ -432,7 +439,8 @@ public:
   /**
    * Preempt the next returned command with other ones; used to
    * support the :named attribute in SMT-LIBv2, which implicitly
-   * inserts a new command before the current one.
+   * inserts a new command before the current one. Also used in TPTP
+   * because function and predicate symbols are implicitly declared.
    */
   void preemptCommand(Command* cmd);
 
@@ -487,8 +495,8 @@ public:
     }
   }
 
-  inline void pushScope() { d_declScope->pushScope(); }
-  inline void popScope() { d_declScope->popScope(); }
+  inline void pushScope() { d_symtab->pushScope(); }
+  inline void popScope() { d_symtab->popScope(); }
 
   /**
    * Set the current symbol table used by this parser.
@@ -517,25 +525,25 @@ public:
    */
   inline void useDeclarationsFrom(Parser* parser) {
     if(parser == NULL) {
-      d_declScope = &d_declScopeAllocated;
+      d_symtab = &d_symtabAllocated;
     } else {
-      d_declScope = parser->d_declScope;
+      d_symtab = parser->d_symtab;
     }
   }
 
-  inline void useDeclarationsFrom(DeclarationScope* scope) {
-    d_declScope = scope;
+  inline void useDeclarationsFrom(SymbolTable* symtab) {
+    d_symtab = symtab;
   }
 
-  inline DeclarationScope* getDeclarationScope() const {
-    return d_declScope;
+  inline SymbolTable* getSymbolTable() const {
+    return d_symtab;
   }
 
   /**
    * Gets the current declaration level.
    */
   inline size_t getDeclarationLevel() const throw() {
-    return d_declScope->getLevel();
+    return d_symtab->getLevel();
   }
 
   /**

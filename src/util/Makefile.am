@@ -3,12 +3,14 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/..
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-noinst_LTLIBRARIES = libutil.la libutilcudd.la
+noinst_LTLIBRARIES = libutil.la libutilcudd.la libstatistics.la
 
 # libutilcudd.la is a separate library so that we can pass separate
 # compiler flags
 libutilcudd_la_CPPFLAGS = $(CPPFLAGS) $(AM_CPPFLAGS) @CUDD_CPPFLAGS@
 libutilcudd_la_LIBADD = @CUDD_LDFLAGS@ @CUDD_LIBS@
+
+libstatistics_la_CPPFLAGS = $(CPPFLAGS) $(AM_CPPFLAGS) -D__BUILDING_STATISTICS_FOR_EXPORT
 
 # Do not list built sources (like integer.h, rational.h, and tls.h) here!
 # Rather, list them under BUILT_SOURCES, and their .in versions under
@@ -18,19 +20,17 @@ libutilcudd_la_LIBADD = @CUDD_LDFLAGS@ @CUDD_LIBS@
 # configured at the time of the "make dist", which (1) may not be the
 # configuration that the user wants, and (2) might cause link errors.
 libutil_la_SOURCES = \
-	Assert.h \
-	Assert.cpp \
+	cvc4_assert.h \
+	cvc4_assert.cpp \
 	backtrackable.h \
 	Makefile.am \
 	Makefile.in \
-	congruence_closure.h \
 	debug.h \
 	exception.h \
+	exception.cpp \
 	hash.h \
 	bool.h \
 	proof.h \
-	options.h \
-	options.cpp \
 	output.cpp \
 	output.h \
 	result.h \
@@ -46,8 +46,11 @@ libutil_la_SOURCES = \
 	matcher.h \
 	gmp_util.h \
 	sexpr.h \
-	stats.h \
-	stats.cpp \
+	sexpr.cpp \
+	statistics.h \
+	statistics.cpp \
+	statistics_registry.h \
+	statistics_registry.cpp \
 	dynamic_array.h \
 	language.h \
 	lemma_input_channel.h \
@@ -73,10 +76,23 @@ libutil_la_SOURCES = \
 	ite_removal.h \
 	ite_removal.cpp \
 	node_visitor.h \
-	index.h
+	index.h \
+	uninterpreted_constant.h \
+	uninterpreted_constant.cpp \
+	abstract_value.h \
+	abstract_value.cpp \
+	array_store_all.h \
+	array_store_all.cpp \
+	util_model.h \
+	util_model.cpp
 
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
+
+libstatistics_la_SOURCES = \
+	statistics_registry.h \
+	statistics_registry.cpp
+
 libutilcudd_la_SOURCES = \
 	propositional_query.h \
 	propositional_query.cpp
@@ -85,52 +101,6 @@ BUILT_SOURCES = \
 	rational.h \
 	integer.h \
 	tls.h
-if CVC4_DEBUG
-if CVC4_TRACING
-# listing Debug_tags too ensures that make doesn't auto-remove it
-# after building (if it does, we don't get the "cached" effect with
-# the .tmp files below, and we have to re-compile and re-link each
-# time, even when there are no changes).
-BUILT_SOURCES += \
-	Debug_tags.h \
-	Debug_tags
-endif
-endif
-if CVC4_TRACING
-# listing Trace_tags too ensures that make doesn't auto-remove it
-# after building (if it does, we don't get the "cached" effect with
-# the .tmp files below, and we have to re-compile and re-link each
-# time, even when there are no changes).
-BUILT_SOURCES += \
-	Trace_tags.h \
-	Trace_tags
-endif
-
-%_tags.h: %_tags
-	$(AM_V_GEN)( \
-	  echo 'static char const* const $^[] = {'; \
-	  for tag in `cat $^`; do \
-	    echo "\"$$tag\","; \
-	  done; \
-	  echo 'NULL'; \
-	  echo '};' \
-	) >"$@"
-
-# This .tmp business is to keep from having to re-compile options.cpp
-# (and then re-link the libraries) if nothing has changed.
-%_tags: %_tags.tmp
-	$(AM_V_GEN)\
-	diff -q "$^" "$@" &>/dev/null || mv "$^" "$@" || true
-# .PHONY ensures the .tmp version is always rebuilt (to check for any changes)
-.PHONY: Debug_tags.tmp Trace_tags.tmp
-# The "sed" invocation below is particularly obnoxious, but it works around
-# inconsistencies in REs on different platforms, using only a basic regular
-# expression (no |, no \<, ...).
-Debug_tags.tmp Trace_tags.tmp:
-	$(AM_V_GEN)\
-	grep '\<$(@:_tags.tmp=)\(\.isOn\)* *( *\".*\" *)' \
-		`find @srcdir@/../ -name "*.cpp" -or -name "*.h" -or -name "*.cc" -or -name "*.g"` | \
-	sed 's/^$(@:_tags.tmp=)\(\.isOn\)* *( *\"\([^"]*\)\".*/\2/;s/.*[^a-zA-Z0-9_]$(@:_tags.tmp=)\(\.isOn\)* *( *\"\([^"]*\)\".*/\2/' | LC_ALL=C sort | uniq >"$@"
 
 if CVC4_CLN_IMP
 libutil_la_SOURCES += \
@@ -152,7 +122,7 @@ EXTRA_DIST = \
 	integer.h.in \
 	tls.h.in \
 	integer.i \
-	stats.i \
+	statistics.i \
 	bool.i \
 	sexpr.i \
 	datatype.i \
@@ -160,24 +130,17 @@ EXTRA_DIST = \
 	cardinality.i \
 	result.i \
 	configuration.i \
-	Assert.i \
+	cvc4_assert.i \
 	bitvector.i \
 	subrange_bound.i \
 	exception.i \
 	language.i \
 	array.i \
-	options.i \
+	array_store_all.i \
 	ascription_type.i \
 	rational.i \
-	hash.i
-
-MOSTLYCLEANFILES = \
-	Debug_tags \
-	Trace_tags \
-	Debug_tags.tmp \
-	Trace_tags.tmp \
-	Debug_tags.h \
-	Trace_tags.h
+	hash.i \
+	util_model.i
 
 DISTCLEANFILES = \
 	integer.h.tmp \

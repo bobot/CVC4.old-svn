@@ -1,10 +1,14 @@
 SUBDIRS = . core
 
 BINARY = cvc4
-if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) --proof @top_builddir@/src/main/$(BINARY)
-else
-TESTS_ENVIRONMENT = @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+LOG_COMPILER = @srcdir@/../../run_regression
+AM_LOG_FLAGS = $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+
+if AUTOMAKE_1_11
+# old-style (pre-automake 1.12) test harness
+TESTS_ENVIRONMENT = \
+	$(TESTS_ENVIRONMENT) $(LOG_COMPILER) \
+	$(AM_LOG_FLAGS) $(LOG_FLAGS)
 endif
 
 MAKEFLAGS = -k
@@ -29,13 +33,66 @@ SMT_TESTS = \
 	fuzz12.smt \
 	fuzz13.smt \
 	fuzz14.smt \
-	calc2_sec2_shifter_mult_bmc15.atlas.delta01.smt
+	fuzz15.delta01.smt \
+	fuzz16.delta01.smt \
+	fuzz17.delta01.smt \
+	fuzz18.delta01.smt \
+	fuzz18.delta02.smt \
+	fuzz18.delta03.smt \
+	fuzz18.smt \
+	fuzz19.delta01.smt \
+	fuzz19.smt \
+	fuzz20.delta01.smt \
+	fuzz20.smt \
+	fuzz21.delta01.smt \
+	fuzz21.smt \
+	fuzz22.delta01.smt \
+	fuzz22.smt \
+	fuzz23.delta01.smt \
+	fuzz23.smt \
+	fuzz24.delta01.smt \
+	fuzz24.smt \
+	fuzz25.delta01.smt \
+	fuzz25.smt \
+	fuzz26.delta01.smt \
+	fuzz26.smt \
+	fuzz27.delta01.smt \
+	fuzz27.smt \
+	fuzz28.delta01.smt \
+	fuzz28.smt \
+	fuzz29.delta01.smt \
+	fuzz29.smt \
+	fuzz30.delta01.smt \
+	fuzz30.smt \
+	fuzz31.delta01.smt \
+	fuzz31.smt \
+	fuzz32.delta01.smt \
+	fuzz32.smt \
+	fuzz33.delta01.smt \
+	fuzz33.smt \
+	fuzz34.delta01.smt \
+	fuzz34.smt \
+	fuzz35.delta01.smt \
+	fuzz35.smt \
+	fuzz36.delta01.smt \
+	fuzz36.smt \
+	fuzz37.delta01.smt \
+	fuzz37.smt \
+	fuzz38.delta01.smt \
+	fuzz38.smt \
+	fuzz39.delta01.smt \
+	fuzz39.smt \
+	fuzz40.delta01.smt \
+	fuzz40.smt \
+	fuzz41.smt \
+	calc2_sec2_shifter_mult_bmc15.atlas.delta01.smt \
+	smtcompbug.smt
 
 # Regression tests for SMT2 inputs
 SMT2_TESTS =
 
 # Regression tests for PL inputs
-CVC_TESTS = bvsimple.cvc
+CVC_TESTS = bvsimple.cvc sizecheck.cvc
 
 # Regression tests derived from bug reports
 BUG_TESTS = \

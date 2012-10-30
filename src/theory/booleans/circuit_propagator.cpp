@@ -5,9 +5,7 @@
  ** Major contributors: dejan
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -29,11 +27,11 @@ namespace CVC4 {
 namespace theory {
 namespace booleans {
 
-void CircuitPropagator::assert(TNode assertion)
+void CircuitPropagator::assertTrue(TNode assertion)
 {
   if (assertion.getKind() == kind::AND) {
     for (unsigned i = 0; i < assertion.getNumChildren(); ++ i) {
-      assert(assertion[i]);
+      assertTrue(assertion[i]);
     }
   } else {
     // Analyze the assertion for back-edges and all that
@@ -366,7 +364,7 @@ bool CircuitPropagator::propagate() {
     Debug("circuit-prop") << "CircuitPropagator::propagate(): assigned to " << (assignment ? "true" : "false") << std::endl;
 
     // Is this an atom
-    bool atom = Theory::theoryOf(current) != THEORY_BOOL || current.getMetaKind() == kind::metakind::VARIABLE;
+    bool atom = Theory::theoryOf(current) != THEORY_BOOL || current.isVar();
 
     // If an atom, add to the list for simplification
     if (atom) {

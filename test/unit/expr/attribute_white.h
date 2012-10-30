@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): cconway, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -29,7 +27,7 @@
 #include "theory/theory.h"
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 
 using namespace CVC4;
 using namespace CVC4::kind;
@@ -362,7 +360,7 @@ public:
     TS_ASSERT(unnamed.hasAttribute(TestFlag5()));
 
     // test two-arg version of hasAttribute()
-    bool bb;
+    bool bb = false;
     Debug("boolattr") << "get flag 1 on a (should be F)\n";
     TS_ASSERT(a.getAttribute(TestFlag1(), bb));
     TS_ASSERT(! bb);

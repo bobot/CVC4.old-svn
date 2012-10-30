@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): taking, barrett
+ ** Minor contributors (to current version): bobot, taking, barrett, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -28,23 +26,33 @@
 #include "theory/substitutions.h"
 #include "theory/output_channel.h"
 #include "theory/logic_info.h"
+#include "theory/theoryof_mode.h"
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "context/cdo.h"
-#include "util/options.h"
-#include "util/stats.h"
+#include "options/options.h"
+#include "util/statistics_registry.h"
 #include "util/dump.h"
 
 #include <string>
 #include <iostream>
 
 #include <strings.h>
+#include <ext/hash_set>
 
 namespace CVC4 {
 
 class TheoryEngine;
 
 namespace theory {
+
+class Instantiator;
+class QuantifiersEngine;
+class TheoryModel;
+
+namespace rrinst{
+class CandidateGenerator;
+}
 
 /**
  * Information about an assertion for the theories.
@@ -72,7 +80,8 @@ struct Assertion {
   operator Node () const {
     return assertion;
   }
-};
+
+};/* struct Assertion */
 
 /**
  * A (oredered) pair of terms a theory cares about.
@@ -84,7 +93,7 @@ struct CarePair {
 
 public:
 
-  CarePair(TNode a, TNode b, TheoryId theory) 
+  CarePair(TNode a, TNode b, TheoryId theory)
   : a(a < b ? a : b), b(a < b ? b : a), theory(theory) {}
 
   bool operator == (const CarePair& other) const {
@@ -99,7 +108,7 @@ public:
     return b < other.b;
   }
 
-};
+};/* struct CarePair */
 
 /**
  * A set of care pairs.
@@ -117,6 +126,7 @@ typedef std::set<CarePair> CareGraph;
  * all calls to them.)
  */
 class Theory {
+
 private:
 
   friend class ::CVC4::TheoryEngine;
@@ -172,6 +182,18 @@ private:
    */
   CareGraph* d_careGraph;
 
+  /**
+   * Reference to the quantifiers engine (or NULL, if quantifiers are
+   * not supported or not enabled).
+   */
+  QuantifiersEngine* d_quantEngine;
+
+  /**
+   * The instantiator for this theory, or NULL if quantifiers are not
+   * supported or not enabled.
+   */
+  Instantiator* d_inst;
+
   // === STATISTICS ===
   /** time spent in theory combination */
   TimerStat d_computeCareGraphTime;
@@ -181,6 +203,12 @@ private:
     ss << "theory<" << id << ">::" << statName;
     return ss.str();
   }
+
+  /**
+   * Construct and return the instantiator for the given theory.
+   * If there is no instantiator class, NULL is returned.
+   */
+  theory::Instantiator* makeInstantiator(context::Context* c, theory::QuantifiersEngine* qe);
 
 protected:
 
@@ -208,7 +236,7 @@ protected:
    * Construct a Theory.
    */
   Theory(TheoryId id, context::Context* satContext, context::UserContext* userContext,
-         OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo) throw()
+         OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) throw()
   : d_id(id)
   , d_satContext(satContext)
   , d_userContext(userContext)
@@ -217,6 +245,8 @@ protected:
   , d_factsHead(satContext, 0)
   , d_sharedTermsIndex(satContext, 0)
   , d_careGraph(0)
+  , d_quantEngine(qe)
+  , d_inst(makeInstantiator(satContext, qe))
   , d_computeCareGraphTime(statName(id, "computeCareGraphTime"))
   , d_sharedTerms(satContext)
   , d_out(&out)
@@ -252,19 +282,7 @@ protected:
    *
    * @return the next assertion in the assertFact() queue
    */
-  Assertion get() {
-    Assert( !done(), "Theory`() called with assertion queue empty!" );
-
-    // Get the assertion
-    Assertion fact = d_facts[d_factsHead];
-    d_factsHead = d_factsHead + 1;
-    Trace("theory") << "Theory::get() => " << fact << " (" << d_facts.size() - d_factsHead << " left)" << std::endl;
-    if(Dump.isOn("state")) {
-      Dump("state") << AssertCommand(fact.assertion.toExpr());
-    }
-        
-    return fact;
-  }
+  inline Assertion get();
 
   const LogicInfo& getLogicInfo() const {
     return d_logicInfo;
@@ -277,6 +295,9 @@ protected:
 
   void printFacts(std::ostream& os) const;
   void debugPrintFacts() const;
+
+  /** Mode of the theoryOf operation */
+  static TheoryOfMode s_theoryOfMode;
 
 public:
 
@@ -301,22 +322,21 @@ public:
     return id;
   }
 
+  /**
+   * Returns the ID of the theory responsible for the given node.
+   */
+  static TheoryId theoryOf(TheoryOfMode mode, TNode node);
 
   /**
    * Returns the ID of the theory responsible for the given node.
    */
   static inline TheoryId theoryOf(TNode node) {
-    Trace("theory::internal") << "theoryOf(" << node << ")" << std::endl;
-    // Constants, variables, 0-ary constructors
-    if (node.getMetaKind() == kind::metakind::VARIABLE || node.getMetaKind() == kind::metakind::CONSTANT) {
-      return theoryOf(node.getType());
-    }
-    // Equality is owned by the theory that owns the domain
-    if (node.getKind() == kind::EQUAL) {
-      return theoryOf(node[0].getType());
-    }
-    // Regular nodes are owned by the kind
-    return kindToTheoryId(node.getKind());
+    return theoryOf(s_theoryOfMode, node);
+  }
+
+  /** Set the theoryOf mode */
+  static void setTheoryOfMode(TheoryOfMode mode) {
+    s_theoryOfMode = mode;
   }
 
   /**
@@ -324,6 +344,13 @@ public:
    */
   static void setUninterpretedSortOwner(TheoryId theory) {
     s_uninterpretedSortOwner = theory;
+  }
+
+  /**
+   * Set the owner of the uninterpreted sort.
+   */
+  static TheoryId getUninterpretedSortOwner() {
+    return s_uninterpretedSortOwner;
   }
 
   /**
@@ -348,13 +375,9 @@ public:
   }
 
   /**
-   * Destructs a Theory.  This implementation does nothing, but we
-   * need a virtual destructor for safety in case subclasses have a
-   * destructor.
+   * Destructs a Theory.
    */
-  virtual ~Theory() {
-    StatisticsRegistry::unregisterStat(&d_computeCareGraphTime);
-  }
+  virtual ~Theory();
 
   /**
    * Subclasses of Theory may add additional efforts.  DO NOT CHECK
@@ -376,7 +399,11 @@ public:
      * Combination effort means that the individual theories are already satisfied, and
      * it is time to put some effort into propagation of shared term equalities
      */
-    EFFORT_COMBINATION = 150
+    EFFORT_COMBINATION = 150,
+    /**
+     * Last call effort, reserved for quantifiers.
+     */
+    EFFORT_LAST_CALL = 200
   };/* enum Effort */
 
   static inline bool standardEffortOrMore(Effort e) CVC4_CONST_FUNCTION
@@ -385,7 +412,7 @@ public:
     { return e >= EFFORT_STANDARD && e <  EFFORT_FULL; }
   static inline bool fullEffort(Effort e) CVC4_CONST_FUNCTION
     { return e == EFFORT_FULL; }
-  static inline bool combination(Effort e) CVC4_CONST_FUNCTION 
+  static inline bool combination(Effort e) CVC4_CONST_FUNCTION
     { return e == EFFORT_COMBINATION; }
 
   /**
@@ -424,6 +451,41 @@ public:
   }
 
   /**
+   * Get the valuation associated to this theory.
+   */
+  Valuation& getValuation() {
+    return d_valuation;
+  }
+
+  /**
+   * Get the quantifiers engine associated to this theory.
+   */
+  QuantifiersEngine* getQuantifiersEngine() {
+    return d_quantEngine;
+  }
+
+  /**
+   * Get the quantifiers engine associated to this theory (const version).
+   */
+  const QuantifiersEngine* getQuantifiersEngine() const {
+    return d_quantEngine;
+  }
+
+  /**
+   * Get the theory instantiator.
+   */
+  Instantiator* getInstantiator() {
+    return d_inst;
+  }
+
+  /**
+   * Get the theory instantiator (const version).
+   */
+  const Instantiator* getInstantiator() const {
+    return d_inst;
+  }
+
+  /**
    * Pre-register a term.  Done one time for a Node, ever.
    */
   virtual void preRegisterTerm(TNode) { }
@@ -455,7 +517,7 @@ public:
   }
 
   /**
-   * Return the status of two terms in the current context. Should be implemented in 
+   * Return the status of two terms in the current context. Should be implemented in
    * sub-theories to enable more efficient theory-combination.
    */
   virtual EqualityStatus getEqualityStatus(TNode a, TNode b) { return EQUALITY_UNKNOWN; }
@@ -486,41 +548,20 @@ public:
   }
 
   /**
-   * Return the value of a node (typically used after a ).  If the
-   * theory supports model generation but has no value for this node,
-   * it should return Node::null().  If the theory doesn't support
-   * model generation at all, or usually would but doesn't in its
-   * current state, it should throw an exception saying so.
-   *
-   * The TheoryEngine is passed in so that you can recursively request
-   * values for the Node's children.  This is important because the
-   * TheoryEngine takes care of simple cases (metakind CONSTANT,
-   * Boolean-valued VARIABLES, ...) and can dispatch to other theories
-   * if that's necessary.  Only call your own getValue() recursively
-   * if you *know* that you are responsible handle the Node you're
-   * asking for; other theories can use your types, so be careful
-   * here!  To be safe, it's best to delegate back to the
-   * TheoryEngine (by way of the Valuation proxy object, which avoids
-   * direct dependence on TheoryEngine).
-   *
-   * Usually, you need to handle at least the two cases of EQUAL and
-   * VARIABLE---EQUAL in case a value of yours is on the LHS of an
-   * EQUAL, and VARIABLE for variables of your types.  You also need
-   * to support any operators that can survive your rewriter.  You
-   * don't need to handle constants, as they are handled by the
-   * TheoryEngine.
-   *
-   * There are some gotchas here.  The user may be requesting the
-   * value of an expression that wasn't part of the satisfiable
-   * assertion, or has been declared since.  If you don't have a value
-   * and suspect this situation is the case, return Node::null()
-   * rather than throwing an exception.
+   * Get all relevant information in this theory regarding the current
+   * model.  This should be called after a call to check( FULL_EFFORT )
+   * for all theories with no conflicts and no lemmas added.
+   * If fullModel is true, then we must specify sufficient information for
+   * the model class to construct constant representatives for each equivalence
+   * class.
    */
-  virtual Node getValue(TNode n) {
-    Unimplemented("Theory %s doesn't support Theory::getValue interface",
-                  identify().c_str());
-    return Node::null();
-  }
+  virtual void collectModelInfo( TheoryModel* m, bool fullModel ){ }
+
+  /**
+   * Return a decision request, if the theory has one, or the NULL node
+   * otherwise.
+   */
+  virtual Node getNextDecisionRequest() { return Node(); }
 
   /**
    * Statically learn from assertion "in," which has been asserted
@@ -546,15 +587,15 @@ public:
    */
   virtual PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
     if (in.getKind() == kind::EQUAL) {
-      if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
+      if (in[0].isVar() && !in[1].hasSubterm(in[0])) {
         outSubstitutions.addSubstitution(in[0], in[1]);
         return PP_ASSERT_STATUS_SOLVED;
       }
-      if (in[1].getMetaKind() == kind::metakind::VARIABLE && !in[0].hasSubterm(in[1])) {
+      if (in[1].isVar() && !in[0].hasSubterm(in[1])) {
         outSubstitutions.addSubstitution(in[1], in[0]);
         return PP_ASSERT_STATUS_SOLVED;
       }
-      if (in[0].getMetaKind() == kind::metakind::CONSTANT && in[1].getMetaKind() == kind::metakind::CONSTANT) {
+      if (in[0].isConst() && in[1].isConst()) {
         if (in[0] != in[1]) {
           return PP_ASSERT_STATUS_CONFLICT;
         }
@@ -571,6 +612,11 @@ public:
    * before an input atom to the engine.
    */
   virtual Node ppRewrite(TNode atom) { return atom; }
+
+  /**
+   * Don't preprocess subterm of this term
+   */
+  virtual bool ppDontRewriteSubterm(TNode atom) { return false; }
 
   /**
    * A Theory is called with presolve exactly one time per user
@@ -608,6 +654,15 @@ public:
    * etc..)
    */
   virtual std::string identify() const = 0;
+
+  /** Set user attribute
+    * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
+    *  via the syntax (! n :attr)
+    */
+  virtual void setUserAttribute( std::string& attr, Node n ) {
+    Unimplemented("Theory %s doesn't support Theory::setUserAttribute interface",
+                  identify().c_str());
+  }
 
   /** A set of theories */
   typedef uint32_t Set;
@@ -664,7 +719,7 @@ public:
 
   static inline Set setIntersection(Set a, Set b) {
     return a & b;
-  } 
+  }
 
   static inline Set setUnion(Set a, Set b) {
     return a | b;
@@ -731,9 +786,144 @@ public:
     return d_sharedTerms.end();
   }
 
+
+  /**
+   * This is a utility function for constructing a copy of the currently shared terms
+   * in a queriable form.  As this is 
+   */
+  std::hash_set<TNode, TNodeHashFunction> currentlySharedTerms() const;
 };/* class Theory */
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level);
+
+namespace eq{
+  class EqualityEngine;
+}
+
+/** instantiation strategy class */
+class InstStrategy {
+public:
+  enum Status {
+    STATUS_UNFINISHED,
+    STATUS_UNKNOWN,
+    STATUS_SAT,
+  };/* enum Status */
+protected:
+  /** reference to the instantiation engine */
+  QuantifiersEngine* d_quantEngine;
+
+
+public:
+  InstStrategy( QuantifiersEngine* qe ) : d_quantEngine( qe ){}
+  virtual ~InstStrategy(){}
+
+  /** reset instantiation */
+  virtual void processResetInstantiationRound( Theory::Effort effort ) = 0;
+  /** process method, returns a status */
+  virtual int process( Node f, Theory::Effort effort, int e ) = 0;
+  /** update status */
+  static void updateStatus( int& currStatus, int addStatus ){
+    if( addStatus==STATUS_UNFINISHED ){
+      currStatus = STATUS_UNFINISHED;
+    }else if( addStatus==STATUS_UNKNOWN ){
+      if( currStatus==STATUS_SAT ){
+        currStatus = STATUS_UNKNOWN;
+      }
+    }
+  }
+  /** identify */
+  virtual std::string identify() const { return std::string("Unknown"); }
+};/* class InstStrategy */
+
+/** instantiator class */
+class Instantiator {
+  friend class QuantifiersEngine;
+protected:
+  /** reference to the quantifiers engine */
+  QuantifiersEngine* d_quantEngine;
+  /** reference to the theory that it looks at */
+  Theory* d_th;
+  /** instantiation strategies */
+  std::vector< InstStrategy* > d_instStrategies;
+  /** instantiation strategies active */
+  std::map< InstStrategy*, bool > d_instStrategyActive;
+  /** has constraints from quantifier */
+  std::map< Node, bool > d_quantActive;
+  /** is instantiation strategy active */
+  bool isActiveStrategy( InstStrategy* is ) {
+    return d_instStrategyActive.find( is )!=d_instStrategyActive.end() && d_instStrategyActive[is];
+  }
+  /** add inst strategy */
+  void addInstStrategy( InstStrategy* is ){
+    d_instStrategies.push_back( is );
+    d_instStrategyActive[is] = true;
+  }
+  /** reset instantiation round */
+  virtual void processResetInstantiationRound( Theory::Effort effort ) = 0;
+  /** process quantifier */
+  virtual int process( Node f, Theory::Effort effort, int e ) = 0;
+public:
+  Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th);
+  virtual ~Instantiator();
+
+  /** get quantifiers engine */
+  QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }
+  /** get corresponding theory for this instantiator */
+  Theory* getTheory() { return d_th; }
+  /** Pre-register a term.  */
+  virtual void preRegisterTerm( Node t ) { }
+  /** assertNode function, assertion was asserted to theory */
+  virtual void assertNode( Node assertion ){}
+  /** identify */
+  virtual std::string identify() const { return std::string("Unknown"); }
+  /** print debug information */
+  virtual void debugPrint( const char* c ) {}
+public:
+  /** set has constraints from quantifier f */
+  void setQuantifierActive( Node f ) { d_quantActive[f] = true; }
+  /** has constraints from */
+  bool getQuantifierActive( Node f ) { return d_quantActive.find(f) != d_quantActive.end() && d_quantActive[f]; }
+  /** reset instantiation round */
+  void resetInstantiationRound( Theory::Effort effort );
+  /** do instantiation method*/
+  int doInstantiation( Node f, Theory::Effort effort, int e );
+public:
+  /** general queries about equality */
+  virtual bool hasTerm( Node a ) { return false; }
+  virtual bool areEqual( Node a, Node b ) { return false; }
+  virtual bool areDisequal( Node a, Node b ) { return false; }
+  virtual Node getRepresentative( Node a ) { return a; }
+  virtual Node getInternalRepresentative( Node a ) { return getRepresentative( a ); }
+  virtual eq::EqualityEngine* getEqualityEngine() { return NULL; }
+  virtual void getEquivalenceClass( Node a, std::vector< Node >& eqc ) {}
+public:
+  /** A Creator of CandidateGenerator for classes (one element in each
+      equivalence class) and class (every element of one equivalence
+      class) */
+  virtual rrinst::CandidateGenerator* getRRCanGenClasses(){ return NULL; };
+  virtual rrinst::CandidateGenerator* getRRCanGenClass(){ return NULL; };
+};/* class Instantiator */
+
+inline Assertion Theory::get() {
+  Assert( !done(), "Theory::get() called with assertion queue empty!" );
+
+  // Get the assertion
+  Assertion fact = d_facts[d_factsHead];
+  d_factsHead = d_factsHead + 1;
+
+  Trace("theory") << "Theory::get() => " << fact << " (" << d_facts.size() - d_factsHead << " left)" << std::endl;
+
+  if(Dump.isOn("state")) {
+    Dump("state") << AssertCommand(fact.assertion.toExpr());
+  }
+
+  // if quantifiers are turned on and we have an instantiator, notify it
+  if(getLogicInfo().isQuantified() && getInstantiator() != NULL) {
+    getInstantiator()->assertNode(fact);
+  }
+
+  return fact;
+}
 
 }/* CVC4::theory namespace */
 

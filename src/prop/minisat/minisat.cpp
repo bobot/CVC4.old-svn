@@ -18,6 +18,9 @@
 
 #include "prop/minisat/minisat.h"
 #include "prop/minisat/simp/SimpSolver.h"
+#include "prop/options.h"
+#include "smt/options.h"
+#include "decision/options.h"
 
 using namespace CVC4;
 using namespace CVC4::prop;
@@ -106,26 +109,27 @@ void MinisatSatSolver::initialize(context::Context* context, TheoryProxy* theory
 
   d_context = context;
 
-  if( Options::current()->decisionMode != Options::DECISION_STRATEGY_INTERNAL ) {
-    Notice() << "minisat: Incremental solving is disabled"
+  if( options::decisionMode() != decision::DECISION_STRATEGY_INTERNAL ) {
+    Notice() << "minisat: Incremental solving is forced on (to avoid variable elimination)"
              << " unless using internal decision strategy." << std::endl;
   }
 
   // Create the solver
   d_minisat = new Minisat::SimpSolver(theoryProxy, d_context,
-                                      Options::current()->incrementalSolving || 
-                                      Options::current()->decisionMode != Options::DECISION_STRATEGY_INTERNAL );
-  // Setup the verbosity
-  d_minisat->verbosity = (Options::current()->verbosity > 0) ? 1 : -1;
+                                      options::incrementalSolving() ||
+                                      options::decisionMode() != decision::DECISION_STRATEGY_INTERNAL );
+  // Set up the verbosity
+  d_minisat->verbosity = (options::verbosity() > 0) ? 1 : -1;
 
-  // Setup the random decision parameters
-  d_minisat->random_var_freq = Options::current()->satRandomFreq;
-  d_minisat->random_seed = Options::current()->satRandomSeed;
+  // Set up the random decision parameters
+  d_minisat->random_var_freq = options::satRandomFreq();
+  d_minisat->random_seed = options::satRandomSeed();
+
   // Give access to all possible options in the sat solver
-  d_minisat->var_decay = Options::current()->satVarDecay;
-  d_minisat->clause_decay = Options::current()->satClauseDecay;
-  d_minisat->restart_first = Options::current()->satRestartFirst;
-  d_minisat->restart_inc = Options::current()->satRestartInc;
+  d_minisat->var_decay = options::satVarDecay();
+  d_minisat->clause_decay = options::satClauseDecay();
+  d_minisat->restart_first = options::satRestartFirst();
+  d_minisat->restart_inc = options::satRestartInc();
 
   d_statistics.init(d_minisat);
 }
@@ -176,6 +180,22 @@ SatValue MinisatSatSolver::modelValue(SatLiteral l){
 
 bool MinisatSatSolver::properExplanation(SatLiteral lit, SatLiteral expl) const {
   return true;
+}
+
+void MinisatSatSolver::requirePhase(SatLiteral lit) { 
+  Assert(!d_minisat->rnd_pol);
+  Debug("minisat") << "requirePhase(" << lit << ")" << " " <<  lit.getSatVariable() << " " << lit.isNegated() << std::endl;
+  SatVariable v = lit.getSatVariable();
+  d_minisat->freezePolarity(v, lit.isNegated());
+}
+
+bool MinisatSatSolver::flipDecision() { 
+  Debug("minisat") << "flipDecision()" << std::endl;
+  return d_minisat->flipDecision();
+}
+
+bool MinisatSatSolver::isDecision(SatVariable decn) const { 
+  return d_minisat->isDecision( decn ); 
 }
 
 /** Incremental interface */

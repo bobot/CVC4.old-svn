@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): ajreynol, taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,11 +21,12 @@
 
 #include <vector>
 
-#include "util/stats.h"
 #include "expr/kind.h"
 #include "expr/type.h"
 #include "expr/expr.h"
 #include "util/subrange_bound.h"
+#include "util/statistics.h"
+#include "util/sexpr.h"
 
 ${includes}
 
@@ -42,9 +41,10 @@ namespace CVC4 {
 class Expr;
 class SmtEngine;
 class NodeManager;
-struct Options;
+class Options;
 class IntStat;
 class ExprManagerMapCollection;
+class StatisticsRegistry;
 
 namespace expr {
   namespace pickle {
@@ -56,6 +56,10 @@ namespace context {
   class Context;
 }/* CVC4::context namespace */
 
+namespace stats {
+  StatisticsRegistry* getStatisticsRegistry(ExprManager*);
+}/* CVC4::stats namespace */
+
 class CVC4_PUBLIC ExprManager {
 private:
   /** The context */
@@ -65,7 +69,7 @@ private:
   NodeManager* d_nodeManager;
 
   /** Counts of expressions and variables created of a given kind */
-  IntStat* d_exprStatisticsVars[LAST_TYPE + 1];
+  IntStat* d_exprStatisticsVars[LAST_TYPE];
   IntStat* d_exprStatistics[kind::LAST_KIND];
 
   /**
@@ -97,6 +101,12 @@ private:
   /** NodeManager reaches in to get the NodeManager */
   friend class NodeManager;
 
+  /** Statistics reach in to get the StatisticsRegistry */
+  friend ::CVC4::StatisticsRegistry* ::CVC4::stats::getStatisticsRegistry(ExprManager*);
+
+  /** Get the underlying statistics registry. */
+  StatisticsRegistry* getStatisticsRegistry() throw();
+
   // undefined, private copy constructor and assignment op (disallow copy)
   ExprManager(const ExprManager&) CVC4_UNDEFINED;
   ExprManager& operator=(const ExprManager&) CVC4_UNDEFINED;
@@ -126,18 +136,15 @@ public:
   ~ExprManager() throw();
 
   /** Get this node manager's options */
-  const Options* getOptions() const;
+  const Options& getOptions() const;
 
-  void setOptions(const Options& options);
+  void setOptions(Options& options);
 
   /** Get the type for booleans */
   BooleanType booleanType() const;
 
   /** Get the type for strings. */
   StringType stringType() const;
-
-  /** Get the type for sorts. */
-  KindType kindType() const;
 
   /** Get the type for reals. */
   RealType realType() const;
@@ -214,7 +221,7 @@ public:
    *
    * @param kind the kind of expression to build
    * @param child1 the first subexpression
-   * @param children the remaining subexpressions
+   * @param otherChildren the remaining subexpressions
    * @return the n-ary expression
    */
   Expr mkExpr(Kind kind, Expr child1, const std::vector<Expr>& otherChildren);
@@ -351,9 +358,16 @@ public:
   /**
    * Make a tuple type with types from
    * <code>types[0..types.size()-1]</code>.  <code>types</code> must
-   * have at least 2 elements.
+   * have at least one element.
    */
   TupleType mkTupleType(const std::vector<Type>& types);
+
+  /**
+   * Make a symbolic expressiontype with types from
+   * <code>types[0..types.size()-1]</code>.  <code>types</code> may
+   * have any number of elements.
+   */
+  SExprType mkSExprType(const std::vector<Type>& types);
 
   /** Make a type representing a bit-vector of the given size. */
   BitVectorType mkBitVectorType(unsigned size) const;
@@ -454,6 +468,14 @@ public:
   // variables are special, because duplicates are permitted
   Expr mkVar(const std::string& name, Type type);
   Expr mkVar(Type type);
+  Expr mkBoundVar(const std::string& name, Type type);
+  Expr mkBoundVar(Type type);
+
+  /** Get a reference to the statistics registry for this ExprManager */
+  Statistics getStatistics() const throw();
+
+  /** Get a reference to the statistics registry for this ExprManager */
+  SExpr getStatistic(const std::string& name) const throw();
 
   /** Export an expr to a different ExprManager */
   //static Expr exportExpr(const Expr& e, ExprManager* em);

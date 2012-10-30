@@ -2,12 +2,10 @@
 /*! \file arith_rewriter.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters, dejan
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -30,23 +28,19 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-bool isVariable(TNode t){
-  return t.getMetaKind() == kind::metakind::VARIABLE;
-}
-
 bool ArithRewriter::isAtom(TNode n) {
   return arith::isRelationOperator(n.getKind());
 }
 
 RewriteResponse ArithRewriter::rewriteConstant(TNode t){
-  Assert(t.getMetaKind() == kind::metakind::CONSTANT);
+  Assert(t.isConst());
   Assert(t.getKind() == kind::CONST_RATIONAL);
 
   return RewriteResponse(REWRITE_DONE, t);
 }
 
 RewriteResponse ArithRewriter::rewriteVariable(TNode t){
-  Assert(isVariable(t));
+  Assert(t.isVar());
 
   return RewriteResponse(REWRITE_DONE, t);
 }
@@ -65,7 +59,7 @@ RewriteResponse ArithRewriter::rewriteMinus(TNode t, bool pre){
     }
   }else{
     Polynomial minuend = Polynomial::parsePolynomial(t[0]);
-    Polynomial subtrahend = Polynomial::parsePolynomial(t[0]);
+    Polynomial subtrahend = Polynomial::parsePolynomial(t[1]);
     Polynomial diff = minuend - subtrahend;
     return RewriteResponse(REWRITE_DONE, diff.getNode());
   }
@@ -82,9 +76,9 @@ RewriteResponse ArithRewriter::rewriteUMinus(TNode t, bool pre){
 }
 
 RewriteResponse ArithRewriter::preRewriteTerm(TNode t){
-  if(t.getMetaKind() == kind::metakind::CONSTANT){
+  if(t.isConst()){
     return rewriteConstant(t);
-  }else if(isVariable(t)){
+  }else if(t.isVar()){
     return rewriteVariable(t);
   }else if(t.getKind() == kind::MINUS){
     return rewriteMinus(t, true);
@@ -116,9 +110,9 @@ RewriteResponse ArithRewriter::preRewriteTerm(TNode t){
   }
 }
 RewriteResponse ArithRewriter::postRewriteTerm(TNode t){
-  if(t.getMetaKind() == kind::metakind::CONSTANT){
+  if(t.isConst()){
     return rewriteConstant(t);
-  }else if(isVariable(t)){
+  }else if(t.isVar()){
     return rewriteVariable(t);
   }else if(t.getKind() == kind::MINUS){
     return rewriteMinus(t, false);

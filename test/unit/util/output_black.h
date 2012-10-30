@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -38,12 +36,12 @@ class OutputBlack : public CxxTest::TestSuite {
 public:
 
   void setUp() {
-    Debug.setStream(d_debugStream);
-    Trace.setStream(d_traceStream);
-    Notice.setStream(d_noticeStream);
-    Chat.setStream(d_chatStream);
-    Message.setStream(d_messageStream);
-    Warning.setStream(d_warningStream);
+    DebugChannel.setStream(d_debugStream);
+    TraceChannel.setStream(d_traceStream);
+    NoticeChannel.setStream(d_noticeStream);
+    ChatChannel.setStream(d_chatStream);
+    MessageChannel.setStream(d_messageStream);
+    WarningChannel.setStream(d_warningStream);
 
     d_debugStream.str("");
     d_traceStream.str("");

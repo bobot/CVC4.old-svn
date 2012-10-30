@@ -2,12 +2,10 @@
 /*! \file ite_simplifier.h
  ** \verbatim
  ** Original author: barrett
- ** Major contributors: 
- ** Minor contributors (to current version):
+ ** Major contributors: none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -39,8 +37,7 @@
 #include "theory/shared_terms_database.h"
 #include "theory/term_registration_visitor.h"
 #include "theory/valuation.h"
-#include "util/options.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "util/hash.h"
 #include "util/cache.h"
 #include "util/ite_removal.h"
@@ -70,7 +67,7 @@ class ITESimplifier {
       hash ^= 0x9e3779b9 + NodeHashFunction().operator()(pair.second) + (hash << 6) + (hash >> 2);
       return hash;
     }
-  };
+  };/* struct ITESimplifier::NodePairHashFunction */
 
   typedef std::hash_map<NodePair, Node, NodePairHashFunction> NodePairMap;
 

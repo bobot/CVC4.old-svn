@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): dejan, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -41,7 +39,6 @@ typedef std::vector<Node>    Bits;
  * Default Atom Bitblasting strategies: 
  * 
  * @param node the atom to be bitblasted
- * @param markerLit the marker literal corresponding to the atom
  * @param bb the bitblaster
  */
 
@@ -68,9 +65,8 @@ Node SleBB(TNode node, Bitblaster* bb);
  * Default Term Bitblasting strategies
  * 
  * @param node the term to be bitblasted
+ * @param bits [output parameter] bits representing the new term 
  * @param bb the bitblaster in which the clauses are added
- * 
- * @return the bits representing the new term 
  */
 
 void UndefinedTermBBStrategy(TNode node, Bits& bits, Bitblaster* bb); 

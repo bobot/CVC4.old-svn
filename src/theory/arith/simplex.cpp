@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -19,6 +17,7 @@
 
 
 #include "theory/arith/simplex.h"
+#include "theory/arith/options.h"
 
 using namespace std;
 
@@ -28,10 +27,7 @@ using namespace CVC4::kind;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-
-static const uint32_t NUM_CHECKS = 10;
 static const bool CHECK_AFTER_PIVOT = true;
-static const uint32_t VARORDER_CHECK_PERIOD = 200;
 
 SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq, NodeCallBack& conflictChannel) :
   d_conflictVariable(ARITHVAR_SENTINEL),
@@ -44,14 +40,14 @@ SimplexDecisionProcedure::SimplexDecisionProcedure(LinearEqualityModule& linEq, 
   d_pivotsInRound(),
   d_DELTA_ZERO(0,0)
 {
-  switch(Options::ArithPivotRule rule = Options::current()->arithPivotRule) {
-  case Options::MINIMUM:
+  switch(ArithHeuristicPivotRule rule = options::arithHeuristicPivotRule()) {
+  case MINIMUM:
     d_queue.setPivotRule(ArithPriorityQueue::MINIMUM);
     break;
-  case Options::BREAK_TIES:
+  case BREAK_TIES:
     d_queue.setPivotRule(ArithPriorityQueue::BREAK_TIES);
     break;
-  case Options::MAXIMUM:
+  case MAXIMUM:
     d_queue.setPivotRule(ArithPriorityQueue::MAXIMUM);
     break;
   default:
@@ -242,74 +238,149 @@ bool SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
   }
 }
 
-bool SimplexDecisionProcedure::findModel(){
+Result::Sat SimplexDecisionProcedure::findModel(bool exactResult){
   Assert(d_conflictVariable == ARITHVAR_SENTINEL);
+  Assert(d_queue.inCollectionMode());
 
   if(d_queue.empty()){
-    return false;
+    return Result::SAT;
   }
-  bool foundConflict = false;
-
   static CVC4_THREADLOCAL(unsigned int) instance = 0;
   instance = instance + 1;
   Debug("arith::findModel") << "begin findModel()" << instance << endl;
 
   d_queue.transitionToDifferenceMode();
 
-  if(d_queue.size() > 1){
-    foundConflict = findConflictOnTheQueue(BeforeDiffSearch);
+  Result::Sat result = Result::SAT_UNKNOWN;
+
+  if(d_queue.empty()){
+    result = Result::SAT;
+  }else if(d_queue.size() > 1){
+    if(findConflictOnTheQueue(BeforeDiffSearch)){
+      result = Result::UNSAT;
+    }
   }
-  if(!foundConflict){
-    uint32_t numHeuristicPivots = d_numVariables + 1;
-    uint32_t pivotsRemaining = numHeuristicPivots;
-    uint32_t pivotsPerCheck = (numHeuristicPivots/NUM_CHECKS) + (NUM_CHECKS-1);
+  static const bool verbose = false;
+  exactResult |= options::arithStandardCheckVarOrderPivots() < 0;
+  const uint32_t inexactResultsVarOrderPivots = exactResult ? 0 : options::arithStandardCheckVarOrderPivots();
+
+  uint32_t checkPeriod = options::arithSimplexCheckPeriod();
+  if(result == Result::SAT_UNKNOWN){
+    uint32_t numDifferencePivots = options::arithHeuristicPivots() < 0 ?
+      d_numVariables + 1 : options::arithHeuristicPivots();
+    // The signed to unsigned conversion is safe.
+    uint32_t pivotsRemaining = numDifferencePivots;
     while(!d_queue.empty() &&
-          !foundConflict &&
+          result != Result::UNSAT &&
           pivotsRemaining > 0){
-      uint32_t pivotsToDo = min(pivotsPerCheck, pivotsRemaining);
-      foundConflict = searchForFeasibleSolution(pivotsToDo);
+      uint32_t pivotsToDo = min(checkPeriod, pivotsRemaining);
       pivotsRemaining -= pivotsToDo;
-      //Once every CHECK_PERIOD examine the entire queue for conflicts
-      if(!foundConflict){
-        foundConflict = findConflictOnTheQueue(DuringDiffSearch);
+      if(searchForFeasibleSolution(pivotsToDo)){
+        result = Result::UNSAT;
+      }//Once every CHECK_PERIOD examine the entire queue for conflicts
+      if(result != Result::UNSAT){
+        if(findConflictOnTheQueue(DuringDiffSearch)) { result = Result::UNSAT; }
       }else{
-        findConflictOnTheQueue(AfterDiffSearch);
+        findConflictOnTheQueue(AfterDiffSearch); // already unsat
+      }
+    }
+
+    if(verbose && numDifferencePivots > 0){
+      if(result ==  Result::UNSAT){
+        Message() << "diff order found unsat" << endl;
+      }else if(d_queue.empty()){
+        Message() << "diff order found model" << endl;
+      }else{
+        Message() << "diff order missed" << endl;
       }
     }
   }
 
-  if(!d_queue.empty() && !foundConflict){
-    d_queue.transitionToVariableOrderMode();
+  if(!d_queue.empty() && result != Result::UNSAT){
+    if(exactResult){
+      d_queue.transitionToVariableOrderMode();
 
-    while(!d_queue.empty() && !foundConflict){
-      foundConflict = searchForFeasibleSolution(VARORDER_CHECK_PERIOD);
+      while(!d_queue.empty() && result != Result::UNSAT){
+        if(searchForFeasibleSolution(checkPeriod)){
+          result = Result::UNSAT;
+        }
 
-      //Once every CHECK_PERIOD examine the entire queue for conflicts
-      if(!foundConflict){
-        foundConflict = findConflictOnTheQueue(DuringVarOrderSearch);
-      } else{
-        findConflictOnTheQueue(AfterVarOrderSearch);
+        //Once every CHECK_PERIOD examine the entire queue for conflicts
+        if(result != Result::UNSAT){
+          if(findConflictOnTheQueue(DuringVarOrderSearch)){
+            result = Result::UNSAT;
+          }
+        } else{
+          findConflictOnTheQueue(AfterVarOrderSearch);
+        }
+      }
+      if(verbose){
+        if(result ==  Result::UNSAT){
+          Message() << "bland found unsat" << endl;
+        }else if(d_queue.empty()){
+          Message() << "bland found model" << endl;
+        }else{
+          Message() << "bland order missed" << endl;
+        }
+      }
+    }else{
+      d_queue.transitionToVariableOrderMode();
+
+      if(searchForFeasibleSolution(inexactResultsVarOrderPivots)){
+        result = Result::UNSAT;
+        findConflictOnTheQueue(AfterVarOrderSearch); // already unsat
+      }else{
+        if(findConflictOnTheQueue(AfterVarOrderSearch)) { result = Result::UNSAT; }
+      }
+
+      if(verbose){
+        if(result ==  Result::UNSAT){
+          Message() << "restricted var order found unsat" << endl;
+        }else if(d_queue.empty()){
+          Message() << "restricted var order found model" << endl;
+        }else{
+          Message() << "restricted var order missed" << endl;
+        }
       }
     }
   }
 
-  Assert(foundConflict || d_queue.empty());
+  if(result == Result::SAT_UNKNOWN && d_queue.empty()){
+    result = Result::SAT;
+  }
 
-  // Curiously the invariant that we always do a full check
-  // means that the assignment we can always empty these queues.
-  d_queue.clear();
+
+
   d_pivotsInRound.purge();
+  // ensure that the conflict variable is still in the queue.
+  if(d_conflictVariable != ARITHVAR_SENTINEL){
+    d_queue.enqueueIfInconsistent(d_conflictVariable);
+  }
   d_conflictVariable = ARITHVAR_SENTINEL;
 
-  Assert(!d_queue.inCollectionMode());
   d_queue.transitionToCollectionMode();
-
-
   Assert(d_queue.inCollectionMode());
+  Debug("arith::findModel") << "end findModel() " << instance << " " << result <<  endl;
+  return result;
 
-  Debug("arith::findModel") << "end findModel() " << instance << endl;
 
-  return foundConflict;
+  // Assert(foundConflict || d_queue.empty());
+
+  // // Curiously the invariant that we always do a full check
+  // // means that the assignment we can always empty these queues.
+  // d_queue.clear();
+  // d_pivotsInRound.purge();
+  // d_conflictVariable = ARITHVAR_SENTINEL;
+
+  // Assert(!d_queue.inCollectionMode());
+  // d_queue.transitionToCollectionMode();
+
+
+  // Assert(d_queue.inCollectionMode());
+
+  // Debug("arith::findModel") << "end findModel() " << instance << endl;
+
+  // return foundConflict;
 }
 
 Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
@@ -349,7 +420,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     --remainingIterations;
 
-    bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  Options::current()->arithPivotThreshold;
+    bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  options::arithPivotThreshold();
     if(!useVarOrderPivot){
       d_pivotsInRound.add(x_i);
     }
@@ -357,7 +428,7 @@ bool SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     Debug("playground") << "pivots in rounds: " <<  d_pivotsInRound.count(x_i)
                         << " use " << useVarOrderPivot
-                        << " threshold " << Options::current()->arithPivotThreshold
+                        << " threshold " << options::arithPivotThreshold()
                         << endl;
 
     PreferenceFunction pf = useVarOrderPivot ? minVarOrder : minBoundAndRowCount;
@@ -493,7 +564,9 @@ Node SimplexDecisionProcedure::weakenConflict(bool aboveUpper, ArithVar basicVar
     const Rational& coeff = entry.getCoefficient();
     bool weakening = false;
     Constraint c = weakestExplanation(aboveUpper, surplus, v, coeff, weakening, basicVar);
-    Debug("weak") << "weak : " << weakening << " " << c->assertedToTheTheory()
+    Debug("weak") << "weak : " << weakening << " "
+                  << c->assertedToTheTheory() << " "
+                  << d_partialModel.getAssignment(v) << " "
                   << c << endl
                   << c->explainForConflict() << endl;
     anyWeakenings = anyWeakenings || weakening;

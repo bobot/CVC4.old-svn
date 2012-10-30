@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -25,7 +23,7 @@
 #include <algorithm>
 
 #include "expr/node.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 
 namespace CVC4 {
 
@@ -187,7 +185,7 @@ public:
       base = base[0];
       polarity = !polarity;
     }
-    if(n.getMetaKind() == kind::metakind::CONSTANT) {
+    if(n.isConst()) {
       return NodeManager::currentNM()->mkConst(!n.getConst<bool>());
     }
     if(polarity){

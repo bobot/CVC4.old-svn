@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): taking, cconway
+ ** Minor contributors (to current version): lianah, kshitij, taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -36,12 +34,13 @@ ${includes}
 #include "util/exception.h"
 #include "util/language.h"
 #include "util/hash.h"
+#include "expr/options.h"
 
 // This is a hack, but an important one: if there's an error, the
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 45 "${template}"
+#line 44 "${template}"
 
 namespace CVC4 {
 
@@ -101,11 +100,12 @@ private:
 protected:
 
   TypeCheckingException() throw() : Exception() {}
-  TypeCheckingException(const Expr& expr, std::string message) throw();
   TypeCheckingException(ExprManager* em,
                         const TypeCheckingExceptionPrivate* exc) throw();
 
 public:
+
+  TypeCheckingException(const Expr& expr, std::string message) throw();
 
   /** Copy constructor */
   TypeCheckingException(const TypeCheckingException& t) throw();
@@ -130,6 +130,19 @@ public:
   friend class ExprManager;
 };/* class TypeCheckingException */
 
+/**
+ * Exception thrown in case of failure to export
+ */
+class CVC4_PUBLIC ExportUnsupportedException : public Exception {
+public:
+  ExportUnsupportedException() throw():
+    Exception("export unsupported") {
+  }
+  ExportUnsupportedException(const char* msg) throw():
+    Exception(msg) {
+  }
+};/* class DatatypeExportUnsupportedException */
+
 std::ostream& operator<<(std::ostream& out,
                          const TypeCheckingException& e) CVC4_PUBLIC;
 
@@ -151,7 +164,6 @@ struct ExprHashFunction {
  * expressions.
  */
 class CVC4_PUBLIC Expr {
-protected:
 
   /** The internal expression representation */
   NodeTemplate<true>* d_node;
@@ -295,11 +307,55 @@ public:
   }
 
   /**
+   * Returns the Boolean negation of this Expr.
+   */
+  Expr notExpr() const;
+
+  /**
+   * Returns the conjunction of this expression and
+   * the given expression.
+   */
+  Expr andExpr(const Expr& e) const;
+
+  /**
+   * Returns the disjunction of this expression and
+   * the given expression.
+   */
+  Expr orExpr(const Expr& e) const;
+
+  /**
+   * Returns the exclusive disjunction of this expression and
+   * the given expression.
+   */
+  Expr xorExpr(const Expr& e) const;
+
+  /**
+   * Returns the Boolean equivalence of this expression and
+   * the given expression.
+   */
+  Expr iffExpr(const Expr& e) const;
+
+  /**
+   * Returns the implication of this expression and
+   * the given expression.
+   */
+  Expr impExpr(const Expr& e) const;
+
+  /**
+   * Returns the if-then-else expression with this expression
+   * as the Boolean condition and the given expressions as
+   * the "then" and "else" expressions.
+   */
+  Expr iteExpr(const Expr& then_e, const Expr& else_e) const;
+
+  /**
    * Iterator type for the children of an Expr.
    */
   class const_iterator : public std::iterator<std::input_iterator_tag, Expr> {
+    ExprManager* d_exprManager;
     void* d_iterator;
-    explicit const_iterator(void*);
+
+    explicit const_iterator(ExprManager*, void*);
 
     friend class Expr;// to access void* constructor
 
@@ -399,6 +455,7 @@ public:
    * @param types set to true to ascribe types to the output
    * expressions (might break language compliance, but good for
    * debugging expressions)
+   * @param dag the dagification threshold to use (0 == off)
    * @param language the language in which to output
    */
   void toStream(std::ostream& out, int toDepth = -1, bool types = false, size_t dag = 1,
@@ -410,13 +467,6 @@ public:
    * @return true if a null expression
    */
   bool isNull() const;
-
-  /**
-   * Check if this is a null expression.
-   *
-   * @return true if NOT a null expression
-   */
-  operator bool() const;
 
   /**
    * Check if this is an expression representing a variable.
@@ -460,7 +510,7 @@ public:
    * variableMap for the translation and extending it with any new
    * mappings.
    */
-  Expr exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Expr exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) const;
 
   /**
    * IOStream manipulator to set the maximum depth of Exprs when
@@ -521,8 +571,6 @@ private:
    */
   void debugPrint();
 
-protected:
-
   /**
    * Returns the actual internal node.
    * @return the internal node
@@ -549,86 +597,6 @@ protected:
   template <bool ref_count> friend class NodeTemplate;
 
 };/* class Expr */
-
-/**
- * Extending the expression with the capability to construct Boolean
- * expressions.
- */
-class CVC4_PUBLIC BoolExpr : public Expr {
-
-public:
-
-  /** Default constructor, makes a null expression */
-  BoolExpr();
-
-  /**
-   * Convert an expression to a Boolean expression
-   */
-  BoolExpr(const Expr& e);
-
-  /**
-   * Negate this expression.
-   * @return the logical negation of this expression.
-   */
-  BoolExpr notExpr() const;
-
-  /**
-   * Conjunct the given expression to this expression.
-   * @param e the expression to conjunct
-   * @return the conjunction of this expression and e
-   */
-  BoolExpr andExpr(const BoolExpr& e) const;
-
-  /**
-   * Disjunct the given expression to this expression.
-   * @param e the expression to disjunct
-   * @return the disjunction of this expression and e
-   */
-  BoolExpr orExpr(const BoolExpr& e) const;
-
-  /**
-   * Make an exclusive or expression out of this expression and the given
-   * expression.
-   * @param e the right side of the xor
-   * @return the xor of this expression and e
-   */
-  BoolExpr xorExpr(const BoolExpr& e) const;
-
-  /**
-   * Make an equivalence expression out of this expression and the given
-   * expression.
-   * @param e the right side of the equivalence
-   * @return the equivalence expression
-   */
-  BoolExpr iffExpr(const BoolExpr& e) const;
-
-  /**
-   * Make an implication expression out of this expression and the given
-   * expression.
-   * @param e the right side of the equivalence
-   * @return the equivalence expression
-   */
-  BoolExpr impExpr(const BoolExpr& e) const;
-
-  /**
-   * Make a Boolean if-then-else expression using this expression as the
-   * condition, and given the then and else parts.
-   * @param then_e the then branch expression
-   * @param else_e the else branch expression
-   * @return the if-then-else expression
-   */
-  BoolExpr iteExpr(const BoolExpr& then_e, const BoolExpr& else_e) const;
-
-  /**
-   * Make a term if-then-else expression using this expression as the
-   * condition, and given the then and else parts.
-   * @param then_e the then branch expression
-   * @param else_e the else branch expression
-   * @return the if-then-else expression
-   */
-  Expr iteExpr(const Expr& then_e, const Expr& else_e) const;
-
-};/* class BoolExpr */
 
 namespace expr {
 
@@ -661,7 +629,7 @@ class CVC4_PUBLIC ExprSetDepth {
    * The default depth to print, for ostreams that haven't yet had a
    * setdepth() applied to them.
    */
-  static const int s_defaultPrintDepth = 3;
+  static const int s_defaultPrintDepth = -1;
 
   /**
    * When this manipulator is used, the depth is stored here.
@@ -682,7 +650,12 @@ public:
     long& l = out.iword(s_iosIndex);
     if(l == 0) {
       // set the default print depth on this ostream
-      l = s_defaultPrintDepth;
+      if(&Options::current() != NULL) {
+        l = options::defaultExprDepth();
+      }
+      if(l == 0) {
+        l = s_defaultPrintDepth;
+      }
     }
     return l;
   }
@@ -877,9 +850,10 @@ class CVC4_PUBLIC ExprSetLanguage {
 
   /**
    * The default language to use, for ostreams that haven't yet had a
-   * setlanguage() applied to them.
+   * setlanguage() applied to them and where the current Options
+   * information isn't available.
    */
-  static const int s_defaultLanguage = language::output::LANG_AST;
+  static const int s_defaultOutputLanguage = language::output::LANG_AST;
 
   /**
    * When this manipulator is used, the setting is stored here.
@@ -902,7 +876,15 @@ public:
     if(l == 0) {
       // set the default language on this ostream
       // (offset by one to detect whether default has been set yet)
-      l = s_defaultLanguage + 1;
+      if(&Options::current() != NULL) {
+        l = options::outputLanguage() + 1;
+      }
+      if(l <= 0 || l > language::output::LANG_MAX) {
+        // if called from outside the library, we may not have options
+        // available to us at this point (or perhaps the output language
+        // is not set in Options).  Default to something reasonable.
+        l = s_defaultOutputLanguage + 1;
+      }
     }
     return OutputLanguage(l - 1);
   }
@@ -942,7 +924,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 946 "${template}"
+#line 928 "${template}"
 
 namespace expr {
 

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): dejan, bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -21,11 +19,12 @@
 #include "parser/parser_builder.h"
 #include "parser/input.h"
 #include "parser/parser.h"
-#include "smt/smt.h"
+#include "smt1/smt1.h"
 #include "smt2/smt2.h"
+#include "tptp/tptp.h"
 
 #include "expr/expr_manager.h"
-#include "util/options.h"
+#include "parser/options.h"
 
 namespace CVC4 {
 namespace parser {
@@ -60,36 +59,37 @@ void ParserBuilder::init(ExprManager* exprManager,
 }
 
 Parser* ParserBuilder::build()
-  throw (InputStreamException, AssertionException) {
+  throw (InputStreamException) {
   Input* input = NULL;
   switch( d_inputType ) {
   case FILE_INPUT:
     input = Input::newFileInput(d_lang, d_filename, d_mmap);
     break;
   case LINE_BUFFERED_STREAM_INPUT:
-    AlwaysAssert( d_streamInput != NULL,
-                  "Uninitialized stream input in ParserBuilder::build()" );
+    assert( d_streamInput != NULL );
     input = Input::newStreamInput(d_lang, *d_streamInput, d_filename, true);
     break;
   case STREAM_INPUT:
-    AlwaysAssert( d_streamInput != NULL,
-                  "Uninitialized stream input in ParserBuilder::build()" );
+    assert( d_streamInput != NULL );
     input = Input::newStreamInput(d_lang, *d_streamInput, d_filename);
     break;
   case STRING_INPUT:
     input = Input::newStringInput(d_lang, d_stringInput, d_filename);
     break;
-  default:
-    Unreachable();
   }
+
+  assert(input != NULL);
 
   Parser* parser = NULL;
   switch(d_lang) {
-  case language::input::LANG_SMTLIB:
-    parser = new Smt(d_exprManager, input, d_strictMode, d_parseOnly);
+  case language::input::LANG_SMTLIB_V1:
+    parser = new Smt1(d_exprManager, input, d_strictMode, d_parseOnly);
     break;
   case language::input::LANG_SMTLIB_V2:
     parser = new Smt2(d_exprManager, input, d_strictMode, d_parseOnly);
+    break;
+  case language::input::LANG_TPTP:
+    parser = new Tptp(d_exprManager, input, d_strictMode, d_parseOnly);
     break;
   default:
     parser = new Parser(d_exprManager, input, d_strictMode, d_parseOnly);
@@ -142,11 +142,11 @@ ParserBuilder& ParserBuilder::withParseOnly(bool flag) {
 
 ParserBuilder& ParserBuilder::withOptions(const Options& options) {
   return
-    withInputLanguage(options.inputLanguage)
-      .withMmap(options.memoryMap)
-      .withChecks(options.semanticChecks)
-      .withStrictMode(options.strictParsing)
-      .withParseOnly(options.parseOnly);
+    withInputLanguage(options[options::inputLanguage])
+      .withMmap(options[options::memoryMap])
+      .withChecks(options[options::semanticChecks])
+      .withStrictMode(options[options::strictParsing])
+      .withParseOnly(options[options::parseOnly]);
   }
 
 ParserBuilder& ParserBuilder::withStrictMode(bool flag) {

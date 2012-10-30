@@ -2,12 +2,10 @@
 /*! \file theory_bv.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan
- ** Minor contributors (to current version): none
+ ** Major contributors: dejan, lianah
+ ** Minor contributors (to current version): barrett, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,7 +24,7 @@
 #include "context/cdlist.h"
 #include "context/cdhashset.h"
 #include "theory/bv/theory_bv_utils.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "context/cdqueue.h"
 #include "theory/bv/bv_subtheory.h"
 #include "theory/bv/bv_subtheory_eq.h"
@@ -49,36 +47,37 @@ class TheoryBV : public Theory {
   EqualitySolver d_equalitySolver;
 public:
 
-  TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
-  ~TheoryBV(); 
+  TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
+  ~TheoryBV();
 
   void preRegisterTerm(TNode n);
 
   void check(Effort e);
 
   void propagate(Effort e);
-  
+
   Node explain(TNode n);
 
-  Node getValue(TNode n);
+  void collectModelInfo( TheoryModel* m, bool fullModel );
 
   std::string identify() const { return std::string("TheoryBV"); }
 
-  PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions); 
+  PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
+  Node ppRewrite(TNode t);
 
 private:
-  
+
   class Statistics {
   public:
     AverageStat d_avgConflictSize;
     IntStat     d_solveSubstitutions;
-    TimerStat   d_solveTimer;  
+    TimerStat   d_solveTimer;
     Statistics();
-    ~Statistics(); 
-  }; 
-  
+    ~Statistics();
+  };
+
   Statistics d_statistics;
-  
+
   // Are we in conflict?
   context::CDO<bool> d_conflict;
 
@@ -90,11 +89,6 @@ private:
 
   /** Index of the next literal to propagate */
   context::CDO<unsigned> d_literalsToPropagateIndex;
-
-  enum SubTheory {
-    SUB_EQUALITY = 1,
-    SUB_BITBLAST = 2
-  };
 
   /**
    * Keeps a map from nodes to the subtheory that propagated it so that we can explain it
@@ -127,21 +121,26 @@ private:
     return indentStr;
   }
 
-  void setConflict(Node conflict) {
-    d_conflict = true; 
-    d_conflictNode = conflict; 
+  void setConflict(Node conflict = Node::null()) {
+    d_conflict = true;
+    d_conflictNode = conflict;
   }
 
-  bool inConflict() { return d_conflict == true; }
-  
+  bool inConflict() {
+    return d_conflict;
+  }
+
+  void sendConflict();
+
   friend class Bitblaster;
   friend class BitblastSolver;
-  friend class EqualitySolver; 
-  
+  friend class EqualitySolver;
+
 };/* class TheoryBV */
 
 }/* CVC4::theory::bv namespace */
 }/* CVC4::theory namespace */
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__THEORY__BV__THEORY_BV_H */

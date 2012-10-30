@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): barrett, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -22,6 +20,8 @@
 #define __CVC4__PRINTER__PRINTER_H
 
 #include "util/language.h"
+#include "util/sexpr.h"
+#include "util/util_model.h"
 #include "expr/node.h"
 #include "expr/command.h"
 
@@ -41,6 +41,9 @@ class Printer {
 protected:
   // derived classes can construct, but no one else.
   Printer() throw() {}
+
+  /** write model response to command */
+  virtual void toStream(std::ostream& out, Model& m, const Command* c) const throw() = 0;
 
 public:
   /** Get the Printer for a given OutputLanguage */
@@ -62,6 +65,9 @@ public:
   /** Write a CommandStatus out to a stream with this Printer. */
   virtual void toStream(std::ostream& out, const CommandStatus* s) const throw() = 0;
 
+  /** Write an SExpr out to a stream with this Printer. */
+  virtual void toStream(std::ostream& out, const SExpr& sexpr) const throw();
+
   /**
    * Write a Result out to a stream with this Printer.
    *
@@ -71,6 +77,9 @@ public:
    * has a particular preference for how results should appear.
    */
   virtual void toStream(std::ostream& out, const Result& r) const throw();
+
+  /** Write a Model out to a stream with this Printer. */
+  virtual void toStream(std::ostream& out, Model& m) const throw();
 
 };/* class Printer */
 

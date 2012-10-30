@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file bv_subtheory_eq_bitblast.cpp
+/*! \file bv_subtheory_bitblast.cpp
  ** \verbatim
- ** Original author: lianah
- ** Major contributors: dejan
- ** Minor contributors (to current version): none
+ ** Original author: dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): lianah, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,6 +18,7 @@
 #include "theory/bv/theory_bv.h"
 #include "theory/bv/theory_bv_utils.h"
 #include "theory/bv/bitblaster.h"
+#include "theory/bv/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -57,7 +56,7 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
   BVDebug("bitvector::bitblaster") << "BitblastSolver::addAssertions (" << e << ")" << std::endl;
 
   //// Eager bit-blasting
-  if (Options::current()->bitvectorEagerBitblast) {
+  if (options::bitvectorEagerBitblast()) {
     for (unsigned i = 0; i < assertions.size(); ++i) {
       TNode atom = assertions[i].getKind() == kind::NOT ? assertions[i][0] : assertions[i];
       if (atom.getKind() != kind::BITVECTOR_BITOF) {
@@ -79,7 +78,7 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
   // propagation
   for (unsigned i = 0; i < assertions.size(); ++i) {
     TNode fact = assertions[i];
-    if (!d_bv->inConflict() && !d_bv->propagatedBy(fact, TheoryBV::SUB_BITBLAST)) {
+    if (!d_bv->inConflict() && !d_bv->propagatedBy(fact, SUB_BITBLAST)) {
       // Some atoms have not been bit-blasted yet
       d_bitblaster->bbAtom(fact);
       // Assert to sat
@@ -93,8 +92,19 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
     }
   }
 
+  // We need to ensure we are fully propagated, so propagate now
+  if (d_useSatPropagation) {
+    bool ok = d_bitblaster->propagate();
+    if (!ok) {
+      std::vector<TNode> conflictAtoms;
+      d_bitblaster->getConflict(conflictAtoms);
+      d_bv->setConflict(mkConjunction(conflictAtoms));
+      return false;
+    }
+  }
+
   // solving
-  if (e == Theory::EFFORT_FULL || Options::current()->bitvectorEagerFullcheck) {
+  if (e == Theory::EFFORT_FULL || options::bitvectorEagerFullcheck()) {
     Assert(!d_bv->inConflict());
     BVDebug("bitvector::bitblaster") << "BitblastSolver::addAssertions solving. \n";
     bool ok = d_bitblaster->solve();
@@ -112,4 +122,8 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
 
 EqualityStatus BitblastSolver::getEqualityStatus(TNode a, TNode b) {
   return d_bitblaster->getEqualityStatus(a, b);
+}
+
+void BitblastSolver::collectModelInfo(TheoryModel* m) {
+  return d_bitblaster->collectModelInfo(m); 
 }

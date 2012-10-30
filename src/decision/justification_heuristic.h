@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: kshitij
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -19,6 +17,8 @@
  **
  ** It needs access to the simplified but non-clausal formula.
  **/
+
+#include "cvc4_private.h"
 
 #ifndef __CVC4__DECISION__JUSTIFICATION_HEURISTIC
 #define __CVC4__DECISION__JUSTIFICATION_HEURISTIC
@@ -34,21 +34,21 @@ namespace CVC4 {
 
 namespace decision {
 
-typedef std::vector<TNode> IteList;
-
 class GiveUpException : public Exception {
 public:
   GiveUpException() : 
-    Exception("justification hueristic: giving up") {
+    Exception("justification heuristic: giving up") {
   }
 };/* class GiveUpException */
 
 class JustificationHeuristic : public ITEDecisionStrategy {
+  typedef std::vector<pair<TNode,TNode> > IteList;
   typedef hash_map<TNode,IteList,TNodeHashFunction> IteCache;
   typedef hash_map<TNode,TNode,TNodeHashFunction> SkolemMap;
 
   // being 'justified' is monotonic with respect to decisions
-  context::CDHashSet<TNode,TNodeHashFunction> d_justified;
+  typedef context::CDHashSet<TNode,TNodeHashFunction> JustifiedSet;
+  JustifiedSet d_justified;
   context::CDO<unsigned>  d_prvsIndex;
 
   IntStat d_helfulness;
@@ -99,14 +99,30 @@ public:
 
     d_visited.clear();
 
+    if(Trace.isOn("justified")) {
+      for(JustifiedSet::iterator i = d_justified.begin();
+          i != d_justified.end(); ++i) {
+        TNode n = *i;
+        SatLiteral l = d_decisionEngine->hasSatLiteral(n) ?
+          d_decisionEngine->getSatLiteral(n) : -1;
+        SatValue v = tryGetSatValue(n);
+        Trace("justified") <<"{ "<<l<<"}" << n <<": "<<v << std::endl;
+      }
+    }
+
     for(unsigned i = d_prvsIndex; i < d_assertions.size(); ++i) {
-      Trace("decision") << d_assertions[i] << std::endl;
+      Debug("decision") << "---" << std::endl << d_assertions[i] << std::endl;
 
       // Sanity check: if it was false, aren't we inconsistent?
       Assert( tryGetSatValue(d_assertions[i]) != SAT_VALUE_FALSE);
 
       SatValue desiredVal = SAT_VALUE_TRUE;
-      SatLiteral litDecision = findSplitter(d_assertions[i], desiredVal);
+      SatLiteral litDecision;
+      try {
+        litDecision = findSplitter(d_assertions[i], desiredVal);
+      }catch(GiveUpException &e) {
+        return prop::undefSatLiteral;
+      }
 
       if(litDecision != undefSatLiteral)
         return litDecision;
@@ -153,9 +169,9 @@ public:
     // Save mapping between ite skolems and ite assertions
     for(IteSkolemMap::iterator i = iteSkolemMap.begin();
         i != iteSkolemMap.end(); ++i) {
-      Assert(i->second >= assertionsEnd && i->second < assertions.size());
-      Debug("jh-ite") << " jh-ite: " << (i->first) << " maps to "
+      Trace("jh-ite") << " jh-ite: " << (i->first) << " maps to "
                       << assertions[(i->second)] << std::endl;
+      Assert(i->second >= assertionsEnd && i->second < assertions.size());
       d_iteAssertions[i->first] = assertions[i->second];
     }
   }
@@ -169,13 +185,9 @@ private:
   {
     bool ret;
     SatLiteral litDecision;
-    try {
-      ret = findSplitterRec(node, desiredVal, &litDecision);
-    }catch(GiveUpException &e) {
-      return prop::undefSatLiteral;
-    }
+    ret = findSplitterRec(node, desiredVal, &litDecision);
     if(ret == true) {
-      Trace("decision") << "Yippee!!" << std::endl;
+      Debug("decision") << "Yippee!!" << std::endl;
       //d_prvsIndex = i;
       ++d_helfulness;
       return litDecision;
@@ -185,7 +197,7 @@ private:
   }
   
   /** 
-   * Do all the hardwork. 
+   * Do all the hard work. 
    * @param findFirst returns
    */ 
   bool findSplitterRec(TNode node, SatValue value, SatLiteral* litDecision);
@@ -199,7 +211,7 @@ private:
   SatValue tryGetSatValue(Node n);
 
   /* Get list of all term-ITEs for the atomic formula v */
-  const IteList& getITEs(TNode n);
+  const JustificationHeuristic::IteList& getITEs(TNode n);
 
   /* Compute all term-ITEs in a node recursively */
   void computeITEs(TNode n, IteList &l);

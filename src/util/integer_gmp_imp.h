@@ -2,12 +2,10 @@
 /*! \file integer_gmp_imp.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters
+ ** Major contributors: lianah, mdeters
  ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -25,8 +23,8 @@
 #include <string>
 #include <iostream>
 
-#include "util/Assert.h"
 #include "util/gmp_util.h"
+#include "util/exception.h"
 
 namespace CVC4 {
 
@@ -62,8 +60,8 @@ public:
    * For more information about what is a valid rational string,
    * see GMP's documentation for mpq_set_str().
    */
-  explicit Integer(const char * s, int base = 10): d_value(s,base) {}
-  Integer(const std::string& s, unsigned base = 10) : d_value(s, base) {}
+  explicit Integer(const char* s, unsigned base = 10): d_value(s, base) {}
+  explicit Integer(const std::string& s, unsigned base = 10) : d_value(s, base) {}
 
   Integer(const Integer& q) : d_value(q.d_value) {}
 
@@ -72,8 +70,12 @@ public:
   Integer(  signed long int z) : d_value(z) {}
   Integer(unsigned long int z) : d_value(z) {}
 
-  ~Integer() {}
+#ifdef CVC4_NEED_INT64_T_OVERLOADS
+  Integer( int64_t z) : d_value(static_cast<long>(z)) {}
+  Integer(uint64_t z) : d_value(static_cast<unsigned long>(z)) {}
+#endif /* CVC4_NEED_INT64_T_OVERLOADS */
 
+  ~Integer() {}
 
   Integer& operator=(const Integer& x){
     if(this == &x) return *this;
@@ -174,7 +176,7 @@ public:
    */
   Integer oneExtend(uint32_t size, uint32_t amount) const {
     // check that the size is accurate
-    Assert ((*this) < Integer(1).multiplyByPow2(size));
+    DebugCheckArgument((*this) < Integer(1).multiplyByPow2(size), size);
     mpz_class res = d_value;
 
     for (unsigned i = size; i < size + amount; ++i) {
@@ -247,7 +249,7 @@ public:
    * If y divides *this, then exactQuotient returns (this/y)
    */
   Integer exactQuotient(const Integer& y) const {
-    Assert(y.divides(*this));
+    DebugCheckArgument(y.divides(*this), y);
     mpz_class q;
     mpz_divexact(q.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
     return Integer( q );
@@ -342,15 +344,15 @@ public:
   long getLong() const {
     long si = d_value.get_si();
     // ensure there wasn't overflow
-    AlwaysAssert(mpz_cmp_si(d_value.get_mpz_t(), si) == 0,
+    CheckArgument(mpz_cmp_si(d_value.get_mpz_t(), si) == 0, this,
                  "Overflow detected in Integer::getLong()");
     return si;
   }
   unsigned long getUnsignedLong() const {
     unsigned long ui = d_value.get_ui();
     // ensure there wasn't overflow
-    AlwaysAssert(mpz_cmp_ui(d_value.get_mpz_t(), ui) == 0,
-                 "Overflow detected in Integer::getUnsignedLong()");
+    CheckArgument(mpz_cmp_ui(d_value.get_mpz_t(), ui) == 0, this,
+                  "Overflow detected in Integer::getUnsignedLong()");
     return ui;
   }
 
@@ -378,7 +380,7 @@ public:
    */
   unsigned isPow2() const {
     if (d_value <= 0) return 0;
-    // check that the number of ones in the binary represenation is 1
+    // check that the number of ones in the binary representation is 1
     if (mpz_popcount(d_value.get_mpz_t()) == 1) {
       // return the index of the first one plus 1
       return mpz_scan1(d_value.get_mpz_t(), 0) + 1;
@@ -418,11 +420,11 @@ public:
   friend class CVC4::Rational;
 };/* class Integer */
 
-struct IntegerHashStrategy {
-  static inline size_t hash(const CVC4::Integer& i) {
+struct IntegerHashFunction {
+  inline size_t operator()(const CVC4::Integer& i) const {
     return i.hash();
   }
-};/* struct IntegerHashStrategy */
+};/* struct IntegerHashFunction */
 
 inline std::ostream& operator<<(std::ostream& os, const Integer& n) {
   return os << n.toString();

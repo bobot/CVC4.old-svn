@@ -2,12 +2,10 @@
 /*! \file type_checker.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway, dejan
- ** Minor contributors (to current version): acsys, taking
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -18,10 +16,11 @@
 
 #include "cvc4_private.h"
 
+// ordering dependence
+#include "expr/node.h"
+
 #ifndef __CVC4__EXPR__TYPE_CHECKER_H
 #define __CVC4__EXPR__TYPE_CHECKER_H
-
-#include "expr/node.h"
 
 namespace CVC4 {
 namespace expr {
@@ -31,6 +30,9 @@ public:
 
   static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check = false)
     throw (TypeCheckingExceptionPrivate, AssertionException);
+
+  static bool computeIsConst(NodeManager* nodeManager, TNode n)
+    throw (AssertionException);
 
 };/* class TypeChecker */
 

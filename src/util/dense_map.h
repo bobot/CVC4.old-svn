@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -16,7 +14,7 @@
  ** This is an abstraction of a Map from an unsigned integer to elements of type T.
  ** This class is designed to provide constant time insertion, deletion, element_of,
  ** and fast iteration. This is done by storing backing vectors of size greater than
- ** the maximum key.  This datastructure is appropraite for heavy use datastructures
+ ** the maximum key.  This datastructure is appropriate for heavy use datastructures
  ** where the Keys are a dense set of integers.
  **
  ** T must support T(), and operator=().

@@ -16,6 +16,8 @@
  ** Implementation of the minisat for cvc4 (bitvectors).
  **/
 
+#include "cvc4_private.h"
+
 #pragma once
 
 #include "prop/sat_solver.h"
@@ -44,6 +46,10 @@ private:
       toSatClause(clause, satClause);
       d_notify->notify(satClause);
     }
+
+    void safePoint() {
+      d_notify->safePoint(); 
+    }
   };
 
   BVMinisat::SimpSolver* d_minisat;
@@ -71,6 +77,8 @@ public:
   void setNotify(Notify* notify);
 
   void addClause(SatClause& clause, bool removable);
+
+  SatValue propagate();
 
   SatVariable newVar(bool theoryAtom = false);
 

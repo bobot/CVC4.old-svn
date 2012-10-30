@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file cdset.h
+/*! \file cdhashset.h
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): bobot, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -24,7 +22,7 @@
 #include "context/context.h"
 #include "context/cdhashset_forward.h"
 #include "context/cdhashmap.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 
 namespace CVC4 {
 namespace context {
@@ -66,6 +64,10 @@ public:
 
   bool insert(const V& v) {
     return super::insert(v, v);
+  }
+
+  void insertAtContextLevelZero(const V& v) {
+    return super::insertAtContextLevelZero(v, v);
   }
 
   bool contains(const V& v) {

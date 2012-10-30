@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -81,13 +79,13 @@ bool SymmetryBreaker::Template::matchRecursive(TNode t, TNode n) {
   }
 
   if(t.getNumChildren() == 0) {
-    if(t.getMetaKind() == kind::metakind::CONSTANT) {
-      Assert(n.getMetaKind() == kind::metakind::CONSTANT);
+    if(t.isConst()) {
+      Assert(n.isConst());
       Debug("ufsymm:match") << "UFSYMM we have constants, failing match" << endl;
       return false;
     }
-    Assert(t.getMetaKind() == kind::metakind::VARIABLE &&
-           n.getMetaKind() == kind::metakind::VARIABLE);
+    Assert(t.isVar() &&
+           n.isVar());
     t = find(t);
     n = find(n);
     Debug("ufsymm:match") << "UFSYMM variable match " << t << " , " << n << endl;
@@ -218,8 +216,8 @@ Node SymmetryBreaker::normInternal(TNode n) {
           } else if((*i).getKind() == kind::IFF ||
                     (*i).getKind() == kind::EQUAL) {
             kids.push_back(normInternal(*i));
-            if((*i)[0].getMetaKind() == kind::metakind::VARIABLE ||
-               (*i)[1].getMetaKind() == kind::metakind::VARIABLE) {
+            if((*i)[0].isVar() ||
+               (*i)[1].isVar()) {
               d_termEqs[(*i)[0]].insert((*i)[1]);
               d_termEqs[(*i)[1]].insert((*i)[0]);
               Debug("ufsymm:eq") << "UFSYMM " << (*i)[0] << " <==> " << (*i)[1] << endl;
@@ -237,8 +235,8 @@ Node SymmetryBreaker::normInternal(TNode n) {
 
   case kind::IFF:
   case kind::EQUAL:
-    if(n[0].getMetaKind() == kind::metakind::VARIABLE ||
-       n[1].getMetaKind() == kind::metakind::VARIABLE) {
+    if(n[0].isVar() ||
+       n[1].isVar()) {
       d_termEqs[n[0]].insert(n[1]);
       d_termEqs[n[1]].insert(n[0]);
       Debug("ufsymm:eq") << "UFSYMM " << n[0] << " <==> " << n[1] << endl;
@@ -442,6 +440,16 @@ bool SymmetryBreaker::invariantByPermutations(const Permutation& p) {
   Debug("ufsymm") << "UFSYMM invariantByPermutations()? " << p << endl;
 
   Assert(p.size() > 1);
+
+  // check that the types match
+  Permutation::iterator permIt = p.begin();
+  TypeNode type = (*permIt++).getType();
+  do {
+    if(type != (*permIt++).getType()) {
+      Debug("ufsymm") << "UFSYMM types don't match, aborting.." << endl;
+      return false;
+    }
+  } while(permIt != p.end());
 
   // check P_swap
   vector<Node> subs;

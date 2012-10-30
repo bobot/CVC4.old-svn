@@ -5,20 +5,18 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief A multiprecision rational constant.
+ ** \brief A multi-precision rational constant.
  **
- ** A multiprecision rational constant.
- ** This stores the rational as a pair of multiprecision integers,
+ ** A multi-precision rational constant.
+ ** This stores the rational as a pair of multi-precision integers,
  ** one for the numerator and one for the denominator.
  ** The number is always stored so that the gcd of the numerator and denominator
  ** is 1.  (This is referred to as referred to as canonical form in GMP's
- ** literature.) A consquence is that that the numerator and denominator may be
+ ** literature.) A consequence is that that the numerator and denominator may be
  ** different than the values used to construct the Rational.
  **/
 
@@ -29,11 +27,11 @@
 
 namespace CVC4 {
 
-struct BoolHashStrategy {
-  static inline size_t hash(bool b) {
+struct BoolHashFunction {
+  inline size_t operator()(bool b) const {
     return b;
   }
-};/* struct BoolHashStrategy */
+};/* struct BoolHashFunction */
 
 }/* CVC4 namespace */
 

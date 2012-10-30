@@ -1,10 +1,14 @@
 SUBDIRS = . 
 
 BINARY = cvc4
-if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) --proof @top_builddir@/src/main/$(BINARY)
-else
-TESTS_ENVIRONMENT = @srcdir@/../../run_regression $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+LOG_COMPILER = @srcdir@/../../run_regression
+AM_LOG_FLAGS = $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)
+
+if AUTOMAKE_1_11
+# old-style (pre-automake 1.12) test harness
+TESTS_ENVIRONMENT = \
+	$(TESTS_ENVIRONMENT) $(LOG_COMPILER) \
+	$(AM_LOG_FLAGS) $(LOG_FLAGS)
 endif
 
 MAKEFLAGS = -k
@@ -23,9 +27,19 @@ CVC_TESTS = \
 SMT2_TESTS = \
 	tiny_bug.smt2
 
+BUG_TESTS = \
+	bug216.smt2 \
+	bug233.cvc \
+	bug326.smt2 \
+	bug394.smt2 \
+	bug396.smt2 \
+	arith_lra_01.smt2 \
+	arith_lra_02.smt2
+
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 
-EXTRA_DIST = $(TESTS) 
+EXTRA_DIST = $(TESTS) \
+	bug216.smt2.expect
 
 # synonyms for "check" in this directory
 .PHONY: regress regress0 test

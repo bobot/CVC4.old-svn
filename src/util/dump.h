@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,6 @@
 
 #include "util/output.h"
 #include "expr/command.h"
-#include "util/Assert.h"
 
 namespace CVC4 {
 
@@ -103,24 +100,13 @@ public:
     } else {
       // What should we do here? Crash, raise exception or just...
       // ...ignore for now
-      Assert(false, "Should not call this function twice, or if command sequence not being used");     // or may be not
+      // Assert(false, "Should not call this function twice, or if command sequence not being used");     // or may be not
     }
   }
   DumpC() { d_commands = new CommandSequence(); }
   ~DumpC() { 
     if(d_commands != NULL) 
       delete d_commands;
-  }
-
-  void declareVar(Expr e, std::string comment) {
-    if(isOn("declarations")) {
-      std::stringstream ss;
-      ss << Expr::setlanguage(Expr::setlanguage::getLanguage(getStream())) << e;
-      std::string s = ss.str();
-      CVC4dumpstream(getStream(), d_commands)
-        << CommentCommand(s + " is " + comment)
-        << DeclareFunctionCommand(s, e.getType());
-    }
   }
 
   bool on (const char* tag) { d_tags.insert(std::string(tag)); return true; }

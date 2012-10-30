@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,7 +24,7 @@
 #include <utility>
 
 #include "util/integer.h"
-#include "util/Assert.h"
+#include "util/exception.h"
 
 namespace CVC4 {
 
@@ -74,11 +72,18 @@ class CVC4_PUBLIC Cardinality {
   /** A representation for unknown cardinality */
   static const Integer s_unknownCard;
 
+  /** A representation for large, finite cardinality */
+  static const Integer s_largeFiniteCard;
+
   /**
    * In the case of finite cardinality, this is > 0, and is equal to
    * the cardinality+1.  If infinite, it is < 0, and is Beth[|card|-1].
    * That is, "-1" means Beth 0 == |Z|, "-2" means Beth 1 == |R|, etc.
    * If this field is 0, the cardinality is unknown.
+   *
+   * We impose a ceiling on finite cardinalities of 2^64.  If this field
+   * is >= 2^64 + 1, we consider it at "ceiling" cardinality, and
+   * comparisons between all such cardinalities result in "unknown."
    */
   Integer d_card;
 
@@ -91,7 +96,15 @@ public:
   static const Cardinality REALS;
 
   /** The unknown cardinality */
-  static const Cardinality UNKNOWN;
+  static const Cardinality UNKNOWN_CARD;
+
+  /** Used as a result code for Cardinality::compare(). */
+  enum CVC4_PUBLIC CardinalityComparison {
+    LESS,
+    EQUAL,
+    GREATER,
+    UNKNOWN
+  };/* enum CardinalityComparison */
 
   /**
    * Construct a finite cardinality equal to the integer argument.
@@ -103,7 +116,6 @@ public:
     CheckArgument(card >= 0, card,
                   "Cardinality must be a nonnegative integer, not %ld.", card);
     d_card += 1;
-    Assert(isFinite());
   }
 
   /**
@@ -115,14 +127,12 @@ public:
                   "Cardinality must be a nonnegative integer, not %s.",
                   card.toString().c_str());
     d_card += 1;
-    Assert(isFinite());
   }
 
   /**
    * Construct an infinite cardinality equal to the given Beth number.
    */
   Cardinality(CardinalityBeth beth) : d_card(-beth.getNumber() - 1) {
-    Assert(!isFinite());
   }
 
   /**
@@ -131,7 +141,13 @@ public:
   Cardinality(CardinalityUnknown) : d_card(0) {
   }
 
-  /** Returns true iff this cardinality is unknown. */
+  /**
+   * Returns true iff this cardinality is unknown.  "Unknown" in this
+   * sense means that the cardinality is completely unknown; it might
+   * be finite, or infinite---anything.  Large, finite cardinalities
+   * at the "ceiling" return "false" for isUnknown() and true for
+   * isFinite() and isLargeFinite().
+   */
   bool isUnknown() const throw() {
     return d_card == 0;
   }
@@ -139,6 +155,14 @@ public:
   /** Returns true iff this cardinality is finite. */
   bool isFinite() const throw() {
     return d_card > 0;
+  }
+
+  /**
+   * Returns true iff this cardinality is finite and large (i.e.,
+   * at the ceiling of representable finite cardinalities).
+   */
+  bool isLargeFinite() const throw() {
+    return d_card >= s_largeFiniteCard;
   }
 
   /** Returns true iff this cardinality is infinite. */
@@ -161,6 +185,7 @@ public:
    */
   Integer getFiniteCardinality() const throw(IllegalArgumentException) {
     CheckArgument(isFinite(), *this, "This cardinality is not finite.");
+    CheckArgument(!isLargeFinite(), *this, "This cardinality is finite, but too large to represent.");
     return d_card - 1;
   }
 
@@ -182,7 +207,7 @@ public:
   Cardinality& operator*=(const Cardinality& c) throw();
 
   /** Assigning exponentiation of this cardinality with another. */
-  Cardinality& operator^=(const Cardinality& c) throw(IllegalArgumentException);
+  Cardinality& operator^=(const Cardinality& c) throw();
 
   /** Add two cardinalities. */
   Cardinality operator+(const Cardinality& c) const throw() {
@@ -199,54 +224,21 @@ public:
   }
 
   /**
-   * Exponentiation of two cardinalities.  Throws an exception if both
-   * are finite and the exponent is too large.
+   * Exponentiation of two cardinalities.
    */
-  Cardinality operator^(const Cardinality& c) const throw(IllegalArgumentException) {
+  Cardinality operator^(const Cardinality& c) const throw() {
     Cardinality card(*this);
     card ^= c;
     return card;
   }
 
-  /** Test for equality between cardinalities. */
-  bool operator==(const Cardinality& c) const throw() {
-    return !isUnknown() && d_card == c.d_card;
-  }
-
-  /** Test for disequality between cardinalities. */
-  bool operator!=(const Cardinality& c) const throw() {
-    return !isUnknown() && !c.isUnknown() && d_card != c.d_card;
-  }
-
-  /** Test whether this cardinality is less than another. */
-  bool operator<(const Cardinality& c) const throw() {
-    return
-      !isUnknown() && !c.isUnknown() &&
-      ( ( isFinite() && !c.isFinite() ) ||
-        ( isFinite() && c.isFinite() && d_card < c.d_card ) ||
-        ( !isFinite() && !c.isFinite() && d_card > c.d_card ) );
-  }
-
   /**
-   * Test whether this cardinality is less than or equal to
-   * another.
+   * Compare two cardinalities.  This can return UNKNOWN if two
+   * finite cardinalities are at the ceiling (and thus not precisely
+   * represented), or if one or the other is the special "unknown"
+   * cardinality.
    */
-  bool operator<=(const Cardinality& c) const throw() {
-    return !isUnknown() && !c.isUnknown() && (*this < c || *this == c);
-  }
-
-  /** Test whether this cardinality is greater than another. */
-  bool operator>(const Cardinality& c) const throw() {
-    return !isUnknown() && !c.isUnknown() && !(*this <= c);
-  }
-
-  /**
-   * Test whether this cardinality is greater than or equal to
-   * another.
-   */
-  bool operator>=(const Cardinality& c) const throw() {
-    return !isUnknown() && !c.isUnknown() && !(*this < c);
-  }
+  Cardinality::CardinalityComparison compare(const Cardinality& c) const throw();
 
   /**
    * Return a string representation of this cardinality.
@@ -264,7 +256,6 @@ std::ostream& operator<<(std::ostream& out, CardinalityBeth b)
 /** Print a cardinality in a human-readable fashion. */
 std::ostream& operator<<(std::ostream& out, const Cardinality& c)
   throw() CVC4_PUBLIC;
-
 
 }/* CVC4 namespace */
 

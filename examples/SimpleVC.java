@@ -34,11 +34,10 @@
  **/
 
 import edu.nyu.acsys.CVC4.*;
-import edu.nyu.acsys.CVC4.Integer;// to override java.lang.Integer name lookup
 
 public class SimpleVC {
   public static void main(String[] args) {
-    System.loadLibrary("CVC4");
+    System.loadLibrary("cvc4jni");
 
     ExprManager em = new ExprManager();
     SmtEngine smt = new SmtEngine(em);
@@ -50,21 +49,21 @@ public class SimpleVC {
 
     Expr x = em.mkVar("x", integer);
     Expr y = em.mkVar("y", integer);
-    Expr zero = em.mkConst(new Integer(0));
+    Expr zero = em.mkConst(new Rational(0));
 
     Expr x_positive = em.mkExpr(Kind.GT, x, zero);
     Expr y_positive = em.mkExpr(Kind.GT, y, zero);
 
-    Expr two = em.mkConst(new Integer(2));
+    Expr two = em.mkConst(new Rational(2));
     Expr twox = em.mkExpr(Kind.MULT, two, x);
     Expr twox_plus_y = em.mkExpr(Kind.PLUS, twox, y);
 
-    Expr three = em.mkConst(new Integer(3));
+    Expr three = em.mkConst(new Rational(3));
     Expr twox_plus_y_geq_3 = em.mkExpr(Kind.GEQ, twox_plus_y, three);
 
-    BoolExpr formula =
-      new BoolExpr(em.mkExpr(Kind.AND, x_positive, y_positive)).
-      impExpr(new BoolExpr(twox_plus_y_geq_3));
+    Expr formula =
+      new Expr(em.mkExpr(Kind.AND, x_positive, y_positive)).
+      impExpr(new Expr(twox_plus_y_geq_3));
 
     System.out.println("Checking validity of formula " + formula + " with CVC4.");
     System.out.println("CVC4 should report VALID.");

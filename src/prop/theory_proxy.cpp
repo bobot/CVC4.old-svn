@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file sat.cpp
+/*! \file theory_proxy.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: dejan, taking, mdeters
- ** Minor contributors (to current version): kshitij
+ ** Major contributors: kshitij, dejan, mdeters
+ ** Minor contributors (to current version): barrett, taking, lianah
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -25,7 +23,10 @@
 #include "theory/rewriter.h"
 #include "expr/expr_stream.h"
 #include "decision/decision_engine.h"
-
+#include "decision/options.h"
+#include "util/lemma_input_channel.h"
+#include "util/lemma_output_channel.h"
+#include "util/statistics_registry.h"
 
 namespace CVC4 {
 namespace prop {
@@ -80,19 +81,20 @@ void TheoryProxy::enqueueTheoryLiteral(const SatLiteral& l) {
 
 SatLiteral TheoryProxy::getNextDecisionRequest(bool &stopSearch) {
   TNode n = d_theoryEngine->getNextDecisionRequest();
-  if(not n.isNull())
+  if(not n.isNull()) {
     return d_cnfStream->getLiteral(n);
-  
+  }
+
   // If theory doesn't give us a deicsion ask the decision engine. It
-  // may return in undefSatLiteral in which case the sat solver figure
-  // it out something
+  // may return in undefSatLiteral in which case the sat solver uses
+  // whatever default heuristic it has.
   Assert(d_decisionEngine != NULL);
   Assert(stopSearch != true);
   SatLiteral ret = d_decisionEngine->getNext(stopSearch);
   if(stopSearch) {
     Trace("decision") << "  ***  Decision Engine stopped search *** " << std::endl;
   }
-  return ret;
+  return options::decisionStopOnly() ? undefSatLiteral : ret;
 }
 
 bool TheoryProxy::theoryNeedCheck() const {
@@ -113,10 +115,10 @@ void TheoryProxy::notifyRestart() {
 
   static uint32_t lemmaCount = 0;
 
-  if(Options::current()->lemmaInputChannel != NULL) {
-    while(Options::current()->lemmaInputChannel->hasNewLemma()) {
+  if(options::lemmaInputChannel() != NULL) {
+    while(options::lemmaInputChannel()->hasNewLemma()) {
       Debug("shared") << "shared" << std::endl;
-      Expr lemma = Options::current()->lemmaInputChannel->getNewLemma();
+      Expr lemma = options::lemmaInputChannel()->getNewLemma();
       Node asNode = lemma.getNode();
       asNode = theory::Rewriter::rewrite(asNode);
 
@@ -140,9 +142,10 @@ void TheoryProxy::notifyRestart() {
 
 void TheoryProxy::notifyNewLemma(SatClause& lemma) {
   Assert(lemma.size() > 0);
-  if(Options::current()->lemmaOutputChannel != NULL) {
+  if(options::lemmaOutputChannel() != NULL) {
     if(lemma.size() == 1) {
-      Options::current()->lemmaOutputChannel->notifyNewLemma(d_cnfStream->getNode(lemma[0]).toExpr());
+      // cannot share units yet
+      //options::lemmaOutputChannel()->notifyNewLemma(d_cnfStream->getNode(lemma[0]).toExpr());
     } else {
       NodeBuilder<> b(kind::OR);
       for(unsigned i = 0, i_end = lemma.size(); i < i_end; ++i) {
@@ -152,7 +155,7 @@ void TheoryProxy::notifyNewLemma(SatClause& lemma) {
 
       if(d_shared.find(n) == d_shared.end()) {
         d_shared.insert(n);
-        Options::current()->lemmaOutputChannel->notifyNewLemma(n.toExpr());
+        options::lemmaOutputChannel()->notifyNewLemma(n.toExpr());
       } else {
         Debug("shared") <<"drop new " << n << std::endl;
       }
@@ -162,23 +165,23 @@ void TheoryProxy::notifyNewLemma(SatClause& lemma) {
 
 SatLiteral TheoryProxy::getNextReplayDecision() {
 #ifdef CVC4_REPLAY
-  if(Options::current()->replayStream != NULL) {
-    Expr e = Options::current()->replayStream->nextExpr();
+  if(options::replayStream() != NULL) {
+    Expr e = options::replayStream()->nextExpr();
     if(!e.isNull()) { // we get null node when out of decisions to replay
       // convert & return
+      ++d_replayedDecisions;
       return d_cnfStream->getLiteral(e);
     }
   }
 #endif /* CVC4_REPLAY */
-  //FIXME!
   return undefSatLiteral;
 }
 
 void TheoryProxy::logDecision(SatLiteral lit) {
 #ifdef CVC4_REPLAY
-  if(Options::current()->replayLog != NULL) {
+  if(options::replayLog() != NULL) {
     Assert(lit != undefSatLiteral, "logging an `undef' decision ?!");
-    *Options::current()->replayLog << d_cnfStream->getNode(lit) << std::endl;
+    *options::replayLog() << d_cnfStream->getNode(lit) << std::endl;
   }
 #endif /* CVC4_REPLAY */
 }

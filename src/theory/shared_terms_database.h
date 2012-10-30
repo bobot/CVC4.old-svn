@@ -1,15 +1,16 @@
 /*********************                                                        */
-/*! \file node_visitor.h
+/*! \file shared_terms_database.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: 
- ** Minor contributors (to current version):
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
  **/
 
 #pragma once
@@ -19,7 +20,7 @@
 #include "expr/node.h"
 #include "theory/theory.h"
 #include "theory/uf/equality_engine.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "context/cdhashset.h"
 
 namespace CVC4 {
@@ -40,7 +41,7 @@ private:
 
   /** The context */
   context::Context* d_context;
-  
+
   /** Some statistics */
   IntStat d_statSharedTerms;
 
@@ -49,13 +50,13 @@ private:
 
   /** A map from atoms to a list of shared terms */
   SharedTermsMap d_atomsToTerms;
-  
+
   /** Each time we add a shared term, we add it's parent to this list */
   std::vector<TNode> d_addedSharedTerms;
-  
+
   /** Context-dependent size of the d_addedSharedTerms list */
   context::CDO<unsigned> d_addedSharedTermsSize;
-  
+
   /** A map from atoms and subterms to the theories that use it */
   typedef context::CDHashMap<std::pair<Node, TNode>, theory::Theory::Set, TNodePairHashFunction> SharedTermsTheoriesMap;
   SharedTermsTheoriesMap d_termsToTheories;
@@ -92,10 +93,14 @@ private:
       return d_sharedTerms.propagateSharedEquality(tag, t1, t2, value);
     }
 
-    bool eqNotifyConstantTermMerge(TNode t1, TNode t2) {
+    void eqNotifyConstantTermMerge(TNode t1, TNode t2) {
       d_sharedTerms.conflict(t1, t2, true);
-      return false;
     }
+
+    void eqNotifyNewClass(TNode t) { }
+    void eqNotifyPreMerge(TNode t1, TNode t2) { }
+    void eqNotifyPostMerge(TNode t1, TNode t2) { }
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { }
   };
 
   /** The notify class for d_equalityEngine */
@@ -116,14 +121,14 @@ private:
   bool propagateEquality(TNode equality, bool polarity);
 
   /** Theory engine */
-  TheoryEngine* d_theoryEngine;  
+  TheoryEngine* d_theoryEngine;
 
   /** Are we in conflict */
   context::CDO<bool> d_inConflict;
-  
+
   /** Conflicting terms, if any */
   Node d_conflictLHS, d_conflictRHS;
-  
+
   /** Polarity of the conflict */
   bool d_conflictPolarity;
 
@@ -148,7 +153,7 @@ public:
 
   SharedTermsDatabase(TheoryEngine* theoryEngine, context::Context* context);
   ~SharedTermsDatabase() throw(AssertionException);
-  
+
   /**
    * Asserts the equality to the shared terms database,
    */
@@ -159,7 +164,7 @@ public:
    */
   bool isKnown(TNode literal) const;
 
-  /** 
+  /**
    * Returns an explanation of the propagation that came from the database.
    */
   Node explain(TNode literal) const;
@@ -168,10 +173,10 @@ public:
    * Add an equality to propagate.
    */
   void addEqualityToPropagate(TNode equality);
-  
+
   /**
-   * Add a shared term to the database. The shared term is a subterm of the atom and 
-   * should be associated with the given theory. 
+   * Add a shared term to the database. The shared term is a subterm of the atom and
+   * should be associated with the given theory.
    */
   void addSharedTerm(TNode atom, TNode term, theory::Theory::Set theories);
 
@@ -186,12 +191,12 @@ public:
   bool hasSharedTerms(TNode atom) const;
 
   /**
-   * Iterator pointing to the first shared term belonging to the given atom. 
+   * Iterator pointing to the first shared term belonging to the given atom.
    */
   shared_terms_iterator begin(TNode atom) const;
 
   /**
-   * Iterator pointing to the end of the list of shared terms belonging to the given atom. 
+   * Iterator pointing to the end of the list of shared terms belonging to the given atom.
    */
   shared_terms_iterator end(TNode atom) const;
 
@@ -204,12 +209,12 @@ public:
    * Get the theories that share the term and have been notified already.
    */
   theory::Theory::Set getNotifiedTheories(TNode term) const;
-   
+
   /**
    * Returns true if the term is currently registered as shared with some theory.
    */
   bool isShared(TNode term) const {
-    return term.isConst() || d_alreadyNotifiedMap.find(term) != d_alreadyNotifiedMap.end();
+    return d_alreadyNotifiedMap.find(term) != d_alreadyNotifiedMap.end();
   }
 
   /**
@@ -231,6 +236,15 @@ public:
    */
   bool areDisequal(TNode a, TNode b) const;
 
+  /**
+   * get equality engine
+   */
+  theory::eq::EqualityEngine* getEqualityEngine() { return &d_equalityEngine; }
+
+  /**
+   * collect model info
+   */
+  void collectModelInfo( theory::TheoryModel* m, bool fullModel );
 protected:
 
   /**

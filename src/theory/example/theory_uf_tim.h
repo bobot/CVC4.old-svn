@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -85,7 +83,7 @@ private:
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-  TheoryUFTim(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  TheoryUFTim(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe);
 
   /** Destructor for the TheoryUF object. */
   ~TheoryUFTim();
@@ -141,16 +139,6 @@ public:
    * See theory/theory.h for more information about this method.
    */
   void explain(TNode n) {}
-
-  /**
-   * Get a theory value.
-   *
-   * Overloads Node getValue(TNode n); from theory.h.
-   * See theory/theory.h for more information about this method.
-   */
-  Node getValue(TNode n) {
-    Unimplemented("TheoryUFTim doesn't support model generation");
-  }
 
   std::string identify() const { return std::string("TheoryUFTim"); }
 

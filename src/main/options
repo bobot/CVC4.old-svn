@@ -1,0 +1,44 @@
+#
+# Option specification file for CVC4
+# See src/options/base_options for a description of this file format
+#
+
+module DRIVER "main/options.h" Driver
+
+common-option version -V --version/ bool
+ identify this CVC4 binary
+
+common-option help -h --help/ bool
+ full command line reference
+
+common-option - --show-config void :handler CVC4::main::showConfiguration :handler-include "main/options_handlers.h"
+ show CVC4 static configuration
+
+option - --show-debug-tags void :handler CVC4::main::showDebugTags :handler-include "main/options_handlers.h"
+ show all available tags for debugging
+option - --show-trace-tags void :handler CVC4::main::showTraceTags :handler-include "main/options_handlers.h"
+ show all available tags for tracing
+
+expert-option earlyExit --early-exit bool :default true
+ do not run destructors at exit; default on except in debug builds
+
+# portfolio options
+option threads --threads=N unsigned :default 2 :predicate greater(0)
+ Total number of threads for portfolio
+option - --threadN=string void :handler CVC4::main::threadN :handler-include "main/options_handlers.h"
+ configures portfolio thread N (0..#threads-1)
+option threadArgv std::vector<std::string> :include <vector> <string>
+ Thread configuration (a string to be passed to parseOptions)
+option thread_id int :default -1
+ Thread ID, for internal use in case of multi-threaded run
+option separateOutput bool :default false
+ In multi-threaded setting print output of each thread at the end of run, separated by a divider ("----").
+option sharingFilterByLength --filter-lemma-length=N int :default -1 :read-write
+ don't share (among portfolio threads) lemmas strictly longer than N
+option fallbackSequential  --fallback-sequential bool :default false
+ Switch to sequential mode (instead of printing an error) if it can't be solved in portfolio mode
+
+expert-option waitToJoin --wait-to-join bool :default true
+ wait for other threads to join before quitting
+
+endmodule
