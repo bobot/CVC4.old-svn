@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -93,6 +91,9 @@ void ArithPartialModel::initialize(ArithVar x, const DeltaRational& r){
   ++d_mapSize;
 
   d_hasSafeAssignment.push_back( false );
+  // Is wirth mentioning that this is not strictly necessary, but this maintains the internal invariant
+  // that when d_assignment is set this gets set.
+  d_deltaIsSafe = false;
   d_assignment.push_back( r );
   d_safeAssignment.push_back( DeltaRational(0) );
 
@@ -148,6 +149,7 @@ void ArithPartialModel::setLowerBoundConstraint(Constraint c){
   Assert(inMaps(x));
   Assert(greaterThanLowerBound(x, c->getValue()));
 
+  d_deltaIsSafe = false;
   d_lbc.set(x, c);
 }
 
@@ -161,6 +163,7 @@ void ArithPartialModel::setUpperBoundConstraint(Constraint c){
   Assert(inMaps(x));
   Assert(lessThanUpperBound(x, c->getValue()));
 
+  d_deltaIsSafe = false;
   d_ubc.set(x, c);
 }
 
@@ -242,7 +245,7 @@ void ArithPartialModel::clearSafeAssignments(bool revert){
   }
 
   if(revert && !d_history.empty()){
-    d_deltaIsSafe = true;
+    d_deltaIsSafe = false;
   }
 
   d_history.clear();

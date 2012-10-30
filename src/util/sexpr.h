@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): dejan, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,10 +21,12 @@
 
 #include <vector>
 #include <string>
+#include <iomanip>
+#include <sstream>
 
 #include "util/integer.h"
 #include "util/rational.h"
-#include "util/Assert.h"
+#include "util/exception.h"
 
 namespace CVC4 {
 
@@ -58,11 +58,11 @@ class CVC4_PUBLIC SExpr {
 
 public:
 
-  class Keyword : protected std::string {
+  class CVC4_PUBLIC Keyword : protected std::string {
   public:
     Keyword(const std::string& s) : std::string(s) {}
     const std::string& getString() const { return *this; }
-  };/* class Keyword */
+  };/* class SExpr::Keyword */
 
   SExpr() :
     d_sexprType(SEXPR_STRING),
@@ -151,6 +151,12 @@ public:
    */
   const std::vector<SExpr>& getChildren() const;
 
+  /** Is this S-expression equal to another? */
+  bool operator==(const SExpr& s) const;
+
+  /** Is this S-expression different from another? */
+  bool operator!=(const SExpr& s) const;
+
 };/* class SExpr */
 
 inline bool SExpr::isAtom() const {
@@ -174,34 +180,53 @@ inline bool SExpr::isKeyword() const {
 }
 
 inline std::string SExpr::getValue() const {
-  AlwaysAssert( isAtom() );
+  CheckArgument( isAtom(), this );
   switch(d_sexprType) {
   case SEXPR_INTEGER:
     return d_integerValue.toString();
-  case SEXPR_RATIONAL:
-    return d_rationalValue.toString();
+  case SEXPR_RATIONAL: {
+    // We choose to represent rationals as decimal strings rather than
+    // "numerator/denominator."  Perhaps an additional SEXPR_DECIMAL
+    // could be added if we need both styles, even if it's backed by
+    // the same Rational object.
+    std::stringstream ss;
+    ss << std::fixed << d_rationalValue.getDouble();
+    return ss.str();
+  }
   case SEXPR_STRING:
   case SEXPR_KEYWORD:
     return d_stringValue;
-  default:
-    Unhandled(d_sexprType);
+  case SEXPR_NOT_ATOM:
+    return std::string();
   }
-  return d_stringValue;
+  return std::string();
 }
 
 inline const CVC4::Integer& SExpr::getIntegerValue() const {
-  AlwaysAssert( isInteger() );
+  CheckArgument( isInteger(), this );
   return d_integerValue;
 }
 
 inline const CVC4::Rational& SExpr::getRationalValue() const {
-  AlwaysAssert( isRational() );
+  CheckArgument( isRational(), this );
   return d_rationalValue;
 }
 
 inline const std::vector<SExpr>& SExpr::getChildren() const {
-  AlwaysAssert( !isAtom() );
+  CheckArgument( !isAtom(), this );
   return d_children;
+}
+
+inline bool SExpr::operator==(const SExpr& s) const {
+  return d_sexprType == s.d_sexprType &&
+         d_integerValue == s.d_integerValue &&
+         d_rationalValue == s.d_rationalValue &&
+         d_stringValue == s.d_stringValue &&
+         d_children == s.d_children;
+}
+
+inline bool SExpr::operator!=(const SExpr& s) const {
+  return !(*this == s);
 }
 
 std::ostream& operator<<(std::ostream& out, const SExpr& sexpr) CVC4_PUBLIC;

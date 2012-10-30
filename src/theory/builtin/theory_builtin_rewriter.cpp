@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -49,6 +47,25 @@ Node TheoryBuiltinRewriter::blastDistinct(TNode in) {
   }
   Node out = NodeManager::currentNM()->mkNode(kind::AND, diseqs);
   return out;
+}
+
+Node TheoryBuiltinRewriter::blastChain(TNode in) {
+
+  Assert(in.getKind() == kind::CHAIN);
+
+  Kind chainedOp = in.getOperator().getConst<Kind>();
+
+  if(in.getNumChildren() == 2) {
+    // if this is the case exactly 1 pair will be generated so the
+    // AND is not required
+    return NodeManager::currentNM()->mkNode(chainedOp, in[0], in[1]);
+  } else {
+    NodeBuilder<> conj(kind::AND);
+    for(TNode::iterator i = in.begin(), j = i + 1; j != in.end(); ++i, ++j) {
+      conj << NodeManager::currentNM()->mkNode(chainedOp, *i, *j);
+    }
+    return conj;
+  }
 }
 
 }/* CVC4::theory::builtin namespace */

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -37,6 +35,7 @@
 #include "util/language.h"
 
 #include <string.h>
+#include <cassert>
 
 #if HAVE_LIBREADLINE
 #  include <readline/readline.h>
@@ -64,9 +63,9 @@ static const std::string cvc_commands[] = {
 #include "main/cvc_tokens.h"
 };/* cvc_commands */
 
-static const std::string smt_commands[] = {
-#include "main/smt_tokens.h"
-};/* smt_commands */
+static const std::string smt1_commands[] = {
+#include "main/smt1_tokens.h"
+};/* smt1_commands */
 
 static const std::string smt2_commands[] = {
 #include "main/smt2_tokens.h"
@@ -105,10 +104,10 @@ InteractiveShell::InteractiveShell(ExprManager& exprManager,
       commandsBegin = cvc_commands;
       commandsEnd = cvc_commands + sizeof(cvc_commands) / sizeof(*cvc_commands);
       break;
-    case output::LANG_SMTLIB:
-      d_historyFilename = string(getenv("HOME")) + "/.cvc4_history_smtlib";
-      commandsBegin = smt_commands;
-      commandsEnd = smt_commands + sizeof(smt_commands) / sizeof(*smt_commands);
+    case output::LANG_SMTLIB_V1:
+      d_historyFilename = string(getenv("HOME")) + "/.cvc4_history_smtlib1";
+      commandsBegin = smt1_commands;
+      commandsEnd = smt1_commands + sizeof(smt1_commands) / sizeof(*smt1_commands);
       break;
     case output::LANG_SMTLIB_V2:
       d_historyFilename = string(getenv("HOME")) + "/.cvc4_history_smtlib2";
@@ -121,7 +120,9 @@ InteractiveShell::InteractiveShell(ExprManager& exprManager,
       commandsEnd = tptp_commands + sizeof(tptp_commands) / sizeof(*tptp_commands);
       break;
     default:
-      Unhandled(lang);
+      std::stringstream ss;
+      ss << "internal error: unhandled language " << lang;
+      throw Exception(ss.str());
     }
     d_usingReadline = true;
     int err = ::read_history(d_historyFilename.c_str());
@@ -195,12 +196,12 @@ Command* InteractiveShell::readCommand() {
   while(true) {
     Debug("interactive") << "Input now '" << input << line << "'" << endl << flush;
 
-    Assert( !(d_in.fail() && !d_in.eof()) || line.empty() );
+    assert( !(d_in.fail() && !d_in.eof()) || line.empty() );
 
     /* Check for failure. */
     if(d_in.fail() && !d_in.eof()) {
       /* This should only happen if the input line was empty. */
-      Assert( line.empty() );
+      assert( line.empty() );
       d_in.clear();
     }
 
@@ -229,7 +230,7 @@ Command* InteractiveShell::readCommand() {
     if(!d_usingReadline) {
       /* Extract the newline delimiter from the stream too */
       int c CVC4_UNUSED = d_in.get();
-      Assert( c == '\n' );
+      assert( c == '\n' );
       Debug("interactive") << "Next char is '" << (char)c << "'" << endl << flush;
     }
 

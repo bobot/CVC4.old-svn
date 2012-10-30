@@ -2,12 +2,10 @@
 /*! \file theory_arrays.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: lianah
- ** Minor contributors (to current version): barrett
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): ajreynol, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,7 @@
 
 #include "theory/theory.h"
 #include "theory/arrays/array_info.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "theory/uf/equality_engine.h"
 #include "context/cdhashmap.h"
 #include "context/cdhashset.h"

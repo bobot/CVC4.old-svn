@@ -1,13 +1,11 @@
 /*********************                                                        */
 /*! \file tptp.h
  ** \verbatim
- ** Original author: cconway
- ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Original author: bobot
+ ** Major contributors: none
+ ** Minor contributors (to current version): ajreynol, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -22,9 +20,9 @@
 #define __CVC4__PARSER__TPTP_H
 
 #include "parser/parser.h"
-#include "parser/smt/smt.h"
 #include "expr/command.h"
 #include <ext/hash_set>
+#include <cassert>
 
 namespace CVC4 {
 
@@ -53,9 +51,9 @@ class Tptp : public Parser {
 public:
   bool cnf; //in a cnf formula
 
-  void addFreeVar(Expr var){Assert(cnf); d_freeVar.push_back(var); };
+  void addFreeVar(Expr var){assert(cnf); d_freeVar.push_back(var); };
   std::vector< Expr > getFreeVar(){
-    Assert(cnf);
+    assert(cnf);
     std::vector< Expr > r;
     r.swap(d_freeVar);
     return r;
@@ -213,22 +211,19 @@ inline Command* Tptp::makeCommand(FormulaRole fr, Expr & expr){
   case FR_PLAIN:
     // it's a usual assert
     return new AssertCommand(expr);
-    break;
   case FR_CONJECTURE:
     // something to prove
     return new AssertCommand(getExprManager()->mkExpr(kind::NOT,expr));
-    break;
   case FR_UNKNOWN:
   case FR_FI_DOMAIN:
   case FR_FI_FUNCTORS:
   case FR_FI_PREDICATES:
   case FR_TYPE:
     return new EmptyCommand("Untreated role");
-    break;
-  default:
-    Unreachable("fr",fr);
-  };
-};
+  }
+  assert(false);// unreachable
+  return NULL;
+}
 
 namespace tptp {
 /**

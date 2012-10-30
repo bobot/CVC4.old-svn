@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: kshitij
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): barrett, dejan, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -15,6 +13,8 @@
  **
  ** Decision engine
  **/
+
+#include "cvc4_private.h"
 
 #ifndef __CVC4__DECISION__DECISION_ENGINE_H
 #define __CVC4__DECISION__DECISION_ENGINE_H

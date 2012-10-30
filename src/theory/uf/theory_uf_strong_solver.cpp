@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -921,7 +919,7 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
       //must generate new cardinality lemma term
       std::stringstream ss;
       ss << "_c_" << d_aloc_cardinality;
-      Node var = NodeManager::currentNM()->mkSkolem( ss.str(), d_type );
+      Node var = NodeManager::currentNM()->mkSkolem( ss.str(), d_type, "is a cardinality lemma term" );
       d_totality_terms[0].push_back( var );
       Trace("mkVar") << "allocateCardinality, mkVar : " << var << " : " << d_type << std::endl;
       //must be distinct from all other cardinality terms
@@ -1008,6 +1006,19 @@ void StrongSolverTheoryUf::SortRepModel::addCliqueLemma( std::vector< Node >& cl
   Assert( d_cardinality>0 );
   while( clique.size()>size_t(d_cardinality+1) ){
     clique.pop_back();
+  }
+  if( !options::ufssExplainedCliques() ){
+    //add as lemma
+    std::vector< Node > eqs;
+    for( int i=0; i<(int)clique.size(); i++ ){
+      for( int j=0; j<i; j++ ){
+        eqs.push_back( clique[i].eqNode( clique[j] ) );
+      }
+    }
+    eqs.push_back( d_cardinality_literal[ d_cardinality ].notNode() );
+    Node lem = NodeManager::currentNM()->mkNode( OR, eqs );
+    out->lemma( lem );
+    return;
   }
   if( options::ufssModelInference() || Trace.isOn("uf-ss-cliques") ){
     std::vector< Node > clique_vec;
@@ -1162,27 +1173,29 @@ void StrongSolverTheoryUf::SortRepModel::debugPrint( const char* c ){
 }
 
 void StrongSolverTheoryUf::SortRepModel::debugModel( TheoryModel* m ){
-  std::vector< Node > eqcs;
-  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &m->d_equalityEngine );
-  while( !eqcs_i.isFinished() ){
-    Node eqc = (*eqcs_i);
-    if( eqc.getType()==d_type ){
-      if( std::find( eqcs.begin(), eqcs.end(), eqc )==eqcs.end() ){
-        eqcs.push_back( eqc );
-        //we must ensure that this equivalence class has been accounted for
-        if( d_regions_map.find( eqc )==d_regions_map.end() ){
-          Trace("uf-ss-warn") << "WARNING : equivalence class " << eqc << " unaccounted for." << std::endl;
-          Trace("uf-ss-warn") << "  type : " << d_type << std::endl;
-          Trace("uf-ss-warn") << "  kind : " << eqc.getKind() << std::endl;
+  if( Trace.isOn("uf-ss-warn") ){
+    std::vector< Node > eqcs;
+    eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &m->d_equalityEngine );
+    while( !eqcs_i.isFinished() ){
+      Node eqc = (*eqcs_i);
+      if( eqc.getType()==d_type ){
+        if( std::find( eqcs.begin(), eqcs.end(), eqc )==eqcs.end() ){
+          eqcs.push_back( eqc );
+          //we must ensure that this equivalence class has been accounted for
+          if( d_regions_map.find( eqc )==d_regions_map.end() ){
+            Trace("uf-ss-warn") << "WARNING : equivalence class " << eqc << " unaccounted for." << std::endl;
+            Trace("uf-ss-warn") << "  type : " << d_type << std::endl;
+            Trace("uf-ss-warn") << "  kind : " << eqc.getKind() << std::endl;
+          }
         }
       }
+      ++eqcs_i;
     }
-    ++eqcs_i;
-  }
-  if( (int)eqcs.size()!=d_cardinality ){
-    Trace("uf-ss-warn") << "WARNING : Model does not have same # representatives as cardinality for " << d_type << "." << std::endl;
-    Trace("uf-ss-warn") << "  cardinality : " << d_cardinality << std::endl;
-    Trace("uf-ss-warn") << "  # reps : " << (int)eqcs.size() << std::endl;
+    if( (int)eqcs.size()!=d_cardinality ){
+      Trace("uf-ss-warn") << "WARNING : Model does not have same # representatives as cardinality for " << d_type << "." << std::endl;
+      Trace("uf-ss-warn") << "  cardinality : " << d_cardinality << std::endl;
+      Trace("uf-ss-warn") << "  # reps : " << (int)eqcs.size() << std::endl;
+    }
   }
 }
 

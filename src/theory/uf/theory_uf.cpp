@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): barrett, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -194,53 +192,27 @@ Node TheoryUF::explain(TNode literal) {
 
 void TheoryUF::collectModelInfo( TheoryModel* m, bool fullModel ){
   m->assertEqualityEngine( &d_equalityEngine );
-  if( fullModel ){
-#if 1
-    std::map< TypeNode, int > type_count;
-    //must choose proper representatives
-    // for each equivalence class, specify the constructor as a representative
-    eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
-    while( !eqcs_i.isFinished() ){
-      Node eqc = (*eqcs_i);
-      TypeNode tn = eqc.getType();
-      if( tn.isSort() ){
-        if( type_count.find( tn )==type_count.end() ){
-          type_count[tn] = 0;
-        }
-        std::stringstream ss;
-        ss << Expr::setlanguage(options::outputLanguage());
-        ss << "$t_" << tn << (type_count[tn]+1);
-        type_count[tn]++;
-        Node rep = NodeManager::currentNM()->mkSkolem( ss.str(), tn );
-        Trace("mkVar") << "TheoryUF::collectModelInfo:  make variable " << rep << " : " << tn << std::endl;
-        //specify the constant as the representative
-        m->assertEquality( eqc, rep, true );
-        m->assertRepresentative( rep );
-      }
-      ++eqcs_i;
-    }
-#else
-    std::map< TypeNode, TypeEnumerator* > type_enums;
-    //must choose proper representatives
-    // for each equivalence class, specify the constructor as a representative
-    eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
-    while( !eqcs_i.isFinished() ){
-      Node eqc = (*eqcs_i);
-      TypeNode tn = eqc.getType();
-      if( tn.isSort() ){
-        if( type_enums.find( tn )==type_enums.end() ){
-          type_enums[tn] = new TypeEnumerator( tn );
-        }
-        Node rep = *(*type_enums[tn]);
-        ++(*type_enums[tn]);
-        //specify the constant as the representative
-        m->assertEquality( eqc, rep, true );
-        m->assertRepresentative( rep );
-      }
-      ++eqcs_i;
-    }
- #endif
-  }
+  // if( fullModel ){
+  //   std::map< TypeNode, TypeEnumerator* > type_enums;
+  //   //must choose proper representatives
+  //   // for each equivalence class, specify fresh constant as representative
+  //   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+  //   while( !eqcs_i.isFinished() ){
+  //     Node eqc = (*eqcs_i);
+  //     TypeNode tn = eqc.getType();
+  //     if( tn.isSort() ){
+  //       if( type_enums.find( tn )==type_enums.end() ){
+  //         type_enums[tn] = new TypeEnumerator( tn );
+  //       }
+  //       Node rep = *(*type_enums[tn]);
+  //       ++(*type_enums[tn]);
+  //       //specify the constant as the representative
+  //       m->assertEquality( eqc, rep, true );
+  //       m->assertRepresentative( rep );
+  //     }
+  //     ++eqcs_i;
+  //   }
+  // }
 }
 
 void TheoryUF::presolve() {

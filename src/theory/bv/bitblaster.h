@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -35,7 +33,7 @@
 
 #include "theory/theory.h"
 #include "theory_bv_utils.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "bitblast_strategies.h"
 
 #include "prop/sat_solver.h"
@@ -51,6 +49,7 @@ class BVSatSolverInterface;
 namespace theory {
 
 class OutputChannel;
+class TheoryModel;
 
 namespace bv {
 
@@ -78,14 +77,19 @@ class Bitblaster {
     {}
     bool notify(prop::SatLiteral lit);
     void notify(prop::SatClause& clause);
+    void safePoint();
   };
   
+  
   typedef __gnu_cxx::hash_map <Node, Bits, TNodeHashFunction >              TermDefMap;
-  typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction>                      AtomSet; 
+  typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction>                      AtomSet;
+  typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction>                      VarSet; 
   
   typedef void   (*TermBBStrategy) (TNode, Bits&, Bitblaster*); 
   typedef Node   (*AtomBBStrategy) (TNode, Bitblaster*); 
 
+  TheoryBV *d_bv;
+  
   // sat solver used for bitblasting and associated CnfStream
   theory::OutputChannel*             d_bvOutput;
   prop::BVSatSolverInterface*        d_satSolver; 
@@ -94,7 +98,7 @@ class Bitblaster {
   // caches and mappings
   TermDefMap                   d_termCache;
   AtomSet                      d_bitblastedAtoms;
-  
+  VarSet                       d_variables; 
   context::CDList<prop::SatLiteral>  d_assertedAtoms; /**< context dependent list storing the atoms
                                                        currently asserted by the DPLL SAT solver. */
 
@@ -135,7 +139,31 @@ public:
   void explain(TNode atom, std::vector<TNode>& explanation);
 
   EqualityStatus getEqualityStatus(TNode a, TNode b);
+  /** 
+   * Return a constant Node representing the value of a variable
+   * in the current model. 
+   * @param a 
+   * 
+   * @return 
+   */
+  Node getVarValue(TNode a);
+  /** 
+   * Adds a constant value for each bit-blasted variable in the model. 
+   * 
+   * @param m the model 
+   */
+  void collectModelInfo(TheoryModel* m); 
+  /** 
+   * Stores the variable (or non-bv term) and its corresponding bits. 
+   * 
+   * @param var 
+   * @param bits 
+   */
+  void storeVariable(TNode var) {
+    d_variables.insert(var); 
+  }
 
+  bool isSharedTerm(TNode node);
 private:
 
   

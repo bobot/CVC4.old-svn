@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: taking
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): ajreynol, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -43,7 +41,7 @@
 
 #include "theory/arith/constraint.h"
 
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "util/result.h"
 
 #include <vector>
@@ -64,6 +62,10 @@ class InstantiatorTheoryArith;
 class TheoryArith : public Theory {
   friend class InstantiatorTheoryArith;
 private:
+  bool d_nlIncomplete;
+  // TODO A better would be:
+  //context::CDO<bool> d_nlIncomplete;
+
   enum Result::Sat d_qflraStatus;
   // check()
   //   !done() -> d_qflraStatus = Unknown
@@ -104,6 +106,8 @@ private:
     Assert(!isSetup(n));
     d_setupNodes.insert(n);
   }
+
+  void interpretDivLike(const Variable& x);
 
   void setupVariable(const Variable& x);
   void setupVariableList(const VarList& vl);
@@ -224,18 +228,6 @@ private:
    */
   DioSolver d_diosolver;
 
-  /**
-   * Some integer variables can be replaced with pseudoboolean
-   * variables internally.  This map is built up at static learning
-   * time for top-level asserted expressions of the shape "x = 0 OR x
-   * = 1".  This substitution map is then applied in preprocess().
-   *
-   * Note that expressions of the shape "x >= 0 AND x <= 1" are
-   * already substituted for PB versions at solve() time and won't
-   * appear here.
-   */
-  SubstitutionMap d_pbSubstitutions;
-
   /** Counts the number of notifyRestart() calls to the theory. */
   uint32_t d_restartsCounter;
 
@@ -309,6 +301,9 @@ private:
 
   /** Internal model value for the node */
   DeltaRational getDeltaValue(TNode n);
+
+  /** TODO : get rid of this. */ 
+  DeltaRational getDeltaValueWithNonlinear(TNode n, bool& failed);
 
 public:
   TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);

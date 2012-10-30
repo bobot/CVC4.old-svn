@@ -2,12 +2,10 @@
 /*! \file sat_solver.h
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: dejan
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters, dejan
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,7 @@
 
 #include <string>
 #include <stdint.h>
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "context/cdlist.h"
 #include "prop/sat_solver_types.h"
 
@@ -94,6 +92,8 @@ public:
      * Notify about a learnt clause.
      */
     virtual void notify(SatClause& clause) = 0;
+    virtual void safePoint() = 0;
+    
   };/* class BVSatSolverInterface::Notify */
 
   virtual void setNotify(Notify* notify) = 0;

@@ -2,12 +2,10 @@
 /*! \file type_node.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: mdeters
- ** Minor contributors (to current version): taking, ajreynol
+ ** Major contributors: taking, mdeters
+ ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -144,9 +142,17 @@ std::vector<TypeNode> TypeNode::getParamTypes() const {
   return params;
 }
 
-/** Is this a tuple type? */
 vector<TypeNode> TypeNode::getTupleTypes() const {
   Assert(isTuple());
+  vector<TypeNode> types;
+  for(unsigned i = 0, i_end = getNumChildren(); i < i_end; ++i) {
+    types.push_back((*this)[i]);
+  }
+  return types;
+}
+
+vector<TypeNode> TypeNode::getSExprTypes() const {
+  Assert(isSExpr());
   vector<TypeNode> types;
   for(unsigned i = 0, i_end = getNumChildren(); i < i_end; ++i) {
     types.push_back((*this)[i]);
@@ -237,6 +243,9 @@ TypeNode TypeNode::leastCommonTypeNode(TypeNode t0, TypeNode t1){
           return TypeNode();
         }
       case kind::FUNCTION_TYPE:
+        return TypeNode(); // Not sure if this is right
+      case kind::SEXPR_TYPE:
+        Unimplemented("haven't implemented leastCommonType for symbolic expressions yet");
         return TypeNode(); // Not sure if this is right
       case kind::TUPLE_TYPE:
         Unimplemented("haven't implemented leastCommonType for tuples yet");

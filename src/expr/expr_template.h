@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file expr.h
+/*! \file expr_template.h
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): taking, cconway
+ ** Minor contributors (to current version): lianah, kshitij, taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -42,7 +40,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 46 "${template}"
+#line 44 "${template}"
 
 namespace CVC4 {
 
@@ -132,6 +130,19 @@ public:
   friend class ExprManager;
 };/* class TypeCheckingException */
 
+/**
+ * Exception thrown in case of failure to export
+ */
+class CVC4_PUBLIC ExportUnsupportedException : public Exception {
+public:
+  ExportUnsupportedException() throw():
+    Exception("export unsupported") {
+  }
+  ExportUnsupportedException(const char* msg) throw():
+    Exception(msg) {
+  }
+};/* class DatatypeExportUnsupportedException */
+
 std::ostream& operator<<(std::ostream& out,
                          const TypeCheckingException& e) CVC4_PUBLIC;
 
@@ -153,7 +164,6 @@ struct ExprHashFunction {
  * expressions.
  */
 class CVC4_PUBLIC Expr {
-protected:
 
   /** The internal expression representation */
   NodeTemplate<true>* d_node;
@@ -297,6 +307,48 @@ public:
   }
 
   /**
+   * Returns the Boolean negation of this Expr.
+   */
+  Expr notExpr() const;
+
+  /**
+   * Returns the conjunction of this expression and
+   * the given expression.
+   */
+  Expr andExpr(const Expr& e) const;
+
+  /**
+   * Returns the disjunction of this expression and
+   * the given expression.
+   */
+  Expr orExpr(const Expr& e) const;
+
+  /**
+   * Returns the exclusive disjunction of this expression and
+   * the given expression.
+   */
+  Expr xorExpr(const Expr& e) const;
+
+  /**
+   * Returns the Boolean equivalence of this expression and
+   * the given expression.
+   */
+  Expr iffExpr(const Expr& e) const;
+
+  /**
+   * Returns the implication of this expression and
+   * the given expression.
+   */
+  Expr impExpr(const Expr& e) const;
+
+  /**
+   * Returns the if-then-else expression with this expression
+   * as the Boolean condition and the given expressions as
+   * the "then" and "else" expressions.
+   */
+  Expr iteExpr(const Expr& then_e, const Expr& else_e) const;
+
+  /**
    * Iterator type for the children of an Expr.
    */
   class const_iterator : public std::iterator<std::input_iterator_tag, Expr> {
@@ -417,13 +469,6 @@ public:
   bool isNull() const;
 
   /**
-   * Check if this is a null expression.
-   *
-   * @return true if NOT a null expression
-   */
-  operator bool() const;
-
-  /**
    * Check if this is an expression representing a variable.
    *
    * @return true if a variable expression
@@ -526,8 +571,6 @@ private:
    */
   void debugPrint();
 
-protected:
-
   /**
    * Returns the actual internal node.
    * @return the internal node
@@ -554,86 +597,6 @@ protected:
   template <bool ref_count> friend class NodeTemplate;
 
 };/* class Expr */
-
-/**
- * Extending the expression with the capability to construct Boolean
- * expressions.
- */
-class CVC4_PUBLIC BoolExpr : public Expr {
-
-public:
-
-  /** Default constructor, makes a null expression */
-  BoolExpr();
-
-  /**
-   * Convert an expression to a Boolean expression
-   */
-  BoolExpr(const Expr& e);
-
-  /**
-   * Negate this expression.
-   * @return the logical negation of this expression.
-   */
-  BoolExpr notExpr() const;
-
-  /**
-   * Conjunct the given expression to this expression.
-   * @param e the expression to conjunct
-   * @return the conjunction of this expression and e
-   */
-  BoolExpr andExpr(const BoolExpr& e) const;
-
-  /**
-   * Disjunct the given expression to this expression.
-   * @param e the expression to disjunct
-   * @return the disjunction of this expression and e
-   */
-  BoolExpr orExpr(const BoolExpr& e) const;
-
-  /**
-   * Make an exclusive or expression out of this expression and the given
-   * expression.
-   * @param e the right side of the xor
-   * @return the xor of this expression and e
-   */
-  BoolExpr xorExpr(const BoolExpr& e) const;
-
-  /**
-   * Make an equivalence expression out of this expression and the given
-   * expression.
-   * @param e the right side of the equivalence
-   * @return the equivalence expression
-   */
-  BoolExpr iffExpr(const BoolExpr& e) const;
-
-  /**
-   * Make an implication expression out of this expression and the given
-   * expression.
-   * @param e the right side of the equivalence
-   * @return the equivalence expression
-   */
-  BoolExpr impExpr(const BoolExpr& e) const;
-
-  /**
-   * Make a Boolean if-then-else expression using this expression as the
-   * condition, and given the then and else parts.
-   * @param then_e the then branch expression
-   * @param else_e the else branch expression
-   * @return the if-then-else expression
-   */
-  BoolExpr iteExpr(const BoolExpr& then_e, const BoolExpr& else_e) const;
-
-  /**
-   * Make a term if-then-else expression using this expression as the
-   * condition, and given the then and else parts.
-   * @param then_e the then branch expression
-   * @param else_e the else branch expression
-   * @return the if-then-else expression
-   */
-  Expr iteExpr(const Expr& then_e, const Expr& else_e) const;
-
-};/* class BoolExpr */
 
 namespace expr {
 
@@ -961,7 +924,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 965 "${template}"
+#line 928 "${template}"
 
 namespace expr {
 

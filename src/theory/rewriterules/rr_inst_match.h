@@ -5,9 +5,7 @@
  ** Major contributors: bobot
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -32,6 +30,7 @@
 #include "context/cdlist.h"
 
 #include "theory/quantifiers/inst_match.h"
+#include "theory/quantifiers/term_database.h"
 #include "expr/node_manager.h"
 #include "expr/node_builder.h"
 
@@ -57,7 +56,7 @@ public:
         Node cand = cg->getNextCandidate();
         //.......
       }while( !cand.isNull() );
-      
+
       eqc is the equivalence class you are searching in
   */
   virtual void reset( TNode eqc ) = 0;

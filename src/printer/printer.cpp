@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol, bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,7 +18,7 @@
 
 #include "util/language.h"
 
-#include "printer/smt/smt_printer.h"
+#include "printer/smt1/smt1_printer.h"
 #include "printer/smt2/smt2_printer.h"
 #include "printer/cvc/cvc_printer.h"
 #include "printer/ast/ast_printer.h"
@@ -37,8 +35,8 @@ Printer* Printer::makePrinter(OutputLanguage lang) throw() {
   using namespace CVC4::language::output;
 
   switch(lang) {
-  case LANG_SMTLIB:
-    return new printer::smt::SmtPrinter();
+  case LANG_SMTLIB_V1:
+    return new printer::smt1::Smt1Printer();
 
   case LANG_SMTLIB_V2:
     return new printer::smt2::Smt2Printer();
@@ -95,7 +93,7 @@ void Printer::toStream(std::ostream& out, const SExpr& sexpr) const throw() {
   if(sexpr.isInteger()) {
     out << sexpr.getIntegerValue();
   } else if(sexpr.isRational()) {
-    out << sexpr.getRationalValue();
+    out << fixed << sexpr.getRationalValue().getDouble();
   } else if(sexpr.isKeyword()) {
     out << sexpr.getValue();
   } else if(sexpr.isString()) {
@@ -125,12 +123,12 @@ void Printer::toStream(std::ostream& out, const SExpr& sexpr) const throw() {
     }
     out << ')';
   }
-}/* Printer::toStream() */
+}/* Printer::toStream(SExpr) */
 
-void Printer::toStream(std::ostream& out, Model* m ) const throw(){
-  for( int i=0; i<m->getNumCommands(); i++ ){
-    toStream( out, m, m->getCommand( i ), m->getCommandType( i ) );
+void Printer::toStream(std::ostream& out, Model& m) const throw() {
+  for(size_t i = 0; i < m.getNumCommands(); ++i) {
+    toStream(out, m, m.getCommand(i));
   }
-}
+}/* Printer::toStream(Model) */
 
 }/* CVC4 namespace */

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -67,16 +65,6 @@
 #include <stdlib.h>
 #include <map>
 #include <utility>
-
-// some #defines that CVC3 exported to userspace :(
-#ifdef CVC4_DEBUG
-#  define DebugAssert(cond, str) Assert((cond), "CVC3-style assertion failed: %s", std::string(str).c_str());
-#  define IF_DEBUG(x) x
-#else
-#  define DebugAssert(...)
-#  define IF_DEBUG(x)
-#endif
-#define FatalAssert(cond, str) AlwaysAssert((cond), "CVC3-style assertion failed: %s", std::string(str).c_str());
 
 //class CInterface;
 
@@ -469,10 +457,10 @@ public:
   InputLanguage getOutputLang() const;
 };/* class CVC3::ExprManager */
 
-typedef CVC4::StatisticsRegistry Statistics;
+typedef CVC4::Statistics Statistics;
 
 #define PRESENTATION_LANG ::CVC4::language::input::LANG_CVC4
-#define SMTLIB_LANG ::CVC4::language::input::LANG_SMTLIB
+#define SMTLIB_LANG ::CVC4::language::input::LANG_SMTLIB_V1
 #define SMTLIB_V2_LANG ::CVC4::language::input::LANG_SMTLIB_V2
 #define TPTP_LANG ::CVC4::language::input::LANG_TPTP
 #define AST_LANG ::CVC4::language::input::LANG_AST
@@ -1553,7 +1541,7 @@ public:
   /***************************************************************************/
 
   //! Get statistics object
-  virtual Statistics& getStatistics();
+  virtual Statistics getStatistics();
 
   //! Print collected statistics to stdout
   virtual void printStatistics();

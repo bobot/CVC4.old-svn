@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): cconway, dejan
+ ** Minor contributors (to current version): kshitij, cconway, dejan, bobot, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -37,13 +35,13 @@
 #include "util/sexpr.h"
 #include "util/datatype.h"
 #include "util/proof.h"
-#include "util/model.h"
 
 namespace CVC4 {
 
 class SmtEngine;
 class Command;
 class CommandStatus;
+class Model;
 
 std::ostream& operator<<(std::ostream&, const Command&) throw() CVC4_PUBLIC;
 std::ostream& operator<<(std::ostream&, const Command*) throw() CVC4_PUBLIC;
@@ -233,7 +231,8 @@ public:
    * variableMap for the translation and extending it with any new
    * mappings.
    */
-  virtual Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) = 0;
+  virtual Command* exportTo(ExprManager* exprManager,
+                            ExprManagerMapCollection& variableMap) = 0;
 
   /**
    * Clone this Command (make a shallow copy).
@@ -289,11 +288,11 @@ public:
 
 class CVC4_PUBLIC AssertCommand : public Command {
 protected:
-  BoolExpr d_expr;
+  Expr d_expr;
 public:
-  AssertCommand(const BoolExpr& e) throw();
+  AssertCommand(const Expr& e) throw();
   ~AssertCommand() throw() {}
-  BoolExpr getExpr() const throw();
+  Expr getExpr() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
@@ -422,13 +421,13 @@ public:
 
 class CVC4_PUBLIC CheckSatCommand : public Command {
 protected:
-  BoolExpr d_expr;
+  Expr d_expr;
   Result d_result;
 public:
   CheckSatCommand() throw();
-  CheckSatCommand(const BoolExpr& expr) throw();
+  CheckSatCommand(const Expr& expr) throw();
   ~CheckSatCommand() throw() {}
-  BoolExpr getExpr() const throw();
+  Expr getExpr() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Result getResult() const throw();
   void printResult(std::ostream& out) const throw();
@@ -438,12 +437,12 @@ public:
 
 class CVC4_PUBLIC QueryCommand : public Command {
 protected:
-  BoolExpr d_expr;
+  Expr d_expr;
   Result d_result;
 public:
-  QueryCommand(const BoolExpr& e) throw();
+  QueryCommand(const Expr& e) throw();
   ~QueryCommand() throw() {}
-  BoolExpr getExpr() const throw();
+  Expr getExpr() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Result getResult() const throw();
   void printResult(std::ostream& out) const throw();
@@ -466,6 +465,21 @@ public:
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
 };/* class SimplifyCommand */
+
+class CVC4_PUBLIC ExpandDefinitionsCommand : public Command {
+protected:
+  Expr d_term;
+  Expr d_result;
+public:
+  ExpandDefinitionsCommand(Expr term) throw();
+  ~ExpandDefinitionsCommand() throw() {}
+  Expr getTerm() const throw();
+  void invoke(SmtEngine* smtEngine) throw();
+  Expr getResult() const throw();
+  void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class ExpandDefinitionsCommand */
 
 class CVC4_PUBLIC GetValueCommand : public Command {
 protected:
@@ -504,7 +518,8 @@ public:
   GetModelCommand() throw();
   ~GetModelCommand() throw() {}
   void invoke(SmtEngine* smtEngine) throw();
-  Model* getResult() const throw();
+  // Model is private to the library -- for now
+  //Model* getResult() const throw();
   void printResult(std::ostream& out) const throw();
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
@@ -522,6 +537,18 @@ public:
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
 };/* class GetProofCommand */
+
+class CVC4_PUBLIC GetUnsatCoreCommand : public Command {
+protected:
+  //UnsatCore* d_result;
+public:
+  GetUnsatCoreCommand() throw();
+  ~GetUnsatCoreCommand() throw() {}
+  void invoke(SmtEngine* smtEngine) throw();
+  void printResult(std::ostream& out) const throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class GetUnsatCoreCommand */
 
 class CVC4_PUBLIC GetAssertionsCommand : public Command {
 protected:

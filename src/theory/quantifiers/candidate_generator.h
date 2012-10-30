@@ -2,12 +2,10 @@
 /*! \file candidate_generator.h
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -73,33 +71,6 @@ public:
 
 class CandidateGeneratorQEDisequal;
 
-#if 0
-
-class CandidateGeneratorQE : public CandidateGenerator
-{
-  friend class CandidateGeneratorQEDisequal;
-private:
-  //operator you are looking for
-  Node d_op;
-  //instantiator pointer
-  QuantifiersEngine* d_qe;
-  //the equality class iterator
-  eq::EqClassIterator d_eqc;
-  int d_term_iter;
-  int d_term_iter_limit;
-private:
-  Node d_retNode;
-public:
-  CandidateGeneratorQE( QuantifiersEngine* qe, Node op );
-  ~CandidateGeneratorQE(){}
-
-  void resetInstantiationRound();
-  void reset( Node eqc );
-  Node getNextCandidate();
-};
-
-#else
-
 class CandidateGeneratorQE : public CandidateGenerator
 {
   friend class CandidateGeneratorQEDisequal;
@@ -122,7 +93,6 @@ public:
   Node getNextCandidate();
 };
 
-#endif
 
 //class CandidateGeneratorQEDisequal : public CandidateGenerator
 //{

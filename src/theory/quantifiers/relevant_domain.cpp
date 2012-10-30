@@ -2,12 +2,10 @@
 /*! \file relevant_domain.cpp
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -74,17 +72,31 @@ void RelevantDomain::compute(){
     for( int i=0; i<(int)d_model->getNumAssertedQuantifiers(); i++ ){
       Node f = d_model->getAssertedQuantifier( i );
       //compute the domain of relevant instantiations (rule 3 of complete instantiation, essentially uf fragment)
-      if( computeRelevantInstantiationDomain( d_qe->getTermDatabase()->getCounterexampleBody( f ), Node::null(), -1, f ) ){
+      if( computeRelevantInstantiationDomain( d_qe->getTermDatabase()->getInstConstantBody( f ), Node::null(), -1, f ) ){
         success = false;
       }
       //extend the possible domain for functions (rule 2 of complete instantiation, essentially uf fragment)
       RepDomain range;
-      if( extendFunctionDomains( d_qe->getTermDatabase()->getCounterexampleBody( f ), range ) ){
+      if( extendFunctionDomains( d_qe->getTermDatabase()->getInstConstantBody( f ), range ) ){
         success = false;
       }
     }
   }while( !success );
   Trace("rel-dom") << "done compute relevant domain" << std::endl;
+  /*
+  //debug printing
+  Trace("rel-dom") << "Exhaustive instantiate " << f << std::endl;
+  if( useRelInstDomain ){
+    Trace("rel-dom") << "Relevant domain : " << std::endl;
+    for( size_t i=0; i<d_rel_domain.d_quant_inst_domain[f].size(); i++ ){
+      Trace("rel-dom") << "   " << i << " : ";
+      for( size_t j=0; j<d_rel_domain.d_quant_inst_domain[f][i].size(); j++ ){
+        Trace("rel-dom") << d_rel_domain.d_quant_inst_domain[f][i][j] << " ";
+      }
+      Trace("rel-dom") << std::endl;
+    }
+  }
+  */
 }
 
 bool RelevantDomain::computeRelevantInstantiationDomain( Node n, Node parent, int arg, Node f ){

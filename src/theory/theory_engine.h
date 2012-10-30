@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): cconway, barrett, taking
+ ** Minor contributors (to current version): cconway, bobot, kshitij, taking, barrett, lianah, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -36,11 +34,13 @@
 #include "theory/shared_terms_database.h"
 #include "theory/term_registration_visitor.h"
 #include "theory/valuation.h"
+#include "theory/interrupted.h"
 #include "options/options.h"
 #include "smt/options.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "util/hash.h"
 #include "util/cache.h"
+#include "util/cvc4_assert.h"
 #include "theory/ite_simplifier.h"
 #include "theory/unconstrained_simplifier.h"
 #include "theory/model.h"
@@ -130,7 +130,7 @@ class TheoryEngine {
   /**
    * Default model object
    */
-  theory::DefaultModel* d_curr_model;
+  theory::TheoryModel* d_curr_model;
   /**
    * Model builder object
    */
@@ -229,6 +229,11 @@ class TheoryEngine {
       d_theory(theory)
     {
     }
+
+    void safePoint() throw(theory::Interrupted, AssertionException) {
+      if (d_engine->d_interrupted)
+        throw theory::Interrupted(); 
+   }
 
     void conflict(TNode conflictNode) throw(AssertionException) {
       Trace("theory::conflict") << "EngineOutputChannel<" << d_theory << ">::conflict(" << conflictNode << ")" << std::endl;
@@ -380,20 +385,27 @@ class TheoryEngine {
    */
   theory::LemmaStatus lemma(TNode node, bool negated, bool removable);
 
+  RemoveITE& d_iteRemover;
+
   /** Time spent in theory combination */
   TimerStat d_combineTheoriesTime;
 
   Node d_true;
   Node d_false;
 
+  /** Whether we were just interrupted (or not) */
+  bool d_interrupted; 
+  
 public:
 
   /** Constructs a theory engine */
-  TheoryEngine(context::Context* context, context::UserContext* userContext, const LogicInfo& logic);
+  TheoryEngine(context::Context* context, context::UserContext* userContext, RemoveITE& iteRemover, const LogicInfo& logic);
 
   /** Destroys a theory engine */
   ~TheoryEngine();
 
+  void interrupt() throw(ModalException); 
+  
   /**
    * Adds a theory. Only one theory per TheoryId can be present, so if
    * there is another theory it will be deleted.
@@ -697,6 +709,11 @@ public:
     *   notifed whenever an attribute of name attr is set.
     */
   void handleUserAttribute( const char* attr, theory::Theory* t );
+
+  /** Check that the theory assertions are satisfied in the model
+   *  This function is called from the smt engine's checkModel routine
+   */
+  void checkTheoryAssertionsWithModel();
 
 };/* class TheoryEngine */
 

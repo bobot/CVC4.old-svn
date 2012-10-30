@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -37,8 +35,8 @@ const int CVC4ostream::s_indentIosIndex = ios_base::xalloc();
 DebugC DebugChannel CVC4_PUBLIC (&cout);
 WarningC WarningChannel CVC4_PUBLIC (&cerr);
 MessageC MessageChannel CVC4_PUBLIC (&cout);
-NoticeC NoticeChannel CVC4_PUBLIC (&cout);
-ChatC ChatChannel CVC4_PUBLIC (&cout);
+NoticeC NoticeChannel CVC4_PUBLIC (&null_os);
+ChatC ChatChannel CVC4_PUBLIC (&null_os);
 TraceC TraceChannel CVC4_PUBLIC (&cout);
 std::ostream DumpOutC::dump_cout(cout.rdbuf());// copy cout stream buffer
 DumpOutC DumpOutChannel CVC4_PUBLIC (&DumpOutC::dump_cout);

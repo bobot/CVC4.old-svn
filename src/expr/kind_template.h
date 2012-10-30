@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file kind.h
+/*! \file kind_template.h
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -24,7 +22,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "util/Assert.h"
+#include "util/exception.h"
 
 namespace CVC4 {
 namespace kind {
@@ -62,7 +60,7 @@ ${kind_printers}
   return out;
 }
 
-#line 66 "${template}"
+#line 64 "${template}"
 
 /** Returns true if the given kind is associative. This is used by ExprManager to
  * decide whether it's safe to modify big expressions by changing the grouping of
@@ -100,6 +98,7 @@ struct KindHashFunction {
  */
 enum TypeConstant {
 ${type_constant_list}
+#line 102 "${template}"
   LAST_TYPE
 };/* enum TypeConstant */
 
@@ -115,6 +114,7 @@ struct TypeConstantHashFunction {
 inline std::ostream& operator<<(std::ostream& out, TypeConstant typeConstant) {
   switch(typeConstant) {
 ${type_constant_descriptions}
+#line 118 "${template}"
   default:
     out << "UNKNOWN_TYPE_CONSTANT";
     break;
@@ -126,8 +126,9 @@ namespace theory {
 
 enum TheoryId {
 ${theory_enum}
+#line 130 "${template}"
   THEORY_LAST
-};
+};/* enum TheoryId */
 
 const TheoryId THEORY_FIRST = static_cast<TheoryId>(0);
 const TheoryId THEORY_SAT_SOLVER = THEORY_LAST;
@@ -139,6 +140,7 @@ inline TheoryId& operator ++ (TheoryId& id) {
 inline std::ostream& operator<<(std::ostream& out, TheoryId theoryId) {
   switch(theoryId) {
 ${theory_descriptions}
+#line 144 "${template}"
   default:
     out << "UNKNOWN_THEORY";
     break;
@@ -148,23 +150,28 @@ ${theory_descriptions}
 
 inline TheoryId kindToTheoryId(::CVC4::Kind k) {
   switch(k) {
+  case kind::UNDEFINED_KIND:
+  case kind::NULL_EXPR:
+    break;
 ${kind_to_theory_id}
-  default:
-    Unhandled(k);
+#line 158 "${template}"
+  case kind::LAST_KIND:
+    break;
   }
+  throw IllegalArgumentException("", "k", __PRETTY_FUNCTION__, "bad kind");
 }
 
 inline TheoryId typeConstantToTheoryId(::CVC4::TypeConstant typeConstant) {
   switch(typeConstant) {
 ${type_constant_to_theory_id}
-  default:
-    Unhandled(typeConstant);
+#line 168 "${template}"
+  case LAST_TYPE:
+    break;
   }
+  throw IllegalArgumentException("", "k", __PRETTY_FUNCTION__, "bad type constant");
 }
 
-}/* theory namespace */
-
-
+}/* CVC4::theory namespace */
 }/* CVC4 namespace */
 
 #endif /* __CVC4__KIND_H */

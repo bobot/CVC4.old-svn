@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,9 +18,9 @@
 #include <antlr3.h>
 #include <iostream>
 #include <string>
+#include <cassert>
 
 #include "util/output.h"
-#include "util/Assert.h"
 
 namespace CVC4 {
 namespace parser {
@@ -242,7 +240,7 @@ myLA(pANTLR3_INT_STREAM is, ANTLR3_INT32 la) {
         in.getline((((char*)input->data) + input->sizeBuf), 1024);
       }
       input->sizeBuf += strlen(((char*)input->data) + input->sizeBuf);
-      Assert(*(((char*)input->data) + input->sizeBuf) == '\0');
+      assert(*(((char*)input->data) + input->sizeBuf) == '\0');
       Debug("pipe") << "SIZEBUF now " << input->sizeBuf << std::endl;
       *(((char*)input->data) + input->sizeBuf) = '\n';
       ++input->sizeBuf;

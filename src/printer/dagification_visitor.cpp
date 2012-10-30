@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011, 2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -39,7 +37,7 @@ DagificationVisitor::DagificationVisitor(unsigned threshold, std::string letVarP
   d_substNodes() {
 
   // 0 doesn't make sense
-  CheckArgument(threshold > 0, threshold);
+  AlwaysAssertArgument(threshold > 0, threshold);
 }
 
 DagificationVisitor::~DagificationVisitor() {
@@ -136,7 +134,7 @@ void DagificationVisitor::done(TNode node) {
     // construct the let binder
     std::stringstream ss;
     ss << d_letVarPrefix << d_letVar++;
-    Node letvar = NodeManager::currentNM()->mkSkolem(ss.str(), (*i).getType());
+    Node letvar = NodeManager::currentNM()->mkSkolem(ss.str(), (*i).getType(), "dagification", NodeManager::SKOLEM_NO_NOTIFY | NodeManager::SKOLEM_EXACT_NAME);
 
     // apply previous substitutions to the rhs, enabling cascading LETs
     Node n = d_substitutions->apply(*i);

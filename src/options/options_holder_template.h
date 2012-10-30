@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file options_holder.h
+/*! \file options_holder_template.h
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,7 @@
 
 ${include_all_option_headers}
 
-#line 27 "${template}"
+#line 25 "${template}"
 
 namespace CVC4 {
 namespace options {
@@ -32,7 +30,7 @@ struct OptionsHolder {
   OptionsHolder();
 ${all_modules_contributions}
 
-#line 36 "${template}"
+#line 34 "${template}"
 
 };/* struct OptionsHolder */
 

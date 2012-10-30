@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009--2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -43,7 +41,7 @@ namespace CVC4 {
  * (e.g., for communicating to the SmtEngine which theories should be used,
  * rather than having to provide an SMT-LIB string).
  */
-class LogicInfo {
+class CVC4_PUBLIC LogicInfo {
   mutable std::string d_logicString; /**< an SMT-LIB-like logic string */
   bool d_theories[theory::THEORY_LAST]; /**< set of active theories */
   size_t d_sharingTheories; /**< count of theories that need sharing */
@@ -105,25 +103,25 @@ public:
 
   /** Is sharing enabled for this logic? */
   bool isSharingEnabled() const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     return d_sharingTheories > 1;
   }
 
   /** Is the given theory module active in this logic? */
   bool isTheoryEnabled(theory::TheoryId theory) const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     return d_theories[theory];
   }
 
   /** Is this a quantified logic? */
   bool isQuantified() const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     return isTheoryEnabled(theory::THEORY_QUANTIFIERS) || isTheoryEnabled(theory::THEORY_REWRITERULES);
   }
 
   /** Is this the all-inclusive logic? */
   bool hasEverything() const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     LogicInfo everything;
     everything.lock();
     return *this == everything;
@@ -131,7 +129,7 @@ public:
 
   /** Is this the all-exclusive logic?  (Here, that means propositional logic) */
   bool hasNothing() const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     LogicInfo nothing("");
     nothing.lock();
     return *this == nothing;
@@ -143,7 +141,7 @@ public:
    * use "isPure(theory) && !isQuantified()".
    */
   bool isPure(theory::TheoryId theory) const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     // the third and fourth conjucts are really just to rule out the misleading
     // case where you ask isPure(THEORY_BOOL) and get true even in e.g. QF_LIA
     return isTheoryEnabled(theory) && !isSharingEnabled() &&
@@ -155,22 +153,22 @@ public:
 
   /** Are integers in this logic? */
   bool areIntegersUsed() const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     return d_integers;
   }
   /** Are reals in this logic? */
   bool areRealsUsed() const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     return d_reals;
   }
   /** Does this logic only linear arithmetic? */
   bool isLinear() const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     return d_linear || d_differenceLogic;
   }
   /** Does this logic only permit difference reasoning? (implies linear) */
   bool isDifferenceLogic() const {
-    Assert(d_locked, "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     return d_differenceLogic;
   }
 
@@ -252,13 +250,13 @@ public:
 
   /** Are these two LogicInfos equal? */
   bool operator==(const LogicInfo& other) const {
-    Assert(isLocked() && other.isLocked(), "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(isLocked() && other.isLocked(), *this, "This LogicInfo isn't locked yet, and cannot be queried");
     for(theory::TheoryId id = theory::THEORY_FIRST; id < theory::THEORY_LAST; ++id) {
       if(d_theories[id] != other.d_theories[id]) {
         return false;
       }
     }
-    Assert(d_sharingTheories == other.d_sharingTheories, "LogicInfo internal inconsistency");
+    CheckArgument(d_sharingTheories == other.d_sharingTheories, *this, "LogicInfo internal inconsistency");
     if(isTheoryEnabled(theory::THEORY_ARITH)) {
       return
         d_integers == other.d_integers &&
@@ -283,13 +281,13 @@ public:
   }
   /** Is this LogicInfo "less than or equal" the other? */
   bool operator<=(const LogicInfo& other) const {
-    Assert(isLocked() && other.isLocked(), "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(isLocked() && other.isLocked(), *this, "This LogicInfo isn't locked yet, and cannot be queried");
     for(theory::TheoryId id = theory::THEORY_FIRST; id < theory::THEORY_LAST; ++id) {
       if(d_theories[id] && !other.d_theories[id]) {
         return false;
       }
     }
-    Assert(d_sharingTheories <= other.d_sharingTheories, "LogicInfo internal inconsistency");
+    CheckArgument(d_sharingTheories <= other.d_sharingTheories, *this, "LogicInfo internal inconsistency");
     if(isTheoryEnabled(theory::THEORY_ARITH) && other.isTheoryEnabled(theory::THEORY_ARITH)) {
       return
         (!d_integers || other.d_integers) &&
@@ -302,13 +300,13 @@ public:
   }
   /** Is this LogicInfo "greater than or equal" the other? */
   bool operator>=(const LogicInfo& other) const {
-    Assert(isLocked() && other.isLocked(), "This LogicInfo isn't locked yet, and cannot be queried");
+    CheckArgument(isLocked() && other.isLocked(), *this, "This LogicInfo isn't locked yet, and cannot be queried");
     for(theory::TheoryId id = theory::THEORY_FIRST; id < theory::THEORY_LAST; ++id) {
       if(!d_theories[id] && other.d_theories[id]) {
         return false;
       }
     }
-    Assert(d_sharingTheories >= other.d_sharingTheories, "LogicInfo internal inconsistency");
+    CheckArgument(d_sharingTheories >= other.d_sharingTheories, *this, "LogicInfo internal inconsistency");
     if(isTheoryEnabled(theory::THEORY_ARITH) && other.isTheoryEnabled(theory::THEORY_ARITH)) {
       return
         (d_integers || !other.d_integers) &&

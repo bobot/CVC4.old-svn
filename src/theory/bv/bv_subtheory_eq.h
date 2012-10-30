@@ -1,13 +1,11 @@
 /*********************                                                        */
 /*! \file bv_subtheory_eq.h
  ** \verbatim
- ** Original author: lianah
- ** Major contributors: dejan
- ** Minor contributors (to current version): none
+ ** Original author: dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): lianah, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -18,6 +16,7 @@
 
 #pragma once
 
+#include "cvc4_private.h"
 #include "theory/bv/bv_subtheory.h"
 
 namespace CVC4 {
@@ -66,6 +65,7 @@ public:
   void  preRegister(TNode node);
   bool  addAssertions(const std::vector<TNode>& assertions, Theory::Effort e);
   void  explain(TNode literal, std::vector<TNode>& assumptions);
+  void  collectModelInfo(TheoryModel* m);
   void  addSharedTerm(TNode t) {
     d_equalityEngine.addTriggerTerm(t, THEORY_BV);
   }

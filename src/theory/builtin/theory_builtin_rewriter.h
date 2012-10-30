@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -32,20 +30,27 @@ namespace builtin {
 class TheoryBuiltinRewriter {
 
   static Node blastDistinct(TNode node);
+  static Node blastChain(TNode node);
 
 public:
 
-  static inline RewriteResponse postRewrite(TNode node) {
-    return RewriteResponse(REWRITE_DONE, node);
-  }
-
-  static inline RewriteResponse preRewrite(TNode node) {
+  static inline RewriteResponse doRewrite(TNode node) {
     switch(node.getKind()) {
     case kind::DISTINCT:
       return RewriteResponse(REWRITE_DONE, blastDistinct(node));
+    case kind::CHAIN:
+      return RewriteResponse(REWRITE_DONE, blastChain(node));
     default:
       return RewriteResponse(REWRITE_DONE, node);
     }
+  }
+
+  static inline RewriteResponse postRewrite(TNode node) {
+    return doRewrite(node);
+  }
+
+  static inline RewriteResponse preRewrite(TNode node) {
+    return doRewrite(node);
   }
 
   static inline void init() {}

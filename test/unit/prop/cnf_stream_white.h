@@ -2,12 +2,10 @@
 /*! \file cnf_stream_white.h
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: mdeters
- ** Minor contributors (to current version): taking, dejan
+ ** Major contributors: dejan, mdeters
+ ** Minor contributors (to current version): lianah
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,7 +18,7 @@
 /* #include <gmock/gmock.h> */
 /* #include <gtest/gtest.h> */
 
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 
 #include "expr/expr_manager.h"
 #include "expr/node_manager.h"
@@ -156,7 +154,7 @@ class CnfStreamWhite : public CxxTest::TestSuite {
     d_theoryEngine = d_smt->d_theoryEngine;
 
     d_satSolver = new FakeSatSolver();
-    d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, new theory::TheoryRegistrar(d_theoryEngine));
+    d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, new theory::TheoryRegistrar(d_theoryEngine), new context::Context());
   }
 
   void tearDown() {

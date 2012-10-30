@@ -5,9 +5,7 @@
  ** Major contributors: taking, mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -31,7 +29,7 @@
 #include "expr/node_value.h"
 #include "expr/expr_manager_scope.h"
 #include "expr/variable_type_map.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 #include "expr/kind.h"
 #include "expr/metakind.h"
 

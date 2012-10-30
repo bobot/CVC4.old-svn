@@ -2,12 +2,10 @@
 /*! \file symbol_table.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: bobot, mdeters
- ** Minor contributors (to current version): ajreynol, dejan
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): ajreynol, dejan, bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -50,7 +48,7 @@ SymbolTable::~SymbolTable() {
 }
 
 void SymbolTable::bind(const std::string& name, Expr obj,
-                            bool levelZero) throw(AssertionException) {
+                       bool levelZero) throw() {
   CheckArgument(!obj.isNull(), obj, "cannot bind to a null Expr");
   ExprManagerScope ems(obj);
   if(levelZero) d_exprMap->insertAtContextLevelZero(name, obj);
@@ -58,7 +56,7 @@ void SymbolTable::bind(const std::string& name, Expr obj,
 }
 
 void SymbolTable::bindDefinedFunction(const std::string& name, Expr obj,
-                            bool levelZero) throw(AssertionException) {
+                                      bool levelZero) throw() {
   CheckArgument(!obj.isNull(), obj, "cannot bind to a null Expr");
   ExprManagerScope ems(obj);
   if(levelZero){
@@ -84,23 +82,23 @@ bool SymbolTable::isBoundDefinedFunction(Expr func) const throw() {
   return d_functions->contains(func);
 }
 
-Expr SymbolTable::lookup(const std::string& name) const throw(AssertionException) {
+Expr SymbolTable::lookup(const std::string& name) const throw() {
   return (*d_exprMap->find(name)).second;
 }
 
 void SymbolTable::bindType(const std::string& name, Type t,
-                                bool levelZero) throw() {
-  if(levelZero){
+                           bool levelZero) throw() {
+  if(levelZero) {
     d_typeMap->insertAtContextLevelZero(name, make_pair(vector<Type>(), t));
-  }else{
+  } else {
     d_typeMap->insert(name, make_pair(vector<Type>(), t));
   }
 }
 
 void SymbolTable::bindType(const std::string& name,
-                                const std::vector<Type>& params,
-                                Type t,
-                                bool levelZero) throw() {
+                           const std::vector<Type>& params,
+                           Type t,
+                           bool levelZero) throw() {
   if(Debug.isOn("sort")) {
     Debug("sort") << "bindType(" << name << ", [";
     if(params.size() > 0) {
@@ -110,7 +108,7 @@ void SymbolTable::bindType(const std::string& name,
     }
     Debug("sort") << "], " << t << ")" << endl;
   }
-  if(levelZero){
+  if(levelZero) {
     d_typeMap->insertAtContextLevelZero(name, make_pair(params, t));
   } else {
     d_typeMap->insert(name, make_pair(params, t));
@@ -121,24 +119,24 @@ bool SymbolTable::isBoundType(const std::string& name) const throw() {
   return d_typeMap->find(name) != d_typeMap->end();
 }
 
-Type SymbolTable::lookupType(const std::string& name) const throw(AssertionException) {
+Type SymbolTable::lookupType(const std::string& name) const throw() {
   pair<vector<Type>, Type> p = (*d_typeMap->find(name)).second;
-  Assert(p.first.size() == 0,
-         "type constructor arity is wrong: "
-         "`%s' requires %u parameters but was provided 0",
-         name.c_str(), p.first.size());
+  CheckArgument(p.first.size() == 0, name,
+                "type constructor arity is wrong: "
+                "`%s' requires %u parameters but was provided 0",
+                name.c_str(), p.first.size());
   return p.second;
 }
 
 Type SymbolTable::lookupType(const std::string& name,
-                                  const std::vector<Type>& params) const throw(AssertionException) {
+                             const std::vector<Type>& params) const throw() {
   pair<vector<Type>, Type> p = (*d_typeMap->find(name)).second;
-  Assert(p.first.size() == params.size(),
-         "type constructor arity is wrong: "
-         "`%s' requires %u parameters but was provided %u",
+  CheckArgument(p.first.size() == params.size(), params,
+                "type constructor arity is wrong: "
+                "`%s' requires %u parameters but was provided %u",
          name.c_str(), p.first.size(), params.size());
   if(p.first.size() == 0) {
-    Assert(p.second.isSort());
+    CheckArgument(p.second.isSort(), name);
     return p.second;
   }
   if(p.second.isSortConstructor()) {
@@ -163,7 +161,7 @@ Type SymbolTable::lookupType(const std::string& name,
 
     return instantiation;
   } else if(p.second.isDatatype()) {
-    Assert( DatatypeType(p.second).isParametric() );
+    CheckArgument(DatatypeType(p.second).isParametric(), name, "expected parametric datatype");
     return DatatypeType(p.second).instantiate(params);
   } else {
     if(Debug.isOn("sort")) {

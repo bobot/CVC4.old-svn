@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -29,7 +27,6 @@
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "parser/parser_exception.h"
-#include "util/Assert.h"
 #include "util/language.h"
 
 namespace CVC4 {
@@ -111,7 +108,7 @@ public:
   static Input* newFileInput(InputLanguage lang,
                              const std::string& filename,
                              bool useMmap = false)
-    throw (InputStreamException, AssertionException);
+    throw (InputStreamException);
 
   /** Create an input for the given stream.
    *
@@ -126,7 +123,7 @@ public:
                                std::istream& input,
                                const std::string& name,
                                bool lineBuffered = false)
-    throw (InputStreamException, AssertionException);
+    throw (InputStreamException);
 
   /** Create an input for the given string
    *
@@ -137,7 +134,7 @@ public:
   static Input* newStringInput(InputLanguage lang,
                                const std::string& input,
                                const std::string& name)
-    throw (InputStreamException, AssertionException);
+    throw (InputStreamException);
 
 
   /** Destructor. Frees the input stream and closes the input. */
@@ -172,7 +169,7 @@ protected:
    * @throws ParserException if an error is encountered during parsing.
    */
   virtual Command* parseCommand()
-    throw (ParserException, TypeCheckingException, AssertionException) = 0;
+    throw (ParserException, TypeCheckingException) = 0;
 
   /**
    * Issue a warning to the user, with source file, line, and column info.
@@ -183,7 +180,7 @@ protected:
    * Throws a <code>ParserException</code> with the given message.
    */
   virtual void parseError(const std::string& msg)
-    throw (ParserException, AssertionException) = 0;
+    throw (ParserException) = 0;
 
   /** Parse an expression from the input by invoking the
    * implementation-specific parsing method. Returns a null
@@ -192,7 +189,7 @@ protected:
    * @throws ParserException if an error is encountered during parsing.
    */
   virtual Expr parseExpr()
-    throw (ParserException, TypeCheckingException, AssertionException) = 0;
+    throw (ParserException, TypeCheckingException) = 0;
 
   /** Set the Parser object for this input. */
   virtual void setParser(Parser& parser) = 0;

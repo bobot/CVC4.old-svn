@@ -2,12 +2,10 @@
 /*! \file theory_arith.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters, dejan
- ** Minor contributors (to current version): none
+ ** Major contributors: none
+ ** Minor contributors (to current version): kshitij, ajreynol, mdeters, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -58,10 +56,11 @@ const uint32_t RESET_START = 2;
 
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
   Theory(THEORY_ARITH, c, u, out, valuation, logicInfo, qe),
+  d_nlIncomplete( false),
   d_qflraStatus(Result::SAT_UNKNOWN),
   d_unknownsInARow(0),
   d_hasDoneWorkSinceCut(false),
-  d_learner(d_pbSubstitutions),
+  d_learner(u),
   d_setupLiteralCallback(this),
   d_assertionsThatDoNotMatchTheirLiterals(c),
   d_nextIntegerCheckVar(0),
@@ -73,7 +72,6 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_tableau(),
   d_linEq(d_partialModel, d_tableau, d_basicVarModelUpdateCallBack),
   d_diosolver(c),
-  d_pbSubstitutions(u),
   d_restartsCounter(0),
   d_tableauSizeHasBeenModified(false),
   d_tableauResetDensity(1.6),
@@ -634,35 +632,19 @@ void TheoryArith::addSharedTerm(TNode n){
 }
 
 Node TheoryArith::ppRewrite(TNode atom) {
-
-  if (!atom.getType().isBoolean()) {
-    return atom;
-  }
-
   Debug("arith::preprocess") << "arith::preprocess() : " << atom << endl;
 
-  Node a = d_pbSubstitutions.apply(atom);
 
-  if (a != atom) {
-    Debug("pb") << "arith::preprocess() : after pb substitutions: " << a << endl;
-    a = Rewriter::rewrite(a);
-    Debug("pb") << "arith::preprocess() : after pb substitutions and rewriting: "
-                << a << endl;
-    Debug("arith::preprocess") << "arith::preprocess() :"
-                               << "after pb substitutions and rewriting: "
-                               << a << endl;
-  }
-
-  if (a.getKind() == kind::EQUAL  && options::arithRewriteEq()) {
-    Node leq = NodeBuilder<2>(kind::LEQ) << a[0] << a[1];
-    Node geq = NodeBuilder<2>(kind::GEQ) << a[0] << a[1];
+  if (atom.getKind() == kind::EQUAL  && options::arithRewriteEq()) {
+    Node leq = NodeBuilder<2>(kind::LEQ) << atom[0] << atom[1];
+    Node geq = NodeBuilder<2>(kind::GEQ) << atom[0] << atom[1];
     Node rewritten = Rewriter::rewrite(leq.andNode(geq));
     Debug("arith::preprocess") << "arith::preprocess() : returning "
                                << rewritten << endl;
     return rewritten;
+  } else {
+    return atom;
   }
-
-  return a;
 }
 
 Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
@@ -792,6 +774,12 @@ void TheoryArith::setupVariable(const Variable& x){
   setupInitialValue(varN);
 
   markSetup(n);
+
+
+  if(x.isDivLike()){
+    interpretDivLike(x);
+  }
+
 }
 
 void TheoryArith::setupVariableList(const VarList& vl){
@@ -813,6 +801,7 @@ void TheoryArith::setupVariableList(const VarList& vl){
     // vl is the product of at least 2 variables
     // vl : (* v1 v2 ...)
     d_out->setIncomplete();
+    d_nlIncomplete = true;
 
     ++(d_statistics.d_statUserVariables);
     ArithVar av = requestArithVar(vlNode, false);
@@ -825,6 +814,68 @@ void TheoryArith::setupVariableList(const VarList& vl){
    * Only call markSetup if the VarList is not a singleton.
    * See the comment in setupPolynomail for more.
    */
+}
+void TheoryArith::interpretDivLike(const Variable& v){
+  Assert(v.isDivLike());
+  Node vnode = v.getNode();
+  Assert(isSetup(vnode)); // Otherwise there is some invariant breaking recursion
+    Polynomial m = Polynomial::parsePolynomial(vnode[0]);
+    Polynomial n = Polynomial::parsePolynomial(vnode[1]);
+	    
+    NodeManager* currNM = NodeManager::currentNM();
+	      
+    Node nNeq0 = currNM->mkNode(EQUAL, n.getNode(), mkRationalNode(0)).notNode();
+    if(vnode.getKind() == INTS_DIVISION || vnode.getKind() == INTS_MODULUS){
+      // (for all ((m Int) (n Int))
+      //   (=> (distinct n 0)
+      //       (let ((q (div m n)) (r (mod m n)))
+      //         (and (= m (+ (* n q) r))
+      //              (<= 0 r (- (abs n) 1))))))
+
+      Node q = (vnode.getKind() == INTS_DIVISION) ? vnode : currNM->mkNode(INTS_DIVISION, m.getNode(), n.getNode());
+      Node r = (vnode.getKind() == INTS_MODULUS) ? vnode : currNM->mkNode(INTS_MODULUS, m.getNode(), n.getNode());
+
+
+      Polynomial rp = Polynomial::parsePolynomial(r);
+      Polynomial qp = Polynomial::parsePolynomial(q);
+
+      Node abs_n;
+      Node zero = mkRationalNode(0);
+
+      if(n.isConstant()){
+	abs_n = n.getHead().getConstant().abs().getNode();
+      }else{
+	abs_n = mkIntSkolem("abs_$$");
+	Polynomial abs_np = Polynomial::parsePolynomial(abs_n);
+	Node absCnd = currNM->mkNode(ITE, 
+				currNM->mkNode(LEQ, n.getNode(), zero),
+				Comparison::mkComparison(EQUAL, abs_np, -rp).getNode(),
+				Comparison::mkComparison(EQUAL, abs_np, rp).getNode());
+	
+	d_out->lemma(absCnd);
+      }
+
+      Node eq = Comparison::mkComparison(EQUAL, m, n * qp + rp).getNode();
+      Node leq0 = currNM->mkNode(LEQ,  zero, r);
+      Node leq1 = currNM->mkNode(LT, r, abs_n);
+
+      Node andE = currNM->mkNode(AND, eq, leq0, leq1);
+      Node nNeq0ImpliesandE = currNM->mkNode(IMPLIES, nNeq0, andE);
+
+      d_out->lemma(nNeq0ImpliesandE);
+    }else{
+      // DIVISION (/ q r)
+      // (=> (distinct 0 n) (= m (* d n)))
+	      
+      Assert(vnode.getKind() == DIVISION);
+      Node d = mkRealSkolem("division_$$");
+	      
+      Node eq = Comparison::mkComparison(EQUAL, m, n * Polynomial::parsePolynomial(d)).getNode();
+      Node nNeq0ImpliesEq = currNM->mkNode(IMPLIES, nNeq0, eq);
+	      
+      d_out->lemma(nNeq0ImpliesEq);
+    }
+  
 }
 
 void TheoryArith::setupPolynomial(const Polynomial& poly) {
@@ -923,7 +974,9 @@ void TheoryArith::preRegisterTerm(TNode n) {
 
 
 ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
-  Assert(isLeaf(x) || x.getKind() == PLUS);
+  //TODO : The VarList trick is good enough?
+  Assert(isLeaf(x) || VarList::isMember(x) || x.getKind() == PLUS);
+  Assert(!Variable::isDivMember(x) || !getLogicInfo().isLinear());
   Assert(!d_arithvarNodeMap.hasArithVar(x));
   Assert(x.getType().isReal());// real or integer
 
@@ -966,20 +1019,23 @@ void TheoryArith::asVectors(const Polynomial& p, std::vector<Rational>& coeffs, 
 
     Debug("rewriter") << "should be var: " << n << endl;
 
-    Assert(isLeaf(n));
+    // TODO: This VarList::isMember(n) can be stronger
+    Assert(isLeaf(n) || VarList::isMember(n));
     Assert(theoryOf(n) != THEORY_ARITH || d_arithvarNodeMap.hasArithVar(n));
 
     Assert(d_arithvarNodeMap.hasArithVar(n));
     ArithVar av;
-    if (theoryOf(n) != THEORY_ARITH && !d_arithvarNodeMap.hasArithVar(n)) {
-      // The only way not to get it through pre-register is if it's a foreign term
-      ++(d_statistics.d_statUserVariables);
-      av = requestArithVar(n,false);
-      setupInitialValue(av);
-    } else {
-      // Otherwise, we already have it's variable
-      av = d_arithvarNodeMap.asArithVar(n);
-    }
+    // The first if is likely dead is likely dead code:
+    // if (theoryOf(n) != THEORY_ARITH && !d_arithvarNodeMap.hasArithVar(n)) {
+    //   // The only way not to get it through pre-register is if it's a foreign term
+    //   ++(d_statistics.d_statUserVariables);
+    //   av = requestArithVar(n,false);
+    //   setupInitialValue(av);
+    // } else {
+    //   // Otherwise, we already have it's variable
+    //   av = d_arithvarNodeMap.asArithVar(n);
+    // }
+    av = d_arithvarNodeMap.asArithVar(n);
 
     coeffs.push_back(constant.getValue());
     variables.push_back(av);
@@ -1631,6 +1687,10 @@ void TheoryArith::check(Effort effortLevel){
       }
     }
   }//if !emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()
+  if(fullEffort(effortLevel) && d_nlIncomplete){
+    // TODO this is total paranoia
+    d_out->setIncomplete();
+  }
 
   if(Debug.isOn("paranoid:check_tableau")){ d_linEq.debugCheckTableau(); }
   if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
@@ -1869,7 +1929,8 @@ bool TheoryArith::getDeltaAtomValue(TNode n) {
 
 
 DeltaRational TheoryArith::getDeltaValue(TNode n) {
-  Assert(d_qflraStatus != Result::SAT_UNKNOWN);
+  AlwaysAssert(d_qflraStatus != Result::SAT_UNKNOWN);
+  AlwaysAssert(!d_nlIncomplete);
   Debug("arith::value") << n << std::endl;
 
   switch(n.getKind()) {
@@ -1925,13 +1986,82 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
   }
 }
 
+DeltaRational TheoryArith::getDeltaValueWithNonlinear(TNode n, bool& failed) {
+  AlwaysAssert(d_qflraStatus != Result::SAT_UNKNOWN);
+  AlwaysAssert(d_nlIncomplete);
+
+  Debug("arith::value") << n << std::endl;
+
+  switch(n.getKind()) {
+
+  case kind::CONST_RATIONAL:
+    return n.getConst<Rational>();
+
+  case kind::PLUS: { // 2+ args
+    DeltaRational value(0);
+    for(TNode::iterator i = n.begin(),
+          iend = n.end();
+        i != iend && !failed;
+        ++i) {
+      value = value + getDeltaValueWithNonlinear(*i, failed);
+    }
+    return value;
+  }
+
+  case kind::MULT: { // 2+ args
+    DeltaRational value(1);
+    if (n[0].getKind() == kind::CONST_RATIONAL) {
+      return getDeltaValueWithNonlinear(n[1], failed) * n[0].getConst<Rational>();
+    }else{
+      failed = true;
+      return value;
+    }
+  }
+
+  case kind::MINUS: // 2 args
+    // should have been rewritten
+    Unreachable();
+
+  case kind::UMINUS: // 1 arg
+    // should have been rewritten
+    Unreachable();
+
+  case kind::DIVISION: // 2 args
+    Assert(n[1].isConst());
+    if (n[1].getKind() == kind::CONST_RATIONAL) {
+      return getDeltaValueWithNonlinear(n[0], failed) / n[0].getConst<Rational>();
+    }else{
+      failed = true;
+      return DeltaRational();
+    }
+    //fall through
+  case kind::INTS_DIVISION:
+  case kind::INTS_MODULUS:
+    //a bit strict
+    failed = true;
+    return DeltaRational();
+
+  default:
+    {
+      if(isSetup(n)){
+        ArithVar var = d_arithvarNodeMap.asArithVar(n);
+        return d_partialModel.getAssignment(var);
+      }else{
+        Unreachable();
+      }
+    }
+  }
+}
+
 void TheoryArith::collectModelInfo( TheoryModel* m, bool fullModel ){
-  Assert(d_qflraStatus ==  Result::SAT);
+  AlwaysAssert(d_qflraStatus ==  Result::SAT);
+  //AlwaysAssert(!d_nlIncomplete, "Arithmetic solver cannot currently produce models for input with nonlinear arithmetic constraints");
 
   Debug("arith::collectModelInfo") << "collectModelInfo() begin " << endl;
 
   // Delta lasts at least the duration of the function call
   const Rational& delta = d_partialModel.getDelta();
+  std::hash_set<TNode, TNodeHashFunction> shared = currentlySharedTerms();
 
   // TODO:
   // This is not very good for user push/pop....
@@ -1940,13 +2070,18 @@ void TheoryArith::collectModelInfo( TheoryModel* m, bool fullModel ){
     if(!isSlackVariable(v)){
       Node term = d_arithvarNodeMap.asNode(v);
 
-      const DeltaRational& mod = d_partialModel.getAssignment(v);
-      Rational qmodel = mod.substituteDelta(delta);
+      if(theoryOf(term) == THEORY_ARITH || shared.find(term) != shared.end()){
+        const DeltaRational& mod = d_partialModel.getAssignment(v);
+        Rational qmodel = mod.substituteDelta(delta);
 
-      Node qNode = mkRationalNode(qmodel);
-      Debug("arith::collectModelInfo") << "m->assertEquality(" << term << ", " << qmodel << ", true)" << endl;
+        Node qNode = mkRationalNode(qmodel);
+        Debug("arith::collectModelInfo") << "m->assertEquality(" << term << ", " << qmodel << ", true)" << endl;
 
-      m->assertEquality(term, qNode, true);
+        m->assertEquality(term, qNode, true);
+      }else{
+        Debug("arith::collectModelInfo") << "Skipping m->assertEquality(" << term << ", true)" << endl;
+
+      }
     }
   }
 
@@ -2103,13 +2238,20 @@ void TheoryArith::presolve(){
   //     d_out->lemma(lem);
   //   }
   // }
-
-  d_learner.clear();
 }
 
 EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
   if(d_qflraStatus == Result::SAT_UNKNOWN){
     return EQUALITY_UNKNOWN;
+  }else if(d_nlIncomplete){
+    bool failed = false;
+    DeltaRational amod = getDeltaValueWithNonlinear(a, failed);
+    DeltaRational bmod = getDeltaValueWithNonlinear(b, failed);
+    if(failed){
+      return EQUALITY_UNKNOWN;
+    }else{
+      return amod == bmod ? EQUALITY_TRUE_IN_MODEL : EQUALITY_FALSE_IN_MODEL;
+    }
   }else if (getDeltaValue(a) == getDeltaValue(b)) {
     return EQUALITY_TRUE_IN_MODEL;
   } else {

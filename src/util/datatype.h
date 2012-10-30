@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -35,7 +33,6 @@ namespace CVC4 {
 
 #include "expr/expr.h"
 #include "expr/type.h"
-#include "util/Assert.h"
 #include "util/output.h"
 #include "util/hash.h"
 #include "util/exception.h"
@@ -155,7 +152,7 @@ private:
                const std::vector<Type>& replacements,
                const std::vector< SortConstructorType >& paramTypes,
                const std::vector< DatatypeType >& paramReplacements)
-    throw(AssertionException, DatatypeResolutionException);
+    throw(IllegalArgumentException, DatatypeResolutionException);
   friend class Datatype;
 
   /** Helper function for resolving parametric datatypes.
@@ -260,28 +257,28 @@ public:
    * Return the cardinality of this constructor (the product of the
    * cardinalities of its arguments).
    */
-  Cardinality getCardinality() const throw(AssertionException);
+  Cardinality getCardinality() const throw(IllegalArgumentException);
 
   /**
    * Return true iff this constructor is finite (it is nullary or
    * each of its argument types are finite).  This function can
    * only be called for resolved constructors.
    */
-  bool isFinite() const throw(AssertionException);
+  bool isFinite() const throw(IllegalArgumentException);
 
   /**
    * Return true iff this constructor is well-founded (there exist
    * ground terms).  The constructor must be resolved or an
    * exception is thrown.
    */
-  bool isWellFounded() const throw(AssertionException);
+  bool isWellFounded() const throw(IllegalArgumentException);
 
   /**
    * Construct and return a ground term of this constructor.  The
    * constructor must be both resolved and well-founded, or else an
    * exception is thrown.
    */
-  Expr mkGroundTerm( Type t ) const throw(AssertionException);
+  Expr mkGroundTerm( Type t ) const throw(IllegalArgumentException);
 
   /**
    * Returns true iff this Datatype constructor has already been
@@ -441,7 +438,7 @@ private:
                const std::vector<Type>& replacements,
                const std::vector< SortConstructorType >& paramTypes,
                const std::vector< DatatypeType >& paramReplacements)
-    throw(AssertionException, DatatypeResolutionException);
+    throw(IllegalArgumentException, DatatypeResolutionException);
   friend class ExprManager;// for access to resolve()
 
 public:
@@ -484,7 +481,7 @@ public:
    * cardinalities of its constructors).  The Datatype must be
    * resolved.
    */
-  Cardinality getCardinality() const throw(AssertionException);
+  Cardinality getCardinality() const throw(IllegalArgumentException);
 
   /**
    * Return  true iff this  Datatype is  finite (all  constructors are
@@ -492,32 +489,32 @@ public:
    * datatype is  not well-founded, this function  returns false.  The
    * Datatype must be resolved or an exception is thrown.
    */
-  bool isFinite() const throw(AssertionException);
+  bool isFinite() const throw(IllegalArgumentException);
 
   /**
    * Return true iff this datatype is well-founded (there exist ground
    * terms).  The Datatype must be resolved or an exception is thrown.
    */
-  bool isWellFounded() const throw(AssertionException);
+  bool isWellFounded() const throw(IllegalArgumentException);
 
   /**
    * Construct and return a ground term of this Datatype.  The
    * Datatype must be both resolved and well-founded, or else an
    * exception is thrown.
    */
-  Expr mkGroundTerm( Type t ) const throw(AssertionException);
+  Expr mkGroundTerm( Type t ) const throw(IllegalArgumentException);
 
   /**
    * Get the DatatypeType associated to this Datatype.  Can only be
    * called post-resolution.
    */
-  DatatypeType getDatatypeType() const throw(AssertionException);
+  DatatypeType getDatatypeType() const throw(IllegalArgumentException);
 
   /**
    * Get the DatatypeType associated to this (parameterized) Datatype.  Can only be
    * called post-resolution.
    */
-  DatatypeType getDatatypeType(const std::vector<Type>& params) const throw(AssertionException);
+  DatatypeType getDatatypeType(const std::vector<Type>& params) const throw(IllegalArgumentException);
 
   /**
    * Return true iff the two Datatypes are the same.

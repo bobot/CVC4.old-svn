@@ -5,9 +5,7 @@
  ** Major contributors: bobot
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -30,7 +28,7 @@
 #include "theory/rewriterules/rr_inst_match_impl.h"
 #include "theory/rewriterules/rr_trigger.h"
 #include "theory/rewriterules/rr_inst_match.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "theory/rewriterules/theory_rewriterules_preprocess.h"
 #include "theory/model.h"
 
@@ -264,6 +262,9 @@ private:
   bool addRewritePattern(TNode pattern, TNode body,
                          rewriter::Subst & pvars,
                          rewriter::Subst & vars);
+
+  //create inst variable
+  std::vector<Node> createInstVariable( std::vector<Node> & vars );
 
     /** statistics class */
   class Statistics {

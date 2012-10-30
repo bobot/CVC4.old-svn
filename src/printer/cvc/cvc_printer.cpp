@@ -2,12 +2,10 @@
 /*! \file cvc_printer.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): bobot, taking, barrett, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -73,7 +71,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
   if (depth == 0) {
     out << "(...)";
   } else {
-    depth --;
+    --depth;
   }
 
   // null
@@ -98,7 +96,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
     if(types) {
       // print the whole type, but not *its* type
       out << ":";
-      n.getType().toStream(out, -1, false, language::output::LANG_CVC4);
+      n.getType().toStream(out, language::output::LANG_CVC4);
     }
     return;
   }
@@ -150,9 +148,6 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       case BOOLEAN_TYPE:
         out << "BOOLEAN";
         break;
-      case KIND_TYPE:
-        out << "TYPE";
-        break;
       default:
         out << tc;
         break;
@@ -164,10 +159,11 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       break;
 
     default:
-      Warning() << "Constant printing not implemented for the case of " << n.getKind() << endl;
-      out << n.getKind();
-      break;
+      // fall back on whatever operator<< does on underlying type; we
+      // might luck out and print something reasonable
+      kind::metakind::NodeValueConstPrinter::toStream(out, n);
     }
+
     return;
   }
 
@@ -200,6 +196,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       return;
       break;
     case kind::TUPLE_TYPE:
+    case kind::SEXPR_TYPE:
       out << '[';
       for (unsigned i = 0; i < n.getNumChildren(); ++ i) {
         if (i > 0) {
@@ -211,11 +208,20 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       return;
       break;
     case kind::TUPLE:
+    case kind::SEXPR:
       // no-op
+      break;
+    case kind::LAMBDA:
+      op << "LAMBDA";
+      opType = PREFIX;
       break;
     case kind::APPLY:
       toStream(op, n.getOperator(), depth, types, true);
       break;
+    case kind::CHAIN:
+    case kind::DISTINCT: // chain and distinct not supported directly in CVC4, blast them away with the rewriter
+      toStream(out, theory::Rewriter::rewrite(n), depth, types, true);
+      return;
     case kind::SORT_TYPE:
     {
       string name;
@@ -225,6 +231,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       }
     }
     break;
+
     // BOOL
     case kind::AND:
       op << "AND";
@@ -691,6 +698,7 @@ void CvcPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<DefineNamedFunctionCommand>(out, c) ||
      tryToStream<SimplifyCommand>(out, c) ||
      tryToStream<GetValueCommand>(out, c) ||
+     tryToStream<GetModelCommand>(out, c) ||
      tryToStream<GetAssignmentCommand>(out, c) ||
      tryToStream<GetAssertionsCommand>(out, c) ||
      tryToStream<SetBenchmarkStatusCommand>(out, c) ||
@@ -731,31 +739,31 @@ void CvcPrinter::toStream(std::ostream& out, const CommandStatus* s) const throw
 
 }/* CvcPrinter::toStream(CommandStatus*) */
 
-void CvcPrinter::toStream(std::ostream& out, Model* m, Command* c, int c_type ) const throw(){
-  theory::TheoryModel* tm = (theory::TheoryModel*)m;
-  if( c_type==Model::COMMAND_DECLARE_SORT ){
-    TypeNode tn = TypeNode::fromType( ((DeclareTypeCommand*)c)->getType() );
+void CvcPrinter::toStream(std::ostream& out, Model& m, const Command* c) const throw() {
+  theory::TheoryModel& tm = (theory::TheoryModel&) m;
+  if(dynamic_cast<const DeclareTypeCommand*>(c) != NULL) {
+    TypeNode tn = TypeNode::fromType( ((const DeclareTypeCommand*)c)->getType() );
     if( tn.isSort() ){
       //print the cardinality
-      if( tm->d_rep_set.d_type_reps.find( tn )!=tm->d_rep_set.d_type_reps.end() ){
-        out << "; cardinality of " << tn << " is " << tm->d_rep_set.d_type_reps[tn].size() << std::endl;
+      if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
+        out << "; cardinality of " << tn << " is " << (*tm.d_rep_set.d_type_reps.find(tn)).second.size() << std::endl;
       }
     }
     out << c << std::endl;
     if( tn.isSort() ){
       //print the representatives
-      if( tm->d_rep_set.d_type_reps.find( tn )!=tm->d_rep_set.d_type_reps.end() ){
-        for( size_t i=0; i<tm->d_rep_set.d_type_reps[tn].size(); i++ ){
-          if( tm->d_rep_set.d_type_reps[tn][i].isVar() ){
-            out << tm->d_rep_set.d_type_reps[tn][i] << " : " << tn << ";" << std::endl;
+      if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
+        for( size_t i=0; i<(*tm.d_rep_set.d_type_reps.find(tn)).second.size(); i++ ){
+          if( (*tm.d_rep_set.d_type_reps.find(tn)).second[i].isVar() ){
+            out << (*tm.d_rep_set.d_type_reps.find(tn)).second[i] << " : " << tn << ";" << std::endl;
           }else{
-            out << "% rep: " << tm->d_rep_set.d_type_reps[tn][i] << std::endl;
+            out << "% rep: " << (*tm.d_rep_set.d_type_reps.find(tn)).second[i] << std::endl;
           }
         }
       }
     }
-  }else if( c_type==Model::COMMAND_DECLARE_FUN ){
-    Node n = Node::fromExpr( ((DeclareFunctionCommand*)c)->getFunction() );
+  } else if(dynamic_cast<const DeclareFunctionCommand*>(c) != NULL) {
+    Node n = Node::fromExpr( ((const DeclareFunctionCommand*)c)->getFunction() );
     TypeNode tn = n.getType();
     out << n << " : ";
     if( tn.isFunction() || tn.isPredicate() ){
@@ -768,17 +776,7 @@ void CvcPrinter::toStream(std::ostream& out, Model* m, Command* c, int c_type ) 
     }else{
       out << tn;
     }
-    out << " = ";
-    if( tn.isFunction() || tn.isPredicate() ){
-      out << "LAMBDA (";
-      for( size_t i=0; i<tn.getNumChildren()-1; i++ ){
-        if( i>0 ) out << ", ";
-        out << "$x" << (i+1) << " : " << tn[i];
-      }
-      out << "): ";
-    }
-    out << tm->getValue( n );
-    out << ";" << std::endl;
+    out << " = " << tm.getValue( n ) << ";" << std::endl;
 
 /*
     //for table format (work in progress)
@@ -821,7 +819,7 @@ static void toStream(std::ostream& out, const PopCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const CheckSatCommand* c) throw() {
-  BoolExpr e = c->getExpr();
+  Expr e = c->getExpr();
   if(!e.isNull()) {
     out << "CHECKSAT " << e << ";";
   } else {
@@ -830,7 +828,7 @@ static void toStream(std::ostream& out, const CheckSatCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const QueryCommand* c) throw() {
-  BoolExpr e = c->getExpr();
+  Expr e = c->getExpr();
   if(!e.isNull()) {
     out << "QUERY " << e << ";";
   } else {
@@ -920,6 +918,10 @@ static void toStream(std::ostream& out, const GetValueCommand* c) throw() {
   out << " ))";
 }
 
+static void toStream(std::ostream& out, const GetModelCommand* c) throw() {
+  out << "% (get-model)";
+}
+
 static void toStream(std::ostream& out, const GetAssignmentCommand* c) throw() {
   out << "% (get-assignment)";
 }
@@ -958,12 +960,41 @@ static void toStream(std::ostream& out, const GetOptionCommand* c) throw() {
 
 static void toStream(std::ostream& out, const DatatypeDeclarationCommand* c) throw() {
   const vector<DatatypeType>& datatypes = c->getDatatypes();
+  out << "DATATYPE" << endl;
+  bool firstDatatype = true;
   for(vector<DatatypeType>::const_iterator i = datatypes.begin(),
         i_end = datatypes.end();
       i != i_end;
       ++i) {
-    out << *i;
+    if(! firstDatatype) {
+      out << ',' << endl;
+    }
+    const Datatype& dt = (*i).getDatatype();
+    out << "  " << dt.getName() << " = ";
+    bool firstConstructor = true;
+    for(Datatype::const_iterator j = dt.begin(); j != dt.end(); ++j) {
+      if(! firstConstructor) {
+        out << " | ";
+      }
+      firstConstructor = false;
+      const DatatypeConstructor& c = *j;
+      out << c.getName();
+      if(c.getNumArgs() > 0) {
+        out << '(';
+        bool firstSelector = true;
+        for(DatatypeConstructor::const_iterator k = c.begin(); k != c.end(); ++k) {
+          if(! firstSelector) {
+            out << ", ";
+          }
+          firstSelector = false;
+          const DatatypeConstructorArg& selector = *k;
+          out << selector.getName() << ": " << SelectorType(selector.getType()).getRangeType();
+        }
+        out << ')';
+      }
+    }
   }
+  out << endl << "END;";
 }
 
 static void toStream(std::ostream& out, const CommentCommand* c) throw() {

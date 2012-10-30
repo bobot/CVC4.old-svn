@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Minor contributors (to current version): dejan, bobot, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -139,6 +137,8 @@ private:
   eq::EqualityEngine d_equalityEngine;
   /** information necessary for equivalence classes */
   std::map< Node, EqcInfo* > d_eqc_info;
+  /** selector applications */
+  BoolMap d_selector_apps;
   /** map from nodes to their instantiated equivalent for each constructor type */
   std::map< Node, std::map< int, Node > > d_inst_map;
   /** which instantiation lemmas we have sent */
@@ -216,7 +216,7 @@ private:
   void checkCycles();
   bool searchForCycle( Node n, Node on,
                        std::map< Node, bool >& visited,
-                       NodeBuilder<>& explanation );
+                       std::vector< TNode >& explanation, bool firstTime = true );
   /** collect terms */
   void collectTerms( Node n );
   /** get instantiate cons */
@@ -225,6 +225,8 @@ private:
   void processNewTerm( Node n );
   /** check instantiate */
   void instantiate( EqcInfo* eqc, Node n );
+  /** collapse selectors */
+  void collapseSelectors();
   /** must specify model
     *  This returns true when the datatypes theory is expected to specify the constructor
     *  type for all equivalence classes.

@@ -10,11 +10,11 @@ libsmt_la_SOURCES = \
 	smt_engine.h \
 	smt_engine_scope.cpp \
 	smt_engine_scope.h \
+	command_list.cpp \
+	command_list.h \
 	modal_exception.h \
 	simplification_mode.h \
-	simplification_mode.cpp \
-	model_format_mode.h \
-	model_format_mode.cpp
+	simplification_mode.cpp
 
 nodist_libsmt_la_SOURCES = \
 	smt_options.cpp

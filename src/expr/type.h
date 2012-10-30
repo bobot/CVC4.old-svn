@@ -5,9 +5,7 @@
  ** Major contributors: dejan, mdeters
  ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,7 +24,6 @@
 #include <limits.h>
 #include <stdint.h>
 
-#include "util/Assert.h"
 #include "util/cardinality.h"
 #include "util/subrange_bound.h"
 
@@ -57,14 +54,14 @@ class SelectorType;
 class TesterType;
 class FunctionType;
 class TupleType;
-class KindType;
+class SExprType;
 class SortType;
 class SortConstructorType;
 class PredicateSubtype;
 class SubrangeType;
 class Type;
 
-/** Strategy for hashing Types */
+/** Hash function for Types */
 struct CVC4_PUBLIC TypeHashFunction {
   /** Return a hash code for type t */
   size_t operator()(const CVC4::Type& t) const;
@@ -238,7 +235,7 @@ public:
    * Cast this type to a Boolean type
    * @return the BooleanType
    */
-  operator BooleanType() const throw(AssertionException);
+  operator BooleanType() const throw(IllegalArgumentException);
 
   /**
    * Is this the integer type?
@@ -250,7 +247,7 @@ public:
    * Cast this type to a integer type
    * @return the IntegerType
    */
-  operator IntegerType() const throw(AssertionException);
+  operator IntegerType() const throw(IllegalArgumentException);
 
   /**
    * Is this the real type?
@@ -262,7 +259,7 @@ public:
    * Cast this type to a real type
    * @return the RealType
    */
-  operator RealType() const throw(AssertionException);
+  operator RealType() const throw(IllegalArgumentException);
 
   /**
    * Is this the string type?
@@ -274,7 +271,7 @@ public:
    * Cast this type to a string type
    * @return the StringType
    */
-  operator StringType() const throw(AssertionException);
+  operator StringType() const throw(IllegalArgumentException);
 
   /**
    * Is this the bit-vector type?
@@ -286,7 +283,7 @@ public:
    * Cast this type to a bit-vector type
    * @return the BitVectorType
    */
-  operator BitVectorType() const throw(AssertionException);
+  operator BitVectorType() const throw(IllegalArgumentException);
 
   /**
    * Is this a function type?
@@ -305,7 +302,7 @@ public:
    * Cast this type to a function type
    * @return the FunctionType
    */
-  operator FunctionType() const throw(AssertionException);
+  operator FunctionType() const throw(IllegalArgumentException);
 
   /**
    * Is this a tuple type?
@@ -317,7 +314,19 @@ public:
    * Cast this type to a tuple type
    * @return the TupleType
    */
-  operator TupleType() const throw(AssertionException);
+  operator TupleType() const throw(IllegalArgumentException);
+
+  /**
+   * Is this a symbolic expression type?
+   * @return true if the type is a symbolic expression type
+   */
+  bool isSExpr() const;
+
+  /**
+   * Cast this type to a symbolic expression type
+   * @return the SExprType
+   */
+  operator SExprType() const throw(IllegalArgumentException);
 
   /**
    * Is this an array type?
@@ -329,7 +338,7 @@ public:
    * Cast this type to an array type
    * @return the ArrayType
    */
-  operator ArrayType() const throw(AssertionException);
+  operator ArrayType() const throw(IllegalArgumentException);
 
   /**
    * Is this a datatype type?
@@ -341,7 +350,7 @@ public:
    * Cast this type to a datatype type
    * @return the DatatypeType
    */
-  operator DatatypeType() const throw(AssertionException);
+  operator DatatypeType() const throw(IllegalArgumentException);
 
   /**
    * Is this a constructor type?
@@ -353,7 +362,7 @@ public:
    * Cast this type to a constructor type
    * @return the ConstructorType
    */
-  operator ConstructorType() const throw(AssertionException);
+  operator ConstructorType() const throw(IllegalArgumentException);
 
   /**
    * Is this a selector type?
@@ -365,7 +374,7 @@ public:
    * Cast this type to a selector type
    * @return the SelectorType
    */
-  operator SelectorType() const throw(AssertionException);
+  operator SelectorType() const throw(IllegalArgumentException);
 
   /**
    * Is this a tester type?
@@ -377,7 +386,7 @@ public:
    * Cast this type to a tester type
    * @return the TesterType
    */
-  operator TesterType() const throw(AssertionException);
+  operator TesterType() const throw(IllegalArgumentException);
 
   /**
    * Is this a sort kind?
@@ -389,7 +398,7 @@ public:
    * Cast this type to a sort type
    * @return the sort type
    */
-  operator SortType() const throw(AssertionException);
+  operator SortType() const throw(IllegalArgumentException);
 
   /**
    * Is this a sort constructor kind?
@@ -401,7 +410,7 @@ public:
    * Cast this type to a sort constructor type
    * @return the sort constructor type
    */
-  operator SortConstructorType() const throw(AssertionException);
+  operator SortConstructorType() const throw(IllegalArgumentException);
 
   /**
    * Is this a predicate subtype?
@@ -413,7 +422,7 @@ public:
    * Cast this type to a predicate subtype
    * @return the predicate subtype
    */
-  operator PredicateSubtype() const throw(AssertionException);
+  operator PredicateSubtype() const throw(IllegalArgumentException);
 
   /**
    * Is this an integer subrange type?
@@ -425,19 +434,7 @@ public:
    * Cast this type to an integer subrange type
    * @return the integer subrange type
    */
-  operator SubrangeType() const throw(AssertionException);
-
-  /**
-   * Is this a kind type (i.e., the type of a type)?
-   * @return true if this is a kind type
-   */
-  bool isKind() const;
-
-  /**
-   * Cast to a kind type
-   * @return the kind type
-   */
-  operator KindType() const throw(AssertionException);
+  operator SubrangeType() const throw(IllegalArgumentException);
 
   /**
    * Outputs a string representation of this type to the stream.
@@ -459,7 +456,7 @@ class CVC4_PUBLIC BooleanType : public Type {
 public:
 
   /** Construct from the base type */
-  BooleanType(const Type& type = Type()) throw(AssertionException);
+  BooleanType(const Type& type = Type()) throw(IllegalArgumentException);
 };/* class BooleanType */
 
 /**
@@ -470,7 +467,7 @@ class CVC4_PUBLIC IntegerType : public Type {
 public:
 
   /** Construct from the base type */
-  IntegerType(const Type& type = Type()) throw(AssertionException);
+  IntegerType(const Type& type = Type()) throw(IllegalArgumentException);
 };/* class IntegerType */
 
 /**
@@ -481,7 +478,7 @@ class CVC4_PUBLIC RealType : public Type {
 public:
 
   /** Construct from the base type */
-  RealType(const Type& type = Type()) throw(AssertionException);
+  RealType(const Type& type = Type()) throw(IllegalArgumentException);
 };/* class RealType */
 
 /**
@@ -492,7 +489,7 @@ class CVC4_PUBLIC StringType : public Type {
 public:
 
   /** Construct from the base type */
-  StringType(const Type& type) throw(AssertionException);
+  StringType(const Type& type) throw(IllegalArgumentException);
 };/* class StringType */
 
 /**
@@ -503,7 +500,7 @@ class CVC4_PUBLIC FunctionType : public Type {
 public:
 
   /** Construct from the base type */
-  FunctionType(const Type& type = Type()) throw(AssertionException);
+  FunctionType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the argument types */
   std::vector<Type> getArgTypes() const;
@@ -520,11 +517,25 @@ class CVC4_PUBLIC TupleType : public Type {
 public:
 
   /** Construct from the base type */
-  TupleType(const Type& type = Type()) throw(AssertionException);
+  TupleType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the constituent types */
   std::vector<Type> getTypes() const;
 };/* class TupleType */
+
+/**
+ * Class encapsulating a tuple type.
+ */
+class CVC4_PUBLIC SExprType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  SExprType(const Type& type = Type()) throw(IllegalArgumentException);
+
+  /** Get the constituent types */
+  std::vector<Type> getTypes() const;
+};/* class SExprType */
 
 /**
  * Class encapsulating an array type.
@@ -534,7 +545,7 @@ class CVC4_PUBLIC ArrayType : public Type {
 public:
 
   /** Construct from the base type */
-  ArrayType(const Type& type = Type()) throw(AssertionException);
+  ArrayType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the index type */
   Type getIndexType() const;
@@ -551,7 +562,7 @@ class CVC4_PUBLIC SortType : public Type {
 public:
 
   /** Construct from the base type */
-  SortType(const Type& type = Type()) throw(AssertionException);
+  SortType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the name of the sort */
   std::string getName() const;
@@ -572,7 +583,7 @@ class CVC4_PUBLIC SortConstructorType : public Type {
 public:
 
   /** Construct from the base type */
-  SortConstructorType(const Type& type = Type()) throw(AssertionException);
+  SortConstructorType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the name of the sort constructor */
   std::string getName() const;
@@ -593,7 +604,7 @@ class CVC4_PUBLIC PredicateSubtype : public Type {
 public:
 
   /** Construct from the base type */
-  PredicateSubtype(const Type& type = Type()) throw(AssertionException);
+  PredicateSubtype(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the LAMBDA defining this predicate subtype */
   Expr getPredicate() const;
@@ -611,23 +622,12 @@ class CVC4_PUBLIC SubrangeType : public Type {
 public:
 
   /** Construct from the base type */
-  SubrangeType(const Type& type = Type()) throw(AssertionException);
+  SubrangeType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the bounds defining this integer subrange */
   SubrangeBounds getSubrangeBounds() const;
 
 };/* class SubrangeType */
-
-/**
- * Class encapsulating the kind type (the type of types).
- */
-class CVC4_PUBLIC KindType : public Type {
-
-public:
-
-  /** Construct from the base type */
-  KindType(const Type& type = Type()) throw(AssertionException);
-};/* class KindType */
 
 /**
  * Class encapsulating the bit-vector type.
@@ -637,7 +637,7 @@ class CVC4_PUBLIC BitVectorType : public Type {
 public:
 
   /** Construct from the base type */
-  BitVectorType(const Type& type = Type()) throw(AssertionException);
+  BitVectorType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /**
    * Returns the size of the bit-vector type.
@@ -656,7 +656,7 @@ class CVC4_PUBLIC DatatypeType : public Type {
 public:
 
   /** Construct from the base type */
-  DatatypeType(const Type& type = Type()) throw(AssertionException);
+  DatatypeType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the underlying datatype */
   const Datatype& getDatatype() const;
@@ -702,7 +702,7 @@ class CVC4_PUBLIC ConstructorType : public Type {
 public:
 
   /** Construct from the base type */
-  ConstructorType(const Type& type = Type()) throw(AssertionException);
+  ConstructorType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the range type */
   DatatypeType getRangeType() const;
@@ -724,7 +724,7 @@ class CVC4_PUBLIC SelectorType : public Type {
 public:
 
   /** Construct from the base type */
-  SelectorType(const Type& type = Type()) throw(AssertionException);
+  SelectorType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the domain type for this selector (the datatype type) */
   DatatypeType getDomain() const;
@@ -742,7 +742,7 @@ class CVC4_PUBLIC TesterType : public Type {
 public:
 
   /** Construct from the base type */
-  TesterType(const Type& type = Type()) throw(AssertionException);
+  TesterType(const Type& type = Type()) throw(IllegalArgumentException);
 
   /** Get the type that this tester tests (the datatype type) */
   DatatypeType getDomain() const;

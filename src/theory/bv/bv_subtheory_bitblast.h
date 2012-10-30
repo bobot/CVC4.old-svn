@@ -2,12 +2,10 @@
 /*! \file bv_subtheory_bitblast.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): lianah
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -15,6 +13,8 @@
  **
  ** Algebraic solver.
  **/
+
+#include "cvc4_private.h"
 
 #pragma once
 
@@ -45,6 +45,7 @@ public:
   bool  addAssertions(const std::vector<TNode>& assertions, Theory::Effort e);
   void  explain(TNode literal, std::vector<TNode>& assumptions);
   EqualityStatus getEqualityStatus(TNode a, TNode b);
+  void collectModelInfo(TheoryModel* m); 
 };
 
 }

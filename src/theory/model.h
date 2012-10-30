@@ -2,12 +2,10 @@
 /*! \file model.h
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters, barrett
+ ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -19,16 +17,14 @@
 #ifndef __CVC4__THEORY_MODEL_H
 #define __CVC4__THEORY_MODEL_H
 
-#include "util/model.h"
+#include "util/util_model.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/rep_set.h"
 #include "theory/substitutions.h"
+#include "theory/type_enumerator.h"
 
 namespace CVC4 {
 namespace theory {
-
-class QuantifiersEngine;
-class TheoryEngineModelBuilder;
 
 /** Theory Model class
  *    For Model m, should call m.initialize() before using
@@ -37,16 +33,10 @@ class TheoryModel : public Model
 {
   friend class TheoryEngineModelBuilder;
 protected:
-  /** add term function
-    *   This should be called on all terms that exist in the model.
-    *   addTerm( n ) will do any model-specific processing necessary for n,
-    *   such as contraining the interpretation of uninterpretted functions.
-    */
-  virtual void addTerm( Node n ) {}
   /** substitution map for this model */
   SubstitutionMap d_substitutions;
 public:
-  TheoryModel( context::Context* c, std::string name );
+  TheoryModel( context::Context* c, std::string name, bool enableFuncModels );
   virtual ~TheoryModel(){}
   /** equality engine containing all known equalities/disequalities */
   eq::EqualityEngine d_equalityEngine;
@@ -60,21 +50,17 @@ public:
 protected:
   /** reset the model */
   virtual void reset();
-  /** get interpreted value
-    *  This function is called when the value of the node cannot be determined by the theory rewriter
-    *  This should function should return a representative in d_reps
-    */
-  virtual Node getInterpretedValue( TNode n ) = 0;
   /**
    * Get model value function.  This function is called by getValue
    */
-  Node getModelValue( TNode n );
+  Node getModelValue( TNode n ) const;
 public:
   /**
    * Get value function.  This should be called only after a ModelBuilder has called buildModel(...)
    * on this model.
    */
-  Node getValue( TNode n );
+  Node getValue( TNode n ) const;
+
   /** get existing domain value, with possible exclusions
     *   This function returns a term in d_rep_set.d_type_reps[tn] but not in exclude
     */
@@ -93,6 +79,12 @@ public:
 public:
   /** Adds a substitution from x to t. */
   void addSubstitution(TNode x, TNode t, bool invalidateCache = true);
+  /** add term function
+    *   addTerm( n ) will do any model-specific processing necessary for n,
+    *   such as contraining the interpretation of uninterpretted functions,
+    *   and adding n to the equality engine of this model
+    */
+  virtual void addTerm( Node n );
   /** assert equality holds in the model */
   void assertEquality( Node a, Node b, bool polarity );
   /** assert predicate holds in the model */
@@ -113,34 +105,132 @@ public:
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
 public:
+  /** get value function for Exprs. */
+  Expr getValue( Expr expr ) const;
+  /** get cardinality for sort */
+  Cardinality getCardinality( Type t ) const;
+public:
   /** print representative debug function */
   void printRepresentativeDebug( const char* c, Node r );
   /** print representative function */
   void printRepresentative( std::ostream& out, Node r );
-  /** to stream function */
-  void toStream( std::ostream& out );
-};
-
-/** Default model class
-  *   The getInterpretedValue function will choose an existing value arbitrarily.
-  *   If none are found, then it will create a new value.
-  */
-class DefaultModel : public TheoryModel
-{
-protected:
+public:
   /** whether function models are enabled */
   bool d_enableFuncModels;
-  /** add term */
-  void addTerm( Node n );
-public:
-  DefaultModel( context::Context* c, std::string name, bool enableFuncModels );
-  virtual ~DefaultModel(){}
   //necessary information for function models
   std::map< Node, std::vector< Node > > d_uf_terms;
   std::map< Node, Node > d_uf_models;
+};
+
+/*
+ * Class that encapsulates a map from types to sets of nodes
+ */
+class TypeSet {
 public:
-  void reset();
-  Node getInterpretedValue( TNode n );
+  typedef std::hash_map<TypeNode, std::set<Node>*, TypeNodeHashFunction> TypeSetMap;
+  typedef std::hash_map<TypeNode, TypeEnumerator*, TypeNodeHashFunction> TypeToTypeEnumMap;
+  typedef TypeSetMap::iterator iterator;
+  typedef TypeSetMap::const_iterator const_iterator;
+private:
+  TypeSetMap d_typeSet;
+  TypeToTypeEnumMap d_teMap;
+
+  public:
+  ~TypeSet() {
+    iterator it;
+    for (it = d_typeSet.begin(); it != d_typeSet.end(); ++it) {
+      if ((*it).second != NULL) {
+        delete (*it).second;
+      }
+    }
+    TypeToTypeEnumMap::iterator it2;
+    for (it2 = d_teMap.begin(); it2 != d_teMap.end(); ++it2) {
+      if ((*it2).second != NULL) {
+        delete (*it2).second;
+      }
+    }
+  }
+
+  void add(TypeNode t, TNode n)
+  {
+    iterator it = d_typeSet.find(t);
+    std::set<Node>* s;
+    if (it == d_typeSet.end()) {
+      s = new std::set<Node>;
+      d_typeSet[t] = s;
+    }
+    else {
+      s = (*it).second;
+    }
+    s->insert(n);
+  }
+
+  std::set<Node>* getSet(TypeNode t) const
+  {
+    const_iterator it = d_typeSet.find(t);
+    if (it == d_typeSet.end()) {
+      return NULL;
+    }
+    return (*it).second;
+  }
+
+  Node nextTypeEnum(TypeNode t)
+  {
+    TypeEnumerator* te;
+    TypeToTypeEnumMap::iterator it = d_teMap.find(t);
+    if (it == d_teMap.end()) {
+      te = new TypeEnumerator(t);
+      d_teMap[t] = te;
+    }
+    else {
+      te = (*it).second;
+    }
+    if (te->isFinished()) {
+      return Node();
+    }
+
+    iterator itSet = d_typeSet.find(t);
+    std::set<Node>* s;
+    if (itSet == d_typeSet.end()) {
+      s = new std::set<Node>;
+      d_typeSet[t] = s;
+    }
+    else {
+      s = (*itSet).second;
+    }
+    Node n = **te;
+    while (s->find(n) != s->end()) {
+      ++(*te);
+      if (te->isFinished()) {
+        return Node();
+      }
+      n = **te;
+    }
+    s->insert(n);
+    ++(*te);
+    return n;
+  }
+
+  iterator begin()
+  {
+    return d_typeSet.begin();
+  }
+
+  iterator end()
+  {
+    return d_typeSet.end();
+  }
+
+  static TypeNode getType(iterator it)
+  {
+    return (*it).first;
+  }
+
+  static std::set<Node>& getSet(iterator it)
+  {
+    return *(*it).second;
+  }
+
 };
 
 /** TheoryEngineModelBuilder class
@@ -152,24 +242,22 @@ class TheoryEngineModelBuilder : public ModelBuilder
 protected:
   /** pointer to theory engine */
   TheoryEngine* d_te;
+  typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
+  NodeMap d_normalizedCache;
+
   /** process build model */
-  virtual void processBuildModel( TheoryModel* m, bool fullModel ){}
-  /** choose representative for unconstrained equivalence class */
-  virtual Node chooseRepresentative( TheoryModel* m, Node eqc, bool fullModel );
+  virtual void processBuildModel(TheoryModel* m, bool fullModel);
   /** normalize representative */
-  Node normalizeRepresentative( TheoryModel* m, Node r, std::map< Node, Node >& reps,
-                                std::map< Node, bool >& normalized,
-                                std::map< Node, bool >& normalizing );
-  Node normalizeNode( TheoryModel* m, Node r, std::map< Node, Node >& reps,
-                      std::map< Node, bool >& normalized,
-                      std::map< Node, bool >& normalizing );
+  Node normalize(TheoryModel* m, TNode r, std::map<Node, Node>& constantReps, bool evalOnly);
+  bool isAssignable(TNode n);
+
 public:
-  TheoryEngineModelBuilder( TheoryEngine* te );
+  TheoryEngineModelBuilder(TheoryEngine* te);
   virtual ~TheoryEngineModelBuilder(){}
   /** Build model function.
    *    Should be called only on TheoryModels m
    */
-  void buildModel( Model* m, bool fullModel );
+  void buildModel(Model* m, bool fullModel);
 };
 
 }

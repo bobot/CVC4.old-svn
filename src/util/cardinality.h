@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,7 +24,7 @@
 #include <utility>
 
 #include "util/integer.h"
-#include "util/Assert.h"
+#include "util/exception.h"
 
 namespace CVC4 {
 
@@ -118,7 +116,6 @@ public:
     CheckArgument(card >= 0, card,
                   "Cardinality must be a nonnegative integer, not %ld.", card);
     d_card += 1;
-    Assert(isFinite());
   }
 
   /**
@@ -130,14 +127,12 @@ public:
                   "Cardinality must be a nonnegative integer, not %s.",
                   card.toString().c_str());
     d_card += 1;
-    Assert(isFinite());
   }
 
   /**
    * Construct an infinite cardinality equal to the given Beth number.
    */
   Cardinality(CardinalityBeth beth) : d_card(-beth.getNumber() - 1) {
-    Assert(!isFinite());
   }
 
   /**

@@ -2,12 +2,10 @@
 /*! \file subrange_bound.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
+ ** Major contributors: taking
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,7 @@
 #define __CVC4__SUBRANGE_BOUND_H
 
 #include "util/integer.h"
-#include "util/Assert.h"
+#include "util/exception.h"
 
 #include <limits>
 
@@ -222,7 +220,7 @@ public:
    * precondition: joinIsBounded(a,b) is true
    */
   static SubrangeBounds join(const SubrangeBounds& a, const SubrangeBounds& b){
-    Assert(joinIsBounded(a,b));
+    DebugCheckArgument(joinIsBounded(a,b), a);
     SubrangeBound newLower = SubrangeBound::min(a.lower, b.lower);
     SubrangeBound newUpper = SubrangeBound::max(a.upper, b.upper);
     return SubrangeBounds(newLower, newUpper);

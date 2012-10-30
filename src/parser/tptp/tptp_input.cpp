@@ -1,13 +1,11 @@
 /*********************                                                        */
 /*! \file tptp_input.cpp
  ** \verbatim
- ** Original author: cconway
- ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Original author: bobot
+ ** Major contributors: none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -34,7 +32,7 @@ namespace parser {
 TptpInput::TptpInput(AntlrInputStream& inputStream) :
   AntlrInput(inputStream, 1) {
   pANTLR3_INPUT_STREAM input = inputStream.getAntlr3InputStream();
-  AlwaysAssert( input != NULL );
+  assert( input != NULL );
 
   d_pTptpLexer = TptpLexerNew(input);
   if( d_pTptpLexer == NULL ) {
@@ -44,7 +42,7 @@ TptpInput::TptpInput(AntlrInputStream& inputStream) :
   setAntlr3Lexer( d_pTptpLexer->pLexer );
 
   pANTLR3_COMMON_TOKEN_STREAM tokenStream = getTokenStream();
-  AlwaysAssert( tokenStream != NULL );
+  assert( tokenStream != NULL );
 
   d_pTptpParser = TptpParserNew(tokenStream);
   if( d_pTptpParser == NULL ) {
@@ -61,12 +59,12 @@ TptpInput::~TptpInput() {
 }
 
 Command* TptpInput::parseCommand()
-  throw (ParserException, TypeCheckingException, AssertionException) {
+  throw (ParserException, TypeCheckingException) {
   return d_pTptpParser->parseCommand(d_pTptpParser);
 }
 
 Expr TptpInput::parseExpr()
-  throw (ParserException, TypeCheckingException, AssertionException) {
+  throw (ParserException, TypeCheckingException) {
   return d_pTptpParser->parseExpr(d_pTptpParser);
 }
 

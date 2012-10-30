@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,6 @@
 
 #include "expr/expr_manager.h"
 #include "expr/expr.h"
-#include "util/Assert.h"
 #include "util/exception.h"
 
 using namespace CVC4;
@@ -120,12 +117,12 @@ public:
 
   void testMkAssociativeTooFew() {
     std::vector<Expr> vars = mkVars(d_exprManager->booleanType(), 1);
-    TS_ASSERT_THROWS( d_exprManager->mkAssociative(AND,vars), AssertionException);
+    TS_ASSERT_THROWS( d_exprManager->mkAssociative(AND,vars), IllegalArgumentException);
   }
 
   void testMkAssociativeBadKind() {
     std::vector<Expr> vars = mkVars(d_exprManager->integerType(), 10);
-    TS_ASSERT_THROWS( d_exprManager->mkAssociative(TUPLE,vars), AssertionException);
+    TS_ASSERT_THROWS( d_exprManager->mkAssociative(TUPLE,vars), IllegalArgumentException);
   }
 
 };

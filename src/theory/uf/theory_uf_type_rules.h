@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: cconway, mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -44,7 +42,7 @@ public:
       for(; argument_it != argument_it_end; ++argument_it, ++argument_type_it) {
         TypeNode currentArgument = (*argument_it).getType();
         TypeNode currentArgumentType = *argument_type_it;
-        if(!currentArgument.isSubtypeOf(currentArgumentType)) {
+        if(!currentArgument.isComparableTo(currentArgumentType)) {
           std::stringstream ss;
           ss << "argument type is not a subtype of the function's argument type:\n"
              << "argument:  " << *argument_it << "\n"

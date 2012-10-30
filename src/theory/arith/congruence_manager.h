@@ -2,12 +2,10 @@
 /*! \file congruence_manager.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: dejan
+ ** Major contributors: mdeters, dejan
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -33,7 +31,7 @@
 #include "context/cdtrail_queue.h"
 #include "context/cdmaybe.h"
 
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "util/dense_map.h"
 
 namespace CVC4 {

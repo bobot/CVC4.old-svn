@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): taking, cconway
+ ** Minor contributors (to current version): bobot, taking, barrett, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -36,7 +34,7 @@
 #include "expr/kind.h"
 #include "expr/metakind.h"
 #include "expr/expr.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 #include "util/configuration.h"
 #include "util/output.h"
 #include "util/exception.h"
@@ -99,6 +97,13 @@ public:
   void toStream(std::ostream& out) const throw();
 
 };/* class TypeCheckingExceptionPrivate */
+
+class UnknownTypeException : public TypeCheckingExceptionPrivate {
+public:
+
+  UnknownTypeException(NodeTemplate<false> node) throw();
+
+};/* class UnknownTypeException */
 
 /**
  * \typedef NodeTemplate<true> Node;

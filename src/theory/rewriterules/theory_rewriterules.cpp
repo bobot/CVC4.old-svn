@@ -5,9 +5,7 @@
  ** Major contributors: bobot
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -154,7 +152,12 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
     ++r->nb_applied;
     ++d_statistics.d_cache_miss;
     std::vector<Node> subst;
-    im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);
+    //AJR: replaced computeTermVec with this
+    for( size_t i=0; i<r->inst_vars.size(); i++ ){
+      Node n = im.getValue( r->inst_vars[i] );
+      Assert( !n.isNull() );
+      subst.push_back( n );
+    }
     RuleInst * ri = new RuleInst(*this,r,subst,
                                  r->directrr ? im.d_matched : Node::null());
     Debug("rewriterules::matching") << "One matching found"
@@ -434,7 +437,7 @@ Node skolemizeBody( Node f ){
   std::vector< Node > vars;
   std::vector< Node > csts;
   for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-    csts.push_back( NodeManager::currentNM()->mkSkolem( f[0][i].getType()) );
+    csts.push_back( NodeManager::currentNM()->mkSkolem( "skolem_$$", f[0][i].getType(), "is from skolemizing the body of a rewrite rule" ) );
     vars.push_back( f[0][i] );
   }
   return f[ 1 ].substitute( vars.begin(), vars.end(),

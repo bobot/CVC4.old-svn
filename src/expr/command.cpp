@@ -2,12 +2,10 @@
 /*! \file command.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Major contributors: bobot
+ ** Minor contributors (to current version): kshitij, dejan, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,9 +24,12 @@
 #include "expr/command.h"
 #include "smt/smt_engine.h"
 #include "options/options.h"
+#include "smt/options.h"
+#include "smt/smt_engine_scope.h"
 #include "util/output.h"
 #include "util/dump.h"
 #include "util/sexpr.h"
+#include "util/util_model.h"
 #include "expr/node.h"
 #include "printer/printer.h"
 
@@ -175,11 +176,11 @@ Command* EchoCommand::clone() const {
 
 /* class AssertCommand */
 
-AssertCommand::AssertCommand(const BoolExpr& e) throw() :
+AssertCommand::AssertCommand(const Expr& e) throw() :
   d_expr(e) {
 }
 
-BoolExpr AssertCommand::getExpr() const throw() {
+Expr AssertCommand::getExpr() const throw() {
   return d_expr;
 }
 
@@ -246,11 +247,11 @@ Command* PopCommand::clone() const {
 
 /* class CheckSatCommand */
 
-CheckSatCommand::CheckSatCommand(const BoolExpr& expr) throw() :
+CheckSatCommand::CheckSatCommand(const Expr& expr) throw() :
   d_expr(expr) {
 }
 
-BoolExpr CheckSatCommand::getExpr() const throw() {
+Expr CheckSatCommand::getExpr() const throw() {
   return d_expr;
 }
 
@@ -289,11 +290,11 @@ Command* CheckSatCommand::clone() const {
 
 /* class QueryCommand */
 
-QueryCommand::QueryCommand(const BoolExpr& e) throw() :
+QueryCommand::QueryCommand(const Expr& e) throw() :
   d_expr(e) {
 }
 
-BoolExpr QueryCommand::getExpr() const throw() {
+Expr QueryCommand::getExpr() const throw() {
   return d_expr;
 }
 
@@ -419,7 +420,9 @@ CommandSequence::const_iterator CommandSequence::begin() const throw() {
 Command* CommandSequence::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   CommandSequence* seq = new CommandSequence();
   for(iterator i = begin(); i != end(); ++i) {
-    seq->addCommand((*i)->exportTo(exprManager, variableMap));
+    Command* cmd_to_export = *i;
+    Command* cmd = cmd_to_export->exportTo(exprManager, variableMap);
+    seq->addCommand(cmd);
   }
   seq->d_index = d_index;
   return seq;
@@ -475,8 +478,6 @@ Type DeclareFunctionCommand::getType() const throw() {
 }
 
 void DeclareFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
-  Dump("declarations") << *this;
-  smtEngine->addToModelCommand( clone(), Model::COMMAND_DECLARE_FUN );
   d_commandStatus = CommandSuccess::instance();
 }
 
@@ -507,8 +508,6 @@ Type DeclareTypeCommand::getType() const throw() {
 }
 
 void DeclareTypeCommand::invoke(SmtEngine* smtEngine) throw() {
-  Dump("declarations") << *this;
-  smtEngine->addToModelCommand( clone(), Model::COMMAND_DECLARE_SORT );
   d_commandStatus = CommandSuccess::instance();
 }
 
@@ -548,7 +547,6 @@ Type DefineTypeCommand::getType() const throw() {
 }
 
 void DefineTypeCommand::invoke(SmtEngine* smtEngine) throw() {
-  Dump("declarations") << *this;
   d_commandStatus = CommandSuccess::instance();
 }
 
@@ -598,7 +596,6 @@ Expr DefineFunctionCommand::getFormula() const throw() {
 }
 
 void DefineFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
-  //Dump("declarations") << *this; -- done by SmtEngine
   try {
     if(!d_func.isNull()) {
       smtEngine->defineFunction(d_func, d_formals, d_formula);
@@ -689,7 +686,7 @@ Command* SetUserAttributeCommand::clone() const{
   return new SetUserAttributeCommand( d_attr, d_expr );
 }
 
-/* class Simplify */
+/* class SimplifyCommand */
 
 SimplifyCommand::SimplifyCommand(Expr term) throw() :
   d_term(term) {
@@ -728,6 +725,45 @@ Command* SimplifyCommand::clone() const {
   return c;
 }
 
+/* class ExpandDefinitionsCommand */
+
+ExpandDefinitionsCommand::ExpandDefinitionsCommand(Expr term) throw() :
+  d_term(term) {
+}
+
+Expr ExpandDefinitionsCommand::getTerm() const throw() {
+  return d_term;
+}
+
+void ExpandDefinitionsCommand::invoke(SmtEngine* smtEngine) throw() {
+  d_result = smtEngine->expandDefinitions(d_term);
+  d_commandStatus = CommandSuccess::instance();
+}
+
+Expr ExpandDefinitionsCommand::getResult() const throw() {
+  return d_result;
+}
+
+void ExpandDefinitionsCommand::printResult(std::ostream& out) const throw() {
+  if(! ok()) {
+    this->Command::printResult(out);
+  } else {
+    out << d_result << endl;
+  }
+}
+
+Command* ExpandDefinitionsCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  ExpandDefinitionsCommand* c = new ExpandDefinitionsCommand(d_term.exportTo(exprManager, variableMap));
+  c->d_result = d_result.exportTo(exprManager, variableMap);
+  return c;
+}
+
+Command* ExpandDefinitionsCommand::clone() const {
+  ExpandDefinitionsCommand* c = new ExpandDefinitionsCommand(d_term);
+  c->d_result = d_result;
+  return c;
+}
+
 /* class GetValueCommand */
 
 GetValueCommand::GetValueCommand(Expr term) throw() :
@@ -750,9 +786,12 @@ void GetValueCommand::invoke(SmtEngine* smtEngine) throw() {
     NodeManager* nm = NodeManager::fromExprManager(smtEngine->getExprManager());
     for(std::vector<Expr>::const_iterator i = d_terms.begin(); i != d_terms.end(); ++i) {
       Assert(nm == NodeManager::fromExprManager((*i).getExprManager()));
-      result.push_back(nm->mkNode(kind::TUPLE, Node::fromExpr(*i), Node::fromExpr(smtEngine->getValue(*i))));
+      smt::SmtScope scope(smtEngine);
+      Node request = Node::fromExpr(options::expandDefinitions() ? smtEngine->expandDefinitions(*i) : *i);
+      Node value = Node::fromExpr(smtEngine->getValue(*i));
+      result.push_back(nm->mkNode(kind::SEXPR, request, value));
     }
-    Node n = nm->mkNode(kind::TUPLE, result);
+    Node n = nm->mkNode(kind::SEXPR, result);
     d_result = nm->toExpr(n);
     d_commandStatus = CommandSuccess::instance();
   } catch(exception& e) {
@@ -842,15 +881,17 @@ void GetModelCommand::invoke(SmtEngine* smtEngine) throw() {
   }
 }
 
+/* Model is private to the library -- for now
 Model* GetModelCommand::getResult() const throw() {
   return d_result;
 }
+*/
 
 void GetModelCommand::printResult(std::ostream& out) const throw() {
   if(! ok()) {
     this->Command::printResult(out);
   } else {
-    d_smtEngine->printModel( out, d_result );
+    out << *d_result;
   }
 }
 
@@ -903,6 +944,44 @@ Command* GetProofCommand::exportTo(ExprManager* exprManager, ExprManagerMapColle
 Command* GetProofCommand::clone() const {
   GetProofCommand* c = new GetProofCommand();
   c->d_result = d_result;
+  return c;
+}
+
+/* class GetUnsatCoreCommand */
+
+GetUnsatCoreCommand::GetUnsatCoreCommand() throw() {
+}
+
+void GetUnsatCoreCommand::invoke(SmtEngine* smtEngine) throw() {
+  /*
+  try {
+    d_result = smtEngine->getUnsatCore();
+    d_commandStatus = CommandSuccess::instance();
+  } catch(exception& e) {
+    d_commandStatus = new CommandFailure(e.what());
+  }
+  */
+  d_commandStatus = new CommandUnsupported();
+}
+
+void GetUnsatCoreCommand::printResult(std::ostream& out) const throw() {
+  if(! ok()) {
+    this->Command::printResult(out);
+  } else {
+    //do nothing -- unsat cores not yet supported
+    // d_result->toStream(out);
+  }
+}
+
+Command* GetUnsatCoreCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetUnsatCoreCommand* c = new GetUnsatCoreCommand();
+  //c->d_result = d_result;
+  return c;
+}
+
+Command* GetUnsatCoreCommand::clone() const {
+  GetUnsatCoreCommand* c = new GetUnsatCoreCommand();
+  //c->d_result = d_result;
   return c;
 }
 
@@ -1191,14 +1270,12 @@ DatatypeDeclarationCommand::getDatatypes() const throw() {
 }
 
 void DatatypeDeclarationCommand::invoke(SmtEngine* smtEngine) throw() {
-  Dump("declarations") << *this;
-  smtEngine->addToModelCommand( clone(), Model::COMMAND_DECLARE_DATATYPES );
   d_commandStatus = CommandSuccess::instance();
 }
 
 Command* DatatypeDeclarationCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
-  Warning() << "We currently do not support exportTo with Datatypes" << std::endl;
-  return NULL;
+  throw ExportUnsupportedException
+          ("export of DatatypeDeclarationCommand unsupported");
 }
 
 Command* DatatypeDeclarationCommand::clone() const {

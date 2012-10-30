@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -36,10 +34,10 @@ void InstantiatorTheoryQuantifiers::assertNode( Node assertion ){
   if( options::cbqi() ){
     if( assertion.hasAttribute(InstConstantAttribute()) ){
       Debug("quant-quant-assert") << "   -> has constraints from " << assertion.getAttribute(InstConstantAttribute()) << std::endl;
-      setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+      setQuantifierActive( assertion.getAttribute(InstConstantAttribute()) );
     }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
       Debug("quant-quant-assert") << "   -> has constraints from " << assertion[0].getAttribute(InstConstantAttribute()) << std::endl;
-      setHasConstraintsFrom( assertion[0].getAttribute(InstConstantAttribute()) );
+      setQuantifierActive( assertion[0].getAttribute(InstConstantAttribute()) );
     }
   }
 }
@@ -55,11 +53,9 @@ int InstantiatorTheoryQuantifiers::process( Node f, Theory::Effort effort, int e
     return InstStrategy::STATUS_UNFINISHED;
   }else if( e==5 ){
     //add random addition
-    if( isOwnerOf( f ) ){
-      InstMatch m;
-      if( d_quantEngine->addInstantiation( f, m ) ){
-        ++(d_statistics.d_instantiations);
-      }
+    InstMatch m;
+    if( d_quantEngine->addInstantiation( f, m ) ){
+      ++(d_statistics.d_instantiations);
     }
   }
   return InstStrategy::STATUS_UNKNOWN;

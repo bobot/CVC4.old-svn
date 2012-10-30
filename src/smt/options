@@ -3,14 +3,6 @@
 # See src/options/base_options for a description of this file format
 #
 
-# FIXME: need to add support for SMT-LIBv2-required options:
-#
-#   expand-definitions
-#   regular-output-channel
-#   diagnostic-output-channel
-#   produce-unsat-cores
-#
-
 module SMT "smt/options.h" SMT layer
 
 common-option - --dump=MODE argument :handler CVC4::smt::dumpMode :handler-include "smt/options_handlers.h"
@@ -18,24 +10,27 @@ common-option - --dump=MODE argument :handler CVC4::smt::dumpMode :handler-inclu
 common-option - --dump-to=FILE argument :handler CVC4::smt::dumpToFile :handler-include "smt/options_handlers.h"
  all dumping goes to FILE (instead of stdout)
 
-expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
- expand define-funs/LAMBDAs lazily
-
 option simplificationMode simplification-mode --simplification=MODE SimplificationMode :handler CVC4::smt::stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :read-write :include "smt/simplification_mode.h" :handler-include "smt/options_handlers.h"
  choose simplification mode, see --simplification=help
 alias --no-simplification = --simplification=none
  turn off all simplification (same as --simplification=none)
 
-option doStaticLearning static-learning /--no-static-learning bool :default true
+option doStaticLearning static-learning --static-learning bool :default true
  use static learning (on by default)
-/turn off static learning (e.g. diamond-breaking)
 
-common-option produceModels produce-models -m --produce-models bool :predicate CVC4::SmtEngine::beforeSearch :predicate-include "smt/smt_engine.h"
+option expandDefinitions expand-definitions bool :default false
+ always expand symbol definitions in output
+common-option produceModels produce-models -m --produce-models bool :default false :predicate CVC4::smt::beforeSearch :predicate-include "smt/smt_engine.h"
  support the get-value and get-model commands
-common-option produceAssignments produce-assignments --produce-assignments bool
+option checkModels check-models --check-models bool :predicate CVC4::smt::beforeSearch :predicate-include "smt/options_handlers.h"
+ after SAT/INVALID/UNKNOWN, check that the generated model satisfies user assertions
+option proof produce-proofs --proof bool :default false :predicate CVC4::smt::proofEnabledBuild CVC4::smt::beforeSearch :predicate-include "smt/options_handlers.h"
+ turn on proof generation
+# this is just a placeholder for later; it doesn't show up in command-line options listings
+undocumented-option unsatCores produce-unsat-cores --produce-unsat-cores bool :predicate CVC4::smt::unsatCoresEnabledBuild CVC4::smt::beforeSearch :predicate-include "smt/options_handlers.h"
+ turn on unsat core generation (NOT YET SUPPORTED)
+option produceAssignments produce-assignments --produce-assignments bool :default false :predicate CVC4::smt::beforeSearch :predicate-include "smt/options_handlers.h"
  support the get-assignment command
-option modelFormatMode --model-format=MODE ModelFormatMode :handler CVC4::smt::stringToModelFormatMode :default MODEL_FORMAT_MODE_DEFAULT :read-write :include "smt/model_format_mode.h" :handler-include "smt/options_handlers.h"
- print format mode for models, see --model-format=help
 
 # This could go in src/main/options, but by SMT-LIBv2 spec, "interactive"
 # is a mode in which the assertion list must be kept.  So it belongs here.
@@ -44,18 +39,18 @@ common-option interactive interactive-mode --interactive bool :read-write
 
 option doITESimp --ite-simp bool :read-write
  turn on ite simplification (Kim (and Somenzi) et al., SAT 2009)
-/turn off ite simplification (Kim (and Somenzi) et al., SAT 2009)
 
 option unconstrainedSimp --unconstrained-simp bool :default false :read-write
  turn on unconstrained simplification (see Bruttomesso/Brummayer PhD thesis)
-/turn off unconstrained simplification (see Bruttomesso/Brummayer PhD thesis)
 
 option repeatSimp --repeat-simp bool :read-write
  make multiple passes with nonclausal simplifier
-/do not make multiple passes with nonclausal simplifier
 
 common-option incrementalSolving incremental -i --incremental bool
  enable incremental solving
+
+option abstractValues abstract-values --abstract-values bool :default false
+ in models, output arrays (and in future, maybe others) using abstract values, as required by the SMT-LIB standard
 
 option - regular-output-channel argument :handler CVC4::smt::setRegularOutputChannel :handler-include "smt/options_handlers.h"
  set the regular output channel of the solver
@@ -71,15 +66,14 @@ common-option cumulativeResourceLimit --rlimit=N "unsigned long"
 common-option perCallResourceLimit --rlimit-per=N "unsigned long"
  enable resource limiting per query
 
-option replayFilename --replay=FILE std::string :handler CVC4::smt::checkReplayFilename :handler-include "smt/options_handlers.h"
+# --replay is currently broken; don't document it for 1.0
+undocumented-option replayFilename --replay=FILE std::string :handler CVC4::smt::checkReplayFilename :handler-include "smt/options_handlers.h"
  replay decisions from file
-option replayLog --replay-log=FILE std::ostream* :handler CVC4::smt::checkReplayLogFilename :handler-include "smt/options_handlers.h"
+undocumented-option replayLog --replay-log=FILE std::ostream* :handler CVC4::smt::checkReplayLogFilename :handler-include "smt/options_handlers.h"
  log decisions and propagations to file
 option replayStream ExprStream*
 
 # portfolio options
-option threads --threads=N unsigned :default 2
- Total number of threads
 option lemmaInputChannel LemmaInputChannel* :default NULL :include "util/lemma_input_channel.h"
  The input channel to receive notfication events for new lemmas
 option lemmaOutputChannel LemmaOutputChannel* :default NULL :include "util/lemma_output_channel.h"

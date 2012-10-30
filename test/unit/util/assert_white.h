@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -21,7 +19,7 @@
 #include <string>
 #include <cstring>
 
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 
 using namespace CVC4;
 using namespace std;
@@ -32,7 +30,7 @@ public:
   void testAssert() {
 #ifdef CVC4_ASSERTIONS
     TS_ASSERT_THROWS( Assert(false), AssertionException );
-    TS_ASSERT_THROWS( AssertArgument(false, "x"), IllegalArgumentException );
+    TS_ASSERT_THROWS( AssertArgument(false, "x"), AssertArgumentException );
 #else /* CVC4_ASSERTIONS */
     TS_ASSERT_THROWS_NOTHING( Assert(false) );
     TS_ASSERT_THROWS_NOTHING( AssertArgument(false, "x") );
@@ -46,7 +44,7 @@ public:
     TS_ASSERT_THROWS( IllegalArgument("x"), IllegalArgumentException );
     TS_ASSERT_THROWS( CheckArgument(false, "x"), IllegalArgumentException );
     TS_ASSERT_THROWS( AlwaysAssertArgument(false, "x"),
-                      IllegalArgumentException );
+                      AssertArgumentException );
     TS_ASSERT_THROWS_NOTHING( AssertArgument(true, "x") );
     TS_ASSERT_THROWS_NOTHING( AssertArgument(true, "x") );
   }

@@ -2,12 +2,10 @@
 /*! \file trigger.cpp
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -21,6 +19,8 @@
 #include "theory/quantifiers/candidate_generator.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/quantifiers/options.h"
+#include "theory/quantifiers/term_database.h"
+#include "theory/quantifiers/inst_match_generator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -30,36 +30,6 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::inst;
 
 //#define NESTED_PATTERN_SELECTION
-
-Trigger* Trigger::TrTrie::getTrigger2( std::vector< Node >& nodes ){
-  if( nodes.empty() ){
-    return d_tr;
-  }else{
-    Node n = nodes.back();
-    nodes.pop_back();
-    if( d_children.find( n )!=d_children.end() ){
-      return d_children[n]->getTrigger2( nodes );
-    }else{
-      return NULL;
-    }
-  }
-}
-void Trigger::TrTrie::addTrigger2( std::vector< Node >& nodes, Trigger* t ){
-  if( nodes.empty() ){
-    d_tr = t;
-  }else{
-    Node n = nodes.back();
-    nodes.pop_back();
-    if( d_children.find( n )==d_children.end() ){
-      d_children[n] = new TrTrie;
-    }
-    d_children[n]->addTrigger2( nodes, t );
-  }
-}
-
-/** trigger static members */
-std::map< TNode, std::vector< TNode > > Trigger::d_var_contains;
-Trigger::TrTrie Trigger::d_tr_trie;
 
 /** trigger class constructor */
 Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool smartTriggers ) :
@@ -104,24 +74,6 @@ d_quantEngine( qe ), d_f( f ){
     }
   }
 }
-void Trigger::computeVarContains( Node n ) {
-  if( d_var_contains.find( n )==d_var_contains.end() ){
-    d_var_contains[n].clear();
-    computeVarContains2( n, n );
-  }
-}
-
-void Trigger::computeVarContains2( Node n, Node parent ){
-  if( n.getKind()==INST_CONSTANT ){
-    if( std::find( d_var_contains[parent].begin(), d_var_contains[parent].end(), n )==d_var_contains[parent].end() ){
-      d_var_contains[parent].push_back( n );
-    }
-  }else{
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      computeVarContains2( n[i], parent );
-    }
-  }
-}
 
 void Trigger::resetInstantiationRound(){
   d_mg->resetInstantiationRound( d_quantEngine );
@@ -146,6 +98,10 @@ int Trigger::addTerm( Node t ){
   return d_mg->addTerm( d_f, t, d_quantEngine );
 }
 
+//bool Trigger::nonunifiable( TNode t, const std::vector<Node> & vars){
+//  return d_mg->nonunifiable(t,vars);
+//}
+
 int Trigger::addInstantiations( InstMatch& baseMatch ){
   int addedLemmas = d_mg->addInstantiations( d_f, baseMatch, d_quantEngine );
   if( addedLemmas>0 ){
@@ -169,9 +125,9 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
     std::map< Node, std::vector< Node > > patterns;
     for( int i=0; i<(int)temp.size(); i++ ){
       bool foundVar = false;
-      computeVarContains( temp[i] );
-      for( int j=0; j<(int)d_var_contains[ temp[i] ].size(); j++ ){
-        Node v = d_var_contains[ temp[i] ][j];
+      qe->getTermDatabase()->computeVarContains( temp[i] );
+      for( int j=0; j<(int)qe->getTermDatabase()->d_var_contains[ temp[i] ].size(); j++ ){
+        Node v = qe->getTermDatabase()->d_var_contains[ temp[i] ][j];
         if( v.getAttribute(InstConstantAttribute())==f ){
           if( vars.find( v )==vars.end() ){
             vars[ v ] = true;
@@ -181,8 +137,8 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       }
       if( foundVar ){
         trNodes.push_back( temp[i] );
-        for( int j=0; j<(int)d_var_contains[ temp[i] ].size(); j++ ){
-          Node v = d_var_contains[ temp[i] ][j];
+        for( int j=0; j<(int)qe->getTermDatabase()->d_var_contains[ temp[i] ].size(); j++ ){
+          Node v = qe->getTermDatabase()->d_var_contains[ temp[i] ][j];
           patterns[ v ].push_back( temp[i] );
         }
       }
@@ -191,8 +147,8 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
     for( int i=0; i<(int)trNodes.size(); i++ ){
       bool keepPattern = false;
       Node n = trNodes[i];
-      for( int j=0; j<(int)d_var_contains[ n ].size(); j++ ){
-        Node v = d_var_contains[ n ][j];
+      for( int j=0; j<(int)qe->getTermDatabase()->d_var_contains[ n ].size(); j++ ){
+        Node v = qe->getTermDatabase()->d_var_contains[ n ][j];
         if( patterns[v].size()==1 ){
           keepPattern = true;
           break;
@@ -200,8 +156,8 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       }
       if( !keepPattern ){
         //remove from pattern vector
-        for( int j=0; j<(int)d_var_contains[ n ].size(); j++ ){
-          Node v = d_var_contains[ n ][j];
+        for( int j=0; j<(int)qe->getTermDatabase()->d_var_contains[ n ].size(); j++ ){
+          Node v = qe->getTermDatabase()->d_var_contains[ n ][j];
           for( int k=0; k<(int)patterns[v].size(); k++ ){
             if( patterns[v][k]==n ){
               patterns[v].erase( patterns[v].begin() + k, patterns[v].begin() + k + 1 );
@@ -222,7 +178,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
   if( trOption==TR_MAKE_NEW ){
     //static int trNew = 0;
     //static int trOld = 0;
-    //Trigger* t = d_tr_trie.getTrigger( trNodes );
+    //Trigger* t = qe->getTermDatabase()->getTrigger( trNodes );
     //if( t ){
     //  trOld++;
     //}else{
@@ -232,7 +188,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
     //  Notice() << "Trigger new old = " << trNew << " " << trOld << std::endl;
     //}
   }else{
-    Trigger* t = d_tr_trie.getTrigger( trNodes );
+    Trigger* t = qe->getTriggerDatabase()->getTrigger( trNodes );
     if( t ){
       if( trOption==TR_GET_OLD ){
         //just return old trigger
@@ -243,7 +199,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
     }
   }
   Trigger* t = new Trigger( qe, f, trNodes, matchOption, smartTriggers );
-  d_tr_trie.addTrigger( trNodes, t );
+  qe->getTriggerDatabase()->addTrigger( trNodes, t );
   return t;
 }
 Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, Node n, int matchOption, bool keepAll, int trOption, bool smartTriggers ){
@@ -285,7 +241,7 @@ bool Trigger::isUsableTrigger( Node n, Node f ){
 }
 
 bool Trigger::isAtomicTrigger( Node n ){
-  return n.getKind()==APPLY_UF || n.getKind()==SELECT || n.getKind()==STORE ||
+  return ( n.getKind()==APPLY_UF && !n.getOperator().getAttribute(NoMatchAttribute()) ) || n.getKind()==SELECT || n.getKind()==STORE ||
          n.getKind()==APPLY_CONSTRUCTOR || n.getKind()==APPLY_SELECTOR || n.getKind()==APPLY_TESTER;
 }
 bool Trigger::isSimpleTrigger( Node n ){
@@ -302,13 +258,13 @@ bool Trigger::isSimpleTrigger( Node n ){
 }
 
 /** filter all nodes that have instances */
-void Trigger::filterInstances( std::vector< Node >& nodes ){
+void Trigger::filterInstances( QuantifiersEngine* qe, std::vector< Node >& nodes ){
   std::vector< bool > active;
   active.resize( nodes.size(), true );
   for( int i=0; i<(int)nodes.size(); i++ ){
     for( int j=i+1; j<(int)nodes.size(); j++ ){
       if( active[i] && active[j] ){
-        int result = isInstanceOf( nodes[i], nodes[j] );
+        int result = isInstanceOf( qe, nodes[i], nodes[j] );
         if( result==1 ){
           active[j] = false;
         }else if( result==-1 ){
@@ -396,7 +352,7 @@ void Trigger::collectPatTerms( QuantifiersEngine* qe, Node f, Node n, std::vecto
     collectPatTerms( qe, f, n, patTerms2, TS_ALL, false );
     std::vector< Node > temp;
     temp.insert( temp.begin(), patTerms2.begin(), patTerms2.end() );
-    filterInstances( temp );
+    filterInstances( qe, temp );
     if( temp.size()!=patTerms2.size() ){
       Debug("trigger-filter-instance") << "Filtered an instance: " << std::endl;
       Debug("trigger-filter-instance") << "Old: ";
@@ -430,7 +386,7 @@ void Trigger::collectPatTerms( QuantifiersEngine* qe, Node f, Node n, std::vecto
 }
 
 /** is n1 an instance of n2 or vice versa? */
-int Trigger::isInstanceOf( Node n1, Node n2 ){
+int Trigger::isInstanceOf( QuantifiersEngine* qe, Node n1, Node n2 ){
   if( n1==n2 ){
     return 1;
   }else if( n1.getKind()==n2.getKind() ){
@@ -439,7 +395,7 @@ int Trigger::isInstanceOf( Node n1, Node n2 ){
         int result = 0;
         for( int i=0; i<(int)n1.getNumChildren(); i++ ){
           if( n1[i]!=n2[i] ){
-            int cResult = isInstanceOf( n1[i], n2[i] );
+            int cResult = isInstanceOf( qe, n1[i], n2[i] );
             if( cResult==0 ){
               return 0;
             }else if( cResult!=result ){
@@ -456,62 +412,25 @@ int Trigger::isInstanceOf( Node n1, Node n2 ){
     }
     return 0;
   }else if( n2.getKind()==INST_CONSTANT ){
-    computeVarContains( n1 );
+    qe->getTermDatabase()->computeVarContains( n1 );
     //if( std::find( d_var_contains[ n1 ].begin(), d_var_contains[ n1 ].end(), n2 )!=d_var_contains[ n1 ].end() ){
     //  return 1;
     //}
-    if( d_var_contains[ n1 ].size()==1 && d_var_contains[ n1 ][ 0 ]==n2 ){
+    if( qe->getTermDatabase()->d_var_contains[ n1 ].size()==1 &&
+        qe->getTermDatabase()->d_var_contains[ n1 ][ 0 ]==n2 ){
       return 1;
     }
   }else if( n1.getKind()==INST_CONSTANT ){
-    computeVarContains( n2 );
+    qe->getTermDatabase()->computeVarContains( n2 );
     //if( std::find( d_var_contains[ n2 ].begin(), d_var_contains[ n2 ].end(), n1 )!=d_var_contains[ n2 ].end() ){
     //  return -1;
     //}
-    if( d_var_contains[ n2 ].size()==1 && d_var_contains[ n2 ][ 0 ]==n1 ){
+    if( qe->getTermDatabase()->d_var_contains[ n2 ].size()==1 &&
+        qe->getTermDatabase()->d_var_contains[ n2 ][ 0 ]==n1 ){
       return 1;
     }
   }
   return 0;
-}
-
-bool Trigger::isVariableSubsume( Node n1, Node n2 ){
-  if( n1==n2 ){
-    return true;
-  }else{
-    //Notice() << "is variable subsume ? " << n1 << " " << n2 << std::endl;
-    computeVarContains( n1 );
-    computeVarContains( n2 );
-    for( int i=0; i<(int)d_var_contains[n2].size(); i++ ){
-      if( std::find( d_var_contains[n1].begin(), d_var_contains[n1].end(), d_var_contains[n2][i] )==d_var_contains[n1].end() ){
-        //Notice() << "no" << std::endl;
-        return false;
-      }
-    }
-    //Notice() << "yes" << std::endl;
-    return true;
-  }
-}
-
-void Trigger::getVarContains( Node f, std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains ){
-  for( int i=0; i<(int)pats.size(); i++ ){
-    computeVarContains( pats[i] );
-    varContains[ pats[i] ].clear();
-    for( int j=0; j<(int)d_var_contains[pats[i]].size(); j++ ){
-      if( d_var_contains[pats[i]][j].getAttribute(InstConstantAttribute())==f ){
-        varContains[ pats[i] ].push_back( d_var_contains[pats[i]][j] );
-      }
-    }
-  }
-}
-
-void Trigger::getVarContainsNode( Node f, Node n, std::vector< Node >& varContains ){
-  computeVarContains( n );
-  for( int j=0; j<(int)d_var_contains[n].size(); j++ ){
-    if( d_var_contains[n][j].getAttribute(InstConstantAttribute())==f ){
-      varContains.push_back( d_var_contains[n][j] );
-    }
-  }
 }
 
 bool Trigger::getPatternArithmetic( Node f, Node n, std::map< Node, Node >& coeffs ){
@@ -555,4 +474,31 @@ bool Trigger::getPatternArithmetic( Node f, Node n, std::map< Node, Node >& coef
     }
   }
   return false;
+}
+
+Trigger* TriggerTrie::getTrigger2( std::vector< Node >& nodes ){
+  if( nodes.empty() ){
+    return d_tr;
+  }else{
+    Node n = nodes.back();
+    nodes.pop_back();
+    if( d_children.find( n )!=d_children.end() ){
+      return d_children[n]->getTrigger2( nodes );
+    }else{
+      return NULL;
+    }
+  }
+}
+
+void TriggerTrie::addTrigger2( std::vector< Node >& nodes, Trigger* t ){
+  if( nodes.empty() ){
+    d_tr = t;
+  }else{
+    Node n = nodes.back();
+    nodes.pop_back();
+    if( d_children.find( n )==d_children.end() ){
+      d_children[n] = new TriggerTrie;
+    }
+    d_children[n]->addTrigger2( nodes, t );
+  }
 }

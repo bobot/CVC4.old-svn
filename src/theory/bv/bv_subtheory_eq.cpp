@@ -1,13 +1,11 @@
 /*********************                                                        */
 /*! \file bv_subtheory_eq.cpp
  ** \verbatim
- ** Original author: lianah
- ** Major contributors: dejan
- ** Minor contributors (to current version): none
+ ** Original author: dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): lianah
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -19,7 +17,7 @@
 #include "theory/bv/bv_subtheory_eq.h"
 #include "theory/bv/theory_bv.h"
 #include "theory/bv/theory_bv_utils.h"
-
+#include "theory/model.h"
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::context;
@@ -165,3 +163,6 @@ void EqualitySolver::conflict(TNode a, TNode b) {
   d_bv->setConflict(mkAnd(assumptions));
 }
 
+void EqualitySolver::collectModelInfo(TheoryModel* m) {
+  m->assertEqualityEngine(&d_equalityEngine);
+}

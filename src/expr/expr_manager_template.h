@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file expr_manager.h
+/*! \file expr_manager_template.h
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
  ** Minor contributors (to current version): ajreynol, taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -27,7 +25,8 @@
 #include "expr/type.h"
 #include "expr/expr.h"
 #include "util/subrange_bound.h"
-#include "util/stats.h"
+#include "util/statistics.h"
+#include "util/sexpr.h"
 
 ${includes}
 
@@ -35,7 +34,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 39 "${template}"
+#line 38 "${template}"
 
 namespace CVC4 {
 
@@ -45,6 +44,7 @@ class NodeManager;
 class Options;
 class IntStat;
 class ExprManagerMapCollection;
+class StatisticsRegistry;
 
 namespace expr {
   namespace pickle {
@@ -55,6 +55,10 @@ namespace expr {
 namespace context {
   class Context;
 }/* CVC4::context namespace */
+
+namespace stats {
+  StatisticsRegistry* getStatisticsRegistry(ExprManager*);
+}/* CVC4::stats namespace */
 
 class CVC4_PUBLIC ExprManager {
 private:
@@ -97,6 +101,12 @@ private:
   /** NodeManager reaches in to get the NodeManager */
   friend class NodeManager;
 
+  /** Statistics reach in to get the StatisticsRegistry */
+  friend ::CVC4::StatisticsRegistry* ::CVC4::stats::getStatisticsRegistry(ExprManager*);
+
+  /** Get the underlying statistics registry. */
+  StatisticsRegistry* getStatisticsRegistry() throw();
+
   // undefined, private copy constructor and assignment op (disallow copy)
   ExprManager(const ExprManager&) CVC4_UNDEFINED;
   ExprManager& operator=(const ExprManager&) CVC4_UNDEFINED;
@@ -131,9 +141,6 @@ public:
 
   /** Get the type for strings. */
   StringType stringType() const;
-
-  /** Get the type for sorts. */
-  KindType kindType() const;
 
   /** Get the type for reals. */
   RealType realType() const;
@@ -347,9 +354,16 @@ public:
   /**
    * Make a tuple type with types from
    * <code>types[0..types.size()-1]</code>.  <code>types</code> must
-   * have at least 2 elements.
+   * have at least one element.
    */
   TupleType mkTupleType(const std::vector<Type>& types);
+
+  /**
+   * Make a symbolic expressiontype with types from
+   * <code>types[0..types.size()-1]</code>.  <code>types</code> may
+   * have any number of elements.
+   */
+  SExprType mkSExprType(const std::vector<Type>& types);
 
   /** Make a type representing a bit-vector of the given size. */
   BitVectorType mkBitVectorType(unsigned size) const;
@@ -454,7 +468,10 @@ public:
   Expr mkBoundVar(Type type);
 
   /** Get a reference to the statistics registry for this ExprManager */
-  StatisticsRegistry* getStatisticsRegistry() const throw();
+  Statistics getStatistics() const throw();
+
+  /** Get a reference to the statistics registry for this ExprManager */
+  SExpr getStatistic(const std::string& name) const throw();
 
   /** Export an expr to a different ExprManager */
   //static Expr exportExpr(const Expr& e, ExprManager* em);

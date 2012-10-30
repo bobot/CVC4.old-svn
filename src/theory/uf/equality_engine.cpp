@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: none
- ** Minor contributors (to current version): taking, mdeters
+ ** Minor contributors (to current version): taking, bobot, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -176,6 +174,7 @@ EqualityNodeId EqualityEngine::newApplicationNode(TNode original, EqualityNodeId
   } else {
     // If it's there, we need to merge these two
     Debug("equality") << d_name << "::eq::newApplicationNode(" << original << ", " << t1 << ", " << t2 << "): lookup exists, adding to queue" << std::endl;
+    Debug("equality") << d_name << "::eq::newApplicationNode(" << original << ", " << t1 << ", " << t2 << "): lookup = " << d_nodes[find->second] << std::endl;
     enqueue(MergeCandidate(funId, find->second, MERGED_THROUGH_CONGRUENCE, TNode::null()));
   }
 
@@ -211,9 +210,11 @@ EqualityNodeId EqualityEngine::newNode(TNode node) {
   // Mark the no-individual trigger
   d_nodeIndividualTrigger.push_back(+null_set_id);
   // Mark non-constant by default
-  d_isConstant.push_back(node.isConst());
+  d_isConstant.push_back(false);
   // Mark Boolean nodes
   d_isBoolean.push_back(false);
+  // Mark the node as internal by default
+  d_isInternal.push_back(true);
   // Add the equality node to the nodes
   d_equalityNodes.push_back(EqualityNode(newId));
 
@@ -249,22 +250,28 @@ void EqualityEngine::addTerm(TNode t) {
   if (t.getKind() == kind::EQUAL) {
     addTerm(t[0]);
     addTerm(t[1]);
-    result = newApplicationNode(t, getNodeId(t[0]), getNodeId(t[1]), true); 
+    result = newApplicationNode(t, getNodeId(t[0]), getNodeId(t[1]), true);
+    d_isInternal[result] = false;
   } else if (t.getNumChildren() > 0 && d_congruenceKinds[t.getKind()]) {
     // Add the operator
     TNode tOp = t.getOperator();
     addTerm(tOp);
     // Add all the children and Curryfy
     result = getNodeId(tOp);
+    d_isInternal[result] = true;
     for (unsigned i = 0; i < t.getNumChildren(); ++ i) {
       // Add the child
       addTerm(t[i]);
       // Add the application
       result = newApplicationNode(t, result, getNodeId(t[i]), false);
     }
+    d_isInternal[result] = false;
+    d_isConstant[result] = t.isConst();
   } else {
     // Otherwise we just create the new id
     result = newNode(t);
+    d_isInternal[result] = false;
+    d_isConstant[result] = t.isConst();
   }
 
   if (t.getType().isBoolean()) {
@@ -341,6 +348,12 @@ void EqualityEngine::assertPredicate(TNode t, bool polarity, TNode reason) {
   Debug("equality") << d_name << "::eq::addPredicate(" << t << "," << (polarity ? "true" : "false") << ")" << std::endl;
   Assert(t.getKind() != kind::EQUAL, "Use assertEquality instead");
   assertEqualityInternal(t, polarity ? d_true : d_false, reason);
+  propagate();
+}
+
+void EqualityEngine::mergePredicates(TNode p, TNode q, TNode reason) {
+  Debug("equality") << d_name << "::eq::mergePredicats(" << p << "," << q << ")" << std::endl;
+  assertEqualityInternal(p, q, reason);
   propagate();
 }
 
@@ -798,6 +811,7 @@ void EqualityEngine::backtrack() {
     d_nodeIndividualTrigger.resize(d_nodesCount);
     d_isConstant.resize(d_nodesCount);
     d_isBoolean.resize(d_nodesCount);
+    d_isInternal.resize(d_nodesCount);
     d_equalityGraph.resize(d_nodesCount);
     d_equalityNodes.resize(d_nodesCount);
   }
@@ -1169,6 +1183,9 @@ void EqualityEngine::propagate() {
     if (t1classId == t2classId) {
       continue;
     }
+
+    Debug("equality::internal") << d_name << "::eq::propagate(): t1: " << (d_isInternal[t1classId] ? "internal" : "proper") << std::endl;
+    Debug("equality::internal") << d_name << "::eq::propagate(): t2: " << (d_isInternal[t2classId] ? "internal" : "proper") << std::endl;
 
     // Get the nodes of the representatives
     EqualityNode& node1 = getEqualityNode(t1classId);

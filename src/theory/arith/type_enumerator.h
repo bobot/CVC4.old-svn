@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -109,6 +107,55 @@ public:
   }
 
 };/* class IntegerEnumerator */
+
+class SubrangeEnumerator : public TypeEnumeratorBase<SubrangeEnumerator> {
+  Integer d_int;
+  SubrangeBounds d_bounds;
+  bool d_direction;// true == +, false == -
+
+public:
+
+  SubrangeEnumerator(TypeNode type) throw(AssertionException) :
+    TypeEnumeratorBase<SubrangeEnumerator>(type),
+    d_int(0),
+    d_bounds(type.getConst<SubrangeBounds>()),
+    d_direction(d_bounds.lower.hasBound()) {
+
+    d_int = d_direction ? d_bounds.lower.getBound() : d_bounds.upper.getBound();
+
+    Assert(type.getKind() == kind::SUBRANGE_TYPE);
+
+    // if we're counting down, there's no lower bound
+    Assert(d_direction || !d_bounds.lower.hasBound());
+  }
+
+  Node operator*() throw(NoMoreValuesException) {
+    if(isFinished()) {
+      throw NoMoreValuesException(getType());
+    }
+    return NodeManager::currentNM()->mkConst(Rational(d_int));
+  }
+
+  SubrangeEnumerator& operator++() throw() {
+    if(d_direction) {
+      if(!d_bounds.upper.hasBound() || d_int <= d_bounds.upper.getBound()) {
+        d_int += 1;
+      }
+    } else {
+      // if we're counting down, there's no lower bound
+      d_int -= 1;
+    }
+    return *this;
+  }
+
+  bool isFinished() throw() {
+    // if we're counting down, there's no lower bound
+    return d_direction &&
+      d_bounds.upper.hasBound() &&
+      d_int > d_bounds.upper.getBound();
+  }
+
+};/* class SubrangeEnumerator */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

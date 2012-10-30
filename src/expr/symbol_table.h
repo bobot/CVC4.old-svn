@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): ajreynol, dejan, bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -79,7 +77,7 @@ public:
    * @param obj the expression to bind to <code>name</code>
    * @param levelZero set if the binding must be done at level 0
    */
-  void bind(const std::string& name, Expr obj, bool levelZero = false) throw(AssertionException);
+  void bind(const std::string& name, Expr obj, bool levelZero = false) throw();
 
   /**
    * Bind a function body to a name in the current scope.  If
@@ -93,7 +91,7 @@ public:
    * @param obj the expression to bind to <code>name</code>
    * @param levelZero set if the binding must be done at level 0
    */
-  void bindDefinedFunction(const std::string& name, Expr obj, bool levelZero = false) throw(AssertionException);
+  void bindDefinedFunction(const std::string& name, Expr obj, bool levelZero = false) throw();
 
   /**
    * Bind a type to a name in the current scope.  If <code>name</code>
@@ -159,7 +157,7 @@ public:
    * @param name the identifier to lookup
    * @returns the expression bound to <code>name</code> in the current scope.
    */
-  Expr lookup(const std::string& name) const throw(AssertionException);
+  Expr lookup(const std::string& name) const throw();
 
   /**
    * Lookup a bound type.
@@ -167,7 +165,7 @@ public:
    * @param name the type identifier to lookup
    * @returns the type bound to <code>name</code> in the current scope.
    */
-  Type lookupType(const std::string& name) const throw(AssertionException);
+  Type lookupType(const std::string& name) const throw();
 
   /**
    * Lookup a bound parameterized type.
@@ -178,7 +176,7 @@ public:
    * the current scope.
    */
   Type lookupType(const std::string& name,
-                  const std::vector<Type>& params) const throw(AssertionException);
+                  const std::vector<Type>& params) const throw();
 
   /**
    * Lookup the arity of a bound parameterized type.

@@ -2,12 +2,10 @@
 /*! \file integer_cln_imp.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters
+ ** Major contributors: lianah, mdeters
  ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -31,7 +29,7 @@
 #include <cln/integer_io.h>
 #include <limits>
 
-#include "util/Assert.h"
+#include "util/exception.h"
 
 namespace CVC4 {
 
@@ -60,7 +58,12 @@ private:
 
   void readInt(const cln::cl_read_flags& flags, const std::string& s, unsigned base) throw(std::invalid_argument) {
     try {
-      d_value = read_integer(flags, s.c_str(), NULL, NULL);
+      if(s.find_first_not_of('0') == std::string::npos) {
+        // string of all zeroes, CLN has a bug for these inputs
+        d_value = read_integer(flags, "0", NULL, NULL);
+      } else {
+        d_value = read_integer(flags, s.c_str(), NULL, NULL);
+      }
     } catch(...) {
       std::stringstream ss;
       ss << "Integer() failed to parse value \"" << s << "\" in base " << base;
@@ -120,8 +123,12 @@ public:
   Integer(  signed long int z) : d_value(z) {}
   Integer(unsigned long int z) : d_value(z) {}
 
-  ~Integer() {}
+#ifdef CVC4_NEED_INT64_T_OVERLOADS
+  Integer( int64_t z) : d_value(static_cast<long>(z)) {}
+  Integer(uint64_t z) : d_value(static_cast<unsigned long>(z)) {}
+#endif /* CVC4_NEED_INT64_T_OVERLOADS */
 
+  ~Integer() {}
 
   Integer& operator=(const Integer& x){
     if(this == &x) return *this;
@@ -228,7 +235,7 @@ public:
   }
 
   Integer oneExtend(uint32_t size, uint32_t amount) const {
-    Assert((*this) < Integer(1).multiplyByPow2(size));
+    DebugCheckArgument((*this) < Integer(1).multiplyByPow2(size), size);
     cln::cl_byte range(amount, size);
     cln::cl_I allones = (cln::cl_I(1) << (size + amount))- 1; // 2^size - 1
     Integer temp(allones);
@@ -287,7 +294,7 @@ public:
    * If y divides *this, then exactQuotient returns (this/y)
    */
   Integer exactQuotient(const Integer& y) const {
-    Assert(y.divides(*this));
+    DebugCheckArgument(y.divides(*this), y);
     return Integer( cln::exquo(d_value, y.d_value) );
   }
 
@@ -312,7 +319,7 @@ public:
     }else if(exp == 0){
       return Integer( 1 );
     }else{
-      Unimplemented();
+      throw Exception("Negative exponent in Integer::pow()");
     }
   }
 
@@ -363,8 +370,7 @@ public:
       fprinthexadecimal(ss,d_value);
       break;
     default:
-      Unhandled();
-      break;
+      throw Exception("Unhandled base in Integer::toString()");
     }
     std::string output = ss.str();
     for( unsigned i = 0; i <= output.length(); ++i){
@@ -378,7 +384,6 @@ public:
 
   int sgn() const {
     cln::cl_I sgn = cln::signum(d_value);
-    Assert(sgn == 0 || sgn == -1 || sgn == 1);
     return cln::cl_I_to_int(sgn);
   }
 
@@ -398,19 +403,19 @@ public:
 
   long getLong() const {
     // ensure there isn't overflow
-    AlwaysAssert(d_value <= std::numeric_limits<long>::max(),
-                 "Overflow detected in Integer::getLong()");
-    AlwaysAssert(d_value >= std::numeric_limits<long>::min(),
-                 "Overflow detected in Integer::getLong()");
+    CheckArgument(d_value <= std::numeric_limits<long>::max(), this,
+                  "Overflow detected in Integer::getLong()");
+    CheckArgument(d_value >= std::numeric_limits<long>::min(), this,
+                  "Overflow detected in Integer::getLong()");
     return cln::cl_I_to_long(d_value);
   }
 
   unsigned long getUnsignedLong() const {
     // ensure there isn't overflow
-    AlwaysAssert(d_value <= std::numeric_limits<unsigned long>::max(),
-                 "Overflow detected in Integer::getUnsignedLong()");
-    AlwaysAssert(d_value >= std::numeric_limits<unsigned long>::min(),
-                 "Overflow detected in Integer::getUnsignedLong()");
+    CheckArgument(d_value <= std::numeric_limits<unsigned long>::max(), this,
+                  "Overflow detected in Integer::getUnsignedLong()");
+    CheckArgument(d_value >= std::numeric_limits<unsigned long>::min(), this,
+                  "Overflow detected in Integer::getUnsignedLong()");
     return cln::cl_I_to_ulong(d_value);
   }
 

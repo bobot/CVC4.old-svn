@@ -2,12 +2,10 @@
 /*! \file theory_bv_rewriter.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Major contributors: lianah
+ ** Minor contributors (to current version): taking, mdeters, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -386,7 +384,6 @@ RewriteResponse TheoryBVRewriter::RewriteUdiv(TNode node, bool preregister){
 
 RewriteResponse TheoryBVRewriter::RewriteUrem(TNode node, bool preregister) {
   Node resultNode = node;
-  return RewriteResponse(REWRITE_DONE, resultNode); 
 
   if(RewriteRule<UremPow2>::applies(node)) {
     resultNode = RewriteRule<UremPow2>::run <false> (node);

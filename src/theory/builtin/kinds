@@ -251,13 +251,6 @@ sort BUILTIN_OPERATOR_TYPE \
     not-well-founded \
     "Built in type for built in operators"
 
-# Justified because we can have an unbounded-but-finite number of
-# sorts.  Assuming we have |Z| is probably ok for now..
-sort KIND_TYPE \
-    Cardinality::INTEGERS \
-    not-well-founded \
-    "Uninterpreted Sort"
-
 variable SORT_TAG "sort tag"
 parameterized SORT_TYPE SORT_TAG 0: "sort type"
 # This is really "unknown" cardinality, but maybe this will be good
@@ -272,11 +265,18 @@ constant UNINTERPRETED_CONSTANT \
     ::CVC4::UninterpretedConstant \
     ::CVC4::UninterpretedConstantHashFunction \
     "util/uninterpreted_constant.h" \
-    "The kind of nodes representing uninterpreted constants"
+    "The kind of expressions representing uninterpreted constants"
 typerule UNINTERPRETED_CONSTANT ::CVC4::theory::builtin::UninterpretedConstantTypeRule
 enumerator SORT_TYPE \
     ::CVC4::theory::builtin::UninterpretedSortEnumerator \
     "theory/builtin/type_enumerator.h"
+
+constant ABSTRACT_VALUE \
+    ::CVC4::AbstractValue \
+    ::CVC4::AbstractValueHashFunction \
+    "util/abstract_value.h" \
+    "The kind of expressions representing abstract values (other than uninterpreted sort constants)"
+typerule ABSTRACT_VALUE ::CVC4::theory::builtin::AbstractValueTypeRule
 
 # A kind representing "inlined" operators defined with OPERATOR
 # Conceptually, (EQUAL a b) is actually an (APPLY EQUAL a b), but it's
@@ -286,7 +286,7 @@ constant BUILTIN \
     ::CVC4::Kind \
     ::CVC4::kind::KindHashFunction \
     "expr/kind.h" \
-    "The kind of nodes representing built-in operators"
+    "The kind of expressions representing built-in operators"
 
 variable FUNCTION "function"
 parameterized APPLY FUNCTION 0: "defined function application"
@@ -297,8 +297,11 @@ variable VARIABLE "variable"
 variable BOUND_VARIABLE "bound variable"
 variable SKOLEM "skolem var"
 operator TUPLE 1: "a tuple"
+operator SEXPR 0: "a symbolic expression"
 
 operator LAMBDA 2 "lambda"
+
+parameterized CHAIN BUILTIN 2: "chain operator"
 
 constant TYPE_CONSTANT \
     ::CVC4::TypeConstant \
@@ -317,6 +320,14 @@ cardinality TUPLE_TYPE \
 well-founded TUPLE_TYPE \
     "::CVC4::theory::builtin::TupleProperties::isWellFounded(%TYPE%)" \
     "::CVC4::theory::builtin::TupleProperties::mkGroundTerm(%TYPE%)" \
+    "theory/builtin/theory_builtin_type_rules.h"
+operator SEXPR_TYPE 0: "symbolic expression type"
+cardinality SEXPR_TYPE \
+    "::CVC4::theory::builtin::SExprProperties::computeCardinality(%TYPE%)" \
+    "theory/builtin/theory_builtin_type_rules.h"
+well-founded SEXPR_TYPE \
+    "::CVC4::theory::builtin::SExprProperties::isWellFounded(%TYPE%)" \
+    "::CVC4::theory::builtin::SExprProperties::mkGroundTerm(%TYPE%)" \
     "theory/builtin/theory_builtin_type_rules.h"
 
 # These will eventually move to a theory of strings.
@@ -340,7 +351,10 @@ typerule APPLY ::CVC4::theory::builtin::ApplyTypeRule
 typerule EQUAL ::CVC4::theory::builtin::EqualityTypeRule
 typerule DISTINCT ::CVC4::theory::builtin::DistinctTypeRule
 typerule TUPLE ::CVC4::theory::builtin::TupleTypeRule
+typerule SEXPR ::CVC4::theory::builtin::SExprTypeRule
 typerule LAMBDA ::CVC4::theory::builtin::LambdaTypeRule
+construle LAMBDA ::CVC4::theory::builtin::LambdaTypeRule
+typerule CHAIN ::CVC4::theory::builtin::ChainTypeRule
 
 constant SUBTYPE_TYPE \
     ::CVC4::Predicate \

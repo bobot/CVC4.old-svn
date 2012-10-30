@@ -2,12 +2,10 @@
 /*! \file theory_proxy.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: lianah, dejan, kshitij, mdeters
- ** Minor contributors (to current version): barrett, taking
+ ** Major contributors: kshitij, dejan, mdeters
+ ** Minor contributors (to current version): barrett, taking, lianah
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -28,6 +26,7 @@
 #include "decision/options.h"
 #include "util/lemma_input_channel.h"
 #include "util/lemma_output_channel.h"
+#include "util/statistics_registry.h"
 
 namespace CVC4 {
 namespace prop {
@@ -160,11 +159,11 @@ SatLiteral TheoryProxy::getNextReplayDecision() {
     Expr e = options::replayStream()->nextExpr();
     if(!e.isNull()) { // we get null node when out of decisions to replay
       // convert & return
+      ++d_replayedDecisions;
       return d_cnfStream->getLiteral(e);
     }
   }
 #endif /* CVC4_REPLAY */
-  //FIXME!
   return undefSatLiteral;
 }
 

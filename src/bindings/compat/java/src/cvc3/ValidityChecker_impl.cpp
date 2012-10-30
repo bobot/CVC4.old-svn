@@ -86,11 +86,11 @@ return toJavaVCopy(env, result);
 
 DEFINITION: Java_cvc3_ValidityChecker_jniAnyType
 jobject m ValidityChecker vc
-Unimplemented();
+assert(false);// Unimplemented
 
 DEFINITION: Java_cvc3_ValidityChecker_jniArrayLiteral
 jobject m ValidityChecker vc c Expr indexVar c Expr bodyExpr
-Unimplemented();
+assert(false);// Unimplemented
 
 DEFINITION: Java_cvc3_ValidityChecker_jniArrayType
 jobject m ValidityChecker vc c Type typeIndex c Type typeData
@@ -847,7 +847,7 @@ vc->loadFile(fileName, toCppInputLanguage(env, lang), false);
 
 DEFINITION: Java_cvc3_ValidityChecker_jniGetStatistics
 jobject m ValidityChecker vc
-return embed_mut_ref(env, &vc->getStatistics());
+return embed_copy(env, vc->getStatistics());
 
 DEFINITION: Java_cvc3_ValidityChecker_jniPrintStatistics
 void m ValidityChecker vc

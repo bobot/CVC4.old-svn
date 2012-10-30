@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -50,10 +48,14 @@ struct RewriteResponse {
     status(status), node(node) {}
 };/* struct RewriteResponse */
 
+class RewriterInitializer;
+
 /**
  * The main rewriter class.  All functionality is static.
  */
 class Rewriter {
+
+  friend class RewriterInitializer;
 
   /** Returns the appropriate cache for a node */
   static Node getPreRewriteCache(theory::TheoryId theoryId, TNode node);
@@ -70,8 +72,8 @@ class Rewriter {
                                   TNode node, TNode cache);
 
   // disable construction of rewriters; all functionality is static
-  Rewriter() CVC4_UNUSED;
-  Rewriter(const Rewriter&) CVC4_UNUSED;
+  Rewriter() CVC4_UNDEFINED;
+  Rewriter(const Rewriter&) CVC4_UNDEFINED;
 
   /**
    * Rewrites the node using the given theory rewriter.
@@ -89,15 +91,6 @@ class Rewriter {
    */
   static Node callRewriteEquality(theory::TheoryId theoryId, TNode equality);
 
-public:
-
-
-  /**
-   * Rewrites the node using theoryOf() to determine which rewriter to
-   * use on the node.
-   */
-  static Node rewrite(TNode node);
-
   /**
    * Should be called before the rewriter gets used for the first time.
    */
@@ -108,6 +101,13 @@ public:
    */
   static void shutdown();
 
+public:
+
+  /**
+   * Rewrites the node using theoryOf() to determine which rewriter to
+   * use on the node.
+   */
+  static Node rewrite(TNode node);
 
 };/* class Rewriter */
 

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,7 @@ namespace language {
 
 InputLanguage toInputLanguage(OutputLanguage language) {
   switch(language) {
-  case output::LANG_SMTLIB:
+  case output::LANG_SMTLIB_V1:
   case output::LANG_SMTLIB_V2:
   case output::LANG_TPTP:
   case output::LANG_CVC4:
@@ -41,7 +39,7 @@ InputLanguage toInputLanguage(OutputLanguage language) {
 
 OutputLanguage toOutputLanguage(InputLanguage language) {
   switch(language) {
-  case input::LANG_SMTLIB:
+  case input::LANG_SMTLIB_V1:
   case input::LANG_SMTLIB_V2:
   case input::LANG_CVC4:
   case input::LANG_TPTP:

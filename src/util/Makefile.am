@@ -3,12 +3,14 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/..
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-noinst_LTLIBRARIES = libutil.la libutilcudd.la
+noinst_LTLIBRARIES = libutil.la libutilcudd.la libstatistics.la
 
 # libutilcudd.la is a separate library so that we can pass separate
 # compiler flags
 libutilcudd_la_CPPFLAGS = $(CPPFLAGS) $(AM_CPPFLAGS) @CUDD_CPPFLAGS@
 libutilcudd_la_LIBADD = @CUDD_LDFLAGS@ @CUDD_LIBS@
+
+libstatistics_la_CPPFLAGS = $(CPPFLAGS) $(AM_CPPFLAGS) -D__BUILDING_STATISTICS_FOR_EXPORT
 
 # Do not list built sources (like integer.h, rational.h, and tls.h) here!
 # Rather, list them under BUILT_SOURCES, and their .in versions under
@@ -18,13 +20,14 @@ libutilcudd_la_LIBADD = @CUDD_LDFLAGS@ @CUDD_LIBS@
 # configured at the time of the "make dist", which (1) may not be the
 # configuration that the user wants, and (2) might cause link errors.
 libutil_la_SOURCES = \
-	Assert.h \
-	Assert.cpp \
+	cvc4_assert.h \
+	cvc4_assert.cpp \
 	backtrackable.h \
 	Makefile.am \
 	Makefile.in \
 	debug.h \
 	exception.h \
+	exception.cpp \
 	hash.h \
 	bool.h \
 	proof.h \
@@ -44,8 +47,10 @@ libutil_la_SOURCES = \
 	gmp_util.h \
 	sexpr.h \
 	sexpr.cpp \
-	stats.h \
-	stats.cpp \
+	statistics.h \
+	statistics.cpp \
+	statistics_registry.h \
+	statistics_registry.cpp \
 	dynamic_array.h \
 	language.h \
 	lemma_input_channel.h \
@@ -74,13 +79,20 @@ libutil_la_SOURCES = \
 	index.h \
 	uninterpreted_constant.h \
 	uninterpreted_constant.cpp \
+	abstract_value.h \
+	abstract_value.cpp \
 	array_store_all.h \
 	array_store_all.cpp \
-	model.h \
-	model.cpp
+	util_model.h \
+	util_model.cpp
 
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
+
+libstatistics_la_SOURCES = \
+	statistics_registry.h \
+	statistics_registry.cpp
+
 libutilcudd_la_SOURCES = \
 	propositional_query.h \
 	propositional_query.cpp
@@ -110,7 +122,7 @@ EXTRA_DIST = \
 	integer.h.in \
 	tls.h.in \
 	integer.i \
-	stats.i \
+	statistics.i \
 	bool.i \
 	sexpr.i \
 	datatype.i \
@@ -118,7 +130,7 @@ EXTRA_DIST = \
 	cardinality.i \
 	result.i \
 	configuration.i \
-	Assert.i \
+	cvc4_assert.i \
 	bitvector.i \
 	subrange_bound.i \
 	exception.i \
@@ -127,7 +139,8 @@ EXTRA_DIST = \
 	array_store_all.i \
 	ascription_type.i \
 	rational.i \
-	hash.i
+	hash.i \
+	util_model.i
 
 DISTCLEANFILES = \
 	integer.h.tmp \

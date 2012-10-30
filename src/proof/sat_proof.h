@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -15,6 +13,8 @@
  **
  ** Resolution proof
  **/
+
+#include "cvc4_private.h"
 
 #ifndef __CVC4__SAT__PROOF_H
 #define __CVC4__SAT__PROOF_H
@@ -26,22 +26,23 @@
 #include <ext/hash_map>
 #include <ext/hash_set>
 #include <sstream>
+
 namespace Minisat {
-class Solver;
-typedef uint32_t CRef;
-}
+  class Solver;
+  typedef uint32_t CRef;
+}/* Minisat namespace */
 
 #include "prop/minisat/core/SolverTypes.h"
 #include "util/proof.h"
 
 namespace std {
-using namespace __gnu_cxx;
-}
+  using namespace __gnu_cxx;
+}/* std namespace */
 
 namespace CVC4 {
+
 /** 
  * Helper debugging functions
- * 
  */
 void printDebug(::Minisat::Lit l);
 void printDebug(::Minisat::Clause& c); 
@@ -56,7 +57,7 @@ struct ResStep {
     id(i),
     sign(s)
   {}
-};
+};/* struct ResStep */
 
 typedef std::vector< ResStep > ResSteps; 
 typedef std::set < ::Minisat::Lit> LitSet; 
@@ -76,8 +77,7 @@ public:
   ClauseId  getStart()     { return d_start; }
   ResSteps& getSteps()     { return d_steps; }
   LitSet*   getRedundant() { return d_redundantLits; }
-};
-
+};/* class ResChain */
 
 typedef std::hash_map < ClauseId, ::Minisat::CRef > IdClauseMap;
 typedef std::hash_map < ::Minisat::CRef, ClauseId > ClauseIdMap;
@@ -98,7 +98,7 @@ private:
 public:
   ProofProxy(SatProof* pf);
   void updateCRef(::Minisat::CRef oldref, ::Minisat::CRef newref);
-};
+};/* class ProofProxy */
 
 class SatProof : public Proof {
 protected:
@@ -217,7 +217,7 @@ public:
   void     storeUnitResolution(::Minisat::Lit lit); 
   
   ProofProxy* getProxy() {return d_proxy; } 
-};
+};/* class SatProof */
 
 class LFSCSatProof: public SatProof {
 private:
@@ -251,8 +251,8 @@ public:
     d_seenInput()
   {} 
   virtual void toStream(std::ostream& out);  
-};
+};/* class LFSCSatProof */
 
-}
+}/* CVC4 namespace */
 
-#endif
+#endif /* __CVC4__SAT__PROOF_H */

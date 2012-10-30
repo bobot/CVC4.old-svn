@@ -2,12 +2,10 @@
 /*! \file smt_engine.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan
- ** Minor contributors (to current version): cconway, kshitij
+ ** Major contributors: none
+ ** Minor contributors (to current version): ajreynol, barrett, cconway, kshitij, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -29,13 +27,13 @@
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "util/proof.h"
-#include "util/model.h"
 #include "smt/modal_exception.h"
 #include "util/hash.h"
 #include "options/options.h"
 #include "util/result.h"
 #include "util/sexpr.h"
-#include "util/stats.h"
+#include "util/hash.h"
+#include "util/statistics.h"
 #include "theory/logic_info.h"
 
 // In terms of abstraction, this is below (and provides services to)
@@ -44,15 +42,19 @@
 
 namespace CVC4 {
 
-
 template <bool ref_count> class NodeTemplate;
 typedef NodeTemplate<true> Node;
 typedef NodeTemplate<false> TNode;
 class NodeHashFunction;
 
+class Command;
+class GetModelCommand;
+
+class SmtEngine;
 class DecisionEngine;
 class TheoryEngine;
 
+class Model;
 class StatisticsRegistry;
 
 namespace context {
@@ -73,9 +75,19 @@ namespace smt {
    */
   class DefinedFunction;
 
+  class SmtEngineStatistics;
   class SmtEnginePrivate;
   class SmtScope;
+
+  void beforeSearch(std::string, bool, SmtEngine*) throw(ModalException);
+
+  struct CommandCleanup;
+  typedef context::CDList<Command*, CommandCleanup> CommandList;
 }/* CVC4::smt namespace */
+
+namespace stats {
+  StatisticsRegistry* getStatisticsRegistry(SmtEngine*);
+}/* CVC4::stats namespace */
 
 // TODO: SAT layer (esp. CNF- versus non-clausal solvers under the
 // hood): use a type parameter and have check() delegate, or subclass
@@ -128,6 +140,12 @@ class CVC4_PUBLIC SmtEngine {
    * List of items for which to retrieve values using getAssignment().
    */
   AssignmentSet* d_assignments;
+
+  /**
+   * A list of commands that should be in the Model.  Only maintained
+   * if produce-models option is on.
+   */
+  smt::CommandList* d_modelCommands;
 
   /**
    * The logic we're in.
@@ -198,6 +216,12 @@ class CVC4_PUBLIC SmtEngine {
   smt::SmtEnginePrivate* d_private;
 
   /**
+   * Check that a generated Model (via getModel()) actually satisfies
+   * all user assertions.
+   */
+  void checkModel(bool hardFailure = true);
+
+  /**
    * This is something of an "init" procedure, but is idempotent; call
    * as often as you like.  Should be called whenever the final options
    * and logic for the problem are set (at least, those options that are
@@ -239,7 +263,7 @@ class CVC4_PUBLIC SmtEngine {
    * Fully type-check the argument, and also type-check that it's
    * actually Boolean.
    */
-  void ensureBoolean(const BoolExpr& e) throw(TypeCheckingException);
+  void ensureBoolean(const Expr& e) throw(TypeCheckingException);
 
   void internalPush();
 
@@ -251,43 +275,40 @@ class CVC4_PUBLIC SmtEngine {
    * Internally handle the setting of a logic.  This function should always
    * be called when d_logic is updated.
    */
-  void setLogicInternal() throw(AssertionException);
+  void setLogicInternal() throw();
 
   friend class ::CVC4::smt::SmtEnginePrivate;
   friend class ::CVC4::smt::SmtScope;
+  friend ::CVC4::StatisticsRegistry* ::CVC4::stats::getStatisticsRegistry(SmtEngine*);
+  friend void ::CVC4::smt::beforeSearch(std::string, bool, SmtEngine*) throw(ModalException);
+  // to access d_modelCommands
+  friend class ::CVC4::Model;
+  // to access getModel(), which is private (for now)
+  friend class GetModelCommand;
 
   StatisticsRegistry* d_statisticsRegistry;
 
-  // === STATISTICS ===
-  /** time spent in definition-expansion */
-  TimerStat d_definitionExpansionTime;
-  /** time spent in non-clausal simplification */
-  TimerStat d_nonclausalSimplificationTime;
-  /** Num of constant propagations found during nonclausal simp */
-  IntStat d_numConstantProps;
-  /** time spent in static learning */
-  TimerStat d_staticLearningTime;
-  /** time spent in simplifying ITEs */
-  TimerStat d_simpITETime;
-  /** time spent in simplifying ITEs */
-  TimerStat d_unconstrainedSimpTime;
-  /** time spent removing ITEs */
-  TimerStat d_iteRemovalTime;
-  /** time spent in theory preprocessing */
-  TimerStat d_theoryPreprocessTime;
-  /** time spent converting to CNF */
-  TimerStat d_cnfConversionTime;
-  /** Num of assertions before ite removal */
-  IntStat d_numAssertionsPre;
-  /** Num of assertions after ite removal */
-  IntStat d_numAssertionsPost;
+  smt::SmtEngineStatistics* d_stats;
+
+  /**
+   * Add to Model command.  This is used for recording a command
+   * that should be reported during a get-model call.
+   */
+  void addToModelCommand(Command* c);
+
+  /**
+   * Get the model (only if immediately preceded by a SAT
+   * or INVALID query).  Only permitted if CVC4 was built with model
+   * support and produce-models is on.
+   */
+  Model* getModel() throw(ModalException);
 
 public:
 
   /**
    * Construct an SmtEngine with the given expression manager.
    */
-  SmtEngine(ExprManager* em) throw(AssertionException);
+  SmtEngine(ExprManager* em) throw();
 
   /**
    * Destruct the SMT engine.
@@ -303,6 +324,11 @@ public:
    * Set the logic of the script.
    */
   void setLogic(const LogicInfo& logic) throw(ModalException);
+
+  /**
+   * Get the logic information currently set
+   */
+  LogicInfo getLogicInfo() const;
 
   /**
    * Set information about the script executing.
@@ -344,26 +370,26 @@ public:
    * literals and conjunction of literals.  Returns false iff
    * inconsistent.
    */
-  Result assertFormula(const BoolExpr& e) throw(TypeCheckingException);
+  Result assertFormula(const Expr& e) throw(TypeCheckingException);
 
   /**
    * Check validity of an expression with respect to the current set
    * of assertions by asserting the query expression's negation and
    * calling check().  Returns valid, invalid, or unknown result.
    */
-  Result query(const BoolExpr& e) throw(TypeCheckingException);
+  Result query(const Expr& e) throw(TypeCheckingException, ModalException);
 
   /**
    * Assert a formula (if provided) to the current context and call
    * check().  Returns sat, unsat, or unknown result.
    */
-  Result checkSat(const BoolExpr& e = BoolExpr()) throw(TypeCheckingException);
+  Result checkSat(const Expr& e = Expr()) throw(TypeCheckingException, ModalException);
 
   /**
    * Simplify a formula without doing "much" work.  Does not involve
    * the SAT Engine in the simplification, but uses the current
-   * assertions and the current partial model, if one has been
-   * constructed.
+   * definitions, assertions, and the current partial model, if one
+   * has been constructed.  It also involves theory normalization.
    *
    * @todo (design) is this meant to give an equivalent or an
    * equisatisfiable formula?
@@ -371,11 +397,17 @@ public:
   Expr simplify(const Expr& e) throw(TypeCheckingException);
 
   /**
+   * Expand the definitions in a term or formula.  No other
+   * simplification or normalization is done.
+   */
+  Expr expandDefinitions(const Expr& e) throw(TypeCheckingException);
+
+  /**
    * Get the assigned value of an expr (only if immediately preceded
    * by a SAT or INVALID query).  Only permitted if the SmtEngine is
    * set to operate interactively and produce-models is on.
    */
-  Expr getValue(const Expr& e) throw(ModalException, AssertionException);
+  Expr getValue(const Expr& e) throw(ModalException);
 
   /**
    * Add a function to the set of expressions whose value is to be
@@ -386,50 +418,37 @@ public:
    * this function returns true if the expression was added and false
    * if this request was ignored.
    */
-  bool addToAssignment(const Expr& e) throw(AssertionException);
+  bool addToAssignment(const Expr& e) throw();
 
   /**
    * Get the assignment (only if immediately preceded by a SAT or
    * INVALID query).  Only permitted if the SmtEngine is set to
    * operate interactively and produce-assignments is on.
    */
-  CVC4::SExpr getAssignment() throw(ModalException, AssertionException);
-
-  /**
-   * Add to Model command.  This is used for recording a command that should be reported
-   * during a get-model call.
-   */
-  void addToModelCommand( Command* c, int c_type );
-
-  /**
-   * Get the model (only if immediately preceded by a SAT
-   * or INVALID query).  Only permitted if CVC4 was built with model
-   * support and produce-models is on.
-   */
-  Model* getModel() throw(ModalException, AssertionException);
+  CVC4::SExpr getAssignment() throw(ModalException);
 
   /**
    * Get the last proof (only if immediately preceded by an UNSAT
    * or VALID query).  Only permitted if CVC4 was built with proof
    * support and produce-proofs is on.
    */
-  Proof* getProof() throw(ModalException, AssertionException);
+  Proof* getProof() throw(ModalException);
 
   /**
    * Get the current set of assertions.  Only permitted if the
    * SmtEngine is set to operate interactively.
    */
-  std::vector<Expr> getAssertions() throw(ModalException, AssertionException);
+  std::vector<Expr> getAssertions() throw(ModalException);
 
   /**
    * Push a user-level context.
    */
-  void push();
+  void push() throw(ModalException);
 
   /**
    * Pop a user-level context.  Throws an exception if nothing to pop.
    */
-  void pop();
+  void pop() throw(ModalException);
 
   /**
    * Interrupt a running query.  This can be called from another thread
@@ -537,34 +556,27 @@ public:
   }
 
   /**
-   * Permit access to the underlying StatisticsRegistry.
+   * Export statistics from this SmtEngine.
    */
-  StatisticsRegistry* getStatisticsRegistry() const;
+  Statistics getStatistics() const throw();
 
-  Result getStatusOfLastCommand() const {
+  /**
+   * Get the value of one named statistic from this SmtEngine.
+   */
+  SExpr getStatistic(std::string name) const throw();
+
+  /**
+   * Returns the most recent result of checkSat/query or (set-info :status).
+   */
+  Result getStatusOfLastCommand() const throw() {
     return d_status;
   }
 
   /**
-   * Used as a predicate for options preprocessor.
+   * Set user attribute.
+   * This function is called when an attribute is set by a user.
+   * In SMT-LIBv2 this is done via the syntax (! expr :attr)
    */
-  static void beforeSearch(std::string option, bool value, SmtEngine* smt) throw(ModalException) {
-    if(smt != NULL && smt->d_fullyInited) {
-      std::stringstream ss;
-      ss << "cannot change option `" << option << "' after final initialization (i.e., after logic has been set)";
-      throw ModalException(ss.str());
-    }
-  }
-
-  /**
-   * print model function (need this?)
-   */
-  void printModel( std::ostream& out, Model* m );
-
-  /** Set user attribute
-    * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
-    *  via the syntax (! expr :attr)
-    */
   void setUserAttribute( std::string& attr, Expr expr );
 
 };/* class SmtEngine */

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): kshitij
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -67,7 +65,7 @@ class CVC4_PUBLIC Pickler {
 
 protected:
   virtual uint64_t variableToMap(uint64_t x) const
-    throw(AssertionException, PicklingException) {
+    throw(PicklingException) {
     return x;
   }
   virtual uint64_t variableFromMap(uint64_t x) const {
@@ -87,7 +85,7 @@ public:
    *
    * @return the pickle, which should be dispose()'d when you're done with it
    */
-  void toPickle(Expr e, Pickle& p) throw(AssertionException, PicklingException);
+  void toPickle(Expr e, Pickle& p) throw(PicklingException);
 
   /**
    * Constructs a node from a Pickle.
@@ -101,7 +99,7 @@ public:
 
 };/* class Pickler */
 
-class MapPickler : public Pickler {
+class CVC4_PUBLIC MapPickler : public Pickler {
 private:
   const VarMap& d_toMap;
   const VarMap& d_fromMap;
@@ -113,10 +111,12 @@ public:
     d_fromMap(from) {
   }
 
+  virtual ~MapPickler() throw() {}
+
 protected:
 
   virtual uint64_t variableToMap(uint64_t x) const
-    throw(AssertionException, PicklingException) {
+    throw(PicklingException) {
     VarMap::const_iterator i = d_toMap.find(x);
     if(i != d_toMap.end()) {
       return i->second;
@@ -125,11 +125,7 @@ protected:
     }
   }
 
-  virtual uint64_t variableFromMap(uint64_t x) const {
-    VarMap::const_iterator i = d_fromMap.find(x);
-    Assert(i != d_fromMap.end());
-    return i->second;
-  }
+  virtual uint64_t variableFromMap(uint64_t x) const; 
 };/* class MapPickler */
 
 }/* CVC4::expr::pickle namespace */

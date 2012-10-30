@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): cconway
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,8 +18,10 @@
 #include <string>
 
 #include "options/options.h"
+#include "expr/expr_manager.h"
+#include "smt/smt_engine.h"
 #include "util/exception.h"
-#include "util/stats.h"
+#include "util/statistics.h"
 #include "util/tls.h"
 #include "cvc4autoconfig.h"
 
@@ -31,14 +31,16 @@
 namespace CVC4 {
 namespace main {
 
+class CommandExecutor;
+
 /** Full argv[0] */
 extern const char* progPath;
 
 /** Just the basename component of argv[0] */
 extern const char* progName;
 
-/** A reference to the StatisticsRegistry for use by the signal handlers */
-extern CVC4::StatisticsRegistry* pStatistics;
+/** A reference for use by the signal handlers to print statistics */
+extern CVC4::main::CommandExecutor* pExecutor;
 
 /**
  * If true, will not spin on segfault even when CVC4_DEBUG is on.

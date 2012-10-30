@@ -2,12 +2,10 @@
 /*! \file theory_builtin_type_rules.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: cconway, mdeters
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): taking, ajreynol, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -24,6 +22,7 @@
 #include "expr/node.h"
 #include "expr/type_node.h"
 #include "expr/expr.h"
+#include "theory/rewriter.h"
 
 #include <sstream>
 
@@ -49,7 +48,7 @@ class ApplyTypeRule {
         TNode::iterator argument_it_end = n.end();
         TypeNode::iterator argument_type_it = fType.begin();
         for(; argument_it != argument_it_end; ++argument_it, ++argument_type_it) {
-          if((*argument_it).getType() != *argument_type_it) {
+          if(!(*argument_it).getType().isComparableTo(*argument_type_it)) {
             std::stringstream ss;
             ss << "argument types do not match the function type:\n"
                << "argument:  " << *argument_it << "\n"
@@ -116,7 +115,6 @@ public:
   }
 };/* class DistinctTypeRule */
 
-
 class TupleTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
@@ -130,12 +128,36 @@ public:
   }
 };/* class TupleTypeRule */
 
+class SExprTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
+    std::vector<TypeNode> types;
+    for(TNode::iterator child_it = n.begin(), child_it_end = n.end();
+        child_it != child_it_end;
+        ++child_it) {
+      types.push_back((*child_it).getType(check));
+    }
+    return nodeManager->mkSExprType(types);
+  }
+};/* class SExprTypeRule */
+
 class UninterpretedConstantTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
     return TypeNode::fromType(n.getConst<UninterpretedConstant>().getType());
   }
 };/* class UninterpretedConstantTypeRule */
+
+class AbstractValueTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
+    // An UnknownTypeException means that this node has no type.  For now,
+    // only abstract values are like this.  Assigning them a type in all
+    // cases is difficult, since then the parser and the SmtEngine must be
+    // more tightly coupled.
+    throw UnknownTypeException(n);
+  }
+};/* class AbstractValueTypeRule */
 
 class StringConstantTypeRule {
 public:
@@ -161,7 +183,60 @@ public:
     TypeNode rangeType = n[1].getType(check);
     return nodeManager->mkFunctionType(argTypes, rangeType);
   }
+
+  inline static bool computeIsConst(NodeManager* nodeManager, TNode n) {
+    Assert(n.getKind() == kind::LAMBDA);
+    return true;
+  }
 };/* class LambdaTypeRule */
+
+class ChainTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
+    Assert(n.getKind() == kind::CHAIN);
+
+    if(!check) {
+      return nodeManager->booleanType();
+    }
+
+    TypeNode tn;
+    try {
+      // Actually do the expansion to do the typechecking.
+      // Shouldn't be extra work to do this, since the rewriter
+      // keeps a cache.
+      tn = nodeManager->getType(Rewriter::rewrite(n), check);
+    } catch(TypeCheckingExceptionPrivate& e) {
+      std::stringstream ss;
+      ss << "Cannot typecheck the expansion of chained operator `" << n.getOperator() << "':"
+         << std::endl;
+      // indent the sub-exception for clarity
+      std::stringstream ss2;
+      ss2 << e;
+      std::string eStr = ss2.str();
+      for(size_t i = eStr.find('\n'); i != std::string::npos; i = eStr.find('\n', i)) {
+        eStr.insert(++i, "| ");
+      }
+      ss << "| " << eStr;
+      throw TypeCheckingExceptionPrivate(n, ss.str());
+    }
+
+    // This check is intentionally != booleanType() rather than
+    // !(...isBoolean()): if we ever add a type compatible with
+    // Boolean (pseudobooleans or whatever), we have to revisit
+    // the above "!check" case where booleanType() is returned
+    // directly.  Putting this check here will cause a failure if
+    // it's ever relevant.
+    if(tn != nodeManager->booleanType()) {
+      std::stringstream ss;
+      ss << "Chains can only be formed over predicates; "
+         << "the operator here returns `" << tn << "', expected `"
+         << nodeManager->booleanType() << "'.";
+      throw TypeCheckingExceptionPrivate(n, ss.str());
+    }
+
+    return nodeManager->booleanType();
+  }
+};/* class ChainTypeRule */
 
 class SortProperties {
 public:
@@ -170,7 +245,7 @@ public:
   }
   inline static Node mkGroundTerm(TypeNode type) {
     Assert(type.getKind() == kind::SORT_TYPE);
-    return NodeManager::currentNM()->mkSkolem( type );
+    return NodeManager::currentNM()->mkSkolem("groundTerm_$$", type, "a ground term created for type " + type.toString());
   }
 };/* class SortProperties */
 
@@ -245,6 +320,58 @@ public:
     return NodeManager::currentNM()->mkNode(kind::TUPLE, children);
   }
 };/* class TupleProperties */
+
+class SExprProperties {
+public:
+  inline static Cardinality computeCardinality(TypeNode type) {
+    // Don't assert this; allow other theories to use this cardinality
+    // computation.
+    //
+    // Assert(type.getKind() == kind::SEXPR_TYPE);
+
+    Cardinality card(1);
+    for(TypeNode::iterator i = type.begin(),
+          i_end = type.end();
+        i != i_end;
+        ++i) {
+      card *= (*i).getCardinality();
+    }
+
+    return card;
+  }
+
+  inline static bool isWellFounded(TypeNode type) {
+    // Don't assert this; allow other theories to use this
+    // wellfoundedness computation.
+    //
+    // Assert(type.getKind() == kind::SEXPR_TYPE);
+
+    for(TypeNode::iterator i = type.begin(),
+          i_end = type.end();
+        i != i_end;
+        ++i) {
+      if(! (*i).isWellFounded()) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  inline static Node mkGroundTerm(TypeNode type) {
+    Assert(type.getKind() == kind::SEXPR_TYPE);
+
+    std::vector<Node> children;
+    for(TypeNode::iterator i = type.begin(),
+          i_end = type.end();
+        i != i_end;
+        ++i) {
+      children.push_back((*i).mkGroundTerm());
+    }
+
+    return NodeManager::currentNM()->mkNode(kind::SEXPR, children);
+  }
+};/* class SExprProperties */
 
 class SubtypeProperties {
 public:

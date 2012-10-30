@@ -2,12 +2,10 @@
 /*! \file bitvector.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: cconway, mdeters
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters, lianah
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,7 +21,7 @@
 #define __CVC4__BITVECTOR_H
 
 #include <iostream>
-#include "util/Assert.h"
+#include "util/exception.h"
 #include "util/integer.h"
 
 namespace CVC4 {
@@ -99,8 +97,8 @@ public:
     return d_value != y.d_value;
   }
 
-  BitVector equals(const BitVector&  y) const {
-    Assert(d_size == y.d_size);
+  BitVector equals(const BitVector& y) const {
+    CheckArgument(d_size == y.d_size, y);
     return d_value == y.d_value; 
   }
 
@@ -118,19 +116,19 @@ public:
 
   // xor
   BitVector operator ^(const BitVector& y) const {
-    Assert (d_size == y.d_size); 
+    CheckArgument(d_size == y.d_size, y);
     return BitVector(d_size, d_value.bitwiseXor(y.d_value)); 
   }
   
   // or
   BitVector operator |(const BitVector& y) const {
-    Assert (d_size == y.d_size); 
+    CheckArgument(d_size == y.d_size, y);
     return BitVector(d_size, d_value.bitwiseOr(y.d_value)); 
   }
   
   // and
   BitVector operator &(const BitVector& y) const {
-    Assert (d_size == y.d_size); 
+    CheckArgument(d_size == y.d_size, y);
     return BitVector(d_size, d_value.bitwiseAnd(y.d_value)); 
   }
 
@@ -162,13 +160,13 @@ public:
 
   
   BitVector operator +(const BitVector& y) const {
-    Assert (d_size == y.d_size);
+    CheckArgument(d_size == y.d_size, y);
     Integer sum = d_value +  y.d_value;
     return BitVector(d_size, sum);
   }
 
   BitVector operator -(const BitVector& y) const {
-    Assert (d_size == y.d_size);
+    CheckArgument(d_size == y.d_size, y);
     // to maintain the invariant that we are only adding BitVectors of the
     // same size
     BitVector one(d_size, Integer(1)); 
@@ -181,35 +179,38 @@ public:
   }
 
   BitVector operator *(const BitVector& y) const {
-    Assert (d_size == y.d_size);
+    CheckArgument(d_size == y.d_size, y);
     Integer prod = d_value * y.d_value;
     return BitVector(d_size, prod);
   }
   
   BitVector unsignedDiv (const BitVector& y) const {
-    Assert (d_size == y.d_size);
+    CheckArgument(d_size == y.d_size, y);
     // TODO: decide whether we really want these semantics
     if (y.d_value == 0) {
       return BitVector(d_size, Integer(0));
     }
-    Assert (d_value >= 0 && y.d_value > 0); 
+    CheckArgument(d_value >= 0, this);
+    CheckArgument(y.d_value > 0, y);
     return BitVector(d_size, d_value.floorDivideQuotient(y.d_value)); 
   }
 
   BitVector unsignedRem(const BitVector& y) const {
-    Assert (d_size == y.d_size);
+    CheckArgument(d_size == y.d_size, y);
     // TODO: decide whether we really want these semantics
     if (y.d_value == 0) {
       return BitVector(d_size, Integer(0));
     }
-    Assert (d_value >= 0 && y.d_value > 0); 
+    CheckArgument(d_value >= 0, this);
+    CheckArgument(y.d_value > 0, y);
     return BitVector(d_size, d_value.floorDivideRemainder(y.d_value)); 
   }
   
   
   bool signedLessThan(const BitVector& y) const {
-    Assert(d_size == y.d_size);
-    Assert(d_value >= 0 && y.d_value >= 0);
+    CheckArgument(d_size == y.d_size, y);
+    CheckArgument(d_value >= 0, this);
+    CheckArgument(y.d_value >= 0, y);
     Integer a = (*this).toSignedInt();
     Integer b = y.toSignedInt(); 
     
@@ -217,14 +218,16 @@ public:
   }
 
   bool unsignedLessThan(const BitVector& y) const {
-    Assert(d_size == y.d_size);
-    Assert(d_value >= 0 && y.d_value >= 0);
+    CheckArgument(d_size == y.d_size, y);
+    CheckArgument(d_value >= 0, this);
+    CheckArgument(y.d_value >= 0, y);
     return d_value < y.d_value; 
   }
 
   bool signedLessThanEq(const BitVector& y) const {
-    Assert(d_size == y.d_size);
-    Assert(d_value >= 0 && y.d_value >= 0);
+    CheckArgument(d_size == y.d_size, y);
+    CheckArgument(d_value >= 0, this);
+    CheckArgument(y.d_value >= 0, y);
     Integer a = (*this).toSignedInt();
     Integer b = y.toSignedInt(); 
     
@@ -232,8 +235,9 @@ public:
   }
 
   bool unsignedLessThanEq(const BitVector& y) const {
-    Assert(d_size == y.d_size);
-    Assert(d_value >= 0 && y.d_value >= 0);
+    CheckArgument(d_size == y.d_size, this);
+    CheckArgument(d_value >= 0, this);
+    CheckArgument(y.d_value >= 0, y);
     return d_value <= y.d_value; 
   }
 
@@ -269,7 +273,7 @@ public:
     }
 
     // making sure we don't lose information casting
-    Assert(y.d_value < Integer(1).multiplyByPow2(32));
+    CheckArgument(y.d_value < Integer(1).multiplyByPow2(32), y);
     uint32_t amount = y.d_value.toUnsignedInt(); 
     Integer res = d_value.multiplyByPow2(amount);
     return BitVector(d_size, res);
@@ -281,7 +285,7 @@ public:
     }
 
     // making sure we don't lose information casting
-    Assert(y.d_value < Integer(1).multiplyByPow2(32));
+    CheckArgument(y.d_value < Integer(1).multiplyByPow2(32), y);
     uint32_t amount = y.d_value.toUnsignedInt(); 
     Integer res = d_value.divByPow2(amount); 
     return BitVector(d_size, res);
@@ -302,7 +306,7 @@ public:
     }
 
     // making sure we don't lose information casting
-    Assert(y.d_value < Integer(1).multiplyByPow2(32));
+    CheckArgument(y.d_value < Integer(1).multiplyByPow2(32), y);
    
     uint32_t amount  = y.d_value.toUnsignedInt();
     Integer rest = d_value.divByPow2(amount);
@@ -310,7 +314,7 @@ public:
     if(sign_bit == Integer(0)) {
       return BitVector(d_size, rest); 
     }
-    Integer res = rest.oneExtend(d_size - amount, amount); 
+    Integer res = rest.oneExtend(d_size - amount, amount);
     return BitVector(d_size, res);
   }
   
@@ -358,17 +362,15 @@ public:
 
 
 inline BitVector::BitVector(const std::string& num, unsigned base) {
-  AlwaysAssert( base == 2 || base == 16 );
+  CheckArgument(base == 2 || base == 16, base);
 
   if( base == 2 ) {
     d_size = num.size();
-  } else if( base == 16 ) {
-    d_size = num.size() * 4;
   } else {
-    Unreachable("Unsupported base in BitVector(std::string&, unsigned int).");
+    d_size = num.size() * 4;
   }
 
-  d_value = Integer(num,base);
+  d_value = Integer(num, base);
 }/* BitVector::BitVector() */
 
 

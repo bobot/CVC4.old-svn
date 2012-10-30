@@ -2,12 +2,10 @@
 /*! \file decision_strategy.h
  ** \verbatim
  ** Original author: kshitij
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -15,6 +13,8 @@
  **
  ** Decision strategy
  **/
+
+#include "cvc4_private.h"
 
 #ifndef __CVC4__DECISION__DECISION_STRATEGY_H
 #define __CVC4__DECISION__DECISION_STRATEGY_H
@@ -34,7 +34,7 @@ namespace decision {
 
 class DecisionStrategy {
 protected:
-   DecisionEngine* d_decisionEngine;
+  DecisionEngine* d_decisionEngine;
 public:
   DecisionStrategy(DecisionEngine* de, context::Context *c) :
     d_decisionEngine(de) {

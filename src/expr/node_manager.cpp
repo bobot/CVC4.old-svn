@@ -2,12 +2,10 @@
 /*! \file node_manager.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway
- ** Minor contributors (to current version): acsys, taking, dejan
+ ** Major contributors: dejan, cconway
+ ** Minor contributors (to current version): acsys, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,9 +18,9 @@
 
 #include "expr/node_manager.h"
 
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 #include "options/options.h"
-#include "util/stats.h"
+#include "util/statistics_registry.h"
 #include "util/tls.h"
 
 #include "expr/type_checker.h"
@@ -139,7 +137,7 @@ NodeManager::~NodeManager() {
   poolRemove( &expr::NodeValue::s_null );
 
   if(Debug.isOn("gc:leaks")) {
-    Debug("gc:leaks") << "still in pool:" << std::endl;
+    Debug("gc:leaks") << "still in pool:" << endl;
     for(NodeValuePool::const_iterator i = d_nodeValuePool.begin(),
           iend = d_nodeValuePool.end();
         i != iend;
@@ -147,9 +145,9 @@ NodeManager::~NodeManager() {
       Debug("gc:leaks") << "  " << *i
                         << " id=" << (*i)->d_id
                         << " rc=" << (*i)->d_rc
-                        << " " << **i << std::endl;
+                        << " " << **i << endl;
     }
-    Debug("gc:leaks") << ":end:" << std::endl;
+    Debug("gc:leaks") << ":end:" << endl;
   }
 
   delete d_statisticsRegistry;
@@ -183,10 +181,10 @@ void NodeManager::reclaimZombies() {
 
   vector<NodeValue*> zombies;
   zombies.reserve(d_zombies.size());
-  std::remove_copy_if(d_zombies.begin(),
-                      d_zombies.end(),
-                      std::back_inserter(zombies),
-                      NodeValueReferenceCountNonZero());
+  remove_copy_if(d_zombies.begin(),
+                 d_zombies.end(),
+                 back_inserter(zombies),
+                 NodeValueReferenceCountNonZero());
   d_zombies.clear();
 
   for(vector<NodeValue*>::iterator i = zombies.begin();
@@ -200,7 +198,7 @@ void NodeManager::reclaimZombies() {
         Debug("gc") << "deleting node value " << nv
                     << " [" << nv->d_id << "]: ";
         nv->printAst(Debug("gc"));
-        Debug("gc") << std::endl;
+        Debug("gc") << endl;
       }
 
       // remove from the pool
@@ -251,7 +249,7 @@ TypeNode NodeManager::getType(TNode n, bool check)
   bool hasType = getAttribute(n, TypeAttr(), typeNode);
   bool needsCheck = check && !getAttribute(n, TypeCheckedAttr());
 
-  Debug("getType") << "getting type for " << n << std::endl;
+  Debug("getType") << "getting type for " << n << endl;
 
   if(needsCheck && !(*d_options)[options::earlyTypeChecking]) {
     /* Iterate and compute the children bottom up. This avoids stack
@@ -295,28 +293,57 @@ TypeNode NodeManager::getType(TNode n, bool check)
   /* The check should have happened, if we asked for it. */
   Assert( !check || getAttribute(n, TypeCheckedAttr()) );
 
-  Debug("getType") << "type of " << n << " is " << typeNode << std::endl;
+  Debug("getType") << "type of " << n << " is " << typeNode << endl;
   return typeNode;
+}
+
+Node NodeManager::mkSkolem(const std::string& name, const TypeNode& type, const std::string& comment, int flags) {
+  Node n = NodeBuilder<0>(this, kind::SKOLEM);
+  setAttribute(n, TypeAttr(), type);
+  setAttribute(n, TypeCheckedAttr(), true);
+  if((flags & SKOLEM_EXACT_NAME) == 0) {
+    size_t pos = name.find("$$");
+    if(pos != string::npos) {
+      // replace a "$$" with the node ID
+      stringstream id;
+      id << n.getId();
+      string newName = name;
+      newName.replace(pos, 2, id.str());
+      setAttribute(n, expr::VarNameAttr(), newName);
+    } else {
+      stringstream newName;
+      newName << name << '_' << n.getId();
+      setAttribute(n, expr::VarNameAttr(), newName.str());
+    }
+  } else {
+    setAttribute(n, expr::VarNameAttr(), name);
+  }
+  if((flags & SKOLEM_NO_NOTIFY) == 0) {
+    for(vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
+      (*i)->nmNotifyNewSkolem(n, comment);
+    }
+  }
+  return n;
 }
 
 TypeNode NodeManager::mkConstructorType(const DatatypeConstructor& constructor,
                                         TypeNode range) {
-  std::vector<TypeNode> sorts;
-  Debug("datatypes") << "ctor name: " << constructor.getName() << std::endl;
+  vector<TypeNode> sorts;
+  Debug("datatypes") << "ctor name: " << constructor.getName() << endl;
   for(DatatypeConstructor::const_iterator i = constructor.begin();
       i != constructor.end();
       ++i) {
     TypeNode selectorType = *(*i).getSelector().getType().d_typeNode;
-    Debug("datatypes") << selectorType << std::endl;
+    Debug("datatypes") << selectorType << endl;
     TypeNode sort = selectorType[1];
 
     // should be guaranteed here already, but just in case
     Assert(!sort.isFunctionLike());
 
-    Debug("datatypes") << "ctor sort: " << sort << std::endl;
+    Debug("datatypes") << "ctor sort: " << sort << endl;
     sorts.push_back(sort);
   }
-  Debug("datatypes") << "ctor range: " << range << std::endl;
+  Debug("datatypes") << "ctor range: " << range << endl;
   CheckArgument(!range.isFunctionLike(), range,
                 "cannot create higher-order function types");
   sorts.push_back(range);
@@ -335,7 +362,7 @@ TypeNode NodeManager::mkPredicateSubtype(Expr lambda)
   TypeNode tn = lambdan.getType();
   if(! tn.isPredicateLike() ||
      tn.getArgTypes().size() != 1) {
-    std::stringstream ss;
+    stringstream ss;
     ss << "expected a predicate of one argument to define predicate subtype, but got type `" << tn << "'";
     throw TypeCheckingExceptionPrivate(lambdan, ss.str());
   }
@@ -355,7 +382,7 @@ TypeNode NodeManager::mkPredicateSubtype(Expr lambda, Expr witness)
   TypeNode tn = lambdan.getType();
   if(! tn.isPredicateLike() ||
      tn.getArgTypes().size() != 1) {
-    std::stringstream ss;
+    stringstream ss;
     ss << "expected a predicate of one argument to define predicate subtype, but got type `" << tn << "'";
     throw TypeCheckingExceptionPrivate(lambdan, ss.str());
   }

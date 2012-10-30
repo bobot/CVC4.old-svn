@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -23,6 +21,8 @@
 
 #include "cvc4autoconfig.h"
 #include "util/dump.h"
+#include "smt/modal_exception.h"
+#include "smt/smt_engine.h"
 
 #include <cerrno>
 #include <cstring>
@@ -71,20 +71,23 @@ benchmark\n\
   modes.\n\
 \n\
 declarations\n\
-+ Dump declarations.  Implied by all following modes.\n\
++ Dump user declarations.  Implied by all following modes.\n\
+\n\
+skolems\n\
++ Dump internally-created skolem variable declarations.  These can\n\
+  arise from preprocessing simplifications, existential elimination,\n\
+  and a number of other things.  Implied by all following modes.\n\
 \n\
 assertions\n\
-+ Output the assertions after non-clausal simplification and static\n\
-  learning phases, but before presolve-time T-lemmas arrive.  If\n\
-  non-clausal simplification and static learning are off\n\
-  (--simplification=none --no-static-learning), the output\n\
-  will closely resemble the input (with term-level ITEs removed).\n\
-\n\
-learned\n\
-+ Output the assertions after non-clausal simplification, static\n\
-  learning, and presolve-time T-lemmas.  This should include all eager\n\
-  T-lemmas (in the form provided by the theory, which my or may not be\n\
-  clausal).  Also includes level-0 BCP done by Minisat.\n\
++ Output the assertions after preprocessing and before clausification.\n\
+  Can also specify \"assertions:pre-PASS\" or \"assertions:post-PASS\",\n\
+  where PASS is one of the preprocessing passes: definition-expansion\n\
+  constrain-subtypes substitution skolem-quant simplify\n\
+  static-learning ite-removal repeat-simplify theory-preprocessing.\n\
+  PASS can also be the special value \"everything\", in which case the\n\
+  assertions are printed before any preprocessing (with\n\
+  \"assertions:pre-everything\") or after all preprocessing completes\n\
+  (with \"assertions:post-everything\").\n\
 \n\
 clauses\n\
 + Do all the preprocessing outlined above, and dump the CNF-converted\n\
@@ -120,7 +123,7 @@ theory::fullcheck [non-stateful]\n\
 + Output completeness queries for all full-check effort-level theory checks\n\
 \n\
 Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
-one from the assertions category (either assertions, learned, or clauses), and\n\
+one from the assertions category (either assertions or clauses), and\n\
 perhaps one or more stateful or non-stateful modes for checking correctness\n\
 and completeness of decision procedure implementations.  Stateful modes dump\n\
 the contextual assertions made by the core solver (all decisions and\n\
@@ -150,16 +153,6 @@ none\n\
 + do not perform nonclausal simplification\n\
 ";
 
-static const std::string modelFormatHelp = "\
-Model format modes currently supported by the --model-format option:\n\
-\n\
-default \n\
-+ Print model as expressions in the output language format.\n\
-\n\
-table\n\
-+ Print functional expressions over finite domains in a table format.\n\
-";
-
 inline void dumpMode(std::string option, std::string optarg, SmtEngine* smt) {
 #ifdef CVC4_DUMPING
   char* optargPtr = strdup(optarg.c_str());
@@ -170,7 +163,33 @@ inline void dumpMode(std::string option, std::string optarg, SmtEngine* smt) {
     if(!strcmp(optargPtr, "benchmark")) {
     } else if(!strcmp(optargPtr, "declarations")) {
     } else if(!strcmp(optargPtr, "assertions")) {
-    } else if(!strcmp(optargPtr, "learned")) {
+      Dump.on("assertions:post-everything");
+    } else if(!strncmp(optargPtr, "assertions:", 11)) {
+      const char* p = optargPtr + 11;
+      if(!strncmp(p, "pre-", 4)) {
+        p += 4;
+      } else if(!strncmp(p, "post-", 5)) {
+        p += 5;
+      } else {
+        throw OptionException(std::string("don't know how to dump `") +
+                              optargPtr + "'.  Please consult --dump help.");
+      }
+      if(!strcmp(p, "everything")) {
+      } else if(!strcmp(p, "definition-expansion")) {
+      } else if(!strcmp(p, "constrain-subtypes")) {
+      } else if(!strcmp(p, "substitution")) {
+      } else if(!strcmp(p, "skolem-quant")) {
+      } else if(!strcmp(p, "simplify")) {
+      } else if(!strcmp(p, "static-learning")) {
+      } else if(!strcmp(p, "ite-removal")) {
+      } else if(!strcmp(p, "repeat-simplify")) {
+      } else if(!strcmp(p, "theory-preprocessing")) {
+      } else {
+        throw OptionException(std::string("don't know how to dump `") +
+                              optargPtr + "'.  Please consult --dump help.");
+      }
+      Dump.on("assertions");
+    } else if(!strcmp(optargPtr, "skolems")) {
     } else if(!strcmp(optargPtr, "clauses")) {
     } else if(!strcmp(optargPtr, "t-conflicts") ||
               !strcmp(optargPtr, "t-lemmas") ||
@@ -217,6 +236,9 @@ inline void dumpMode(std::string option, std::string optarg, SmtEngine* smt) {
     Dump.on("benchmark");
     if(strcmp(optargPtr, "benchmark")) {
       Dump.on("declarations");
+      if(strcmp(optargPtr, "declarations")) {
+        Dump.on("skolems");
+      }
     }
   }
   free(optargPtr);
@@ -241,17 +263,29 @@ inline SimplificationMode stringToSimplificationMode(std::string option, std::st
   }
 }
 
-inline ModelFormatMode stringToModelFormatMode(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
-  if(optarg == "default") {
-    return MODEL_FORMAT_MODE_DEFAULT;
-  } else if(optarg == "table") {
-    return MODEL_FORMAT_MODE_TABLE;
-  } else if(optarg == "help") {
-    puts(modelFormatHelp.c_str());
-    exit(1);
-  } else {
-    throw OptionException(std::string("unknown option for --model-format: `") +
-                          optarg + "'.  Try --model-format help.");
+// ensure we haven't started search yet
+inline void beforeSearch(std::string option, bool value, SmtEngine* smt) throw(ModalException) {
+  if(smt != NULL && smt->d_fullyInited) {
+    std::stringstream ss;
+    ss << "cannot change option `" << option << "' after final initialization (i.e., after logic has been set)";
+    throw ModalException(ss.str());
+  }
+}
+
+// ensure we are a proof-enabled build of CVC4
+inline void proofEnabledBuild(std::string option, bool value, SmtEngine* smt) throw(OptionException) {
+#ifndef CVC4_PROOF
+  if(value) {
+    std::stringstream ss;
+    ss << "option `" << option << "' requires a proofs-enabled build of CVC4; this binary was not built with proof support";
+    throw OptionException(ss.str());
+  }
+#endif /* CVC4_PROOF */
+}
+
+inline void unsatCoresEnabledBuild(std::string option, bool value, SmtEngine* smt) throw(OptionException) {
+  if(value) {
+    throw UnrecognizedOptionException("CVC4 does not yet have support for unsatisfiable cores");
   }
 }
 

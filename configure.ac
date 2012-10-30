@@ -379,6 +379,7 @@ echo ./config.status "\$@"
 EOF
     chmod +x config.reconfig
   fi
+  ln -sf "$target/$build_type/config.log" "builds/config.log"
   exit $exitval
 else
   AC_MSG_RESULT([this one (user-specified)])
@@ -407,7 +408,7 @@ case "$with_build" in
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
     ;;
   debug) # unoptimized, debug symbols, assertions, tracing, dumping
-    CVC4CPPFLAGS=-DCVC4_DEBUG
+    CVC4CPPFLAGS='-DCVC4_DEBUG'
     CVC4CXXFLAGS='-fno-inline'
     CVC4CFLAGS='-fno-inline'
     CVC4LDFLAGS=
@@ -479,9 +480,14 @@ if test -z "${enable_static_binary+set}"; then
   enable_static_binary=no
 fi
 AC_MSG_RESULT([$enable_static_binary])
-if test "$enable_static_binary" = yes -a "$enable_static" != yes; then
-  enable_static=yes
-  AC_MSG_WARN([forcing static-library building, --enable-static-binary given])
+if test "$enable_static_binary" = yes; then
+  if test "$target_vendor" = apple; then
+    AC_MSG_ERROR([[Statically-linked binaries are not supported on Mac OS.  See https://developer.apple.com/library/mac/#qa/qa2001/qa1118.html]])
+  fi
+  if test "$enable_static" != yes; then
+    enable_static=yes
+    AC_MSG_WARN([forcing static-library building, --enable-static-binary given])
+  fi
 fi
 
 AC_MSG_CHECKING([whether to support proof in libcvc4])
@@ -709,6 +715,25 @@ namespace __gnu_cxx { template<> struct hash<uint64_t> {}; }])],
                   [AC_MSG_RESULT([yes])])
 AC_LANG_POP([C++])
 
+# Check whether "long" and "int64_t" are distinct types w.r.t. overloading.
+# Even if they have the same size, they can be distinct, and some platforms
+# can have problems with ambiguous function calls when auto-converting
+# int64_t to long, and others will complain if you overload a function
+# that takes an int64_t with one that takes a long (giving a redefinition
+# error).  So we have to keep both happy.  Probably the same underlying
+# issue as the hash specialization above, but let's check separately
+# for flexibility.
+AC_MSG_CHECKING([for the relationship between long and int64_t])
+AC_LANG_PUSH([C++])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+#include <stdint.h>
+void foo(long) {}
+void foo(int64_t) {}])],
+                  [AC_MSG_RESULT([no relationship detected]); CVC4_NEED_INT64_T_OVERLOADS=1],
+                  [AC_MSG_RESULT([typedef or similar]); CVC4_NEED_INT64_T_OVERLOADS=0])
+AC_LANG_POP([C++])
+AC_SUBST([CVC4_NEED_INT64_T_OVERLOADS])
+
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
@@ -852,7 +877,10 @@ fi
 # Checks for libraries.
 
 # Check for libreadline (defined in config/readline.m4)
+AC_ARG_WITH([readline], [AS_HELP_STRING([--with-readline], [support the readline library])], [], [with_readline=check])
 CVC4_CHECK_FOR_READLINE
+AC_DEFINE_UNQUOTED([HAVE_LIBREADLINE], $have_libreadline, [Define to 1 to use libreadline])
+AC_SUBST([READLINE_LIBS])
 
 AC_SEARCH_LIBS([clock_gettime], [rt],
                [AC_DEFINE([HAVE_CLOCK_GETTIME], [1],
@@ -907,7 +935,7 @@ if test "$enable_thread_support" = no; then
   fi
 else
   BOOST_THREADS([], [AC_MSG_WARN([disabling multithreaded support])
-                   cvc4_has_threads=no])
+                     cvc4_has_threads=no])
 fi
 LDFLAGS="$cvc4_save_LDFLAGS"
 if test $cvc4_has_threads = no; then
@@ -1107,13 +1135,17 @@ else
   AC_SUBST([CVC4_HAS_THREADS], 0)
 fi
 
+AM_CONDITIONAL([CVC4_NEEDS_REPLACEMENT_FUNCTIONS], [test -n "$LTLIBOBJS"])
+
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/integer.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/tls.h])
 
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.1_template])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.5])
-CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3_template])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/SmtEngine.3cvc_template])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/options.3cvc_template])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4parser.3])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4compat.3])
 
@@ -1184,6 +1216,14 @@ if test -z "$CVC4_LANGUAGE_BINDINGS"; then
   CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild="N/A"
 fi
 
+bindings_to_be_built=none
+if test -n "$CVC4_LANGUAGE_BINDINGS"; then
+  bindings_to_be_built="$CVC4_LANGUAGE_BINDINGS"
+  if test -z "$SWIG"; then
+    bindings_to_be_built="$bindings_to_be_built (for CVC3 compatibility layer only; SWIG not found)"
+  fi
+fi
+
 cat <<EOF
 
 CVC4 $VERSION
@@ -1211,7 +1251,7 @@ Static libs  : $enable_static
 Shared libs  : $enable_shared
 Static binary: $enable_static_binary
 Compat lib   : $CVC4_BUILD_LIBCOMPAT
-Bindings     : ${CVC4_LANGUAGE_BINDINGS:-none}
+Bindings     : $bindings_to_be_built
 
 Multithreaded: $support_multithreaded
 TLS support  : $CVC4_TLS_explanation

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): dejan, taking, lianah, bobot, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -97,7 +95,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     if(types) {
       // print the whole type, but not *its* type
       out << ":";
-      n.getType().toStream(out, -1, false, 0, language::output::LANG_SMTLIB_V2);
+      n.getType().toStream(out, language::output::LANG_SMTLIB_V2);
     }
 
     return;
@@ -177,6 +175,12 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
       out << n.getConst<Datatype>().getName();
       break;
 
+    case kind::UNINTERPRETED_CONSTANT: {
+      const UninterpretedConstant& uc = n.getConst<UninterpretedConstant>();
+      out << '@' << uc;
+      break;
+    }
+
     default:
       // fall back on whatever operator<< does on underlying type; we
       // might luck out and be SMT-LIB v2 compliant
@@ -202,7 +206,9 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::APPLY: break;
   case kind::EQUAL:
   case kind::DISTINCT: out << smtKindString(k) << " "; break;
+  case kind::CHAIN: break;
   case kind::TUPLE: break;
+  case kind::SEXPR: break;
 
     // bool theory
   case kind::NOT:
@@ -314,8 +320,8 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     // output that support for the kind needs to be added here.
     out << n.getKind() << ' ';
   }
-  if(n.getMetaKind() == kind::metakind::PARAMETERIZED &&
-     stillNeedToPrintParams) {
+  if( n.getMetaKind() == kind::metakind::PARAMETERIZED &&
+      stillNeedToPrintParams ) {
     if(toDepth != 0) {
       toStream(out, n.getOperator(), toDepth < 0 ? toDepth : toDepth - 1, types);
     } else {
@@ -348,7 +354,9 @@ static string smtKindString(Kind k) throw() {
   case kind::APPLY: break;
   case kind::EQUAL: return "=";
   case kind::DISTINCT: return "distinct";
+  case kind::CHAIN: break;
   case kind::TUPLE: break;
+  case kind::SEXPR: break;
 
     // bool theory
   case kind::NOT: return "not";
@@ -480,6 +488,7 @@ void Smt2Printer::toStream(std::ostream& out, const Command* c,
      tryToStream<DefineNamedFunctionCommand>(out, c) ||
      tryToStream<SimplifyCommand>(out, c) ||
      tryToStream<GetValueCommand>(out, c) ||
+     tryToStream<GetModelCommand>(out, c) ||
      tryToStream<GetAssignmentCommand>(out, c) ||
      tryToStream<GetAssertionsCommand>(out, c) ||
      tryToStream<SetBenchmarkStatusCommand>(out, c) ||
@@ -521,46 +530,40 @@ void Smt2Printer::toStream(std::ostream& out, const CommandStatus* s) const thro
 }/* Smt2Printer::toStream(CommandStatus*) */
 
 
-void Smt2Printer::toStream(std::ostream& out, Model* m, Command* c, int c_type ) const throw(){
-  theory::TheoryModel* tm = (theory::TheoryModel*)m;
-  if( c_type==Model::COMMAND_DECLARE_SORT ){
-    TypeNode tn = TypeNode::fromType( ((DeclareTypeCommand*)c)->getType() );
+void Smt2Printer::toStream(std::ostream& out, Model& m, const Command* c) const throw() {
+  theory::TheoryModel& tm = (theory::TheoryModel&) m;
+  if(dynamic_cast<const DeclareTypeCommand*>(c) != NULL) {
+    TypeNode tn = TypeNode::fromType( ((const DeclareTypeCommand*)c)->getType() );
     if( tn.isSort() ){
       //print the cardinality
-      if( tm->d_rep_set.d_type_reps.find( tn )!=tm->d_rep_set.d_type_reps.end() ){
-        out << "; cardinality of " << tn << " is " << tm->d_rep_set.d_type_reps[tn].size() << std::endl;
+      if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
+        out << "; cardinality of " << tn << " is " << (*tm.d_rep_set.d_type_reps.find(tn)).second.size() << std::endl;
       }
     }
     out << c << std::endl;
     if( tn.isSort() ){
       //print the representatives
-      if( tm->d_rep_set.d_type_reps.find( tn )!=tm->d_rep_set.d_type_reps.end() ){
-        for( size_t i=0; i<tm->d_rep_set.d_type_reps[tn].size(); i++ ){
-          if( tm->d_rep_set.d_type_reps[tn][i].isVar() ){
-            out << "(declare-fun " << tm->d_rep_set.d_type_reps[tn][i] << " () " << tn << ")" << std::endl;
+      if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
+        for( size_t i=0; i<(*tm.d_rep_set.d_type_reps.find(tn)).second.size(); i++ ){
+          if( (*tm.d_rep_set.d_type_reps.find(tn)).second[i].isVar() ){
+            out << "(declare-fun " << (*tm.d_rep_set.d_type_reps.find(tn)).second[i] << " () " << tn << ")" << std::endl;
           }else{
-            out << "; rep: " << tm->d_rep_set.d_type_reps[tn][i] << std::endl;
+            out << "; rep: " << (*tm.d_rep_set.d_type_reps.find(tn)).second[i] << std::endl;
           }
         }
       }
     }
-  }else if( c_type==Model::COMMAND_DECLARE_FUN ){
-    Node n = Node::fromExpr( ((DeclareFunctionCommand*)c)->getFunction() );
-    TypeNode tn = n.getType();
-    out << "(define-fun " << n << " (";
-    if( tn.isFunction() || tn.isPredicate() ){
-      for( size_t i=0; i<tn.getNumChildren()-1; i++ ){
-        if( i>0 ) out << " ";
-        out << "($x" << (i+1) << " " << tn[i] << ")";
-      }
-      out << ") " << tn.getRangeType();
-    }else{
-      out << ") " << tn;
+  } else if(dynamic_cast<const DeclareFunctionCommand*>(c) != NULL) {
+    Node n = Node::fromExpr( ((const DeclareFunctionCommand*)c)->getFunction() );
+    Node val = tm.getValue( n );
+    if(val.getKind() == kind::LAMBDA) {
+      out << "(define-fun " << n << " " << val[0]
+          << " " << n.getType().getRangeType()
+          << " " << val[1] << ")" << std::endl;
+    } else {
+      out << "(define-fun " << n << " () "
+          << n.getType() << " " << val << ")" << std::endl;
     }
-    out << " ";
-    out << tm->getValue( n );
-    out << ")" << std::endl;
-
 /*
     //for table format (work in progress)
     bool printedModel = false;
@@ -589,6 +592,13 @@ void Smt2Printer::toStream(std::ostream& out, Model* m, Command* c, int c_type )
   }
 }
 
+void Smt2Printer::toStream(std::ostream& out, const Result& r) const throw() {
+  if (r.getType() == Result::TYPE_SAT && r.isSat() == Result::SAT_UNKNOWN) {
+    out << "unknown";
+  } else {
+    Printer::toStream(out, r);
+  }
+}
 
 static void toStream(std::ostream& out, const AssertCommand* c) throw() {
   out << "(assert " << c->getExpr() << ")";
@@ -603,7 +613,7 @@ static void toStream(std::ostream& out, const PopCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const CheckSatCommand* c) throw() {
-  BoolExpr e = c->getExpr();
+  Expr e = c->getExpr();
   if(!e.isNull()) {
     out << PushCommand() << endl
         << AssertCommand(e) << endl
@@ -615,7 +625,7 @@ static void toStream(std::ostream& out, const CheckSatCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const QueryCommand* c) throw() {
-  BoolExpr e = c->getExpr();
+  Expr e = c->getExpr();
   if(!e.isNull()) {
     out << PushCommand() << endl
         << AssertCommand(BooleanSimplification::negate(e)) << endl
@@ -711,6 +721,10 @@ static void toStream(std::ostream& out, const GetValueCommand* c) throw() {
   const vector<Expr>& terms = c->getTerms();
   copy(terms.begin(), terms.end(), ostream_iterator<Expr>(out, " "));
   out << " ))";
+}
+
+static void toStream(std::ostream& out, const GetModelCommand* c) throw() {
+  out << "(get-model)";
 }
 
 static void toStream(std::ostream& out, const GetAssignmentCommand* c) throw() {

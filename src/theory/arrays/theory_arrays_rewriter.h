@@ -2,12 +2,10 @@
 /*! \file theory_arrays_rewriter.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: barrett, mdeters
+ ** Major contributors: mdeters, barrett
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -357,6 +355,10 @@ public:
         if(node[0] == node[1]) {
           Trace("arrays-postrewrite") << "Arrays::postRewrite returning true" << std::endl;
           return RewriteResponse(REWRITE_DONE, NodeManager::currentNM()->mkConst(true));
+        }
+        else if (node[0].isConst() && node[1].isConst()) {
+          Trace("arrays-postrewrite") << "Arrays::postRewrite returning false" << std::endl;
+          return RewriteResponse(REWRITE_DONE, NodeManager::currentNM()->mkConst(false));
         }
         if (node[0] > node[1]) {
           Node newNode = NodeManager::currentNM()->mkNode(node.getKind(), node[1], node[0]);

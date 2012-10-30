@@ -2,12 +2,10 @@
 /*! \file proof_manager.h
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -18,6 +16,8 @@
  ** 
  **/
 
+#include "cvc4_private.h"
+
 #ifndef __CVC4__PROOF_MANAGER_H
 #define __CVC4__PROOF_MANAGER_H
 
@@ -26,13 +26,15 @@
 
 // forward declarations
 namespace Minisat {
-class Solver;
+  class Solver;
 }
 
 namespace CVC4 {
+
 namespace prop {
-class CnfStream;
+  class CnfStream;
 }
+
 class Proof;
 class SatProof;
 class CnfProof;
@@ -41,7 +43,7 @@ class CnfProof;
 enum ProofFormat {
   LFSC,
   NATIVE
-};
+};/* enum ProofFormat */
 
 class ProofManager {
   SatProof*   d_satProof;
@@ -61,7 +63,8 @@ public:
   static SatProof* getSatProof();
   static CnfProof* getCnfProof();
 
-};
+};/* class ProofManager */
 
-} /* CVC4 namespace*/ 
+}/* CVC4 namespace */
+
 #endif /* __CVC4__PROOF_MANAGER_H */

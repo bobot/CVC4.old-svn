@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file base_options.cpp
+/*! \file base_options_template.cpp
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -22,13 +20,13 @@ namespace CVC4 {
 
 ${module_accessors}
 
-#line 26 "${template}"
+#line 24 "${template}"
 
 namespace options {
 
 ${module_global_definitions}
 
-#line 32 "${template}"
+#line 30 "${template}"
 
 }/* CVC4::options namespace */
 

@@ -2,12 +2,10 @@
 /*! \file options.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: taking, cconway
- ** Minor contributors (to current version): dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): dejan, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -24,6 +22,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include "options/option_exception.h"
 #include "util/language.h"
@@ -120,18 +119,10 @@ public:
 
   /**
    * Initialize the options based on the given command-line arguments.
+   * The return value is what's left of the command line (that is, the
+   * non-option arguments).
    */
-  int parseOptions(int argc, char* argv[]) throw(OptionException);
-
-  /**
-   * Set the output language based on the given string.
-   */
-  void setOutputLanguage(const char* str) throw(OptionException);
-
-  /**
-   * Set the input language based on the given string.
-   */
-  void setInputLanguage(const char* str) throw(OptionException);
+  std::vector<std::string> parseOptions(int argc, char* argv[]) throw(OptionException);
 
 };/* class Options */
 

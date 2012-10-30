@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): taking, ajreynol
+ ** Minor contributors (to current version): ajreynol, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -31,7 +29,7 @@
 
 #include "expr/kind.h"
 #include "expr/metakind.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 #include "util/cardinality.h"
 
 namespace CVC4 {
@@ -375,7 +373,13 @@ public:
    * @return the string representation of this type.
    */
   inline std::string toString() const {
-    return d_nv->toString();
+    std::stringstream ss;
+    OutputLanguage outlang = (this == &s_null) ? language::output::LANG_AST : options::outputLanguage();
+    d_nv->toStream(ss, -1, false, 0,
+                   outlang == language::output::LANG_AUTO ?
+                     language::output::LANG_AST :
+                     outlang);
+    return ss.str();
   }
 
   /**
@@ -383,15 +387,10 @@ public:
    * given stream
    *
    * @param out the stream to serialize this node to
-   * @param toDepth the depth to which to print this expression, or -1 to
-   * print it fully
-   * @param types set to true to ascribe types to the output expressions
-   * (might break language compliance, but good for debugging expressions)
    * @param language the language in which to output
    */
-  inline void toStream(std::ostream& out, int toDepth = -1, bool types = false, size_t dag = 1,
-                       OutputLanguage language = language::output::LANG_AST) const {
-    d_nv->toStream(out, toDepth, types, dag, language);
+  inline void toStream(std::ostream& out, OutputLanguage language = language::output::LANG_AST) const {
+    d_nv->toStream(out, -1, false, 0, language);
   }
 
   /**
@@ -540,6 +539,12 @@ public:
   /** Get the constituent types of a tuple type */
   std::vector<TypeNode> getTupleTypes() const;
 
+  /** Is this a symbolic expression type? */
+  bool isSExpr() const;
+
+  /** Get the constituent types of a symbolic expression type */
+  std::vector<TypeNode> getSExprTypes() const;
+
   /** Is this a bit-vector type */
   bool isBitVector() const;
 
@@ -591,10 +596,6 @@ public:
   /** Get the bounds defining this subrange */
   const SubrangeBounds& getSubrangeBounds() const;
 
-  /** Is this a kind type (i.e., the type of a type)? */
-  bool isKind() const;
-
-
   /**
    * Returns the leastUpperBound in the extended type lattice of the two types.
    * If this is \top, i.e. there is no inhabited type that contains both,
@@ -634,11 +635,7 @@ private:
  * @return the stream
  */
 inline std::ostream& operator<<(std::ostream& out, const TypeNode& n) {
-  n.toStream(out,
-             Node::setdepth::getDepth(out),
-             Node::printtypes::getPrintTypes(out),
-             Node::dag::getDag(out),
-             Node::setlanguage::getLanguage(out));
+  n.toStream(out, Node::setlanguage::getLanguage(out));
   return out;
 }
 
@@ -880,6 +877,12 @@ inline bool TypeNode::isTuple() const {
     ( isPredicateSubtype() && getSubtypeBaseType().isTuple() );
 }
 
+/** Is this a symbolic expression type? */
+inline bool TypeNode::isSExpr() const {
+  return getKind() == kind::SEXPR_TYPE ||
+    ( isPredicateSubtype() && getSubtypeBaseType().isSExpr() );
+}
+
 /** Is this a sort kind */
 inline bool TypeNode::isSort() const {
   return ( getKind() == kind::SORT_TYPE && !hasAttribute(expr::SortArityAttr()) ) ||
@@ -900,12 +903,6 @@ inline bool TypeNode::isPredicateSubtype() const {
 inline bool TypeNode::isSubrange() const {
   return getKind() == kind::SUBRANGE_TYPE ||
     ( isPredicateSubtype() && getSubtypeBaseType().isSubrange() );
-}
-
-/** Is this a kind type (i.e., the type of a type)? */
-inline bool TypeNode::isKind() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    getConst<TypeConstant>() == KIND_TYPE;
 }
 
 /** Is this a bit-vector type */

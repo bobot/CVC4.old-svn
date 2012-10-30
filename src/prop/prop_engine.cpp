@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): barrett, taking, cconway, kshitij
+ ** Minor contributors (to current version): barrett, lianah, kshitij, cconway, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,9 +24,10 @@
 #include "decision/options.h"
 #include "theory/theory_engine.h"
 #include "theory/theory_registrar.h"
-#include "util/Assert.h"
+#include "util/cvc4_assert.h"
 #include "options/options.h"
 #include "smt/options.h"
+#include "main/options.h"
 #include "util/output.h"
 #include "util/result.h"
 #include "expr/expr.h"
@@ -64,11 +63,11 @@ public:
   }
 };
 
-PropEngine::PropEngine(TheoryEngine* te, DecisionEngine *de, Context* context) :
+PropEngine::PropEngine(TheoryEngine* te, DecisionEngine *de, Context* satContext, Context* userContext) :
   d_inCheckSat(false),
   d_theoryEngine(te),
   d_decisionEngine(de),
-  d_context(context),
+  d_context(satContext),
   d_satSolver(NULL),
   d_cnfStream(NULL),
   d_satTimer(*this),
@@ -81,6 +80,7 @@ PropEngine::PropEngine(TheoryEngine* te, DecisionEngine *de, Context* context) :
   theory::TheoryRegistrar* registrar = new theory::TheoryRegistrar(d_theoryEngine);
   d_cnfStream = new CVC4::prop::TseitinCnfStream
     (d_satSolver, registrar, 
+     userContext,
      // fullLitToNode Map = 
      options::threads() > 1 || 
      options::decisionMode() == decision::DECISION_STRATEGY_RELEVANCY);
@@ -108,10 +108,8 @@ void PropEngine::assertLemma(TNode node, bool negated, bool removable) {
   //Assert(d_inCheckSat, "Sat solver should be in solve()!");
   Debug("prop::lemmas") << "assertLemma(" << node << ")" << endl;
 
-  if(!d_inCheckSat && Dump.isOn("learned")) {
-    Dump("learned") << AssertCommand(BoolExpr(node.toExpr()));
-  } else if(Dump.isOn("lemmas")) {
-    Dump("lemmas") << AssertCommand(BoolExpr(node.toExpr()));
+  if(Dump.isOn("lemmas")) {
+    Dump("lemmas") << AssertCommand(node.toExpr());
   }
 
   // Assert as removable
@@ -245,6 +243,10 @@ bool PropEngine::hasValue(TNode node, bool& value) const {
   }
 }
 
+void PropEngine::getBooleanVariables(std::vector<TNode>& outputVariables) const {
+  d_cnfStream->getBooleanVariables(outputVariables);
+}
+
 void PropEngine::ensureLiteral(TNode n) {
   d_cnfStream->ensureLiteral(n);
 }
@@ -271,12 +273,12 @@ bool PropEngine::isRunning() const {
 
 void PropEngine::interrupt() throw(ModalException) {
   if(! d_inCheckSat) {
-    throw ModalException("SAT solver is not currently solving anything; "
-                         "cannot interrupt it");
+    return;
   }
 
   d_interrupted = true;
   d_satSolver->interrupt();
+  d_theoryEngine->interrupt(); 
   Debug("prop") << "interrupt()" << endl;
 }
 

@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -135,7 +133,7 @@ public:
 
 #ifdef CVC4_ASSERTIONS
     in = Node();
-    TS_ASSERT_THROWS( BooleanSimplification::negate(in), IllegalArgumentException );
+    TS_ASSERT_THROWS( BooleanSimplification::negate(in), AssertArgumentException );
 #endif /* CVC4_ASSERTIONS */
   }
 
@@ -170,7 +168,7 @@ public:
 
 #ifdef CVC4_ASSERTIONS
     in = d_nm->mkNode(kind::AND, a, b);
-    TS_ASSERT_THROWS( BooleanSimplification::simplifyClause(in), IllegalArgumentException );
+    TS_ASSERT_THROWS( BooleanSimplification::simplifyClause(in), AssertArgumentException );
 #endif /* CVC4_ASSERTIONS */
   }
 
@@ -195,7 +193,7 @@ public:
 
 #ifdef CVC4_ASSERTIONS
     in = d_nm->mkNode(kind::OR, a, b);
-    TS_ASSERT_THROWS( BooleanSimplification::simplifyHornClause(in), IllegalArgumentException );
+    TS_ASSERT_THROWS( BooleanSimplification::simplifyHornClause(in), AssertArgumentException );
 #endif /* CVC4_ASSERTIONS */
   }
 
@@ -216,7 +214,7 @@ public:
 
 #ifdef CVC4_ASSERTIONS
     in = d_nm->mkNode(kind::OR, a, b);
-    TS_ASSERT_THROWS( BooleanSimplification::simplifyConflict(in), IllegalArgumentException );
+    TS_ASSERT_THROWS( BooleanSimplification::simplifyConflict(in), AssertArgumentException );
 #endif /* CVC4_ASSERTIONS */
   }
 

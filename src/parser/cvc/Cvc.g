@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: mdeters
- ** Minor contributors (to current version): dejan, ajreynol
+ ** Minor contributors (to current version): taking, ajreynol, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -288,7 +286,9 @@ int getOperatorPrecedence(int type) {
   case IN_TOK: return 33;
 
   default:
-    Unhandled(CvcParserTokenNames[type]);
+    std::stringstream ss;
+    ss << "internal error: no entry in precedence table for operator " << CvcParserTokenNames[type];
+    throw ParserException(ss.str());
   }
 }/* getOperatorPrecedence() */
 
@@ -318,16 +318,18 @@ Kind getOperatorKind(int type, bool& negate) {
   case INTDIV_TOK: return kind::INTS_DIVISION;
   case MOD_TOK: return kind::INTS_MODULUS;
   case DIV_TOK: return kind::DIVISION;
-  case EXP_TOK: Unhandled(CvcParserTokenNames[type]);
+  case EXP_TOK: return kind::POW;
 
     // bvBinop
   case CONCAT_TOK: return kind::BITVECTOR_CONCAT;
   case BAR: return kind::BITVECTOR_OR;
   case BVAND_TOK: return kind::BITVECTOR_AND;
-
-  default:
-    Unhandled(CvcParserTokenNames[type]);
   }
+
+  std::stringstream ss;
+  ss << "internal error: no entry in operator-kind table for operator " << CvcParserTokenNames[type];
+  throw ParserException(ss.str());
+
 }/* getOperatorKind() */
 
 unsigned findPivot(const std::vector<unsigned>& operators,
@@ -355,10 +357,10 @@ Expr createPrecedenceTree(Parser* parser, ExprManager* em,
                           const std::vector<CVC4::Expr>& expressions,
                           const std::vector<unsigned>& operators,
                           unsigned startIndex, unsigned stopIndex) {
-  Assert(expressions.size() == operators.size() + 1);
-  Assert(startIndex < expressions.size());
-  Assert(stopIndex < expressions.size());
-  Assert(startIndex <= stopIndex);
+  assert(expressions.size() == operators.size() + 1);
+  assert(startIndex < expressions.size());
+  assert(stopIndex < expressions.size());
+  assert(startIndex <= stopIndex);
 
   if(stopIndex == startIndex) {
     return expressions[startIndex];
@@ -450,6 +452,7 @@ Expr addNots(ExprManager* em, size_t n, Expr e) {
 @parser::includes {
 
 #include <stdint.h>
+#include <cassert>
 #include "expr/command.h"
 #include "parser/parser.h"
 #include "util/subrange_bound.h"
@@ -544,6 +547,16 @@ using namespace CVC4::parser;
 #define MK_CONST EXPR_MANAGER->mkConst
 #define UNSUPPORTED PARSER_STATE->unimplementedFeature
 
+#define ENSURE_BV_SIZE(k, f)                                   \
+{                                                              \
+  unsigned size = BitVectorType(f.getType()).getSize();        \
+  if(k > size) {                                               \
+    f = MK_EXPR(MK_CONST(BitVectorZeroExtend(k - size)), f);   \
+  } else if (k < size) {                                       \
+    f = MK_EXPR(MK_CONST(BitVectorExtract(k - 1, 0)), f);      \
+  }                                                            \
+}                                            
+
 }/* @parser::postinclude */
 
 /**
@@ -561,6 +574,17 @@ parseExpr returns [CVC4::Expr expr = CVC4::Expr()]
  */
 parseCommand returns [CVC4::Command* cmd = NULL]
   : c=command { $cmd = c; }
+  | LPAREN IDENTIFIER
+    { std::string s = AntlrInput::tokenText($IDENTIFIER);
+      if(s == "benchmark") {
+        PARSER_STATE->parseError("In CVC4 presentation language mode, but SMT-LIBv1 format detected.  Use --lang smt1 for SMT-LIBv1 support.");
+      } else if(s == "set" || s == "get" || s == "declare" ||
+                s == "define" || s == "assert") {
+        PARSER_STATE->parseError("In CVC4 presentation language mode, but SMT-LIB format detected.  Use --lang smt for SMT-LIB support.");
+      } else {
+        PARSER_STATE->parseError("A CVC4 presentation language command cannot begin with a parenthesis; expected command name.");
+      }
+    }
   | EOF { $cmd = NULL; }
   ;
 
@@ -604,18 +628,22 @@ mainCommand[CVC4::Command*& cmd]
 
   | QUERY_TOK formula[f] { cmd = new QueryCommand(f); }
   | CHECKSAT_TOK formula[f] { cmd = new CheckSatCommand(f); }
-  | CHECKSAT_TOK { cmd = new CheckSatCommand(MK_CONST(bool(true))); }
+  | CHECKSAT_TOK { cmd = new CheckSatCommand(); }
 
     /* options */
   | OPTION_TOK
     ( str[s] | IDENTIFIER { s = AntlrInput::tokenText($IDENTIFIER); } )
-    symbolicExpr[sexpr]
-    { if(s == "logic") {
-        cmd = new SetBenchmarkLogicCommand(sexpr.getValue());
-      } else {
-        cmd = new SetOptionCommand(s, sexpr);
+    ( symbolicExpr[sexpr]
+      { if(s == "logic") {
+          cmd = new SetBenchmarkLogicCommand(sexpr.getValue());
+        } else {
+          cmd = new SetOptionCommand(s, sexpr);
+        }
       }
-    }
+    | TRUE_TOK { cmd = new SetOptionCommand(s, SExpr("true")); }
+    | FALSE_TOK { cmd = new SetOptionCommand(s, SExpr("false")); }
+    | { cmd = new SetOptionCommand(s, SExpr("true")); }
+    )
 
     /* push / pop */
   | PUSH_TOK ( k=numeral { cmd = REPEAT_COMMAND(k, PushCommand()); }
@@ -763,7 +791,9 @@ simpleSymbolicExpr[CVC4::SExpr& sexpr]
   CVC4::Rational r;
 }
   : INTEGER_LITERAL
-    { sexpr = SExpr(AntlrInput::tokenToInteger($INTEGER_LITERAL)); }
+    { sexpr = SExpr(Integer(AntlrInput::tokenText($INTEGER_LITERAL))); }
+  | MINUS_TOK INTEGER_LITERAL
+    { sexpr = SExpr(-Integer(AntlrInput::tokenText($INTEGER_LITERAL))); }
   | DECIMAL_LITERAL
     { sexpr = SExpr(AntlrInput::tokenToRational($DECIMAL_LITERAL)); }
   | HEX_LITERAL
@@ -1006,7 +1036,7 @@ type[CVC4::Type& t,
     /* a type, possibly a function */
   : restrictedTypePossiblyFunctionLHS[t,check,lhs]
     { if(lhs) {
-        Assert(t.isTuple());
+        assert(t.isTuple());
         args = TupleType(t).getTypes();
       } else {
         args.push_back(t);
@@ -1074,6 +1104,13 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
          PARSER_STATE->isDeclared(id, SYM_SORT)) {
         Debug("parser-param") << "param: getSort " << id << " " << types.size() << " " << PARSER_STATE->getArity( id )
                               << " " << PARSER_STATE->isDeclared(id, SYM_SORT) << std::endl;
+        if(types.size() != PARSER_STATE->getArity(id)) {
+          std::stringstream ss;
+          ss << "incorrect arity for symbol `" << id << "': expected "
+             << PARSER_STATE->getArity( id ) << " type arguments, got "
+             << types.size();
+          PARSER_STATE->parseError(ss.str());
+        }
         if(types.size() > 0) {
           t = PARSER_STATE->getSort(id, types);
         }else{
@@ -1420,7 +1457,7 @@ arrayStore[CVC4::Expr& f]
 }
   : ( LBRACKET formula[f2] { dims.push_back(f2); } RBRACKET )+
     ASSIGN_TOK uminusTerm[f3]
-    { Assert(dims.size() >= 1);
+    { assert(dims.size() >= 1);
       // these loops are a bit complicated; they're only used for the
       // multidimensional ...WITH [a][b] :=... syntax
       for(unsigned i = 0; i < dims.size() - 1; ++i) {
@@ -1620,7 +1657,7 @@ postfixTerm[CVC4::Expr& f]
         } else if(t.isTester()) {
           f = MK_EXPR(CVC4::kind::APPLY_TESTER, args);
         } else {
-          Unhandled(t);
+          PARSER_STATE->parseError("internal error: unhandled function application kind");
         }
       }
 
@@ -1683,6 +1720,7 @@ postfixTerm[CVC4::Expr& f]
 bvTerm[CVC4::Expr& f]
 @init {
   Expr f2;
+  std::vector<Expr> args;
 }
     /* BV xor */
   : BVXOR_TOK LPAREN formula[f] COMMA formula[f2] RPAREN
@@ -1700,43 +1738,36 @@ bvTerm[CVC4::Expr& f]
   | BVUMINUS_TOK LPAREN formula[f] RPAREN
     { f = MK_EXPR(CVC4::kind::BITVECTOR_NEG, f); }
     /* BV addition */
-  | BVPLUS_TOK LPAREN k=numeral COMMA formula[f]
-    ( COMMA formula[f2] { f = MK_EXPR(CVC4::kind::BITVECTOR_PLUS, f, f2); } )+ RPAREN
-    { unsigned size = BitVectorType(f.getType()).getSize();
-      if(k == 0) {
-        PARSER_STATE->parseError("BVPLUS(k,_,_,...) must have k > 0");
+  | BVPLUS_TOK LPAREN k=numeral COMMA formula[f] { args.push_back(f); }
+    ( COMMA formula[f2] { args.push_back(f2); } )+ RPAREN 
+    {
+      if (k <= 0) {
+        PARSER_STATE->parseError("BVPLUS(k,_,_) must have k > 0");
+      }      
+      for (unsigned i = 0; i < args.size(); ++ i) {
+        ENSURE_BV_SIZE(k, args[i]);
       }
-      if(k > size) {
-        f = MK_EXPR(MK_CONST(BitVectorZeroExtend(k)), f);
-      } else if(k < size) {
-        f = MK_EXPR(MK_CONST(BitVectorExtract(k - 1, 0)), f);
-      }
+      f = MK_EXPR(CVC4::kind::BITVECTOR_PLUS, args);
     }
     /* BV subtraction */
   | BVSUB_TOK LPAREN k=numeral COMMA formula[f] COMMA formula[f2] RPAREN
-    { f = MK_EXPR(CVC4::kind::BITVECTOR_SUB, f, f2);
-      if(k == 0) {
+    {       
+      if (k <= 0) {
         PARSER_STATE->parseError("BVSUB(k,_,_) must have k > 0");
-      }
-      unsigned size = BitVectorType(f.getType()).getSize();
-      if(k > size) {
-        f = MK_EXPR(MK_CONST(BitVectorZeroExtend(k)), f);
-      } else if(k < size) {
-        f = MK_EXPR(MK_CONST(BitVectorExtract(k - 1, 0)), f);
-      }
+      }      
+      ENSURE_BV_SIZE(k, f);
+      ENSURE_BV_SIZE(k, f2);
+      f = MK_EXPR(CVC4::kind::BITVECTOR_SUB, f, f2);
     }
     /* BV multiplication */
   | BVMULT_TOK LPAREN k=numeral COMMA formula[f] COMMA formula[f2] RPAREN
-    { f = MK_EXPR(CVC4::kind::BITVECTOR_MULT, f, f2);
-      if(k == 0) {
+    { 
+      if (k <= 0) {
         PARSER_STATE->parseError("BVMULT(k,_,_) must have k > 0");
       }
-      unsigned size = BitVectorType(f.getType()).getSize();
-      if(k > size) {
-        f = MK_EXPR(MK_CONST(BitVectorZeroExtend(k)), f);
-      } else if(k < size) {
-        f = MK_EXPR(MK_CONST(BitVectorExtract(k - 1, 0)), f);
-      }
+      ENSURE_BV_SIZE(k, f);
+      ENSURE_BV_SIZE(k, f2);
+      f = MK_EXPR(CVC4::kind::BITVECTOR_MULT, f, f2);
     }
     /* BV unsigned division */
   | BVUDIV_TOK LPAREN formula[f] COMMA formula[f2] RPAREN
@@ -1765,15 +1796,15 @@ bvTerm[CVC4::Expr& f]
     /* BV sign extension */
   | SX_TOK LPAREN formula[f] COMMA k=numeral RPAREN
     { unsigned n = BitVectorType(f.getType()).getSize();
-      // Sign extension in TheoryBitVector is defined as in SMT-LIBv2
+      // Sign extension in TheoryBitVector is defined as in SMT-LIB
       // which is different than in the CVC language
       // SX(BITVECTOR(k), n) in CVC language extends to n bits
-      // In SMT-LIBv2, such a thing expands to k + n bits
+      // In SMT-LIB, such a thing expands to k + n bits
       f = MK_EXPR(MK_CONST(BitVectorSignExtend(k - n)), f); }
     /* BV zero extension */
   | BVZEROEXTEND_TOK LPAREN formula[f] COMMA k=numeral RPAREN
     { unsigned n = BitVectorType(f.getType()).getSize();
-      // Zero extension in TheoryBitVector is defined as in SMT-LIBv2
+      // Zero extension in TheoryBitVector is defined as in SMT-LIB
       // which is the same as in CVC3, but different than SX!
       // SX(BITVECTOR(k), n) in CVC language extends to n bits
       // BVZEROEXTEND(BITVECTOR(k), n) in CVC language extends to k + n bits
@@ -1854,18 +1885,18 @@ simpleTerm[CVC4::Expr& f]
   | INTEGER_LITERAL { f = MK_CONST(AntlrInput::tokenToInteger($INTEGER_LITERAL)); }
     /* bitvector literals */
   | HEX_LITERAL
-    { Assert( AntlrInput::tokenText($HEX_LITERAL).find("0hex") == 0 );
+    { assert( AntlrInput::tokenText($HEX_LITERAL).find("0hex") == 0 );
       std::string hexString = AntlrInput::tokenTextSubstr($HEX_LITERAL, 4);
       f = MK_CONST( BitVector(hexString, 16) ); }
   | BINARY_LITERAL
-    { Assert( AntlrInput::tokenText($BINARY_LITERAL).find("0bin") == 0 );
+    { assert( AntlrInput::tokenText($BINARY_LITERAL).find("0bin") == 0 );
       std::string binString = AntlrInput::tokenTextSubstr($BINARY_LITERAL, 4);
       f = MK_CONST( BitVector(binString, 2) ); }
     /* record literals */
   | PARENHASH recordEntry[name,e] { names.push_back(name); args.push_back(e); }
     ( COMMA recordEntry[name,e] { names.push_back(name); args.push_back(e); } )* HASHPAREN
     { std::vector< std::pair<std::string, Type> > typeIds;
-      Assert(names.size() == args.size());
+      assert(names.size() == args.size());
       for(unsigned i = 0; i < names.size(); ++i) {
         typeIds.push_back(std::make_pair(names[i], args[i].getType()));
       }

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): barrett, dejan, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -338,9 +336,7 @@ void UndefinedTermBBStrategy(TNode node, Bits& bits, Bitblaster* bb) {
 }
 
 void DefaultVarBB (TNode node, Bits& bits, Bitblaster* bb) {
-  //  Assert (node.getKind() == kind::VARIABLE);
   Assert(bits.size() == 0);
-  
   for (unsigned i = 0; i < utils::getSize(node); ++i) {
     bits.push_back(utils::mkBitOf(node, i));
   }
@@ -349,6 +345,8 @@ void DefaultVarBB (TNode node, Bits& bits, Bitblaster* bb) {
     BVDebug("bitvector-bb") << "theory::bv::DefaultVarBB bitblasting  " << node << "\n";
     BVDebug("bitvector-bb") << "                           with bits  " << toString(bits); 
   }
+
+   bb->storeVariable(node);
 }
 
 void DefaultConstBB (TNode node, Bits& bits, Bitblaster* bb) {

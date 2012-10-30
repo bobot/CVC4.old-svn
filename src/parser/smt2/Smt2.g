@@ -3,15 +3,13 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: mdeters
- ** Minor contributors (to current version): taking
+ ** Minor contributors (to current version): dejan, taking, ajreynol, bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Parser for SMT-LIB v2 input language.
+ ** \brief Parser for SMT-LIB v2 input language
  **
  ** Parser for SMT-LIB v2 input language.
  **/
@@ -34,7 +32,7 @@ options {
 @header {
 /**
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -124,8 +122,9 @@ namespace CVC4 {
 using namespace CVC4;
 using namespace CVC4::parser;
 
-/* These need to be macros so they can refer to the PARSER macro, which will be defined
- * by ANTLR *after* this section. (If they were functions, PARSER would be undefined.) */
+/* These need to be macros so they can refer to the PARSER macro, which
+ * will be defined by ANTLR *after* this section. (If they were functions,
+ * PARSER would be undefined.) */
 #undef PARSER_STATE
 #define PARSER_STATE ((Smt2*)PARSER->super)
 #undef EXPR_MANAGER
@@ -140,7 +139,8 @@ using namespace CVC4::parser;
 
 /**
  * Parses an expression.
- * @return the parsed expression, or the Null Expr if we've reached the end of the input
+ * @return the parsed expression, or the Null Expr if we've reached the
+ * end of the input
  */
 parseExpr returns [CVC4::parser::smt2::myExpr expr]
 @declarations {
@@ -160,7 +160,8 @@ parseCommand returns [CVC4::Command* cmd = NULL]
   ;
 
 /**
- * Parse the internal portion of the command, ignoring the surrounding parentheses.
+ * Parse the internal portion of the command, ignoring the surrounding
+ * parentheses.
  */
 command returns [CVC4::Command* cmd = NULL]
 @declarations {
@@ -217,8 +218,7 @@ command returns [CVC4::Command* cmd = NULL]
     symbol[name,CHECK_UNDECLARED,SYM_SORT]
     { PARSER_STATE->checkUserSymbol(name); }
     LPAREN_TOK symbolList[names,CHECK_NONE,SYM_SORT] RPAREN_TOK
-    {
-      PARSER_STATE->pushScope();
+    { PARSER_STATE->pushScope();
       for(std::vector<std::string>::const_iterator i = names.begin(),
             iend = names.end();
           i != iend;
@@ -302,19 +302,21 @@ command returns [CVC4::Command* cmd = NULL]
     { cmd = new GetProofCommand; }
   | /* get-unsat-core */
     GET_UNSAT_CORE_TOK { PARSER_STATE->checkThatLogicIsSet(); }
-    { UNSUPPORTED("unsat cores not yet supported"); }
+    { cmd = new GetUnsatCoreCommand; }
   | /* push */
     PUSH_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     ( k=INTEGER_LITERAL
       { unsigned n = AntlrInput::tokenToUnsigned(k);
         if(n == 0) {
-          cmd = new EmptyCommand;
+          cmd = new EmptyCommand();
         } else if(n == 1) {
-          cmd = new PushCommand;
+          PARSER_STATE->pushScope();
+          cmd = new PushCommand();
         } else {
-          CommandSequence* seq = new CommandSequence;
+          CommandSequence* seq = new CommandSequence();
           do {
-            seq->addCommand(new PushCommand);
+            PARSER_STATE->pushScope();
+            seq->addCommand(new PushCommand());
           } while(--n > 0);
           cmd = seq;
         }
@@ -329,13 +331,15 @@ command returns [CVC4::Command* cmd = NULL]
     ( k=INTEGER_LITERAL
       { unsigned n = AntlrInput::tokenToUnsigned(k);
         if(n == 0) {
-          cmd = new EmptyCommand;
+          cmd = new EmptyCommand();
         } else if(n == 1) {
-          cmd = new PopCommand;
+          PARSER_STATE->popScope();
+          cmd = new PopCommand();
         } else {
-          CommandSequence* seq = new CommandSequence;
+          CommandSequence* seq = new CommandSequence();
           do {
-            seq->addCommand(new PopCommand);
+            PARSER_STATE->popScope();
+            seq->addCommand(new PopCommand());
           } while(--n > 0);
           cmd = seq;
         }
@@ -349,10 +353,20 @@ command returns [CVC4::Command* cmd = NULL]
   | EXIT_TOK
     { cmd = new QuitCommand; }
 
-    /* CVC4-extended SMT-LIBv2 commands */
+    /* CVC4-extended SMT-LIB commands */
   | extendedCommand[cmd]
     { if(PARSER_STATE->strictModeEnabled()) {
         PARSER_STATE->parseError("Extended commands are not permitted while operating in strict compliance mode.");
+      }
+    }
+
+    /* error handling */
+  | SIMPLE_SYMBOL
+    { std::string id = AntlrInput::tokenText($SIMPLE_SYMBOL);
+      if(id == "benchmark") {
+        PARSER_STATE->parseError("In SMT-LIBv2 mode, but got something that looks like SMT-LIBv1.  Use --lang smt1 for SMT-LIBv1.");
+      } else {
+        PARSER_STATE->parseError("expected SMT-LIBv2 command, got `" + id + "'.");
       }
     }
   ;
@@ -365,9 +379,11 @@ extendedCommand[CVC4::Command*& cmd]
   SExpr sexpr;
   std::string name;
   std::vector<std::string> names;
+  std::vector<Expr> terms;
   std::vector<Type> sorts;
+  std::vector<std::pair<std::string, Type> > sortedVarNames;
 }
-    /* Extended SMT-LIBv2 set of commands syntax, not permitted in
+    /* Extended SMT-LIB set of commands syntax, not permitted in
      * --smtlib2 compliance mode. */
   : DECLARE_DATATYPES_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { /* open a scope to keep the UnresolvedTypes contained */
@@ -378,7 +394,7 @@ extendedCommand[CVC4::Command*& cmd]
       cmd = new DatatypeDeclarationCommand(PARSER_STATE->mkMutualDatatypeTypes(dts)); }
   | /* get model */
     GET_MODEL_TOK { PARSER_STATE->checkThatLogicIsSet(); }
-    { cmd = new GetModelCommand; }      
+    { cmd = new GetModelCommand; }
   | ECHO_TOK
     ( simpleSymbolicExpr[sexpr]
       { std::stringstream ss;
@@ -388,6 +404,107 @@ extendedCommand[CVC4::Command*& cmd]
     | { cmd = new EchoCommand(); }
     )
   | rewriterulesCommand[cmd]
+
+    /* Support some of Z3's extended SMT-LIB commands */
+
+  | DECLARE_CONST_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
+    { PARSER_STATE->checkUserSymbol(name); }
+    sortSymbol[t,CHECK_DECLARED]
+    { Expr c = PARSER_STATE->mkVar(name, t);
+      $cmd = new DeclareFunctionCommand(name, c, t); }
+
+  | DECLARE_SORTS_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    { $cmd = new CommandSequence(); }
+    LPAREN_TOK
+    ( symbol[name,CHECK_UNDECLARED,SYM_SORT]
+      { PARSER_STATE->checkUserSymbol(name);
+        Type type = PARSER_STATE->mkSort(name);
+        static_cast<CommandSequence*>($cmd)->addCommand(new DeclareTypeCommand(name, 0, type));
+      }
+    )+
+    RPAREN_TOK
+
+  | DECLARE_FUNS_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    { $cmd = new CommandSequence(); }
+    LPAREN_TOK
+    ( LPAREN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
+      { PARSER_STATE->checkUserSymbol(name); }
+      nonemptySortList[sorts] RPAREN_TOK
+      { Type t;
+        if(sorts.size() > 1) {
+          t = EXPR_MANAGER->mkFunctionType(sorts);
+        } else {
+          t = sorts[0];
+        }
+        Expr func = PARSER_STATE->mkVar(name, t);
+        static_cast<CommandSequence*>($cmd)->addCommand(new DeclareFunctionCommand(name, func, t));
+      }
+    )+
+    RPAREN_TOK
+
+  | DECLARE_PREDS_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    { $cmd = new CommandSequence(); }
+    LPAREN_TOK
+    ( LPAREN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
+      { PARSER_STATE->checkUserSymbol(name); }
+      sortList[sorts] RPAREN_TOK
+      { Type t = EXPR_MANAGER->booleanType();
+        if(sorts.size() > 0) {
+          t = EXPR_MANAGER->mkFunctionType(sorts, t);
+        }
+        Expr func = PARSER_STATE->mkVar(name, t);
+        static_cast<CommandSequence*>($cmd)->addCommand(new DeclareFunctionCommand(name, func, t));
+      }
+    )+
+    RPAREN_TOK
+
+  | DEFINE_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    ( symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
+      { PARSER_STATE->checkUserSymbol(name); }
+      term[e,e2]
+      { Expr func = PARSER_STATE->mkFunction(name, e.getType());
+        $cmd = new DefineFunctionCommand(name, func, e);
+      }
+    | LPAREN_TOK
+      symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
+      { PARSER_STATE->checkUserSymbol(name); }
+      sortedVarList[sortedVarNames] RPAREN_TOK
+      { /* add variables to parser state before parsing term */
+        Debug("parser") << "define fun: '" << name << "'" << std::endl;
+        PARSER_STATE->pushScope();
+        for(std::vector<std::pair<std::string, CVC4::Type> >::const_iterator i =
+              sortedVarNames.begin(), iend = sortedVarNames.end();
+            i != iend;
+            ++i) {
+          terms.push_back(PARSER_STATE->mkVar((*i).first, (*i).second));
+        }
+      }
+      term[e,e2]
+      { PARSER_STATE->popScope();
+        // declare the name down here (while parsing term, signature
+        // must not be extended with the name itself; no recursion
+        // permitted)
+        Type t = e.getType();
+        if( sortedVarNames.size() > 0 ) {
+          std::vector<CVC4::Type> sorts;
+          sorts.reserve(sortedVarNames.size());
+          for(std::vector<std::pair<std::string, CVC4::Type> >::const_iterator i =
+                sortedVarNames.begin(), iend = sortedVarNames.end();
+              i != iend;
+              ++i) {
+            sorts.push_back((*i).second);
+          }
+          t = EXPR_MANAGER->mkFunctionType(sorts, t);
+        }
+        Expr func = PARSER_STATE->mkFunction(name, t);
+        $cmd = new DefineFunctionCommand(name, func, terms, e);
+      }
+    )
+
+  | SIMPLIFY_TOK { PARSER_STATE->checkThatLogicIsSet(); }
+    term[e,e2]
+    { cmd = new SimplifyCommand(e); }
   ;
 
 rewriterulesCommand[CVC4::Command*& cmd]
@@ -505,7 +622,6 @@ pattern[CVC4::Expr& expr]
   : LPAREN_TOK termList[patexpr,expr] RPAREN_TOK
     {
       expr = MK_EXPR(kind::INST_PATTERN, patexpr);
-      //std::cout << "parsed pattern expr " << retExpr << std::endl;
     }
   ;
 
@@ -515,13 +631,13 @@ simpleSymbolicExpr[CVC4::SExpr& sexpr]
   std::string s;
 }
   : INTEGER_LITERAL
-    { sexpr = SExpr(AntlrInput::tokenToInteger($INTEGER_LITERAL)); }
+    { sexpr = SExpr(Integer(AntlrInput::tokenText($INTEGER_LITERAL))); }
   | DECIMAL_LITERAL
     { sexpr = SExpr(AntlrInput::tokenToRational($DECIMAL_LITERAL)); }
   | str[s]
     { sexpr = SExpr(s); }
   | symbol[s,CHECK_NONE,SYM_SORT]
-    { sexpr = SExpr(s); }
+    { sexpr = SExpr(SExpr::Keyword(s)); }
   | builtinOp[k]
     { std::stringstream ss;
       ss << Expr::setlanguage(CVC4::language::output::LANG_SMTLIB_V2) << EXPR_MANAGER->mkConst(k);
@@ -577,13 +693,18 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
           args.size() == 1) {
         /* Unary AND/OR can be replaced with the argument.
 	       It just so happens expr should already by the only argument. */
-        Assert( expr == args[0] );
+        assert( expr == args[0] );
       } else if( CVC4::kind::isAssociative(kind) &&
                  args.size() > EXPR_MANAGER->maxArity(kind) ) {
     	/* Special treatment for associative operators with lots of children */
         expr = EXPR_MANAGER->mkAssociative(kind,args);
       } else if( kind == CVC4::kind::MINUS && args.size() == 1 ) {
         expr = MK_EXPR(CVC4::kind::UMINUS, args[0]);
+      } else if( ( kind == CVC4::kind::IFF || kind == CVC4::kind::EQUAL ||
+                   kind == CVC4::kind::LT || kind == CVC4::kind::GT ||
+                   kind == CVC4::kind::LEQ || kind == CVC4::kind::GEQ ) &&
+                 args.size() > 2 ) {
+        expr = MK_EXPR(CVC4::kind::CHAIN, MK_CONST(kind), args);
       } else {
         PARSER_STATE->checkOperator(kind, args.size());
         expr = MK_EXPR(kind, args);
@@ -687,7 +808,9 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
   | symbol[name,CHECK_DECLARED,SYM_VARIABLE]
     { const bool isDefinedFunction =
         PARSER_STATE->isDefinedFunction(name);
-      if(isDefinedFunction) {
+      if(PARSER_STATE->isAbstractValue(name)) {
+        expr = PARSER_STATE->mkAbstractValue(name);
+      } else if(isDefinedFunction) {
         expr = MK_EXPR(CVC4::kind::APPLY,
                        PARSER_STATE->getFunction(name));
       } else {
@@ -763,12 +886,12 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
     }
 
   | HEX_LITERAL
-    { Assert( AntlrInput::tokenText($HEX_LITERAL).find("#x") == 0 );
+    { assert( AntlrInput::tokenText($HEX_LITERAL).find("#x") == 0 );
       std::string hexString = AntlrInput::tokenTextSubstr($HEX_LITERAL, 2);
       expr = MK_CONST( BitVector(hexString, 16) ); }
 
   | BINARY_LITERAL
-    { Assert( AntlrInput::tokenText($BINARY_LITERAL).find("#b") == 0 );
+    { assert( AntlrInput::tokenText($BINARY_LITERAL).find("#b") == 0 );
       std::string binString = AntlrInput::tokenTextSubstr($BINARY_LITERAL, 2);
       expr = MK_CONST( BitVector(binString, 2) ); }
 
@@ -786,7 +909,7 @@ attribute[CVC4::Expr& expr,CVC4::Expr& retExpr, std::string& attr]
   Expr e2;
 }
 : KEYWORD
-  {   
+  {
     attr = AntlrInput::tokenText($KEYWORD);
     //EXPR_MANAGER->setNamedAttribute( expr, attr );
     if( attr==":rewrite-rule" ){
@@ -808,7 +931,7 @@ attribute[CVC4::Expr& expr,CVC4::Expr& retExpr, std::string& attr]
       retExpr = MK_EXPR(kind::INST_PATTERN, patexprs);
     }
   | ATTRIBUTE_NAMED_TOK symbolicExpr[sexpr]
-    { 
+    {
       attr = std::string(":named");
       std::string name = sexpr.getValue();
       // FIXME ensure expr is a closed subterm
@@ -1040,7 +1163,9 @@ sortSymbol[CVC4::Type& t, CVC4::parser::DeclarationCheck check]
         }
         t = EXPR_MANAGER->mkBitVectorType(numerals.front());
       } else {
-        Unhandled(name);
+        std::stringstream ss;
+        ss << "unknown indexed symbol `" << name << "'";
+        PARSER_STATE->parseError(ss.str());
       }
     }
   | LPAREN_TOK symbol[name,CHECK_NONE,SYM_SORT] sortList[args] RPAREN_TOK
@@ -1080,13 +1205,19 @@ symbol[std::string& id,
        CVC4::parser::SymbolType type]
   : SIMPLE_SYMBOL
     { id = AntlrInput::tokenText($SIMPLE_SYMBOL);
-      PARSER_STATE->checkDeclaration(id, check, type);
+      if(!PARSER_STATE->isAbstractValue(id)) {
+        // if an abstract value, SmtEngine handles declaration
+        PARSER_STATE->checkDeclaration(id, check, type);
+      }
     }
   | QUOTED_SYMBOL
     { id = AntlrInput::tokenText($QUOTED_SYMBOL);
       /* strip off the quotes */
       id = id.substr(1, id.size() - 2);
-      PARSER_STATE->checkDeclaration(id, check, type);
+      if(!PARSER_STATE->isAbstractValue(id)) {
+        // if an abstract value, SmtEngine handles declaration
+        PARSER_STATE->checkDeclaration(id, check, type);
+      }
     }
   ;
 
@@ -1143,7 +1274,7 @@ constructorDef[CVC4::Datatype& type]
 }
   : symbol[id,CHECK_UNDECLARED,SYM_SORT]
     { // make the tester
-      std::string testerId("is_");
+      std::string testerId("is-");
       testerId.append(id);
       PARSER_STATE->checkDeclaration(testerId, CHECK_UNDECLARED, SYM_SORT);
       ctor = new CVC4::DatatypeConstructor(id, testerId);
@@ -1201,6 +1332,12 @@ ECHO_TOK : 'echo';
 REWRITE_RULE_TOK : 'assert-rewrite';
 REDUCTION_RULE_TOK : 'assert-reduction';
 PROPAGATION_RULE_TOK : 'assert-propagation';
+DECLARE_SORTS_TOK : 'declare-sorts';
+DECLARE_FUNS_TOK : 'declare-funs';
+DECLARE_PREDS_TOK : 'declare-preds';
+DEFINE_TOK : 'define';
+DECLARE_CONST_TOK : 'declare-const';
+SIMPLIFY_TOK : 'simplify';
 
 // attributes
 ATTRIBUTE_PATTERN_TOK : ':pattern';
@@ -1389,7 +1526,7 @@ fragment HEX_DIGIT : DIGIT | 'a'..'f' | 'A'..'F';
 
 /**
  * Matches the characters that may appear as a one-character "symbol"
- * (which excludes _ and !, which are reserved words in SMT-LIBv2).
+ * (which excludes _ and !, which are reserved words in SMT-LIB).
  */
 fragment SYMBOL_CHAR_NOUNDERSCORE_NOATTRIBUTE
   : '+' | '-' | '/' | '*' | '=' | '%' | '?' | '.' | '$' | '~'

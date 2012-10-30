@@ -2,12 +2,10 @@
 /*! \file channel.h
  ** \verbatim
  ** Original author: kshitij
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -16,6 +14,8 @@
  ** [[ Add lengthier description here ]]
  ** \todo document this file
  **/
+
+#include "cvc4_public.h"
 
 #ifndef __CVC4__CHANNEL_H
 #define __CVC4__CHANNEL_H
@@ -31,12 +31,13 @@
 namespace CVC4 {
 
 template <typename T>
-class SharedChannel {
+class CVC4_PUBLIC SharedChannel {
 private:
   int d_maxsize;                // just call it size?
 public:
   SharedChannel() {}
   SharedChannel(int maxsize) : d_maxsize(maxsize) {}
+  virtual ~SharedChannel() {}
 
   /* Tries to add element and returns true if successful */
   virtual bool push(const T&) = 0;
@@ -59,7 +60,7 @@ http://live.boost.org/doc/libs/1_46_1/libs/circular_buffer/doc/circular_buffer.h
 and is covered by the Boost Software License, version 1.0.
 */
 template <typename T>
-class SynchronizedSharedChannel : public SharedChannel<T> {
+class CVC4_PUBLIC SynchronizedSharedChannel : public SharedChannel<T> {
 public:
   typedef boost::circular_buffer<T> container_type;
   typedef typename container_type::size_type size_type;
@@ -108,6 +109,6 @@ private:
   boost::condition m_not_full;
 };/* class SynchronizedSharedChannel<T> */
 
-}
+}/* CVC4 namespace */
 
 #endif /* __CVC4__CHANNEL_H */

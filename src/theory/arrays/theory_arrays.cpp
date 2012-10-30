@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: barrett
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,6 +24,8 @@
 #include "theory/arrays/theory_arrays_instantiator.h"
 #include "theory/arrays/theory_arrays_model.h"
 #include "theory/model.h"
+#include "theory/arrays/options.h"
+
 
 using namespace std;
 
@@ -45,7 +45,9 @@ const bool d_propagateLemmas = true;
 const bool d_preprocess = true;
 const bool d_solveWrite = true;
 const bool d_solveWrite2 = false;
-const bool d_useNonLinearOpt = true;
+  // These are now options
+  //bool d_useNonLinearOpt = true;
+  //bool d_lazyRIntro1 = true;
 const bool d_eagerIndexSplitting = true;
 
 TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
@@ -384,21 +386,23 @@ void TheoryArrays::preRegisterTerm(TNode node)
     // The may equal needs the store
     d_mayEqualEqualityEngine.addTerm(store);
 
-    // Apply RIntro1 rule to any stores equal to store if not done already
-    const CTNodeList* stores = d_infoMap.getStores(store);
-    CTNodeList::const_iterator it = stores->begin();
-    if (it != stores->end()) {
-      NodeManager* nm = NodeManager::currentNM();
-      TNode s = *it;
-      if (!d_infoMap.rIntro1Applied(s)) {
-        d_infoMap.setRIntro1Applied(s);
-        Assert(s.getKind()==kind::STORE);
-        Node ni = nm->mkNode(kind::SELECT, s, s[1]);
-        if (ni != node) {
-          preRegisterTerm(ni);
+    if (options::arraysLazyRIntro1()) {
+      // Apply RIntro1 rule to any stores equal to store if not done already
+      const CTNodeList* stores = d_infoMap.getStores(store);
+      CTNodeList::const_iterator it = stores->begin();
+      if (it != stores->end()) {
+        NodeManager* nm = NodeManager::currentNM();
+        TNode s = *it;
+        if (!d_infoMap.rIntro1Applied(s)) {
+          d_infoMap.setRIntro1Applied(s);
+          Assert(s.getKind()==kind::STORE);
+          Node ni = nm->mkNode(kind::SELECT, s, s[1]);
+          if (ni != node) {
+            preRegisterTerm(ni);
+          }
+          d_equalityEngine.assertEquality(ni.eqNode(s[2]), true, d_true);
+          Assert(++it == stores->end());
         }
-        d_equalityEngine.assertEquality(ni.eqNode(s[2]), true, d_true);
-        Assert(++it == stores->end());
       }
     }
 
@@ -428,19 +432,21 @@ void TheoryArrays::preRegisterTerm(TNode node)
     d_equalityEngine.addTriggerTerm(node, THEORY_ARRAY);
 
     TNode a = d_equalityEngine.getRepresentative(node[0]);
-    //    TNode i = node[1];
-    //    TNode v = node[2];
 
     d_mayEqualEqualityEngine.assertEquality(node.eqNode(a), true, d_true);
 
-    // NodeManager* nm = NodeManager::currentNM();
-    // Node ni = nm->mkNode(kind::SELECT, node, i);
-    // if (!d_equalityEngine.hasTerm(ni)) {
-    //   preRegisterTerm(ni);
-    // }
+    if (!options::arraysLazyRIntro1()) {
+      TNode i = node[1];
+      TNode v = node[2];
+      NodeManager* nm = NodeManager::currentNM();
+      Node ni = nm->mkNode(kind::SELECT, node, i);
+      if (!d_equalityEngine.hasTerm(ni)) {
+        preRegisterTerm(ni);
+      }
 
-    // // Apply RIntro1 Rule
-    // d_equalityEngine.addEquality(ni, v, d_true);
+      // Apply RIntro1 Rule
+      d_equalityEngine.assertEquality(ni.eqNode(v), true, d_true);
+    }
 
     d_infoMap.addStore(node, node);
     d_infoMap.addInStore(a, node);
@@ -565,9 +571,15 @@ void TheoryArrays::computeCareGraph()
           // If arrays are known to be disequal, or cannot become equal, we can continue
           Assert(d_mayEqualEqualityEngine.hasTerm(r1[0]) && d_mayEqualEqualityEngine.hasTerm(r2[0]));
           if (r1[0].getType() != r2[0].getType() ||
-              (!d_mayEqualEqualityEngine.areEqual(r1[0], r2[0])) ||
               d_equalityEngine.areDisequal(r1[0], r2[0], false)) {
             Debug("arrays::sharing") << "TheoryArrays::computeCareGraph(): arrays can't be equal, skipping" << std::endl;
+            continue;
+          }
+          else if (!d_mayEqualEqualityEngine.areEqual(r1[0], r2[0])) {
+            if (r2.getType().getCardinality().isInfinite()) {
+              continue;
+            }
+            // TODO: add a disequality split for these two arrays
             continue;
           }
         }
@@ -628,47 +640,78 @@ void TheoryArrays::computeCareGraph()
 
 void TheoryArrays::collectModelInfo( TheoryModel* m, bool fullModel ){
   m->assertEqualityEngine( &d_equalityEngine );
-  //must determine proper representatives for all array equivalence classes
-  //first, we collect all select terms and array equivalence classes
-  std::map< Node, std::vector< Node > > selects;
-  std::vector< Node > arrays;
+
+  std::map<Node, std::vector<Node> > selects;
+  std::vector<Node> arrays;
+
+  // Go through all equivalence classes
   eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &d_equalityEngine );
+  bool isArray, computeRep;
   while( !eqcs_i.isFinished() ){
     Node eqc = (*eqcs_i);
-    if( eqc.getType().isArray() ){
-      arrays.push_back( eqc );
-    }
+    isArray = eqc.getType().isArray();
+    computeRep = false;
     eq::EqClassIterator eqc_i = eq::EqClassIterator( eqc, &d_equalityEngine );
     while( !eqc_i.isFinished() ){
       Node n = *eqc_i;
-      if( n.getKind()==kind::SELECT ){
-        selects[ n[0] ].push_back( n );
+      // If this EC is an array type and it contains something other than STORE nodes, we have to compute a representative explicitly
+      if (isArray && n.getKind() != kind::STORE) {
+        arrays.push_back(eqc);
+        computeRep = true;
+      }
+      // If this term is a select, record that the EC rep of its store parameter is being read from using this term
+      if (n.getKind()==kind::SELECT) {
+        selects[d_equalityEngine.getRepresentative(n[0])].push_back(n);
       }
       ++eqc_i;
+    }
+    // If this is an array EC but it only contains STORE nodes, then the value of this EC is derived from the others -
+    // no need to do extra work to compute it
+    if (isArray && !computeRep) {
+      m->assertRepresentative(eqc);
     }
     ++eqcs_i;
   }
-  //for all array equivalence classes
-  for( size_t i=0; i<arrays.size(); i++ ){
-    ArrayModel am( arrays[i], m );
-    //set all values from existing select terms
-    eq::EqClassIterator eqc_i = eq::EqClassIterator( arrays[i], &d_equalityEngine );
-    while( !eqc_i.isFinished() ){
-      for( int i=0; i<(int)selects[ *eqc_i ].size(); i++ ){
-        am.setValue( m, selects[ *eqc_i ][i][1], selects[ *eqc_i ][i] );
+
+  NodeManager* nm = NodeManager::currentNM();
+  Node rep;
+  map<Node, Node> defValues;
+  map<Node, Node>::iterator it;
+  TypeSet defaultValuesSet;
+
+  // Loop through all array equivalence classes that need a representative computed
+  for (size_t i=0; i<arrays.size(); ++i) {
+    TNode n = arrays[i];
+
+    // Compute default value for this array - there is one default value for every mayEqual equivalence class
+    TNode mayRep = d_mayEqualEqualityEngine.getRepresentative(n);
+    it = defValues.find(mayRep);
+    // If this mayEqual EC doesn't have a default value associated, get the next available default value for the associated array element type
+    if (it == defValues.end()) {
+      TypeNode valueType = n.getType().getArrayConstituentType();
+      rep = defaultValuesSet.nextTypeEnum(valueType);
+      if (rep.isNull()) {
+        Assert(defaultValuesSet.getSet(valueType)->begin() != defaultValuesSet.getSet(valueType)->end());
+        rep = *(defaultValuesSet.getSet(valueType)->begin());
       }
-      ++eqc_i;
+      Trace("arrays-models") << "New default value = " << rep << endl;
+      defValues[mayRep] = rep;
     }
-    if( fullModel ){
-      ////choose a representative as the default array
-      //am.setDefaultArray( ... );
+    else {
+      rep = (*it).second;
     }
-    //construct the representative
-    Node rep = am.getArrayValue();
-    Assert( !rep.isNull() );
-    m->assertEquality( arrays[i], rep, true );
-    //communicate to the model that it is the representative
-    m->assertRepresentative( rep );
+
+    // Build the STORE_ALL term with the default value
+    rep = nm->mkConst(ArrayStoreAll(n.getType().toType(), rep.toExpr()));
+    // For each read, require that the rep stores the right value
+    vector<Node>& reads = selects[n];
+    for (unsigned j = 0; j < reads.size(); ++j) {
+      m->addTerm(reads[j]);
+      m->addTerm(reads[j][1]);
+      rep = nm->mkNode(kind::STORE, rep, reads[j][1], reads[j]);
+    }
+    m->assertEquality(n, rep, true);
+    m->assertRepresentative(rep);
   }
 }
 
@@ -737,9 +780,7 @@ void TheoryArrays::check(Effort e) {
             TNode k;
             std::hash_map<TNode, Node, TNodeHashFunction>::iterator it = d_diseqCache.find(fact);
             if (it == d_diseqCache.end()) {
-              Node newk = nm->mkSkolem(indexType);
-	      Dump.declareVar(newk.toExpr(),
-                              "an extensional lemma index variable from the theory of arrays");
+              Node newk = nm->mkSkolem("array_ext_index_$$", indexType, "an extensional lemma index variable from the theory of arrays");
               d_diseqCache[fact] = newk;
               k = newk;
             }
@@ -949,10 +990,12 @@ void TheoryArrays::mergeArrays(TNode a, TNode b)
   while (true) {
     Trace("arrays-merge") << spaces(getSatContext()->getLevel()) << "Arrays::merge: " << a << "," << b << ")\n";
 
-    checkRIntro1(a, b);
-    checkRIntro1(b, a);
+    if (options::arraysLazyRIntro1()) {
+      checkRIntro1(a, b);
+      checkRIntro1(b, a);
+    }
 
-    if (d_useNonLinearOpt) {
+    if (options::arraysOptimizeLinear()) {
       bool aNL = d_infoMap.isNonLinear(a);
       bool bNL = d_infoMap.isNonLinear(b);
       if (aNL) {
@@ -1018,7 +1061,7 @@ void TheoryArrays::checkStore(TNode a) {
 
   TNode brep = d_equalityEngine.getRepresentative(b);
 
-  if (!d_useNonLinearOpt || d_infoMap.isNonLinear(brep)) {
+  if (!options::arraysOptimizeLinear() || d_infoMap.isNonLinear(brep)) {
     const CTNodeList* js = d_infoMap.getIndices(brep);
     size_t it = 0;
     RowLemmaType lem;
@@ -1059,7 +1102,7 @@ void TheoryArrays::checkRowForIndex(TNode i, TNode a)
     queueRowLemma(lem);
   }
 
-  if (!d_useNonLinearOpt || d_infoMap.isNonLinear(a)) {
+  if (!options::arraysOptimizeLinear() || d_infoMap.isNonLinear(a)) {
     it = 0;
     for(; it < instores->size(); ++it) {
       TNode instore = (*instores)[it];
@@ -1108,7 +1151,7 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b)
     }
   }
 
-  if (!d_useNonLinearOpt || d_infoMap.isNonLinear(b)) {
+  if (!options::arraysOptimizeLinear() || d_infoMap.isNonLinear(b)) {
     for(it = 0 ; it < i_a->size(); ++it ) {
       TNode i = (*i_a)[it];
       its = 0;

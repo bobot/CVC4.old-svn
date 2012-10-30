@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): dejan, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -35,6 +33,7 @@ namespace arith {
 
 //Sets of Nodes
 typedef __gnu_cxx::hash_set<Node, NodeHashFunction> NodeSet;
+typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction> TNodeSet;
 typedef context::CDHashSet<Node, NodeHashFunction> CDNodeSet;
 
 inline Node mkRationalNode(const Rational& q){
@@ -45,7 +44,13 @@ inline Node mkBoolNode(bool b){
   return NodeManager::currentNM()->mkConst<bool>(b);
 }
 
+inline Node mkIntSkolem(const std::string& name){
+  return NodeManager::currentNM()->mkSkolem(name, NodeManager::currentNM()->integerType());
+}
 
+inline Node mkRealSkolem(const std::string& name){
+  return NodeManager::currentNM()->mkSkolem(name, NodeManager::currentNM()->realType());
+}
 
 /** \f$ k \in {LT, LEQ, EQ, GEQ, GT} \f$ */
 inline bool isRelationOperator(Kind k){

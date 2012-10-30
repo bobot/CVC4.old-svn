@@ -2,12 +2,10 @@
 /*! \file options_handlers.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
+ ** Major contributors: ajreynol
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -59,7 +57,7 @@ predicate\n\
 ";
 
 static const std::string axiomInstModeHelp = "\
-Literal match modes currently supported by the --axiom-inst option:\n\
+Axiom instantiation modes currently supported by the --axiom-inst option:\n\
 \n\
 default \n\
 + Treat axioms the same as usual quantifiers, i.e. use all available methods for\n\
