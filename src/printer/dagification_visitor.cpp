@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011, 2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -39,7 +37,7 @@ DagificationVisitor::DagificationVisitor(unsigned threshold, std::string letVarP
   d_substNodes() {
 
   // 0 doesn't make sense
-  CheckArgument(threshold > 0, threshold);
+  AlwaysAssertArgument(threshold > 0, threshold);
 }
 
 DagificationVisitor::~DagificationVisitor() {
@@ -53,17 +51,28 @@ bool DagificationVisitor::alreadyVisited(TNode current, TNode parent) {
   // the count beyond the threshold already, we've done the same
   // for all subexpressions, so it isn't useful to traverse and
   // increment again (they'll be dagified anyway).
-  return current.getMetaKind() == kind::metakind::VARIABLE ||
+  return current.isVar() ||
          current.getMetaKind() == kind::metakind::CONSTANT ||
+         current.getNumChildren()==0 ||
          ( ( current.getKind() == kind::NOT ||
              current.getKind() == kind::UMINUS ) &&
-           ( current[0].getMetaKind() == kind::metakind::VARIABLE ||
+           ( current[0].isVar() ||
              current[0].getMetaKind() == kind::metakind::CONSTANT ) ) ||
          current.getKind() == kind::SORT_TYPE ||
          d_nodeCount[current] > d_threshold;
 }
 
 void DagificationVisitor::visit(TNode current, TNode parent) {
+
+#ifdef CVC4_TRACING
+#  ifdef CVC4_DEBUG
+  // turn off dagification for Debug stream while we're doing this work
+  Node::dag::Scope scopeDebug(Debug.getStream(), false);
+#  endif /* CVC4_DEBUG */
+  // turn off dagification for Trace stream while we're doing this work
+  Node::dag::Scope scopeTrace(Trace.getStream(), false);
+#endif /* CVC4_TRACING */
+
   if(d_uniqueParent.find(current) != d_uniqueParent.end()) {
     // we've seen this expr before
 
@@ -99,6 +108,15 @@ void DagificationVisitor::done(TNode node) {
 
   d_done = true;
 
+#ifdef CVC4_TRACING
+#  ifdef CVC4_DEBUG
+  // turn off dagification for Debug stream while we're doing this work
+  Node::dag::Scope scopeDebug(Debug.getStream(), false);
+#  endif /* CVC4_DEBUG */
+  // turn off dagification for Trace stream while we're doing this work
+  Node::dag::Scope scopeTrace(Trace.getStream(), false);
+#endif /* CVC4_TRACING */
+
   // letify subexprs before parents (cascading LETs)
   std::sort(d_substNodes.begin(), d_substNodes.end());
 
@@ -116,7 +134,7 @@ void DagificationVisitor::done(TNode node) {
     // construct the let binder
     std::stringstream ss;
     ss << d_letVarPrefix << d_letVar++;
-    Node letvar = NodeManager::currentNM()->mkVar(ss.str(), (*i).getType());
+    Node letvar = NodeManager::currentNM()->mkSkolem(ss.str(), (*i).getType(), "dagification", NodeManager::SKOLEM_NO_NOTIFY | NodeManager::SKOLEM_EXACT_NAME);
 
     // apply previous substitutions to the rhs, enabling cascading LETs
     Node n = d_substitutions->apply(*i);
@@ -132,6 +150,16 @@ const theory::SubstitutionMap& DagificationVisitor::getLets() {
 
 Node DagificationVisitor::getDagifiedBody() {
   AlwaysAssert(d_done, "DagificationVisitor must be used as a visitor before getting the dagified version out!");
+
+#ifdef CVC4_TRACING
+#  ifdef CVC4_DEBUG
+  // turn off dagification for Debug stream while we're doing this work
+  Node::dag::Scope scopeDebug(Debug.getStream(), false);
+#  endif /* CVC4_DEBUG */
+  // turn off dagification for Trace stream while we're doing this work
+  Node::dag::Scope scopeTrace(Trace.getStream(), false);
+#endif /* CVC4_TRACING */
+
   return d_substitutions->apply(d_top);
 }
 
