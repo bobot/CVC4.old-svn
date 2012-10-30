@@ -60,6 +60,8 @@
 #include "theory/booleans/circuit_propagator.h"
 #include "util/ite_removal.h"
 #include "theory/model.h"
+#include "printer/printer.h"
+#include "prop/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -141,7 +143,8 @@ class SmtEnginePrivate {
    * holds the last substitution from d_topLevelSubstitutions
    * that was pushed out to SAT.
    * If d_lastSubstitutionPos == d_topLevelSubstitutions.end(),
-   * then nothing has been pushed out yet. */
+   * then nothing has been pushed out yet.
+   */
   context::CDO<SubstitutionMap::iterator> d_lastSubstitutionPos;
 
   static const bool d_doConstantProp = true;
@@ -252,6 +255,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_assertionList(NULL),
   d_assignments(NULL),
   d_logic(),
+  d_pendingPops(0),
   d_fullyInited(false),
   d_problemExtended(false),
   d_queryMade(false),
@@ -310,6 +314,16 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_context->push();
 
   d_definedFunctions = new(true) DefinedFunctionMap(d_userContext);
+}
+
+void SmtEngine::finishInit() {
+  d_decisionEngine = new DecisionEngine(d_context, d_userContext);
+  d_decisionEngine->init();   // enable appropriate strategies
+
+  d_propEngine = new PropEngine(d_theoryEngine, d_decisionEngine, d_context);
+
+  d_theoryEngine->setPropEngine(d_propEngine);
+  d_theoryEngine->setDecisionEngine(d_decisionEngine);
 
   // [MGD 10/20/2011] keep around in incremental mode, due to a
   // cleanup ordering issue and Nodes/TNodes.  If SAT is popped
@@ -334,16 +348,6 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   if(options::cumulativeMillisecondLimit() != 0) {
     setTimeLimit(options::cumulativeMillisecondLimit(), true);
   }
-}
-
-void SmtEngine::finishInit() {
-  d_decisionEngine = new DecisionEngine(d_context, d_userContext);
-  d_decisionEngine->init();   // enable appropriate strategies
-
-  d_propEngine = new PropEngine(d_theoryEngine, d_decisionEngine, d_context);
-
-  d_theoryEngine->setPropEngine(d_propEngine);
-  d_theoryEngine->setDecisionEngine(d_decisionEngine);
 }
 
 void SmtEngine::finalOptionsAreSet() {
@@ -375,6 +379,8 @@ void SmtEngine::shutdown() {
     Dump("benchmark") << QuitCommand();
   }
 
+  doPendingPops();
+
   // check to see if a postsolve() is pending
   if(d_needPostsolve) {
     d_theoryEngine->postsolve();
@@ -390,8 +396,10 @@ SmtEngine::~SmtEngine() throw() {
   SmtScope smts(this);
 
   try {
+    doPendingPops();
+
     while(options::incrementalSolving() && d_userContext->getLevel() > 1) {
-      internalPop();
+      internalPop(true);
     }
 
     shutdown();
@@ -424,11 +432,12 @@ SmtEngine::~SmtEngine() throw() {
     StatisticsRegistry::unregisterStat(&d_numAssertionsPost);
 
     delete d_private;
-    delete d_userContext;
 
     delete d_theoryEngine;
     delete d_propEngine;
-    //delete d_decisionEngine;
+    delete d_decisionEngine;
+
+    delete d_userContext;
 
     delete d_statisticsRegistry;
 
@@ -487,7 +496,9 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
     bool qf_sat = d_logic.isPure(THEORY_BOOL) && !d_logic.isQuantified();
     bool quantifiers = d_logic.isQuantified();
     Trace("smt") << "setting simplification mode to <" << d_logic.getLogicString() << "> " << (!qf_sat && !quantifiers) << std::endl;
-    options::simplificationMode.set(qf_sat || quantifiers ? SIMPLIFICATION_MODE_NONE : SIMPLIFICATION_MODE_BATCH);
+    //simplifaction=none works better for SMT LIB benchmarks with quantifiers, not others
+    //options::simplificationMode.set(qf_sat || quantifiers ? SIMPLIFICATION_MODE_NONE : SIMPLIFICATION_MODE_BATCH);
+    options::simplificationMode.set(qf_sat ? SIMPLIFICATION_MODE_NONE : SIMPLIFICATION_MODE_BATCH);
   }
 
   // If in arrays, set the UF handler to arrays
@@ -615,6 +626,21 @@ void SmtEngine::setLogicInternal() throw(AssertionException) {
     Trace("smt") << "setting decision mode to " << decMode << std::endl;
     options::decisionMode.set(decMode);
     options::decisionStopOnly.set(stoponly);
+  }
+
+  //for finite model finding
+  if( ! options::instWhenMode.wasSetByUser()){
+    if( options::fmfInstEngine() ){
+      Trace("smt") << "setting inst when mode to LAST_CALL" << std::endl;
+      options::instWhenMode.set( INST_WHEN_LAST_CALL );
+    }
+  }
+
+  //until bug 371 is fixed
+  if( ! options::minisatUseElim.wasSetByUser()){
+    if( d_logic.isQuantified() ){
+      options::minisatUseElim.set( false );
+    }
   }
 }
 
@@ -1247,6 +1273,7 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
 // returns false if simpflication led to "false"
 bool SmtEnginePrivate::simplifyAssertions()
   throw(TypeCheckingException, AssertionException) {
+  Assert(d_smt.d_pendingPops == 0);
   try {
 
     Trace("simplify") << "SmtEnginePrivate::simplify()" << endl;
@@ -1328,6 +1355,7 @@ bool SmtEnginePrivate::simplifyAssertions()
 
 Result SmtEngine::check() {
   Assert(d_fullyInited);
+  Assert(d_pendingPops == 0);
 
   Trace("smt") << "SmtEngine::check()" << endl;
 
@@ -1379,6 +1407,7 @@ Result SmtEngine::quickCheck() {
 
 void SmtEnginePrivate::processAssertions() {
   Assert(d_smt.d_fullyInited);
+  Assert(d_smt.d_pendingPops == 0);
 
   Trace("smt") << "SmtEnginePrivate::processAssertions()" << endl;
 
@@ -1533,7 +1562,7 @@ void SmtEnginePrivate::addFormula(TNode n)
   }
 }
 
-void SmtEngine::ensureBoolean(const BoolExpr& e) {
+void SmtEngine::ensureBoolean(const BoolExpr& e) throw(TypeCheckingException) {
   Type type = e.getType(options::typeChecking());
   Type boolType = d_exprManager->booleanType();
   if(type != boolType) {
@@ -1545,13 +1574,14 @@ void SmtEngine::ensureBoolean(const BoolExpr& e) {
   }
 }
 
-Result SmtEngine::checkSat(const BoolExpr& e) {
+Result SmtEngine::checkSat(const BoolExpr& e) throw(TypeCheckingException) {
 
   Assert(e.isNull() || e.getExprManager() == d_exprManager);
 
   SmtScope smts(this);
 
   finalOptionsAreSet();
+  doPendingPops();
 
   Trace("smt") << "SmtEngine::checkSat(" << e << ")" << endl;
 
@@ -1607,7 +1637,7 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
   return r;
 }
 
-Result SmtEngine::query(const BoolExpr& e) {
+Result SmtEngine::query(const BoolExpr& e) throw(TypeCheckingException) {
 
   Assert(!e.isNull());
   Assert(e.getExprManager() == d_exprManager);
@@ -1615,6 +1645,7 @@ Result SmtEngine::query(const BoolExpr& e) {
   SmtScope smts(this);
 
   finalOptionsAreSet();
+  doPendingPops();
 
   Trace("smt") << "SMT query(" << e << ")" << endl;
 
@@ -1666,10 +1697,11 @@ Result SmtEngine::query(const BoolExpr& e) {
   return r;
 }
 
-Result SmtEngine::assertFormula(const BoolExpr& e) {
+Result SmtEngine::assertFormula(const BoolExpr& e) throw(TypeCheckingException) {
   Assert(e.getExprManager() == d_exprManager);
   SmtScope smts(this);
   finalOptionsAreSet();
+  doPendingPops();
   Trace("smt") << "SmtEngine::assertFormula(" << e << ")" << endl;
   ensureBoolean(e);
   if(d_assertionList != NULL) {
@@ -1679,10 +1711,11 @@ Result SmtEngine::assertFormula(const BoolExpr& e) {
   return quickCheck().asValidityResult();
 }
 
-Expr SmtEngine::simplify(const Expr& e) {
+Expr SmtEngine::simplify(const Expr& e) throw(TypeCheckingException) {
   Assert(e.getExprManager() == d_exprManager);
   SmtScope smts(this);
   finalOptionsAreSet();
+  doPendingPops();
   if( options::typeChecking() ) {
     e.getType(true);// ensure expr is type-checked at this point
   }
@@ -1690,6 +1723,9 @@ Expr SmtEngine::simplify(const Expr& e) {
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << SimplifyCommand(e);
   }
+  // Make sure we've done simple preprocessing, unit detection, etc.
+  Trace("smt") << "SmtEngine::check(): processing assertions" << endl;
+  d_private->processAssertions();
   return d_private->applySubstitutions(e).toExpr();
 }
 
@@ -1723,11 +1759,10 @@ Expr SmtEngine::getValue(const Expr& e)
     throw ModalException(msg);
   }
 
-  // Apply what was learned from preprocessing
-  Node n = d_private->applySubstitutions(e.getNode());
+  // do not need to apply preprocessing substitutions (should be recorded in model already)
 
   // Normalize for the theories
-  n = Rewriter::rewrite(n);
+  Node n = Rewriter::rewrite( e.getNode() );
 
   Trace("smt") << "--- getting value of " << n << endl;
   theory::TheoryModel* m = d_theoryEngine->getModel();
@@ -1744,6 +1779,7 @@ Expr SmtEngine::getValue(const Expr& e)
 bool SmtEngine::addToAssignment(const Expr& e) throw(AssertionException) {
   SmtScope smts(this);
   finalOptionsAreSet();
+  doPendingPops();
   Type type = e.getType(options::typeChecking());
   // must be Boolean
   CheckArgument( type.isBoolean(), e,
@@ -1831,34 +1867,26 @@ CVC4::SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException)
 }
 
 
-void SmtEngine::addToModelType( Type& t ){
-  Trace("smt") << "SMT addToModelType(" << t << ")" << endl;
+void SmtEngine::addToModelCommand( Command* c, int c_type ){
+  Trace("smt") << "SMT addToModelCommand(" << c << ", " << c_type << ")" << endl;
   SmtScope smts(this);
   finalOptionsAreSet();
+  doPendingPops();
   if( options::produceModels() ) {
-    d_theoryEngine->getModel()->addDefineType( TypeNode::fromType( t ) );
+    d_theoryEngine->getModel()->addCommand( c, c_type );
   }
 }
-
-void SmtEngine::addToModelFunction( Expr& e ){
-  Trace("smt") << "SMT addToModelFunction(" << e << ")" << endl;
-  SmtScope smts(this);
-  finalOptionsAreSet();
-  if( options::produceModels() ) {
-    d_theoryEngine->getModel()->addDefineFunction( e.getNode() );
-  }
-}
-
 
 Model* SmtEngine::getModel() throw(ModalException, AssertionException){
   Trace("smt") << "SMT getModel()" << endl;
   SmtScope smts(this);
 
-  if(!options::produceModels()) {
-    const char* msg =
-      "Cannot get model when produce-models options is off.";
-    throw ModalException(msg);
+  finalOptionsAreSet();
+
+  if(Dump.isOn("benchmark")) {
+    Dump("benchmark") << GetModelCommand();
   }
+
   if(d_status.isNull() ||
      d_status.asSatisfiabilityResult() == Result::UNSAT  ||
      d_problemExtended) {
@@ -1867,7 +1895,11 @@ Model* SmtEngine::getModel() throw(ModalException, AssertionException){
       "preceded by SAT/INVALID or UNKNOWN response.";
     throw ModalException(msg);
   }
-
+  if(!options::produceModels()) {
+    const char* msg =
+      "Cannot get model when produce-models options is off.";
+    throw ModalException(msg);
+  }
   return d_theoryEngine->getModel();
 }
 
@@ -1900,6 +1932,7 @@ Proof* SmtEngine::getProof() throw(ModalException, AssertionException) {
 
 vector<Expr> SmtEngine::getAssertions()
   throw(ModalException, AssertionException) {
+  finalOptionsAreSet();
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << GetAssertionsCommand();
   }
@@ -1911,18 +1944,14 @@ vector<Expr> SmtEngine::getAssertions()
     throw ModalException(msg);
   }
   Assert(d_assertionList != NULL);
+  // copy the result out
   return vector<Expr>(d_assertionList->begin(), d_assertionList->end());
-}
-
-size_t SmtEngine::getStackLevel() const {
-  SmtScope smts(this);
-  Trace("smt") << "SMT getStackLevel()" << endl;
-  return d_context->getLevel();
 }
 
 void SmtEngine::push() {
   SmtScope smts(this);
   finalOptionsAreSet();
+  doPendingPops();
   Trace("smt") << "SMT push()" << endl;
   d_private->processAssertions();
   if(Dump.isOn("benchmark")) {
@@ -1966,7 +1995,7 @@ void SmtEngine::pop() {
 
   AlwaysAssert(d_userLevels.size() > 0 && d_userLevels.back() < d_userContext->getLevel());
   while (d_userLevels.back() < d_userContext->getLevel()) {
-    internalPop();
+    internalPop(true);
   }
   d_userLevels.pop_back();
 
@@ -1984,6 +2013,7 @@ void SmtEngine::pop() {
 void SmtEngine::internalPush() {
   Assert(d_fullyInited);
   Trace("smt") << "SmtEngine::internalPush()" << endl;
+  doPendingPops();
   if(options::incrementalSolving()) {
     d_private->processAssertions();
     d_userContext->push();
@@ -1992,13 +2022,24 @@ void SmtEngine::internalPush() {
   }
 }
 
-void SmtEngine::internalPop() {
+void SmtEngine::internalPop(bool immediate) {
   Assert(d_fullyInited);
   Trace("smt") << "SmtEngine::internalPop()" << endl;
   if(options::incrementalSolving()) {
+    ++d_pendingPops;
+  }
+  if(immediate) {
+    doPendingPops();
+  }
+}
+
+void SmtEngine::doPendingPops() {
+  Assert(d_pendingPops == 0 || options::incrementalSolving());
+  while(d_pendingPops > 0) {
     d_propEngine->pop();
     d_context->pop();
     d_userContext->pop();
+    --d_pendingPops;
   }
 }
 
@@ -2061,7 +2102,13 @@ StatisticsRegistry* SmtEngine::getStatisticsRegistry() const {
 
 void SmtEngine::printModel( std::ostream& out, Model* m ){
   SmtScope smts(this);
-  m->toStream(out);
+  Printer::getPrinter(options::outputLanguage())->toStream( out, m );
+  //m->toStream(out);
+}
+
+void SmtEngine::setUserAttribute( std::string& attr, Expr expr ){
+  SmtScope smts(this);
+  d_theoryEngine->setUserAttribute( attr, expr.getNode() );
 }
 
 }/* CVC4 namespace */

@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file expr_template.h
+/*! \file expr.h
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
@@ -102,11 +102,12 @@ private:
 protected:
 
   TypeCheckingException() throw() : Exception() {}
-  TypeCheckingException(const Expr& expr, std::string message) throw();
   TypeCheckingException(ExprManager* em,
                         const TypeCheckingExceptionPrivate* exc) throw();
 
 public:
+
+  TypeCheckingException(const Expr& expr, std::string message) throw();
 
   /** Copy constructor */
   TypeCheckingException(const TypeCheckingException& t) throw();
@@ -299,8 +300,10 @@ public:
    * Iterator type for the children of an Expr.
    */
   class const_iterator : public std::iterator<std::input_iterator_tag, Expr> {
+    ExprManager* d_exprManager;
     void* d_iterator;
-    explicit const_iterator(void*);
+
+    explicit const_iterator(ExprManager*, void*);
 
     friend class Expr;// to access void* constructor
 
@@ -400,6 +403,7 @@ public:
    * @param types set to true to ascribe types to the output
    * expressions (might break language compliance, but good for
    * debugging expressions)
+   * @param dag the dagification threshold to use (0 == off)
    * @param language the language in which to output
    */
   void toStream(std::ostream& out, int toDepth = -1, bool types = false, size_t dag = 1,
@@ -662,7 +666,7 @@ class CVC4_PUBLIC ExprSetDepth {
    * The default depth to print, for ostreams that haven't yet had a
    * setdepth() applied to them.
    */
-  static const int s_defaultPrintDepth = 3;
+  static const int s_defaultPrintDepth = -1;
 
   /**
    * When this manipulator is used, the depth is stored here.
@@ -957,7 +961,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 961 "${template}"
+#line 965 "${template}"
 
 namespace expr {
 

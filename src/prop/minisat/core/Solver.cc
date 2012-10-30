@@ -449,6 +449,7 @@ Lit Solver::pickBranchLitTheory()
     }
     return lit_Undef;
 }
+//    Debug("propagateAsDecision") << "propagateAsDecision(): decide on another literal" << std::endl;
 
 Lit Solver::pickBranchLitInternal()
 {

@@ -211,8 +211,17 @@ public:
 
   std::string toString() const throw();
 
-  /** Either the command hasn't run yet, or it completed successfully. */
+  /**
+   * Either the command hasn't run yet, or it completed successfully
+   * (CommandSuccess, not CommandUnsupported or CommandFailure).
+   */
   bool ok() const throw();
+
+  /**
+   * The command completed in a failure state (CommandFailure, not
+   * CommandSuccess or CommandUnsupported).
+   */
+  bool fail() const throw();
 
   /** Get the command status (it's NULL if we haven't run yet). */
   const CommandStatus* getCommandStatus() const throw() { return d_commandStatus; }
@@ -322,6 +331,7 @@ protected:
 public:
   DeclareFunctionCommand(const std::string& id, Expr func, Type type) throw();
   ~DeclareFunctionCommand() throw() {}
+  Expr getFunction() const throw();
   Type getType() const throw();
   void invoke(SmtEngine* smtEngine) throw();
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
@@ -388,6 +398,27 @@ public:
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
   Command* clone() const;
 };/* class DefineNamedFunctionCommand */
+
+/**
+ * The command when an attribute is set by a user.  In SMT-LIBv2 this is done
+ *  via the syntax (! expr :atrr)
+ */
+class CVC4_PUBLIC SetUserAttributeCommand : public Command {
+protected:
+  std::string d_attr;
+  Expr d_expr;
+  //std::vector<Expr> d_expr_values;
+  //std::string d_str_value;
+public:
+  SetUserAttributeCommand( const std::string& attr, Expr expr ) throw();
+  //SetUserAttributeCommand( const std::string& id, Expr expr, std::vector<Expr>& values ) throw();
+  //SetUserAttributeCommand( const std::string& id, Expr expr, std::string& value ) throw();
+  ~SetUserAttributeCommand() throw() {}
+  void invoke(SmtEngine* smtEngine) throw();
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+  Command* clone() const;
+};/* class SetUserAttributeCommand */
+
 
 class CVC4_PUBLIC CheckSatCommand : public Command {
 protected:
