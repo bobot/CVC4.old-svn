@@ -379,6 +379,7 @@ echo ./config.status "\$@"
 EOF
     chmod +x config.reconfig
   fi
+  ln -sf "$target/$build_type/config.log" "builds/config.log"
   exit $exitval
 else
   AC_MSG_RESULT([this one (user-specified)])
@@ -479,9 +480,19 @@ if test -z "${enable_static_binary+set}"; then
   enable_static_binary=no
 fi
 AC_MSG_RESULT([$enable_static_binary])
-if test "$enable_static_binary" = yes -a "$enable_static" != yes; then
-  enable_static=yes
-  AC_MSG_WARN([forcing static-library building, --enable-static-binary given])
+if test "$enable_static_binary" = yes; then
+  if test "$target_vendor" = apple; then
+    if test -z "$MAC_STATIC_BINARY_MANUAL_OVERRIDE"; then
+      AC_MSG_ERROR([[Statically-linked binaries are not supported on Mac OS.  See https://developer.apple.com/library/mac/#qa/qa2001/qa1118.html .  (If you ABSOLUTELY insist on this going forward and you know what you are doing, set MAC_STATIC_BINARY_MANUAL_OVERRIDE=1)]])
+    else
+      AC_MSG_WARN([MAC_STATIC_BINARY_MANUAL_OVERRIDE was set!])
+      AC_MSG_WARN([Will make a static binary during this build.  Note that it may fail!])
+    fi
+  fi
+  if test "$enable_static" != yes; then
+    enable_static=yes
+    AC_MSG_WARN([forcing static-library building, --enable-static-binary given])
+  fi
 fi
 
 AC_MSG_CHECKING([whether to support proof in libcvc4])
@@ -929,7 +940,7 @@ if test "$enable_thread_support" = no; then
   fi
 else
   BOOST_THREADS([], [AC_MSG_WARN([disabling multithreaded support])
-                   cvc4_has_threads=no])
+                     cvc4_has_threads=no])
 fi
 LDFLAGS="$cvc4_save_LDFLAGS"
 if test $cvc4_has_threads = no; then
@@ -1128,6 +1139,8 @@ else
   AM_CONDITIONAL([CVC4_HAS_THREADS], [false])
   AC_SUBST([CVC4_HAS_THREADS], 0)
 fi
+
+AM_CONDITIONAL([CVC4_NEEDS_REPLACEMENT_FUNCTIONS], [test -n "$LIBOBJS"])
 
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/integer.h])

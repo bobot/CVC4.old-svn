@@ -62,6 +62,7 @@
 #include "theory/model.h"
 #include "printer/printer.h"
 #include "prop/options.h"
+#include "theory/arrays/options.h"
 
 using namespace std;
 using namespace CVC4;
@@ -712,10 +713,21 @@ void SmtEngine::setLogicInternal() throw() {
   if(! options::unconstrainedSimp.wasSetByUser() || options::incrementalSolving()) {
     //    bool qf_sat = d_logic.isPure(THEORY_BOOL) && !d_logic.isQuantified();
     //    bool uncSimp = false && !qf_sat && !options::incrementalSolving();
-    bool uncSimp = !options::incrementalSolving() && !d_logic.isQuantified() &&
+    bool uncSimp = !options::incrementalSolving() && !d_logic.isQuantified() && !options::produceModels() &&
       (d_logic.isTheoryEnabled(THEORY_ARRAY) && d_logic.isTheoryEnabled(THEORY_BV));
     Trace("smt") << "setting unconstrained simplification to " << uncSimp << std::endl;
     options::unconstrainedSimp.set(uncSimp);
+  }
+  // Unconstrained simp currently does *not* support model generation
+  if (options::unconstrainedSimp.wasSetByUser() && options::unconstrainedSimp()) {
+    if (options::produceModels()) {
+      Notice() << "SmtEngine: turning off produce-models to support unconstrainedSimp" << std::endl;
+      setOption("produce-models", SExpr("false"));
+    }
+    if (options::checkModels()) {
+      Notice() << "SmtEngine: turning off check-models to support unconstrainedSimp" << std::endl;
+      setOption("check-models", SExpr("false"));
+    }
   }
   // Turn on arith rewrite equalities only for pure arithmetic
   if(! options::arithRewriteEq.wasSetByUser()) {
@@ -822,11 +834,27 @@ void SmtEngine::setLogicInternal() throw() {
     }
   }
 
-  //until bug 371 is fixed
+  //until bugs 371,431 are fixed
   if( ! options::minisatUseElim.wasSetByUser()){
-    if( d_logic.isQuantified() ){
+    if( d_logic.isQuantified() || options::produceModels() || options::checkModels() ){
       options::minisatUseElim.set( false );
     }
+  }
+  else if (options::minisatUseElim()) {
+    if (options::produceModels()) {
+      Notice() << "SmtEngine: turning off produce-models to support minisatUseElim" << std::endl;
+      setOption("produce-models", SExpr("false"));
+    }
+    if (options::checkModels()) {
+      Notice() << "SmtEngine: turning off check-models to support minisatUseElim" << std::endl;
+      setOption("check-models", SExpr("false"));
+    }
+  }
+
+  // For now, these array theory optimizations do not support model-building
+  if (options::produceModels()) {
+    options::arraysOptimizeLinear.set(false);
+    options::arraysLazyRIntro1.set(false);
   }
 }
 
@@ -1494,6 +1522,11 @@ bool SmtEnginePrivate::nonClausalSimplify() {
   SubstitutionMap::iterator pos = constantPropagations.begin();
   for (; pos != constantPropagations.end(); ++pos) {
     Node cProp = (*pos).first.eqNode((*pos).second);
+    Node cPropNew = d_topLevelSubstitutions.apply(cProp);
+    if (cProp != cPropNew) {
+      cProp = Rewriter::rewrite(cPropNew);
+      Assert(Rewriter::rewrite(cProp) == cProp);
+    }
     if (s.find(cProp) != s.end()) {
       continue;
     }
@@ -2343,6 +2376,10 @@ void SmtEngine::checkModel(bool hardFailure) {
 
   Notice() << "SmtEngine::checkModel(): generating model" << endl;
   TheoryModel* m = d_theoryEngine->getModel();
+
+  // Check individual theory assertions
+  d_theoryEngine->checkTheoryAssertionsWithModel();
+
   if(Notice.isOn()) {
     // This operator<< routine is non-const (i.e., takes a non-const Model&).
     // This confuses the Notice() output routines, so extract the ostream

@@ -919,7 +919,13 @@ void StrongSolverTheoryUf::SortRepModel::allocateCardinality( OutputChannel* out
       //must generate new cardinality lemma term
       std::stringstream ss;
       ss << "_c_" << d_aloc_cardinality;
-      Node var = NodeManager::currentNM()->mkSkolem( ss.str(), d_type, "is a cardinality lemma term" );
+      Node var;
+      if( d_totality_terms[0].empty() ){
+        //get arbitrary ground term
+        var = d_cardinality_term;
+      }else{
+        var = NodeManager::currentNM()->mkSkolem( ss.str(), d_type, "is a cardinality lemma term" );
+      }
       d_totality_terms[0].push_back( var );
       Trace("mkVar") << "allocateCardinality, mkVar : " << var << " : " << d_type << std::endl;
       //must be distinct from all other cardinality terms
@@ -1173,27 +1179,29 @@ void StrongSolverTheoryUf::SortRepModel::debugPrint( const char* c ){
 }
 
 void StrongSolverTheoryUf::SortRepModel::debugModel( TheoryModel* m ){
-  std::vector< Node > eqcs;
-  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &m->d_equalityEngine );
-  while( !eqcs_i.isFinished() ){
-    Node eqc = (*eqcs_i);
-    if( eqc.getType()==d_type ){
-      if( std::find( eqcs.begin(), eqcs.end(), eqc )==eqcs.end() ){
-        eqcs.push_back( eqc );
-        //we must ensure that this equivalence class has been accounted for
-        if( d_regions_map.find( eqc )==d_regions_map.end() ){
-          Trace("uf-ss-warn") << "WARNING : equivalence class " << eqc << " unaccounted for." << std::endl;
-          Trace("uf-ss-warn") << "  type : " << d_type << std::endl;
-          Trace("uf-ss-warn") << "  kind : " << eqc.getKind() << std::endl;
+  if( Trace.isOn("uf-ss-warn") ){
+    std::vector< Node > eqcs;
+    eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &m->d_equalityEngine );
+    while( !eqcs_i.isFinished() ){
+      Node eqc = (*eqcs_i);
+      if( eqc.getType()==d_type ){
+        if( std::find( eqcs.begin(), eqcs.end(), eqc )==eqcs.end() ){
+          eqcs.push_back( eqc );
+          //we must ensure that this equivalence class has been accounted for
+          if( d_regions_map.find( eqc )==d_regions_map.end() ){
+            Trace("uf-ss-warn") << "WARNING : equivalence class " << eqc << " unaccounted for." << std::endl;
+            Trace("uf-ss-warn") << "  type : " << d_type << std::endl;
+            Trace("uf-ss-warn") << "  kind : " << eqc.getKind() << std::endl;
+          }
         }
       }
+      ++eqcs_i;
     }
-    ++eqcs_i;
-  }
-  if( (int)eqcs.size()!=d_cardinality ){
-    Trace("uf-ss-warn") << "WARNING : Model does not have same # representatives as cardinality for " << d_type << "." << std::endl;
-    Trace("uf-ss-warn") << "  cardinality : " << d_cardinality << std::endl;
-    Trace("uf-ss-warn") << "  # reps : " << (int)eqcs.size() << std::endl;
+    if( (int)eqcs.size()!=d_cardinality ){
+      Trace("uf-ss-warn") << "WARNING : Model does not have same # representatives as cardinality for " << d_type << "." << std::endl;
+      Trace("uf-ss-warn") << "  cardinality : " << d_cardinality << std::endl;
+      Trace("uf-ss-warn") << "  # reps : " << (int)eqcs.size() << std::endl;
+    }
   }
 }
 

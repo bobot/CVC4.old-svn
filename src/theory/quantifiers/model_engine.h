@@ -44,8 +44,12 @@ private:
   bool optOneQuantPerRound();
   bool optExhInstEvalSkipMultiple();
 private:
+  enum{
+    check_model_full,
+    check_model_no_inst_gen,
+  };
   //check model
-  void checkModel( int& addedLemmas );
+  int checkModel( int checkOption );
   //exhaustively instantiate quantifier (possibly using mbqi), return number of lemmas produced
   int exhaustiveInstantiate( Node f, bool useRelInstDomain = false );
 private:
@@ -74,6 +78,7 @@ public:
     IntStat d_eval_uf_terms;
     IntStat d_eval_lits;
     IntStat d_eval_lits_unknown;
+    IntStat d_exh_inst_lemmas;
     Statistics();
     ~Statistics();
   };

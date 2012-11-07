@@ -563,7 +563,11 @@ void TheoryEngine::collectModelInfo( theory::TheoryModel* m, bool fullModel ){
     TNode var = *it;
     hasValue = d_propEngine->hasValue(var, value);
     // TODO: Assert that hasValue is true?
-    m->assertPredicate(var, hasValue ? value : false);
+    if (!hasValue) {
+      value = false;
+    }
+    Trace("model-builder-assertions") << "(assert" << (value ? " " : " (not ") << var << (value ? ");" : "));") << endl;
+    m->assertPredicate(var, value);
   }
 }
 
@@ -1338,8 +1342,28 @@ void TheoryEngine::setUserAttribute( std::string& attr, Node n ){
   }
 }
 
+
 void TheoryEngine::handleUserAttribute( const char* attr, Theory* t ){
   Trace("te-attr") << "Handle user attribute " << attr << " " << t << std::endl;
   std::string str( attr );
   d_attr_handle[ str ].push_back( t );
+}
+
+
+void TheoryEngine::checkTheoryAssertionsWithModel()
+{
+  for (TheoryId theoryId = THEORY_FIRST; theoryId < THEORY_LAST; ++theoryId) {
+    Theory* theory = d_theoryTable[theoryId];
+    if (theory && d_logicInfo.isTheoryEnabled(theoryId)) {
+      if (theoryId == THEORY_QUANTIFIERS || theoryId == THEORY_REWRITERULES) {
+        continue;
+      }
+      context::CDList<Assertion>::const_iterator it = theory->facts_begin(), it_end = theory->facts_end();
+      for (unsigned i = 0; it != it_end; ++ it, ++i) {
+        Node assertion = (*it).assertion;
+        Node val = getModel()->getValue(assertion);
+        Assert(val == d_true);
+      }
+    }
+  }
 }
