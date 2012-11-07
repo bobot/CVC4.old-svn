@@ -56,12 +56,12 @@ public:
   bool isComplete( Node f ) { return d_map.size()==f[0].getNumChildren(); }
   /** make complete */
   void makeComplete( Node f, QuantifiersEngine* qe );
-  /** make internal: ensure that no term in d_map contains instantiation constants */
-  void makeInternal( QuantifiersEngine* qe );
+  /** make internal representative */
+  void makeInternalRepresentative( QuantifiersEngine* qe );
   /** make representative */
   void makeRepresentative( QuantifiersEngine* qe );
   /** get value */
-  Node getValue( Node var );
+  Node getValue( Node var ) const;
   /** clear */
   void clear(){ d_map.clear(); }
   /** is_empty */
@@ -96,7 +96,8 @@ public:
     //std::cout << "var.getType() " << var.getType() << "n.getType() " << n.getType() << std::endl ;
     Assert( !var.isNull() );
     Assert( n.isNull() ||// For a strange use in inst_match.cpp InstMatchGeneratorSimple::addInstantiations
-            var.getType() == n.getType() );
+            //var.getType() == n.getType()
+            n.getType().isSubtypeOf( var.getType() ) );
     d_map[var] = n;
   }
   size_t size(){ return d_map.size(); }
