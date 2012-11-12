@@ -64,6 +64,7 @@
 #include "printer/printer.h"
 #include "prop/options.h"
 #include "theory/arrays/options.h"
+#include "util/sort_inference.h"
 
 using namespace std;
 using namespace CVC4;
@@ -229,6 +230,25 @@ class SmtEnginePrivate : public NodeManagerListener {
   hash_map<Node, Node, NodeHashFunction> d_abstractValues;
 
   /**
+   * Function symbol used to implement uninterpreted division-by-zero
+   * semantics.  Needed to deal with partial division function ("/").
+   */
+  Node d_divByZero;
+
+  /**
+   * Function symbol used to implement uninterpreted
+   * int-division-by-zero semantics.  Needed to deal with partial
+   * function "div".
+   */
+  Node d_intDivByZero;
+
+  /**
+   * Function symbol used to implement uninterpreted mod-zero
+   * semantics.  Needed to deal with partial function "mod".
+   */
+  Node d_modZero;
+
+  /**
    * Map from skolem variables to index in d_assertionsToCheck containing
    * corresponding introduced Boolean ite
    */
@@ -296,7 +316,7 @@ private:
    *
    * Returns false if the formula simplifies to "false"
    */
-  bool simplifyAssertions() throw(TypeCheckingException);
+  bool simplifyAssertions() throw(TypeCheckingException, LogicException);
 
 public:
 
@@ -310,6 +330,9 @@ public:
     d_fakeContext(),
     d_abstractValueMap(&d_fakeContext),
     d_abstractValues(),
+    d_divByZero(),
+    d_intDivByZero(),
+    d_modZero(),
     d_iteSkolemMap(),
     d_iteRemover(smt.d_userContext),
     d_topLevelSubstitutions(smt.d_userContext),
@@ -321,30 +344,26 @@ public:
     DeclareTypeCommand c(tn.getAttribute(expr::VarNameAttr()),
                          0,
                          tn.toType());
-    Dump("declarations") << c;
-    d_smt.addToModelCommand(c.clone());
+    d_smt.addToModelCommandAndDump(c);
   }
 
   void nmNotifyNewSortConstructor(TypeNode tn) {
     DeclareTypeCommand c(tn.getAttribute(expr::VarNameAttr()),
                          tn.getAttribute(expr::SortArityAttr()),
                          tn.toType());
-    Dump("declarations") << c;
-    d_smt.addToModelCommand(c.clone());
+    d_smt.addToModelCommandAndDump(c);
   }
 
   void nmNotifyNewDatatypes(const std::vector<DatatypeType>& dtts) {
     DatatypeDeclarationCommand c(dtts);
-    Dump("declarations") << c;
-    d_smt.addToModelCommand(c.clone());
+    d_smt.addToModelCommandAndDump(c);
   }
 
   void nmNotifyNewVar(TNode n) {
     DeclareFunctionCommand c(n.getAttribute(expr::VarNameAttr()),
                              n.toExpr(),
                              n.getType().toType());
-    Dump("declarations") << c;
-    d_smt.addToModelCommand(c.clone());
+    d_smt.addToModelCommandAndDump(c);
   }
 
   void nmNotifyNewSkolem(TNode n, const std::string& comment) {
@@ -352,13 +371,10 @@ public:
     DeclareFunctionCommand c(id,
                              n.toExpr(),
                              n.getType().toType());
-    if(Dump.isOn("skolems")) {
-      if(comment != "") {
-        Dump("skolems") << CommentCommand(id + " is " + comment);
-      }
-      Dump("skolems") << c;
+    if(Dump.isOn("skolems") && comment != "") {
+      Dump("skolems") << CommentCommand(id + " is " + comment);
     }
-    d_smt.addToModelCommand(c.clone());
+    d_smt.addToModelCommandAndDump(c, "skolems");
   }
 
   Node applySubstitutions(TNode node) const {
@@ -391,13 +407,13 @@ public:
    * even be simplified.
    */
   void addFormula(TNode n)
-    throw(TypeCheckingException);
+    throw(TypeCheckingException, LogicException);
 
   /**
    * Expand definitions in n.
    */
   Node expandDefinitions(TNode n, hash_map<Node, Node, NodeHashFunction>& cache)
-    throw(TypeCheckingException);
+    throw(TypeCheckingException, LogicException);
 
   /**
    * Simplify node "in" by expanding definitions and applying any
@@ -461,6 +477,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw() :
   d_assertionList(NULL),
   d_assignments(NULL),
   d_modelCommands(NULL),
+  d_dumpCommands(),
   d_logic(),
   d_pendingPops(0),
   d_fullyInited(false),
@@ -522,6 +539,13 @@ void SmtEngine::finishInit() {
     // ensure the relevant Nodes remain live.
     d_assertionList = new(true) AssertionList(d_userContext);
   }
+
+  // dump out any pending declaration commands
+  for(unsigned i = 0; i < d_dumpCommands.size(); ++i) {
+    Dump("declarations") << *d_dumpCommands[i];
+    delete d_dumpCommands[i];
+  }
+  d_dumpCommands.clear();
 
   if(options::perCallResourceLimit() != 0) {
     setResourceLimit(options::perCallResourceLimit(), false);
@@ -615,6 +639,11 @@ SmtEngine::~SmtEngine() throw() {
       d_assertionList->deleteSelf();
     }
 
+    for(unsigned i = 0; i < d_dumpCommands.size(); ++i) {
+      delete d_dumpCommands[i];
+    }
+    d_dumpCommands.clear();
+
     if(d_modelCommands != NULL) {
       d_modelCommands->deleteSelf();
     }
@@ -670,6 +699,15 @@ void SmtEngine::setLogicInternal() throw() {
 
   d_logic.lock();
 
+  // may need to force uninterpreted functions to be on for non-linear
+  if(d_logic.isTheoryEnabled(theory::THEORY_ARITH) &&
+     !d_logic.isLinear() &&
+     !d_logic.isTheoryEnabled(theory::THEORY_UF)){
+    d_logic = d_logic.getUnlockedCopy();
+    d_logic.enableTheory(theory::THEORY_UF);
+    d_logic.lock();
+  }
+
   // Set the options for the theoryOf
   if(!options::theoryOfMode.wasSetByUser()) {
     if(d_logic.isSharingEnabled() && !d_logic.isTheoryEnabled(THEORY_BV)) {
@@ -722,7 +760,7 @@ void SmtEngine::setLogicInternal() throw() {
   if(! options::unconstrainedSimp.wasSetByUser() || options::incrementalSolving()) {
     //    bool qf_sat = d_logic.isPure(THEORY_BOOL) && !d_logic.isQuantified();
     //    bool uncSimp = false && !qf_sat && !options::incrementalSolving();
-    bool uncSimp = !options::incrementalSolving() && !d_logic.isQuantified() && !options::produceModels() &&
+    bool uncSimp = !options::incrementalSolving() && !d_logic.isQuantified() && !options::produceModels() && !options::checkModels() &&
       (d_logic.isTheoryEnabled(THEORY_ARRAY) && d_logic.isTheoryEnabled(THEORY_BV));
     Trace("smt") << "setting unconstrained simplification to " << uncSimp << std::endl;
     options::unconstrainedSimp.set(uncSimp);
@@ -861,9 +899,22 @@ void SmtEngine::setLogicInternal() throw() {
   }
 
   // For now, these array theory optimizations do not support model-building
-  if (options::produceModels()) {
+  if (options::produceModels() || options::checkModels()) {
     options::arraysOptimizeLinear.set(false);
     options::arraysLazyRIntro1.set(false);
+  }
+
+  // Non-linear arithmetic does not support models
+  if (d_logic.isTheoryEnabled(theory::THEORY_ARITH) &&
+      !d_logic.isLinear()) {
+    if (options::produceModels()) {
+      Warning() << "SmtEngine: turning off produce-models because unsupported for nonlinear arith" << std::endl;
+      setOption("produce-models", SExpr("false"));
+    }
+    if (options::checkModels()) {
+      Warning() << "SmtEngine: turning off check-models because unsupported for nonlinear arith" << std::endl;
+      setOption("check-models", SExpr("false"));
+    }
   }
 }
 
@@ -1060,9 +1111,11 @@ void SmtEngine::defineFunction(Expr func,
 }
 
 Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashFunction>& cache)
-  throw(TypeCheckingException) {
+  throw(TypeCheckingException, LogicException) {
 
-  if(n.getKind() != kind::APPLY && n.getNumChildren() == 0) {
+  Kind k = n.getKind();
+
+  if(k != kind::APPLY && n.getNumChildren() == 0) {
     // don't bother putting in the cache
     return n;
   }
@@ -1075,7 +1128,67 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashF
   }
 
   // otherwise expand it
-  if(n.getKind() == kind::APPLY) {
+
+  Node node;
+  NodeManager* nm = d_smt.d_nodeManager;
+
+  switch(k) {
+  case kind::DIVISION: {
+    // partial function: division
+    if(d_smt.d_logic.isLinear()) {
+      node = n;
+      break;
+    }
+    if(d_divByZero.isNull()) {
+      d_divByZero = nm->mkSkolem("divByZero", nm->mkFunctionType(nm->realType(), nm->realType()),
+                                 "partial real division", NodeManager::SKOLEM_EXACT_NAME);
+    }
+    TNode num = n[0], den = n[1];
+    Node den_eq_0 = nm->mkNode(kind::EQUAL, den, nm->mkConst(Rational(0)));
+    Node divByZeroNum = nm->mkNode(kind::APPLY_UF, d_divByZero, num);
+    Node divTotalNumDen = nm->mkNode(kind::DIVISION_TOTAL, num, den);
+    node = nm->mkNode(kind::ITE, den_eq_0, divByZeroNum, divTotalNumDen);
+    break;
+  }
+
+  case kind::INTS_DIVISION: {
+    // partial function: integer div
+    if(d_smt.d_logic.isLinear()) {
+      node = n;
+      break;
+    }
+    if(d_intDivByZero.isNull()) {
+      d_intDivByZero = nm->mkSkolem("intDivByZero", nm->mkFunctionType(nm->integerType(), nm->integerType()),
+                                    "partial integer division", NodeManager::SKOLEM_EXACT_NAME);
+    }
+    TNode num = n[0], den = n[1];
+    Node den_eq_0 = nm->mkNode(kind::EQUAL, den, nm->mkConst(Rational(0)));
+    Node intDivByZeroNum = nm->mkNode(kind::APPLY_UF, d_intDivByZero, num);
+    Node intDivTotalNumDen = nm->mkNode(kind::INTS_DIVISION_TOTAL, num, den);
+    node = nm->mkNode(kind::ITE, den_eq_0, intDivByZeroNum, intDivTotalNumDen);
+    break;
+  }
+
+  case kind::INTS_MODULUS: {
+    // partial function: mod
+    if(d_smt.d_logic.isLinear()) {
+      node = n;
+      break;
+    }
+    if(d_modZero.isNull()) {
+      d_modZero = nm->mkSkolem("modZero", nm->mkFunctionType(nm->integerType(), nm->integerType()),
+                               "partial modulus", NodeManager::SKOLEM_EXACT_NAME);
+    }
+    TNode num = n[0], den = n[1];
+    Node den_eq_0 = nm->mkNode(kind::EQUAL, den, nm->mkConst(Rational(0)));
+    Node modZeroNum = nm->mkNode(kind::APPLY_UF, d_modZero, num);
+    Node modTotalNumDen = nm->mkNode(kind::INTS_MODULUS_TOTAL, num, den);
+    node = nm->mkNode(kind::ITE, den_eq_0, modZeroNum, modTotalNumDen);
+    break;
+  }
+
+  case kind::APPLY: {
+    // application of a user-defined symbol
     TNode func = n.getOperator();
     SmtEngine::DefinedFunctionMap::const_iterator i =
       d_smt.d_definedFunctions->find(func);
@@ -1112,25 +1225,35 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashF
     Node expanded = expandDefinitions(instance, cache);
     cache[n] = (n == expanded ? Node::null() : expanded);
     return expanded;
-  } else {
-    Debug("expand") << "cons : " << n << endl;
-    NodeBuilder<> nb(n.getKind());
-    if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
-      Debug("expand") << "op   : " << n.getOperator() << endl;
-      nb << n.getOperator();
-    }
-    for(TNode::iterator i = n.begin(),
-          iend = n.end();
-        i != iend;
-        ++i) {
-      Node expanded = expandDefinitions(*i, cache);
-      Debug("expand") << "exchld: " << expanded << endl;
-      nb << expanded;
-    }
-    Node node = nb;
-    cache[n] = n == node ? Node::null() : node;
-    return node;
   }
+
+  default:
+    // unknown kind for expansion, just iterate over the children
+    node = n;
+  }
+
+  // there should be children here, otherwise we short-circuited a return, above
+  Assert(node.getNumChildren() > 0);
+
+  // the partial functions can fall through, in which case we still
+  // consider their children
+  Debug("expand") << "cons : " << node << endl;
+  NodeBuilder<> nb(node.getKind());
+  if(node.getMetaKind() == kind::metakind::PARAMETERIZED) {
+    Debug("expand") << "op   : " << node.getOperator() << endl;
+    nb << node.getOperator();
+  }
+  for(Node::iterator i = node.begin(),
+        iend = node.end();
+      i != iend;
+      ++i) {
+    Node expanded = expandDefinitions(*i, cache);
+    Debug("expand") << "exchld: " << expanded << endl;
+    nb << expanded;
+  }
+  node = nb;
+  cache[n] = n == node ? Node::null() : node;
+  return node;
 }
 
 // check if the given node contains a universal quantifier
@@ -1191,6 +1314,7 @@ Node SmtEnginePrivate::preSkolemizeQuantifiers( Node n, bool polarity, std::vect
         }else{
           TypeNode typ = NodeManager::currentNM()->mkFunctionType( argTypes, n[0][i].getType() );
           Node op = NodeManager::currentNM()->mkSkolem( "skop_$$", typ, "op created during pre-skolemization" );
+          //DOTHIS: set attribute on op, marking that it should not be selected as trigger
           std::vector< Node > funcArgs;
           funcArgs.push_back( op );
           funcArgs.insert( funcArgs.end(), fvs.begin(), fvs.end() );
@@ -1635,7 +1759,7 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
 
 // returns false if simplification led to "false"
 bool SmtEnginePrivate::simplifyAssertions()
-  throw(TypeCheckingException) {
+  throw(TypeCheckingException, LogicException) {
   Assert(d_smt.d_pendingPops == 0);
   try {
 
@@ -1793,6 +1917,8 @@ void SmtEnginePrivate::processAssertions() {
     return;
   }
 
+  // Assertions are NOT guaranteed to be rewritten by this point
+
   dumpAssertions("pre-definition-expansion", d_assertionsToPreprocess);
   {
     Chat() << "expanding definitions..." << endl;
@@ -1853,6 +1979,8 @@ void SmtEnginePrivate::processAssertions() {
   }
   dumpAssertions("post-substitution", d_assertionsToPreprocess);
 
+  // Assertions ARE guaranteed to be rewritten by this point
+
   dumpAssertions("pre-skolem-quant", d_assertionsToPreprocess);
   if( options::preSkolemQuant() ){
     //apply pre-skolemization to existential quantifiers
@@ -1867,6 +1995,13 @@ void SmtEnginePrivate::processAssertions() {
     }
   }
   dumpAssertions("post-skolem-quant", d_assertionsToPreprocess);
+
+  if( options::sortInference() ){
+    //sort inference technique
+    //TODO: use this as a rewrite technique here?
+    SortInference si;
+    si.simplify( d_assertionsToPreprocess );
+  }
 
   dumpAssertions("pre-simplify", d_assertionsToPreprocess);
   Chat() << "simplifying assertions..." << endl;
@@ -1977,12 +2112,13 @@ void SmtEnginePrivate::processAssertions() {
 }
 
 void SmtEnginePrivate::addFormula(TNode n)
-  throw(TypeCheckingException) {
+  throw(TypeCheckingException, LogicException) {
 
   Trace("smt") << "SmtEnginePrivate::addFormula(" << n << ")" << endl;
 
   // Add the normalized formula to the queue
-  d_assertionsToPreprocess.push_back(Rewriter::rewrite(n));
+  d_assertionsToPreprocess.push_back(n);
+  //d_assertionsToPreprocess.push_back(Rewriter::rewrite(n));
 
   // If the mode of processing is incremental prepreocess and assert immediately
   if (options::simplificationMode() == SIMPLIFICATION_MODE_INCREMENTAL) {
@@ -2002,7 +2138,7 @@ void SmtEngine::ensureBoolean(const Expr& e) throw(TypeCheckingException) {
   }
 }
 
-Result SmtEngine::checkSat(const Expr& ex) throw(TypeCheckingException, ModalException) {
+Result SmtEngine::checkSat(const Expr& ex) throw(TypeCheckingException, ModalException, LogicException) {
   Assert(ex.isNull() || ex.getExprManager() == d_exprManager);
   SmtScope smts(this);
   finalOptionsAreSet();
@@ -2069,7 +2205,7 @@ Result SmtEngine::checkSat(const Expr& ex) throw(TypeCheckingException, ModalExc
   return r;
 }/* SmtEngine::checkSat() */
 
-Result SmtEngine::query(const Expr& ex) throw(TypeCheckingException, ModalException) {
+Result SmtEngine::query(const Expr& ex) throw(TypeCheckingException, ModalException, LogicException) {
   Assert(!ex.isNull());
   Assert(ex.getExprManager() == d_exprManager);
   SmtScope smts(this);
@@ -2133,7 +2269,7 @@ Result SmtEngine::query(const Expr& ex) throw(TypeCheckingException, ModalExcept
   return r;
 }/* SmtEngine::query() */
 
-Result SmtEngine::assertFormula(const Expr& ex) throw(TypeCheckingException) {
+Result SmtEngine::assertFormula(const Expr& ex) throw(TypeCheckingException, LogicException) {
   Assert(ex.getExprManager() == d_exprManager);
   SmtScope smts(this);
   finalOptionsAreSet();
@@ -2151,7 +2287,7 @@ Result SmtEngine::assertFormula(const Expr& ex) throw(TypeCheckingException) {
   return quickCheck().asValidityResult();
 }
 
-Expr SmtEngine::simplify(const Expr& ex) throw(TypeCheckingException) {
+Expr SmtEngine::simplify(const Expr& ex) throw(TypeCheckingException, LogicException) {
   Assert(ex.getExprManager() == d_exprManager);
   SmtScope smts(this);
   finalOptionsAreSet();
@@ -2172,7 +2308,7 @@ Expr SmtEngine::simplify(const Expr& ex) throw(TypeCheckingException) {
   return d_private->simplify(Node::fromExpr(e)).toExpr();
 }
 
-Expr SmtEngine::expandDefinitions(const Expr& ex) throw(TypeCheckingException) {
+Expr SmtEngine::expandDefinitions(const Expr& ex) throw(TypeCheckingException, LogicException) {
   Assert(ex.getExprManager() == d_exprManager);
   SmtScope smts(this);
   finalOptionsAreSet();
@@ -2192,7 +2328,7 @@ Expr SmtEngine::expandDefinitions(const Expr& ex) throw(TypeCheckingException) {
   return d_private->expandDefinitions(Node::fromExpr(e), cache).toExpr();
 }
 
-Expr SmtEngine::getValue(const Expr& ex) throw(ModalException) {
+Expr SmtEngine::getValue(const Expr& ex) throw(ModalException, LogicException) {
   Assert(ex.getExprManager() == d_exprManager);
   SmtScope smts(this);
 
@@ -2341,8 +2477,7 @@ CVC4::SExpr SmtEngine::getAssignment() throw(ModalException) {
   return SExpr(sexprs);
 }
 
-
-void SmtEngine::addToModelCommand(Command* c) {
+void SmtEngine::addToModelCommandAndDump(const Command& c, const char* dumpTag) {
   Trace("smt") << "SMT addToModelCommand(" << c << ")" << endl;
   SmtScope smts(this);
   // If we aren't yet fully inited, the user might still turn on
@@ -2353,9 +2488,16 @@ void SmtEngine::addToModelCommand(Command* c) {
   // decouple SmtEngine and ExprManager if the user does a few
   // ExprManager::mkSort() before SmtEngine::setOption("produce-models")
   // and expects to find their cardinalities in the model.
-  if( ! d_fullyInited || options::produceModels() ) {
+  if( !d_fullyInited || options::produceModels() ) {
     doPendingPops();
-    d_modelCommands->push_back(c);
+    d_modelCommands->push_back(c.clone());
+  }
+  if(Dump.isOn(dumpTag)) {
+    if(d_fullyInited) {
+      Dump(dumpTag) << c;
+    } else {
+      d_dumpCommands.push_back(c.clone());
+    }
   }
 }
 
@@ -2572,7 +2714,7 @@ vector<Expr> SmtEngine::getAssertions() throw(ModalException) {
   return vector<Expr>(d_assertionList->begin(), d_assertionList->end());
 }
 
-void SmtEngine::push() throw(ModalException) {
+void SmtEngine::push() throw(ModalException, LogicException) {
   SmtScope smts(this);
   finalOptionsAreSet();
   doPendingPops();

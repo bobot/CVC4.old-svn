@@ -15,6 +15,7 @@ libsmt_la_SOURCES = \
 	modal_exception.h \
 	boolean_terms.h \
 	boolean_terms.cpp \
+	logic_exception.h \
 	simplification_mode.h \
 	simplification_mode.cpp
 
@@ -25,4 +26,5 @@ EXTRA_DIST = \
 	options_handlers.h \
 	smt_options_template.cpp \
 	modal_exception.i \
+	logic_exception.i \
 	smt_engine.i

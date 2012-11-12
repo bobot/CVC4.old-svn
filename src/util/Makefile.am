@@ -84,7 +84,9 @@ libutil_la_SOURCES = \
 	array_store_all.h \
 	array_store_all.cpp \
 	util_model.h \
-	util_model.cpp
+	util_model.cpp \
+	sort_inference.h \
+	sort_inference.cpp
 
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
@@ -139,8 +141,7 @@ EXTRA_DIST = \
 	array_store_all.i \
 	ascription_type.i \
 	rational.i \
-	hash.i \
-	util_model.i
+	hash.i
 
 DISTCLEANFILES = \
 	integer.h.tmp \

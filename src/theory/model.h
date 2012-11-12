@@ -47,6 +47,8 @@ public:
   /** true/false nodes */
   Node d_true;
   Node d_false;
+  context::CDO<bool> d_modelBuilt;
+
 protected:
   /** reset the model */
   virtual void reset();
@@ -174,7 +176,7 @@ private:
     return (*it).second;
   }
 
-  Node nextTypeEnum(TypeNode t)
+  Node nextTypeEnum(TypeNode t, bool useBaseType = false)
   {
     TypeEnumerator* te;
     TypeToTypeEnumMap::iterator it = d_teMap.find(t);
@@ -189,6 +191,9 @@ private:
       return Node();
     }
 
+    if (useBaseType) {
+      t = t.getBaseType();
+    }
     iterator itSet = d_typeSet.find(t);
     std::set<Node>* s;
     if (itSet == d_typeSet.end()) {
@@ -244,12 +249,14 @@ protected:
   TheoryEngine* d_te;
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
   NodeMap d_normalizedCache;
+  typedef std::hash_set<Node, NodeHashFunction> NodeSet;
 
   /** process build model */
   virtual void processBuildModel(TheoryModel* m, bool fullModel);
   /** normalize representative */
   Node normalize(TheoryModel* m, TNode r, std::map<Node, Node>& constantReps, bool evalOnly);
   bool isAssignable(TNode n);
+  void checkTerms(TNode n, TheoryModel* tm, NodeSet& cache);
 
 public:
   TheoryEngineModelBuilder(TheoryEngine* te);

@@ -26,7 +26,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 TheoryModel::TheoryModel( context::Context* c, std::string name, bool enableFuncModels ) :
-  d_substitutions(c), d_equalityEngine(c, name), d_enableFuncModels(enableFuncModels)
+  d_substitutions(c), d_equalityEngine(c, name), d_modelBuilt(c, false), d_enableFuncModels(enableFuncModels)
 {
   d_true = NodeManager::currentNM()->mkConst( true );
   d_false = NodeManager::currentNM()->mkConst( false );
@@ -208,9 +208,7 @@ void TheoryModel::addSubstitution( TNode x, TNode t, bool invalidateCache ){
 
 /** add term */
 void TheoryModel::addTerm( Node n ){
-  if( !d_equalityEngine.hasTerm( n ) ){
-    d_equalityEngine.addTerm( n );
-  }
+  Assert(d_equalityEngine.hasTerm(n));
   //must collect UF terms
   if (n.getKind()==APPLY_UF) {
     Node op = n.getOperator();
@@ -237,9 +235,10 @@ void TheoryModel::assertPredicate( Node a, bool polarity ){
       (a == d_false && (!polarity))) {
     return;
   }
-  if( a.getKind()==EQUAL ){
+  if (a.getKind() == EQUAL) {
+    Trace("model-builder-assertions") << "(assert " << (polarity ? " " : "(not ") << a << (polarity ? ");" : "));") << endl;
     d_equalityEngine.assertEquality( a, polarity, Node::null() );
-  }else{
+  } else {
     Trace("model-builder-assertions") << "(assert " << (polarity ? "" : "(not ") << a << (polarity ? ");" : "));") << endl;
     d_equalityEngine.assertPredicate( a, polarity, Node::null() );
     Assert(d_equalityEngine.consistent());
@@ -364,9 +363,28 @@ bool TheoryEngineModelBuilder::isAssignable(TNode n)
 }
 
 
+void TheoryEngineModelBuilder::checkTerms(TNode n, TheoryModel* tm, NodeSet& cache)
+{
+  if (cache.find(n) != cache.end()) {
+    return;
+  }
+  if (isAssignable(n)) {
+    tm->d_equalityEngine.addTerm(n);
+  }
+  for(TNode::iterator child_it = n.begin(); child_it != n.end(); ++child_it) {
+    checkTerms(*child_it, tm, cache);
+  }
+  cache.insert(n);
+}
+
+
 void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
 {
   TheoryModel* tm = (TheoryModel*)m;
+
+  // buildModel with fullModel = true should only be called once in any context
+  Assert(!tm->d_modelBuilt);
+  tm->d_modelBuilt = fullModel;
 
   // Reset model
   tm->reset();
@@ -375,13 +393,25 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
   Trace("model-builder") << "TheoryEngineModelBuilder: Collect model info..." << std::endl;
   d_te->collectModelInfo(tm, fullModel);
 
+  // Loop through all terms and make sure that assignable sub-terms are in the equality engine
+  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &tm->d_equalityEngine );
+  {
+    NodeSet cache;
+    for ( ; !eqcs_i.isFinished(); ++eqcs_i) {
+      eq::EqClassIterator eqc_i = eq::EqClassIterator((*eqcs_i), &tm->d_equalityEngine);
+      for ( ; !eqc_i.isFinished(); ++eqc_i) {
+        checkTerms(*eqc_i, tm, cache);
+      }
+    }
+  }
+
   Trace("model-builder") << "Collect representatives..." << std::endl;
+
   // Process all terms in the equality engine, store representatives for each EC
   std::map< Node, Node > assertedReps, constantReps;
   TypeSet typeConstSet, typeRepSet, typeNoRepSet;
-  eq::EqClassesIterator eqcs_i = eq::EqClassesIterator( &tm->d_equalityEngine );
+  eqcs_i = eq::EqClassesIterator(&tm->d_equalityEngine);
   for ( ; !eqcs_i.isFinished(); ++eqcs_i) {
-
     // eqc is the equivalence class representative
     Node eqc = (*eqcs_i);
     Trace("model-builder") << "Processing EC: " << eqc << endl;
@@ -418,7 +448,7 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
       // Theories should not specify a rep if there is already a constant in the EC
       Assert(rep.isNull() || rep == const_rep);
       constantReps[eqc] = const_rep;
-      typeConstSet.add(eqct, const_rep);
+      typeConstSet.add(eqct.getBaseType(), const_rep);
     }
     else if (!rep.isNull()) {
       assertedReps[eqc] = rep;
@@ -474,16 +504,10 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
               evaluable = true;
               Node normalized = normalize(tm, n, constantReps, true);
               if (normalized.isConst()) {
-                typeConstSet.add(t, normalized);
+                typeConstSet.add(t.getBaseType(), normalized);
                 constantReps[*i2] = normalized;
                 Trace("model-builder") << "  Eval: Setting constant rep of " << (*i2) << " to " << normalized << endl;
                 changed = true;
-                // if (t.isBoolean()) {
-                //   tm->assertPredicate(*i2, normalized == tm->d_true);
-                // }
-                // else {
-                //   tm->assertEquality(*i2, normalized, true);
-                // }
                 noRepSet.erase(i2);
                 break;
               }
@@ -495,7 +519,7 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
               Assert(!t.isBoolean());
               Node n;
               if (t.getCardinality().isInfinite()) {
-                n = typeConstSet.nextTypeEnum(t);
+                n = typeConstSet.nextTypeEnum(t, true);
               }
               else {
                 TypeEnumerator te(t);
@@ -505,7 +529,6 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
               constantReps[*i2] = n;
               Trace("model-builder") << "  New Const: Setting constant rep of " << (*i2) << " to " << n << endl;
               changed = true;
-              // tm->assertEquality(*i2, n, true);
               noRepSet.erase(i2);
             }
             else {
@@ -521,7 +544,7 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
     // Corner case - I'm not sure this can even happen - but it's theoretically possible to have a cyclical dependency
     // in EC assignment/evaluation, e.g. EC1 = {a, b + 1}; EC2 = {b, a - 1}.  In this case, neither one will get assigned because we are waiting
     // to be able to evaluate.  But we will never be able to evaluate because the variables that need to be assigned are in
-    // the same EC's.  In this case, repeat the whole fixed-point computation with the difference that the first EC
+    // these same EC's.  In this case, repeat the whole fixed-point computation with the difference that the first EC
     // that has both assignable and evaluable expressions will get assigned.
     assignOne = true;
   }
