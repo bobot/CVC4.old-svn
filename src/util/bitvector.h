@@ -97,11 +97,6 @@ public:
     return d_value != y.d_value;
   }
 
-  BitVector equals(const BitVector& y) const {
-    CheckArgument(d_size == y.d_size, y);
-    return d_value == y.d_value; 
-  }
-
   BitVector concat (const BitVector& other) const {
     return BitVector(d_size + other.d_size, (d_value.multiplyByPow2(other.d_size)) + other.d_value);
   }
@@ -199,7 +194,7 @@ public:
     CheckArgument(d_size == y.d_size, y);
     // TODO: decide whether we really want these semantics
     if (y.d_value == 0) {
-      return BitVector(d_size, Integer(0));
+      return BitVector(d_size, d_value);
     }
     CheckArgument(d_value >= 0, this);
     CheckArgument(y.d_value > 0, y);

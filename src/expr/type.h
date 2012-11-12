@@ -166,6 +166,11 @@ public:
   bool isComparableTo(Type t) const;
 
   /**
+   * Get the most general base type of this type.
+   */
+  Type getBaseType() const;
+
+  /**
    * Substitution of Types.
    */
   Type substitute(const Type& type, const Type& replacement) const;
@@ -641,8 +646,11 @@ public:
   /** Get the LAMBDA defining this predicate subtype */
   Expr getPredicate() const;
 
-  /** Get the base type of this predicate subtype */
-  Type getBaseType() const;
+  /**
+   * Get the parent type of this predicate subtype; note that this
+   * could be another predicate subtype.
+   */
+  Type getParentType() const;
 
 };/* class PredicateSubtype */
 

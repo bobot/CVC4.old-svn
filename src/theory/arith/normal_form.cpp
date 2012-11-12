@@ -27,9 +27,12 @@ namespace arith {
 
 bool Variable::isDivMember(Node n){
   switch(n.getKind()){
-  case kind::DIVISION:
-  case kind::INTS_DIVISION:
-  case kind::INTS_MODULUS:
+    //case kind::DIVISION:
+    //case kind::INTS_DIVISION:
+    //case kind::INTS_MODULUS:
+  case kind::DIVISION_TOTAL:
+  case kind::INTS_DIVISION_TOTAL:
+  case kind::INTS_MODULUS_TOTAL:
     return Polynomial::isMember(n[0]) && Polynomial::isMember(n[1]);
   default:
     return false;

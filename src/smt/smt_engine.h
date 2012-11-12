@@ -28,6 +28,7 @@
 #include "expr/expr_manager.h"
 #include "util/proof.h"
 #include "smt/modal_exception.h"
+#include "smt/logic_exception.h"
 #include "util/hash.h"
 #include "options/options.h"
 #include "util/result.h"
@@ -146,6 +147,14 @@ class CVC4_PUBLIC SmtEngine {
    * if produce-models option is on.
    */
   smt::CommandList* d_modelCommands;
+
+  /**
+   * A vector of declaration commands waiting to be dumped out.
+   * Once the SmtEngine is fully initialized, we'll dump them.
+   * This ensures the declarations come after the set-logic and
+   * any necessary set-option commands are dumped.
+   */
+  std::vector<Command*> d_dumpCommands;
 
   /**
    * The logic we're in.
@@ -294,7 +303,7 @@ class CVC4_PUBLIC SmtEngine {
    * Add to Model command.  This is used for recording a command
    * that should be reported during a get-model call.
    */
-  void addToModelCommand(Command* c);
+  void addToModelCommandAndDump(const Command& c, const char* dumpTag = "declarations");
 
   /**
    * Get the model (only if immediately preceded by a SAT
@@ -370,20 +379,20 @@ public:
    * literals and conjunction of literals.  Returns false iff
    * inconsistent.
    */
-  Result assertFormula(const Expr& e) throw(TypeCheckingException);
+  Result assertFormula(const Expr& e) throw(TypeCheckingException, LogicException);
 
   /**
    * Check validity of an expression with respect to the current set
    * of assertions by asserting the query expression's negation and
    * calling check().  Returns valid, invalid, or unknown result.
    */
-  Result query(const Expr& e) throw(TypeCheckingException, ModalException);
+  Result query(const Expr& e) throw(TypeCheckingException, ModalException, LogicException);
 
   /**
    * Assert a formula (if provided) to the current context and call
    * check().  Returns sat, unsat, or unknown result.
    */
-  Result checkSat(const Expr& e = Expr()) throw(TypeCheckingException, ModalException);
+  Result checkSat(const Expr& e = Expr()) throw(TypeCheckingException, ModalException, LogicException);
 
   /**
    * Simplify a formula without doing "much" work.  Does not involve
@@ -394,20 +403,20 @@ public:
    * @todo (design) is this meant to give an equivalent or an
    * equisatisfiable formula?
    */
-  Expr simplify(const Expr& e) throw(TypeCheckingException);
+  Expr simplify(const Expr& e) throw(TypeCheckingException, LogicException);
 
   /**
    * Expand the definitions in a term or formula.  No other
    * simplification or normalization is done.
    */
-  Expr expandDefinitions(const Expr& e) throw(TypeCheckingException);
+  Expr expandDefinitions(const Expr& e) throw(TypeCheckingException, LogicException);
 
   /**
    * Get the assigned value of an expr (only if immediately preceded
    * by a SAT or INVALID query).  Only permitted if the SmtEngine is
    * set to operate interactively and produce-models is on.
    */
-  Expr getValue(const Expr& e) throw(ModalException);
+  Expr getValue(const Expr& e) throw(ModalException, LogicException);
 
   /**
    * Add a function to the set of expressions whose value is to be
@@ -443,7 +452,7 @@ public:
   /**
    * Push a user-level context.
    */
-  void push() throw(ModalException);
+  void push() throw(ModalException, LogicException);
 
   /**
    * Pop a user-level context.  Throws an exception if nothing to pop.
