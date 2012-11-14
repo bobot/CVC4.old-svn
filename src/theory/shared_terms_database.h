@@ -218,6 +218,17 @@ public:
   }
 
   /**
+   * Returns true if the term is currently registered as shared with the given theory.
+   */
+  bool isSharedWith(TNode term, theory::TheoryId theory) const {
+    AlreadyNotifiedMap::const_iterator find = d_alreadyNotifiedMap.find(term);
+    if (find == d_alreadyNotifiedMap.end()) {
+      return false;
+    }
+    return theory::Theory::setContains(theory, (*find).second);
+  }
+
+  /**
    * Returns true if the literal is an (dis-)equality with both sides registered as shared with
    * some theory.
    */

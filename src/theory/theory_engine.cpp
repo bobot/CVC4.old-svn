@@ -1051,6 +1051,10 @@ void TheoryEngine::assertFact(TNode literal)
     } else {
       // Not an equality, just assert to the appropriate theory
       assertToTheory(literal, /* to */ Theory::theoryOf(atom), /* from */ THEORY_SAT_SOLVER);
+      // If the quantifiers are on, we also assert all non-quantified assertions to the quantifiers
+      if (d_logicInfo.isQuantified() && Theory::theoryOf(atom) != THEORY_QUANTIFIERS) {
+        assertToTheory(literal, THEORY_QUANTIFIERS, THEORY_SAT_SOLVER);
+      }
     }
   } else {
     // Assert the fact to the appropriate theory directly
@@ -1104,8 +1108,12 @@ theory::EqualityStatus TheoryEngine::getEqualityStatus(TNode a, TNode b) {
     else if (d_sharedTerms.areDisequal(a,b)) {
       return EQUALITY_FALSE_AND_PROPAGATED;
     }
+    TheoryId typeTheory = Theory::theoryOf(a.getType());
+    if (d_sharedTerms.isSharedWith(a, typeTheory) && d_sharedTerms.isSharedWith(b, typeTheory)) {
+      return theoryOf(typeTheory)->getEqualityStatus(a, b);
+    }
   }
-  return theoryOf(Theory::theoryOf(a.getType()))->getEqualityStatus(a, b);
+  return EQUALITY_UNKNOWN;
 }
 
 static Node mkExplanation(const std::vector<NodeTheoryPair>& explanation) {

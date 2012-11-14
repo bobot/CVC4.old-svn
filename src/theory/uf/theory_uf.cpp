@@ -431,19 +431,17 @@ void TheoryUF::computeCareGraph() {
           TNode x_shared = d_equalityEngine.getTriggerTermRepresentative(x, THEORY_UF);
           TNode y_shared = d_equalityEngine.getTriggerTermRepresentative(y, THEORY_UF);
 
-          if (!getLogicInfo().isQuantified()) {
-            EqualityStatus eqStatusDomain = d_valuation.getEqualityStatus(x_shared, y_shared);
-            switch (eqStatusDomain) {
-            case EQUALITY_FALSE_AND_PROPAGATED:
-            case EQUALITY_FALSE:
-            case EQUALITY_FALSE_IN_MODEL:
-              somePairIsDisequal = true;
-              continue;
-              break;
-            default:
-              break;
-              // nothing
-            }
+          EqualityStatus eqStatusDomain = d_valuation.getEqualityStatus(x_shared, y_shared);
+          switch (eqStatusDomain) {
+          case EQUALITY_FALSE_AND_PROPAGATED:
+          case EQUALITY_FALSE:
+          case EQUALITY_FALSE_IN_MODEL:
+            somePairIsDisequal = true;
+            continue;
+            break;
+          default:
+            break;
+            // nothing
           }
 
           // Otherwise, we need to figure it out
