@@ -2,12 +2,10 @@
 /*! \file smt_engine.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan
- ** Minor contributors (to current version): cconway, kshitij
+ ** Major contributors: none
+ ** Minor contributors (to current version): ajreynol, barrett, cconway, kshitij, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -29,12 +27,13 @@
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "util/proof.h"
-#include "util/model.h"
 #include "smt/modal_exception.h"
+#include "smt/logic_exception.h"
 #include "util/hash.h"
 #include "options/options.h"
 #include "util/result.h"
 #include "util/sexpr.h"
+#include "util/hash.h"
 #include "util/statistics.h"
 #include "theory/logic_info.h"
 
@@ -50,11 +49,13 @@ typedef NodeTemplate<false> TNode;
 class NodeHashFunction;
 
 class Command;
+class GetModelCommand;
 
 class SmtEngine;
 class DecisionEngine;
 class TheoryEngine;
 
+class Model;
 class StatisticsRegistry;
 
 namespace context {
@@ -146,6 +147,14 @@ class CVC4_PUBLIC SmtEngine {
    * if produce-models option is on.
    */
   smt::CommandList* d_modelCommands;
+
+  /**
+   * A vector of declaration commands waiting to be dumped out.
+   * Once the SmtEngine is fully initialized, we'll dump them.
+   * This ensures the declarations come after the set-logic and
+   * any necessary set-option commands are dumped.
+   */
+  std::vector<Command*> d_dumpCommands;
 
   /**
    * The logic we're in.
@@ -263,7 +272,7 @@ class CVC4_PUBLIC SmtEngine {
    * Fully type-check the argument, and also type-check that it's
    * actually Boolean.
    */
-  void ensureBoolean(const BoolExpr& e) throw(TypeCheckingException);
+  void ensureBoolean(const Expr& e) throw(TypeCheckingException);
 
   void internalPush();
 
@@ -282,18 +291,26 @@ class CVC4_PUBLIC SmtEngine {
   friend ::CVC4::StatisticsRegistry* ::CVC4::stats::getStatisticsRegistry(SmtEngine*);
   friend void ::CVC4::smt::beforeSearch(std::string, bool, SmtEngine*) throw(ModalException);
   // to access d_modelCommands
-  friend size_t ::CVC4::Model::getNumCommands() const;
-  friend const Command* ::CVC4::Model::getCommand(size_t) const;
+  friend class ::CVC4::Model;
+  // to access getModel(), which is private (for now)
+  friend class GetModelCommand;
 
   StatisticsRegistry* d_statisticsRegistry;
 
   smt::SmtEngineStatistics* d_stats;
 
   /**
-   * Add to Model command.  This is used for recording a command that should be reported
-   * during a get-model call.
+   * Add to Model command.  This is used for recording a command
+   * that should be reported during a get-model call.
    */
-  void addToModelCommand(Command* c);
+  void addToModelCommandAndDump(const Command& c, const char* dumpTag = "declarations");
+
+  /**
+   * Get the model (only if immediately preceded by a SAT
+   * or INVALID query).  Only permitted if CVC4 was built with model
+   * support and produce-models is on.
+   */
+  Model* getModel() throw(ModalException);
 
 public:
 
@@ -362,20 +379,20 @@ public:
    * literals and conjunction of literals.  Returns false iff
    * inconsistent.
    */
-  Result assertFormula(const BoolExpr& e) throw(TypeCheckingException);
+  Result assertFormula(const Expr& e) throw(TypeCheckingException, LogicException);
 
   /**
    * Check validity of an expression with respect to the current set
    * of assertions by asserting the query expression's negation and
    * calling check().  Returns valid, invalid, or unknown result.
    */
-  Result query(const BoolExpr& e) throw(TypeCheckingException);
+  Result query(const Expr& e) throw(TypeCheckingException, ModalException, LogicException);
 
   /**
    * Assert a formula (if provided) to the current context and call
    * check().  Returns sat, unsat, or unknown result.
    */
-  Result checkSat(const BoolExpr& e = BoolExpr()) throw(TypeCheckingException);
+  Result checkSat(const Expr& e = Expr()) throw(TypeCheckingException, ModalException, LogicException);
 
   /**
    * Simplify a formula without doing "much" work.  Does not involve
@@ -386,20 +403,20 @@ public:
    * @todo (design) is this meant to give an equivalent or an
    * equisatisfiable formula?
    */
-  Expr simplify(const Expr& e) throw(TypeCheckingException);
+  Expr simplify(const Expr& e) throw(TypeCheckingException, LogicException);
 
   /**
    * Expand the definitions in a term or formula.  No other
    * simplification or normalization is done.
    */
-  Expr expandDefinitions(const Expr& e) throw(TypeCheckingException);
+  Expr expandDefinitions(const Expr& e) throw(TypeCheckingException, LogicException);
 
   /**
    * Get the assigned value of an expr (only if immediately preceded
    * by a SAT or INVALID query).  Only permitted if the SmtEngine is
    * set to operate interactively and produce-models is on.
    */
-  Expr getValue(const Expr& e) throw(ModalException);
+  Expr getValue(const Expr& e) throw(ModalException, LogicException);
 
   /**
    * Add a function to the set of expressions whose value is to be
@@ -420,13 +437,6 @@ public:
   CVC4::SExpr getAssignment() throw(ModalException);
 
   /**
-   * Get the model (only if immediately preceded by a SAT
-   * or INVALID query).  Only permitted if CVC4 was built with model
-   * support and produce-models is on.
-   */
-  Model* getModel() throw(ModalException);
-
-  /**
    * Get the last proof (only if immediately preceded by an UNSAT
    * or VALID query).  Only permitted if CVC4 was built with proof
    * support and produce-proofs is on.
@@ -442,12 +452,12 @@ public:
   /**
    * Push a user-level context.
    */
-  void push();
+  void push() throw(ModalException, LogicException);
 
   /**
    * Pop a user-level context.  Throws an exception if nothing to pop.
    */
-  void pop();
+  void pop() throw(ModalException);
 
   /**
    * Interrupt a running query.  This can be called from another thread
@@ -572,14 +582,10 @@ public:
   }
 
   /**
-   * print model function (need this?)
+   * Set user attribute.
+   * This function is called when an attribute is set by a user.
+   * In SMT-LIBv2 this is done via the syntax (! expr :attr)
    */
-  void printModel( std::ostream& out, Model* m );
-
-  /** Set user attribute
-    * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
-    *  via the syntax (! expr :attr)
-    */
   void setUserAttribute( std::string& attr, Expr expr );
 
 };/* class SmtEngine */

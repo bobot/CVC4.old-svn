@@ -2,12 +2,10 @@
 /*! \file integer_cln_imp.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters
+ ** Major contributors: lianah, mdeters
  ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -224,10 +222,10 @@ public:
   }
 
   Integer bitwiseNot() const {
-    return Integer(cln::lognot(d_value));  
+    return Integer(cln::lognot(d_value));
   }
-  
-  
+
+
   /**
    * Return this*(2^pow).
    */
@@ -251,15 +249,15 @@ public:
     cln::cl_byte range(amount, size);
     cln::cl_I allones = (cln::cl_I(1) << (size + amount))- 1; // 2^size - 1
     Integer temp(allones);
-    
-    return Integer(cln::deposit_field(allones, d_value, range)); 
+
+    return Integer(cln::deposit_field(allones, d_value, range));
   }
-  
+
   uint32_t toUnsignedInt() const {
-    return cln::cl_I_to_uint(d_value); 
+    return cln::cl_I_to_uint(d_value);
   }
-  
-  
+
+
   /** See CLN Documentation. */
   Integer extractBitRange(uint32_t bitCount, uint32_t low) const {
     cln::cl_byte range(bitCount, low);
@@ -316,9 +314,9 @@ public:
   }
 
   Integer divByPow2(uint32_t exp) const {
-    return d_value >> exp; 
+    return d_value >> exp;
   }
-  
+
   /**
    * Raise this Integer to the power <code>exp</code>.
    *

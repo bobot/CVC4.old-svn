@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -2140,10 +2138,10 @@ int main(int argc, char** argv)
     test3();
     cout << "\n}\n\ntest4(): {" << endl;
     test4();
-    //if (regressLevel > 0) {
-    //  cout << "\n}\n\ntest5(): {" << endl;
-    //  test5();
-    //}
+    if (regressLevel > 0) {
+      cout << "\n}\n\ntest5(): {" << endl;
+      test5();
+    }
     //cout << "\n}\n\ntest6(): {" << endl;
     //test6();
     cout << "\n}\n\ntest7(): {" << endl;

@@ -1,7 +1,21 @@
+; COMMAND-LINE: --incremental
+; EXPECT: sat
+; EXPECT: unsat
+; EXPECT: unsat
+; EXPECT: sat
+; EXPECT: sat
+; EXPECT: sat
+; EXPECT: sat
+; EXPECT: sat
+; EXPECT: sat
+; EXPECT: sat
+; EXPECT: sat
+; EXPECT: sat
+; EXIT: 10
 ;(set-option :produce-unsat-cores true)
 (set-option :print-success false)
 (set-info :smt-lib-version 2.0)
-(set-option :produce-models true)
+;(set-option :produce-models true)
 (set-logic ALL_SUPPORTED)
 ; done setting options
 
@@ -1448,7 +1462,7 @@ p1$2@1) (= $width$1 $width$2))) (and
 (= (ControlFlow 0 11167) 4117)) $entry_correct@@0))))))
 PreconditionGeneratedEntry_correct@@0)))))))))))))))))))))))))))))))))))))))
 (push 1)
-(set-info :boogie-vc-id $getIdx)
+;(set-info :boogie-vc-id $getIdx)
 (assert (not
 (=> (and
 true
@@ -1500,14 +1514,14 @@ _b44
 _b45) $getIdx)
 ))
 (check-sat)
-(get-value ((ControlFlow 0 0)))
-(get-value ((ControlFlow 0 9318)))
-(get-value ((ControlFlow 0 823)))
+;(get-value ((ControlFlow 0 0)))
+;(get-value ((ControlFlow 0 9318)))
+;(get-value ((ControlFlow 0 823)))
 (assert (not (= (ControlFlow 0 823) (- 10729))))
 (check-sat)
 (pop 1)
 (push 1)
-(set-info :boogie-vc-id $getIdx)
+;(set-info :boogie-vc-id $getIdx)
 (assert (not
 (=> (and
 true
@@ -1561,7 +1575,7 @@ _b45) $getIdx)
 (check-sat)
 (pop 1)
 (push 1)
-(set-info :boogie-vc-id $DCT)
+;(set-info :boogie-vc-id $DCT)
 (assert (not
 (=> (and
 true
@@ -1613,37 +1627,37 @@ _b44
 _b45) $DCT)
 ))
 (check-sat)
-(get-value ((ControlFlow 0 0)))
-(get-value ((ControlFlow 0 11167)))
-(get-value ((ControlFlow 0 4117)))
-(get-value ((ControlFlow 0 4199)))
+;(get-value ((ControlFlow 0 0)))
+;(get-value ((ControlFlow 0 11167)))
+;(get-value ((ControlFlow 0 4117)))
+;(get-value ((ControlFlow 0 4199)))
 (assert (not (= (ControlFlow 0 4199) (- 13495))))
 (check-sat)
-(get-value ((ControlFlow 0 0)))
-(get-value ((ControlFlow 0 11167)))
-(get-value ((ControlFlow 0 4117)))
-(get-value ((ControlFlow 0 4199)))
+;(get-value ((ControlFlow 0 0)))
+;(get-value ((ControlFlow 0 11167)))
+;(get-value ((ControlFlow 0 4117)))
+;(get-value ((ControlFlow 0 4199)))
 (assert (not (= (ControlFlow 0 4199) (- 13487))))
 (check-sat)
-(get-value ((ControlFlow 0 0)))
-(get-value ((ControlFlow 0 11167)))
-(get-value ((ControlFlow 0 4117)))
-(get-value ((ControlFlow 0 4199)))
+;(get-value ((ControlFlow 0 0)))
+;(get-value ((ControlFlow 0 11167)))
+;(get-value ((ControlFlow 0 4117)))
+;(get-value ((ControlFlow 0 4199)))
 (assert (not (= (ControlFlow 0 4199) (- 13509))))
 (check-sat)
-(get-value ((ControlFlow 0 0)))
-(get-value ((ControlFlow 0 11167)))
-(get-value ((ControlFlow 0 4117)))
-(get-value ((ControlFlow 0 4199)))
+;(get-value ((ControlFlow 0 0)))
+;(get-value ((ControlFlow 0 11167)))
+;(get-value ((ControlFlow 0 4117)))
+;(get-value ((ControlFlow 0 4199)))
 (assert (not (= (ControlFlow 0 4199) (- 13553))))
 (check-sat)
-(get-value ((ControlFlow 0 0)))
-(get-value ((ControlFlow 0 11167)))
-(get-value ((ControlFlow 0 4117)))
-(get-value ((ControlFlow 0 4199)))
+;(get-value ((ControlFlow 0 0)))
+;(get-value ((ControlFlow 0 11167)))
+;(get-value ((ControlFlow 0 4117)))
+;(get-value ((ControlFlow 0 4199)))
 (pop 1)
 (push 1)
-(set-info :boogie-vc-id $DCT)
+;(set-info :boogie-vc-id $DCT)
 (assert (not
 (=> (and
 true
@@ -1695,21 +1709,21 @@ _b44
 _b45) $DCT)
 ))
 (check-sat)
-(get-value ((ControlFlow 0 0)))
-(get-value ((ControlFlow 0 11167)))
-(get-value ((ControlFlow 0 4117)))
-(get-value ((ControlFlow 0 4199)))
+;(get-value ((ControlFlow 0 0)))
+;(get-value ((ControlFlow 0 11167)))
+;(get-value ((ControlFlow 0 4117)))
+;(get-value ((ControlFlow 0 4199)))
 (assert (not (= (ControlFlow 0 4199) (- 13575))))
 (check-sat)
-(get-value ((ControlFlow 0 0)))
-(get-value ((ControlFlow 0 11167)))
-(get-value ((ControlFlow 0 4117)))
-(get-value ((ControlFlow 0 4199)))
+;(get-value ((ControlFlow 0 0)))
+;(get-value ((ControlFlow 0 11167)))
+;(get-value ((ControlFlow 0 4117)))
+;(get-value ((ControlFlow 0 4199)))
 (assert (not (= (ControlFlow 0 4199) (- 13712))))
 (check-sat)
-(get-value ((ControlFlow 0 0)))
-(get-value ((ControlFlow 0 11167)))
-(get-value ((ControlFlow 0 4117)))
-(get-value ((ControlFlow 0 4199)))
+;(get-value ((ControlFlow 0 0)))
+;(get-value ((ControlFlow 0 11167)))
+;(get-value ((ControlFlow 0 4117)))
+;(get-value ((ControlFlow 0 4199)))
 (assert (not (= (ControlFlow 0 4199) (- 13700))))
 (check-sat)

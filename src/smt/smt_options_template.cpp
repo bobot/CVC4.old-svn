@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file smt_options.cpp
+/*! \file smt_options_template.cpp
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -29,7 +27,7 @@
 ${include_all_option_headers}
 ${option_handler_includes}
 
-#line 33 "${template}"
+#line 31 "${template}"
 
 using namespace std;
 
@@ -50,7 +48,7 @@ void SmtEngine::setOption(const std::string& key, const CVC4::SExpr& value)
 
   ${smt_setoption_handlers}
 
-#line 54 "${template}"
+#line 52 "${template}"
 
   throw UnrecognizedOptionException(key);
 }
@@ -67,7 +65,7 @@ CVC4::SExpr SmtEngine::getOption(const std::string& key) const
 
   ${smt_getoption_handlers}
 
-#line 71 "${template}"
+#line 69 "${template}"
 
   throw UnrecognizedOptionException(key);
 }

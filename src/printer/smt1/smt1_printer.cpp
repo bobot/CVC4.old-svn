@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -51,8 +49,13 @@ void Smt1Printer::toStream(std::ostream& out, const SExpr& sexpr) const throw() 
   Printer::getPrinter(language::output::LANG_SMTLIB_V2)->toStream(out, sexpr);
 }/* Smt1Printer::toStream() */
 
-void Smt1Printer::toStream(std::ostream& out, Model* m, const Command* c) const throw() {
-  Printer::getPrinter(language::output::LANG_SMTLIB_V2)->toStream(out, m, c);
+void Smt1Printer::toStream(std::ostream& out, Model& m) const throw() {
+  Printer::getPrinter(language::output::LANG_SMTLIB_V2)->toStream(out, m);
+}
+
+void Smt1Printer::toStream(std::ostream& out, Model& m, const Command* c) const throw() {
+  // shouldn't be called; only the non-Command* version above should be
+  Unreachable();
 }
 
 }/* CVC4::printer::smt1 namespace */

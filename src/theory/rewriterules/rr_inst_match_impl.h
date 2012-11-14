@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: bobot
  ** Major contributors: none
- ** Minor contributors (to current version): ajreynol, mdeters
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -33,7 +31,7 @@ template<bool modEq>
 InstMatchTrie2Gen<modEq>::InstMatchTrie2Gen(context::Context* c,  QuantifiersEngine* qe):
   d_context(c), d_mods(c) {
   d_eQ = qe->getEqualityQuery();
-  d_cG = qe->getRRCanGenClass();
+  d_cG = new GenericCandidateGeneratorClass(qe);
 };
 
 /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */

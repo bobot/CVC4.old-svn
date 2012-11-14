@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file options.cpp
+/*! \file options_template.cpp
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): barrett, cconway, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -37,7 +35,7 @@
 
 ${include_all_option_headers}
 
-#line 41 "${template}"
+#line 39 "${template}"
 
 #include "util/output.h"
 #include "options/options_holder.h"
@@ -46,7 +44,7 @@ ${include_all_option_headers}
 
 ${option_handler_includes}
 
-#line 50 "${template}"
+#line 48 "${template}"
 
 using namespace CVC4;
 using namespace CVC4::options;
@@ -183,7 +181,7 @@ void runBoolPredicates(T, std::string option, bool b, SmtEngine* smt) {
 
 ${all_custom_handlers}
 
-#line 187 "${template}"
+#line 185 "${template}"
 
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
@@ -213,18 +211,18 @@ options::OptionsHolder::OptionsHolder() : ${all_modules_defaults}
 {
 }
 
-#line 217 "${template}"
+#line 215 "${template}"
 
 static const std::string mostCommonOptionsDescription = "\
 Most commonly-used CVC4 options:${common_documentation}";
 
-#line 222 "${template}"
+#line 220 "${template}"
 
 static const std::string optionsDescription = mostCommonOptionsDescription + "\n\
 \n\
 Additional CVC4 options:${remaining_documentation}";
 
-#line 228 "${template}"
+#line 226 "${template}"
 
 static const std::string optionsFootnote = "\n\
 [*] Each of these options has a --no-OPTIONNAME variant, which reverses the\n\
@@ -295,7 +293,7 @@ static struct option cmdlineOptions[] = {${all_modules_long_options}
   { NULL, no_argument, NULL, '\0' }
 };/* cmdlineOptions */
 
-#line 299 "${template}"
+#line 297 "${template}"
 
 static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
@@ -459,7 +457,7 @@ std::vector<std::string> Options::parseOptions(int argc, char* main_argv[]) thro
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 463 "${template}"
+#line 461 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the

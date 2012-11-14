@@ -2,12 +2,10 @@
 /*! \file command_executor_portfolio.cpp
  ** \verbatim
  ** Original author: kshitij
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -194,8 +192,14 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
   } else if(mode == 1) {               // portfolio
 
     // If quantified, stay sequential
-    if(d_smts[0]->getLogicInfo().isQuantified()) {
-      return CommandExecutor::doCommandSingleton(cmd);
+    LogicInfo logicInfo = d_smts[0]->getLogicInfo();
+    logicInfo.lock();
+    if(logicInfo.isQuantified()) {
+      if(d_options[options::fallbackSequential])
+        return CommandExecutor::doCommandSingleton(cmd);
+      else
+        throw Exception("Quantified formulas are (currenltly) unsupported in portfolio mode.\n"
+                        "Please see option --fallback-sequential to make this a soft error.");
     }
 
     d_seq->addCommand(cmd->clone());
@@ -221,7 +225,11 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
       try {
         seqs[i] = d_seq->exportTo(d_exprMgrs[i], *(d_vmaps[i]) );
       }catch(ExportUnsupportedException& e){
-        return CommandExecutor::doCommandSingleton(cmd);
+        if(d_options[options::fallbackSequential])
+          return CommandExecutor::doCommandSingleton(cmd);
+        else
+          throw Exception("Certain theories (e.g., datatypes) are (currently) unsupported in portfolio\n"
+                          "mode. Please see option --fallback-sequential to make this a soft error.");
       }
     }
 
@@ -285,9 +293,14 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
 
     return portfolioReturn.second;
   } else if(mode == 2) {
-    return smtEngineInvoke(d_smts[d_lastWinner],
-                           cmd,
-                           d_threadOptions[d_lastWinner][options::out]);
+    Command* cmdExported = 
+      d_lastWinner == 0 ?
+      cmd : cmd->exportTo(d_exprMgrs[d_lastWinner], *(d_vmaps[d_lastWinner]) );
+    int ret = smtEngineInvoke(d_smts[d_lastWinner],
+                              cmdExported,
+                              d_threadOptions[d_lastWinner][options::out]);
+    if(d_lastWinner != 0) delete cmdExported;
+    return ret;
   } else {
     // Unreachable();
     assert(false);

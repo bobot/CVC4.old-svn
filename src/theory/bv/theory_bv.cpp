@@ -2,12 +2,10 @@
 /*! \file theory_bv.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters, lianah
+ ** Minor contributors (to current version): barrett, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -133,7 +131,7 @@ void TheoryBV::check(Effort e)
 
 void TheoryBV::collectModelInfo( TheoryModel* m, bool fullModel ){
   Assert(!inConflict());
-  Assert (fullModel); // can only query full model
+  //  Assert (fullModel); // can only query full model
   d_equalitySolver.collectModelInfo(m); 
   d_bitblastSolver.collectModelInfo(m); 
   
@@ -279,6 +277,7 @@ void TheoryBV::addSharedTerm(TNode t) {
     d_equalitySolver.addSharedTerm(t);
   }
 }
+
 
 
 EqualityStatus TheoryBV::getEqualityStatus(TNode a, TNode b)

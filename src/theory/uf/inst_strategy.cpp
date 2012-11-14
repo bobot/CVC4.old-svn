@@ -2,12 +2,10 @@
 /*! \file inst_strategy.cpp
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -38,8 +36,8 @@ using namespace CVC4::theory::inst;
 struct sortQuantifiersForSymbol {
   QuantifiersEngine* d_qe;
   bool operator() (Node i, Node j) {
-    int nqfsi = d_qe->getNumQuantifiersForSymbol( i.getOperator() );
-    int nqfsj = d_qe->getNumQuantifiersForSymbol( j.getOperator() );
+    int nqfsi = d_qe->getQuantifierRelevance()->getNumQuantifiersForSymbol( i.getOperator() );
+    int nqfsj = d_qe->getQuantifierRelevance()->getNumQuantifiersForSymbol( j.getOperator() );
     if( nqfsi<nqfsj ){
       return true;
     }else if( nqfsi>nqfsj ){
@@ -49,48 +47,6 @@ struct sortQuantifiersForSymbol {
     }
   }
 };
-
-
-void InstStrategyCheckCESolved::processResetInstantiationRound( Theory::Effort effort ){
-  for( std::map< Node, bool >::iterator it = d_solved.begin(); it != d_solved.end(); ++it ){
-    calcSolved( it->first );
-  }
-}
-
-int InstStrategyCheckCESolved::process( Node f, Theory::Effort effort, int e ){
-  if( e==0 ){
-    //calc solved if not done so already
-    if( d_solved.find( f )==d_solved.end() ){
-      calcSolved( f );
-    }
-    //check if f is counterexample-solved
-    Debug("quant-uf-strategy") << "Try CE-solved.." << std::endl;
-    if( d_solved[ f ] ){
-      if( d_quantEngine->addInstantiation( f, d_th->d_baseMatch[f] ) ){
-        ++(d_th->d_statistics.d_instantiations_ce_solved);
-        //d_quantEngine->d_hasInstantiated[f] = true;
-      }
-      d_solved[f] = false;
-    }
-    Debug("quant-uf-strategy") << "done." << std::endl;
-  }
-  return STATUS_UNKNOWN;
-}
-
-void InstStrategyCheckCESolved::calcSolved( Node f ){
-  d_th->d_baseMatch[f].clear();
-  d_solved[ f ]= true;
-  //check if instantiation constants are solved for
-  for( int j = 0; j<d_quantEngine->getTermDatabase()->getNumInstantiationConstants( f ); j++ ){
-    Node i = d_quantEngine->getTermDatabase()->getInstantiationConstant( f, j );
-    Node rep = d_th->getInternalRepresentative( i );
-    if( !rep.hasAttribute(InstConstantAttribute()) ){
-      d_th->d_baseMatch[f].set(i,rep);
-    }else{
-      d_solved[ f ] = false;
-    }
-  }
-}
 
 void InstStrategyUserPatterns::processResetInstantiationRound( Theory::Effort effort ){
   //reset triggers
@@ -225,18 +181,18 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
     d_patTerms[0][f].clear();
     d_patTerms[1][f].clear();
     std::vector< Node > patTermsF;
-    Trigger::collectPatTerms( d_quantEngine, f, d_quantEngine->getTermDatabase()->getCounterexampleBody( f ), patTermsF, d_tr_strategy, true );
-    Debug("auto-gen-trigger") << "Collected pat terms for " << d_quantEngine->getTermDatabase()->getCounterexampleBody( f ) << std::endl;
+    Trigger::collectPatTerms( d_quantEngine, f, d_quantEngine->getTermDatabase()->getInstConstantBody( f ), patTermsF, d_tr_strategy, true );
+    Debug("auto-gen-trigger") << "Collected pat terms for " << d_quantEngine->getTermDatabase()->getInstConstantBody( f ) << std::endl;
     Debug("auto-gen-trigger") << "   ";
     for( int i=0; i<(int)patTermsF.size(); i++ ){
       Debug("auto-gen-trigger") << patTermsF[i] << " ";
     }
     Debug("auto-gen-trigger") << std::endl;
-    //extend to literal matching
+    //extend to literal matching (if applicable)
     d_quantEngine->getPhaseReqTerms( f, patTermsF );
     //sort into single/multi triggers
     std::map< Node, std::vector< Node > > varContains;
-    Trigger::getVarContains( f, patTermsF, varContains );
+    d_quantEngine->getTermDatabase()->getVarContains( f, patTermsF, varContains );
     for( std::map< Node, std::vector< Node > >::iterator it = varContains.begin(); it != varContains.end(); ++it ){
       if( it->second.size()==f[0].getNumChildren() ){
         d_patTerms[0][f].push_back( it->first );
@@ -290,7 +246,7 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
       Debug("relevant-trigger") << "Terms based on relevance: " << std::endl;
       for( int i=0; i<(int)patTerms.size(); i++ ){
         Debug("relevant-trigger") << "   " << patTerms[i] << " (";
-        Debug("relevant-trigger") << d_quantEngine->getNumQuantifiersForSymbol( patTerms[i].getOperator() ) << ")" << std::endl;
+        Debug("relevant-trigger") << d_quantEngine->getQuantifierRelevance()->getNumQuantifiersForSymbol( patTerms[i].getOperator() ) << ")" << std::endl;
       }
       //Notice() << "Terms based on relevance: " << std::endl;
       //for( int i=0; i<(int)patTerms.size(); i++ ){
@@ -340,12 +296,12 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
         if( index<(int)patTerms.size() ){
           //Notice() << "check add additional" << std::endl;
           //check if similar patterns exist, and if so, add them additionally
-          int nqfs_curr = d_quantEngine->getNumQuantifiersForSymbol( patTerms[0].getOperator() );
+          int nqfs_curr = d_quantEngine->getQuantifierRelevance()->getNumQuantifiersForSymbol( patTerms[0].getOperator() );
           index++;
           bool success = true;
           while( success && index<(int)patTerms.size() && d_is_single_trigger[ patTerms[index] ] ){
             success = false;
-            if( d_quantEngine->getNumQuantifiersForSymbol( patTerms[index].getOperator() )<=nqfs_curr ){
+            if( d_quantEngine->getQuantifierRelevance()->getNumQuantifiersForSymbol( patTerms[index].getOperator() )<=nqfs_curr ){
               d_single_trigger_gen[ patTerms[index] ] = true;
               Trigger* tr2 = Trigger::mkTrigger( d_quantEngine, f, patTerms[index], matchOption, false, Trigger::TR_RETURN_NULL,
                                                  options::smartTriggers() );
@@ -365,34 +321,6 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
     }
   }
 }
-
-#if 0
-
-void InstStrategyAddFailSplits::processResetInstantiationRound( Theory::Effort effort ){
-}
-
-int InstStrategyAddFailSplits::process( Node f, Theory::Effort effort, int e ){
-  if( e<4 ){
-    return STATUS_UNFINISHED;
-  }else{
-    for( std::map< Node, std::map< Node, std::vector< InstMatchGenerator* > > >::iterator it = InstMatchGenerator::d_match_fails.begin();
-         it != InstMatchGenerator::d_match_fails.end(); ++it ){
-      for( std::map< Node, std::vector< InstMatchGenerator* > >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
-        if( !it2->second.empty() ){
-          Node n1 = it->first;
-          Node n2 = it2->first;
-          if( !d_quantEngine->getEqualityQuery()->areEqual( n1, n2 ) && !d_quantEngine->getEqualityQuery()->areDisequal( n1, n2 ) ){
-            d_quantEngine->addSplitEquality( n1, n2, true );
-          }
-          it2->second.clear();
-        }
-      }
-    }
-    return STATUS_UNKNOWN;
-  }
-}
-
-#endif /* 0 */
 
 void InstStrategyFreeVariable::processResetInstantiationRound( Theory::Effort effort ){
 }

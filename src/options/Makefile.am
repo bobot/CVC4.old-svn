@@ -114,7 +114,12 @@ EXTRA_DIST = \
 	options_holder_template.h \
 	options.i \
 	option_exception.i \
-	$(OPTIONS_FILES)
+	$(OPTIONS_FILES) \
+	options-stamp \
+	../smt/smt_options.cpp \
+	options.cpp \
+	options_holder.h \
+	$(OPTIONS_FILES_SRCS)
 
 if CVC4_DEBUG
 # listing Debug_tags too ensures that make doesn't auto-remove it
@@ -157,7 +162,7 @@ endif
 Debug_tags.tmp Trace_tags.tmp:
 	$(AM_V_GEN)\
 	grep '\<$(@:_tags.tmp=)\(\.isOn\)* *( *\".*\" *)' \
-		`find @srcdir@/../ -name "*.cpp" -or -name "*.h" -or -name "*.cc" -or -name "*.g"` | \
+		`find @srcdir@/../ -name "*.cpp" -o -name "*.h" -o -name "*.cc" -o -name "*.g"` | \
 	sed 's/^$(@:_tags.tmp=)\(\.isOn\)* *( *\"\([^"]*\)\".*/\2/;s/.*[^a-zA-Z0-9_]$(@:_tags.tmp=)\(\.isOn\)* *( *\"\([^"]*\)\".*/\2/' | LC_ALL=C sort | uniq >"$@"
 
 MOSTLYCLEANFILES = \

@@ -265,11 +265,6 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable)
           
           PROOF( ProofManager::getSatProof()->registerUnitClause(ps[0], true); )
 
-          if(assertionLevel > 0) {
-            // remember to unset it on user pop
-            Debug("minisat") << "got new unit " << ps[0] << " at assertion level " << assertionLevel << std::endl;
-            trail_user.push(ps[0]);
-          }
           return ok = (propagate(CHECK_WITHOUTH_THEORY) == CRef_Undef);
         } else return ok;
       } else {
@@ -349,11 +344,11 @@ void Solver::cancelUntil(int level) {
         }
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
             Var      x  = var(trail[c]);
+            assigns [x] = l_Undef;
+            vardata[x].trail_index = -1;
+            if ((phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last()) && (polarity[x] & 0x2) == 0)
+              polarity[x] = sign(trail[c]);
             if(intro_level(x) != -1) {// might be unregistered
-              assigns [x] = l_Undef;
-              vardata[x].trail_index = -1;
-              if ((phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last()) && (polarity[x] & 0x2) == 0)
-                polarity[x] = sign(trail[c]);
               insertVarOrder(x);
             }
         }
@@ -685,6 +680,11 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     if (theory[var(p)]) {
       // Enqueue to the theory
       proxy->enqueueTheoryLiteral(MinisatSatSolver::toSatLiteral(p));
+    }
+    if (from == CRef_Undef) {
+      if (assertionLevel > 0) {
+        trail_user.push(p);
+      }
     }
 }
 
@@ -1250,6 +1250,9 @@ lbool Solver::solve_()
         curr_restarts++;
     }
 
+    if(!withinBudget())
+        status = l_Undef;
+
     if (verbosity >= 1)
         printf("===============================================================================\n");
 
@@ -1409,6 +1412,9 @@ void Solver::push()
   trail_ok.push(ok);
   trail_user_lim.push(trail.size());
   assert(trail_user_lim.size() == assertionLevel);
+
+  context->push(); // SAT context for CVC4
+
   Debug("minisat") << "MINISAT PUSH assertionLevel is " << assertionLevel << ", trail.size is " << trail.size() << std::endl;
 }
 
@@ -1438,10 +1444,11 @@ void Solver::pop()
   while(downto < trail.size()) {
     Debug("minisat") << "== unassigning " << trail.last() << std::endl;
     Var      x  = var(trail.last());
-    if(intro_level(x) != -1) {// might be unregistered
-      assigns [x] = l_Undef;
-      vardata[x].trail_index = -1;
+    assigns [x] = l_Undef;
+    vardata[x].trail_index = -1;
+    if(phase_saving >= 1 && (polarity[x] & 0x2) == 0)
       polarity[x] = sign(trail.last());
+    if(intro_level(x) != -1) {// might be unregistered
       insertVarOrder(x);
     }
     trail.pop();
@@ -1458,9 +1465,12 @@ void Solver::pop()
     Debug("minisat") << "== unassigning " << l << std::endl;
     Var      x  = var(l);
     assigns [x] = l_Undef;
+    vardata[x].trail_index = -1;
     if (phase_saving >= 1 && (polarity[x] & 0x2) == 0)
       polarity[x] = sign(l);
-    insertVarOrder(x);
+    if(intro_level(x) != -1) {// might be unregistered
+      insertVarOrder(x);
+    }
     trail_user.pop();
   }
   trail_user.pop();
@@ -1469,6 +1479,8 @@ void Solver::pop()
   Debug("minisat") << "in user pop, done unsetting level units" << std::endl;
 
   Debug("minisat") << "about to removeClausesAboveLevel(" << assertionLevel << ") in CNF" << std::endl;
+
+  context->pop(); // SAT context for CVC4
 
   // Notify the cnf
   proxy->removeClausesAboveLevel(assertionLevel);
@@ -1611,12 +1623,6 @@ CRef Solver::updateLemmas() {
         } else {
           Debug("minisat::lemmas") << "lemma size is " << lemma.size() << std::endl;
           uncheckedEnqueue(lemma[0], lemma_ref);
-          if(lemma.size() == 1 && assertionLevel > 0) {
-            assert(decisionLevel() == 0);
-            // remember to unset it on user pop
-            Debug("minisat") << "got new unit (survived downward during updateLemmas()) " << lemma[0] << " at assertion level " << assertionLevel << std::endl;
-            trail_user.push(lemma[0]);
-          }
         }
       }
     }

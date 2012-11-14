@@ -5,9 +5,7 @@
  ** Major contributors: dejan
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -41,6 +39,11 @@ void TypeCheckingExceptionPrivate::toStream(std::ostream& os) const throw() {
 
 NodeTemplate<true> TypeCheckingExceptionPrivate::getNode() const throw() {
   return *d_node;
+}
+
+UnknownTypeException::UnknownTypeException(TNode n) throw() :
+  TypeCheckingExceptionPrivate(n, "this expression contains an element of unknown type (such as an abstract value);"
+                               " its type cannot be computed until it is substituted away") {
 }
 
 }/* CVC4 namespace */

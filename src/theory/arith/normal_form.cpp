@@ -2,12 +2,10 @@
 /*! \file normal_form.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters
- ** Minor contributors (to current version): dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): dejan, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -30,8 +28,11 @@ namespace arith {
 bool Variable::isDivMember(Node n){
   switch(n.getKind()){
   case kind::DIVISION:
-  case kind::INTS_DIVISION:
-  case kind::INTS_MODULUS:
+    //case kind::INTS_DIVISION:
+    //case kind::INTS_MODULUS:
+  case kind::DIVISION_TOTAL:
+  case kind::INTS_DIVISION_TOTAL:
+  case kind::INTS_MODULUS_TOTAL:
     return Polynomial::isMember(n[0]) && Polynomial::isMember(n[1]);
   default:
     return false;
@@ -1047,6 +1048,19 @@ Kind Comparison::comparisonKind(TNode literal){
   default:
     return kind::UNDEFINED_KIND;
   }
+}
+
+
+Node Polynomial::makeAbsCondition(Variable v, Polynomial p){
+  Polynomial zerop = Polynomial::mkZero();
+
+  Polynomial varp = Polynomial::mkPolynomial(v);
+  Comparison pLeq0 = Comparison::mkComparison(kind::LEQ, p, zerop);
+  Comparison negP = Comparison::mkComparison(kind::EQUAL, varp, -p);
+  Comparison posP = Comparison::mkComparison(kind::EQUAL, varp, p);
+
+  Node absCnd = (pLeq0.getNode()).iteNode(negP.getNode(), posP.getNode());
+  return absCnd;
 }
 
 } //namespace arith

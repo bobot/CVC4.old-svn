@@ -5,9 +5,7 @@
  ** Major contributors: dejan, mdeters
  ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -164,6 +162,11 @@ public:
    * a common ancestor in the subtype tree)?
    */
   bool isComparableTo(Type t) const;
+
+  /**
+   * Get the most general base type of this type.
+   */
+  Type getBaseType() const;
 
   /**
    * Substitution of Types.
@@ -611,8 +614,11 @@ public:
   /** Get the LAMBDA defining this predicate subtype */
   Expr getPredicate() const;
 
-  /** Get the base type of this predicate subtype */
-  Type getBaseType() const;
+  /**
+   * Get the parent type of this predicate subtype; note that this
+   * could be another predicate subtype.
+   */
+  Type getParentType() const;
 
 };/* class PredicateSubtype */
 

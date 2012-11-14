@@ -1,13 +1,11 @@
-/**********************/
+/*********************                                                        */
 /*! \file term_database.h
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,7 +24,47 @@
 namespace CVC4 {
 namespace theory {
 
+/** Attribute true for nodes that should not be used for matching */
+struct NoMatchAttributeId {};
+/** use the special for boolean flag */
+typedef expr::Attribute< NoMatchAttributeId,
+                         bool,
+                         expr::attr::NullCleanupStrategy,
+                         true // context dependent
+                       > NoMatchAttribute;
+
+// attribute for "contains instantiation constants from"
+struct InstConstantAttributeId {};
+typedef expr::Attribute<InstConstantAttributeId, Node> InstConstantAttribute;
+
+struct InstLevelAttributeId {};
+typedef expr::Attribute<InstLevelAttributeId, uint64_t> InstLevelAttribute;
+
+struct InstVarNumAttributeId {};
+typedef expr::Attribute<InstVarNumAttributeId, uint64_t> InstVarNumAttribute;
+
+// Attribute that tell if a node have been asserted in this branch
+struct AvailableInTermDbId {};
+/** use the special for boolean flag */
+typedef expr::Attribute<AvailableInTermDbId,
+                        bool,
+                        expr::attr::NullCleanupStrategy,
+                        true  // context dependent
+                        > AvailableInTermDb;
+
+struct ModelBasisAttributeId {};
+typedef expr::Attribute<ModelBasisAttributeId, bool> ModelBasisAttribute;
+//for APPLY_UF terms, 1 : term has direct child with model basis attribute,
+//                    0 : term has no direct child with model basis attribute.
+struct ModelBasisArgAttributeId {};
+typedef expr::Attribute<ModelBasisArgAttributeId, uint64_t> ModelBasisArgAttribute;
+
+
 class QuantifiersEngine;
+
+namespace inst{
+  class Trigger;
+}
 
 namespace quantifiers {
 
@@ -40,20 +78,22 @@ public:
   bool addTerm( QuantifiersEngine* qe, Node n ) { return addTerm2( qe, n, 0 ); }
 };/* class TermArgTrie */
 
+
 class TermDb {
   friend class ::CVC4::theory::QuantifiersEngine;
+  friend class ::CVC4::theory::inst::Trigger;
 private:
   /** reference to the quantifiers engine */
   QuantifiersEngine* d_quantEngine;
-  /** calculated no match terms */
-  bool d_matching_active;
   /** terms processed */
   std::hash_set< Node, NodeHashFunction > d_processed;
 public:
-  TermDb( QuantifiersEngine* qe ) : d_quantEngine( qe ), d_matching_active( true ){}
+  TermDb( QuantifiersEngine* qe ) : d_quantEngine( qe ){}
   ~TermDb(){}
   /** map from APPLY_UF operators to ground terms for that operator */
   std::map< Node, std::vector< Node > > d_op_map;
+  /** count number of APPLY_UF terms per operator */
+  std::map< Node, int > d_op_count;
   /** map from APPLY_UF functions to trie */
   std::map< Node, TermArgTrie > d_func_map_trie;
   /** map from APPLY_UF predicates to trie */
@@ -64,10 +104,6 @@ public:
   void addTerm( Node n, std::set< Node >& added, bool withinQuant = false );
   /** reset (calculate which terms are active) */
   void reset( Theory::Effort effort );
-  /** set active */
-  void setMatchingActive( bool a ) { d_matching_active = a; }
-  /** get active */
-  bool getMatchingActive() { return d_matching_active; }
 private:
   /** for efficient e-matching */
   void addTermEfficient( Node n, std::set< Node >& added);
@@ -81,62 +117,57 @@ public:
   /* Todo replace int by size_t */
   std::hash_map< Node, std::hash_map< Node, std::hash_map< int, std::vector< Node >  >, NodeHashFunction  > , NodeHashFunction > d_parents;
   const std::vector<Node> & getParents(TNode n, TNode f, int arg);
+
+//for model basis
 private:
   //map from types to model basis terms
   std::map< TypeNode, Node > d_model_basis_term;
   //map from ops to model basis terms
   std::map< Node, Node > d_model_basis_op_term;
   //map from instantiation terms to their model basis equivalent
-  std::map< Node, Node > d_model_basis;
+  std::map< Node, Node > d_model_basis_body;
+  /** map from universal quantifiers to model basis terms */
+  std::map< Node, std::vector< Node > > d_model_basis_terms;
+  // compute model basis arg
+  void computeModelBasisArgAttribute( Node n );
 public:
   //get model basis term
   Node getModelBasisTerm( TypeNode tn, int i = 0 );
   //get model basis term for op
   Node getModelBasisOpTerm( Node op );
-  // compute model basis arg
-  void computeModelBasisArgAttribute( Node n );
-  //register instantiation terms with their corresponding model basis terms
-  void registerModelBasis( Node n, Node gn );
   //get model basis
-  Node getModelBasis( Node n ) { return d_model_basis[n]; }
+  Node getModelBasis( Node f, Node n );
+  //get model basis body
+  Node getModelBasisBody( Node f );
+
+//for inst constant
 private:
-  /** map from universal quantifiers to the list of variables */
-  std::map< Node, std::vector< Node > > d_vars;
-  /** map from universal quantifiers to the list of skolem constants */
-  std::map< Node, std::vector< Node > > d_skolem_constants;
-  /** map from universal quantifiers to their skolemized body */
-  std::map< Node, Node > d_skolem_body;
+  /** map from universal quantifiers to the list of instantiation constants */
+  std::map< Node, std::vector< Node > > d_inst_constants;
+  /** map from universal quantifiers to their inst constant body */
+  std::map< Node, Node > d_inst_const_body;
+  /** map from universal quantifiers to their counterexample literals */
+  std::map< Node, Node > d_ce_lit;
   /** instantiation constants to universal quantifiers */
   std::map< Node, Node > d_inst_constants_map;
-  /** map from universal quantifiers to their counterexample body */
-  std::map< Node, Node > d_counterexample_body;
-  /** free variable for instantiation constant type */
-  std::map< TypeNode, Node > d_free_vars;
-private:
   /** make instantiation constants for */
   void makeInstantiationConstantsFor( Node f );
 public:
-  /** map from universal quantifiers to the list of instantiation constants */
-  std::map< Node, std::vector< Node > > d_inst_constants;
-  /** set instantiation level attr */
-  void setInstantiationLevelAttr( Node n, uint64_t level );
-  /** set instantiation constant attr */
-  void setInstantiationConstantAttr( Node n, Node f );
   /** get the i^th instantiation constant of f */
-  Node getInstantiationConstant( Node f, int i ) { return d_inst_constants[f][i]; }
+  Node getInstantiationConstant( Node f, int i ) const;
   /** get number of instantiation constants for f */
-  int getNumInstantiationConstants( Node f ) { return (int)d_inst_constants[f].size(); }
+  int getNumInstantiationConstants( Node f ) const;
   /** get the ce body f[e/x] */
-  Node getCounterexampleBody( Node f );
-  /** get the skolemized body f[e/x] */
-  Node getSkolemizedBody( Node f );
+  Node getInstConstantBody( Node f );
+  /** get counterexample literal (for cbqi) */
+  Node getCounterexampleLiteral( Node f );
   /** returns node n with bound vars of f replaced by instantiation constants of f
       node n : is the futur pattern
       node f : is the quantifier containing which bind the variable
       return a pattern where the variable are replaced by variable for
       instantiation.
    */
-  Node getSubstitutedNode( Node n, Node f );
+  Node getInstConstantNode( Node n, Node f );
   /** same as before but node f is just linked to the new pattern by the
       applied attribute
       vars the bind variable
@@ -145,8 +176,48 @@ public:
   Node convertNodeToPattern( Node n, Node f,
                              const std::vector<Node> & vars,
                              const std::vector<Node> & nvars);
+  /** set instantiation constant attr */
+  void setInstantiationConstantAttr( Node n, Node f );
+
+//for skolem
+private:
+  /** map from universal quantifiers to the list of skolem constants */
+  std::map< Node, std::vector< Node > > d_skolem_constants;
+  /** map from universal quantifiers to their skolemized body */
+  std::map< Node, Node > d_skolem_body;
+public:
+  /** get the skolemized body f[e/x] */
+  Node getSkolemizedBody( Node f );
+
+//miscellaneous
+private:
+  /** map from universal quantifiers to the list of variables */
+  std::map< Node, std::vector< Node > > d_vars;
+  /** free variable for instantiation constant type */
+  std::map< TypeNode, Node > d_free_vars;
+public:
   /** get free variable for instantiation constant */
   Node getFreeVariableForInstConstant( Node n );
+
+//for triggers
+private:
+  /** helper function for compute var contains */
+  void computeVarContains2( Node n, Node parent );
+  /** var contains */
+  std::map< TNode, std::vector< TNode > > d_var_contains;
+  /** triggers for each operator */
+  std::map< Node, std::vector< inst::Trigger* > > d_op_triggers;
+public:
+  /** compute var contains */
+  void computeVarContains( Node n );
+  /** variables subsume, return true if n1 contains all free variables in n2 */
+  bool isVariableSubsume( Node n1, Node n2 );
+  /** get var contains for each of the patterns in pats */
+  void getVarContains( Node f, std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains );
+  /** get var contains for node n */
+  void getVarContainsNode( Node f, Node n, std::vector< Node >& varContains );
+  /** register trigger (for eager quantifier instantiation) */
+  void registerTrigger( inst::Trigger* tr, Node op );
 };/* class TermDb */
 
 }/* CVC4::theory::quantifiers namespace */

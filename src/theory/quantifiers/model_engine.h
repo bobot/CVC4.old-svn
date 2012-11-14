@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -33,10 +31,7 @@ class ModelEngine : public QuantifiersModule
   friend class RepSetIterator;
 private:
   /** builder class */
-  ModelEngineBuilder d_builder;
-private:    //data maintained globally:
-  //which quantifiers have been initialized
-  std::map< Node, bool > d_quant_init;
+  ModelEngineBuilder* d_builder;
 private:    //analysis of current model:
   //relevant domain
   RelevantDomain d_rel_domain;
@@ -47,11 +42,14 @@ private:
   bool optOneInstPerQuantRound();
   bool optUseRelevantDomain();
   bool optOneQuantPerRound();
+  bool optExhInstEvalSkipMultiple();
 private:
-  //initialize quantifiers, return number of lemmas produced
-  int initializeQuantifier( Node f );
+  enum{
+    check_model_full,
+    check_model_no_inst_gen,
+  };
   //check model
-  void checkModel( int& addedLemmas );
+  int checkModel( int checkOption );
   //exhaustively instantiate quantifier (possibly using mbqi), return number of lemmas produced
   int exhaustiveInstantiate( Node f, bool useRelInstDomain = false );
 private:
@@ -63,12 +61,13 @@ private:
 public:
   ModelEngine( context::Context* c, QuantifiersEngine* qe );
   ~ModelEngine(){}
+  //get the builder
+  ModelEngineBuilder* getModelBuilder() { return d_builder; }
 public:
   void check( Theory::Effort e );
   void registerQuantifier( Node f );
   void assertNode( Node f );
   Node explain(TNode n){ return Node::null(); }
-  void propagate( Theory::Effort level ){}
   void debugPrint( const char* c );
 public:
   /** statistics class */
@@ -79,8 +78,7 @@ public:
     IntStat d_eval_uf_terms;
     IntStat d_eval_lits;
     IntStat d_eval_lits_unknown;
-    IntStat d_num_quants_init;
-    IntStat d_num_quants_init_fail;
+    IntStat d_exh_inst_lemmas;
     Statistics();
     ~Statistics();
   };

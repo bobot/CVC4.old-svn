@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): dejan, mdeters
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -60,6 +58,11 @@ public:
 class NodeCallBack {
 public:
   virtual void operator()(Node n) = 0;
+};
+
+class RationalCallBack {
+public:
+  virtual Rational operator()() const = 0;
 };
 
 }/* CVC4::theory::arith namespace */

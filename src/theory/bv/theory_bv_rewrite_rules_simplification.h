@@ -2,12 +2,10 @@
 /*! \file theory_bv_rewrite_rules_simplification.h
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: none
- ** Minor contributors (to current version): 
+ ** Major contributors: barrett
+ ** Minor contributors (to current version): mdeters, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -754,7 +752,7 @@ Node RewriteRule<NegIdemp>::apply(TNode node) {
 
 template<> inline
 bool RewriteRule<UdivPow2>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_UDIV &&
+  return (node.getKind() == kind::BITVECTOR_UDIV_TOTAL &&
           utils::isPow2Const(node[1]));
 }
 
@@ -778,7 +776,7 @@ Node RewriteRule<UdivPow2>::apply(TNode node) {
 
 template<> inline
 bool RewriteRule<UdivOne>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_UDIV &&
+  return (node.getKind() == kind::BITVECTOR_UDIV_TOTAL &&
           node[1] == utils::mkConst(utils::getSize(node), 1));
 }
 
@@ -796,7 +794,7 @@ Node RewriteRule<UdivOne>::apply(TNode node) {
 
 template<> inline
 bool RewriteRule<UdivSelf>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_UDIV &&
+  return (node.getKind() == kind::BITVECTOR_UDIV_TOTAL &&
           node[0] == node[1]);
 }
 
@@ -814,7 +812,7 @@ Node RewriteRule<UdivSelf>::apply(TNode node) {
 
 template<> inline
 bool RewriteRule<UremPow2>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_UREM &&
+  return (node.getKind() == kind::BITVECTOR_UREM_TOTAL &&
           utils::isPow2Const(node[1]));
 }
 
@@ -839,7 +837,7 @@ Node RewriteRule<UremPow2>::apply(TNode node) {
 
 template<> inline
 bool RewriteRule<UremOne>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_UREM &&
+  return (node.getKind() == kind::BITVECTOR_UREM_TOTAL &&
           node[1] == utils::mkConst(utils::getSize(node), 1));
 }
 
@@ -857,7 +855,7 @@ Node RewriteRule<UremOne>::apply(TNode node) {
 
 template<> inline
 bool RewriteRule<UremSelf>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_UREM &&
+  return (node.getKind() == kind::BITVECTOR_UREM_TOTAL &&
           node[0] == node[1]);
 }
 

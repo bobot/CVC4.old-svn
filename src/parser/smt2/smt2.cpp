@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -43,6 +41,45 @@ void Smt2::addArithmeticOperators() {
   addOperator(kind::LEQ);
   addOperator(kind::GT);
   addOperator(kind::GEQ);
+}
+
+void Smt2::addBitvectorOperators() {
+  addOperator(kind::BITVECTOR_CONCAT);
+  addOperator(kind::BITVECTOR_AND);
+  addOperator(kind::BITVECTOR_OR);
+  addOperator(kind::BITVECTOR_XOR);
+  addOperator(kind::BITVECTOR_NOT);
+  addOperator(kind::BITVECTOR_NAND);
+  addOperator(kind::BITVECTOR_NOR);
+  addOperator(kind::BITVECTOR_XNOR);
+  addOperator(kind::BITVECTOR_COMP);
+  addOperator(kind::BITVECTOR_MULT);
+  addOperator(kind::BITVECTOR_PLUS);
+  addOperator(kind::BITVECTOR_SUB);
+  addOperator(kind::BITVECTOR_NEG);
+  addOperator(kind::BITVECTOR_UDIV);
+  addOperator(kind::BITVECTOR_UREM);
+  addOperator(kind::BITVECTOR_SDIV);
+  addOperator(kind::BITVECTOR_SREM);
+  addOperator(kind::BITVECTOR_SMOD);
+  addOperator(kind::BITVECTOR_SHL);
+  addOperator(kind::BITVECTOR_LSHR);
+  addOperator(kind::BITVECTOR_ASHR);
+  addOperator(kind::BITVECTOR_ULT);
+  addOperator(kind::BITVECTOR_ULE);
+  addOperator(kind::BITVECTOR_UGT);
+  addOperator(kind::BITVECTOR_UGE);
+  addOperator(kind::BITVECTOR_SLT);
+  addOperator(kind::BITVECTOR_SLE);
+  addOperator(kind::BITVECTOR_SGT);
+  addOperator(kind::BITVECTOR_SGE);
+  addOperator(kind::BITVECTOR_BITOF);
+  addOperator(kind::BITVECTOR_EXTRACT);
+  addOperator(kind::BITVECTOR_REPEAT);
+  addOperator(kind::BITVECTOR_ZERO_EXTEND);
+  addOperator(kind::BITVECTOR_SIGN_EXTEND);
+  addOperator(kind::BITVECTOR_ROTATE_LEFT);
+  addOperator(kind::BITVECTOR_ROTATE_RIGHT);
 }
 
 void Smt2::addTheory(Theory theory) {
@@ -82,6 +119,7 @@ void Smt2::addTheory(Theory theory) {
     break;
 
   case THEORY_BITVECTORS:
+    addBitvectorOperators();
     break;
 
   case THEORY_QUANTIFIERS:

@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: none
- ** Minor contributors (to current version): taking, mdeters
+ ** Minor contributors (to current version): taking, bobot, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -350,6 +348,12 @@ void EqualityEngine::assertPredicate(TNode t, bool polarity, TNode reason) {
   Debug("equality") << d_name << "::eq::addPredicate(" << t << "," << (polarity ? "true" : "false") << ")" << std::endl;
   Assert(t.getKind() != kind::EQUAL, "Use assertEquality instead");
   assertEqualityInternal(t, polarity ? d_true : d_false, reason);
+  propagate();
+}
+
+void EqualityEngine::mergePredicates(TNode p, TNode q, TNode reason) {
+  Debug("equality") << d_name << "::eq::mergePredicats(" << p << "," << q << ")" << std::endl;
+  assertEqualityInternal(p, q, reason);
   propagate();
 }
 

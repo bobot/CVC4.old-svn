@@ -5,9 +5,7 @@
  ** Major contributors: acsys
  ** Minor contributors (to current version): lianah, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -124,20 +122,21 @@ This is CVC4 version " CVC4_RELEASE_STRING ) + \
 compiled with " + ::CVC4::Configuration::getCompiler() + "\n\
 on " + ::CVC4::Configuration::getCompiledDateTime() + "\n\n\
 Copyright (C) 2009, 2010, 2011, 2012\n\
-  The ACSys Group\n\
-  Courant Institute of Mathematical Sciences\n\
-  New York University\n\
-  New York, NY  10012  USA\n\n" + \
+  New York University and The University of Iowa\n\n" + \
     ( IS_CLN_BUILD ? "\
 This CVC4 library uses CLN as its multi-precision arithmetic library.\n\n\
 CVC4 is open-source and is covered by the BSD license (modified).\n\
-However, CLN, the Class Library for Numbers, is covered by the GPL.  Thus\n\
-this CVC4 library cannot be used in proprietary applications.  Please\n\
-consult the CVC4 documentation for instructions about building a version\n\
-of CVC4 that links against GMP, and can be used in such applications.\n" : \
+However, CLN, the Class Library for Numbers, is covered by the GPLv3,\n\
+and so this \"combined\" work, CVC4+CLN, is covered by the GPLv3 as well\n\
+Please consult the CVC4 documentation for instructions about building\n\
+without CLN if you want to license CVC4 under the (modified) BSD license.\n\n\
+" : \
 "This CVC4 library uses GMP as its multi-precision arithmetic library.\n\n\
 CVC4 is open-source and is covered by the BSD license (modified).\n\n\
-THIS SOFTWARE PROVIDED AS-IS, WITHOUT ANY WARRANTIES. USE IT AT YOUR OWN RISK.\n" ) )
+" ) + "\
+THIS SOFTWARE PROVIDED AS-IS, WITHOUT ANY WARRANTIES. USE AT YOUR OWN RISK.\n\n\
+See the file COPYING (distributed with the source code, and with all binaries)\n\
+for the full CVC4 copyright, licensing, and (lack of) warranty information.\n" )
 
 }/* CVC4 namespace */
 

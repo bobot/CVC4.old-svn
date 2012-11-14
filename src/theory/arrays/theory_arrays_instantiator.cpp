@@ -2,12 +2,10 @@
 /*! \file theory_arrays_instantiator.cpp
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: bobot
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -41,9 +39,9 @@ void InstantiatorTheoryArrays::assertNode( Node assertion ){
   d_quantEngine->addTermToDatabase( assertion );
   if( options::cbqi() ){
     if( assertion.hasAttribute(InstConstantAttribute()) ){
-      setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+      setQuantifierActive( assertion.getAttribute(InstConstantAttribute()) );
     }else if( assertion.getKind()==NOT && assertion[0].hasAttribute(InstConstantAttribute()) ){
-      setHasConstraintsFrom( assertion[0].getAttribute(InstConstantAttribute()) );
+      setQuantifierActive( assertion[0].getAttribute(InstConstantAttribute()) );
     }
   }
 }

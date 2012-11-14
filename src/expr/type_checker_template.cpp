@@ -1,13 +1,11 @@
 /*********************                                                        */
-/*! \file type_checker.cpp
+/*! \file type_checker_template.cpp
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -16,14 +14,14 @@
  ** TypeChecker implementation.
  **/
 
-#line 20 "${template}"
+#line 18 "${template}"
 
 #include "expr/type_checker.h"
 #include "expr/node_manager.h"
 
 ${typechecker_includes}
 
-#line 27 "${template}"
+#line 25 "${template}"
 
 namespace CVC4 {
 namespace expr {
@@ -44,7 +42,7 @@ TypeNode TypeChecker::computeType(NodeManager* nodeManager, TNode n, bool check)
 
 ${typerules}
 
-#line 48 "${template}"
+#line 46 "${template}"
 
   default:
     Debug("getType") << "FAILURE" << std::endl;
@@ -67,7 +65,7 @@ bool TypeChecker::computeIsConst(NodeManager* nodeManager, TNode n)
   switch(n.getKind()) {
 ${construles}
 
-#line 71 "${template}"
+#line 69 "${template}"
 
   default:;
   }

@@ -2,25 +2,20 @@
 /*! \file theory_uf_model.cpp
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
  ** \brief Implementation of Theory UF Model
  **/
 
-#include "theory/quantifiers/model_engine.h"
 #include "theory/theory_engine.h"
+#include "theory/uf/theory_uf_model.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/uf/theory_uf.h"
-#include "theory/uf/theory_uf_strong_solver.h"
-#include "theory/uf/theory_uf_instantiator.h"
-#include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/term_database.h"
 
 #define RECONSIDER_FUNC_DEFAULT_VALUE
@@ -53,8 +48,10 @@ bool UfModelTreeNode::hasConcreteArgumentDefinition(){
 //set value function
 void UfModelTreeNode::setValue( TheoryModel* m, Node n, Node v, std::vector< int >& indexOrder, bool ground, int argIndex ){
   if( d_data.empty() ){
+    //overwrite value if either at leaf or this is a fresh tree
     d_value = v;
   }else if( !d_value.isNull() && d_value!=v ){
+    //value is no longer constant
     d_value = Node::null();
   }
   if( argIndex<(int)indexOrder.size() ){
@@ -386,9 +383,9 @@ Node UfModelPreferenceData::getBestDefaultValue( Node defaultTerm, TheoryModel* 
   for( size_t i=0; i<d_values.size(); i++ ){
     Node v = d_values[i];
     double score = ( 1.0 + (double)d_value_pro_con[0][v].size() )/( 1.0 + (double)d_value_pro_con[1][v].size() );
-    Debug("fmf-model-cons") << "  - score( ";
-    m->printRepresentativeDebug( "fmf-model-cons", v );
-    Debug("fmf-model-cons") << " ) = " << score << std::endl;
+    Debug("fmf-model-cons-debug") << "  - score( ";
+    m->printRepresentativeDebug( "fmf-model-cons-debug", v );
+    Debug("fmf-model-cons-debug") << " ) = " << score << std::endl;
     if( score>maxScore ){
       defaultVal = v;
       maxScore = score;
@@ -416,10 +413,10 @@ Node UfModelPreferenceData::getBestDefaultValue( Node defaultTerm, TheoryModel* 
   }
 #endif
   //get the default term (this term must be defined non-ground in model)
-  Debug("fmf-model-cons") << "  Choose ";
-  m->printRepresentativeDebug("fmf-model-cons", defaultVal );
-  Debug("fmf-model-cons") << " as default value (" << defaultTerm << ")" << std::endl;
-  Debug("fmf-model-cons") << "     # quantifiers pro = " << d_value_pro_con[0][defaultVal].size() << std::endl;
-  Debug("fmf-model-cons") << "     # quantifiers con = " << d_value_pro_con[1][defaultVal].size() << std::endl;
+  Debug("fmf-model-cons-debug") << "  Choose ";
+  m->printRepresentativeDebug("fmf-model-cons-debug", defaultVal );
+  Debug("fmf-model-cons-debug") << " as default value (" << defaultTerm << ")" << std::endl;
+  Debug("fmf-model-cons-debug") << "     # quantifiers pro = " << d_value_pro_con[0][defaultVal].size() << std::endl;
+  Debug("fmf-model-cons-debug") << "     # quantifiers con = " << d_value_pro_con[1][defaultVal].size() << std::endl;
   return defaultVal;
 }

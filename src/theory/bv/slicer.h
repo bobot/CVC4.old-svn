@@ -29,19 +29,132 @@
 
 namespace CVC4 {
 
-class Integer;
+class Bitvector;
 
 namespace theory {
 namespace bv {
 
-typedef CVC4::Integer Base; 
-typedef __gnu_cxx::hash_map<TNode, Base, TNodeHashFunction> BaseMap; 
-typedef __gnu_cxx::hash_map<TNode, std::list<TNode>*, TNodeHashFunction > EqualityGraph; 
-typedef __gnu_cxx::hash_map<TNode, std::list<TNode>*, TNodeHashFunction >::iterator EqualityGraphIterator; 
+typedef uint32_t RootId;
+typedef uint32_t SplinterId;
+typedef uint32_t Index;
+
+struct SplinterPointer {
+  TermId term;
+  Index start_index;
+  uint32_t row; 
+  SplinterPointer(RootId t, uint32_t r,  Index i) :
+    term(t),
+    row(r),
+    start_index(i)
+  {}
+};
+
+static const SplinterPointer Undefined = SplinterPointer(-1, -1, -1); 
+
+class Splinter {
+  // start and end indices in block 
+  uint32_t d_low;
+  uint32_t d_high;
+
+  // keeps track of 
+  SplinterPointer d_pointer; 
+
+  Splinter(uint32_t high, uint32_t low) :
+    d_lowlow),
+    d_high(high),
+    d_pointer(Undefined)
+  {}
+
+    
+  void setPointer(SplinterPointer pointer) {
+    Assert (d_pointer === Undefined);
+    d_pointer = pointer; 
+  }
+
+  const SplinterPointer& getPointer() const {
+    return d_pointer; 
+  }
+  const uint32_t getLow() { return d_low; }
+  const uint32_t getHigh() {return d_high; }
+};
+
+
+class Slice {
+  // map from the beginning of a splinter to the actual splinter id
+  std::map<Index, SplinterId> d_splinters;
+
+  void split(Index start, Index length);
+  void addSplinter(SplinterId id); 
+};
+
+
+typedef CVC4::Bitvector Base; 
+
+class Base {
+  CVC4::Bitvector d_repr;
+  uint32_t d_size; 
+  Base(uint32_t size) :
+    d_size(size) {
+    Assert (size > 1);
+    d_repr = Bitvector(size - 1, 0);
+  }
+
+  /** 
+   * Marks the base by adding a cut between index and index + 1
+   * 
+   * @param index 
+   */
+  void sliceAt(Index index) {
+    Assert (index < d_size - 1); 
+    d_repr = d_repr.setBit(index); 
+  }
+
+  void sliceWith(const Base& other) {
+    Assert (d_size == other.d_size); 
+    d_repr = d_repr | other.d_repr; 
+  }
+
+  void getSlices(TNode root, std::vector<Node>& slices) {
+    uint32_t index = 0; 
+    for (uint32_t i = 0; i < d_size - 1; ++i) {
+      uint32_t low = index;
+      uint32_t high = i + 1;
+      index = high;
+      Node slice = utils::mkExtract(root, low, high);
+      d_slices.push_back(slice); 
+    }
+  }
+
+  bool isCutPoint(Index index) {
+    return d_repr.isBitSet(); 
+  }
+}; 
+
+class SliceBlock {
+  std::vector<Slice> d_block;
+  Base d_base;
+  uint32_t d_bitwidth; 
+  SliceBlock(uint32_t bitwidth) :
+    d_bitwidth(bitwidth)
+  {}
+
+  void addSlice(const Slice& slice) {
+    d_block.push_back(slice); 
+  }
+
+  Slice& getSlice(unsigned index) {
+    return d_block(index); 
+  }
+};
+
+typedef __gnu_cxx::hash_map<TNode, RootId, TNodeHashFunction> NodeRootIdMap;
+typedef std::vector<TNode> Roots; 
+
 class Slicer {
-  std::vector<TNode> d_equalities;
-  BaseMap d_bases;
-  EqualityGraph d_edgeMap; 
+  std::vector<TNode> d_simpleEqualities;
+  Roots d_roots;
+  uint32_t d_numRoots; 
+  NodeRootIdMap d_nodeRootMap;
   
 public:
   Slicer();
@@ -59,10 +172,15 @@ private:
   void processSimpleEquality(TNode node);
   void splitEqualities(TNode node, std::vector<Node>& equalities);
   TNode addSimpleTerm(TNode t);
-  void addEqualityEdge(TNode n1, TNode n2);
-  Base getBase(TNode node);
-  void updateBase(TNode node, const Base& base);
+  TNode getRoot(RootId id) {return d_roots[id]; }
+  RootId getRootId(TNode node) {
+    Assert (d_nodeRootMap.find(node) != d_nodeRootMap.end());
+    return d_nodeRootMap(node); 
+  }
 
+  RootId makeRoot(TNode n); 
+  
+  
 
 }; /* Slicer class */
 

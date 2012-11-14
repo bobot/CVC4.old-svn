@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): bobot, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -35,25 +33,6 @@ namespace uf {
 class InstantiatorTheoryUf;
 
 //instantiation strategies
-
-class InstStrategyCheckCESolved : public InstStrategy{
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
-  /** is solved? */
-  std::map< Node, bool > d_solved;
-  /** calc if f is solved */
-  void calcSolved( Node f );
-  /** process functions */
-  void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e );
-public:
-  InstStrategyCheckCESolved( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) :
-      InstStrategy( ie ), d_th( th ){}
-  ~InstStrategyCheckCESolved(){}
-  /** identify */
-  std::string identify() const { return std::string("CheckCESolved"); }
-};/* class InstStrategyCheckCESolved */
 
 class InstStrategyUserPatterns : public InstStrategy{
 private:
@@ -136,25 +115,6 @@ public:
   /** set generate additional */
   void setGenerateAdditional( bool val ) { d_generate_additional = val; }
 };/* class InstStrategyAutoGenTriggers */
-
-#if 0
-
-class InstStrategyAddFailSplits : public InstStrategy{
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
-  /** process functions */
-  void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e );
-public:
-  InstStrategyAddFailSplits( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) :
-      InstStrategy( ie ), d_th( th ){}
-  ~InstStrategyAddFailSplits(){}
-  /** identify */
-  std::string identify() const { return std::string("AddFailSplits"); }
-};/* class InstStrategyAddFailSplits */
-
-#endif /* 0 */
 
 class InstStrategyFreeVariable : public InstStrategy{
 private:

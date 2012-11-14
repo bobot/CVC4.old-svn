@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009--2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -55,7 +53,7 @@ public:
     delete d_em;
   }
 
-  void testIsComparableTo() {
+  void testSubtypes() {
     TypeNode realType = d_nm->realType();
     TypeNode integerType = d_nm->realType();
     TypeNode booleanType = d_nm->booleanType();
@@ -127,6 +125,16 @@ public:
     TS_ASSERT( not predicateSubtype.isComparableTo(bvType) );
     TS_ASSERT( predicateSubtype.isComparableTo(subrangeType) );
     TS_ASSERT( predicateSubtype.isComparableTo(predicateSubtype) );
+
+    TS_ASSERT(realType.getBaseType() == realType);
+    TS_ASSERT(integerType.getBaseType() == realType);
+    TS_ASSERT(booleanType.getBaseType() == booleanType);
+    TS_ASSERT(arrayType.getBaseType() == arrayType);
+    TS_ASSERT(bvType.getBaseType() == bvType);
+    TS_ASSERT(subrangeType.getBaseType() == realType);
+    TS_ASSERT(predicateSubtype.getBaseType() == realType);
+
+    TS_ASSERT(predicateSubtype.getSubtypeParentType() == integerType);
   }
 
 };/* TypeNodeWhite */

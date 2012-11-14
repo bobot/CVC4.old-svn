@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): taking, ajreynol
+ ** Minor contributors (to current version): ajreynol, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -589,8 +587,14 @@ public:
   /** Get the predicate defining this subtype */
   Node getSubtypePredicate() const;
 
-  /** Get the base type of this subtype */
-  TypeNode getSubtypeBaseType() const;
+  /**
+   * Get the parent type of this subtype; note that it could be
+   * another subtype.
+   */
+  TypeNode getSubtypeParentType() const;
+
+  /** Get the most general base type of the type */
+  TypeNode getBaseType() const;
 
   /** Is this a subrange */
   bool isSubrange() const;
@@ -804,21 +808,21 @@ inline void TypeNode::printAst(std::ostream& out, int indent) const {
 inline bool TypeNode::isBoolean() const {
   return
     ( getKind() == kind::TYPE_CONSTANT && getConst<TypeConstant>() == BOOLEAN_TYPE ) ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isBoolean() );
+    ( isPredicateSubtype() && getSubtypeParentType().isBoolean() );
 }
 
 inline bool TypeNode::isInteger() const {
   return
     ( getKind() == kind::TYPE_CONSTANT && getConst<TypeConstant>() == INTEGER_TYPE ) ||
     isSubrange() ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isInteger() );
+    ( isPredicateSubtype() && getSubtypeParentType().isInteger() );
 }
 
 inline bool TypeNode::isReal() const {
   return
     ( getKind() == kind::TYPE_CONSTANT && getConst<TypeConstant>() == REAL_TYPE ) ||
     isInteger() ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isReal() );
+    ( isPredicateSubtype() && getSubtypeParentType().isReal() );
 }
 
 inline bool TypeNode::isString() const {
@@ -876,19 +880,19 @@ inline TypeNode TypeNode::getRangeType() const {
 /** Is this a tuple type? */
 inline bool TypeNode::isTuple() const {
   return getKind() == kind::TUPLE_TYPE ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isTuple() );
+    ( isPredicateSubtype() && getSubtypeParentType().isTuple() );
 }
 
 /** Is this a symbolic expression type? */
 inline bool TypeNode::isSExpr() const {
   return getKind() == kind::SEXPR_TYPE ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isSExpr() );
+    ( isPredicateSubtype() && getSubtypeParentType().isSExpr() );
 }
 
 /** Is this a sort kind */
 inline bool TypeNode::isSort() const {
   return ( getKind() == kind::SORT_TYPE && !hasAttribute(expr::SortArityAttr()) ) ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isSort() );
+    ( isPredicateSubtype() && getSubtypeParentType().isSort() );
 }
 
 /** Is this a sort constructor kind */
@@ -904,25 +908,25 @@ inline bool TypeNode::isPredicateSubtype() const {
 /** Is this a subrange type */
 inline bool TypeNode::isSubrange() const {
   return getKind() == kind::SUBRANGE_TYPE ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isSubrange() );
+    ( isPredicateSubtype() && getSubtypeParentType().isSubrange() );
 }
 
 /** Is this a bit-vector type */
 inline bool TypeNode::isBitVector() const {
   return getKind() == kind::BITVECTOR_TYPE ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isBitVector() );
+    ( isPredicateSubtype() && getSubtypeParentType().isBitVector() );
 }
 
 /** Is this a datatype type */
 inline bool TypeNode::isDatatype() const {
   return getKind() == kind::DATATYPE_TYPE ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isDatatype() );
+    ( isPredicateSubtype() && getSubtypeParentType().isDatatype() );
 }
 
 /** Is this a parametric datatype type */
 inline bool TypeNode::isParametricDatatype() const {
   return getKind() == kind::PARAMETRIC_DATATYPE ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isParametricDatatype() );
+    ( isPredicateSubtype() && getSubtypeParentType().isParametricDatatype() );
 }
 
 /** Is this a constructor type */
@@ -944,7 +948,7 @@ inline bool TypeNode::isTester() const {
 inline bool TypeNode::isBitVector(unsigned size) const {
   return
     ( getKind() == kind::BITVECTOR_TYPE && getConst<BitVectorSize>() == size ) ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isBitVector(size) );
+    ( isPredicateSubtype() && getSubtypeParentType().isBitVector(size) );
 }
 
 /** Get the size of this bit-vector type */
@@ -959,7 +963,7 @@ inline const SubrangeBounds& TypeNode::getSubrangeBounds() const {
     return getConst<SubrangeBounds>();
   }else{
     Assert(isPredicateSubtype());
-    return getSubtypeBaseType().getSubrangeBounds();
+    return getSubtypeParentType().getSubrangeBounds();
   }
 }
 

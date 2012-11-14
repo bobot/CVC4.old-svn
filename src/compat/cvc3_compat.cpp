@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): taking, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -738,7 +736,9 @@ void ValidityChecker::setUpOptions(CVC4::Options& options, const CLFlags& clflag
   // always incremental and model-producing in CVC3 compatibility mode
   // also incrementally-simplifying and interactive
   d_smt->setOption("incremental", string("true"));
-  d_smt->setOption("produce-models", string("true"));
+  // disable this option by default for now, because datatype models
+  // are broken [MGD 10/4/2012]
+  //d_smt->setOption("produce-models", string("true"));
   d_smt->setOption("simplification-mode", string("incremental"));
   d_smt->setOption("interactive-mode", string("true"));// support SmtEngine::getAssertions()
 
@@ -798,6 +798,7 @@ ValidityChecker::~ValidityChecker() {
     s_typeToExpr.erase(s_exprToType[*i]);
     s_exprToType.erase(*i);
   }
+  d_exprTypeMapRemove.clear();
   delete d_parserContext;
   delete d_smt;
   d_emmc.clear();
@@ -2069,7 +2070,7 @@ void ValidityChecker::setTimeLimit(unsigned limit) {
 }
 
 void ValidityChecker::assertFormula(const Expr& e) {
-  d_smt->assertFormula(CVC4::BoolExpr(e));
+  d_smt->assertFormula(e);
 }
 
 void ValidityChecker::registerAtom(const Expr& e) {
@@ -2105,11 +2106,11 @@ static QueryResult cvc4resultToCvc3result(CVC4::Result r) {
 }
 
 QueryResult ValidityChecker::query(const Expr& e) {
-  return cvc4resultToCvc3result(d_smt->query(CVC4::BoolExpr(e)));
+  return cvc4resultToCvc3result(d_smt->query(e));
 }
 
 QueryResult ValidityChecker::checkUnsat(const Expr& e) {
-  return cvc4resultToCvc3result(d_smt->checkSat(CVC4::BoolExpr(e)));
+  return cvc4resultToCvc3result(d_smt->checkSat(e));
 }
 
 QueryResult ValidityChecker::checkContinue() {

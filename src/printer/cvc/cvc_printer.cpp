@@ -2,12 +2,10 @@
 /*! \file cvc_printer.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): bobot, taking, barrett, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -741,25 +739,25 @@ void CvcPrinter::toStream(std::ostream& out, const CommandStatus* s) const throw
 
 }/* CvcPrinter::toStream(CommandStatus*) */
 
-void CvcPrinter::toStream(std::ostream& out, Model* m, const Command* c) const throw() {
-  theory::TheoryModel* tm = (theory::TheoryModel*)m;
+void CvcPrinter::toStream(std::ostream& out, Model& m, const Command* c) const throw() {
+  theory::TheoryModel& tm = (theory::TheoryModel&) m;
   if(dynamic_cast<const DeclareTypeCommand*>(c) != NULL) {
     TypeNode tn = TypeNode::fromType( ((const DeclareTypeCommand*)c)->getType() );
     if( tn.isSort() ){
       //print the cardinality
-      if( tm->d_rep_set.d_type_reps.find( tn )!=tm->d_rep_set.d_type_reps.end() ){
-        out << "; cardinality of " << tn << " is " << tm->d_rep_set.d_type_reps[tn].size() << std::endl;
+      if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
+        out << "; cardinality of " << tn << " is " << (*tm.d_rep_set.d_type_reps.find(tn)).second.size() << std::endl;
       }
     }
     out << c << std::endl;
     if( tn.isSort() ){
       //print the representatives
-      if( tm->d_rep_set.d_type_reps.find( tn )!=tm->d_rep_set.d_type_reps.end() ){
-        for( size_t i=0; i<tm->d_rep_set.d_type_reps[tn].size(); i++ ){
-          if( tm->d_rep_set.d_type_reps[tn][i].isVar() ){
-            out << tm->d_rep_set.d_type_reps[tn][i] << " : " << tn << ";" << std::endl;
+      if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
+        for( size_t i=0; i<(*tm.d_rep_set.d_type_reps.find(tn)).second.size(); i++ ){
+          if( (*tm.d_rep_set.d_type_reps.find(tn)).second[i].isVar() ){
+            out << (*tm.d_rep_set.d_type_reps.find(tn)).second[i] << " : " << tn << ";" << std::endl;
           }else{
-            out << "% rep: " << tm->d_rep_set.d_type_reps[tn][i] << std::endl;
+            out << "% rep: " << (*tm.d_rep_set.d_type_reps.find(tn)).second[i] << std::endl;
           }
         }
       }
@@ -778,7 +776,7 @@ void CvcPrinter::toStream(std::ostream& out, Model* m, const Command* c) const t
     }else{
       out << tn;
     }
-    out << " = " << tm->getValue( n ) << ";" << std::endl;
+    out << " = " << tm.getValue( n ) << ";" << std::endl;
 
 /*
     //for table format (work in progress)
@@ -821,7 +819,7 @@ static void toStream(std::ostream& out, const PopCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const CheckSatCommand* c) throw() {
-  BoolExpr e = c->getExpr();
+  Expr e = c->getExpr();
   if(!e.isNull()) {
     out << "CHECKSAT " << e << ";";
   } else {
@@ -830,7 +828,7 @@ static void toStream(std::ostream& out, const CheckSatCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const QueryCommand* c) throw() {
-  BoolExpr e = c->getExpr();
+  Expr e = c->getExpr();
   if(!e.isNull()) {
     out << "QUERY " << e << ";";
   } else {

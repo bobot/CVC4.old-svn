@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): barrett, taking, cconway, kshitij
+ ** Minor contributors (to current version): barrett, lianah, kshitij, cconway, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -110,10 +108,8 @@ void PropEngine::assertLemma(TNode node, bool negated, bool removable) {
   //Assert(d_inCheckSat, "Sat solver should be in solve()!");
   Debug("prop::lemmas") << "assertLemma(" << node << ")" << endl;
 
-  if(!d_inCheckSat && Dump.isOn("learned")) {
-    Dump("learned") << AssertCommand(BoolExpr(node.toExpr()));
-  } else if(Dump.isOn("lemmas")) {
-    Dump("lemmas") << AssertCommand(BoolExpr(node.toExpr()));
+  if(Dump.isOn("lemmas")) {
+    Dump("lemmas") << AssertCommand(node.toExpr());
   }
 
   // Assert as removable

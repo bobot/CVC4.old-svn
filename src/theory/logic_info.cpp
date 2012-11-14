@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009--2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -37,7 +35,7 @@ LogicInfo::LogicInfo() :
   d_sharingTheories(0),
   d_integers(true),
   d_reals(true),
-  d_linear(false),
+  d_linear(true),// for now, "everything enabled" doesn't include non-linear arith
   d_differenceLogic(false),
   d_locked(false) {
 

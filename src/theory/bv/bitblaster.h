@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -82,6 +80,7 @@ class Bitblaster {
     void safePoint();
   };
   
+  
   typedef __gnu_cxx::hash_map <Node, Bits, TNodeHashFunction >              TermDefMap;
   typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction>                      AtomSet;
   typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction>                      VarSet; 
@@ -89,6 +88,8 @@ class Bitblaster {
   typedef void   (*TermBBStrategy) (TNode, Bits&, Bitblaster*); 
   typedef Node   (*AtomBBStrategy) (TNode, Bitblaster*); 
 
+  TheoryBV *d_bv;
+  
   // sat solver used for bitblasting and associated CnfStream
   theory::OutputChannel*             d_bvOutput;
   prop::BVSatSolverInterface*        d_satSolver; 
@@ -160,10 +161,12 @@ public:
    */
   void storeVariable(TNode var) {
     d_variables.insert(var); 
-  } 
-private:
+  }
 
-  
+  bool isSharedTerm(TNode node);
+
+private:
+ 
   class Statistics {
   public:
     IntStat d_numTermClauses, d_numAtomClauses;

@@ -2,12 +2,10 @@
 /*! \file portfolio.cpp
  ** \verbatim
  ** Original author: kshitij
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -31,8 +29,8 @@ boost::mutex mutex_done;
 boost::mutex mutex_main_wait;
 boost::condition condition_var_main_wait;
 
-bool global_flag_done = false;
-int global_winner = -1;
+bool global_flag_done;
+int global_winner;
 
 template<typename S>
 void runThread(int thread_id, boost::function<S()> threadFn, S& returnValue)
@@ -57,6 +55,9 @@ std::pair<int, S> runPortfolio(int numThreads,
   boost::thread thread_driver;
   boost::thread threads[numThreads];
   S threads_returnValue[numThreads];
+
+  global_flag_done = false;
+  global_winner = -1;
 
   for(int t = 0; t < numThreads; ++t) {
     threads[t] = 

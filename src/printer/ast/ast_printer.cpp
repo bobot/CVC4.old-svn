@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): dejan, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -187,8 +185,13 @@ void AstPrinter::toStream(std::ostream& out, const CommandStatus* s) const throw
 
 }/* AstPrinter::toStream(CommandStatus*) */
 
-void AstPrinter::toStream(std::ostream& out, Model* m, const Command* c) const throw() {
+void AstPrinter::toStream(std::ostream& out, Model& m) const throw() {
   out << "Model()";
+}
+
+void AstPrinter::toStream(std::ostream& out, Model& m, const Command* c) const throw() {
+  // shouldn't be called; only the non-Command* version above should be
+  Unreachable();
 }
 
 static void toStream(std::ostream& out, const EmptyCommand* c)  throw() {
@@ -208,7 +211,7 @@ static void toStream(std::ostream& out, const PopCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const CheckSatCommand* c) throw() {
-  BoolExpr e = c->getExpr();
+  Expr e = c->getExpr();
   if(e.isNull()) {
     out << "CheckSat()";
   } else {

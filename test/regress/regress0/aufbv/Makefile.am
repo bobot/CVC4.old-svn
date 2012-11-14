@@ -42,8 +42,11 @@ TESTS =	\
 	fuzz08.smt \
 	fuzz09.smt \
 	fuzz10.smt \
+	fuzz11.smt \
+	fuzz12.smt \
 	fifo32bc06k08.delta01.smt \
-	rewrite_bug.smt
+	rewrite_bug.smt \
+	array_rewrite_bug.smt
 
 
 EXTRA_DIST = $(TESTS)

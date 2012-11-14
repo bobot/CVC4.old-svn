@@ -2,12 +2,10 @@
 /*! \file theory_bv_rewriter.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Major contributors: lianah
+ ** Minor contributors (to current version): taking, mdeters, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -367,7 +365,8 @@ RewriteResponse TheoryBVRewriter::RewriteNeg(TNode node, bool preregister) {
   return RewriteResponse(REWRITE_DONE, resultNode); 
 }
 
-RewriteResponse TheoryBVRewriter::RewriteUdiv(TNode node, bool preregister){
+
+RewriteResponse TheoryBVRewriter::RewriteUdivTotal(TNode node, bool preregister){
   Node resultNode = node;
 
   if(RewriteRule<UdivPow2>::applies(node)) {
@@ -384,9 +383,8 @@ RewriteResponse TheoryBVRewriter::RewriteUdiv(TNode node, bool preregister){
   return RewriteResponse(REWRITE_DONE, resultNode); 
 }
 
-RewriteResponse TheoryBVRewriter::RewriteUrem(TNode node, bool preregister) {
+RewriteResponse TheoryBVRewriter::RewriteUremTotal(TNode node, bool preregister) {
   Node resultNode = node;
-  return RewriteResponse(REWRITE_DONE, resultNode); 
 
   if(RewriteRule<UremPow2>::applies(node)) {
     resultNode = RewriteRule<UremPow2>::run <false> (node);
@@ -578,8 +576,10 @@ void TheoryBVRewriter::initializeRewrites() {
   d_rewriteTable [ kind::BITVECTOR_PLUS ] = RewritePlus;
   d_rewriteTable [ kind::BITVECTOR_SUB ] = RewriteSub;
   d_rewriteTable [ kind::BITVECTOR_NEG ] = RewriteNeg;
-  d_rewriteTable [ kind::BITVECTOR_UDIV ] = RewriteUdiv;
-  d_rewriteTable [ kind::BITVECTOR_UREM ] = RewriteUrem;
+  // d_rewriteTable [ kind::BITVECTOR_UDIV ] = RewriteUdiv;
+  // d_rewriteTable [ kind::BITVECTOR_UREM ] = RewriteUrem;
+  d_rewriteTable [ kind::BITVECTOR_UDIV_TOTAL ] = RewriteUdivTotal;
+  d_rewriteTable [ kind::BITVECTOR_UREM_TOTAL ] = RewriteUremTotal;
   d_rewriteTable [ kind::BITVECTOR_SMOD ] = RewriteSmod;
   d_rewriteTable [ kind::BITVECTOR_SDIV ] = RewriteSdiv;
   d_rewriteTable [ kind::BITVECTOR_SREM ] = RewriteSrem;
@@ -594,6 +594,14 @@ void TheoryBVRewriter::initializeRewrites() {
   d_rewriteTable [ kind::BITVECTOR_ROTATE_LEFT ] = RewriteRotateLeft;
 }
 
+Node TheoryBVRewriter::eliminateBVSDiv(TNode node) {
+  Node result = bv::LinearRewriteStrategy <
+    bv::RewriteRule<bv::SremEliminate>,
+    bv::RewriteRule<bv::SdivEliminate>,
+    bv::RewriteRule<bv::SmodEliminate>
+    >::apply(node);
+  return result; 
+}
 
 
 

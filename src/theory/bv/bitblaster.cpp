@@ -2,12 +2,10 @@
 /*! \file bitblaster.cpp
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -55,6 +53,7 @@ std::string toString(Bits&  bits) {
 /////// Bitblaster 
 
 Bitblaster::Bitblaster(context::Context* c, bv::TheoryBV* bv) :
+    d_bv(bv),
     d_bvOutput(bv->d_out),
     d_termCache(),
     d_bitblastedAtoms(),
@@ -215,6 +214,13 @@ bool Bitblaster::assertToSat(TNode lit, bool propagate) {
  */
  
 bool Bitblaster::solve(bool quick_solve) {
+  if (Trace.isOn("bitvector")) {
+    Trace("bitvector") << "Bitblaster::solve() asserted atoms ";
+    context::CDList<prop::SatLiteral>::const_iterator it = d_assertedAtoms.begin();
+    for (; it != d_assertedAtoms.end(); ++it) {
+      Trace("bitvector") << "     " << d_cnfStream->getNode(*it) << "\n";
+    }
+  }
   BVDebug("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n"; 
   return SAT_VALUE_TRUE == d_satSolver->solve(); 
 }
@@ -281,11 +287,13 @@ void Bitblaster::initTermBBStrategies() {
   d_termBBStrategies [ kind::BITVECTOR_PLUS ]         = DefaultPlusBB;
   d_termBBStrategies [ kind::BITVECTOR_SUB ]          = DefaultSubBB;
   d_termBBStrategies [ kind::BITVECTOR_NEG ]          = DefaultNegBB;
-  d_termBBStrategies [ kind::BITVECTOR_UDIV ]         = DefaultUdivBB;
-  d_termBBStrategies [ kind::BITVECTOR_UREM ]         = DefaultUremBB;
-  d_termBBStrategies [ kind::BITVECTOR_SDIV ]         = DefaultSdivBB;
-  d_termBBStrategies [ kind::BITVECTOR_SREM ]         = DefaultSremBB;
-  d_termBBStrategies [ kind::BITVECTOR_SMOD ]         = DefaultSmodBB;
+  d_termBBStrategies [ kind::BITVECTOR_UDIV ]         = UndefinedTermBBStrategy; 
+  d_termBBStrategies [ kind::BITVECTOR_UREM ]         = UndefinedTermBBStrategy; 
+  d_termBBStrategies [ kind::BITVECTOR_UDIV_TOTAL ]   = DefaultUdivBB;
+  d_termBBStrategies [ kind::BITVECTOR_UREM_TOTAL ]   = DefaultUremBB;
+  d_termBBStrategies [ kind::BITVECTOR_SDIV ]         = UndefinedTermBBStrategy; 
+  d_termBBStrategies [ kind::BITVECTOR_SREM ]         = UndefinedTermBBStrategy; 
+  d_termBBStrategies [ kind::BITVECTOR_SMOD ]         = UndefinedTermBBStrategy; 
   d_termBBStrategies [ kind::BITVECTOR_SHL ]          = DefaultShlBB;
   d_termBBStrategies [ kind::BITVECTOR_LSHR ]         = DefaultLshrBB;
   d_termBBStrategies [ kind::BITVECTOR_ASHR ]         = DefaultAshrBB;
@@ -399,6 +407,11 @@ EqualityStatus Bitblaster::getEqualityStatus(TNode a, TNode b) {
   }
 }
 
+
+bool Bitblaster::isSharedTerm(TNode node) {
+  return d_bv->d_sharedTermsSet.find(node) != d_bv->d_sharedTermsSet.end(); 
+}
+
 Node Bitblaster::getVarValue(TNode a) {
   Assert (d_termCache.find(a) != d_termCache.end()); 
   Bits bits = d_termCache[a];
@@ -423,8 +436,13 @@ void Bitblaster::collectModelInfo(TheoryModel* m) {
   __gnu_cxx::hash_set<TNode, TNodeHashFunction>::iterator it = d_variables.begin();
   for (; it!= d_variables.end(); ++it) {
     TNode var = *it;
-    Node const_value = getVarValue(var);
-    m->assertEquality(var, const_value, true); 
+    if (Theory::theoryOf(var) == theory::THEORY_BV || isSharedTerm(var)) {
+      Node const_value = getVarValue(var);
+      Debug("bitvector-model") << "Bitblaster::collectModelInfo (assert (= "
+                                << var << " "
+                                << const_value << "))\n";
+      m->assertEquality(var, const_value, true); 
+    }
   }
 }
 

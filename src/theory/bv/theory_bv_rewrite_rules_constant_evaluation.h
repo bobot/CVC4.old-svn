@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: barrett
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -200,7 +198,7 @@ Node RewriteRule<EvalNeg>::apply(TNode node) {
 }
 template<> inline
 bool RewriteRule<EvalUdiv>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_UDIV &&
+  return (node.getKind() == kind::BITVECTOR_UDIV_TOTAL &&
           utils::isBVGroundTerm(node));
 }
 
@@ -215,7 +213,7 @@ Node RewriteRule<EvalUdiv>::apply(TNode node) {
 }
 template<> inline
 bool RewriteRule<EvalUrem>::applies(TNode node) {
-  return (node.getKind() == kind::BITVECTOR_UREM &&
+  return (node.getKind() == kind::BITVECTOR_UREM_TOTAL &&
           utils::isBVGroundTerm(node));
 }
 

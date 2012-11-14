@@ -12,6 +12,10 @@ DIST_SUBDIRS = $(SUBDIRS) examples
 examples: all
 	(cd examples && $(MAKE) $(AM_MAKEFLAGS))
 
+.PHONY: install-examples
+install-examples:
+	(cd examples && $(MAKE) $(AM_MAKEFLAGS) install-data)
+
 .PHONY: units systemtests regress regress0 regress1 regress2 regress3
 systemtests regress regress0 regress1 regress2 regress3: all
 	+(cd test && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1
@@ -122,11 +126,18 @@ man_MANS = \
 	doc/libcvc4parser.3 \
 	doc/libcvc4compat.3
 
-doc/pcvc4.1:
+doc/pcvc4.1: doc/cvc4.1
 	rm -f doc/pcvc4.1
-	$(LN_S) cvc4.1 doc/pcvc4.1
+	cp -p "$<" "$@"
 
-dist-hook:
+# Can't put the first several in EXTRA_DIST because those are processed
+# *before* recursive "make dist", and these files are generated in a
+# subdirectory invocation of "make dist".
+#
+# The Makefile also can't go in EXTRA_DIST, because then automake thinks
+# it's the one in the builddir and we want the one from the srcdir.
+dist-hook: doc/cvc4.1 doc/libcvc4.3 doc/SmtEngine.3cvc doc/options.3cvc
+	cp -p $^ "$(distdir)/doc"
 	cp -p "$(srcdir)/Makefile" "$(distdir)/Makefile"
 
 distclean-local:
@@ -136,6 +147,7 @@ distclean-local:
 DISTCLEANFILES = \
 	doc/cvc4.1 \
 	doc/cvc4.1_template \
+	doc/pcvc4.1 \
 	doc/cvc4.5 \
 	doc/libcvc4.3 \
 	doc/libcvc4.3_template \

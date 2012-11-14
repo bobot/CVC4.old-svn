@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol, bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -127,9 +125,9 @@ void Printer::toStream(std::ostream& out, const SExpr& sexpr) const throw() {
   }
 }/* Printer::toStream(SExpr) */
 
-void Printer::toStream(std::ostream& out, Model* m) const throw() {
-  for(size_t i = 0; i < m->getNumCommands(); ++i) {
-    toStream(out, m, m->getCommand(i));
+void Printer::toStream(std::ostream& out, Model& m) const throw() {
+  for(size_t i = 0; i < m.getNumCommands(); ++i) {
+    toStream(out, m, m.getCommand(i));
   }
 }/* Printer::toStream(Model) */
 

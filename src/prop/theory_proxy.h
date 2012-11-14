@@ -2,12 +2,10 @@
 /*! \file theory_proxy.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: kshitij, lianah, dejan
- ** Minor contributors (to current version): taking, cconway
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): taking, cconway, kshitij, lianah
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -70,6 +68,12 @@ class TheoryProxy {
    * all imported and exported lemmas.
    */
   std::hash_set<Node, NodeHashFunction> d_shared;
+
+  /**
+   * Statistic: the number of replayed decisions (via --replay).
+   */
+  KEEP_STATISTIC(IntStat, d_replayedDecisions,
+                 "prop::theoryproxy::replayedDecisions", 0);
 
 public:
   TheoryProxy(PropEngine* propEngine,

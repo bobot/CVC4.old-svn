@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -27,9 +25,6 @@ using namespace std;
 
 namespace CVC4 {
 
-struct IteRewriteAttrTag {};
-typedef expr::Attribute<IteRewriteAttrTag, Node> IteRewriteAttr;
-
 void RemoveITE::run(std::vector<Node>& output, IteSkolemMap& iteSkolemMap)
 {
   for (unsigned i = 0, i_end = output.size(); i < i_end; ++ i) {
@@ -43,9 +38,10 @@ Node RemoveITE::run(TNode node, std::vector<Node>& output,
   Debug("ite") << "removeITEs(" << node << ")" << endl;
 
   // The result may be cached already
-  Node cachedRewrite;
   NodeManager *nodeManager = NodeManager::currentNM();
-  if(nodeManager->getAttribute(node, IteRewriteAttr(), cachedRewrite)) {
+  ITECache::iterator i = d_iteCache.find(node);
+  if(i != d_iteCache.end()) {
+    Node cachedRewrite = (*i).second;
     Debug("ite") << "removeITEs: in-cache: " << cachedRewrite << endl;
     return cachedRewrite.isNull() ? Node(node) : cachedRewrite;
   }
@@ -64,7 +60,7 @@ Node RemoveITE::run(TNode node, std::vector<Node>& output,
       Debug("ite") << "removeITEs(" << node << ") => " << newAssertion << endl;
 
       // Attach the skolem
-      nodeManager->setAttribute(node, IteRewriteAttr(), skolem);
+      d_iteCache[node] = skolem;
 
       // Remove ITEs from the new assertion, rewrite it and push it to the output
       newAssertion = run(newAssertion, output, iteSkolemMap);
@@ -94,15 +90,15 @@ Node RemoveITE::run(TNode node, std::vector<Node>& output,
 
     // If changes, we rewrite
     if(somethingChanged) {
-      cachedRewrite = nodeManager->mkNode(node.getKind(), newChildren);
-      nodeManager->setAttribute(node, IteRewriteAttr(), cachedRewrite);
+      Node cachedRewrite = nodeManager->mkNode(node.getKind(), newChildren);
+      d_iteCache[node] = cachedRewrite;
       return cachedRewrite;
     } else {
-      nodeManager->setAttribute(node, IteRewriteAttr(), Node::null());
+      d_iteCache[node] = Node::null();
       return node;
     }
   } else {
-    nodeManager->setAttribute(node, IteRewriteAttr(), Node::null());
+    d_iteCache[node] = Node::null();
     return node;
   }
 }

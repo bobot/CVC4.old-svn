@@ -2,12 +2,10 @@
 /*! \file theory_builtin_type_rules.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: cconway, mdeters
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): taking, ajreynol, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -149,6 +147,17 @@ public:
     return TypeNode::fromType(n.getConst<UninterpretedConstant>().getType());
   }
 };/* class UninterpretedConstantTypeRule */
+
+class AbstractValueTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
+    // An UnknownTypeException means that this node has no type.  For now,
+    // only abstract values are like this.  Assigning them a type in all
+    // cases is difficult, since then the parser and the SmtEngine must be
+    // more tightly coupled.
+    throw UnknownTypeException(n);
+  }
+};/* class AbstractValueTypeRule */
 
 class StringConstantTypeRule {
 public:

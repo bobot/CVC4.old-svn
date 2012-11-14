@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters, bobot
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -30,6 +28,31 @@ namespace datatypes {
 
 class TheoryDatatypes;
 
+class InstStrategyDatatypesValue : public InstStrategy
+{
+private:
+  Node getValueFor( Node n );
+public:
+  //constructor
+  InstStrategyDatatypesValue( QuantifiersEngine* qe );
+  ~InstStrategyDatatypesValue(){}
+  /** reset instantiation */
+  void processResetInstantiationRound( Theory::Effort effort );
+  /** process method, returns a status */
+  int process( Node f, Theory::Effort effort, int e );
+  /** identify */
+  std::string identify() const { return std::string("InstStrategyDatatypesValue"); }
+
+  class Statistics {
+  public:
+    IntStat d_instantiations;
+    Statistics();
+    ~Statistics();
+  };
+  Statistics d_statistics;
+};/* class InstStrategy */
+
+
 class InstantiatorTheoryDatatypes : public Instantiator{
   friend class QuantifiersEngine;
 public:
@@ -45,16 +68,6 @@ private:
   void processResetInstantiationRound( Theory::Effort effort );
   /** process at effort */
   int process( Node f, Theory::Effort effort, int e );
-  /** get value for */
-  Node getValueFor( Node n );
-
-  class Statistics {
-  public:
-    IntStat d_instantiations;
-    Statistics();
-    ~Statistics();
-  };
-  Statistics d_statistics;
 public:
   /** general queries about equality */
   bool hasTerm( Node a );

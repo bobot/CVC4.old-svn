@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -32,14 +30,18 @@ private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
   /** status of instantiation round (one of InstStrategy::STATUS_*) */
   int d_inst_round_status;
-  /** map from universal quantifiers to their counterexample literals */
-  std::map< Node, Node > d_ce_lit;
   /** whether the instantiation engine should set incomplete if it cannot answer SAT */
   bool d_setIncomplete;
+  /** inst round counter */
+  int d_ierCounter;
+  bool d_performCheck;
+  /** whether each quantifier is active */
+  std::map< Node, bool > d_quant_active;
+  /** whether we have added cbqi lemma */
+  std::map< Node, bool > d_added_cbqi_lemma;
 private:
-  bool hasAddedCbqiLemma( Node f );
-  void addCbqiLemma( Node f );
-private:
+  /** has added cbqi lemma */
+  bool hasAddedCbqiLemma( Node f ) { return d_added_cbqi_lemma.find( f )!=d_added_cbqi_lemma.end(); }
   /** helper functions */
   bool hasNonArithmeticVariable( Node f );
   bool hasApplyUf( Node f );
@@ -61,15 +63,12 @@ public:
   InstantiationEngine( QuantifiersEngine* qe, bool setIncomplete = true );
   ~InstantiationEngine(){}
 
+  bool needsCheck( Theory::Effort e );
   void check( Theory::Effort e );
   void registerQuantifier( Node f );
   void assertNode( Node f );
   Node explain(TNode n){ return Node::null(); }
-  void propagate( Theory::Effort level );
   Node getNextDecisionRequest();
-public:
-  /** get the corresponding counterexample literal for quantified formula node n */
-  Node getCounterexampleLiteralFor( Node f ) { return d_ce_lit.find( f )==d_ce_lit.end() ? Node::null() : d_ce_lit[ f ]; }
 };/* class InstantiationEngine */
 
 }/* CVC4::theory::quantifiers namespace */

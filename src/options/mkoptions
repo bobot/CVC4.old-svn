@@ -21,23 +21,24 @@ function usage {
 }
 
 progress_char=/
+if [ -t 1 ]; then r="\r"; else r=""; fi
 function progress {
   file="$(expr "$1" : '.*\(.................................................................\)')"
   if [ -z "$file" ]; then file="$1"; else file="[...]$file"; fi
-  printf "\r%c %-70s (%3d%%)" "$progress_char" "$file" "$(($2*100/$3))"
+  [ -t 1 ] && printf "$r%c %-70s (%3d%%)" "$progress_char" "$file" "$(($2*100/$3))"
   progress_char="`echo "$progress_char" | tr -- '-\\\\|/' '\\\\|/-'`"
 }
 
 function NOTE {
-  printf "\r%-80s\n" "$kf:$lineno: note: $@"
+  printf "$r%-80s\n" "$kf:$lineno: note: $@"
 }
 
 function WARN {
-  printf "\r%-80s\n" "$kf:$lineno: warning: $@"
+  printf "$r%-80s\n" "$kf:$lineno: warning: $@"
 }
 
 function ERR {
-  printf "\r%-80s\n" "$kf:$lineno: error: $@"
+  printf "$r%-80s\n" "$kf:$lineno: error: $@"
   exit 1
 }
 
@@ -141,20 +142,31 @@ function module {
   CVC4_OPTIONS__${module_id}__FOR_OPTION_HOLDER"
   module_optionholder_spec="#define CVC4_OPTIONS__${module_id}__FOR_OPTION_HOLDER"
 
+  previous_remaining_documentation="${remaining_documentation}"
   remaining_documentation="${remaining_documentation}\\n\\n\"
 #line $lineno \"$kf\"
-\"$module_name options:"
+\"From the $module_name module:"
+  remaining_documentation_at_start_of_module="${remaining_documentation}"
+
+  previous_remaining_manpage_documentation="${remaining_manpage_documentation}"
   remaining_manpage_documentation="${remaining_manpage_documentation}
 .SH `echo "$module_name" | tr a-z A-Z` OPTIONS
 "
+  remaining_manpage_documentation_at_start_of_module="${remaining_manpage_documentation}"
+
+  previous_remaining_manpage_smt_documentation="${remaining_manpage_smt_documentation}"
   remaining_manpage_smt_documentation="${remaining_manpage_smt_documentation}
 .TP
 .I \"`echo "$module_name" | tr a-z A-Z` OPTIONS\"
 "
+  remaining_manpage_smt_documentation_at_start_of_module="${remaining_manpage_smt_documentation}"
+
+  previous_remaining_manpage_internals_documentation="${remaining_manpage_internals_documentation}"
   remaining_manpage_internals_documentation="${remaining_manpage_internals_documentation}
 .TP
 .I \"`echo "$module_name" | tr a-z A-Z` OPTIONS\"
 "
+  remaining_manpage_internals_documentation_at_start_of_module="${remaining_manpage_internals_documentation}"
 }
 
 function endmodule {
@@ -164,6 +176,24 @@ function endmodule {
   seen_endmodule=true
   if [ $# -ne 0 ]; then
     ERR "endmodule takes no arguments"
+  fi
+
+  # check, and if no documented options, remove the headers
+
+  if [ "$remaining_documentation" = "$remaining_documentation_at_start_of_module" ]; then
+    remaining_documentation="$previous_remaining_documentation"
+  fi
+
+  if [ "$remaining_manpage_documentation" = "$remaining_manpage_documentation_at_start_of_module" ]; then
+    remaining_manpage_documentation="$previous_remaining_manpage_documentation"
+  fi
+
+  if [ "$remaining_manpage_smt_documentation" = "$remaining_manpage_smt_documentation_at_start_of_module" ]; then
+    remaining_manpage_smt_documentation="$previous_remaining_manpage_smt_documentation"
+  fi
+
+  if [ "$remaining_manpage_internals_documentation" = "$remaining_manpage_internals_documentation_at_start_of_module" ]; then
+    remaining_manpage_internals_documentation="$previous_remaining_manpage_internals_documentation"
   fi
 }
 
@@ -223,7 +253,7 @@ function handle_option {
 
   # scan ahead to see where the type is
   type_pos=2
-  while [ $(($type_pos+1)) -lt ${#args[@]} ] && ! expr "${args[$(($type_pos+1))]}" : ":" &>/dev/null; do
+  while [ $(($type_pos+1)) -lt ${#args[@]} ] && ! expr "${args[$(($type_pos+1))]}" : '\:' &>/dev/null; do
     let ++type_pos
   done
 
@@ -240,13 +270,13 @@ function handle_option {
   else
     i=2
     while [ $i -lt $type_pos ]; do
-      if expr "${args[$i]}" : '--' &>/dev/null || expr "${args[$i]}" : '/--' &>/dev/null; then
+      if expr "${args[$i]}" : '\--' &>/dev/null || expr "${args[$i]}" : '/--' &>/dev/null; then
         if [ -n "$long_option" -o -n "$long_option_alternate" ]; then
           ERR "malformed option line for \`$internal': unexpected \`${args[$i]}'"
         fi
         long_option="$(echo "${args[$i]}" | sed 's,/.*,,')"
         if [ -n "$long_option" ]; then
-          if ! expr "$long_option" : '--.' &>/dev/null; then
+          if ! expr "$long_option" : '\--.' &>/dev/null; then
             ERR "bad long option \`$long_option': expected something like \`--foo'"
           fi
           long_option="$(echo "$long_option" | sed 's,^--,,')"
@@ -255,27 +285,27 @@ function handle_option {
           long_option_alternate="$(echo "${args[$i]}" | sed 's,[^/]*/,,')"
           long_option_alternate_set=set
           if [ -n "$long_option_alternate" ]; then
-            if ! expr "$long_option_alternate" : '--.' &>/dev/null; then
+            if ! expr "$long_option_alternate" : '\--.' &>/dev/null; then
               ERR "bad alternate long option \`$long_option_alternate': expected something like \`--foo'"
             fi
             long_option_alternate="$(echo "$long_option_alternate" | sed 's,^--,,')"
           fi
         fi
-      elif expr "${args[$i]}" : '-' &>/dev/null || expr "${args[$i]}" : '/-' &>/dev/null; then
+      elif expr "${args[$i]}" : '\-' &>/dev/null || expr "${args[$i]}" : '/-' &>/dev/null; then
         if [ -n "$short_option" -o -n "$short_option_alternate" -o -n "$long_option" -o -n "$long_option_alternate" ]; then
           ERR "malformed option line for \`$internal': unexpected \`${args[$i]}'"
         fi
         short_option="$(echo "${args[$i]}" | sed 's,/.*,,')"
         if [ -n "$short_option" ]; then
-          if ! expr "$short_option" : '-.$' &>/dev/null; then
+          if ! expr "$short_option" : '\-.$' &>/dev/null; then
             ERR "bad short option \`$short_option': expected something like \`-x'"
           fi
           short_option="$(echo "$short_option" | sed 's,^-,,')"
         fi
         if expr "${args[$i]}" : '.*/' &>/dev/null; then
           short_option_alternate="$(echo "${args[$i]}" | sed 's,[^/]*/,,')"
-          if expr "$short_option_alternate" : - &>/dev/null; then
-            if ! expr "$short_option_alternate" : '-.$' &>/dev/null; then
+          if expr "$short_option_alternate" : '\-' &>/dev/null; then
+            if ! expr "$short_option_alternate" : '\-.$' &>/dev/null; then
               ERR "bad alternate short option \`$short_option_alternate': expected something like \`-x'"
             fi
             short_option_alternate="$(echo "$short_option_alternate" | sed 's,^-,,')"
@@ -366,13 +396,13 @@ function handle_option {
        handlers="${args[$i]}"
        ;;
     :predicate)
-       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
+       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : '\:' &>/dev/null; do
          let ++i
          predicates="${predicates} ${args[$i]}"
        done
        ;;
     :link)
-       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
+       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : '\:' &>/dev/null; do
          let ++i
          link="${args[$i]}"
          if expr "${args[$i]}" : '.*/' &>/dev/null; then
@@ -385,7 +415,7 @@ function handle_option {
        done
        ;;
     :include)
-       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
+       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : '\:' &>/dev/null; do
          let ++i
          module_includes="${module_includes}
 #line $lineno \"$kf\"
@@ -393,7 +423,7 @@ function handle_option {
        done
        ;;
     :handler-include|:predicate-include)
-       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
+       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : '\:' &>/dev/null; do
          let ++i
          option_handler_includes="${option_handler_includes}
 #line $lineno \"$kf\"
@@ -801,10 +831,10 @@ function handle_alias {
     ERR "malformed \"alias\" command; expected more arguments"
   fi
   cases=
-  if ! expr "$option" : - &>/dev/null; then
+  if ! expr "$option" : '\-' &>/dev/null; then
     ERR "alias for SMT options not yet supported"
   fi
-  if expr "$option" : -- &>/dev/null; then
+  if expr "$option" : '\--' &>/dev/null; then
     if expr "$option" : '.*=' &>/dev/null; then
       expect_arg_long=required_argument
       arg="$(echo "$option" | sed 's,[^=]*=\(.*\),\1,')"
@@ -821,8 +851,8 @@ function handle_alias {
     let ++n_long
     long_option="${long_option:+$long_option | --}$option"
   else
-    if ! expr "$option" : '-.$' &>/dev/null; then
-      if ! expr "$option" : '-.=' &>/dev/null; then
+    if ! expr "$option" : '\-.$' &>/dev/null; then
+      if ! expr "$option" : '\-.=' &>/dev/null; then
         ERR "expected short option specification, got \`$option'"
       fi
       expect_arg=:
@@ -1322,7 +1352,7 @@ EOF
     rm -f "$output.tmp"
   else
     mv -f "$output.tmp" "$output"
-    printf "\rregenerated %-68s\n" "$output"
+    printf "${r}regenerated %-68s\n" "$output"
   fi
 }
 
@@ -1505,7 +1535,7 @@ if diff -q "$output" "$output.tmp" &>/dev/null; then
   regenerated=false
 else
   mv -f "$output.tmp" "$output"
-  printf "\rregenerated %-68s\n" "$output"
+  printf "${r}regenerated %-68s\n" "$output"
   regenerated=true
 fi
 rm -f "$output.tmp"
@@ -1513,5 +1543,5 @@ rm -f "$output.tmp"
 done
 
 if ! $regenerated; then
-  printf "\r%-80s\r" ""
+  [ -t 1 ] && printf "$r%-80s$r" ""
 fi

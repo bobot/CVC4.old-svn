@@ -2,12 +2,10 @@
 /*! \file theory_arith.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters, dejan
- ** Minor contributors (to current version): none
+ ** Major contributors: none
+ ** Minor contributors (to current version): kshitij, ajreynol, mdeters, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -30,6 +28,7 @@
 #include "util/boolean_simplification.h"
 #include "util/dense_map.h"
 
+#include "smt/logic_exception.h"
 
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/delta_rational.h"
@@ -62,7 +61,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_qflraStatus(Result::SAT_UNKNOWN),
   d_unknownsInARow(0),
   d_hasDoneWorkSinceCut(false),
-  d_learner(d_pbSubstitutions),
+  d_learner(u),
   d_setupLiteralCallback(this),
   d_assertionsThatDoNotMatchTheirLiterals(c),
   d_nextIntegerCheckVar(0),
@@ -70,11 +69,10 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_diseqQueue(c, false),
   d_currentPropagationList(),
   d_learnedBounds(c),
-  d_partialModel(c),
+  d_partialModel(c, d_deltaComputeCallback),
   d_tableau(),
   d_linEq(d_partialModel, d_tableau, d_basicVarModelUpdateCallBack),
   d_diosolver(c),
-  d_pbSubstitutions(u),
   d_restartsCounter(0),
   d_tableauSizeHasBeenModified(false),
   d_tableauResetDensity(1.6),
@@ -84,12 +82,67 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_congruenceManager(c, d_constraintDatabase, d_setupLiteralCallback, d_arithvarNodeMap, d_raiseConflict),
   d_simplex(d_linEq, d_raiseConflict),
   d_constraintDatabase(c, u, d_arithvarNodeMap, d_congruenceManager, d_raiseConflict),
+  d_deltaComputeCallback(this),
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
   d_statistics()
-{}
+{
+  // if(!logicInfo.isLinear()){ // If non-linear
+  //   NodeManager* currNM = NodeManager::currentNM();
+  //   if(logicInfo.areRealsUsed()){ // If reals are enabled, create this symbol
+  //     TypeNode realType = currNM->realType();
+  //     TypeNode realToRealFunctionType = currNM->mkFunctionType(realType, realType);
+  //     d_realDivideBy0Func = currNM->mkSkolem("/by0_$$", realToRealFunctionType);
+  //   }
+  //   if(logicInfo.areIntegersUsed()){  // If integers are enabled, create these symbols
+  //     TypeNode intType = currNM->integerType();
+  //     TypeNode intToIntFunctionType = currNM->mkFunctionType(intType, intType);
+  //     d_intDivideBy0Func = currNM->mkSkolem("divby0_$$", intToIntFunctionType);
+  //     d_intModulusBy0Func = currNM->mkSkolem("modby0_$$", intToIntFunctionType);
+  //   }
+  // }
+}
 
 TheoryArith::~TheoryArith(){}
+
+Node skolemFunction(const std::string& name, TypeNode dom, TypeNode range){
+  NodeManager* currNM = NodeManager::currentNM();
+  TypeNode functionType = currNM->mkFunctionType(dom, range);
+  return currNM->mkSkolem(name, functionType);
+}
+
+Node TheoryArith::getRealDivideBy0Func(){
+  Assert(!getLogicInfo().isLinear());
+  Assert(getLogicInfo().areRealsUsed());
+
+  if(d_realDivideBy0Func.isNull()){
+    TypeNode realType = NodeManager::currentNM()->realType();
+    d_realDivideBy0Func = skolemFunction("/by0_$$", realType, realType);
+  }
+  return d_realDivideBy0Func;
+}
+
+Node TheoryArith::getIntDivideBy0Func(){
+  Assert(!getLogicInfo().isLinear());
+  Assert(getLogicInfo().areIntegersUsed());
+
+  if(d_intDivideBy0Func.isNull()){
+    TypeNode intType = NodeManager::currentNM()->integerType();
+    d_intDivideBy0Func = skolemFunction("divby0_$$", intType, intType);
+  }
+  return d_intDivideBy0Func;
+}
+
+Node TheoryArith::getIntModulusBy0Func(){
+  Assert(!getLogicInfo().isLinear());
+  Assert(getLogicInfo().areIntegersUsed());
+
+  if(d_intModulusBy0Func.isNull()){
+    TypeNode intType = NodeManager::currentNM()->integerType();
+    d_intModulusBy0Func = skolemFunction("modby0_$$", intType, intType);
+  }
+  return d_intModulusBy0Func;
+}
 
 TheoryArith::Statistics::Statistics():
   d_statAssertUpperConflicts("theory::arith::AssertUpperConflicts", 0),
@@ -613,6 +666,7 @@ bool TheoryArith::AssertDisequality(Constraint constraint){
   }else{
     Debug("eq") << "push back" << constraint << endl;
     d_diseqQueue.push(constraint);
+    d_partialModel.invalidateDelta();
   }
   return false;
 
@@ -635,36 +689,19 @@ void TheoryArith::addSharedTerm(TNode n){
 }
 
 Node TheoryArith::ppRewrite(TNode atom) {
-
-  if (!atom.getType().isBoolean()) {
-    return atom;
-  }
-
   Debug("arith::preprocess") << "arith::preprocess() : " << atom << endl;
 
-  Node a = d_pbSubstitutions.apply(atom);
 
-  if (a != atom) {
-    Debug("pb") << "arith::preprocess() : after pb substitutions: " << a << endl;
-    a = Rewriter::rewrite(a);
-    Debug("pb") << "arith::preprocess() : after pb substitutions and rewriting: "
-                << a << endl;
-    Debug("arith::preprocess") << "arith::preprocess() :"
-                               << "after pb substitutions and rewriting: "
-                               << a << endl;
-  }
-
-
-  if (a.getKind() == kind::EQUAL  && options::arithRewriteEq()) {
-    Node leq = NodeBuilder<2>(kind::LEQ) << a[0] << a[1];
-    Node geq = NodeBuilder<2>(kind::GEQ) << a[0] << a[1];
+  if (atom.getKind() == kind::EQUAL  && options::arithRewriteEq()) {
+    Node leq = NodeBuilder<2>(kind::LEQ) << atom[0] << atom[1];
+    Node geq = NodeBuilder<2>(kind::GEQ) << atom[0] << atom[1];
     Node rewritten = Rewriter::rewrite(leq.andNode(geq));
     Debug("arith::preprocess") << "arith::preprocess() : returning "
                                << rewritten << endl;
     return rewritten;
+  } else {
+    return atom;
   }
-
-  return a;
 }
 
 Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
@@ -797,7 +834,7 @@ void TheoryArith::setupVariable(const Variable& x){
 
 
   if(x.isDivLike()){
-    interpretDivLike(x);
+    setupDivLike(x);
   }
 
 }
@@ -820,6 +857,10 @@ void TheoryArith::setupVariableList(const VarList& vl){
   if(!vl.singleton()){
     // vl is the product of at least 2 variables
     // vl : (* v1 v2 ...)
+    if(getLogicInfo().isLinear()){
+      throw LogicException("Non-linear term was asserted to arithmetic in a linear logic.");
+    }
+
     d_out->setIncomplete();
     d_nlIncomplete = true;
 
@@ -835,68 +876,165 @@ void TheoryArith::setupVariableList(const VarList& vl){
    * See the comment in setupPolynomail for more.
    */
 }
-void TheoryArith::interpretDivLike(const Variable& v){
+
+void TheoryArith::cautiousSetupPolynomial(const Polynomial& p){
+  if(p.containsConstant()){
+    if(!p.isConstant()){
+      Polynomial noConstant = p.getTail();
+      if(!isSetup(noConstant.getNode())){
+        setupPolynomial(noConstant);
+      }
+    }
+  }else if(!isSetup(p.getNode())){
+    setupPolynomial(p);
+  }
+}
+
+void TheoryArith::setupDivLike(const Variable& v){
   Assert(v.isDivLike());
+
+  if(getLogicInfo().isLinear()){
+    throw LogicException("Non-linear term was asserted to arithmetic in a linear logic.");
+  }
+
   Node vnode = v.getNode();
   Assert(isSetup(vnode)); // Otherwise there is some invariant breaking recursion
-    Polynomial m = Polynomial::parsePolynomial(vnode[0]);
-    Polynomial n = Polynomial::parsePolynomial(vnode[1]);
-	    
-    NodeManager* currNM = NodeManager::currentNM();
-	      
-    Node nNeq0 = currNM->mkNode(EQUAL, n.getNode(), mkRationalNode(0)).notNode();
-    if(vnode.getKind() == INTS_DIVISION || vnode.getKind() == INTS_MODULUS){
-      // (for all ((m Int) (n Int))
-      //   (=> (distinct n 0)
-      //       (let ((q (div m n)) (r (mod m n)))
-      //         (and (= m (+ (* n q) r))
-      //              (<= 0 r (- (abs n) 1))))))
+  Polynomial m = Polynomial::parsePolynomial(vnode[0]);
+  Polynomial n = Polynomial::parsePolynomial(vnode[1]);
 
-      Node q = (vnode.getKind() == INTS_DIVISION) ? vnode : currNM->mkNode(INTS_DIVISION, m.getNode(), n.getNode());
-      Node r = (vnode.getKind() == INTS_MODULUS) ? vnode : currNM->mkNode(INTS_MODULUS, m.getNode(), n.getNode());
+  cautiousSetupPolynomial(m);
+  cautiousSetupPolynomial(n);
 
+  Node lem;
+  switch(vnode.getKind()){
+  case DIVISION:
+  case INTS_DIVISION:
+  case INTS_MODULUS:
+    lem = definingIteForDivLike(vnode);
+    break;
+  case DIVISION_TOTAL:
+    lem = axiomIteForTotalDivision(vnode);
+    break;
+  case INTS_DIVISION_TOTAL:
+  case INTS_MODULUS_TOTAL:
+    lem = axiomIteForTotalIntDivision(vnode);
+    break;
+  default:
+    /* intentionally blank */
+    break;
+  }
 
-      Polynomial rp = Polynomial::parsePolynomial(r);
-      Polynomial qp = Polynomial::parsePolynomial(q);
-
-      Node abs_n;
-      Node zero = mkRationalNode(0);
-
-      if(n.isConstant()){
-	abs_n = n.getHead().getConstant().abs().getNode();
-      }else{
-	abs_n = mkIntSkolem("abs_$$");
-	Polynomial abs_np = Polynomial::parsePolynomial(abs_n);
-	Node absCnd = currNM->mkNode(ITE, 
-				currNM->mkNode(LEQ, n.getNode(), zero),
-				Comparison::mkComparison(EQUAL, abs_np, -rp).getNode(),
-				Comparison::mkComparison(EQUAL, abs_np, rp).getNode());
-	
-	d_out->lemma(absCnd);
-      }
-
-      Node eq = Comparison::mkComparison(EQUAL, m, n * qp + rp).getNode();
-      Node leq0 = currNM->mkNode(LEQ,  zero, r);
-      Node leq1 = currNM->mkNode(LT, r, abs_n);
-
-      Node andE = currNM->mkNode(AND, eq, leq0, leq1);
-      Node nNeq0ImpliesandE = currNM->mkNode(IMPLIES, nNeq0, andE);
-
-      d_out->lemma(nNeq0ImpliesandE);
-    }else{
-      // DIVISION (/ q r)
-      // (=> (distinct 0 n) (= m (* d n)))
-	      
-      Assert(vnode.getKind() == DIVISION);
-      Node d = mkRealSkolem("division_$$");
-	      
-      Node eq = Comparison::mkComparison(EQUAL, m, n * Polynomial::parsePolynomial(d)).getNode();
-      Node nNeq0ImpliesEq = currNM->mkNode(IMPLIES, nNeq0, eq);
-	      
-      d_out->lemma(nNeq0ImpliesEq);
-    }
-  
+  if(!lem.isNull()){
+    Debug("arith::div") << lem << endl;
+    d_out->lemma(lem);
+  }
 }
+
+Node TheoryArith::definingIteForDivLike(Node divLike){
+  Kind k = divLike.getKind();
+  Assert(k == DIVISION || k == INTS_DIVISION || k == INTS_MODULUS);
+  // (for all ((n Real) (d Real))
+  //  (=
+  //   (DIVISION n d)
+  //   (ite (= d 0)
+  //    (APPLY [div_0_skolem_function] n)
+  //    (DIVISION_TOTAL x y))))
+
+  Polynomial n = Polynomial::parsePolynomial(divLike[0]);
+  Polynomial d = Polynomial::parsePolynomial(divLike[1]);
+
+  NodeManager* currNM = NodeManager::currentNM();
+  Node dEq0 = currNM->mkNode(EQUAL, d.getNode(), mkRationalNode(0));
+
+  Kind kTotal = (k == DIVISION) ? DIVISION_TOTAL :
+    (k == INTS_DIVISION) ? INTS_DIVISION_TOTAL : INTS_MODULUS_TOTAL;
+
+  Node by0Func = (k == DIVISION) ?  getRealDivideBy0Func():
+    (k == INTS_DIVISION) ? getIntDivideBy0Func() : getIntModulusBy0Func();
+
+
+  Debug("arith::div") << divLike << endl;
+  Debug("arith::div") << by0Func << endl;
+
+  Node divTotal = currNM->mkNode(kTotal, n.getNode(), d.getNode());
+  Node divZero = currNM->mkNode(APPLY_UF, by0Func, n.getNode());
+
+  Node defining = divLike.eqNode(dEq0.iteNode( divZero, divTotal));
+
+  return defining;
+}
+
+Node TheoryArith::axiomIteForTotalDivision(Node div_tot){
+  Assert(div_tot.getKind() == DIVISION_TOTAL);
+
+  // Inverse of multiplication axiom:
+  //   (for all ((n Real) (d Real))
+  //    (ite (= d 0)
+  //     (= (DIVISION_TOTAL n d) 0)
+  //     (= (* d (DIVISION_TOTAL n d)) n)))
+
+
+  Polynomial n = Polynomial::parsePolynomial(div_tot[0]);
+  Polynomial d = Polynomial::parsePolynomial(div_tot[1]);
+  Polynomial div_tot_p = Polynomial::parsePolynomial(div_tot);
+
+  Comparison invEq = Comparison::mkComparison(EQUAL, n, d * div_tot_p);
+  Comparison zeroEq = Comparison::mkComparison(EQUAL, div_tot_p, Polynomial::mkZero());
+  Node dEq0 = (d.getNode()).eqNode(mkRationalNode(0));
+  Node ite = dEq0.iteNode(zeroEq.getNode(), invEq.getNode()); 
+
+  return ite;
+}
+
+Node TheoryArith::axiomIteForTotalIntDivision(Node int_div_like){
+  Kind k = int_div_like.getKind();
+  Assert(k == INTS_DIVISION_TOTAL || k == INTS_MODULUS_TOTAL);
+
+  // (for all ((m Int) (n Int))
+  //   (=> (distinct n 0)
+  //       (let ((q (div m n)) (r (mod m n)))
+  //         (and (= m (+ (* n q) r))
+  //              (<= 0 r (- (abs n) 1))))))
+
+  // Updated for div 0 functions
+  // (for all ((m Int) (n Int))
+  //   (let ((q (div m n)) (r (mod m n)))
+  //     (ite (= n 0)
+  //          (and (= q (div_0_func m)) (= r (mod_0_func m)))
+  //          (and (= m (+ (* n q) r))
+  //               (<= 0 r (- (abs n) 1)))))))
+
+  Polynomial n = Polynomial::parsePolynomial(int_div_like[0]);
+  Polynomial d = Polynomial::parsePolynomial(int_div_like[1]);
+
+  NodeManager* currNM = NodeManager::currentNM();
+  Node zero = mkRationalNode(0);
+
+  Node q = (k == INTS_DIVISION_TOTAL) ? int_div_like : currNM->mkNode(INTS_DIVISION_TOTAL, n.getNode(), d.getNode());
+  Node r = (k == INTS_MODULUS_TOTAL) ? int_div_like : currNM->mkNode(INTS_MODULUS_TOTAL, n.getNode(), d.getNode());
+
+  Node dEq0 = (d.getNode()).eqNode(zero);
+  Node qEq0 = q.eqNode(zero);
+  Node rEq0 = r.eqNode(zero);
+
+  Polynomial rp = Polynomial::parsePolynomial(r);
+  Polynomial qp = Polynomial::parsePolynomial(q);
+
+  Node abs_d = (n.isConstant()) ?
+    d.getHead().getConstant().abs().getNode() : mkIntSkolem("abs_$$");
+
+  Node eq = Comparison::mkComparison(EQUAL, n, d * qp + rp).getNode();
+  Node leq0 = currNM->mkNode(LEQ, zero, r);
+  Node leq1 = currNM->mkNode(LT, r, abs_d);
+
+  Node andE = currNM->mkNode(AND, eq, leq0, leq1);
+  Node defDivMode = dEq0.iteNode(qEq0.andNode(rEq0), andE);
+  Node lem = abs_d.getMetaKind () == metakind::VARIABLE ?
+    defDivMode.andNode(d.makeAbsCondition(Variable(abs_d))) : defDivMode;
+
+  return lem;
+}
+
 
 void TheoryArith::setupPolynomial(const Polynomial& poly) {
   Assert(!poly.containsConstant());
@@ -996,7 +1134,9 @@ void TheoryArith::preRegisterTerm(TNode n) {
 ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
   //TODO : The VarList trick is good enough?
   Assert(isLeaf(x) || VarList::isMember(x) || x.getKind() == PLUS);
-  Assert(!Variable::isDivMember(x) || !getLogicInfo().isLinear());
+  if(getLogicInfo().isLinear() && Variable::isDivMember(x)){
+    throw LogicException("Non-linear term was asserted to arithmetic in a linear logic.");
+  }
   Assert(!d_arithvarNodeMap.hasArithVar(x));
   Assert(x.getType().isReal());// real or integer
 
@@ -1341,130 +1481,6 @@ bool TheoryArith::assertionCases(Constraint constraint){
     return false;
   }
 }
-// Node TheoryArith::assertionCases(TNode assertion){
-//   Constraint constraint = d_constraintDatabase.lookup(assertion);
-
-//   Kind simpleKind = Comparison::comparisonKind(assertion);
-//   Assert(simpleKind != UNDEFINED_KIND);
-//   Assert(constraint != NullConstraint ||
-//          simpleKind == EQUAL ||
-//          simpleKind == DISTINCT );
-//   if(simpleKind == EQUAL || simpleKind == DISTINCT){
-//     Node eq = (simpleKind == DISTINCT) ? assertion[0] : assertion;
-
-//     if(!isSetup(eq)){
-//       //The previous code was equivalent to:
-//       setupAtom(eq);
-//       constraint = d_constraintDatabase.lookup(assertion);
-//     }
-//   }
-//   Assert(constraint != NullConstraint);
-
-//   if(constraint->negationHasProof()){
-//     Constraint negation = constraint->getNegation();
-//     if(negation->isSelfExplaining()){
-//       if(Debug.isOn("whytheoryenginewhy")){
-//         debugPrintFacts();
-//       }
-// //      Warning() << "arith: Theory engine is sending me both a literal and its negation?"
-// //                << "BOOOOOOOOOOOOOOOOOOOOOO!!!!"<< endl;
-//     }
-//     Debug("arith::eq") << constraint << endl;
-//     Debug("arith::eq") << negation << endl;
-
-//     NodeBuilder<> nb(kind::AND);
-//     nb << assertion;
-//     negation->explainForConflict(nb);
-//     Node conflict = nb;
-//     Debug("arith::eq") << "conflict" << conflict << endl;
-//     return conflict;
-//   }
-//   Assert(!constraint->negationHasProof());
-
-//   if(constraint->assertedToTheTheory()){
-//     //Do nothing
-//     return Node::null();
-//   }
-//   Assert(!constraint->assertedToTheTheory());
-//   constraint->setAssertedToTheTheory();
-
-//   ArithVar x_i = constraint->getVariable();
-//   //DeltaRational c_i = determineRightConstant(assertion, simpleKind);
-
-//   //Assert(constraint->getVariable() == determineLeftVariable(assertion, simpleKind));
-//   //Assert(constraint->getValue() == determineRightConstant(assertion, simpleKind));
-//   Assert(!constraint->hasLiteral() || constraint->getLiteral() == assertion);
-
-//   Debug("arith::assertions")  << "arith assertion @" << getSatContext()->getLevel()
-//                               <<"(" << assertion
-//                               << " \\-> "
-//     //<< determineLeftVariable(assertion, simpleKind)
-//                               <<" "<< simpleKind <<" "
-//     //<< determineRightConstant(assertion, simpleKind)
-//                               << ")" << std::endl;
-
-
-//   Debug("arith::constraint") << "arith constraint " << constraint << std::endl;
-
-//   if(!constraint->hasProof()){
-//     Debug("arith::constraint") << "marking as constraint as self explaining " << endl;
-//     constraint->selfExplaining();
-//   }else{
-//     Debug("arith::constraint") << "already has proof: " << constraint->explainForConflict() << endl;
-//   }
-
-//   Assert(!isInteger(x_i) ||
-//          simpleKind == EQUAL ||
-//          simpleKind == DISTINCT ||
-//          simpleKind == GEQ ||
-//          simpleKind == LT);
-
-//   switch(constraint->getType()){
-//   case UpperBound:
-//     if(simpleKind == LT && isInteger(x_i)){
-//       Constraint floorConstraint = constraint->getFloor();
-//       if(!floorConstraint->isTrue()){
-//         if(floorConstraint->negationHasProof()){
-//           return ConstraintValue::explainConflict(constraint, floorConstraint->getNegation());
-//         }else{
-//           floorConstraint->impliedBy(constraint);
-//         }
-//       }
-//       //c_i = DeltaRational(c_i.floor());
-//       //return AssertUpper(x_i, c_i, assertion, floorConstraint);
-//       return AssertUpper(floorConstraint);
-//     }else{
-//       return AssertUpper(constraint);
-//     }
-//     //return AssertUpper(x_i, c_i, assertion, constraint);
-//   case LowerBound:
-//     if(simpleKind == LT && isInteger(x_i)){
-//       Constraint ceilingConstraint = constraint->getCeiling();
-//       if(!ceilingConstraint->isTrue()){
-//         if(ceilingConstraint->negationHasProof()){
-
-//           return ConstraintValue::explainConflict(constraint, ceilingConstraint->getNegation());
-//         }
-//         ceilingConstraint->impliedBy(constraint);
-//       }
-//       //c_i = DeltaRational(c_i.ceiling());
-//       //return AssertLower(x_i, c_i, assertion, ceilingConstraint);
-//       return AssertLower(ceilingConstraint);
-//     }else{
-//       return AssertLower(constraint);
-//     }
-//     //return AssertLower(x_i, c_i, assertion, constraint);
-//   case Equality:
-//     return AssertEquality(constraint);
-//     //return AssertEquality(x_i, c_i, assertion, constraint);
-//   case Disequality:
-//     return AssertDisequality(constraint);
-//     //return AssertDisequality(x_i, c_i, assertion, constraint);
-//   default:
-//     Unreachable();
-//     return Node::null();
-//   }
-// }
 
 /**
  * Looks for the next integer variable without an integer assignment in a round robin fashion.
@@ -2073,14 +2089,87 @@ DeltaRational TheoryArith::getDeltaValueWithNonlinear(TNode n, bool& failed) {
   }
 }
 
+Rational TheoryArith::deltaValueForTotalOrder() const{
+  Rational min(2);
+  std::set<DeltaRational> relevantDeltaValues;
+  context::CDQueue<Constraint>::const_iterator qiter = d_diseqQueue.begin();
+  context::CDQueue<Constraint>::const_iterator qiter_end = d_diseqQueue.end();
+
+  for(; qiter != qiter_end; ++qiter){
+    Constraint curr = *qiter;
+
+    const DeltaRational& rhsValue = curr->getValue();
+    relevantDeltaValues.insert(rhsValue);
+  }
+
+  for(ArithVar v = 0; v < d_variables.size(); ++v){
+    const DeltaRational& value = d_partialModel.getAssignment(v);
+    relevantDeltaValues.insert(value);
+    if( d_partialModel.hasLowerBound(v)){
+      const DeltaRational& lb = d_partialModel.getLowerBound(v);
+      relevantDeltaValues.insert(lb);
+    }
+    if( d_partialModel.hasUpperBound(v)){
+      const DeltaRational& ub = d_partialModel.getUpperBound(v);
+      relevantDeltaValues.insert(ub);
+    }
+  }
+
+  if(relevantDeltaValues.size() >= 2){
+    std::set<DeltaRational>::const_iterator iter = relevantDeltaValues.begin();
+    std::set<DeltaRational>::const_iterator iter_end = relevantDeltaValues.end();
+    DeltaRational prev = *iter;
+    ++iter;
+    for(; iter != iter_end; ++iter){
+      const DeltaRational& curr = *iter;
+
+      Assert(prev < curr);
+
+      const Rational& pinf = prev.getInfinitesimalPart();
+      const Rational& cinf = curr.getInfinitesimalPart();
+
+      const Rational& pmaj = prev.getNoninfinitesimalPart();
+      const Rational& cmaj = curr.getNoninfinitesimalPart();
+
+      if(pmaj == cmaj){
+        Assert(pinf < cinf);
+        // any value of delta preserves the order
+      }else if(pinf == cinf){
+        Assert(pmaj < cmaj);
+        // any value of delta preserves the order
+      }else{
+        Assert(pinf != cinf && pmaj != cmaj);
+        Rational denDiffAbs = (cinf - pinf).abs();
+
+        Rational numDiff = (cmaj - pmaj);
+        Assert(numDiff.sgn() >= 0);
+        Assert(denDiffAbs.sgn() > 0);
+        Rational ratio = numDiff / denDiffAbs;
+        Assert(ratio.sgn() > 0);
+
+        if(ratio < min){
+          min = ratio;
+        }
+      }
+      prev = curr;
+    }
+  }
+
+  Assert(min.sgn() > 0);
+  Rational belowMin = min/Rational(2);
+  return belowMin;
+}
+
 void TheoryArith::collectModelInfo( TheoryModel* m, bool fullModel ){
   AlwaysAssert(d_qflraStatus ==  Result::SAT);
   //AlwaysAssert(!d_nlIncomplete, "Arithmetic solver cannot currently produce models for input with nonlinear arithmetic constraints");
 
   Debug("arith::collectModelInfo") << "collectModelInfo() begin " << endl;
 
+
   // Delta lasts at least the duration of the function call
   const Rational& delta = d_partialModel.getDelta();
+  std::hash_set<TNode, TNodeHashFunction> shared = currentlySharedTerms();
 
   // TODO:
   // This is not very good for user push/pop....
@@ -2089,13 +2178,18 @@ void TheoryArith::collectModelInfo( TheoryModel* m, bool fullModel ){
     if(!isSlackVariable(v)){
       Node term = d_arithvarNodeMap.asNode(v);
 
-      const DeltaRational& mod = d_partialModel.getAssignment(v);
-      Rational qmodel = mod.substituteDelta(delta);
+      if(theoryOf(term) == THEORY_ARITH || shared.find(term) != shared.end()){
+        const DeltaRational& mod = d_partialModel.getAssignment(v);
+        Rational qmodel = mod.substituteDelta(delta);
 
-      Node qNode = mkRationalNode(qmodel);
-      Debug("arith::collectModelInfo") << "m->assertEquality(" << term << ", " << qmodel << ", true)" << endl;
+        Node qNode = mkRationalNode(qmodel);
+        Debug("arith::collectModelInfo") << "m->assertEquality(" << term << ", " << qmodel << ", true)" << endl;
 
-      m->assertEquality(term, qNode, true);
+        m->assertEquality(term, qNode, true);
+      }else{
+        Debug("arith::collectModelInfo") << "Skipping m->assertEquality(" << term << ", true)" << endl;
+
+      }
     }
   }
 
@@ -2147,11 +2241,11 @@ void TheoryArith::notifyRestart(){
     }else if(d_tableauResetDensity * copySize <=  currSize){
       d_simplex.reduceQueue();
       if(safeToReset()){
-	Debug("arith::reset") << "resetting " << d_restartsCounter << endl;
-	++d_statistics.d_currSetToSmaller;
-	d_tableau = d_smallTableauCopy;
+        Debug("arith::reset") << "resetting " << d_restartsCounter << endl;
+        ++d_statistics.d_currSetToSmaller;
+        d_tableau = d_smallTableauCopy;
       }else{
-	Debug("arith::reset") << "not safe to reset at the moment " << d_restartsCounter << endl;
+        Debug("arith::reset") << "not safe to reset at the moment " << d_restartsCounter << endl;
       }
     }
   }
@@ -2252,8 +2346,6 @@ void TheoryArith::presolve(){
   //     d_out->lemma(lem);
   //   }
   // }
-
-  d_learner.clear();
 }
 
 EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {

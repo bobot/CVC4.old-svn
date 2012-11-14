@@ -2,12 +2,10 @@
 /*! \file command.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Major contributors: bobot
+ ** Minor contributors (to current version): kshitij, dejan, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -31,6 +29,7 @@
 #include "util/output.h"
 #include "util/dump.h"
 #include "util/sexpr.h"
+#include "util/util_model.h"
 #include "expr/node.h"
 #include "printer/printer.h"
 
@@ -177,11 +176,11 @@ Command* EchoCommand::clone() const {
 
 /* class AssertCommand */
 
-AssertCommand::AssertCommand(const BoolExpr& e) throw() :
+AssertCommand::AssertCommand(const Expr& e) throw() :
   d_expr(e) {
 }
 
-BoolExpr AssertCommand::getExpr() const throw() {
+Expr AssertCommand::getExpr() const throw() {
   return d_expr;
 }
 
@@ -248,11 +247,11 @@ Command* PopCommand::clone() const {
 
 /* class CheckSatCommand */
 
-CheckSatCommand::CheckSatCommand(const BoolExpr& expr) throw() :
+CheckSatCommand::CheckSatCommand(const Expr& expr) throw() :
   d_expr(expr) {
 }
 
-BoolExpr CheckSatCommand::getExpr() const throw() {
+Expr CheckSatCommand::getExpr() const throw() {
   return d_expr;
 }
 
@@ -291,11 +290,11 @@ Command* CheckSatCommand::clone() const {
 
 /* class QueryCommand */
 
-QueryCommand::QueryCommand(const BoolExpr& e) throw() :
+QueryCommand::QueryCommand(const Expr& e) throw() :
   d_expr(e) {
 }
 
-BoolExpr QueryCommand::getExpr() const throw() {
+Expr QueryCommand::getExpr() const throw() {
   return d_expr;
 }
 
@@ -882,15 +881,17 @@ void GetModelCommand::invoke(SmtEngine* smtEngine) throw() {
   }
 }
 
+/* Model is private to the library -- for now
 Model* GetModelCommand::getResult() const throw() {
   return d_result;
 }
+*/
 
 void GetModelCommand::printResult(std::ostream& out) const throw() {
   if(! ok()) {
     this->Command::printResult(out);
   } else {
-    d_smtEngine->printModel( out, d_result );
+    out << *d_result;
   }
 }
 

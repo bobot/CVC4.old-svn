@@ -5,9 +5,7 @@
  ** Major contributors: dejan
  ** Minor contributors (to current version): taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -1305,7 +1303,14 @@ inline void NodeBuilder<nchild_thresh>::maybeCheckType(const TNode n) const
     kind::MetaKind mk = n.getMetaKind();
     if( mk != kind::metakind::VARIABLE
         && mk != kind::metakind::CONSTANT ) {
-      d_nm->getType(n, true);
+      try {
+        d_nm->getType(n, true);
+      } catch(UnknownTypeException&) {
+        // Ignore the error; this expression doesn't have a type,
+        // because it has an abstract value in it.  If the user
+        // depends on the type of this expression, he should get an
+        // exception, but so far he's only constructed it.
+      }
     }
   }
 }

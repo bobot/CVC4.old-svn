@@ -5,9 +5,7 @@
  ** Major contributors: ajreynol
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -275,7 +273,7 @@ Expr Datatype::mkGroundTerm( Type t ) const throw(IllegalArgumentException) {
 
 DatatypeType Datatype::getDatatypeType() const throw(IllegalArgumentException) {
   CheckArgument(isResolved(), *this, "Datatype must be resolved to get its DatatypeType");
-  CheckArgument(!d_self.isNull() && !DatatypeType(d_self).isParametric(), this);
+  CheckArgument(!d_self.isNull(), *this);
   return DatatypeType(d_self);
 }
 
@@ -561,7 +559,7 @@ Expr DatatypeConstructor::getConstructor() const {
 Type DatatypeConstructor::getSpecializedConstructorType(Type returnType) const {
   CheckArgument(isResolved(), this, "this datatype constructor is not yet resolved");
   const Datatype& dt = Datatype::datatypeOf(d_constructor);
-  CheckArgument(dt.isParametric(), this, "this datatype constructor is not yet resolved");
+  CheckArgument(dt.isParametric(), this, "this datatype constructor is not parametric");
   DatatypeType dtt = dt.getDatatypeType();
   Matcher m(dtt);
   m.doMatching( TypeNode::fromType(dtt), TypeNode::fromType(returnType) );

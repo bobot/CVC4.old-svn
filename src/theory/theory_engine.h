@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): cconway, barrett, taking
+ ** Minor contributors (to current version): cconway, bobot, kshitij, taking, barrett, lianah, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -234,7 +232,7 @@ class TheoryEngine {
 
     void safePoint() throw(theory::Interrupted, AssertionException) {
       if (d_engine->d_interrupted)
-        throw theory::Interrupted(); 
+        throw theory::Interrupted();
    }
 
     void conflict(TNode conflictNode) throw(AssertionException) {
@@ -387,6 +385,8 @@ class TheoryEngine {
    */
   theory::LemmaStatus lemma(TNode node, bool negated, bool removable);
 
+  RemoveITE& d_iteRemover;
+
   /** Time spent in theory combination */
   TimerStat d_combineTheoriesTime;
 
@@ -394,18 +394,18 @@ class TheoryEngine {
   Node d_false;
 
   /** Whether we were just interrupted (or not) */
-  bool d_interrupted; 
-  
+  bool d_interrupted;
+
 public:
 
   /** Constructs a theory engine */
-  TheoryEngine(context::Context* context, context::UserContext* userContext, const LogicInfo& logic);
+  TheoryEngine(context::Context* context, context::UserContext* userContext, RemoveITE& iteRemover, const LogicInfo& logic);
 
   /** Destroys a theory engine */
   ~TheoryEngine();
 
-  void interrupt() throw(ModalException); 
-  
+  void interrupt() throw(ModalException);
+
   /**
    * Adds a theory. Only one theory per TheoryId can be present, so if
    * there is another theory it will be deleted.
@@ -709,6 +709,11 @@ public:
     *   notifed whenever an attribute of name attr is set.
     */
   void handleUserAttribute( const char* attr, theory::Theory* t );
+
+  /** Check that the theory assertions are satisfied in the model
+   *  This function is called from the smt engine's checkModel routine
+   */
+  void checkTheoryAssertionsWithModel();
 
 };/* class TheoryEngine */
 

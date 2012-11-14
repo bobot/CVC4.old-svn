@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009--2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -420,7 +418,7 @@ public:
     TS_ASSERT( info.isTheoryEnabled( THEORY_BV ) );
     TS_ASSERT( info.isTheoryEnabled( THEORY_DATATYPES ) );
     TS_ASSERT( info.isTheoryEnabled( THEORY_BOOL ) );
-    TS_ASSERT( !info.isLinear() );
+    TS_ASSERT( info.isLinear() );// for now, nonlinear not included in ALL_SUPPORTED
     TS_ASSERT( info.areIntegersUsed() );
     TS_ASSERT( !info.isDifferenceLogic() );
     TS_ASSERT( info.areRealsUsed() );
@@ -438,7 +436,7 @@ public:
     TS_ASSERT( info.isTheoryEnabled( THEORY_BV ) );
     TS_ASSERT( info.isTheoryEnabled( THEORY_DATATYPES ) );
     TS_ASSERT( info.isTheoryEnabled( THEORY_BOOL ) );
-    TS_ASSERT( !info.isLinear() );
+    TS_ASSERT( info.isLinear() );// for now, nonlinear not included in ALL_SUPPORTED
     TS_ASSERT( info.areIntegersUsed() );
     TS_ASSERT( !info.isDifferenceLogic() );
     TS_ASSERT( info.areRealsUsed() );
@@ -472,11 +470,11 @@ public:
     TS_ASSERT_THROWS( info.isQuantified(), CVC4::IllegalArgumentException );
     TS_ASSERT_THROWS( info.areIntegersUsed(), CVC4::IllegalArgumentException );
     TS_ASSERT_THROWS( info.areRealsUsed(), CVC4::IllegalArgumentException );
-    TS_ASSERT_THROWS( ! info.isLinear(), CVC4::IllegalArgumentException );
+    TS_ASSERT_THROWS( info.isLinear(), CVC4::IllegalArgumentException );// for now, nonlinear not included in ALL_SUPPORTED
 
     info.lock();
     TS_ASSERT( info.isLocked() );
-    TS_ASSERT_EQUALS( info.getLogicString(), "AUFBVDTNIRA" );
+    TS_ASSERT_EQUALS( info.getLogicString(), "AUFBVDTLIRA" );// for now, nonlinear not included in ALL_SUPPORTED
     TS_ASSERT( info.isSharingEnabled() );
     TS_ASSERT( info.isTheoryEnabled( THEORY_BUILTIN ) );
     TS_ASSERT( info.isTheoryEnabled( THEORY_BOOL ) );
@@ -499,7 +497,7 @@ public:
     TS_ASSERT( info.isQuantified() );
     TS_ASSERT( info.areIntegersUsed() );
     TS_ASSERT( info.areRealsUsed() );
-    TS_ASSERT( ! info.isLinear() );
+    TS_ASSERT( info.isLinear() );// for now, nonlinear not included in ALL_SUPPORTED
 
     TS_ASSERT_THROWS( info.arithOnlyLinear(), CVC4::IllegalArgumentException );
     TS_ASSERT_THROWS( info.disableIntegers(), CVC4::IllegalArgumentException );
@@ -596,7 +594,7 @@ public:
     TS_ASSERT( info.isTheoryEnabled( THEORY_BV ) );
     TS_ASSERT( info.isTheoryEnabled( THEORY_DATATYPES ) );
     TS_ASSERT( info.isTheoryEnabled( THEORY_BOOL ) );
-    TS_ASSERT( !info.isLinear() );
+    TS_ASSERT( info.isLinear() );// for now, nonlinear not included in ALL_SUPPORTED
     TS_ASSERT( info.areIntegersUsed() );
     TS_ASSERT( !info.isDifferenceLogic() );
     TS_ASSERT( info.areRealsUsed() );
@@ -615,7 +613,7 @@ public:
     TS_ASSERT( info.isTheoryEnabled( THEORY_BV ) );
     TS_ASSERT( info.isTheoryEnabled( THEORY_DATATYPES ) );
     TS_ASSERT( info.isTheoryEnabled( THEORY_BOOL ) );
-    TS_ASSERT( !info.isLinear() );
+    TS_ASSERT( info.isLinear() );// for now, nonlinear not included in ALL_SUPPORTED
     TS_ASSERT( info.areIntegersUsed() );
     TS_ASSERT( !info.isDifferenceLogic() );
     TS_ASSERT( info.areRealsUsed() );

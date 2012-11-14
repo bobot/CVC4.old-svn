@@ -2,12 +2,10 @@
 /*! \file partial_model.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -52,8 +50,12 @@ private:
   context::CDVector<Constraint> d_ubc;
   context::CDVector<Constraint> d_lbc;
 
+  // This is true when setDelta() is called, until invalidateDelta is called
   bool d_deltaIsSafe;
+  // Cache of a value of delta to ensure a total order.
   Rational d_delta;
+  // Function to call if the value of delta needs to be recomputed.
+  RationalCallBack& d_deltaComputingFunc;
 
   /**
    * List contains all of the variables that have an unsafe assignment.
@@ -64,7 +66,7 @@ private:
 
 public:
 
-  ArithPartialModel(context::Context* c);
+  ArithPartialModel(context::Context* c, RationalCallBack& deltaComputation);
 
   void setLowerBoundConstraint(Constraint lb);
   void setUpperBoundConstraint(Constraint ub);
@@ -177,17 +179,19 @@ public:
     return d_ubc[x] != NullConstraint;
   }
 
-  const Rational& getDelta(){
-    if(!d_deltaIsSafe){
-      computeDelta();
-    }
-    return d_delta;
+  const Rational& getDelta();
+
+  inline void invalidateDelta() {
+    d_deltaIsSafe = false;
   }
 
-private:
+  void setDelta(const Rational& d){
+    d_delta = d;
+    d_deltaIsSafe = true;
+  }
 
-  void computeDelta();
-  void deltaIsSmallerThan(const DeltaRational& l, const DeltaRational& u);
+
+private:
 
   /**
    * This function implements the mostly identical:

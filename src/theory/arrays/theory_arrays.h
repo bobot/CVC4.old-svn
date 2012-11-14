@@ -2,12 +2,10 @@
 /*! \file theory_arrays.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: lianah
- ** Minor contributors (to current version): barrett
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): ajreynol, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -179,6 +177,9 @@ class TheoryArrays : public Theory {
   /** For debugging only- checks invariants about when things are preregistered*/
   context::CDHashSet<Node, NodeHashFunction > d_isPreRegistered;
 
+  /** Helper for preRegisterTerm, also used internally */
+  void preRegisterTermInternal(TNode n, bool internalAssert = true);
+
   public:
 
   void preRegisterTerm(TNode n);
@@ -217,6 +218,9 @@ class TheoryArrays : public Theory {
   /////////////////////////////////////////////////////////////////////////////
 
   private:
+  /** Helper functions for collectModelInfo */
+  void collectReads(TNode n, std::set<Node>& readSet, std::set<Node>& cache);
+  void collectArrays(TNode n, std::set<Node>& arraySet, std::set<Node>& cache);
   public:
 
   void collectModelInfo( TheoryModel* m, bool fullModel );
@@ -333,6 +337,7 @@ class TheoryArrays : public Theory {
   context::CDHashSet<TNode, TNodeHashFunction> d_sharedOther;
   context::CDO<bool> d_sharedTerms;
   context::CDList<TNode> d_reads;
+  context::CDList<TNode> d_readsInternal;
   std::hash_map<TNode, Node, TNodeHashFunction> d_diseqCache;
 
   // The decision requests we have for the core

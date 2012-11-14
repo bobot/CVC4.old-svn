@@ -2,12 +2,10 @@
 /*! \file first_order_model.h
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -26,13 +24,6 @@
 namespace CVC4 {
 namespace theory {
 
-struct ModelBasisAttributeId {};
-typedef expr::Attribute<ModelBasisAttributeId, bool> ModelBasisAttribute;
-//for APPLY_UF terms, 1 : term has direct child with model basis attribute,
-//                    0 : term has no direct child with model basis attribute.
-struct ModelBasisArgAttributeId {};
-typedef expr::Attribute<ModelBasisArgAttributeId, uint64_t> ModelBasisArgAttribute;
-
 class QuantifiersEngine;
 
 namespace quantifiers{
@@ -50,6 +41,8 @@ private:
   context::CDO< bool > d_axiom_asserted;
   /** list of quantifiers asserted in the current context */
   context::CDList<Node> d_forall_asserts;
+  /** is model set */
+  context::CDO< bool > d_isModelSet;
 public: //for Theory UF:
   //models for each UF operator
   std::map< Node, uf::UfModelTree > d_uf_model_tree;
@@ -80,13 +73,12 @@ public:
   virtual ~FirstOrderModel(){}
   // reset the model
   void reset();
-  /** get interpreted value */
-  Node getInterpretedValue( TNode n );
-public:
   // initialize the model
   void initialize( bool considerAxioms = true );
-  /** to stream function */
-  void toStream( std::ostream& out );
+  /** mark model set */
+  void markModelSet() { d_isModelSet = true; }
+  /** is model set */
+  bool isModelSet() { return d_isModelSet; }
 //the following functions are for evaluating quantifier bodies
 public:
   /** reset evaluation */

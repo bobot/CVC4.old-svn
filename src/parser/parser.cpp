@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: cconway, mdeters
- ** Minor contributors (to current version): ajreynol
+ ** Minor contributors (to current version): bobot, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -156,7 +154,7 @@ Parser::mkBoundVar(const std::string& name, const Type& type) {
 
 Expr
 Parser::mkFunction(const std::string& name, const Type& type,
-                            bool levelZero) {
+                   bool levelZero) {
   Debug("parser") << "mkVar(" << name << ", " << type << ")" << std::endl;
   Expr expr = d_exprManager->mkVar(name, type);
   defineFunction(name, expr, levelZero);

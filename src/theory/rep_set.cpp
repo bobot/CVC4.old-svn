@@ -3,11 +3,9 @@
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -29,10 +27,28 @@ void RepSet::clear(){
   d_tmap.clear();
 }
 
+int RepSet::getNumRepresentatives( TypeNode tn ) const{
+  std::map< TypeNode, std::vector< Node > >::const_iterator it = d_type_reps.find( tn );
+  if( it!=d_type_reps.end() ){
+    return (int)it->second.size();
+  }else{
+    return 0;
+  }
+}
+
 void RepSet::add( Node n ){
   TypeNode t = n.getType();
   d_tmap[ n ] = (int)d_type_reps[t].size();
   d_type_reps[t].push_back( n );
+}
+
+int RepSet::getIndexFor( Node n ) const {
+  std::map< Node, int >::const_iterator it = d_tmap.find( n );
+  if( it!=d_tmap.end() ){
+    return it->second;
+  }else{
+    return -1;
+  }
 }
 
 void RepSet::complete( TypeNode t ){
@@ -83,25 +99,25 @@ RepSetIterator::RepSetIterator( RepSet* rs ) : d_rep_set( rs ){
 
 }
 
-void RepSetIterator::setQuantifier( Node f ){
+bool RepSetIterator::setQuantifier( Node f ){
   Assert( d_types.empty() );
   //store indicies
   for( size_t i=0; i<f[0].getNumChildren(); i++ ){
     d_types.push_back( f[0][i].getType() );
   }
-  initialize();
+  return initialize();
 }
 
-void RepSetIterator::setFunctionDomain( Node op ){
+bool RepSetIterator::setFunctionDomain( Node op ){
   Assert( d_types.empty() );
   TypeNode tn = op.getType();
   for( size_t i=0; i<tn.getNumChildren()-1; i++ ){
     d_types.push_back( tn[i] );
   }
-  initialize();
+  return initialize();
 }
 
-void RepSetIterator::initialize(){
+bool RepSetIterator::initialize(){
   for( size_t i=0; i<d_types.size(); i++ ){
     d_index.push_back( 0 );
     //store default index order
@@ -130,7 +146,7 @@ void RepSetIterator::initialize(){
         d_incomplete = true;
       }
     }else{
-      Trace("fmf-incomplete") << "Incomplete because of type " << tn << std::endl;
+      Trace("fmf-incomplete") << "Incomplete because of unknown type " << tn << std::endl;
       d_incomplete = true;
     }
     if( d_rep_set->hasType( tn ) ){
@@ -138,11 +154,10 @@ void RepSetIterator::initialize(){
         d_domain[i].push_back( j );
       }
     }else{
-      Trace("fmf-incomplete") << "Incomplete, unknown type " << tn << std::endl;
-      d_incomplete = true;
-      Unimplemented("Cannot create representative set iterator for unknown type quantifier");
+      return false;
     }
   }
+  return true;
 }
 
 void RepSetIterator::setIndexOrder( std::vector< int >& indexOrder ){

@@ -5,9 +5,7 @@
  ** Major contributors: dejan, mdeters
  ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -85,6 +83,11 @@ bool Type::isSubtypeOf(Type t) const {
 bool Type::isComparableTo(Type t) const {
   NodeManagerScope nms(d_nodeManager);
   return d_typeNode->isComparableTo(*t.d_typeNode);
+}
+
+Type Type::getBaseType() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->getBaseType().toType();
 }
 
 Type& Type::operator=(const Type& t) {
@@ -677,7 +680,7 @@ DatatypeType DatatypeType::instantiate(const std::vector<Type>& params) const {
       ++i) {
     paramsNodes.push_back(*getTypeNode(*i));
   }
-  return DatatypeType(makeType(d_nodeManager->mkTypeNode(kind::PARAMETRIC_DATATYPE,paramsNodes)));
+  return DatatypeType(makeType(d_nodeManager->mkTypeNode(kind::PARAMETRIC_DATATYPE, paramsNodes)));
 }
 
 DatatypeType SelectorType::getDomain() const {
@@ -701,9 +704,9 @@ Expr PredicateSubtype::getPredicate() const {
   return d_typeNode->getSubtypePredicate().toExpr();
 }
 
-Type PredicateSubtype::getBaseType() const {
+Type PredicateSubtype::getParentType() const {
   NodeManagerScope nms(d_nodeManager);
-  return d_typeNode->getSubtypeBaseType().toType();
+  return d_typeNode->getSubtypeParentType().toType();
 }
 
 SubrangeBounds SubrangeType::getSubrangeBounds() const {

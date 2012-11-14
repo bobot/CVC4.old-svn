@@ -2,16 +2,14 @@
 /*! \file theory_engine.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: barrett, dejan
- ** Minor contributors (to current version): cconway, taking
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): cconway, kshitij, taking, barrett, lianah, ajreynol
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief The theory engine.
+ ** \brief The theory engine
  **
  ** The theory engine.
  **/
@@ -32,6 +30,8 @@
 #include "theory/rewriter.h"
 #include "theory/theory_traits.h"
 
+#include "smt/logic_exception.h"
+
 #include "util/node_visitor.h"
 #include "util/ite_removal.h"
 
@@ -50,6 +50,7 @@ using namespace CVC4::theory;
 
 TheoryEngine::TheoryEngine(context::Context* context,
                            context::UserContext* userContext,
+                           RemoveITE& iteRemover,
                            const LogicInfo& logicInfo)
 : d_propEngine(NULL),
   d_decisionEngine(NULL),
@@ -70,7 +71,10 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_propagationMapTimestamp(context, 0),
   d_propagatedLiterals(context),
   d_propagatedLiteralsIndex(context, 0),
+  d_iteRemover(iteRemover),
   d_combineTheoriesTime("TheoryEngine::combineTheoriesTime"),
+  d_true(),
+  d_false(),
   d_interrupted(false),
   d_inPreregister(false),
   d_factsAsserted(context, false),
@@ -87,10 +91,9 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_quantEngine = new QuantifiersEngine(context, this);
 
   // build model information if applicable
-  d_curr_model = new theory::TheoryModel( context, "DefaultModel", true );
+  d_curr_model = new theory::TheoryModel( userContext, "DefaultModel", true );
   d_curr_model_builder = new theory::TheoryEngineModelBuilder( this );
 
-  Rewriter::init();
   StatisticsRegistry::registerStat(&d_combineTheoriesTime);
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
@@ -211,52 +214,14 @@ void TheoryEngine::dumpAssertions(const char* tag) {
           Node assertionNode = (*it).assertion;
           // Purify all the terms
 
-          BoolExpr assertionExpr(assertionNode.toExpr());
           if ((*it).isPreregistered) {
             Dump(tag) << CommentCommand("Preregistered");
           } else {
             Dump(tag) << CommentCommand("Shared assertion");
           }
-          Dump(tag) << AssertCommand(assertionExpr);
+          Dump(tag) << AssertCommand(assertionNode.toExpr());
         }
         Dump(tag) << CheckSatCommand();
-
-        // Check for any missed propagations of shared terms
-        if (d_logicInfo.isSharingEnabled()) {
-          Dump(tag) << CommentCommand("Shared term equalities");
-          context::CDList<TNode>::const_iterator it = theory->shared_terms_begin(), it_end = theory->shared_terms_end();
-          for (; it != it_end; ++ it) {
-            TNode t1 = (*it);
-            context::CDList<TNode>::const_iterator it2 = it;
-            for (++ it2; it2 != it_end; ++ it2) {
-              TNode t2 = (*it2);
-              if (t1.getType() == t2.getType()) {
-                Node equality = t1.eqNode(t2);
-                if (d_sharedTerms.isKnown(equality)) {
-                  continue;
-                }
-                Node disequality = equality.notNode();
-                if (d_sharedTerms.isKnown(disequality)) {
-                  continue;
-                }
-
-                // Check equality
-                Dump(tag) << PushCommand();
-                BoolExpr eqExpr(equality.toExpr());
-                Dump(tag) << AssertCommand(eqExpr);
-                Dump(tag) << CheckSatCommand();
-                Dump(tag) << PopCommand();
-
-                // Check disequality
-                Dump(tag) << PushCommand();
-                BoolExpr diseqExpr(disequality.toExpr());
-                Dump(tag) << AssertCommand(diseqExpr);
-                Dump(tag) << CheckSatCommand();
-                Dump(tag) << PopCommand();
-              }
-            }
-          }
-        }
 
         Dump(tag) << PopCommand();
       }
@@ -288,7 +253,7 @@ void TheoryEngine::check(Theory::Effort effort) {
   d_propEngine->checkTime();
 
   // Reset the interrupt flag
-  d_interrupted = false; 
+  d_interrupted = false;
 
 #ifdef CVC4_FOR_EACH_THEORY_STATEMENT
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
@@ -354,24 +319,23 @@ void TheoryEngine::check(Theory::Effort effort) {
     }
 
     // Must consult quantifiers theory for last call to ensure sat, or otherwise add a lemma
-    if( effort == Theory::EFFORT_FULL &&
-        ! d_inConflict &&
-        ! d_lemmasAdded ) {
-      if( d_logicInfo.isQuantified() ){
-        //quantifiers engine must pass effort last call check
+    if( effort == Theory::EFFORT_FULL && ! d_inConflict && ! needCheck() ) {
+      if(d_logicInfo.isQuantified()) {
+        bool prevIncomplete = d_incomplete;
+        // quantifiers engine must pass effort last call check
         d_quantEngine->check(Theory::EFFORT_LAST_CALL);
         // if we have given up, then possibly flip decision
         if(options::flipDecision()) {
-          if(d_incomplete && !d_inConflict && !d_lemmasAdded) {
+          if(d_incomplete && !d_inConflict && !needCheck()) {
             if( ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ) {
-              d_incomplete = false;
+              d_incomplete = prevIncomplete;
             }
           }
         }
-        //if returning incomplete or SAT, we have ensured that the model in the quantifiers engine has been built
-      }else if( options::produceModels() ){
-        //must build model at this point
-        d_curr_model_builder->buildModel( d_curr_model, true );
+        // if returning incomplete or SAT, we have ensured that the model in the quantifiers engine has been built
+      } else if(options::produceModels()) {
+        // must build model at this point
+        d_curr_model_builder->buildModel(d_curr_model, true);
       }
     }
 
@@ -383,7 +347,7 @@ void TheoryEngine::check(Theory::Effort effort) {
 
   // If fulleffort, check all theories
   if(Dump.isOn("theory::fullcheck") && Theory::fullEffort(effort)) {
-    if (!d_inConflict && !d_lemmasAdded) {
+    if (!d_inConflict && !needCheck()) {
       dumpAssertions("theory::fullcheck");
     }
   }
@@ -463,7 +427,7 @@ void TheoryEngine::combineTheories() {
 
 void TheoryEngine::propagate(Theory::Effort effort) {
   // Reset the interrupt flag
-  d_interrupted = false; 
+  d_interrupted = false;
 
   // Definition of the statement that is to be run by every theory
 #ifdef CVC4_FOR_EACH_THEORY_STATEMENT
@@ -475,7 +439,7 @@ void TheoryEngine::propagate(Theory::Effort effort) {
   }
 
   // Reset the interrupt flag
-  d_interrupted = false; 
+  d_interrupted = false;
 
   // Propagate for each theory using the statement above
   CVC4_FOR_EACH_THEORY;
@@ -587,6 +551,7 @@ void TheoryEngine::collectModelInfo( theory::TheoryModel* m, bool fullModel ){
   // concerning the model.
   for(TheoryId theoryId = theory::THEORY_FIRST; theoryId < theory::THEORY_LAST; ++theoryId) {
     if(d_logicInfo.isTheoryEnabled(theoryId)) {
+      Trace("model-builder") << "  CollectModelInfo on theory: " << theoryId << endl;
       d_theoryTable[theoryId]->collectModelInfo( m, fullModel );
     }
   }
@@ -599,7 +564,11 @@ void TheoryEngine::collectModelInfo( theory::TheoryModel* m, bool fullModel ){
     TNode var = *it;
     hasValue = d_propEngine->hasValue(var, value);
     // TODO: Assert that hasValue is true?
-    m->assertPredicate(var, hasValue ? value : false);
+    if (!hasValue) {
+      value = false;
+    }
+    Trace("model-builder-assertions") << "(assert" << (value ? " " : " (not ") << var << (value ? ");" : "));") << endl;
+    m->assertPredicate(var, value);
   }
 }
 
@@ -617,7 +586,7 @@ TheoryModel* TheoryEngine::getModel() {
 
 bool TheoryEngine::presolve() {
   // Reset the interrupt flag
-  d_interrupted = false; 
+  d_interrupted = false;
 
   try {
     // Definition of the statement that is to be run by every theory
@@ -643,7 +612,7 @@ bool TheoryEngine::presolve() {
 
 void TheoryEngine::postsolve() {
   // Reset the interrupt flag
-  d_interrupted = false; 
+  d_interrupted = false;
 
   try {
     // Definition of the statement that is to be run by every theory
@@ -666,7 +635,7 @@ void TheoryEngine::postsolve() {
 
 void TheoryEngine::notifyRestart() {
   // Reset the interrupt flag
-  d_interrupted = false; 
+  d_interrupted = false;
 
   // Definition of the statement that is to be run by every theory
 #ifdef CVC4_FOR_EACH_THEORY_STATEMENT
@@ -683,7 +652,7 @@ void TheoryEngine::notifyRestart() {
 
 void TheoryEngine::ppStaticLearn(TNode in, NodeBuilder<>& learned) {
   // Reset the interrupt flag
-  d_interrupted = false; 
+  d_interrupted = false;
 
   // Definition of the statement that is to be run by every theory
 #ifdef CVC4_FOR_EACH_THEORY_STATEMENT
@@ -711,13 +680,12 @@ void TheoryEngine::shutdown() {
     }
   }
 
-  theory::Rewriter::shutdown();
   d_ppCache.clear();
 }
 
 theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitutionOut) {
   // Reset the interrupt flag
-  d_interrupted = false; 
+  d_interrupted = false;
 
   TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << endl;
@@ -728,7 +696,7 @@ theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMa
     ss << "The logic was specified as " << d_logicInfo.getLogicString()
        << ", which doesn't include " << Theory::theoryOf(atom)
        << ", but got an asserted fact to that theory";
-    throw Exception(ss.str());
+    throw LogicException(ss.str());
   }
 
   Theory::PPAssertStatus solveStatus = theoryOf(atom)->ppAssert(literal, substitutionOut);
@@ -826,7 +794,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
       ss << "The logic was specified as " << d_logicInfo.getLogicString()
          << ", which doesn't include " << Theory::theoryOf(current)
          << ", but got an asserted fact to that theory";
-      throw Exception(ss.str());
+      throw LogicException(ss.str());
     }
 
     // If this is an atom, we preprocess its terms with the theory ppRewriter
@@ -916,7 +884,7 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
     ss << "The logic was specified as " << d_logicInfo.getLogicString()
        << ", which doesn't include " << toTheoryId
        << ", but got an asserted fact to that theory";
-    throw Exception(ss.str());
+    throw LogicException(ss.str());
   }
 
   if (d_inConflict) {
@@ -1213,7 +1181,7 @@ theory::LemmaStatus TheoryEngine::lemma(TNode node, bool negated, bool removable
   std::vector<Node> additionalLemmas;
   IteSkolemMap iteSkolemMap;
   additionalLemmas.push_back(node);
-  RemoveITE::run(additionalLemmas, iteSkolemMap);
+  d_iteRemover.run(additionalLemmas, iteSkolemMap);
   additionalLemmas[0] = theory::Rewriter::rewrite(additionalLemmas[0]);
 
   // assert to prop engine
@@ -1375,8 +1343,28 @@ void TheoryEngine::setUserAttribute( std::string& attr, Node n ){
   }
 }
 
+
 void TheoryEngine::handleUserAttribute( const char* attr, Theory* t ){
   Trace("te-attr") << "Handle user attribute " << attr << " " << t << std::endl;
   std::string str( attr );
   d_attr_handle[ str ].push_back( t );
+}
+
+
+void TheoryEngine::checkTheoryAssertionsWithModel()
+{
+  for (TheoryId theoryId = THEORY_FIRST; theoryId < THEORY_LAST; ++theoryId) {
+    Theory* theory = d_theoryTable[theoryId];
+    if (theory && d_logicInfo.isTheoryEnabled(theoryId)) {
+      if (theoryId == THEORY_QUANTIFIERS || theoryId == THEORY_REWRITERULES) {
+        continue;
+      }
+      context::CDList<Assertion>::const_iterator it = theory->facts_begin(), it_end = theory->facts_end();
+      for (unsigned i = 0; it != it_end; ++ it, ++i) {
+        Node assertion = (*it).assertion;
+        Node val = getModel()->getValue(assertion);
+        Assert(val == d_true);
+      }
+    }
+  }
 }

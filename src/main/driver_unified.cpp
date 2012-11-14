@@ -1,13 +1,11 @@
 /*********************                                                        */
 /*! \file driver_unified.cpp
  ** \verbatim
- ** Original author: mdeters
- ** Major contributors: cconway
- ** Minor contributors (to current version): barrett, dejan, taking, kshitij
+ ** Original author: kshitij
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011, 2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -313,6 +311,15 @@ int runCvc4(int argc, char* argv[], Options& opts) {
       pExecutor->flushStatistics(*opts[options::err]);
     }
 
+    // make sure to flush replay output log before early-exit
+    if( opts[options::replayLog] != NULL ) {
+      *opts[options::replayLog] << flush;
+    }
+
+    // make sure out and err streams are flushed too
+    *opts[options::out] << flush;
+    *opts[options::err] << flush;
+ 
 #ifdef CVC4_DEBUG
     if(opts[options::earlyExit] && opts.wasSetByUser(options::earlyExit)) {
       _exit(returnValue);

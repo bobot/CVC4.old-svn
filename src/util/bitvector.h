@@ -2,12 +2,10 @@
 /*! \file bitvector.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: cconway, mdeters
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters, lianah
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -99,11 +97,6 @@ public:
     return d_value != y.d_value;
   }
 
-  BitVector equals(const BitVector& y) const {
-    CheckArgument(d_size == y.d_size, y);
-    return d_value == y.d_value; 
-  }
-
   BitVector concat (const BitVector& other) const {
     return BitVector(d_size + other.d_size, (d_value.multiplyByPow2(other.d_size)) + other.d_value);
   }
@@ -185,6 +178,17 @@ public:
     Integer prod = d_value * y.d_value;
     return BitVector(d_size, prod);
   }
+
+  BitVector setBit(uint32_t i) const {
+    CheckArgument(i < d_size);
+    Integer res = d_value.setBit(i);
+    return BitVector(d_size, res); 
+  }
+
+  bool isBitSet(uint32_t i) const {
+    CheckArgument(i < d_size); 
+    return d_value.isBitSet(i); 
+  }
   
   BitVector unsignedDiv (const BitVector& y) const {
     CheckArgument(d_size == y.d_size, y);
@@ -201,7 +205,7 @@ public:
     CheckArgument(d_size == y.d_size, y);
     // TODO: decide whether we really want these semantics
     if (y.d_value == 0) {
-      return BitVector(d_size, Integer(0));
+      return BitVector(d_size, d_value);
     }
     CheckArgument(d_value >= 0, this);
     CheckArgument(y.d_value > 0, y);

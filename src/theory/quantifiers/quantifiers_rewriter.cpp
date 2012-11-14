@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -187,47 +185,55 @@ RewriteResponse QuantifiersRewriter::preRewrite(TNode in) {
 RewriteResponse QuantifiersRewriter::postRewrite(TNode in) {
   Trace("quantifiers-rewrite-debug") << "post-rewriting " << in << " " << in.hasAttribute(NestedQuantAttribute()) << std::endl;
   if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
+    RewriteStatus status = REWRITE_DONE;
+    Node ret = in;
     //get the arguments
     std::vector< Node > args;
     for( int i=0; i<(int)in[0].getNumChildren(); i++ ){
       args.push_back( in[0][i] );
-    }
-    //get the body
-    Node body = in[1];
-    if( in.getKind()==EXISTS ){
-      body = body.getKind()==NOT ? body[0] : body.notNode();
     }
     //get the instantiation pattern list
     Node ipl;
     if( in.getNumChildren()==3 ){
       ipl = in[2];
     }
-    bool isNested = in.hasAttribute(NestedQuantAttribute());
-    //compute miniscoping first
-    Node n = body;//computeNNF( body ); TODO: compute NNF here (current bad idea since arithmetic rewrites equalities)
-    if( body!=n ){
-      Notice() << "NNF " << body << " -> " << n << std::endl;
+    //get the body
+    if( in.getKind()==EXISTS ){
+      std::vector< Node > children;
+      children.push_back( in[0] );
+      children.push_back( in[1].negate() );
+      if( in.getNumChildren()==3 ){
+        children.push_back( in[2] );
+      }
+      ret = NodeManager::currentNM()->mkNode( FORALL, children );
+      ret = ret.negate();
+      status = REWRITE_AGAIN_FULL;
+    }else{
+      bool isNested = in.hasAttribute(NestedQuantAttribute());
+      for( int op=0; op<COMPUTE_LAST; op++ ){
+        if( doOperation( in, isNested, op ) ){
+          ret = computeOperation( in, op );
+          if( ret!=in ){
+            status = REWRITE_AGAIN_FULL;
+            break;
+          }
+        }
+      }
     }
-    n = computeMiniscoping( args, n, ipl, isNested );
-    if( in.getKind()==kind::EXISTS ){
-      n = n.getKind()==NOT ? n[0] : n.notNode();
-    }
-    //compute other rewrite options for each produced quantifier
-    n = rewriteQuants( n, isNested, true );
     //print if changed
-    if( in!=n ){
+    if( in!=ret ){
       if( in.hasAttribute(NestedQuantAttribute()) ){
-        setNestedQuantifiers( n, in.getAttribute(NestedQuantAttribute()) );
+        setNestedQuantifiers( ret, in.getAttribute(NestedQuantAttribute()) );
+      }
+      if( in.hasAttribute(InstConstantAttribute()) ){
+        InstConstantAttribute ica;
+        ret.setAttribute(ica,in.getAttribute(InstConstantAttribute()) );
       }
       Trace("quantifiers-rewrite") << "*** rewrite " << in << std::endl;
       Trace("quantifiers-rewrite") << " to " << std::endl;
-      Trace("quantifiers-rewrite") << n << std::endl;
-      if( in.hasAttribute(InstConstantAttribute()) ){
-        InstConstantAttribute ica;
-        n.setAttribute(ica,in.getAttribute(InstConstantAttribute()) );
-      }
+      Trace("quantifiers-rewrite") << ret << std::endl;
     }
-    return RewriteResponse(REWRITE_DONE, n );
+    return RewriteResponse( status, ret );
   }
   return RewriteResponse(REWRITE_DONE, in);
 }
@@ -282,12 +288,11 @@ Node QuantifiersRewriter::computeNNF( Node body ){
 }
 
 Node QuantifiersRewriter::computeVarElimination( Node body, std::vector< Node >& args, Node& ipl ){
-  //Notice() << "Compute var elimination for " << f << std::endl;
-  std::map< Node, bool > litPhaseReq;
-  QuantifiersEngine::computePhaseReqs( body, false, litPhaseReq );
+  Trace("var-elim-quant") << "Compute var elimination for " << body << std::endl;
+  QuantPhaseReq qpr( body );
   std::vector< Node > vars;
   std::vector< Node > subs;
-  for( std::map< Node, bool >::iterator it = litPhaseReq.begin(); it != litPhaseReq.end(); ++it ){
+  for( std::map< Node, bool >::iterator it = qpr.d_phase_reqs.begin(); it != qpr.d_phase_reqs.end(); ++it ){
     //Notice() << "   " << it->first << " -> " << ( it->second ? "true" : "false" ) << std::endl;
     if( it->first.getKind()==EQUAL ){
       if( it->second ){
@@ -312,13 +317,14 @@ Node QuantifiersRewriter::computeVarElimination( Node body, std::vector< Node >&
     }
   }
   if( !vars.empty() ){
-    //Notice() << "VE " << vars.size() << "/" << n[0].getNumChildren() << std::endl;
+    Trace("var-elim-quant") << "VE " << vars.size() << "/" << args.size() << std::endl;
     //remake with eliminated nodes
     body = body.substitute( vars.begin(), vars.end(), subs.begin(), subs.end() );
     body = Rewriter::rewrite( body );
     if( !ipl.isNull() ){
       ipl = ipl.substitute( vars.begin(), vars.end(), subs.begin(), subs.end() );
     }
+    Trace("var-elim-quant") << "Return " << body << std::endl;
   }
   return body;
 }
@@ -495,6 +501,7 @@ Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, b
       }
       Node newBody = body[1];
       newBody = newBody.substitute( terms.begin(), terms.end(), subs.begin(), subs.end() );
+      Debug("quantifiers-substitute-debug") << "Did substitute have an effect" << (body[1] != newBody) << body[1] << " became " << newBody << endl;
       return newBody;
     }else{
       return body;
@@ -527,46 +534,55 @@ Node QuantifiersRewriter::computePrenex( Node body, std::vector< Node >& args, b
 
 //general method for computing various rewrites
 Node QuantifiersRewriter::computeOperation( Node f, int computeOption ){
-  std::vector< Node > args;
-  for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-    args.push_back( f[0][i] );
-  }
-  NodeBuilder<> defs(kind::AND);
-  Node n = f[1];
-  Node ipl;
-  if( f.getNumChildren()==3 ){
-    ipl = f[2];
-  }
-  if( computeOption==COMPUTE_NNF ){
-    n = computeNNF( n );
-  }else if( computeOption==COMPUTE_PRENEX || computeOption==COMPUTE_PRE_SKOLEM ){
-    n = computePrenex( n, args, true, computeOption==COMPUTE_PRENEX );
-  }else if( computeOption==COMPUTE_VAR_ELIMINATION ){
-    Node prev;
-    do{
-      prev = n;
-      n = computeVarElimination( n, args, ipl );
-    }while( prev!=n && !args.empty() );
-  }else if( computeOption==COMPUTE_CNF ){
-    //n = computeNNF( n );
-    n = computeCNF( n, args, defs, false );
-    ipl = Node::null();
-  }
-  if( f[1]==n && args.size()==f[0].getNumChildren() ){
-    return f;
-  }else{
-    if( args.empty() ){
-      defs << n;
-    }else{
-      std::vector< Node > children;
-      children.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, args ) );
-      children.push_back( n );
-      if( !ipl.isNull() ){
-        children.push_back( ipl );
-      }
-      defs << NodeManager::currentNM()->mkNode(kind::FORALL, children );
+  if( f.getKind()==FORALL ){
+    Trace("quantifiers-rewrite-debug") << "Compute operation " << computeOption << " on " << f << std::endl;
+    std::vector< Node > args;
+    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+      args.push_back( f[0][i] );
     }
-    return defs.getNumChildren()==1 ? defs.getChild( 0 ) : defs.constructNode();
+    NodeBuilder<> defs(kind::AND);
+    Node n = f[1];
+    Node ipl;
+    if( f.getNumChildren()==3 ){
+      ipl = f[2];
+    }
+    if( computeOption==COMPUTE_MINISCOPING ){
+      //return directly
+      return computeMiniscoping( args, n, ipl, f.hasAttribute(NestedQuantAttribute()) );
+    }else if( computeOption==COMPUTE_NNF ){
+      n = computeNNF( n );
+    }else if( computeOption==COMPUTE_PRENEX || computeOption==COMPUTE_PRE_SKOLEM ){
+      n = computePrenex( n, args, true, computeOption==COMPUTE_PRENEX );
+    }else if( computeOption==COMPUTE_VAR_ELIMINATION ){
+      Node prev;
+      do{
+        prev = n;
+        n = computeVarElimination( n, args, ipl );
+      }while( prev!=n && !args.empty() );
+    }else if( computeOption==COMPUTE_CNF ){
+      //n = computeNNF( n );
+      n = computeCNF( n, args, defs, false );
+      ipl = Node::null();
+    }
+    Trace("quantifiers-rewrite-debug") << "Compute Operation: return " << n << ", " << args.size() << std::endl;
+    if( f[1]==n && args.size()==f[0].getNumChildren() ){
+      return f;
+    }else{
+      if( args.empty() ){
+        defs << n;
+      }else{
+        std::vector< Node > children;
+        children.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, args ) );
+        children.push_back( n );
+        if( !ipl.isNull() ){
+          children.push_back( ipl );
+        }
+        defs << NodeManager::currentNM()->mkNode(kind::FORALL, children );
+      }
+      return defs.getNumChildren()==1 ? defs.getChild( 0 ) : defs.constructNode();
+    }
+  }else{
+    return f;
   }
 }
 
@@ -654,25 +670,25 @@ Node QuantifiersRewriter::computeMiniscoping( std::vector< Node >& args, Node bo
   }
   return mkForAll( args, body, ipl );
 }
-
-Node QuantifiersRewriter::rewriteQuants( Node n, bool isNested, bool duringRewrite ){
+/*
+Node QuantifiersRewriter::rewriteQuants( Node n, bool isNested ){
   if( n.getKind()==FORALL ){
-    return rewriteQuant( n, isNested, duringRewrite );
+    return rewriteQuant( n, isNested );
   }else if( isLiteral( n ) ){
     return n;
   }else{
     NodeBuilder<> tt(n.getKind());
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      tt << rewriteQuants( n[i], isNested, duringRewrite );
+      tt << rewriteQuants( n[i], isNested );
     }
     return tt.constructNode();
   }
 }
 
-Node QuantifiersRewriter::rewriteQuant( Node n, bool isNested, bool duringRewrite ){
+Node QuantifiersRewriter::rewriteQuant( Node n, bool isNested ){
   Node prev = n;
   for( int op=0; op<COMPUTE_LAST; op++ ){
-    if( doOperation( n, isNested, op, duringRewrite ) ){
+    if( doOperation( n, isNested, op ) ){
       Node prev2 = n;
       n = computeOperation( n, op );
       if( prev2!=n ){
@@ -686,9 +702,10 @@ Node QuantifiersRewriter::rewriteQuant( Node n, bool isNested, bool duringRewrit
     return n;
   }else{
     //rewrite again until fix point is reached
-    return rewriteQuant( n, isNested, duringRewrite );
+    return rewriteQuant( n, isNested );
   }
 }
+*/
 
 bool QuantifiersRewriter::doMiniscopingNoFreeVar(){
   return options::miniscopeQuantFreeVar();
@@ -706,17 +723,19 @@ bool QuantifiersRewriter::doMiniscopingAnd(){
   }
 }
 
-bool QuantifiersRewriter::doOperation( Node f, bool isNested, int computeOption, bool duringRewrite ){
-  if( computeOption==COMPUTE_NNF ){
+bool QuantifiersRewriter::doOperation( Node f, bool isNested, int computeOption ){
+  if( computeOption==COMPUTE_MINISCOPING ){
+    return true;
+  }else if( computeOption==COMPUTE_NNF ){
     return false;//TODO: compute NNF (current bad idea since arithmetic rewrites equalities)
   }else if( computeOption==COMPUTE_PRE_SKOLEM ){
-    return false;//options::preSkolemQuant() && !duringRewrite;
+    return false;//options::preSkolemQuant();
   }else if( computeOption==COMPUTE_PRENEX ){
     return options::prenexQuant();
   }else if( computeOption==COMPUTE_VAR_ELIMINATION ){
     return options::varElimQuant();
   }else if( computeOption==COMPUTE_CNF ){
-    return options::cnfQuant() && !duringRewrite;// || options::finiteModelFind();
+    return false;//return options::cnfQuant() ;
   }else{
     return false;
   }

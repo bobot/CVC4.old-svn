@@ -2,12 +2,10 @@
 /*! \file model.h
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters, barrett
+ ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -19,7 +17,7 @@
 #ifndef __CVC4__THEORY_MODEL_H
 #define __CVC4__THEORY_MODEL_H
 
-#include "util/model.h"
+#include "util/util_model.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/rep_set.h"
 #include "theory/substitutions.h"
@@ -49,24 +47,21 @@ public:
   /** true/false nodes */
   Node d_true;
   Node d_false;
+  context::CDO<bool> d_modelBuilt;
+
 protected:
   /** reset the model */
   virtual void reset();
   /**
    * Get model value function.  This function is called by getValue
    */
-  Node getModelValue( TNode n );
-  /** get interpreted value
-    *  This function is called when the value of the node cannot be determined by the theory rewriter
-    *  This should function should return a representative in d_reps
-    */
-  virtual Node getInterpretedValue( TNode n );
+  Node getModelValue( TNode n ) const;
 public:
   /**
    * Get value function.  This should be called only after a ModelBuilder has called buildModel(...)
    * on this model.
    */
-  Node getValue( TNode n );
+  Node getValue( TNode n ) const;
 
   /** get existing domain value, with possible exclusions
     *   This function returns a term in d_rep_set.d_type_reps[tn] but not in exclude
@@ -113,11 +108,9 @@ public:
   bool areDisequal( Node a, Node b );
 public:
   /** get value function for Exprs. */
-  Expr getValue( Expr expr );
+  Expr getValue( Expr expr ) const;
   /** get cardinality for sort */
-  Cardinality getCardinality( Type t );
-  /** to stream function */
-  void toStream( std::ostream& out );
+  Cardinality getCardinality( Type t ) const;
 public:
   /** print representative debug function */
   void printRepresentativeDebug( const char* c, Node r );
@@ -139,6 +132,7 @@ public:
   typedef std::hash_map<TypeNode, std::set<Node>*, TypeNodeHashFunction> TypeSetMap;
   typedef std::hash_map<TypeNode, TypeEnumerator*, TypeNodeHashFunction> TypeToTypeEnumMap;
   typedef TypeSetMap::iterator iterator;
+  typedef TypeSetMap::const_iterator const_iterator;
 private:
   TypeSetMap d_typeSet;
   TypeToTypeEnumMap d_teMap;
@@ -173,16 +167,16 @@ private:
     s->insert(n);
   }
 
-  std::set<Node>* getSet(TypeNode t)
+  std::set<Node>* getSet(TypeNode t) const
   {
-    iterator it = d_typeSet.find(t);
+    const_iterator it = d_typeSet.find(t);
     if (it == d_typeSet.end()) {
       return NULL;
     }
     return (*it).second;
   }
 
-  Node nextTypeEnum(TypeNode t)
+  Node nextTypeEnum(TypeNode t, bool useBaseType = false)
   {
     TypeEnumerator* te;
     TypeToTypeEnumMap::iterator it = d_teMap.find(t);
@@ -193,8 +187,13 @@ private:
     else {
       te = (*it).second;
     }
-    Assert(!te->isFinished());
+    if (te->isFinished()) {
+      return Node();
+    }
 
+    if (useBaseType) {
+      t = t.getBaseType();
+    }
     iterator itSet = d_typeSet.find(t);
     std::set<Node>* s;
     if (itSet == d_typeSet.end()) {
@@ -206,8 +205,10 @@ private:
     }
     Node n = **te;
     while (s->find(n) != s->end()) {
-      Assert(!te->isFinished());
       ++(*te);
+      if (te->isFinished()) {
+        return Node();
+      }
       n = **te;
     }
     s->insert(n);
@@ -235,7 +236,7 @@ private:
     return *(*it).second;
   }
 
-};    
+};
 
 /** TheoryEngineModelBuilder class
   *    This model builder will consult all theories in a theory engine for
@@ -248,13 +249,15 @@ protected:
   TheoryEngine* d_te;
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
   NodeMap d_normalizedCache;
+  typedef std::hash_set<Node, NodeHashFunction> NodeSet;
 
   /** process build model */
   virtual void processBuildModel(TheoryModel* m, bool fullModel);
-  /** choose representative for unconstrained equivalence class */
-  virtual Node chooseRepresentative(TheoryModel* m, Node eqc, bool fullModel);
   /** normalize representative */
-  Node normalize(TheoryModel* m, TNode r, std::map<Node, Node>& constantReps);
+  Node normalize(TheoryModel* m, TNode r, std::map<Node, Node>& constantReps, bool evalOnly);
+  bool isAssignable(TNode n);
+  void checkTerms(TNode n, TheoryModel* tm, NodeSet& cache);
+
 public:
   TheoryEngineModelBuilder(TheoryEngine* te);
   virtual ~TheoryEngineModelBuilder(){}

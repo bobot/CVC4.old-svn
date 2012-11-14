@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -53,7 +51,8 @@ private:
   static Node computePrenex( Node body, std::vector< Node >& args, bool pol, bool polReq );
 private:
   enum{
-    COMPUTE_NNF = 0,
+    COMPUTE_MINISCOPING = 0,
+    COMPUTE_NNF,
     COMPUTE_PRE_SKOLEM,
     COMPUTE_PRENEX,
     COMPUTE_VAR_ELIMINATION,
@@ -71,10 +70,10 @@ private:
   /** options */
   static bool doMiniscopingNoFreeVar();
   static bool doMiniscopingAnd();
-  static bool doOperation( Node f, bool isNested, int computeOption, bool duringRewrite = true );
+  static bool doOperation( Node f, bool isNested, int computeOption );
 public:
-  static Node rewriteQuants( Node n, bool isNested = false, bool duringRewrite = true );
-  static Node rewriteQuant( Node n, bool isNested = false, bool duringRewrite = true );
+  //static Node rewriteQuants( Node n, bool isNested = false );
+  //static Node rewriteQuant( Node n, bool isNested = false );
 };/* class QuantifiersRewriter */
 
 }/* CVC4::theory::quantifiers namespace */

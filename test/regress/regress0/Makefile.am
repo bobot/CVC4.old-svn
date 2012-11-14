@@ -117,9 +117,11 @@ BUG_TESTS = \
 	bug216.smt2 \
 	bug220.smt2 \
 	bug239.smt \
+	bug274.cvc \
 	bug288.smt \
 	bug288b.smt \
 	bug288c.smt \
+	bug296.smt2 \
 	buggy-ite.smt2 \
 	bug303.smt2 \
 	bug310.cvc \
@@ -129,7 +131,10 @@ BUG_TESTS = \
 	bug365.smt2 \
 	bug382.smt2 \
 	bug383.smt2 \
-	bug398.smt2
+	bug398.smt2 \
+	bug421.smt2 \
+	bug421b.smt2 \
+	bug425.cvc
 
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(TPTP_TESTS) $(BUG_TESTS)
 

@@ -79,10 +79,14 @@ libutil_la_SOURCES = \
 	index.h \
 	uninterpreted_constant.h \
 	uninterpreted_constant.cpp \
+	abstract_value.h \
+	abstract_value.cpp \
 	array_store_all.h \
 	array_store_all.cpp \
-	model.h \
-	model.cpp
+	util_model.h \
+	util_model.cpp \
+	sort_inference.h \
+	sort_inference.cpp
 
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la

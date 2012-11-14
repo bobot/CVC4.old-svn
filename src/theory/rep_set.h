@@ -5,9 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -36,11 +34,13 @@ public:
   /** clear the set */
   void clear();
   /** has type */
-  bool hasType( TypeNode tn ) { return d_type_reps.find( tn )!=d_type_reps.end(); }
+  bool hasType( TypeNode tn ) const { return d_type_reps.find( tn )!=d_type_reps.end(); }
+  /** get cardinality for type */
+  int getNumRepresentatives( TypeNode tn ) const;
   /** add representative for type */
   void add( Node n );
   /** returns index in d_type_reps for node n */
-  int getIndexFor( Node n ) { return d_tmap.find( n )!=d_tmap.end() ? d_tmap[n] : -1; }
+  int getIndexFor( Node n ) const;
   /** complete all values */
   void complete( TypeNode t );
   /** debug print */
@@ -54,14 +54,14 @@ typedef std::vector< int > RepDomain;
 class RepSetIterator {
 private:
   //initialize function
-  void initialize();
+  bool initialize();
 public:
   RepSetIterator( RepSet* rs );
   ~RepSetIterator(){}
   //set that this iterator will be iterating over instantiations for a quantifier
-  void setQuantifier( Node f );
+  bool setQuantifier( Node f );
   //set that this iterator will be iterating over the domain of a function
-  void setFunctionDomain( Node op );
+  bool setFunctionDomain( Node op );
 public:
   //pointer to model
   RepSet* d_rep_set;

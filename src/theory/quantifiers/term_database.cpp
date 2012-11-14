@@ -2,12 +2,10 @@
 /*! \file term_database.cpp
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
- ** Minor contributors (to current version): bobot
+ ** Major contributors: bobot
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -16,9 +14,11 @@
 
 #include "theory/quantifiers/term_database.h"
 #include "theory/quantifiers_engine.h"
-#include "theory/uf/theory_uf_instantiator.h"
+#include "theory/quantifiers/trigger.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers/first_order_model.h"
+#include "theory/quantifiers/options.h"
+#include "theory/rewriterules/efficient_e_matching.h"
 
 using namespace std;
 using namespace CVC4;
@@ -28,26 +28,27 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
 using namespace CVC4::theory::inst;
- bool TermArgTrie::addTerm2( QuantifiersEngine* qe, Node n, int argIndex ){
-   if( argIndex<(int)n.getNumChildren() ){
-     Node r = qe->getEqualityQuery()->getRepresentative( n[ argIndex ] );
-     std::map< Node, TermArgTrie >::iterator it = d_data.find( r );
-     if( it==d_data.end() ){
-       d_data[r].addTerm2( qe, n, argIndex+1 );
-       return true;
-     }else{
-       return it->second.addTerm2( qe, n, argIndex+1 );
-     }
-   }else{
-     //store n in d_data (this should be interpretted as the "data" and not as a reference to a child)
-     d_data[n].d_data.clear();
-     return false;
-   }
- }
+
+bool TermArgTrie::addTerm2( QuantifiersEngine* qe, Node n, int argIndex ){
+  if( argIndex<(int)n.getNumChildren() ){
+    Node r = qe->getEqualityQuery()->getRepresentative( n[ argIndex ] );
+    std::map< Node, TermArgTrie >::iterator it = d_data.find( r );
+    if( it==d_data.end() ){
+      d_data[r].addTerm2( qe, n, argIndex+1 );
+      return true;
+    }else{
+      return it->second.addTerm2( qe, n, argIndex+1 );
+    }
+  }else{
+    //store n in d_data (this should be interpretted as the "data" and not as a reference to a child)
+    d_data[n].d_data.clear();
+    return false;
+  }
+}
 
 void TermDb::addTermEfficient( Node n, std::set< Node >& added){
   static AvailableInTermDb aitdi;
-  if (Trigger::isAtomicTrigger( n ) && !n.getAttribute(aitdi)){
+  if (inst::Trigger::isAtomicTrigger( n ) && !n.getAttribute(aitdi)){
     //Already processed but new in this branch
     n.setAttribute(aitdi,true);
     added.insert( n );
@@ -71,7 +72,7 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
     n.setAttribute(AvailableInTermDb(),true);
     //if this is an atomic trigger, consider adding it
     //Call the children?
-    if( Trigger::isAtomicTrigger( n ) ){
+    if( inst::Trigger::isAtomicTrigger( n ) ){
       if( !n.hasAttribute(InstConstantAttribute()) ){
         Debug("term-db") << "register trigger term " << n << std::endl;
         //std::cout << "register trigger term " << n << std::endl;
@@ -79,14 +80,14 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
         d_op_map[op].push_back( n );
         added.insert( n );
 
-        uf::InstantiatorTheoryUf* d_ith = (uf::InstantiatorTheoryUf*)d_quantEngine->getInstantiator( THEORY_UF );
-        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        for( size_t i=0; i<n.getNumChildren(); i++ ){
           addTerm( n[i], added, withinQuant );
           if( options::efficientEMatching() ){
+            EfficientEMatcher* eem = d_quantEngine->getEfficientEMatcher();
             if( d_parents[n[i]][op].empty() ){
               //must add parent to equivalence class info
-              Node nir = d_ith->getRepresentative( n[i] );
-              uf::EqClassInfo* eci_nir = d_ith->getEquivalenceClassInfo( nir );
+              Node nir = d_quantEngine->getEqualityQuery()->getRepresentative( n[i] );
+              EqClassInfo* eci_nir = eem->getEquivalenceClassInfo( nir );
               if( eci_nir ){
                 eci_nir->d_pfuns[ op ] = true;
               }
@@ -100,8 +101,8 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
           if( options::eagerInstQuant() ){
             if( !n.hasAttribute(InstLevelAttribute()) && n.getAttribute(InstLevelAttribute())==0 ){
               int addedLemmas = 0;
-              for( int i=0; i<(int)d_ith->d_op_triggers[op].size(); i++ ){
-                addedLemmas += d_ith->d_op_triggers[op][i]->addTerm( n );
+              for( size_t i=0; i<d_op_triggers[op].size(); i++ ){
+                addedLemmas += d_op_triggers[op][i]->addTerm( n );
               }
               //Message() << "Terms, added lemmas: " << addedLemmas << std::endl;
               d_quantEngine->flushLemmas( &d_quantEngine->getTheoryEngine()->theoryOf( THEORY_QUANTIFIERS )->getOutputChannel() );
@@ -130,6 +131,7 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
    int alreadyCongruentCount = 0;
    //rebuild d_func/pred_map_trie for each operation, this will calculate all congruent terms
    for( std::map< Node, std::vector< Node > >::iterator it = d_op_map.begin(); it != d_op_map.end(); ++it ){
+     d_op_count[ it->first ] = 0;
      if( !it->second.empty() ){
        if( it->second[0].getType().isBoolean() ){
          d_pred_map_trie[ 0 ][ it->first ].d_data.clear();
@@ -138,6 +140,7 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
          d_func_map_trie[ it->first ].d_data.clear();
          for( int i=0; i<(int)it->second.size(); i++ ){
            Node n = it->second[i];
+           computeModelBasisArgAttribute( n );
            if( !n.getAttribute(NoMatchAttribute()) ){
              if( !d_func_map_trie[ it->first ].addTerm( d_quantEngine, n ) ){
                NoMatchAttribute nma;
@@ -145,6 +148,7 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
                congruentCount++;
              }else{
                nonCongruentCount++;
+               d_op_count[ it->first ]++;
              }
            }else{
              congruentCount++;
@@ -156,39 +160,34 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
    }
    for( int i=0; i<2; i++ ){
      Node n = NodeManager::currentNM()->mkConst( i==1 );
-     eq::EqClassIterator eqc( d_quantEngine->getEqualityQuery()->getRepresentative( n ),
-                              d_quantEngine->getEqualityQuery()->getEngine() );
-     while( !eqc.isFinished() ){
-       Node en = (*eqc);
-       if( en.getKind()==APPLY_UF && !en.hasAttribute(InstConstantAttribute()) ){
-         if( !en.getAttribute(NoMatchAttribute()) ){
-           Node op = en.getOperator();
-           if( !d_pred_map_trie[i][op].addTerm( d_quantEngine, en ) ){
-             NoMatchAttribute nma;
-             en.setAttribute(nma,true);
-             congruentCount++;
+     if( d_quantEngine->getEqualityQuery()->getEngine()->hasTerm( n ) ){
+       eq::EqClassIterator eqc( d_quantEngine->getEqualityQuery()->getEngine()->getRepresentative( n ),
+                                d_quantEngine->getEqualityQuery()->getEngine() );
+       while( !eqc.isFinished() ){
+         Node en = (*eqc);
+         computeModelBasisArgAttribute( en );
+         if( en.getKind()==APPLY_UF && !en.hasAttribute(InstConstantAttribute()) ){
+           if( !en.getAttribute(NoMatchAttribute()) ){
+             Node op = en.getOperator();
+             if( !d_pred_map_trie[i][op].addTerm( d_quantEngine, en ) ){
+               NoMatchAttribute nma;
+               en.setAttribute(nma,true);
+               congruentCount++;
+             }else{
+               nonCongruentCount++;
+               d_op_count[ op ]++;
+             }
            }else{
-             nonCongruentCount++;
+             alreadyCongruentCount++;
            }
-         }else{
-           alreadyCongruentCount++;
          }
+         ++eqc;
        }
-       ++eqc;
      }
    }
    Debug("term-db-cong") << "TermDb: Reset" << std::endl;
    Debug("term-db-cong") << "Congruent/Non-Congruent = ";
    Debug("term-db-cong") << congruentCount << "(" << alreadyCongruentCount << ") / " << nonCongruentCount << std::endl;
-}
-
-void TermDb::registerModelBasis( Node n, Node gn ){
-  if( d_model_basis.find( n )==d_model_basis.end() ){
-    d_model_basis[n] = gn;
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      registerModelBasis( n[i], gn[i] );
-    }
-  }
 }
 
 Node TermDb::getModelBasisTerm( TypeNode tn, int i ){
@@ -223,8 +222,32 @@ Node TermDb::getModelBasisOpTerm( Node op ){
   return d_model_basis_op_term[op];
 }
 
+Node TermDb::getModelBasis( Node f, Node n ){
+  //make model basis
+  if( d_model_basis_terms.find( f )==d_model_basis_terms.end() ){
+    for( int j=0; j<(int)f[0].getNumChildren(); j++ ){
+      d_model_basis_terms[f].push_back( getModelBasisTerm( f[0][j].getType() ) );
+    }
+  }
+  Node gn = n.substitute( d_inst_constants[f].begin(), d_inst_constants[f].end(),
+                          d_model_basis_terms[f].begin(), d_model_basis_terms[f].end() );
+  return gn;
+}
+
+Node TermDb::getModelBasisBody( Node f ){
+  if( d_model_basis_body.find( f )==d_model_basis_body.end() ){
+    Node n = getInstConstantBody( f );
+    d_model_basis_body[f] = getModelBasis( f, n );
+  }
+  return d_model_basis_body[f];
+}
+
 void TermDb::computeModelBasisArgAttribute( Node n ){
   if( !n.hasAttribute(ModelBasisArgAttribute()) ){
+    //ensure that the model basis terms have been defined
+    if( n.getKind()==APPLY_UF ){
+      getModelBasisOpTerm( n.getOperator() );
+    }
     uint64_t val = 0;
     //determine if it has model basis attribute
     for( int j=0; j<(int)n.getNumChildren(); j++ ){
@@ -255,17 +278,6 @@ void TermDb::makeInstantiationConstantsFor( Node f ){
   }
 }
 
-void TermDb::setInstantiationLevelAttr( Node n, uint64_t level ){
-  if( !n.hasAttribute(InstLevelAttribute()) ){
-    InstLevelAttribute ila;
-    n.setAttribute(ila,level);
-  }
-  for( int i=0; i<(int)n.getNumChildren(); i++ ){
-    setInstantiationLevelAttr( n[i], level );
-  }
-}
-
-
 void TermDb::setInstantiationConstantAttr( Node n, Node f ){
   if( !n.hasAttribute(InstConstantAttribute()) ){
     bool setAttr = false;
@@ -289,18 +301,62 @@ void TermDb::setInstantiationConstantAttr( Node n, Node f ){
   }
 }
 
+/** get the i^th instantiation constant of f */
+Node TermDb::getInstantiationConstant( Node f, int i ) const {
+  std::map< Node, std::vector< Node > >::const_iterator it = d_inst_constants.find( f );
+  if( it!=d_inst_constants.end() ){
+    return it->second[i];
+  }else{
+    return Node::null();
+  }
+}
 
-Node TermDb::getCounterexampleBody( Node f ){
-  std::map< Node, Node >::iterator it = d_counterexample_body.find( f );
-  if( it==d_counterexample_body.end() ){
+/** get number of instantiation constants for f */
+int TermDb::getNumInstantiationConstants( Node f ) const {
+  std::map< Node, std::vector< Node > >::const_iterator it = d_inst_constants.find( f );
+  if( it!=d_inst_constants.end() ){
+    return (int)it->second.size();
+  }else{
+    return 0;
+  }
+}
+
+Node TermDb::getInstConstantBody( Node f ){
+  std::map< Node, Node >::iterator it = d_inst_const_body.find( f );
+  if( it==d_inst_const_body.end() ){
     makeInstantiationConstantsFor( f );
-    Node n = getSubstitutedNode( f[1], f );
-    d_counterexample_body[ f ] = n;
+    Node n = getInstConstantNode( f[1], f );
+    d_inst_const_body[ f ] = n;
     return n;
   }else{
     return it->second;
   }
 }
+
+Node TermDb::getCounterexampleLiteral( Node f ){
+  if( d_ce_lit.find( f )==d_ce_lit.end() ){
+    Node ceBody = getInstConstantBody( f );
+    Node ceLit = d_quantEngine->getValuation().ensureLiteral( ceBody.notNode() );
+    d_ce_lit[ f ] = ceLit;
+    setInstantiationConstantAttr( ceLit, f );
+  }
+  return d_ce_lit[ f ];
+}
+
+Node TermDb::getInstConstantNode( Node n, Node f ){
+  return convertNodeToPattern(n,f,d_vars[f],d_inst_constants[ f ]);
+}
+
+Node TermDb::convertNodeToPattern( Node n, Node f, const std::vector<Node> & vars,
+                                              const std::vector<Node> & inst_constants){
+  Node n2 = n.substitute( vars.begin(), vars.end(),
+                          inst_constants.begin(),
+                          inst_constants.end() );
+  setInstantiationConstantAttr( n2, f );
+  return n2;
+}
+
+
 
 Node TermDb::getSkolemizedBody( Node f ){
   Assert( f.getKind()==FORALL );
@@ -313,25 +369,8 @@ Node TermDb::getSkolemizedBody( Node f ){
     }
     d_skolem_body[ f ] = f[ 1 ].substitute( vars.begin(), vars.end(),
                                             d_skolem_constants[ f ].begin(), d_skolem_constants[ f ].end() );
-    if( f.hasAttribute(InstLevelAttribute()) ){
-      setInstantiationLevelAttr( d_skolem_body[ f ], f.getAttribute(InstLevelAttribute()) );
-    }
   }
   return d_skolem_body[ f ];
-}
-
-
-Node TermDb::getSubstitutedNode( Node n, Node f ){
-  return convertNodeToPattern(n,f,d_vars[f],d_inst_constants[ f ]);
-}
-
-Node TermDb::convertNodeToPattern( Node n, Node f, const std::vector<Node> & vars,
-                                              const std::vector<Node> & inst_constants){
-  Node n2 = n.substitute( vars.begin(), vars.end(),
-                          inst_constants.begin(),
-                          inst_constants.end() );
-  setInstantiationConstantAttr( n2, f );
-  return n2;
 }
 
 Node TermDb::getFreeVariableForInstConstant( Node n ){
@@ -369,4 +408,68 @@ const std::vector<Node> & TermDb::getParents(TNode n, TNode f, int arg){
   }
   static std::vector<Node> empty;
   return empty;
+}
+
+void TermDb::computeVarContains( Node n ) {
+  if( d_var_contains.find( n )==d_var_contains.end() ){
+    d_var_contains[n].clear();
+    computeVarContains2( n, n );
+  }
+}
+
+void TermDb::computeVarContains2( Node n, Node parent ){
+  if( n.getKind()==INST_CONSTANT ){
+    if( std::find( d_var_contains[parent].begin(), d_var_contains[parent].end(), n )==d_var_contains[parent].end() ){
+      d_var_contains[parent].push_back( n );
+    }
+  }else{
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      computeVarContains2( n[i], parent );
+    }
+  }
+}
+
+bool TermDb::isVariableSubsume( Node n1, Node n2 ){
+  if( n1==n2 ){
+    return true;
+  }else{
+    //Notice() << "is variable subsume ? " << n1 << " " << n2 << std::endl;
+    computeVarContains( n1 );
+    computeVarContains( n2 );
+    for( int i=0; i<(int)d_var_contains[n2].size(); i++ ){
+      if( std::find( d_var_contains[n1].begin(), d_var_contains[n1].end(), d_var_contains[n2][i] )==d_var_contains[n1].end() ){
+        //Notice() << "no" << std::endl;
+        return false;
+      }
+    }
+    //Notice() << "yes" << std::endl;
+    return true;
+  }
+}
+
+void TermDb::getVarContains( Node f, std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains ){
+  for( int i=0; i<(int)pats.size(); i++ ){
+    computeVarContains( pats[i] );
+    varContains[ pats[i] ].clear();
+    for( int j=0; j<(int)d_var_contains[pats[i]].size(); j++ ){
+      if( d_var_contains[pats[i]][j].getAttribute(InstConstantAttribute())==f ){
+        varContains[ pats[i] ].push_back( d_var_contains[pats[i]][j] );
+      }
+    }
+  }
+}
+
+void TermDb::getVarContainsNode( Node f, Node n, std::vector< Node >& varContains ){
+  computeVarContains( n );
+  for( int j=0; j<(int)d_var_contains[n].size(); j++ ){
+    if( d_var_contains[n][j].getAttribute(InstConstantAttribute())==f ){
+      varContains.push_back( d_var_contains[n][j] );
+    }
+  }
+}
+
+void TermDb::registerTrigger( theory::inst::Trigger* tr, Node op ){
+  if( std::find( d_op_triggers[op].begin(), d_op_triggers[op].end(), tr )==d_op_triggers[op].end() ){
+    d_op_triggers[op].push_back( tr );
+  }
 }

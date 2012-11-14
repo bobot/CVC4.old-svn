@@ -5,9 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -20,7 +18,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include <sys/errno.h>
+#include <cerrno>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <antlr3input.h>
@@ -97,8 +95,7 @@ static ANTLR3_UINT32 MemoryMapFile(pANTLR3_INPUT_STREAM input,
     return ANTLR3_ERR_NOFILE;
   }
 
-  input->data = mmap(0, input->sizeBuf, PROT_READ, MAP_FILE | MAP_PRIVATE, fd,
-                     0);
+  input->data = mmap(0, input->sizeBuf, PROT_READ, MAP_PRIVATE, fd, 0);
   errno = 0;
   if(intptr_t(input->data) == -1) {
     return ANTLR3_ERR_NOMEM;

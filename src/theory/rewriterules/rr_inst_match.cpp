@@ -5,9 +5,7 @@
  ** Major contributors: bobot
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
- ** Courant Institute of Mathematical Sciences
- ** New York University
+ ** Copyright (c) 2009-2012  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -25,6 +23,8 @@
 #include "theory/rewriterules/rr_trigger.h"
 #include "theory/rewriterules/rr_inst_match_impl.h"
 #include "theory/rewriterules/rr_candidate_generator.h"
+#include "theory/quantifiers/candidate_generator.h"
+#include "theory/rewriterules/efficient_e_matching.h"
 
 using namespace CVC4;
 using namespace CVC4::kind;
@@ -142,7 +142,8 @@ ApplyMatcher::ApplyMatcher( Node pat, QuantifiersEngine* qe): d_pattern(pat){
 
   //set-up d_variables, d_constants, d_childrens
   for( size_t i=0; i< d_pattern.getNumChildren(); ++i ){
-    EqualityQuery* q = qe->getEqualityQuery(d_pattern[i].getType());
+    //EqualityQuery* q = qe->getEqualityQuery(d_pattern[i].getType());
+    EqualityQuery* q = qe->getEqualityQuery();
     Assert( q != NULL );
     if( d_pattern[i].hasAttribute(InstConstantAttribute()) ){
       if( d_pattern[i].getKind()==INST_CONSTANT ){
@@ -329,7 +330,8 @@ class VarMatcher: public Matcher{
   EqualityQuery* d_q;
 public:
   VarMatcher(Node var, QuantifiersEngine* qe): d_var(var), d_binded(false){
-    d_q = qe->getEqualityQuery(var.getType());
+    //d_q = qe->getEqualityQuery(var.getType());
+    d_q = qe->getEqualityQuery();
   }
   void resetInstantiationRound( QuantifiersEngine* qe ){};
   bool reset( TNode n, InstMatch& m, QuantifiersEngine* qe ){
@@ -602,9 +604,9 @@ private:
 public:
   void mkCandidateGenerator(){
     if(classes)
-      d_cg = d_qe->getRRCanGenClasses();
+      d_cg = new GenericCandidateGeneratorClasses(d_qe);
     else
-     d_cg = d_qe->getRRCanGenClass();
+      d_cg = new GenericCandidateGeneratorClass(d_qe);
   }
 
   GenericCandidateGeneratorClasses(QuantifiersEngine* qe):
@@ -1224,8 +1226,8 @@ private:
   std::vector< PatMatcher* > d_patterns;
   std::vector< Matcher* > d_direct_patterns;
   InstMatch d_im;
-  uf::EfficientHandler d_eh;
-  uf::EfficientHandler::MultiCandidate d_mc;
+  EfficientHandler d_eh;
+  EfficientHandler::MultiCandidate d_mc;
   InstMatchTrie2Pairs<true> d_cache;
   std::vector<Node> d_pats;
   // bool indexDone( size_t i){
@@ -1402,9 +1404,8 @@ public:
         d_direct_patterns.push_back(new ApplyMatcher(pats[i],qe));
       }
     };
-    Theory* th_uf = qe->getTheoryEngine()->theoryOf( theory::THEORY_UF );
-    uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
-    ith->registerEfficientHandler(d_eh, pats);
+    EfficientEMatcher* eem = qe->getEfficientEMatcher();
+    eem->registerEfficientHandler(d_eh, pats);
   };
   void resetInstantiationRound( QuantifiersEngine* qe ){
     Assert(d_step == ES_START || d_step == ES_STOP);
