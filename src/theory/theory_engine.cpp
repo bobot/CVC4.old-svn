@@ -311,7 +311,7 @@ void TheoryEngine::check(Theory::Effort effort) {
       propagate(effort);
 
       // We do combination if all has been processed and we are in fullcheck
-      if (Theory::fullEffort(effort) && d_logicInfo.isSharingEnabled() && !d_factsAsserted && !d_lemmasAdded) {
+      if (Theory::fullEffort(effort) && d_logicInfo.isTheoryCombinationEnabled() && !d_factsAsserted && !d_lemmasAdded) {
         // Do the combination
         Debug("theory") << "TheoryEngine::check(" << effort << "): running combination" << std::endl;
         combineTheories();
@@ -1021,7 +1021,7 @@ void TheoryEngine::assertFact(TNode literal)
   bool polarity = literal.getKind() != kind::NOT;
   TNode atom = polarity ? literal : literal[0];
 
-  if (d_logicInfo.isSharingEnabled() || d_logicInfo.isQuantified()) {
+  if (d_logicInfo.isSharingEnabled()) {
 
     // If any shared terms, it's time to do sharing work
     if (d_sharedTerms.hasSharedTerms(atom)) {

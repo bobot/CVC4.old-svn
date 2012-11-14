@@ -104,6 +104,11 @@ public:
   /** Is sharing enabled for this logic? */
   bool isSharingEnabled() const {
     CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
+    return d_sharingTheories > 1 || isQuantified();
+  }
+
+  bool isTheoryCombinationEnabled() const {
+    CheckArgument(d_locked, *this, "This LogicInfo isn't locked yet, and cannot be queried");
     return d_sharingTheories > 1;
   }
 
