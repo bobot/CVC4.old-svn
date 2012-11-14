@@ -68,7 +68,7 @@ public:
 
   /** Return type tells us if there are more than one theory or not */
   typedef bool return_type;
-  
+
   PreRegisterVisitor(TheoryEngine* engine, context::Context* context)
   : d_engine(engine)
   , d_visited(context)
@@ -80,12 +80,12 @@ public:
    * Returns true is current has already been pre-registered with both current and parent theories.
    */
   bool alreadyVisited(TNode current, TNode parent);
-  
+
   /**
    * Pre-registeres current with any of the current and parent theories that haven't seen the term yet.
    */
   void visit(TNode current, TNode parent);
-  
+
   /**
    * Marks the node as the starting literal.
    */
@@ -100,7 +100,7 @@ public:
 
 
 /**
- * The reason why we need to make this outside of the pre-registration loop is because we need a shared term x to 
+ * The reason why we need to make this outside of the pre-registration loop is because we need a shared term x to
  * be associated with every atom that contains it. For example, if given f(x) >= 0 and f(x) + 1 >= 0, although f(x) has
  * been visited already, we need to visit it again, since we need to associate it with both atoms.
  */
@@ -120,28 +120,29 @@ class SharedTermsVisitor {
    */
   std::string toString() const;
 
-  /** 
+  /**
    * The initial atom.
    */
-  TNode d_atom; 
-    
+  TNode d_atom;
+
+  const LogicInfo& d_logicInfo;
 public:
 
   typedef void return_type;
 
-  SharedTermsVisitor(SharedTermsDatabase& sharedTerms)
-  : d_sharedTerms(sharedTerms) {}
+  SharedTermsVisitor(SharedTermsDatabase& sharedTerms, const LogicInfo& logicInfo)
+  : d_sharedTerms(sharedTerms), d_logicInfo( logicInfo ) {}
 
   /**
    * Returns true is current has already been pre-registered with both current and parent theories.
    */
   bool alreadyVisited(TNode current, TNode parent) const;
-  
+
   /**
    * Pre-registeres current with any of the current and parent theories that haven't seen the term yet.
    */
   void visit(TNode current, TNode parent);
-  
+
   /**
    * Marks the node as the starting literal.
    */
@@ -154,7 +155,7 @@ public:
 
   /**
    * Clears the internal state.
-   */   
+   */
   void clear();
 };
 

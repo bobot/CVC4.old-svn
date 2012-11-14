@@ -71,22 +71,6 @@ void TheoryQuantifiers::presolve() {
   Debug("quantifiers-presolve") << "TheoryQuantifiers::presolve()" << endl;
 }
 
-Node TheoryQuantifiers::getValue(TNode n) {
-  //NodeManager* nodeManager = NodeManager::currentNM();
-  switch(n.getKind()) {
-  case FORALL:
-  case EXISTS:
-    bool value;
-    if( d_valuation.hasSatValue( n, value ) ){
-      return NodeManager::currentNM()->mkConst(value);
-    }else{
-      return NodeManager::currentNM()->mkConst(false);  //FIX_THIS?
-    }
-    break;
-  default:
-    Unhandled(n.getKind());
-  }
-}
 
 void TheoryQuantifiers::collectModelInfo( TheoryModel* m, bool fullModel ){
 
@@ -110,13 +94,13 @@ void TheoryQuantifiers::check(Effort e) {
           assertExistential( assertion );
           break;
         default:
-          Unhandled(assertion[0].getKind());
+          assertFact( assertion[0], false );
           break;
         }
       }
       break;
     default:
-      Unhandled(assertion.getKind());
+      assertFact( assertion, true );
       break;
     }
   }
@@ -154,6 +138,11 @@ void TheoryQuantifiers::assertExistential( Node n ){
       d_skolemized[n] = true;
     }
   }
+}
+
+void TheoryQuantifiers::assertFact( Node n, bool pol ){
+ // std::cout << n << " " << pol << std::endl;
+
 }
 
 bool TheoryQuantifiers::flipDecision(){

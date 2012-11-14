@@ -60,7 +60,6 @@ public:
   void check(Effort e);
   void propagate(Effort level);
   Node getNextDecisionRequest();
-  Node getValue(TNode n);
   void collectModelInfo( TheoryModel* m, bool fullModel );
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
@@ -69,6 +68,7 @@ public:
 private:
   void assertUniversal( Node n );
   void assertExistential( Node n );
+  void assertFact( Node n, bool pol );
   bool restart();
 };/* class TheoryQuantifiers */
 

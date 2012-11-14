@@ -79,7 +79,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_inPreregister(false),
   d_factsAsserted(context, false),
   d_preRegistrationVisitor(this, context),
-  d_sharedTermsVisitor(d_sharedTerms),
+  d_sharedTermsVisitor(d_sharedTerms, logicInfo),
   d_unconstrainedSimp(context, logicInfo)
 {
   for(TheoryId theoryId = theory::THEORY_FIRST; theoryId != theory::THEORY_LAST; ++ theoryId) {
@@ -145,7 +145,7 @@ void TheoryEngine::preRegister(TNode preprocessed) {
 
       // Pre-register the terms in the atom
       bool multipleTheories = NodeVisitor<PreRegisterVisitor>::run(d_preRegistrationVisitor, preprocessed);
-      if (multipleTheories) {
+      if (multipleTheories || d_logicInfo.isQuantified() ) {
         // Collect the shared terms if there are multipe theories
         NodeVisitor<SharedTermsVisitor>::run(d_sharedTermsVisitor, preprocessed);
       }
@@ -1021,7 +1021,7 @@ void TheoryEngine::assertFact(TNode literal)
   bool polarity = literal.getKind() != kind::NOT;
   TNode atom = polarity ? literal : literal[0];
 
-  if (d_logicInfo.isSharingEnabled()) {
+  if (d_logicInfo.isSharingEnabled() || d_logicInfo.isQuantified()) {
 
     // If any shared terms, it's time to do sharing work
     if (d_sharedTerms.hasSharedTerms(atom)) {

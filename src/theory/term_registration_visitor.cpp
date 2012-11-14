@@ -36,8 +36,7 @@ bool PreRegisterVisitor::alreadyVisited(TNode current, TNode parent) {
 
   if( ( parent.getKind() == kind::FORALL ||
         parent.getKind() == kind::EXISTS ||
-        parent.getKind() == kind::REWRITE_RULE /*||
-        parent.getKind() == kind::CARDINALITY_CONSTRAINT*/ ) &&
+        parent.getKind() == kind::REWRITE_RULE ) &&
       current != parent ) {
     Debug("register::internal") << "quantifier:true" << std::endl;
     return true;
@@ -160,8 +159,7 @@ bool SharedTermsVisitor::alreadyVisited(TNode current, TNode parent) const {
 
   if( ( parent.getKind() == kind::FORALL ||
         parent.getKind() == kind::EXISTS ||
-        parent.getKind() == kind::REWRITE_RULE /*||
-        parent.getKind() == kind::CARDINALITY_CONSTRAINT*/  ) &&
+        parent.getKind() == kind::REWRITE_RULE  ) &&
       current != parent ) {
     Debug("register::internal") << "quantifier:true" << std::endl;
     return true;
@@ -180,13 +178,15 @@ bool SharedTermsVisitor::alreadyVisited(TNode current, TNode parent) const {
   TheoryId parentTheoryId  = Theory::theoryOf(parent);
 
   // Should we use the theory of the type
-#if 0
-  bool useType = current != parent && currentTheoryId != parentTheoryId;
-#else
   bool useType = false;
   TheoryId typeTheoryId = THEORY_LAST;
 
+  // Should we notify quantifiers
+  bool useQuant = false;
+
   if (current != parent) {
+    useQuant = d_logicInfo.isQuantified();
+
     if (currentTheoryId != parentTheoryId) {
       // If enclosed by different theories it's shared -- in read(a, f(a)) f(a) should be shared with integers
       TypeNode type = current.getType();
@@ -208,22 +208,20 @@ bool SharedTermsVisitor::alreadyVisited(TNode current, TNode parent) const {
       }
     }
   }
-#endif
 
-  if (Theory::setContains(currentTheoryId, theories)) {
-      if (Theory::setContains(parentTheoryId, theories)) {
-        if (useType) {
-          ////TheoryId typeTheoryId = Theory::theoryOf(current.getType());
-          return Theory::setContains(typeTheoryId, theories);
-        } else {
-          return true;
-        }
-      } else {
-        return false;
-      }
-  } else {
+  if (!Theory::setContains(currentTheoryId, theories)) {
     return false;
   }
+  if (!Theory::setContains(parentTheoryId, theories)) {
+    return false;
+  }
+  if (useType && !Theory::setContains(typeTheoryId, theories)) {
+    return false;
+  }
+  if (useQuant && !Theory::setContains(THEORY_QUANTIFIERS, theories)) {
+    return false;
+  }
+  return true;
 }
 
 void SharedTermsVisitor::visit(TNode current, TNode parent) {
@@ -237,14 +235,17 @@ void SharedTermsVisitor::visit(TNode current, TNode parent) {
   TheoryId currentTheoryId = Theory::theoryOf(current);
   TheoryId parentTheoryId  = Theory::theoryOf(parent);
 
-#if 0
-  bool useType = current != parent && currentTheoryId != parentTheoryId;
-#else
   // Should we use the theory of the type
   bool useType = false;
   TheoryId typeTheoryId = THEORY_LAST;
 
+  // Should the quantifiers be added
+  bool useQuant = false;
+
   if (current != parent) {
+    // If we're in quantified everything is shared with T_Q
+    useQuant = d_logicInfo.isQuantified();
+
     if (currentTheoryId != parentTheoryId) {
       // If enclosed by different theories it's shared -- in read(a, f(a)) f(a) should be shared with integers
       TypeNode type = current.getType();
@@ -266,7 +267,6 @@ void SharedTermsVisitor::visit(TNode current, TNode parent) {
       }
     }
   }
-#endif
 
   Theory::Set visitedTheories = d_visited[current];
   Debug("register::internal") << "SharedTermsVisitor::visit(" << current << "," << parent << "): previously registered with " << Theory::setToString(visitedTheories) << std::endl;
@@ -279,11 +279,14 @@ void SharedTermsVisitor::visit(TNode current, TNode parent) {
     Debug("register::internal") << "SharedTermsVisitor::visit(" << current << "," << parent << "): adding " << parentTheoryId << std::endl;
   }
   if (useType) {
-    //////TheoryId typeTheoryId = Theory::theoryOf(current.getType());
     if (!Theory::setContains(typeTheoryId, visitedTheories)) {
       visitedTheories = Theory::setInsert(typeTheoryId, visitedTheories);
       Debug("register::internal") << "SharedTermsVisitor::visit(" << current << "," << parent << "): adding " << typeTheoryId << std::endl;
     }
+  }
+  if (useQuant && !Theory::setContains(THEORY_QUANTIFIERS, visitedTheories)) {
+    visitedTheories = Theory::setInsert(THEORY_QUANTIFIERS, visitedTheories);
+    Debug("register::internal") << "SharedTermsVisitor::visit(" << current << "," << parent << "): adding " << typeTheoryId << std::endl;
   }
   Debug("register::internal") << "SharedTermsVisitor::visit(" << current << "," << parent << "): now registered with " << Theory::setToString(visitedTheories) << std::endl;
 
