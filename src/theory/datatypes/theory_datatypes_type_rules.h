@@ -20,12 +20,15 @@
 #define __CVC4__THEORY__DATATYPES__THEORY_DATATYPES_TYPE_RULES_H
 
 #include "util/matcher.h"
+#include "expr/attribute.h"
 
 namespace CVC4 {
 
 namespace expr {
   namespace attr {
     struct DatatypeConstructorTypeGroundTermTag {};
+    struct DatatypeIsTupleTag {};
+    struct DatatypeIsRecordTag {};
   }/* CVC4::expr::attr namespace */
 }/* CVC4::expr namespace */
 
@@ -33,6 +36,11 @@ namespace theory {
 namespace datatypes {
 
 typedef expr::Attribute<expr::attr::DatatypeConstructorTypeGroundTermTag, Node> GroundTermAttr;
+/** Attribute true for datatype types that are replacements for tuple types */
+typedef expr::Attribute<expr::attr::DatatypeIsTupleTag, TypeNode> DatatypeTupleAttr;
+/** Attribute true for datatype types that are replacements for record types */
+typedef expr::Attribute<expr::attr::DatatypeIsRecordTag, TypeNode> DatatypeRecordAttr;
+
 
 struct DatatypeConstructorTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
@@ -284,7 +292,10 @@ struct TupleSelectTypeRule {
     const TupleSelect& ts = n.getOperator().getConst<TupleSelect>();
     TypeNode tupleType = n[0].getType(check);
     if(!tupleType.isTuple()) {
-      throw TypeCheckingExceptionPrivate(n, "Tuple-select expression formed over non-tuple");
+      if(!tupleType.hasAttribute(DatatypeRecordAttr())) {
+        throw TypeCheckingExceptionPrivate(n, "Tuple-select expression formed over non-tuple");
+      }
+      tupleType = tupleType.getAttribute(DatatypeTupleAttr());
     }
     if(ts.getIndex() >= tupleType.getNumChildren()) {
       std::stringstream ss;
@@ -305,7 +316,10 @@ struct TupleUpdateTypeRule {
     TypeNode newValue = n[1].getType(check);
     if(check) {
       if(!tupleType.isTuple()) {
-        throw TypeCheckingExceptionPrivate(n, "Tuple-update expression formed over non-tuple");
+        if(!tupleType.hasAttribute(DatatypeRecordAttr())) {
+          throw TypeCheckingExceptionPrivate(n, "Tuple-update expression formed over non-tuple");
+        }
+        tupleType = tupleType.getAttribute(DatatypeTupleAttr());
       }
       if(tu.getIndex() >= tupleType.getNumChildren()) {
         std::stringstream ss;
@@ -418,7 +432,10 @@ struct RecordSelectTypeRule {
     const RecordSelect& rs = n.getOperator().getConst<RecordSelect>();
     TypeNode recordType = n[0].getType(check);
     if(!recordType.isRecord()) {
-      throw TypeCheckingExceptionPrivate(n, "Record-select expression formed over non-record");
+      if(!recordType.hasAttribute(DatatypeRecordAttr())) {
+        throw TypeCheckingExceptionPrivate(n, "Record-select expression formed over non-record");
+      }
+      recordType = recordType.getAttribute(DatatypeRecordAttr());
     }
     const Record& rec = recordType.getRecord();
     Record::const_iterator field = rec.find(rs.getField());
@@ -441,7 +458,10 @@ struct RecordUpdateTypeRule {
     TypeNode newValue = n[1].getType(check);
     if(check) {
       if(!recordType.isRecord()) {
-        throw TypeCheckingExceptionPrivate(n, "Record-update expression formed over non-record");
+        if(!recordType.hasAttribute(DatatypeRecordAttr())) {
+          throw TypeCheckingExceptionPrivate(n, "Record-update expression formed over non-record");
+        }
+        recordType = recordType.getAttribute(DatatypeRecordAttr());
       }
       const Record& rec = recordType.getRecord();
       Record::const_iterator field = rec.find(ru.getField());

@@ -90,6 +90,53 @@ public:
         }
       }
     }
+    if(in.getKind() == kind::TUPLE_SELECT &&
+       in[0].getKind() == kind::TUPLE) {
+Debug("datatypes") << "REWRITING " << in << std::endl;
+Debug("datatypes") << "       TO " << in[0][in.getOperator().getConst<TupleSelect>().getIndex()] << std::endl;
+      return RewriteResponse(REWRITE_DONE, in[0][in.getOperator().getConst<TupleSelect>().getIndex()]);
+    }
+    if(in.getKind() == kind::TUPLE_UPDATE &&
+       in[0].getKind() == kind::TUPLE) {
+      size_t ix = in.getOperator().getConst<TupleUpdate>().getIndex();
+      NodeBuilder<> b(kind::TUPLE);
+      for(TNode::const_iterator i = in[0].begin(); i != in[0].end(); ++i, --ix) {
+        if(ix == 0) {
+          b << in[1];
+        } else {
+          b << *i;
+        }
+      }
+      Node n = b;
+      Assert(n.getType() == in.getType());
+Debug("datatypes") << "REWRITING " << in << std::endl;
+Debug("datatypes") << "       TO " << n << std::endl;
+      return RewriteResponse(REWRITE_DONE, n);
+    }
+    if(in.getKind() == kind::RECORD_SELECT &&
+       in[0].getKind() == kind::RECORD) {
+Debug("datatypes") << "REWRITING " << in << std::endl;
+Debug("datatypes") << "       TO " << in[0][in[0].getOperator().getConst<Record>().getIndex(in.getOperator().getConst<RecordSelect>().getField())] << std::endl;
+      return RewriteResponse(REWRITE_DONE, in[0][in[0].getOperator().getConst<Record>().getIndex(in.getOperator().getConst<RecordSelect>().getField())]);
+    }
+    if(in.getKind() == kind::RECORD_UPDATE &&
+       in[0].getKind() == kind::RECORD) {
+      size_t ix = in[0].getOperator().getConst<Record>().getIndex(in.getConst<RecordUpdate>().getField());
+      NodeBuilder<> b(kind::RECORD);
+      b << in[0].getOperator();
+      for(TNode::const_iterator i = in[0].begin(); i != in[0].end(); ++i, --ix) {
+        if(ix == 0) {
+          b << in[1];
+        } else {
+          b << *i;
+        }
+      }
+      Node n = b;
+      Assert(n.getType() == in.getType());
+Debug("datatypes") << "REWRITING " << in << std::endl;
+Debug("datatypes") << "       TO " << n << std::endl;
+      return RewriteResponse(REWRITE_DONE, n);
+    }
 
     if(in.getKind() == kind::EQUAL && in[0] == in[1]) {
       return RewriteResponse(REWRITE_DONE,
@@ -113,7 +160,9 @@ public:
   static inline void shutdown() {}
 
   static bool checkClash( Node n1, Node n2 ) {
-    if( n1.getKind() == kind::APPLY_CONSTRUCTOR && n2.getKind() == kind::APPLY_CONSTRUCTOR ) {
+    if( (n1.getKind() == kind::APPLY_CONSTRUCTOR && n2.getKind() == kind::APPLY_CONSTRUCTOR) ||
+        (n1.getKind() == kind::TUPLE && n2.getKind() == kind::TUPLE) ||
+        (n1.getKind() == kind::RECORD && n2.getKind() == kind::RECORD) ) {
       if( n1.getOperator() != n2.getOperator() ) {
         return true;
       } else {
@@ -137,7 +186,8 @@ public:
   /** is this term a datatype */
   static bool isTermDatatype( Node n ){
     TypeNode tn = n.getType();
-    return tn.isDatatype() || tn.isParametricDatatype();
+    return tn.isDatatype() || tn.isParametricDatatype() ||
+           tn.isTuple() || tn.isRecord();
   }
 
 };/* class DatatypesRewriter */

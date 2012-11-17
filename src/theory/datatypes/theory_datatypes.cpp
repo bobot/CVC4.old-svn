@@ -22,6 +22,7 @@
 #include "util/cvc4_assert.h"
 #include "theory/datatypes/theory_datatypes_instantiator.h"
 #include "theory/datatypes/datatypes_rewriter.h"
+#include "theory/datatypes/theory_datatypes_type_rules.h"
 #include "theory/model.h"
 #include "smt/options.h"
 
@@ -280,6 +281,113 @@ void TheoryDatatypes::preRegisterTerm(TNode n) {
 
 void TheoryDatatypes::presolve() {
   Debug("datatypes") << "TheoryDatatypes::presolve()" << endl;
+}
+
+Node TheoryDatatypes::ppRewrite(TNode in) {
+
+  // we only care about tuples and records here
+  if(in.getKind() != kind::TUPLE_SELECT &&
+     in.getKind() != kind::TUPLE_UPDATE &&
+     in.getKind() != kind::TUPLE &&
+     in.getKind() != kind::RECORD_SELECT &&
+     in.getKind() != kind::RECORD_UPDATE &&
+     in.getKind() != kind::RECORD) {
+    // nothing to do
+    return in;
+  }
+
+  Debug("datatypes") << "TheoryDatatypes::ppRewrite(" << in << ")" << endl;
+
+  // get the type of the tuple or record
+  TypeNode t;
+  if(in.getKind() == kind::TUPLE || in.getKind() == kind::RECORD) {
+    t = in.getType();
+  } else {
+    t = in[0].getType();
+  }
+  // Here, the "t" might have already been rewritten to a datatype.
+  // We want the original tuple or record type.
+  if(t.hasAttribute(DatatypeTupleAttr())) {
+    t = t.getAttribute(DatatypeTupleAttr());
+  } else if(t.hasAttribute(DatatypeRecordAttr())) {
+    t = t.getAttribute(DatatypeRecordAttr());
+  }
+
+  // if the type doesn't have an associated datatype, then make one for it
+  TypeNode& dtt = d_tupleAndRecordTypes[t];
+  if(dtt.isNull()) {
+    if(t.isTuple()) {
+      Datatype dt("__cvc4_tuple");
+      DatatypeConstructor c("__cvc4_tuple_ctor");
+      for(TypeNode::const_iterator i = t.begin(); i != t.end(); ++i) {
+        c.addArg("__cvc4_tuple_stor", (*i).toType());
+      }
+      dt.addConstructor(c);
+      dtt = TypeNode::fromType(NodeManager::currentNM()->toExprManager()->mkDatatypeType(dt));
+      Debug("datatypes") << "REWROTE " << t << " to " << dtt << std::endl;
+    } else {
+      const Record& rec = t.getRecord();
+      Datatype dt("__cvc4_record");
+      DatatypeConstructor c("__cvc4_record_ctor");
+      for(Record::const_iterator i = rec.begin(); i != rec.end(); ++i) {
+        c.addArg((*i).first, (*i).second);
+      }
+      dt.addConstructor(c);
+      dtt = TypeNode::fromType(NodeManager::currentNM()->toExprManager()->mkDatatypeType(dt));
+      Debug("datatypes") << "REWROTE " << t << " to " << dtt << std::endl;
+    }
+    dtt.setAttribute(DatatypeRecordAttr(), t);
+  } else {
+    Debug("datatypes") << "REUSING cached " << t << ": " << dtt << std::endl;
+  }
+
+  const Datatype& dt = DatatypeType(dtt.toType()).getDatatype();
+
+  // now rewrite the expression
+  Node n;
+  if(in.getKind() == kind::TUPLE || in.getKind() == kind::RECORD) {
+    NodeBuilder<> b(kind::APPLY_CONSTRUCTOR);
+    b << Node::fromExpr(dt[0].getConstructor());
+    b.append(in.begin(), in.end());
+    n = b;
+  } else if(in.getKind() == kind::TUPLE_SELECT) {
+    n = NodeManager::currentNM()->mkNode(kind::APPLY_SELECTOR, Node::fromExpr(dt[0][in.getOperator().getConst<TupleSelect>().getIndex()].getSelector()), in[0]);
+  } else if(in.getKind() == kind::RECORD_SELECT) {
+    n = NodeManager::currentNM()->mkNode(kind::APPLY_SELECTOR, Node::fromExpr(dt[0][in.getOperator().getConst<RecordSelect>().getField()].getSelector()), in[0]);
+  } else if(in.getKind() == kind::TUPLE_UPDATE || in.getKind() == kind::RECORD_UPDATE) {
+    NodeBuilder<> b(kind::APPLY_CONSTRUCTOR);
+    b << Node::fromExpr(dt[0].getConstructor());
+    size_t size, updateIndex;
+    if(in.getKind() == kind::TUPLE_UPDATE) {
+      size = t.getNumChildren();
+      updateIndex = in.getOperator().getConst<TupleUpdate>().getIndex();
+    } else { // kind::RECORD_UPDATE
+      const Record& record = t.getConst<Record>();
+      size = record.getNumFields();
+      updateIndex = record.getIndex(in.getOperator().getConst<RecordUpdate>().getField());
+    }
+    Debug("datatypes") << "expr is " << in << std::endl;
+    Debug("datatypes") << "updateIndex is " << updateIndex << std::endl;
+    Debug("datatypes") << "t is " << t << std::endl;
+    Debug("datatypes") << "t has arity " << size << std::endl;
+    for(size_t i = 0; i < size; ++i) {
+      if(i == updateIndex) {
+        b << in[1];
+        Debug("datatypes") << "arg " << i << " gets updated to " << in[1] << std::endl;
+      } else {
+        b << NodeManager::currentNM()->mkNode(kind::APPLY_SELECTOR, Node::fromExpr(dt[0][i].getSelector()), in[0]);
+        Debug("datatypes") << "arg " << i << " copies " << b[b.getNumChildren() - 1] << std::endl;
+      }
+    }
+    Debug("datatypes") << "builder says " << b << std::endl;
+    n = b;
+  }
+
+  Assert(!n.isNull());
+
+  Debug("datatypes") << "REWROTE " << in << " to " << n << std::endl;
+
+  return n;
 }
 
 void TheoryDatatypes::addSharedTerm(TNode t) {

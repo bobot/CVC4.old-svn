@@ -52,6 +52,10 @@ private:
   /** inferences */
   NodeList d_infer;
   NodeList d_infer_exp;
+
+  /** a map of tuple and record types to their corresponding datatype */
+  std::hash_map<TypeNode, TypeNode, TypeNodeHashFunction> d_tupleAndRecordTypes;
+
 private:
   //notification class for equality engine
   class NotifyClass : public eq::EqualityEngineNotify {
@@ -199,6 +203,7 @@ public:
 
   void check(Effort e);
   void preRegisterTerm(TNode n);
+  Node ppRewrite(TNode n);
   void presolve();
   void addSharedTerm(TNode t);
   EqualityStatus getEqualityStatus(TNode a, TNode b);

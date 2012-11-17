@@ -207,7 +207,6 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << ']';
       return;
       break;
-    case kind::TUPLE:
     case kind::SEXPR:
       // no-op
       break;
@@ -321,6 +320,49 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << " -> BOOLEAN";
       return;
       break;
+    case kind::TUPLE_SELECT:
+      toStream(out, n[0], depth, types, true);
+      out << '.' << n.getOperator().getConst<TupleSelect>().getIndex();
+      return;
+      break;
+    case kind::RECORD_SELECT:
+      toStream(out, n[0], depth, types, true);
+      out << '.' << n.getOperator().getConst<RecordSelect>().getField();
+      return;
+      break;
+    case kind::TUPLE_UPDATE:
+      toStream(out, n[0], depth, types, true);
+      out << " WITH ." << n.getOperator().getConst<TupleUpdate>().getIndex() << " := ";
+      toStream(out, n[1], depth, types, true);
+      return;
+      break;
+    case kind::RECORD_UPDATE:
+      toStream(out, n[0], depth, types, true);
+      out << " WITH ." << n.getOperator().getConst<RecordUpdate>().getField() << " := ";
+      toStream(out, n[1], depth, types, true);
+      return;
+      break;
+    case kind::TUPLE:
+      // no-op
+      break;
+    case kind::RECORD: {
+      // (# _a := 2, _b := 2 #)
+      const Record& rec = n.getOperator().getConst<Record>();
+      out << "(# ";
+      TNode::iterator i = n.begin();
+      bool first = true;
+      for(Record::const_iterator j = rec.begin(); j != rec.end(); ++i, ++j) {
+        if(!first) {
+          out << ", ";
+        }
+        out << (*j).first << " := ";
+        toStream(out, *i, depth, types, false);
+        first = false;
+      }
+      out << " #)";
+      return;
+      break;
+    }
 
     // ARRAYS
     case kind::ARRAY_TYPE:

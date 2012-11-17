@@ -106,6 +106,16 @@ public:
     return i;
   }
 
+  size_t getIndex(std::string name) const {
+    const_iterator i = find(name);
+    CheckArgument(i != end(), name, "requested field `%s' does not exist in record", name.c_str());
+    return i - begin();
+  }
+
+  size_t getNumFields() const {
+    return d_fields.size();
+  }
+
   const_iterator begin() const {
     return d_fields.begin();
   }
