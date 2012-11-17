@@ -104,7 +104,7 @@ public:
         **d_te;
         Assert(false, "expected an NoMoreValuesException to be thrown");
       } catch(NoMoreValuesException&) {
-        throw;
+        // ignore the exception, we're just asserting that it would be thrown
       }
     } else {
       try {

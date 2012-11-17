@@ -895,7 +895,7 @@ inline bool TypeNode::isTuple() const {
 /** Is this a record type? */
 inline bool TypeNode::isRecord() const {
   return getKind() == kind::RECORD_TYPE ||
-    ( isPredicateSubtype() && getSubtypeBaseType().isRecord() );
+    ( isPredicateSubtype() && getSubtypeParentType().isRecord() );
 }
 
 /** Is this a symbolic expression type? */
