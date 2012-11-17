@@ -326,9 +326,7 @@ void TheoryEngine::check(Theory::Effort effort) {
         // if we have given up, then possibly flip decision
         if(options::flipDecision()) {
           if(d_incomplete && !d_inConflict && !needCheck()) {
-            if( ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ) {
-              d_incomplete = false;
-            }
+            ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision();
           }
         }
         // if returning incomplete or SAT, we have ensured that the model in the quantifiers engine has been built
@@ -545,7 +543,7 @@ bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
 
 void TheoryEngine::collectModelInfo( theory::TheoryModel* m, bool fullModel ){
   //have shared term engine collectModelInfo
-  d_sharedTerms.collectModelInfo( m, fullModel );
+  //  d_sharedTerms.collectModelInfo( m, fullModel );
   // Consult each active theory to get all relevant information
   // concerning the model.
   for(TheoryId theoryId = theory::THEORY_FIRST; theoryId < theory::THEORY_LAST; ++theoryId) {

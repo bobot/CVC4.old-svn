@@ -94,6 +94,7 @@ class TheoryArraysRewriter {
         // replaced, we can just return node[0]
         return node[0];
       }
+      // else rebuild the store without the replaced write and then exit
     }
     else {
       n = nm->mkNode(kind::STORE, n, index, value);
@@ -104,6 +105,11 @@ class TheoryArraysRewriter {
       n = nm->mkNode(kind::STORE, n, indices.back(), elements.back());
       indices.pop_back();
       elements.pop_back();
+    }
+
+    // Ready to exit if write was to the default value (see previous comment)
+    if (value == defaultValue) {
+      return n;
     }
 
     Cardinality indexCard = index.getType().getCardinality();
@@ -300,7 +306,15 @@ public:
           NodeManager* nm = NodeManager::currentNM();
           if (val) {
             // store(store(a,i,v),i,w) = store(a,i,w)
-            Node result = nm->mkNode(kind::STORE, store[0], index, value);
+            Node result;
+            if (value.getKind() == kind::SELECT &&
+                value[0] == store[0] &&
+                value[1] == index) {
+              result = store[0];
+            }
+            else {
+              result = nm->mkNode(kind::STORE, store[0], index, value);
+            }
             Trace("arrays-postrewrite") << "Arrays::postRewrite returning " << result << std::endl;
             return RewriteResponse(REWRITE_DONE, result);
           }
@@ -338,7 +352,14 @@ public:
               elements.push_back(store[2]);
               store = store[0];
             }
-            n = nm->mkNode(kind::STORE, store, index, value);
+            if (value.getKind() == kind::SELECT &&
+                value[0] == store &&
+                value[1] == index) {
+              n = store;
+            }
+            else {
+              n = nm->mkNode(kind::STORE, store, index, value);
+            }
             while (!indices.empty()) {
               n = nm->mkNode(kind::STORE, n, indices.back(), elements.back());
               indices.pop_back();

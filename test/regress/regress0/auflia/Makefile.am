@@ -15,7 +15,11 @@ endif
 TESTS =	\
         bug330.smt2 \
 	bug336.smt2 \
-	fuzz01.delta01.smt
+	fuzz01.delta01.smt \
+	fuzz02.smt \
+	fuzz03.smt \
+	fuzz04.smt \
+	fuzz05.smt
 
 EXTRA_DIST = $(TESTS)
 

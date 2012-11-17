@@ -142,6 +142,9 @@ void CommandExecutorPortfolio::lemmaSharingCleanup()
 {
   assert(d_numThreads == d_options[options::threads]);
 
+  if(d_numThreads == 1)
+    return;
+
   // Channel cleanup
   assert(d_channelsIn.size() == d_numThreads);
   assert(d_channelsOut.size() == d_numThreads);
@@ -190,17 +193,6 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
     d_seq->addCommand(cmd->clone());
     return CommandExecutor::doCommandSingleton(cmd);
   } else if(mode == 1) {               // portfolio
-
-    // If quantified, stay sequential
-    LogicInfo logicInfo = d_smts[0]->getLogicInfo();
-    logicInfo.lock();
-    if(logicInfo.isQuantified()) {
-      if(d_options[options::fallbackSequential])
-        return CommandExecutor::doCommandSingleton(cmd);
-      else
-        throw Exception("Quantified formulas are (currenltly) unsupported in portfolio mode.\n"
-                        "Please see option --fallback-sequential to make this a soft error.");
-    }
 
     d_seq->addCommand(cmd->clone());
 
@@ -259,11 +251,14 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
                            );
     }
 
-    assert(d_channelsIn.size() == d_numThreads);
-    assert(d_channelsOut.size() == d_numThreads);
+    assert(d_channelsIn.size() == d_numThreads
+           || d_numThreads == 1);
+    assert(d_channelsOut.size() == d_numThreads
+           || d_numThreads == 1);
     assert(d_smts.size() == d_numThreads);
     boost::function<void()>
-      smFn = boost::bind(sharingManager<ChannelFormat>,
+      smFn = d_numThreads <= 1 ? boost::function<void()>() :
+             boost::bind(sharingManager<ChannelFormat>,
                          d_numThreads,
                          &d_channelsOut[0],
                          &d_channelsIn[0],

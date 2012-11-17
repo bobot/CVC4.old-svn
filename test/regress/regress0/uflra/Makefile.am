@@ -23,6 +23,7 @@ SMT_TESTS = \
 	simple.03.cvc \
 	simple.04.cvc \
 	bug293.cvc \
+	bug449.smt \
 	pb_real_10_0100_10_10.smt \
 	pb_real_10_0100_10_11.smt \
 	pb_real_10_0100_10_15.smt \
@@ -36,7 +37,8 @@ SMT_TESTS = \
 	incorrect1.delta01.smt \
 	incorrect1.delta02.smt \
 	error1.smt \
-	neq-deltacomp.smt
+	neq-deltacomp.smt \
+	fuzz01.smt
 
 # Regression tests for SMT2 inputs
 SMT2_TESTS =
