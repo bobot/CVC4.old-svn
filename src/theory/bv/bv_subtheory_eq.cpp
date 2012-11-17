@@ -18,6 +18,7 @@
 #include "theory/bv/theory_bv.h"
 #include "theory/bv/theory_bv_utils.h"
 #include "theory/model.h"
+
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::context;
@@ -28,7 +29,8 @@ using namespace CVC4::theory::bv::utils;
 EqualitySolver::EqualitySolver(context::Context* c, TheoryBV* bv)
   : SubtheorySolver(c, bv),
     d_notify(*this),
-    d_equalityEngine(d_notify, c, "theory::bv::TheoryBV")
+    d_equalityEngine(d_notify, c, "theory::bv::TheoryBV"),
+    d_assertions(c)
 {
   if (d_useEqualityEngine) {
 
@@ -87,14 +89,16 @@ void EqualitySolver::explain(TNode literal, std::vector<TNode>& assumptions) {
 }
 
 bool EqualitySolver::addAssertions(const std::vector<TNode>& assertions, Theory::Effort e) {
-  BVDebug("bitvector::equality") << "EqualitySolver::addAssertions \n";
+  Trace("bitvector::equality") << "EqualitySolver::addAssertions \n";
   Assert (!d_bv->inConflict());
 
   for (unsigned i = 0; i < assertions.size(); ++i) {
     TNode fact = assertions[i];
-
+    
     // Notify the equality engine
     if (d_useEqualityEngine && !d_bv->inConflict() && !d_bv->propagatedBy(fact, SUB_EQUALITY) ) {
+      Trace("bitvector::equality") << "     (assert " << fact << ")\n";  
+      d_assertions.push_back(fact); 
       bool negated = fact.getKind() == kind::NOT;
       TNode predicate = negated ? fact[0] : fact;
       if (predicate.getKind() == kind::EQUAL) {
@@ -164,5 +168,14 @@ void EqualitySolver::conflict(TNode a, TNode b) {
 }
 
 void EqualitySolver::collectModelInfo(TheoryModel* m) {
-  m->assertEqualityEngine(&d_equalityEngine);
+  if (Debug.isOn("bitvector-model")) {
+    context::CDList<TNode>::const_iterator it = d_assertions.begin();
+    for (; it!= d_assertions.end(); ++it) {
+      Debug("bitvector-model") << "EqualitySolver::collectModelInfo (assert "
+                               << *it << ")\n";
+    }
+  }
+  set<Node> termSet;
+  d_bv->computeRelevantTerms(termSet);
+  m->assertEqualityEngine(&d_equalityEngine, &termSet);
 }

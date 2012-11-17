@@ -52,7 +52,7 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-class InstantiatorTheoryArith;
+class InstStrategySimplex;
 
 /**
  * Implementation of QF_LRA.
@@ -60,7 +60,7 @@ class InstantiatorTheoryArith;
  * http://research.microsoft.com/en-us/um/people/leonardo/cav06.pdf
  */
 class TheoryArith : public Theory {
-  friend class InstantiatorTheoryArith;
+  friend class InstStrategySimplex;
 private:
   bool d_nlIncomplete;
   // TODO A better would be:
@@ -304,7 +304,7 @@ private:
   /** Internal model value for the node */
   DeltaRational getDeltaValue(TNode n);
 
-  /** TODO : get rid of this. */ 
+  /** TODO : get rid of this. */
   DeltaRational getDeltaValueWithNonlinear(TNode n, bool& failed);
 
   /** Uninterpretted function symbol for use when interpreting
@@ -322,6 +322,17 @@ private:
   Node axiomIteForTotalIntDivision(Node int_div_like);
 
 
+  class DeltaComputeCallback : public RationalCallBack {
+  private:
+    const TheoryArith* d_ta;
+  public:
+    DeltaComputeCallback(const TheoryArith* ta) : d_ta(ta){}
+
+    Rational operator()() const{
+      return d_ta->deltaValueForTotalOrder();
+    }
+  } d_deltaComputeCallback;
+
 public:
   TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   virtual ~TheoryArith();
@@ -335,7 +346,7 @@ public:
   void propagate(Effort e);
   Node explain(TNode n);
 
-  Rational safeDeltaValueForDisequality();
+  Rational deltaValueForTotalOrder() const;
   void collectModelInfo( TheoryModel* m, bool fullModel );
 
   void shutdown(){ }

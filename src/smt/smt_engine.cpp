@@ -41,6 +41,7 @@
 #include "smt/smt_engine.h"
 #include "smt/smt_engine_scope.h"
 #include "theory/theory_engine.h"
+#include "theory/bv/theory_bv_rewriter.h"
 #include "proof/proof_manager.h"
 #include "util/proof.h"
 #include "util/boolean_simplification.h"
@@ -65,6 +66,7 @@
 #include "prop/options.h"
 #include "theory/arrays/options.h"
 #include "util/sort_inference.h"
+#include "theory/quantifiers/macros.h"
 
 using namespace std;
 using namespace CVC4;
@@ -236,6 +238,14 @@ class SmtEnginePrivate : public NodeManagerListener {
   Node d_divByZero;
 
   /**
+   * Maps from bit-vector width to divison-by-zero uninterpreted
+   * function symbols.
+   */
+  hash_map<unsigned, Node> d_BVDivByZero;
+  hash_map<unsigned, Node> d_BVRemByZero;
+
+
+  /**
    * Function symbol used to implement uninterpreted
    * int-division-by-zero semantics.  Needed to deal with partial
    * function "div".
@@ -294,6 +304,12 @@ private:
    * Remove ITEs from the assertions.
    */
   void removeITEs();
+
+  /**
+   * Helper function to fix up assertion list to restore invariants needed after ite removal
+   */
+  bool checkForBadSkolems(TNode n, TNode skolem, hash_map<Node, bool, NodeHashFunction>& cache);
+
 
   // Simplify ITE structure
   void simpITE();
@@ -408,6 +424,25 @@ public:
    */
   void addFormula(TNode n)
     throw(TypeCheckingException, LogicException);
+
+  /**
+   * Return the uinterpreted function symbol corresponding to division-by-zero
+   * for this particular bit-wdith
+   * @param k should be UREM or UDIV
+   * @param width
+   *
+   * @return
+   */
+  Node getBVDivByZero(Kind k, unsigned width);
+
+  /**
+   * Returns the node modeling the division-by-zero semantics of node n.
+   *
+   * @param n
+   *
+   * @return
+   */
+  Node expandBVDivByZero(TNode n);
 
   /**
    * Expand definitions in n.
@@ -700,8 +735,8 @@ void SmtEngine::setLogicInternal() throw() {
   d_logic.lock();
 
   // may need to force uninterpreted functions to be on for non-linear
-  if(d_logic.isTheoryEnabled(theory::THEORY_ARITH) &&
-     !d_logic.isLinear() &&
+  if(((d_logic.isTheoryEnabled(theory::THEORY_ARITH) && !d_logic.isLinear()) ||
+      d_logic.isTheoryEnabled(theory::THEORY_BV)) &&
      !d_logic.isTheoryEnabled(theory::THEORY_UF)){
     d_logic = d_logic.getUnlockedCopy();
     d_logic.enableTheory(theory::THEORY_UF);
@@ -828,10 +863,10 @@ void SmtEngine::setLogicInternal() throw() {
         (not d_logic.isQuantified() &&
           d_logic.isPure(THEORY_BV)
           ) ||
-        // QF_AUFBV
+        // QF_AUFBV or QF_ABV or QF_UFBV
         (not d_logic.isQuantified() &&
-         d_logic.isTheoryEnabled(THEORY_ARRAY) &&
-         d_logic.isTheoryEnabled(THEORY_UF) &&
+         (d_logic.isTheoryEnabled(THEORY_ARRAY) ||
+          d_logic.isTheoryEnabled(THEORY_UF)) &&
          d_logic.isTheoryEnabled(THEORY_BV)
          ) ||
         // QF_AUFLIA (and may be ends up enabling QF_AUFLRA?)
@@ -1110,6 +1145,53 @@ void SmtEngine::defineFunction(Expr func,
   d_definedFunctions->insert(funcNode, def);
 }
 
+
+Node SmtEnginePrivate::getBVDivByZero(Kind k, unsigned width) {
+  NodeManager* nm = d_smt.d_nodeManager;
+  if (k == kind::BITVECTOR_UDIV) {
+    if (d_BVDivByZero.find(width) == d_BVDivByZero.end()) {
+      // lazily create the function symbols
+      std::ostringstream os;
+      os << "BVUDivByZero_" << width;
+      Node divByZero = nm->mkSkolem(os.str(),
+                                    nm->mkFunctionType(nm->mkBitVectorType(width), nm->mkBitVectorType(width)),
+                                    "partial bvudiv", NodeManager::SKOLEM_EXACT_NAME);
+      d_BVDivByZero[width] = divByZero;
+    }
+    return d_BVDivByZero[width];
+  }
+  else if (k == kind::BITVECTOR_UREM) {
+    if (d_BVRemByZero.find(width) == d_BVRemByZero.end()) {
+      std::ostringstream os;
+      os << "BVURemByZero_" << width;
+      Node divByZero = nm->mkSkolem(os.str(),
+                                    nm->mkFunctionType(nm->mkBitVectorType(width), nm->mkBitVectorType(width)),
+                                    "partial bvurem", NodeManager::SKOLEM_EXACT_NAME);
+      d_BVRemByZero[width] = divByZero;
+    }
+    return d_BVRemByZero[width];
+  }
+
+  Unreachable();
+}
+
+
+Node SmtEnginePrivate::expandBVDivByZero(TNode n) {
+  // we only deal wioth the unsigned division operators as the signed ones should have been
+  // expanded in terms of the unsigned operators
+  NodeManager* nm = d_smt.d_nodeManager;
+  unsigned width = n.getType().getBitVectorSize();
+  Node divByZero = getBVDivByZero(n.getKind(), width);
+  TNode num = n[0], den = n[1];
+  Node den_eq_0 = nm->mkNode(kind::EQUAL, den, nm->mkConst(BitVector(width, Integer(0))));
+  Node divByZeroNum = nm->mkNode(kind::APPLY_UF, divByZero, num);
+  Node divTotalNumDen = nm->mkNode(n.getKind() == kind::BITVECTOR_UDIV ? kind::BITVECTOR_UDIV_TOTAL :
+                                   kind::BITVECTOR_UREM_TOTAL, num, den);
+  Node node = nm->mkNode(kind::ITE, den_eq_0, divByZeroNum, divTotalNumDen);
+  return node;
+}
+
+
 Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashFunction>& cache)
   throw(TypeCheckingException, LogicException) {
 
@@ -1129,10 +1211,22 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashF
 
   // otherwise expand it
 
-  Node node;
+  Node node = n;
   NodeManager* nm = d_smt.d_nodeManager;
-
+  // FIXME: this theory specific code should be factored out of the SmtEngine, somehow
   switch(k) {
+  case kind::BITVECTOR_SDIV:
+  case kind::BITVECTOR_SREM:
+  case kind::BITVECTOR_SMOD: {
+    node = bv::TheoryBVRewriter::eliminateBVSDiv(node);
+    break;
+  }
+
+ case kind::BITVECTOR_UDIV:
+ case kind::BITVECTOR_UREM: {
+   node = expandBVDivByZero(node);
+    break;
+  }
   case kind::DIVISION: {
     // partial function: division
     if(d_smt.d_logic.isLinear()) {
@@ -1895,6 +1989,41 @@ Result SmtEngine::quickCheck() {
   return Result(Result::VALIDITY_UNKNOWN, Result::REQUIRES_FULL_CHECK);
 }
 
+
+bool SmtEnginePrivate::checkForBadSkolems(TNode n, TNode skolem, hash_map<Node, bool, NodeHashFunction>& cache)
+{
+  hash_map<Node, bool, NodeHashFunction>::iterator it;
+  it = cache.find(n);
+  if (it != cache.end()) {
+    return (*it).second;
+  }
+
+  size_t sz = n.getNumChildren();
+  if (sz == 0) {
+    IteSkolemMap::iterator it = d_iteSkolemMap.find(n);
+    bool bad = false;
+    if (it != d_iteSkolemMap.end()) {
+      if (!((*it).first < n)) {
+        bad = true;
+      }
+    }
+    cache[n] = bad;
+    return bad;
+  }
+
+  size_t k = 0;
+  for (; k < sz; ++k) {
+    if (checkForBadSkolems(n[k], skolem, cache)) {
+      cache[n] = true;
+      return true;
+    }
+  }
+
+  cache[n] = false;
+  return false;
+}
+
+
 void SmtEnginePrivate::processAssertions() {
   Assert(d_smt.d_fullyInited);
   Assert(d_smt.d_pendingPops == 0);
@@ -1996,9 +2125,14 @@ void SmtEnginePrivate::processAssertions() {
   }
   dumpAssertions("post-skolem-quant", d_assertionsToPreprocess);
 
+  if( options::macrosQuant() ){
+    //quantifiers macro expansion
+    QuantifierMacros qm;
+    qm.simplify( d_assertionsToPreprocess );
+  }
+
   if( options::sortInference() ){
     //sort inference technique
-    //TODO: use this as a rewrite technique here?
     SortInference si;
     si.simplify( d_assertionsToPreprocess );
   }
@@ -2035,19 +2169,43 @@ void SmtEnginePrivate::processAssertions() {
     Chat() << "simplifying assertions..." << endl;
     noConflict &= simplifyAssertions();
     if (noConflict) {
-      // Some skolem variables may have been solved for - which is a good thing -
-      // but it means we have to move those ITE's back to the main set of assertions
+      // Need to fix up assertion list to maintain invariants:
+      // Let Sk be the set of Skolem variables introduced by ITE's.  Let <_sk be the order in which these variables were introduced
+      // during ite removal.
+      // For each skolem variable sk, let iteExpr = iteMap(sk) be the ite expr mapped to by sk.  We need to ensure:
+      // 1. iteExpr has the form (ite cond (sk = t) (sk = e))
+      // 2. if some sk' in Sk appears in cond, t, or e, then sk' <_sk sk
+      // If either of these is violated, we must add iteExpr as a proper assertion
       IteSkolemMap::iterator it = d_iteSkolemMap.begin();
       IteSkolemMap::iterator iend = d_iteSkolemMap.end();
       NodeBuilder<> builder(kind::AND);
       builder << d_assertionsToCheck[d_realAssertionsEnd - 1];
+      vector<TNode> toErase;
       for (; it != iend; ++it) {
-        if (d_topLevelSubstitutions.hasSubstitution((*it).first)) {
-          builder << d_assertionsToCheck[(*it).second];
-          d_assertionsToCheck[(*it).second] = NodeManager::currentNM()->mkConst<bool>(true);
+        TNode iteExpr = d_assertionsToCheck[(*it).second];
+        if (iteExpr.getKind() == kind::ITE &&
+            iteExpr[1].getKind() == kind::EQUAL &&
+            iteExpr[1][0] == (*it).first &&
+            iteExpr[2].getKind() == kind::EQUAL &&
+            iteExpr[2][0] == (*it).first) {
+          hash_map<Node, bool, NodeHashFunction> cache;
+          bool bad = checkForBadSkolems(iteExpr[0], (*it).first, cache);
+          bad = bad || checkForBadSkolems(iteExpr[1][1], (*it).first, cache);
+          bad = bad || checkForBadSkolems(iteExpr[2][1], (*it).first, cache);
+          if (!bad) {
+            continue;
+          }
         }
+        // Move this iteExpr into the main assertions
+        builder << d_assertionsToCheck[(*it).second];
+        d_assertionsToCheck[(*it).second] = NodeManager::currentNM()->mkConst<bool>(true);
+        toErase.push_back((*it).first);
       }
       if(builder.getNumChildren() > 1) {
+        while (!toErase.empty()) {
+          d_iteSkolemMap.erase(toErase.back());
+          toErase.pop_back();
+        }
         d_assertionsToCheck[d_realAssertionsEnd - 1] =
           Rewriter::rewrite(Node(builder));
       }
@@ -2174,6 +2332,9 @@ Result SmtEngine::checkSat(const Expr& ex) throw(TypeCheckingException, ModalExc
   // Add the formula
   if(!e.isNull()) {
     d_problemExtended = true;
+    if(d_assertionList != NULL) {
+      d_assertionList->push_back(e);
+    }
     d_private->addFormula(e.getNode());
   }
 
@@ -2198,8 +2359,11 @@ Result SmtEngine::checkSat(const Expr& ex) throw(TypeCheckingException, ModalExc
   Trace("smt") << "SmtEngine::checkSat(" << e << ") => " << r << endl;
 
   // Check that SAT results generate a model correctly.
-  if(options::checkModels() && r.asSatisfiabilityResult() != Result::UNSAT) {
-    checkModel(/* hard failure iff */ ! r.isUnknown());
+  if(options::checkModels()){
+    if(r.asSatisfiabilityResult().isSat() == Result::SAT ||
+       (r.isUnknown() && r.whyUnknown() == Result::INCOMPLETE) ){
+      checkModel(/* hard failure iff */ ! r.isUnknown());
+    }
   }
 
   return r;
@@ -2262,8 +2426,11 @@ Result SmtEngine::query(const Expr& ex) throw(TypeCheckingException, ModalExcept
   Trace("smt") << "SMT query(" << e << ") ==> " << r << endl;
 
   // Check that SAT results generate a model correctly.
-  if(options::checkModels() && r.asSatisfiabilityResult() != Result::UNSAT) {
-    checkModel(/* hard failure iff */ ! r.isUnknown());
+  if(options::checkModels()){
+    if(r.asSatisfiabilityResult().isSat() == Result::SAT ||
+       (r.isUnknown() && r.whyUnknown() == Result::INCOMPLETE) ){
+      checkModel(/* hard failure iff */ ! r.isUnknown());
+    }
   }
 
   return r;

@@ -19,6 +19,7 @@ TESTS =	\
 	bug338.smt2 \
 	bug347.smt \
 	bug348.smt \
+	bug451.smt \
 	try5_small_difret_functions_wp_su.set_char_quoting.il.wp.delta01.smt \
 	try3_sameret_functions_fse-bfs_tac.calc_next.il.fse-bfs.delta01.smt \
 	diseqprop.01.smt \
@@ -43,8 +44,12 @@ TESTS =	\
 	fuzz09.smt \
 	fuzz10.smt \
 	fuzz11.smt \
+	fuzz12.smt \
+	fuzz13.smt \
+	fuzz14.smt \
 	fifo32bc06k08.delta01.smt \
-	rewrite_bug.smt
+	rewrite_bug.smt \
+	array_rewrite_bug.smt
 
 
 EXTRA_DIST = $(TESTS)

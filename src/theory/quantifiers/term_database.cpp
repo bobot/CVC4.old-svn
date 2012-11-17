@@ -14,7 +14,7 @@
 
 #include "theory/quantifiers/term_database.h"
 #include "theory/quantifiers_engine.h"
-#include "theory/uf/theory_uf_instantiator.h"
+#include "theory/quantifiers/trigger.h"
 #include "theory/theory_engine.h"
 #include "theory/quantifiers/first_order_model.h"
 #include "theory/quantifiers/options.h"
@@ -80,7 +80,7 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
         d_op_map[op].push_back( n );
         added.insert( n );
 
-        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        for( size_t i=0; i<n.getNumChildren(); i++ ){
           addTerm( n[i], added, withinQuant );
           if( options::efficientEMatching() ){
             EfficientEMatcher* eem = d_quantEngine->getEfficientEMatcher();
@@ -100,10 +100,9 @@ void TermDb::addTerm( Node n, std::set< Node >& added, bool withinQuant ){
           }
           if( options::eagerInstQuant() ){
             if( !n.hasAttribute(InstLevelAttribute()) && n.getAttribute(InstLevelAttribute())==0 ){
-              uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)d_quantEngine->getInstantiator( THEORY_UF );
               int addedLemmas = 0;
-              for( int i=0; i<(int)ith->d_op_triggers[op].size(); i++ ){
-                addedLemmas += ith->d_op_triggers[op][i]->addTerm( n );
+              for( size_t i=0; i<d_op_triggers[op].size(); i++ ){
+                addedLemmas += d_op_triggers[op][i]->addTerm( n );
               }
               //Message() << "Terms, added lemmas: " << addedLemmas << std::endl;
               d_quantEngine->flushLemmas( &d_quantEngine->getTheoryEngine()->theoryOf( THEORY_QUANTIFIERS )->getOutputChannel() );
@@ -466,5 +465,82 @@ void TermDb::getVarContainsNode( Node f, Node n, std::vector< Node >& varContain
     if( d_var_contains[n][j].getAttribute(InstConstantAttribute())==f ){
       varContains.push_back( d_var_contains[n][j] );
     }
+  }
+}
+
+/** is n1 an instance of n2 or vice versa? */
+int TermDb::isInstanceOf( Node n1, Node n2 ){
+  if( n1==n2 ){
+    return 1;
+  }else if( n1.getKind()==n2.getKind() ){
+    if( n1.getKind()==APPLY_UF ){
+      if( n1.getOperator()==n2.getOperator() ){
+        int result = 0;
+        for( int i=0; i<(int)n1.getNumChildren(); i++ ){
+          if( n1[i]!=n2[i] ){
+            int cResult = isInstanceOf( n1[i], n2[i] );
+            if( cResult==0 ){
+              return 0;
+            }else if( cResult!=result ){
+              if( result!=0 ){
+                return 0;
+              }else{
+                result = cResult;
+              }
+            }
+          }
+        }
+        return result;
+      }
+    }
+    return 0;
+  }else if( n2.getKind()==INST_CONSTANT ){
+    computeVarContains( n1 );
+    //if( std::find( d_var_contains[ n1 ].begin(), d_var_contains[ n1 ].end(), n2 )!=d_var_contains[ n1 ].end() ){
+    //  return 1;
+    //}
+    if( d_var_contains[ n1 ].size()==1 && d_var_contains[ n1 ][ 0 ]==n2 ){
+      return 1;
+    }
+  }else if( n1.getKind()==INST_CONSTANT ){
+    computeVarContains( n2 );
+    //if( std::find( d_var_contains[ n2 ].begin(), d_var_contains[ n2 ].end(), n1 )!=d_var_contains[ n2 ].end() ){
+    //  return -1;
+    //}
+    if( d_var_contains[ n2 ].size()==1 && d_var_contains[ n2 ][ 0 ]==n1 ){
+      return 1;
+    }
+  }
+  return 0;
+}
+
+void TermDb::filterInstances( std::vector< Node >& nodes ){
+  std::vector< bool > active;
+  active.resize( nodes.size(), true );
+  for( int i=0; i<(int)nodes.size(); i++ ){
+    for( int j=i+1; j<(int)nodes.size(); j++ ){
+      if( active[i] && active[j] ){
+        int result = isInstanceOf( nodes[i], nodes[j] );
+        if( result==1 ){
+          active[j] = false;
+        }else if( result==-1 ){
+          active[i] = false;
+        }
+      }
+    }
+  }
+  std::vector< Node > temp;
+  for( int i=0; i<(int)nodes.size(); i++ ){
+    if( active[i] ){
+      temp.push_back( nodes[i] );
+    }
+  }
+  nodes.clear();
+  nodes.insert( nodes.begin(), temp.begin(), temp.end() );
+}
+
+void TermDb::registerTrigger( theory::inst::Trigger* tr, Node op ){
+  if( std::find( d_op_triggers[op].begin(), d_op_triggers[op].end(), tr )==d_op_triggers[op].end() ){
+    d_op_triggers[op].push_back( tr );
   }
 }
