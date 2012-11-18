@@ -231,9 +231,12 @@ public:
   RecordEnumerator(TypeNode type) throw() :
     TypeEnumeratorBase<RecordEnumerator>(type) {
     Assert(type.isRecord());
-    d_enumerators = new TypeEnumerator*[type.getNumChildren()];
-    for(size_t i = 0; i < type.getNumChildren(); ++i) {
-      d_enumerators[i] = new TypeEnumerator(type[i]);
+    const Record& rec = getType().getConst<Record>();
+    Debug("te") << "creating record enumerator for " << type << std::endl;
+    d_enumerators = new TypeEnumerator*[rec.getNumFields()];
+    for(size_t i = 0; i < rec.getNumFields(); ++i) {
+      Debug("te") << " - sub-enumerator for " << rec[i].second << std::endl;
+      d_enumerators[i] = new TypeEnumerator(TypeNode::fromType(rec[i].second));
     }
   }
 
@@ -247,8 +250,11 @@ public:
     }
 
     NodeBuilder<> nb(kind::RECORD);
+    Debug("te") << "record enumerator: creating record of type " << getType() << std::endl;
     nb << getType();
-    for(size_t i = 0; i < getType().getNumChildren(); ++i) {
+    const Record& rec = getType().getConst<Record>();
+    for(size_t i = 0; i < rec.getNumFields(); ++i) {
+      Debug("te") << " - " << i << " " << std::flush << "=> " << **d_enumerators[i] << std::endl;
       nb << **d_enumerators[i];
     }
     return Node(nb);
@@ -260,9 +266,10 @@ public:
     }
 
     size_t i;
-    for(i = 0; i < getType().getNumChildren(); ++i) {
+    const Record& rec = getType().getConst<Record>();
+    for(i = 0; i < rec.getNumFields(); ++i) {
       if(d_enumerators[i]->isFinished()) {
-        *d_enumerators[i] = TypeEnumerator(getType()[i]);
+        *d_enumerators[i] = TypeEnumerator(TypeNode::fromType(rec[i].second));
       } else {
         ++*d_enumerators[i];
         return *this;

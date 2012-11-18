@@ -958,10 +958,11 @@ static void toStream(std::ostream& out, const SimplifyCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const GetValueCommand* c) throw() {
-  out << "% (get-value ( ";
   const vector<Expr>& terms = c->getTerms();
-  copy(terms.begin(), terms.end(), ostream_iterator<Expr>(out, " "));
-  out << " ))";
+  Assert(!terms.empty());
+  out << "GET_VALUE ";
+  copy(terms.begin(), terms.end() - 1, ostream_iterator<Expr>(out, ";\nGET_VALUE "));
+  out << terms.back() << ";";
 }
 
 static void toStream(std::ostream& out, const GetModelCommand* c) throw() {

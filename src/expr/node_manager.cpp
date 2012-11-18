@@ -395,4 +395,38 @@ TypeNode NodeManager::mkSubrangeType(const SubrangeBounds& bounds)
   return TypeNode(mkTypeConst(bounds));
 }
 
+TypeNode NodeManager::getDatatypeForTupleRecord(TypeNode t) {
+  Assert(t.isTuple() || t.isRecord());
+
+  // if the type doesn't have an associated datatype, then make one for it
+  TypeNode& dtt = d_tupleAndRecordTypes[t];
+  if(dtt.isNull()) {
+    if(t.isTuple()) {
+      Datatype dt("__cvc4_tuple");
+      DatatypeConstructor c("__cvc4_tuple_ctor");
+      for(TypeNode::const_iterator i = t.begin(); i != t.end(); ++i) {
+        c.addArg("__cvc4_tuple_stor", (*i).toType());
+      }
+      dt.addConstructor(c);
+      dtt = TypeNode::fromType(toExprManager()->mkDatatypeType(dt));
+      Debug("tuprec") << "REWROTE " << t << " to " << dtt << std::endl;
+    } else {
+      const Record& rec = t.getRecord();
+      Datatype dt("__cvc4_record");
+      DatatypeConstructor c("__cvc4_record_ctor");
+      for(Record::const_iterator i = rec.begin(); i != rec.end(); ++i) {
+        c.addArg((*i).first, (*i).second);
+      }
+      dt.addConstructor(c);
+      dtt = TypeNode::fromType(toExprManager()->mkDatatypeType(dt));
+      Debug("tuprec") << "REWROTE " << t << " to " << dtt << std::endl;
+    }
+    dtt.setAttribute(DatatypeRecordAttr(), t);
+  } else {
+    Debug("tuprec") << "REUSING cached " << t << ": " << dtt << std::endl;
+  }
+  Assert(!dtt.isNull());
+  return dtt;
+}
+
 }/* CVC4 namespace */

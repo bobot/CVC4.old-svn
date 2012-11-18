@@ -27,8 +27,6 @@ namespace CVC4 {
 namespace expr {
   namespace attr {
     struct DatatypeConstructorTypeGroundTermTag {};
-    struct DatatypeIsTupleTag {};
-    struct DatatypeIsRecordTag {};
   }/* CVC4::expr::attr namespace */
 }/* CVC4::expr namespace */
 
@@ -36,11 +34,6 @@ namespace theory {
 namespace datatypes {
 
 typedef expr::Attribute<expr::attr::DatatypeConstructorTypeGroundTermTag, Node> GroundTermAttr;
-/** Attribute true for datatype types that are replacements for tuple types */
-typedef expr::Attribute<expr::attr::DatatypeIsTupleTag, TypeNode> DatatypeTupleAttr;
-/** Attribute true for datatype types that are replacements for record types */
-typedef expr::Attribute<expr::attr::DatatypeIsRecordTag, TypeNode> DatatypeRecordAttr;
-
 
 struct DatatypeConstructorTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
@@ -135,7 +128,7 @@ struct DatatypeSelectorTypeRule {
         Debug("typecheck-idt") << "typecheck sel: " << n << std::endl;
         Debug("typecheck-idt") << "sel type: " << selType << std::endl;
         TypeNode childType = n[0].getType(check);
-        if(selType[0] != childType) {
+        if(!selType[0].isComparableTo(childType)) {
           Debug("typecheck-idt") << "ERROR: " << selType[0].getKind() << " " << childType.getKind() << std::endl;
           throw TypeCheckingExceptionPrivate(n, "bad type for selector argument");
         }
@@ -158,16 +151,16 @@ struct DatatypeTesterTypeRule {
       Type t = testType[0].toType();
       Assert( t.isDatatype() );
       DatatypeType dt = DatatypeType(t);
-      if( dt.isParametric() ){
+      if(dt.isParametric()) {
         Debug("typecheck-idt") << "typecheck parameterized tester: " << n << std::endl;
         Matcher m( dt );
         if( !m.doMatching( testType[0], childType ) ){
           throw TypeCheckingExceptionPrivate(n, "matching failed for tester argument of parameterized datatype");
         }
-      }else{
+      } else {
         Debug("typecheck-idt") << "typecheck test: " << n << std::endl;
         Debug("typecheck-idt") << "test type: " << testType << std::endl;
-        if(testType[0] != childType) {
+        if(!testType[0].isComparableTo(childType)) {
           throw TypeCheckingExceptionPrivate(n, "bad type for tester argument");
         }
       }
@@ -292,10 +285,10 @@ struct TupleSelectTypeRule {
     const TupleSelect& ts = n.getOperator().getConst<TupleSelect>();
     TypeNode tupleType = n[0].getType(check);
     if(!tupleType.isTuple()) {
-      if(!tupleType.hasAttribute(DatatypeRecordAttr())) {
+      if(!tupleType.hasAttribute(expr::DatatypeRecordAttr())) {
         throw TypeCheckingExceptionPrivate(n, "Tuple-select expression formed over non-tuple");
       }
-      tupleType = tupleType.getAttribute(DatatypeTupleAttr());
+      tupleType = tupleType.getAttribute(expr::DatatypeTupleAttr());
     }
     if(ts.getIndex() >= tupleType.getNumChildren()) {
       std::stringstream ss;
@@ -316,10 +309,10 @@ struct TupleUpdateTypeRule {
     TypeNode newValue = n[1].getType(check);
     if(check) {
       if(!tupleType.isTuple()) {
-        if(!tupleType.hasAttribute(DatatypeRecordAttr())) {
+        if(!tupleType.hasAttribute(expr::DatatypeRecordAttr())) {
           throw TypeCheckingExceptionPrivate(n, "Tuple-update expression formed over non-tuple");
         }
-        tupleType = tupleType.getAttribute(DatatypeTupleAttr());
+        tupleType = tupleType.getAttribute(expr::DatatypeTupleAttr());
       }
       if(tu.getIndex() >= tupleType.getNumChildren()) {
         std::stringstream ss;
@@ -432,10 +425,10 @@ struct RecordSelectTypeRule {
     const RecordSelect& rs = n.getOperator().getConst<RecordSelect>();
     TypeNode recordType = n[0].getType(check);
     if(!recordType.isRecord()) {
-      if(!recordType.hasAttribute(DatatypeRecordAttr())) {
+      if(!recordType.hasAttribute(expr::DatatypeRecordAttr())) {
         throw TypeCheckingExceptionPrivate(n, "Record-select expression formed over non-record");
       }
-      recordType = recordType.getAttribute(DatatypeRecordAttr());
+      recordType = recordType.getAttribute(expr::DatatypeRecordAttr());
     }
     const Record& rec = recordType.getRecord();
     Record::const_iterator field = rec.find(rs.getField());
@@ -458,10 +451,10 @@ struct RecordUpdateTypeRule {
     TypeNode newValue = n[1].getType(check);
     if(check) {
       if(!recordType.isRecord()) {
-        if(!recordType.hasAttribute(DatatypeRecordAttr())) {
+        if(!recordType.hasAttribute(expr::DatatypeRecordAttr())) {
           throw TypeCheckingExceptionPrivate(n, "Record-update expression formed over non-record");
         }
-        recordType = recordType.getAttribute(DatatypeRecordAttr());
+        recordType = recordType.getAttribute(expr::DatatypeRecordAttr());
       }
       const Record& rec = recordType.getRecord();
       Record::const_iterator field = rec.find(ru.getField());

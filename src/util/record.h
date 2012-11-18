@@ -124,6 +124,11 @@ public:
     return d_fields.end();
   }
 
+  std::pair<std::string, Type> operator[](size_t index) const {
+    CheckArgument(index < d_fields.size(), index, "index out of bounds for record type");
+    return d_fields[index];
+  }
+
   bool operator==(const Record& r) const {
     return d_fields == r.d_fields;
   }

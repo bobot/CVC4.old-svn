@@ -53,9 +53,6 @@ private:
   NodeList d_infer;
   NodeList d_infer_exp;
 
-  /** a map of tuple and record types to their corresponding datatype */
-  std::hash_map<TypeNode, TypeNode, TypeNodeHashFunction> d_tupleAndRecordTypes;
-
 private:
   //notification class for equality engine
   class NotifyClass : public eq::EqualityEngineNotify {

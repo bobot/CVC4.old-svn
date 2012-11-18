@@ -2014,7 +2014,6 @@ bool SmtEnginePrivate::checkForBadSkolems(TNode n, TNode skolem, hash_map<Node, 
   return false;
 }
 
-
 void SmtEnginePrivate::processAssertions() {
   Assert(d_smt.d_fullyInited);
   Assert(d_smt.d_pendingPops == 0);

@@ -581,6 +581,9 @@ public:
   /** Is this a tester type */
   bool isTester() const;
 
+  /** Get the Datatype specification from a datatype type */
+  const Datatype& getDatatype() const;
+
   /** Get the size of this bit-vector type */
   unsigned getBitVectorSize() const;
 
@@ -935,6 +938,7 @@ inline bool TypeNode::isBitVector() const {
 /** Is this a datatype type */
 inline bool TypeNode::isDatatype() const {
   return getKind() == kind::DATATYPE_TYPE ||
+    getKind() == kind::TUPLE_TYPE || getKind() == kind::RECORD_TYPE ||
     ( isPredicateSubtype() && getSubtypeParentType().isDatatype() );
 }
 
@@ -964,6 +968,16 @@ inline bool TypeNode::isBitVector(unsigned size) const {
   return
     ( getKind() == kind::BITVECTOR_TYPE && getConst<BitVectorSize>() == size ) ||
     ( isPredicateSubtype() && getSubtypeParentType().isBitVector(size) );
+}
+
+/** Get the datatype specification from a datatype type */
+inline const Datatype& TypeNode::getDatatype() const {
+  Assert(isDatatype());
+  if(getKind() == kind::DATATYPE_TYPE) {
+    return getConst<Datatype>();
+  } else {
+    return NodeManager::currentNM()->getDatatypeForTupleRecord(*this).getConst<Datatype>();
+  }
 }
 
 /** Get the size of this bit-vector type */

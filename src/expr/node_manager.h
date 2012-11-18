@@ -53,10 +53,16 @@ class TypeChecker;
 namespace attr {
   struct VarNameTag { };
   struct SortArityTag { };
+  struct DatatypeTupleTag { };
+  struct DatatypeRecordTag { };
 }/* CVC4::expr::attr namespace */
 
 typedef Attribute<attr::VarNameTag, std::string> VarNameAttr;
 typedef Attribute<attr::SortArityTag, uint64_t> SortArityAttr;
+/** Attribute true for datatype types that are replacements for tuple types */
+typedef expr::Attribute<expr::attr::DatatypeTupleTag, TypeNode> DatatypeTupleAttr;
+/** Attribute true for datatype types that are replacements for record types */
+typedef expr::Attribute<expr::attr::DatatypeRecordTag, TypeNode> DatatypeRecordAttr;
 
 }/* CVC4::expr namespace */
 
@@ -156,6 +162,11 @@ class NodeManager {
    * A list of subscribers for NodeManager events.
    */
   std::vector<NodeManagerListener*> d_listeners;
+
+  /**
+   * A map of tuple and record types to their corresponding datatype.
+   */
+  std::hash_map<TypeNode, TypeNode, TypeNodeHashFunction> d_tupleAndRecordTypes;
 
   /**
    * Look up a NodeValue in the pool associated to this NodeManager.
@@ -786,6 +797,12 @@ public:
    */
   TypeNode mkSubrangeType(const SubrangeBounds& bounds)
     throw(TypeCheckingExceptionPrivate);
+
+  /**
+   * Given a tuple or record type, get the internal datatype used for
+   * it.  Makes the DatatypeType if necessary.
+   */
+  TypeNode getDatatypeForTupleRecord(TypeNode tupleRecordType);
 
   /**
    * Get the type for the given node and optionally do type checking.

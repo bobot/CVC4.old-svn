@@ -90,6 +90,9 @@ bool TypeNode::isSubtypeOf(TypeNode t) const {
           t.getConst<TypeConstant>() == REAL_TYPE );
     }
   }
+  if(isTuple() || isRecord()) {
+    return t == NodeManager::currentNM()->getDatatypeForTupleRecord(*this);
+  }
   if(isPredicateSubtype()) {
     return getSubtypeParentType().isSubtypeOf(t);
   }
@@ -102,6 +105,16 @@ bool TypeNode::isComparableTo(TypeNode t) const {
   }
   if(isSubtypeOf(NodeManager::currentNM()->realType())) {
     return t.isSubtypeOf(NodeManager::currentNM()->realType());
+  }
+  if(t.isDatatype() && (isTuple() || isRecord())) {
+    if(t.isTuple() || t.isRecord()) {
+      return NodeManager::currentNM()->getDatatypeForTupleRecord(t) ==
+             NodeManager::currentNM()->getDatatypeForTupleRecord(*this);
+    } else {
+      return t == NodeManager::currentNM()->getDatatypeForTupleRecord(*this);
+    }
+  } else if(isDatatype() && (t.isTuple() || t.isRecord())) {
+    return *this == NodeManager::currentNM()->getDatatypeForTupleRecord(t);
   }
   if(isPredicateSubtype()) {
     return t.isComparableTo(getSubtypeParentType());
@@ -123,6 +136,8 @@ TypeNode TypeNode::getBaseType() const {
   TypeNode realt = NodeManager::currentNM()->realType();
   if (isSubtypeOf(realt)) {
     return realt;
+  } else if (isTuple() || isRecord()) {
+    return NodeManager::currentNM()->getDatatypeForTupleRecord(*this);
   } else if (isPredicateSubtype()) {
     return getSubtypeParentType().getBaseType();
   }
@@ -215,41 +230,41 @@ TypeNode TypeNode::leastCommonTypeNode(TypeNode t0, TypeNode t1){
   Assert(!t0.isNull());
   Assert(!t1.isNull());
 
-  if(EXPECT_TRUE(t0 == t1)){
+  if(EXPECT_TRUE(t0 == t1)) {
     return t0;
-  }else{ // t0 != t1
-    if(t0.getKind()== kind::TYPE_CONSTANT){
+  } else { // t0 != t1
+    if(t0.getKind()== kind::TYPE_CONSTANT) {
       switch(t0.getConst<TypeConstant>()) {
       case INTEGER_TYPE:
-        if(t1.isInteger()){
+        if(t1.isInteger()) {
           // t0 == IntegerType && t1.isInteger()
           return t0; //IntegerType
-        }else if(t1.isReal()){
+        } else if(t1.isReal()) {
           // t0 == IntegerType && t1.isReal() && !t1.isInteger()
           return NodeManager::currentNM()->realType(); // RealType
-        }else{
-          return TypeNode(); //null type
+        } else {
+          return TypeNode(); // null type
         }
       case REAL_TYPE:
-        if(t1.isReal()){
+        if(t1.isReal()) {
           return t0; // RealType
-        }else{
+        } else {
           return TypeNode(); // null type
         }
       default:
-        if(t1.isPredicateSubtype() && t1.getSubtypeParentType().isSubtypeOf(t0)){
+        if(t1.isPredicateSubtype() && t1.getSubtypeParentType().isSubtypeOf(t0)) {
           return t0; // t0 is a constant type
-        }else{
+        } else {
           return TypeNode(); // null type
         }
       }
-    }else if(t1.getKind() == kind::TYPE_CONSTANT){
+    } else if(t1.getKind() == kind::TYPE_CONSTANT) {
       return leastCommonTypeNode(t1, t0); //decrease the number of special cases
-    }else{
+    } else {
       // t0 != t1 &&
       // t0.getKind() == kind::TYPE_CONSTANT &&
       // t1.getKind() == kind::TYPE_CONSTANT
-      switch(t0.getKind()){
+      switch(t0.getKind()) {
       case kind::ARRAY_TYPE:
       case kind::BITVECTOR_TYPE:
       case kind::SORT_TYPE:
@@ -257,9 +272,9 @@ TypeNode TypeNode::leastCommonTypeNode(TypeNode t0, TypeNode t1){
       case kind::CONSTRUCTOR_TYPE:
       case kind::SELECTOR_TYPE:
       case kind::TESTER_TYPE:
-        if(t1.isPredicateSubtype() && t1.getSubtypeParentType().isSubtypeOf(t0)){
+        if(t1.isPredicateSubtype() && t1.getSubtypeParentType().isSubtypeOf(t0)) {
           return t0;
-        }else{
+        } else {
           return TypeNode();
         }
       case kind::FUNCTION_TYPE:
@@ -267,48 +282,57 @@ TypeNode TypeNode::leastCommonTypeNode(TypeNode t0, TypeNode t1){
       case kind::SEXPR_TYPE:
         Unimplemented("haven't implemented leastCommonType for symbolic expressions yet");
         return TypeNode(); // Not sure if this is right
-      case kind::TUPLE_TYPE:
-        Unimplemented("haven't implemented leastCommonType for tuples yet");
-        return TypeNode(); // Not sure if this is right
       case kind::SUBTYPE_TYPE:
         if(t1.isPredicateSubtype()){
           // This is the case where both t0 and t1 are predicate subtypes.
           return leastCommonPredicateSubtype(t0, t1);
-        }else{ //t0 is a predicate subtype and t1 is not
+        }else{ // t0 is a predicate subtype and t1 is not
           return leastCommonTypeNode(t1, t0); //decrease the number of special cases
         }
       case kind::SUBRANGE_TYPE:
-        if(t1.isSubrange()){
-          const SubrangeBounds& t0SR= t0.getSubrangeBounds();
+        if(t1.isSubrange()) {
+          const SubrangeBounds& t0SR = t0.getSubrangeBounds();
           const SubrangeBounds& t1SR = t1.getSubrangeBounds();
-          if(SubrangeBounds::joinIsBounded(t0SR, t1SR)){
+          if(SubrangeBounds::joinIsBounded(t0SR, t1SR)) {
             SubrangeBounds j = SubrangeBounds::join(t0SR, t1SR);
             return NodeManager::currentNM()->mkSubrangeType(j);
-          }else{
+          } else {
             return NodeManager::currentNM()->integerType();
           }
-        }else if(t1.isPredicateSubtype()){
-          //t0 is a subrange
-          //t1 is not a subrange
-          //t1 is a predicate subtype
-          if(t1.isInteger()){
+        } else if(t1.isPredicateSubtype()) {
+          // t0 is a subrange
+          // t1 is not a subrange
+          // t1 is a predicate subtype
+          if(t1.isInteger()) {
             return NodeManager::currentNM()->integerType();
-          }else if(t1.isReal()){
+          } else if(t1.isReal()) {
             return NodeManager::currentNM()->realType();
-          }else{
+          } else {
             return TypeNode();
           }
-        }else{
-          //t0 is a subrange
-          //t1 is not a subrange
+        } else {
+          // t0 is a subrange
+          // t1 is not a subrange
           // t1 is not a type constant && is not a predicate subtype
           // t1 cannot be real subtype or integer.
           Assert(t1.isReal());
           Assert(t1.isInteger());
           return TypeNode();
         }
+      case kind::TUPLE_TYPE:
+      case kind::RECORD_TYPE:
+        // if the other == this one, we returned already, above
+        if(t0.getBaseType() == t1) {
+          return t1;
+        }
+        // otherwise no common ancestor
+        return TypeNode();
       case kind::DATATYPE_TYPE:
-        // two datatypes that aren't == have no common ancestors
+        // t1 might be a subtype tuple or record
+        if(t1.getBaseType() == t0) {
+          return t0;
+        }
+        // otherwise no common ancestor
         return TypeNode();
       default:
         Unimplemented("don't have a leastCommonType for types `%s' and `%s'", t0.toString().c_str(), t1.toString().c_str());
