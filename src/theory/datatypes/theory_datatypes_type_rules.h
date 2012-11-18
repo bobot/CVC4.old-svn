@@ -71,7 +71,7 @@ struct DatatypeConstructorTypeRule {
           TypeNode childType = (*child_it).getType(check);
           Debug("typecheck-idt") << "typecheck cons arg: " << childType << " " << (*tchild_it) << std::endl;
           TypeNode argumentType = *tchild_it;
-          if(!childType.isSubtypeOf(argumentType)) {
+          if(!childType.isComparableTo(argumentType)) {
             std::stringstream ss;
             ss << "bad type for constructor argument:\nexpected: " << argumentType << "\ngot     : " << childType;
             throw TypeCheckingExceptionPrivate(n, ss.str());
