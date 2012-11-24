@@ -38,8 +38,12 @@ RootId Slicer::makeRoot(TNode n)  {
   if (d_nodeRootMap.find(n) != d_nodeRootMap.end()) {
     return d_nodeRootMap[n];
   }
-  d_nodeRootMap[n] = d_numRoots; 
-  d_roots[d_numRoots++] = n;
+  RootID id = d_numRoots;
+  d_numRoots++; 
+  d_nodeRootMap[n] = id; 
+  d_roots[id] = n;
+  // initialize with an empty slice block
+  d_rootBlocks[id] = new SliceBlock(utils::getSize(n)); 
   return d_numRoots - 1; 
 }
 
@@ -94,81 +98,80 @@ void Slicer::processEquality(TNode node) {
   splitEqualities(node, equalities); 
   for (int i = 0; i < equalities.size(); ++i) {
     Debug("bv-slicer") << "    splitEqualities " << node << endl;
+    registerSimpleEquality(equalities[i]); 
     d_simpleEqualities.push_back(equalities[i]);
   }
 }
 
+void Slicer::registerSimpleEquality(TNode eq) {
+  Assert (eq.getKind() == kind::EQUAL);
+  TNode a = eq[0];
+  TNode b = eq[1];
+ 
+  RootId id_a = registerTerm(a);
+  RootId id_b = registerTerm(b);
 
-TNode Slicer::addSimpleTerm(TNode t1) {
-  Base base1(0); 
-  if (t1.getKind() == kind::BITVECTOR_EXTRACT) {
-    unsigned low = utils::getExtractLow(t1);
-    unsigned high = utils::getExtractHigh(t1);
-    base1 = base1.setBit(low);
-    base1 = base1.setBit(high);
-    t1 = t1[0];
+  // TODO: special case a[ ] = a [ ]
+  unsigned low_a = 0; 
+  unsigned low_b = 0; 
+
+  if (a.getKind() == kind::BITVECTOR_EXTRACT) {
+    low_a  = utils::getExtractLow(a);
   }
   
-  Assert (t1.getKind() != kind::BITVECTOR_EXTRACT &&
-          t1.getKind() != kind::BITVECTOR_CONCAT ); 
-
-  if (d_bases.find(t1) == d_bases.end()) {
-    d_bases[t1] = Base(0); 
+  if (b.getKind() == kind::BITVECTOR_EXTRACT) {
+    low_b  = utils::getExtractLow(b);
   }
-  d_bases[t1] = d_bases[t1].bitwiseOr(base1);
-  return t1; 
+
+  Slice* slice_a = mkSlice(a);
+  Slice* slice_b = mkSlice(b); 
+
+  SliceBlock* block_a = d_rootBlocks[id_a];
+  SliceBlock* block_b = d_rootBlocks[id_b];
+
+  uint32_t row_a = block_a->addSlice(slice_a);
+  uint32_t row_b = block_b->addSlice(slice_b); 
+
+  SplinterPointer sp_a = SplinterPointer(id_a, row_a, low_a);
+  SplinterPointer sp_b = SplinterPointer(id_b, row_b, low_b); 
+
+  slice_a->getSplinter(low_a)->setPointer(sp_b);
+  slice_b->getSplinter(low_b)->setPointer(sp_a); 
+
 }
 
-/** 
- * Process an equality of the form a = b where a, and b are 
- * of the form x [i1:j1], or x for some non-concat/extract term x
- * 
- * @param node 
- */
-void Slicer::processSimpleEquality(TNode node) {
-  Assert(node.getKind() == kind::EQUAL);
-
-  TNode t1 = addSimpleTerm(node[0]);
-  TNode t2 = addSimpleTerm(node[1]);
-  addEqualityEdge(t1, t2);
+Slice* Slicer::mkSlice(TNode node) {
+  Assert (d_sliceSet.find(node) == d_sliceSet.end());
   
-  // case 1: x [i1:j1] = x [i2:j2]
-  if (node[0].getKind() == kind::BITVECTOR_EXTRACT &&
-      node[1].getKind() == kind::BITVECTOR_EXTRACT &&
-      node[0][0] == node[1][0] ) {
-    // at this point the base already contains the slicing from the two extracts
-    Base base = getBase(node[0][0]);
-    
-    uint32_t low1 = utils::getExtractLow(node[0]);
-    uint32_t high1 = utils::getExtractHigh(node[0]); 
-    uint32_t low2 = utils::getExtractLow(node[1]);
-    uint32_t high2 = utils::getExtractHigh(node[1]); 
-
-    Base new_base = base;
-    uint32_t width = base.getSize(); 
-    do {
-      base = new_base; 
-      Base base1 = base.extract(high1, low1);
-      Base base2 = base.extract(high2, low2);
-      
-      base1 = base1 | base2; 
-
-      new_base = base | base1.zeroExtend(width - high1 - 1).leftShift(low1)
-                      | base2.zeroExtend(width - high2 - 1).leftShift(low2); 
-    } while(new_base != base);
-    updateBase(t1, new_base); 
+  unsigned bitwidth = utils::getSize(node); 
+  usigned low = 0, high = bitwidth -1 ;
+  if (node.getKind() == kind::BITVECTOR_EXTRACT) {
+    low  = utils::getExtractLow(node);
+    high = utils::getExtractHigh(node); 
   }
-
-  // case 2 : x[i1:j1] = y[i2:j2]
-  if (node[0].getKind() == kind::BITVECTOR_EXTRACT &&
-      node[1].getKind() == kind::BITVECTOR_EXTRACT) {
-    Base base1 = getBase(node[0][0]);
-    Base base2 = getBase(node[1][0]);
-    
+  Splinter* splinter = new Splinter(high, low);
+  Slice* slice = new Slice();
+  slice.addSplinter(low, splinter);
+  if (low != 0) {
+    Splinter* bottom_splinter = new Splinter(low-1, 0);
+    slice.addSplinter(0, bottom_splinter); 
   }
-  
+  if (high != bitwidth - 1) {
+    Splinter* top_splinter = new Splinter(bitwidth - 1, high + 1);
+    slice.addSplinter(high+1, top_splinter); 
+  }
+  return slice; 
 }
 
+
+void Slicer::registerTerm(TNode node) {
+  if (node.getKind() == kind::BITVECTOR_EXTRACT ) {
+    node = node[0];
+    Assert (isRootTerm(node)); 
+  }
+  // setting up the data-structures for the root term
+  RootId id = mkRoot(node);
+}
 
 Base Slicer::getBase(TNode node) {
   Assert (d_bases.find(node) != d_bases.end());
@@ -183,66 +186,11 @@ void Slicer::updateBase(TNode node, const Base& base) {
 
 void Slicer::computeCoarsestBase() {
   Debug("bv-slicer") << "theory::bv::Slicer::computeCoarsestBase " << endl; 
-  // queue of atomic terms whose base has changed
-  std::vector<TNode> changedQueue;
-  EqualityGraphIterator it = d_edgeMap.begin();
-  // compute first slicing based on equalities
-  for (; it != d_edgeMap.end(); ++it) {
-    TNode t1 = (*it).first;
-    std::list<TNode>* edges = (*it).second;
-    Base resBase = getBase(t1);
-    Debug("bv-slicer") << "  Processing node " << t1 << endl;
-    Debug("bv-slicer") << "  with base       " << resBase.toString(2) << endl; 
-    std::list<TNode>::iterator edge_it = edges->begin(); 
-    
-    for (; edge_it != edges->end(); ++ edge_it) {
-      // compute slicing
-      computeSlicing(t1, 
-      Base base2 = getBase(*edge_it);
-      resBase = resBase.bitwiseOr(base2); 
-      Debug("bv-slicer") << "          edge " << *edge_it << endl;
-      Debug("bv-slicer") << "     with base " << base2.toString(2) << endl; 
-
-    }
-    
-    Debug("bv-slicer") << "New base         " << resBase.toString(2) << endl; 
-    // update new bases
-    for (; edge_it != edges->end(); ++ edge_it) {
-      Base base2 = getBase(*edge_it);
-      if (resBase != base2) {
-        updateBase(*edge_it, resBase);
-        changedQueue.push_back(*edge_it);
-        Debug("bv-slicer") << "Adding to changedQueue " << *edge_it << endl; 
-      } 
-    }
-    if (getBase(t1) != resBase) {
-      updateBase(t1, resBase);
-    }
-  }
-  
-  Debug("bv-slicer") << "Propagating slicing " << endl;
-  // propagate slicings 
-  while(!changedQueue.empty()) {
-    TNode node = changedQueue.back();
-    changedQueue.pop_back(); 
-    std::list<TNode>* edges = d_edgeMap[node];
-    Base resBase = getBase(node);
-
-    Debug("bv-slicer") << "  Processing node " << node << endl;
-    Debug("bv-slicer") << "  with base       " << resBase.toString(2) << endl; 
-
-    std::list<TNode>::iterator it = edges->begin();
-    for (; it != edges->end(); ++it) {
-      Base base1 = getBase(*it);
-      Assert (base1.bitwiseOr(resBase) == resBase);
-      Debug("bv-slicer") << "          edge " << *it << endl;
-      Debug("bv-slicer") << "     with base " << base1.toString(2) << endl; 
-
-      if (base1 != resBase) {
-        updateBase(*it, base1.bitwiseOr(resBase));
-        changedQueue.push_back(*it);
-        Debug("bv-slicer") << "Adding to changedQueue " << *it << endl; 
-      }
-    }
+  std::vector<RootId> queue;
+  for (unsigned i = 0; i < d_rootsBlocks.size(); ++i) {
+    SliceBlock* block = d_rootsBlocks[i];
+    block->
   }
 }
+
+

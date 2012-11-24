@@ -39,7 +39,7 @@ typedef uint32_t SplinterId;
 typedef uint32_t Index;
 
 struct SplinterPointer {
-  TermId term;
+  RootId term;
   Index start_index;
   uint32_t row; 
   SplinterPointer(RootId t, uint32_t r,  Index i) :
@@ -81,10 +81,15 @@ class Splinter {
 
 class Slice {
   // map from the beginning of a splinter to the actual splinter id
-  std::map<Index, SplinterId> d_splinters;
-
+  std::map<Index, Splinter*> d_splinters;
+  Base d_base; 
+  Slice()
+    : d_splinters()
+  {}
   void split(Index start, Index length);
-  void addSplinter(SplinterId id); 
+  void addSplinter(Index start, Splinter* sp); 
+  Splinter* getSplinter(Index start);
+  Base getBase(); 
 };
 
 
@@ -131,31 +136,66 @@ class Base {
 }; 
 
 class SliceBlock {
-  std::vector<Slice> d_block;
+  std::vector<Slice*> d_block;
   Base d_base;
   uint32_t d_bitwidth; 
   SliceBlock(uint32_t bitwidth) :
     d_bitwidth(bitwidth)
   {}
 
-  void addSlice(const Slice& slice) {
+  void addSlice(Slice* slice) {
+    // update the base with the cut-points in the slice
+    d_base.sliceWith(slice->getBase()); 
     d_block.push_back(slice); 
   }
 
   Slice& getSlice(unsigned index) {
     return d_block(index); 
   }
+
+  void computeBlockBase(std::vector<SplinterPointer> queue) {
+    // at this point d_base has all the cut points in the individual slices
+    for (unsigned i = 0; i < d_block.size(); ++i) {
+      Slice* slice = d_block[i];
+      Base base = slice->getBase();
+      Base new_cut_points = base.xor(d_base);
+      // use the cut points from the base to split the current slice
+      for (unsigned i = 0; i < d_bitwidth; ++i) {
+        if (new_cut_points.isCutPoint(i)) {
+          // split this slice
+          Splinter* sp = slice->split(i);
+          // potentially propagate cut to other root terms
+          if (sp->getPointer != Undefied)  {
+            queue.push_back(sp->getPointer()); 
+          }
+          
+      }
+    }
+  }
 };
 
 typedef __gnu_cxx::hash_map<TNode, RootId, TNodeHashFunction> NodeRootIdMap;
 typedef std::vector<TNode> Roots; 
+
+typedef __gnu_cxx::hash_map<TNode, SplinterId, TNodeHashFunction> NodeSplinterIdMap;
+typedef std::vector<Splinter*> Splinters;
+
+typedef std::vector<SliceBlock*> SliceBlocks;
 
 class Slicer {
   std::vector<TNode> d_simpleEqualities;
   Roots d_roots;
   uint32_t d_numRoots; 
   NodeRootIdMap d_nodeRootMap;
+  /* Indexed by Root Id */
+  SliceBlocks d_rootBlocks; 
+  NodeSplinterIdMap d_nodeSplinterMap;
+  Splinterd d_splinters;
+  uint32_t d_numSplinters; 
   
+private:
+  
+
 public:
   Slicer();
   void computeCoarsestBase();
