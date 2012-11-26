@@ -40,6 +40,7 @@
 #include "smt/modal_exception.h"
 #include "smt/smt_engine.h"
 #include "smt/smt_engine_scope.h"
+#include "smt/model_postprocessor.h"
 #include "theory/theory_engine.h"
 #include "theory/bv/theory_bv_rewriter.h"
 #include "proof/proof_manager.h"
@@ -2434,6 +2435,12 @@ Result SmtEngine::assertFormula(const Expr& ex) throw(TypeCheckingException, Log
   return quickCheck().asValidityResult();
 }
 
+static Node postprocess(TNode node) {
+  ModelPostprocessor mpost;
+  NodeVisitor<ModelPostprocessor> visitor;
+  return visitor.run(mpost, node);
+}
+
 Expr SmtEngine::simplify(const Expr& ex) throw(TypeCheckingException, LogicException) {
   Assert(ex.getExprManager() == d_exprManager);
   SmtScope smts(this);
@@ -2452,7 +2459,9 @@ Expr SmtEngine::simplify(const Expr& ex) throw(TypeCheckingException, LogicExcep
 
   // Make sure all preprocessing is done
   d_private->processAssertions();
-  return d_private->simplify(Node::fromExpr(e)).toExpr();
+  Node n = d_private->simplify(Node::fromExpr(e));
+  n = postprocess(n);
+  return n.toExpr();
 }
 
 Expr SmtEngine::expandDefinitions(const Expr& ex) throw(TypeCheckingException, LogicException) {
@@ -2472,58 +2481,10 @@ Expr SmtEngine::expandDefinitions(const Expr& ex) throw(TypeCheckingException, L
     Dump("benchmark") << ExpandDefinitionsCommand(e);
   }
   hash_map<Node, Node, NodeHashFunction> cache;
-  return d_private->expandDefinitions(Node::fromExpr(e), cache).toExpr();
+  Node n = d_private->expandDefinitions(Node::fromExpr(e), cache);
+  n = postprocess(n);
+  return n.toExpr();
 }
-
-class ModelPostprocessor {
-public:
-  typedef Node return_type;
-  std::hash_map<TNode, Node, TNodeHashFunction> d_nodes;
-
-  bool alreadyVisited(TNode current, TNode parent) {
-    return d_nodes.find(current) != d_nodes.end();
-  }
-
-  void visit(TNode current, TNode parent) {
-    Debug("tuprec") << "visiting " << current << std::endl;
-    Assert(!alreadyVisited(current, TNode::null()));
-    if(current.getType().hasAttribute(expr::DatatypeTupleAttr())) {
-      Assert(current.getKind() == kind::APPLY_CONSTRUCTOR);
-      NodeBuilder<> b(kind::TUPLE);
-      for(TNode::iterator i = current.begin(); i != current.end(); ++i) {
-        Assert(alreadyVisited(*i, TNode::null()));
-        TNode n = d_nodes[*i];
-        b << (n.isNull() ? *i : n);
-      }
-      d_nodes[current] = b;
-      Debug("tuprec") << "returning " << d_nodes[current] << std::endl;
-    } else if(current.getType().hasAttribute(expr::DatatypeRecordAttr())) {
-      Assert(current.getKind() == kind::APPLY_CONSTRUCTOR);
-      NodeBuilder<> b(kind::RECORD);
-      b << current.getType().getAttribute(expr::DatatypeRecordAttr());
-      for(TNode::iterator i = current.begin(); i != current.end(); ++i) {
-        Assert(alreadyVisited(*i, TNode::null()));
-        TNode n = d_nodes[*i];
-        b << (n.isNull() ? *i : n);
-      }
-      d_nodes[current] = b;
-      Debug("tuprec") << "returning " << d_nodes[current] << std::endl;
-    } else {
-      Debug("tuprec") << "returning self" << std::endl;
-      // rewrite to self
-      d_nodes[current] = Node::null();
-    }
-  }
-
-  void start(TNode n) {
-  }
-
-  Node done(TNode n) {
-    Assert(alreadyVisited(n, TNode::null()));
-    TNode retval = d_nodes[n];
-    return retval.isNull() ? n : retval;
-  }
-};/* class ModelPostprocessor */
 
 Expr SmtEngine::getValue(const Expr& ex) throw(ModalException, LogicException) {
   Assert(ex.getExprManager() == d_exprManager);
@@ -2568,10 +2529,7 @@ Expr SmtEngine::getValue(const Expr& ex) throw(ModalException, LogicException) {
     resultNode = m->getValue(n);
   }
   Trace("smt") << "--- got value " << n << " = " << resultNode << endl;
-
-  ModelPostprocessor mpost;
-  NodeVisitor<ModelPostprocessor> visitor;
-  resultNode = visitor.run(mpost, resultNode);
+  resultNode = postprocess(resultNode);
   Trace("smt") << "--- model-post returned " << resultNode << endl;
 
   // type-check the result we got

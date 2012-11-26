@@ -790,14 +790,14 @@ void CvcPrinter::toStream(std::ostream& out, Model& m, const Command* c) const t
   if(dynamic_cast<const DeclareTypeCommand*>(c) != NULL) {
     TypeNode tn = TypeNode::fromType( ((const DeclareTypeCommand*)c)->getType() );
     if( tn.isSort() ){
-      //print the cardinality
+      // print the cardinality
       if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
         out << "; cardinality of " << tn << " is " << (*tm.d_rep_set.d_type_reps.find(tn)).second.size() << std::endl;
       }
     }
     out << c << std::endl;
     if( tn.isSort() ){
-      //print the representatives
+      // print the representatives
       if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
         for( size_t i=0; i<(*tm.d_rep_set.d_type_reps.find(tn)).second.size(); i++ ){
           if( (*tm.d_rep_set.d_type_reps.find(tn)).second[i].isVar() ){
@@ -822,7 +822,7 @@ void CvcPrinter::toStream(std::ostream& out, Model& m, const Command* c) const t
     }else{
       out << tn;
     }
-    out << " = " << tm.getValue( n ) << ";" << std::endl;
+    out << " = " << tm.getValue(n.toExpr()) << ";" << std::endl;
 
 /*
     //for table format (work in progress)
