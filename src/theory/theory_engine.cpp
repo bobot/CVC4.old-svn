@@ -42,11 +42,25 @@
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/first_order_model.h"
 
+#include "theory/uf/equality_engine.h"
 
 using namespace std;
 
 using namespace CVC4;
 using namespace CVC4::theory;
+
+void TheoryEngine::finishInit() {
+  if (d_logicInfo.isQuantified()) {
+    Assert(d_masterEqualityEngine == 0);
+    d_masterEqualityEngine = new eq::EqualityEngine(getSatContext(), "theory::master");
+
+    for(TheoryId theoryId = theory::THEORY_FIRST; theoryId != theory::THEORY_LAST; ++ theoryId) {
+      if (d_theoryTable[theoryId]) {
+        d_theoryTable[theoryId]->setMasterEqualityEngine(d_masterEqualityEngine);
+      }
+    }
+  }
+}
 
 TheoryEngine::TheoryEngine(context::Context* context,
                            context::UserContext* userContext,
@@ -58,6 +72,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_userContext(userContext),
   d_logicInfo(logicInfo),
   d_sharedTerms(this, context),
+  d_masterEqualityEngine(NULL),
   d_quantEngine(NULL),
   d_curr_model(NULL),
   d_curr_model_builder(NULL),
@@ -113,6 +128,8 @@ TheoryEngine::~TheoryEngine() {
   delete d_curr_model;
 
   delete d_quantEngine;
+
+  delete d_masterEqualityEngine;
 
   StatisticsRegistry::unregisterStat(&d_combineTheoriesTime);
 }
@@ -229,21 +246,6 @@ void TheoryEngine::dumpAssertions(const char* tag) {
   }
 }
 
-
-template<typename T, bool doAssert>
-class scoped_vector_clear {
-  vector<T>& d_v;
-public:
-  scoped_vector_clear(vector<T>& v)
-  : d_v(v) {
-    Assert(!doAssert || d_v.empty());
-  }
-  ~scoped_vector_clear() {
-    d_v.clear();
-  }
-
-};
-
 /**
  * Check all (currently-active) theories for conflicts.
  * @param effort the effort level to use
@@ -339,7 +341,7 @@ void TheoryEngine::check(Theory::Effort effort) {
     Debug("theory") << "TheoryEngine::check(" << effort << "): done, we are " << (d_inConflict ? "unsat" : "sat") << (d_lemmasAdded ? " with new lemmas" : " with no new lemmas") << std::endl;
 
   } catch(const theory::Interrupted&) {
-    Trace("theory") << "TheoryEngine::check() => conflict" << endl;
+    Trace("theory") << "TheoryEngine::check() => interrupted" << endl;
   }
 
   // If fulleffort, check all theories
@@ -517,7 +519,7 @@ bool TheoryEngine::properConflict(TNode conflict) const {
 }
 
 bool TheoryEngine::properPropagation(TNode lit) const {
-  if(!getPropEngine()->isTranslatedSatLiteral(lit)) {
+  if(!getPropEngine()->isSatLiteral(lit)) {
     return false;
   }
   bool b;

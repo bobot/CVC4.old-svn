@@ -390,7 +390,7 @@ public:
     if(Dump.isOn("skolems") && comment != "") {
       Dump("skolems") << CommentCommand(id + " is " + comment);
     }
-    d_smt.addToModelCommandAndDump(c, "skolems");
+    d_smt.addToModelCommandAndDump(c, false, "skolems");
   }
 
   Node applySubstitutions(TNode node) const {
@@ -563,6 +563,7 @@ void SmtEngine::finishInit() {
 
   d_theoryEngine->setPropEngine(d_propEngine);
   d_theoryEngine->setDecisionEngine(d_decisionEngine);
+  d_theoryEngine->finishInit();
 
   // [MGD 10/20/2011] keep around in incremental mode, due to a
   // cleanup ordering issue and Nodes/TNodes.  If SAT is popped
@@ -2132,8 +2133,11 @@ void SmtEnginePrivate::processAssertions() {
 
   if( options::macrosQuant() ){
     //quantifiers macro expansion
-    QuantifierMacros qm;
-    qm.simplify( d_assertionsToPreprocess );
+    bool success;
+    do{
+      QuantifierMacros qm;
+      success = qm.simplify( d_assertionsToPreprocess, true );
+    }while( success );
   }
 
   if( options::sortInference() ){
@@ -2649,8 +2653,8 @@ CVC4::SExpr SmtEngine::getAssignment() throw(ModalException) {
   return SExpr(sexprs);
 }
 
-void SmtEngine::addToModelCommandAndDump(const Command& c, const char* dumpTag) {
-  Trace("smt") << "SMT addToModelCommand(" << c << ")" << endl;
+void SmtEngine::addToModelCommandAndDump(const Command& c, bool userVisible, const char* dumpTag) {
+  Trace("smt") << "SMT addToModelCommandAndDump(" << c << ")" << endl;
   SmtScope smts(this);
   // If we aren't yet fully inited, the user might still turn on
   // produce-models.  So let's keep any commands around just in
@@ -2660,7 +2664,7 @@ void SmtEngine::addToModelCommandAndDump(const Command& c, const char* dumpTag) 
   // decouple SmtEngine and ExprManager if the user does a few
   // ExprManager::mkSort() before SmtEngine::setOption("produce-models")
   // and expects to find their cardinalities in the model.
-  if( !d_fullyInited || options::produceModels() ) {
+  if(userVisible && (!d_fullyInited || options::produceModels())) {
     doPendingPops();
     d_modelCommands->push_back(c.clone());
   }
