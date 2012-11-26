@@ -19,6 +19,7 @@
 #ifndef __CVC4__SMT_ENGINE_H
 #define __CVC4__SMT_ENGINE_H
 
+#include <string>
 #include <vector>
 
 #include "context/cdlist_forward.h"
@@ -303,7 +304,7 @@ class CVC4_PUBLIC SmtEngine {
    * Add to Model command.  This is used for recording a command
    * that should be reported during a get-model call.
    */
-  void addToModelCommandAndDump(const Command& c, const char* dumpTag = "declarations");
+  void addToModelCommandAndDump(const Command& c, bool userVisible = true, const char* dumpTag = "declarations");
 
   /**
    * Get the model (only if immediately preceded by a SAT
@@ -586,7 +587,7 @@ public:
    * This function is called when an attribute is set by a user.
    * In SMT-LIBv2 this is done via the syntax (! expr :attr)
    */
-  void setUserAttribute( std::string& attr, Expr expr );
+  void setUserAttribute(const std::string& attr, Expr expr);
 
 };/* class SmtEngine */
 

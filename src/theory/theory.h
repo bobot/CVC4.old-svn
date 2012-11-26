@@ -54,6 +54,10 @@ namespace rrinst{
 class CandidateGenerator;
 }
 
+namespace eq {
+class EqualityEngine;
+}
+
 /**
  * Information about an assertion for the theories.
  */
@@ -246,7 +250,8 @@ protected:
    * Construct a Theory.
    */
   Theory(TheoryId id, context::Context* satContext, context::UserContext* userContext,
-         OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) throw()
+         OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo,
+         QuantifiersEngine* qe, eq::EqualityEngine* master = 0) throw()
   : d_id(id)
   , d_satContext(satContext)
   , d_userContext(userContext)
@@ -515,6 +520,11 @@ public:
   virtual void addSharedTerm(TNode n) { }
 
   /**
+   * Called to set the master equality engine.
+   */
+  virtual void setMasterEqualityEngine(eq::EqualityEngine* eq) { }
+
+  /**
    * Return the current theory care graph. Theories should overload computeCareGraph to do
    * the actual computation, and use addCarePair to add pairs to the care graph.
    */
@@ -669,7 +679,7 @@ public:
     * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
     *  via the syntax (! n :attr)
     */
-  virtual void setUserAttribute( std::string& attr, Node n ) {
+  virtual void setUserAttribute(const std::string& attr, Node n) {
     Unimplemented("Theory %s doesn't support Theory::setUserAttribute interface",
                   identify().c_str());
   }

@@ -735,6 +735,7 @@ SortConstructorType ExprManager::mkSortConstructor(const std::string& name,
               new TypeNode(d_nodeManager->mkSortConstructor(name, arity))));
 }
 
+/* - not in release 1.0
 Type ExprManager::mkPredicateSubtype(Expr lambda)
   throw(TypeCheckingException) {
   NodeManagerScope nms(d_nodeManager);
@@ -745,7 +746,9 @@ Type ExprManager::mkPredicateSubtype(Expr lambda)
     throw TypeCheckingException(this, &e);
   }
 }
+*/
 
+/* - not in release 1.0
 Type ExprManager::mkPredicateSubtype(Expr lambda, Expr witness)
   throw(TypeCheckingException) {
   NodeManagerScope nms(d_nodeManager);
@@ -756,6 +759,7 @@ Type ExprManager::mkPredicateSubtype(Expr lambda, Expr witness)
     throw TypeCheckingException(this, &e);
   }
 }
+*/
 
 Type ExprManager::mkSubrangeType(const SubrangeBounds& bounds)
   throw(TypeCheckingException) {

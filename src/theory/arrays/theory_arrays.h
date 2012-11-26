@@ -123,6 +123,8 @@ class TheoryArrays : public Theory {
   TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   ~TheoryArrays();
 
+  void setMasterEqualityEngine(eq::EqualityEngine* eq);
+
   std::string identify() const { return std::string("TheoryArrays"); }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -178,7 +180,7 @@ class TheoryArrays : public Theory {
   context::CDHashSet<Node, NodeHashFunction > d_isPreRegistered;
 
   /** Helper for preRegisterTerm, also used internally */
-  void preRegisterTermInternal(TNode n, bool internalAssert = true);
+  void preRegisterTermInternal(TNode n);
 
   public:
 
@@ -335,7 +337,6 @@ class TheoryArrays : public Theory {
   context::CDHashSet<TNode, TNodeHashFunction> d_sharedOther;
   context::CDO<bool> d_sharedTerms;
   context::CDList<TNode> d_reads;
-  context::CDHashSet<TNode, TNodeHashFunction> d_readsInternal;
   std::hash_map<TNode, Node, TNodeHashFunction> d_diseqCache;
 
   // The decision requests we have for the core

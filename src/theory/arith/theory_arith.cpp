@@ -87,23 +87,13 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_DELTA_ZERO(0),
   d_statistics()
 {
-  // if(!logicInfo.isLinear()){ // If non-linear
-  //   NodeManager* currNM = NodeManager::currentNM();
-  //   if(logicInfo.areRealsUsed()){ // If reals are enabled, create this symbol
-  //     TypeNode realType = currNM->realType();
-  //     TypeNode realToRealFunctionType = currNM->mkFunctionType(realType, realType);
-  //     d_realDivideBy0Func = currNM->mkSkolem("/by0_$$", realToRealFunctionType);
-  //   }
-  //   if(logicInfo.areIntegersUsed()){  // If integers are enabled, create these symbols
-  //     TypeNode intType = currNM->integerType();
-  //     TypeNode intToIntFunctionType = currNM->mkFunctionType(intType, intType);
-  //     d_intDivideBy0Func = currNM->mkSkolem("divby0_$$", intToIntFunctionType);
-  //     d_intModulusBy0Func = currNM->mkSkolem("modby0_$$", intToIntFunctionType);
-  //   }
-  // }
 }
 
 TheoryArith::~TheoryArith(){}
+
+void TheoryArith::setMasterEqualityEngine(eq::EqualityEngine* eq) {
+  d_congruenceManager.setMasterEqualityEngine(eq);
+}
 
 Node skolemFunction(const std::string& name, TypeNode dom, TypeNode range){
   NodeManager* currNM = NodeManager::currentNM();
@@ -143,6 +133,14 @@ Node TheoryArith::getIntModulusBy0Func(){
   }
   return d_intModulusBy0Func;
 }
+
+TheoryArith::ModelException::ModelException(TNode n, const char* msg) throw (){
+  stringstream ss;
+  ss << "Cannot construct a model for " << n << " as " << endl << msg;
+  setMessage(ss.str());
+}
+TheoryArith::ModelException::~ModelException() throw (){ }
+
 
 TheoryArith::Statistics::Statistics():
   d_statAssertUpperConflicts("theory::arith::AssertUpperConflicts", 0),
@@ -323,10 +321,12 @@ bool TheoryArith::AssertLower(Constraint constraint){
   }else{
     Assert(cmpToUB < 0);
     const ValueCollection& vc = constraint->getValueCollection();
-    if(vc.hasDisequality() && vc.hasUpperBound()){
+
+    if(vc.hasDisequality()){
       const Constraint diseq = vc.getDisequality();
       if(diseq->isTrue()){
-        const Constraint ub = vc.getUpperBound();
+        const Constraint ub = d_constraintDatabase.ensureConstraint(const_cast<ValueCollection&>(vc), UpperBound);
+
         if(ub->hasProof()){
           Node conflict = ConstraintValue::explainConflict(diseq, ub, constraint);
           Debug("eq") << " assert upper conflict " << conflict << endl;
@@ -335,9 +335,7 @@ bool TheoryArith::AssertLower(Constraint constraint){
         }else if(!ub->negationHasProof()){
           Constraint negUb = ub->getNegation();
           negUb->impliedBy(constraint, diseq);
-          //if(!negUb->canBePropagated()){
           d_learnedBounds.push_back(negUb);
-            //}//otherwise let this be propagated/asserted later
         }
       }
     }
@@ -442,10 +440,11 @@ bool TheoryArith::AssertUpper(Constraint constraint){
     }
   }else if(cmpToLB > 0){
     const ValueCollection& vc = constraint->getValueCollection();
-    if(vc.hasDisequality() && vc.hasLowerBound()){
+    if(vc.hasDisequality()){
       const Constraint diseq = vc.getDisequality();
       if(diseq->isTrue()){
-        const Constraint lb = vc.getLowerBound();
+        const Constraint lb =
+          d_constraintDatabase.ensureConstraint(const_cast<ValueCollection&>(vc), LowerBound);
         if(lb->hasProof()){
           Node conflict = ConstraintValue::explainConflict(diseq, lb, constraint);
           Debug("eq") << " assert upper conflict " << conflict << endl;
@@ -618,11 +617,6 @@ bool TheoryArith::AssertDisequality(Constraint constraint){
     }
   }
 
-  if(constraint->isSplit()){
-    Debug("eq") << "skipping already split " << constraint << endl;
-    return false;
-  }
-
   const ValueCollection& vc = constraint->getValueCollection();
   if(vc.hasLowerBound() && vc.hasUpperBound()){
     const Constraint lb = vc.getLowerBound();
@@ -634,28 +628,37 @@ bool TheoryArith::AssertDisequality(Constraint constraint){
       Node conflict = ConstraintValue::explainConflict(constraint, lb, ub);
       d_raiseConflict(conflict);
       return true;
-
-    }else if(lb->isTrue()){
+    }
+  }
+  if(vc.hasLowerBound() ){
+    const Constraint lb = vc.getLowerBound();
+    if(lb->isTrue()){
+      const Constraint ub = d_constraintDatabase.ensureConstraint(const_cast<ValueCollection&>(vc), UpperBound);
       Debug("eq") << "propagate UpperBound " << constraint << lb << ub << endl;
       const Constraint negUb = ub->getNegation();
       if(!negUb->isTrue()){
         negUb->impliedBy(constraint, lb);
         d_learnedBounds.push_back(negUb);
       }
-    }else if(ub->isTrue()){
+    }
+  }
+  if(vc.hasUpperBound()){
+    const Constraint ub = vc.getUpperBound();
+    if(ub->isTrue()){
+      const Constraint lb = d_constraintDatabase.ensureConstraint(const_cast<ValueCollection&>(vc), LowerBound);
+
       Debug("eq") << "propagate LowerBound " << constraint << lb << ub << endl;
       const Constraint negLb = lb->getNegation();
       if(!negLb->isTrue()){
         negLb->impliedBy(constraint, ub);
-        //if(!negLb->canBePropagated()){
         d_learnedBounds.push_back(negLb);
-        //}
       }
     }
   }
 
+  bool split = constraint->isSplit();
 
-  if(c_i == d_partialModel.getAssignment(x_i)){
+  if(!split && c_i == d_partialModel.getAssignment(x_i)){
     Debug("eq") << "lemma now! " << constraint << endl;
     d_out->lemma(constraint->split());
     return false;
@@ -663,13 +666,14 @@ bool TheoryArith::AssertDisequality(Constraint constraint){
     Debug("eq") << "can drop as less than lb" << constraint << endl;
   }else if(d_partialModel.strictlyGreaterThanUpperBound(x_i, c_i)){
     Debug("eq") << "can drop as less than ub" << constraint << endl;
-  }else{
+  }else if(!split){
     Debug("eq") << "push back" << constraint << endl;
     d_diseqQueue.push(constraint);
     d_partialModel.invalidateDelta();
+  }else{
+    Debug("eq") << "skipping already split " << constraint << endl;
   }
   return false;
-
 }
 
 void TheoryArith::addSharedTerm(TNode n){
@@ -711,19 +715,6 @@ Node TheoryArith::ppRewrite(TNode atom) {
 Theory::PPAssertStatus TheoryArith::ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_simplifyTimer);
   Debug("simplify") << "TheoryArith::solve(" << in << ")" << endl;
-
-//TODO: Handle this better
-// FAIL: preprocess_10.cvc (exit: 1)
-// =================================
-
-// running /home/taking/ws/cvc4/branches/arithmetic/infer-bounds/builds/x86_64-unknown-linux-gnu/debug-staticbinary/src/main/cvc4 --lang=cvc4 --segv-nospin preprocess_10.cvc [from working dir /home/taking/ws/cvc4/branches/arithmetic/infer-bounds/builds/x86_64-unknown-linux-gnu/debug-staticbinary/../../../test/regress/regress0/preprocess]
-// run_regression: error: differences between expected and actual output on stdout
-// --- /tmp/cvc4_expect_stdout.20298.5Ga5123F4L    2012-04-30 12:27:16.136684359 -0400
-// +++ /tmp/cvc4_stdout.20298.oZwTuIYuF3   2012-04-30 12:27:16.176685543 -0400
-// @@ -1 +1,3 @@
-// +TheoryArith::solve(): substitution x |-> IF b THEN 10 ELSE -10 ENDIF
-// +minVar is integral 0right 0
-//  sat
 
 
   // Solve equalities
@@ -1339,7 +1330,7 @@ Node TheoryArith::callDioSolver(){
       Assert(orig.getKind() != EQUAL);
       return orig;
     }else{
-      Debug("dio::push") << v << " " << eq.getNode() << endl;
+      Debug("dio::push") << v << " " << eq.getNode() << " with reason " << orig << endl;
       d_diosolver.pushInputConstraint(eq, orig);
     }
   }
@@ -1803,6 +1794,9 @@ bool TheoryArith::splitDisequalities(){
         Debug("arith::lemma") << "RHS value = " << rhsValue << endl;
         Node lemma = front->split();
         ++(d_statistics.d_statDisequalitySplits);
+        Node relem = Rewriter::rewrite(lemma);
+
+        Debug("arith::lemma") << "Now " << relem << endl;
         d_out->lemma(lemma);
         splitSomething = true;
       }else if(d_partialModel.strictlyLessThanLowerBound(lhsVar, rhsValue)){
@@ -1810,7 +1804,7 @@ bool TheoryArith::splitDisequalities(){
       }else if(d_partialModel.strictlyGreaterThanUpperBound(lhsVar, rhsValue)){
         Debug("eq") << "can drop as greater than ub" << front << endl;
       }else{
-        Debug("eq") << "save" << front << endl;
+        Debug("eq") << "save" << front << ": " <<lhsValue << " != " << rhsValue << endl;
         save.push_back(front);
       }
     }
@@ -1948,29 +1942,8 @@ void TheoryArith::propagate(Effort e) {
   }
 }
 
-bool TheoryArith::getDeltaAtomValue(TNode n) {
-  Assert(d_qflraStatus != Result::SAT_UNKNOWN);
-
-  switch (n.getKind()) {
-    case kind::EQUAL: // 2 args
-      return getDeltaValue(n[0]) == getDeltaValue(n[1]);
-    case kind::LT: // 2 args
-      return getDeltaValue(n[0]) < getDeltaValue(n[1]);
-    case kind::LEQ: // 2 args
-      return getDeltaValue(n[0]) <= getDeltaValue(n[1]);
-    case kind::GT: // 2 args
-      return getDeltaValue(n[0]) > getDeltaValue(n[1]);
-    case kind::GEQ: // 2 args
-      return getDeltaValue(n[0]) >= getDeltaValue(n[1]);
-    default:
-      Unreachable();
-  }
-}
-
-
-DeltaRational TheoryArith::getDeltaValue(TNode n) {
+DeltaRational TheoryArith::getDeltaValue(TNode n) const throw (DeltaRationalException, ModelException) {
   AlwaysAssert(d_qflraStatus != Result::SAT_UNKNOWN);
-  AlwaysAssert(!d_nlIncomplete);
   Debug("arith::value") << n << std::endl;
 
   switch(n.getKind()) {
@@ -1980,115 +1953,83 @@ DeltaRational TheoryArith::getDeltaValue(TNode n) {
 
   case kind::PLUS: { // 2+ args
     DeltaRational value(0);
-    for(TNode::iterator i = n.begin(),
-          iend = n.end();
-        i != iend;
-        ++i) {
+    for(TNode::iterator i = n.begin(), iend = n.end(); i != iend; ++i) {
       value = value + getDeltaValue(*i);
     }
     return value;
   }
 
   case kind::MULT: { // 2+ args
-    Assert(n.getNumChildren() == 2 && n[0].isConst());
     DeltaRational value(1);
-    if (n[0].getKind() == kind::CONST_RATIONAL) {
-      return getDeltaValue(n[1]) * n[0].getConst<Rational>();
-    }
-    Unreachable();
-  }
-
-  case kind::MINUS: // 2 args
-    // should have been rewritten
-    Unreachable();
-
-  case kind::UMINUS: // 1 arg
-    // should have been rewritten
-    Unreachable();
-
-  case kind::DIVISION: // 2 args
-    Assert(n[1].isConst());
-    if (n[1].getKind() == kind::CONST_RATIONAL) {
-      return getDeltaValue(n[0]) / n[0].getConst<Rational>();
-    }
-    Unreachable();
-
-
-  default:
-    {
-      if(isSetup(n)){
-        ArithVar var = d_arithvarNodeMap.asArithVar(n);
-        return d_partialModel.getAssignment(var);
-      }else{
-        Unreachable();
+    unsigned variableParts = 0;
+    for(TNode::iterator i = n.begin(), iend = n.end(); i != iend; ++i) {
+      TNode curr = *i;
+      value = value * getDeltaValue(curr);
+      if(!curr.isConst()){
+        ++variableParts;
       }
     }
-  }
-}
-
-DeltaRational TheoryArith::getDeltaValueWithNonlinear(TNode n, bool& failed) {
-  AlwaysAssert(d_qflraStatus != Result::SAT_UNKNOWN);
-  AlwaysAssert(d_nlIncomplete);
-
-  Debug("arith::value") << n << std::endl;
-
-  switch(n.getKind()) {
-
-  case kind::CONST_RATIONAL:
-    return n.getConst<Rational>();
-
-  case kind::PLUS: { // 2+ args
-    DeltaRational value(0);
-    for(TNode::iterator i = n.begin(),
-          iend = n.end();
-        i != iend && !failed;
-        ++i) {
-      value = value + getDeltaValueWithNonlinear(*i, failed);
+    // TODO: This is a bit of a weak check
+    if(isSetup(n)){
+      ArithVar var = d_arithvarNodeMap.asArithVar(n);
+      const DeltaRational& assign = d_partialModel.getAssignment(var);
+      if(assign != value){
+        throw ModelException(n, "Model disagrees on non-linear term.");
+      }
     }
     return value;
   }
+  case kind::MINUS:{ // 2 args
+    return getDeltaValue(n[0]) - getDeltaValue(n[1]);
+  }
 
-  case kind::MULT: { // 2+ args
-    DeltaRational value(1);
-    if (n[0].getKind() == kind::CONST_RATIONAL) {
-      return getDeltaValueWithNonlinear(n[1], failed) * n[0].getConst<Rational>();
+  case kind::UMINUS:{ // 1 arg
+    return (- getDeltaValue(n[0]));
+  }
+
+  case kind::DIVISION:{ // 2 args
+    DeltaRational res = getDeltaValue(n[0]) / getDeltaValue(n[1]);
+    if(isSetup(n)){
+      ArithVar var = d_arithvarNodeMap.asArithVar(n);
+      if(d_partialModel.getAssignment(var) != res){
+        throw ModelException(n, "Model disagrees on non-linear term.");
+      }
+    }
+    return res;
+  }
+  case kind::DIVISION_TOTAL:
+  case kind::INTS_DIVISION_TOTAL:
+  case kind::INTS_MODULUS_TOTAL: { // 2 args
+    DeltaRational denom = getDeltaValue(n[1]);
+    if(denom.isZero()){
+      return DeltaRational(0,0);
     }else{
-      failed = true;
-      return value;
+      DeltaRational numer = getDeltaValue(n[0]);
+      DeltaRational res;
+      if(n.getKind() == kind::DIVISION_TOTAL){
+        res = numer / denom;
+      }else if(n.getKind() == kind::INTS_DIVISION_TOTAL){
+        res = Rational(numer.floorDivideQuotient(denom));
+      }else{
+        Assert(n.getKind() == kind::INTS_MODULUS_TOTAL);
+        res = Rational(numer.floorDivideRemainder(denom));
+      }
+      if(isSetup(n)){
+        ArithVar var = d_arithvarNodeMap.asArithVar(n);
+        if(d_partialModel.getAssignment(var) != res){
+          throw ModelException(n, "Model disagrees on non-linear term.");
+        }
+      }
+      return res;
     }
   }
 
-  case kind::MINUS: // 2 args
-    // should have been rewritten
-    Unreachable();
-
-  case kind::UMINUS: // 1 arg
-    // should have been rewritten
-    Unreachable();
-
-  case kind::DIVISION: // 2 args
-    Assert(n[1].isConst());
-    if (n[1].getKind() == kind::CONST_RATIONAL) {
-      return getDeltaValueWithNonlinear(n[0], failed) / n[0].getConst<Rational>();
-    }else{
-      failed = true;
-      return DeltaRational();
-    }
-    //fall through
-  case kind::INTS_DIVISION:
-  case kind::INTS_MODULUS:
-    //a bit strict
-    failed = true;
-    return DeltaRational();
-
   default:
-    {
-      if(isSetup(n)){
-        ArithVar var = d_arithvarNodeMap.asArithVar(n);
-        return d_partialModel.getAssignment(var);
-      }else{
-        Unreachable();
-      }
+    if(isSetup(n)){
+      ArithVar var = d_arithvarNodeMap.asArithVar(n);
+      return d_partialModel.getAssignment(var);
+    }else{
+      throw ModelException(n, "Expected a setup node.");
     }
   }
 }
@@ -2109,9 +2050,11 @@ Rational TheoryArith::deltaValueForTotalOrder() const{
   for(shared_terms_iterator shared_iter = shared_terms_begin(),
         shared_end = shared_terms_end(); shared_iter != shared_end; ++shared_iter){
     Node sharedCurr = *shared_iter;
-    if(sharedCurr.getKind() == CONST_RATIONAL){
-      relevantDeltaValues.insert(sharedCurr.getConst<Rational>());
-    }
+
+    // ModelException is fatal as this point. Don't catch!
+    // DeltaRationalException is fatal as this point. Don't catch!
+    DeltaRational val = getDeltaValue(sharedCurr);
+    relevantDeltaValues.insert(val);
   }
 
   for(ArithVar v = 0; v < d_variables.size(); ++v){
@@ -2137,32 +2080,7 @@ Rational TheoryArith::deltaValueForTotalOrder() const{
 
       Assert(prev < curr);
 
-      const Rational& pinf = prev.getInfinitesimalPart();
-      const Rational& cinf = curr.getInfinitesimalPart();
-
-      const Rational& pmaj = prev.getNoninfinitesimalPart();
-      const Rational& cmaj = curr.getNoninfinitesimalPart();
-
-      if(pmaj == cmaj){
-        Assert(pinf < cinf);
-        // any value of delta preserves the order
-      }else if(pinf == cinf){
-        Assert(pmaj < cmaj);
-        // any value of delta preserves the order
-      }else{
-        Assert(pinf != cinf && pmaj != cmaj);
-        Rational denDiffAbs = (cinf - pinf).abs();
-
-        Rational numDiff = (cmaj - pmaj);
-        Assert(numDiff.sgn() >= 0);
-        Assert(denDiffAbs.sgn() > 0);
-        Rational ratio = numDiff / denDiffAbs;
-        Assert(ratio.sgn() > 0);
-
-        if(ratio < min){
-          min = ratio;
-        }
-      }
+      DeltaRational::seperatingDelta(min, prev, curr);
       prev = curr;
     }
   }
@@ -2175,6 +2093,10 @@ Rational TheoryArith::deltaValueForTotalOrder() const{
 void TheoryArith::collectModelInfo( TheoryModel* m, bool fullModel ){
   AlwaysAssert(d_qflraStatus ==  Result::SAT);
   //AlwaysAssert(!d_nlIncomplete, "Arithmetic solver cannot currently produce models for input with nonlinear arithmetic constraints");
+
+  if(Debug.isOn("arith::collectModelInfo")){
+    debugPrintFacts();
+  }
 
   Debug("arith::collectModelInfo") << "collectModelInfo() begin " << endl;
 
@@ -2363,26 +2285,19 @@ void TheoryArith::presolve(){
 EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
   if(d_qflraStatus == Result::SAT_UNKNOWN){
     return EQUALITY_UNKNOWN;
-  }else if(d_nlIncomplete){
-    bool failed = false;
-    DeltaRational amod = getDeltaValueWithNonlinear(a, failed);
-    DeltaRational bmod = getDeltaValueWithNonlinear(b, failed);
-    if(failed){
+  }else{
+    try {
+      if (getDeltaValue(a) == getDeltaValue(b)) {
+        return EQUALITY_TRUE_IN_MODEL;
+      } else {
+        return EQUALITY_FALSE_IN_MODEL;
+      }
+    } catch (DeltaRationalException& dr) {
       return EQUALITY_UNKNOWN;
-    }else{
-      return amod == bmod ? EQUALITY_TRUE_IN_MODEL : EQUALITY_FALSE_IN_MODEL;
+    } catch (ModelException& me) {
+      return EQUALITY_UNKNOWN;
     }
-  }else if (getDeltaValue(a) == getDeltaValue(b)) {
-    return EQUALITY_TRUE_IN_MODEL;
-  } else {
-    return EQUALITY_FALSE_IN_MODEL;
   }
-
-}
-
-bool TheoryArith::rowImplication(ArithVar v, bool upperBound, const DeltaRational& r){
-  Unimplemented();
-  return false;
 }
 
 bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){

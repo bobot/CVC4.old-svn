@@ -76,7 +76,12 @@ namespace theory {
   class Instantiator;
   class TheoryModel;
   class TheoryEngineModelBuilder;
+
+  namespace eq {
+    class EqualityEngine;
+  }
 }/* CVC4::theory namespace */
+
 
 class DecisionEngine;
 
@@ -122,6 +127,11 @@ class TheoryEngine {
    * The database of shared terms.
    */
   SharedTermsDatabase d_sharedTerms;
+
+  /**
+   * Master equality engine, to share with theories.
+   */
+  theory::eq::EqualityEngine* d_masterEqualityEngine;
 
   /**
    * The quantifiers engine
@@ -428,6 +438,9 @@ public:
     d_decisionEngine = decisionEngine;
   }
 
+  /** Called when all initialization of options/logic is done */
+  void finishInit();
+
   /**
    * Get a pointer to the underlying propositional engine.
    */
@@ -703,13 +716,13 @@ public:
     * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
     *  via the syntax (! n :attr)
     */
-  void setUserAttribute( std::string& attr, Node n );
+  void setUserAttribute(const std::string& attr, Node n);
 
   /** Handle user attribute
     *   Associates theory t with the attribute attr.  Theory t will be
     *   notifed whenever an attribute of name attr is set.
     */
-  void handleUserAttribute( const char* attr, theory::Theory* t );
+  void handleUserAttribute(const char* attr, theory::Theory* t);
 
   /** Check that the theory assertions are satisfied in the model
    *  This function is called from the smt engine's checkModel routine
