@@ -31,14 +31,11 @@ typedef std::hash_map<Node, unsigned, NodeHashFunction> IteSkolemMap;
 class RemoveITE {
   typedef context::CDHashMap<Node, Node, NodeHashFunction> ITECache;
   ITECache d_iteCache;
-  context::UserContext* d_u;// debugging only; remove me
-#warning remove above line
 
 public:
 
   RemoveITE(context::UserContext* u) :
-    d_iteCache(u),
-    d_u(u) {
+    d_iteCache(u) {
   }
 
   /**

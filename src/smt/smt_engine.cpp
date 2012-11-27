@@ -341,6 +341,7 @@ public:
     d_assertionsToPreprocess(),
     d_nonClausalLearnedLiterals(),
     d_realAssertionsEnd(0),
+    d_booleanTermConverter(),
     d_propagator(d_nonClausalLearnedLiterals, true, true),
     d_assertionsToCheck(),
     d_fakeContext(),
@@ -956,6 +957,13 @@ void SmtEngine::setLogicInternal() throw() {
       Warning() << "SmtEngine: turning off check-models because unsupported for nonlinear arith" << std::endl;
       setOption("check-models", SExpr("false"));
     }
+  }
+
+  // may need to force BV on to handle Boolean terms
+  if(!d_logic.isPure(theory::THEORY_ARITH)) {
+    d_logic = d_logic.getUnlockedCopy();
+    d_logic.enableTheory(theory::THEORY_BV);
+    d_logic.lock();
   }
 }
 
@@ -2664,7 +2672,7 @@ void SmtEngine::addToModelCommandAndDump(const Command& c, bool userVisible, con
   // decouple SmtEngine and ExprManager if the user does a few
   // ExprManager::mkSort() before SmtEngine::setOption("produce-models")
   // and expects to find their cardinalities in the model.
-  if(userVisible && (!d_fullyInited || options::produceModels())) {
+  if(/* userVisible && */ (!d_fullyInited || options::produceModels())) {
     doPendingPops();
     d_modelCommands->push_back(c.clone());
   }

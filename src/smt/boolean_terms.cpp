@@ -18,6 +18,9 @@
  **/
 
 #include "smt/boolean_terms.h"
+#include "smt/smt_engine.h"
+#include "theory/theory_engine.h"
+#include "theory/model.h"
 #include "expr/kind.h"
 #include <string>
 #include <algorithm>
@@ -29,6 +32,9 @@ namespace CVC4 {
 namespace smt {
 
 const Datatype& BooleanTermConverter::booleanTermsConvertDatatype(const Datatype& dt) throw() {
+  return dt;
+  // boolean terms not supported in datatypes, yet
+
   Debug("boolean-terms") << "booleanTermsConvertDatatype: considering " << dt.getName() << endl;
   for(Datatype::const_iterator c = dt.begin(); c != dt.end(); ++c) {
     TypeNode t = TypeNode::fromType((*c).getConstructor().getType());
@@ -86,7 +92,9 @@ Node BooleanTermConverter::rewriteBooleanTerms(TNode top, bool boolParent) throw
   if(!boolParent && top.getType().isBoolean()) {
     Node one = nm->mkConst(BitVector(1u, 1u));
     Node zero = nm->mkConst(BitVector(1u, 0u));
-    Node n = nm->mkNode(kind::ITE, top, one, zero);
+    // still need to rewrite e.g. function applications over boolean
+    Node topRewritten = rewriteBooleanTerms(top, true);
+    Node n = nm->mkNode(kind::ITE, topRewritten, one, zero);
     Debug("boolean-terms") << "constructed ITE: " << n << endl;
     return n;
   }
@@ -97,12 +105,12 @@ Node BooleanTermConverter::rewriteBooleanTerms(TNode top, bool boolParent) throw
   } else if(mk == kind::metakind::VARIABLE) {
     TypeNode t = top.getType();
     if(t.isFunction()) {
-      for(TypeNode::iterator i = t.begin(); i != t.end(); ++i) {
-        if((*i).isBoolean()) {
+      for(unsigned i = 0; i < t.getNumChildren() - 1; ++i) {
+        if(t[i].isBoolean()) {
           vector<TypeNode> argTypes = t.getArgTypes();
-          replace(argTypes.begin(), argTypes.end(), *i, nm->mkBitVectorType(1));
+          replace(argTypes.begin(), argTypes.end(), t[i], nm->mkBitVectorType(1));
           TypeNode newType = nm->mkFunctionType(argTypes, t.getRangeType());
-          Node n = nm->mkSkolem(top.getAttribute(expr::VarNameAttr()),
+          Node n = nm->mkSkolem(top.getAttribute(expr::VarNameAttr()) + "_bt",
                                 newType, "a function introduced by Boolean-term conversion",
                                 NodeManager::SKOLEM_EXACT_NAME);
           Debug("boolean-terms") << "constructed func: " << n << " of type " << newType << endl;
@@ -206,16 +214,20 @@ Node BooleanTermConverter::rewriteBooleanTerms(TNode top, bool boolParent) throw
   case kind::RR_REWRITE:
   case kind::RR_REDUCTION:
   case kind::RR_DEDUCTION:
-    Assert(false, "not yet supported");
+    //Assert(false, "not yet supported");
     return top;
 
   default:
     NodeBuilder<> b(k);
 Debug("bt") << "looking at: " << top << std::endl;
     if(mk == kind::metakind::PARAMETERIZED) {
-Debug("bt") << "rewriting: " << *i << std::endl;
-      b << rewriteBooleanTerms(top.getOperator(), kindToTheoryId(k) == THEORY_BOOL);
+      if(kindToTheoryId(k) != THEORY_BV) {
+Debug("bt") << "rewriting: " << top.getOperator() << std::endl;
+        b << rewriteBooleanTerms(top.getOperator(), kindToTheoryId(k) == THEORY_BOOL);
 Debug("bt") << "got: " << b.getOperator() << std::endl;
+      } else {
+        b << top.getOperator();
+      }
     }
     for(TNode::const_iterator i = top.begin(); i != top.end(); ++i) {
 Debug("bt") << "rewriting: " << *i << std::endl;

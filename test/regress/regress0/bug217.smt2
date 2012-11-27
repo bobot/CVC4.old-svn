@@ -1,6 +1,5 @@
-; EXPECT: sat
-; EXPECT: xxx
-; EXIT: 10
+; EXPECT: unsat
+; EXIT: 20
 (set-logic QF_UF)
 (set-info :status sat)
 (set-option :produce-models true)
@@ -12,4 +11,4 @@
 (assert (not (f false)))
 (assert (not (f true)))
 (check-sat)
-(get-value ((f true) (f false) (f x) (f y) (f z) x y z))
+;(get-value ((f true) (f false) (f x) (f y) (f z) x y z))
