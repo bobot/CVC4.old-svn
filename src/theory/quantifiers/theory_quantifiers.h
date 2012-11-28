@@ -39,8 +39,6 @@ class InstantiationEngine;
 class TheoryQuantifiers : public Theory {
 private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
-  /** quantifiers that have been skolemized */
-  std::map< Node, bool > d_skolemized;
   /** number of instantiations */
   int d_numInstantiations;
   int d_baseDecLevel;
@@ -66,9 +64,6 @@ public:
   bool flipDecision();
   void setUserAttribute( std::string& attr, Node n );
 private:
-  void assertUniversal( Node n );
-  void assertExistential( Node n );
-  void assertFact( Node n, bool pol );
   bool restart();
 };/* class TheoryQuantifiers */
 

@@ -96,6 +96,8 @@ private:
 private:
   /** list of all quantifiers seen */
   std::vector< Node > d_quants;
+  /** quantifiers that have been skolemized */
+  std::map< Node, bool > d_skolemized;
   /** list of all lemmas produced */
   std::map< Node, bool > d_lemmas_produced;
   /** lemmas waiting */
@@ -147,8 +149,8 @@ public:
   void registerQuantifier( Node f );
   /** register quantifier */
   void registerPattern( std::vector<Node> & pattern);
-  /** assert universal quantifier */
-  void assertNode( Node f );
+  /** make an assertion */
+  void assertFact( Node n );
   /** propagate */
   void propagate( Theory::Effort level );
   /** get next decision request */
@@ -235,6 +237,33 @@ public:
   bool d_optMatchIgnoreModelBasis;
   bool d_optInstLimitActive;
   int d_optInstLimit;
+
+private:
+  //notification class for equality engine
+  class NotifyClass : public eq::EqualityEngineNotify {
+    QuantifiersEngine& d_qe;
+  public:
+    NotifyClass(QuantifiersEngine& qe): d_qe(qe) {}
+    bool eqNotifyTriggerEquality(TNode equality, bool value) { return true; }
+    bool eqNotifyTriggerPredicate(TNode predicate, bool value) { return true; }
+    bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value) { return true; }
+    void eqNotifyConstantTermMerge(TNode t1, TNode t2) {}
+    void eqNotifyNewClass(TNode t) { d_qe.eqNotifyNewClass(t); }
+    void eqNotifyPreMerge(TNode t1, TNode t2) { d_qe.eqNotifyPreMerge(t1, t2); }
+    void eqNotifyPostMerge(TNode t1, TNode t2) { d_qe.eqNotifyPostMerge(t1, t2); }
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { d_qe.eqNotifyDisequal(t1, t2, reason); }
+  };/* class QuantifiersEngine::NotifyClass */
+private:
+  /** The notify class */
+  NotifyClass d_notify;
+  /** Equaltity engine */
+  eq::EqualityEngine d_equalityEngine;
+public:
+  void eqNotifyNewClass(TNode t);
+  void eqNotifyPreMerge(TNode t1, TNode t2);
+  void eqNotifyPostMerge(TNode t1, TNode t2);
+  void eqNotifyDisequal(TNode t1, TNode t2, TNode reason);
+  eq::EqualityEngine* getEqualityEngine() { return &d_equalityEngine; }
 };/* class QuantifiersEngine */
 
 

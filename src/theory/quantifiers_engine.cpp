@@ -27,6 +27,10 @@
 #include "theory/quantifiers/term_database.h"
 #include "theory/rewriterules/efficient_e_matching.h"
 
+
+//#define NEW_EQ_ENGINE
+
+
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
@@ -36,7 +40,9 @@ using namespace CVC4::theory::inst;
 
 QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
-d_quant_rel( false ){ //currently do not care about relevance
+d_quant_rel( false ), //currently do not care about relevance
+d_notify( *this ),
+d_equalityEngine( d_notify, c, "QuantifiersEngine" ){
   d_eq_query = new EqualityQueryQuantifiersEngine( this );
   d_term_db = new quantifiers::TermDb( this );
   d_tr_trie = new inst::TriggerTrie;
@@ -168,11 +174,36 @@ void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
   }
 }
 
-void QuantifiersEngine::assertNode( Node f ){
-  Assert( f.getKind()==FORALL );
-  d_model->assertQuantifier( f );
-  for( int i=0; i<(int)d_modules.size(); i++ ){
-    d_modules[i]->assertNode( f );
+void QuantifiersEngine::assertFact( Node n ){
+  Node nn = n.getKind()==NOT ? n[0] : n;
+  bool pol = n.getKind()!=NOT;
+  Trace("quant-assert-fact") << "Assert " << n << std::endl;
+  if( nn.getKind()==FORALL ){
+    if( !nn.hasAttribute(InstConstantAttribute()) ){
+      if( pol ){
+        registerQuantifier( nn );
+        d_model->assertQuantifier( nn );
+        for( int i=0; i<(int)d_modules.size(); i++ ){
+          d_modules[i]->assertNode( nn );
+        }
+      }else{
+        if( d_skolemized.find( nn )==d_skolemized.end() ){
+          Node body = getTermDatabase()->getSkolemizedBody( nn );
+          Node lem = NodeManager::currentNM()->mkNode( kind::OR, nn, body.notNode() );
+          Debug("quantifiers-sk") << "Skolemize lemma : " << lem << std::endl;
+          getOutputChannel().lemma( lem );
+          d_skolemized[nn] = true;
+        }
+      }
+    }
+  }else{
+#ifdef NEW_EQ_ENGINE
+    if (nn.getKind() == kind::EQUAL) {
+      d_equalityEngine.assertEquality( nn, pol, n );
+    }else if( Trigger::isAtomicTrigger( nn ) ){
+      d_equalityEngine.assertPredicate( nn, pol, n );
+    }
+#endif
   }
 }
 
@@ -486,6 +517,23 @@ rrinst::CandidateGenerator* QuantifiersEngine::getRRCanGenClass(TypeNode t) {
 }
 */
 
+
+void QuantifiersEngine::eqNotifyNewClass(TNode t){
+
+}
+
+void QuantifiersEngine::eqNotifyPreMerge(TNode t1, TNode t2){
+
+}
+
+void QuantifiersEngine::eqNotifyPostMerge(TNode t1, TNode t2){
+
+}
+
+void QuantifiersEngine::eqNotifyDisequal(TNode t1, TNode t2, TNode reason){
+
+}
+
 QuantifiersEngine::Statistics::Statistics():
   d_num_quant("QuantifiersEngine::Num_Quantifiers", 0),
   d_instantiation_rounds("QuantifiersEngine::Rounds_Instantiation_Full", 0),
@@ -571,6 +619,9 @@ void EqualityQueryQuantifiersEngine::reset(){
 }
 
 bool EqualityQueryQuantifiersEngine::hasTerm( Node a ){
+#ifdef NEW_EQ_ENGINE
+  return d_qe->getEqualityEngine()->hasTerm( a );
+#else
   eq::EqualityEngine* ee = d_qe->getTheoryEngine()->getSharedTermsDatabase()->getEqualityEngine();
   if( ee->hasTerm( a ) ){
     return true;
@@ -583,9 +634,17 @@ bool EqualityQueryQuantifiersEngine::hasTerm( Node a ){
     }
   }
   return false;
+#endif
 }
 
 Node EqualityQueryQuantifiersEngine::getRepresentative( Node a ){
+#ifdef NEW_EQ_ENGINE
+  if( d_qe->getEqualityEngine()->hasTerm( a ) ){
+    return d_qe->getEqualityEngine()->getRepresentative( a );
+  }else{
+    return a;
+  }
+#else
   eq::EqualityEngine* ee = d_qe->getTheoryEngine()->getSharedTermsDatabase()->getEqualityEngine();
   if( ee->hasTerm( a ) ){
     return ee->getRepresentative( a );
@@ -598,9 +657,19 @@ Node EqualityQueryQuantifiersEngine::getRepresentative( Node a ){
     }
   }
   return a;
+#endif
 }
 
 bool EqualityQueryQuantifiersEngine::areEqual( Node a, Node b ){
+#ifdef NEW_EQ_ENGINE
+  if( a==b ){
+    return true;
+  }else if( d_qe->getEqualityEngine()->hasTerm( a ) && d_qe->getEqualityEngine()->hasTerm( b ) ){
+    return d_qe->getEqualityEngine()->areEqual( a, b );
+  }else{
+    return false;
+  }
+#else
   if( a==b ){
     return true;
   }else{
@@ -620,9 +689,17 @@ bool EqualityQueryQuantifiersEngine::areEqual( Node a, Node b ){
     //std::cout << "Equal = " << eq_sh << " " << eq_uf << " " << eq_a << " " << eq_dt << std::endl;
     return false;
   }
+#endif
 }
 
 bool EqualityQueryQuantifiersEngine::areDisequal( Node a, Node b ){
+#ifdef NEW_EQ_ENGINE
+  if( d_qe->getEqualityEngine()->hasTerm( a ) && d_qe->getEqualityEngine()->hasTerm( b ) ){
+    return d_qe->getEqualityEngine()->areDisequal( a, b, false );
+  }else{
+    return false;
+  }
+#else
   eq::EqualityEngine* ee = d_qe->getTheoryEngine()->getSharedTermsDatabase()->getEqualityEngine();
   if( ee->hasTerm( a ) && ee->hasTerm( b ) ){
     if( ee->areDisequal( a, b, false ) ){
@@ -638,13 +715,18 @@ bool EqualityQueryQuantifiersEngine::areDisequal( Node a, Node b ){
   }
   return false;
   //std::cout << "Disequal = " << deq_sh << " " << deq_uf << " " << deq_a << " " << deq_dt << std::endl;
+#endif
 }
 
 Node EqualityQueryQuantifiersEngine::getInternalRepresentative( Node a ){
+#ifdef NEW_EQ_ENGINE
+  Node r = getRepresentative( a );
+#else
+  Node r = d_qe->getInstantiator( THEORY_UF )->getRepresentative( a );
+#endif
   if( !options::internalReps() ){
-    return d_qe->getInstantiator( THEORY_UF )->getRepresentative( a );
+    return r;
   }else{
-    Node r = d_qe->getInstantiator( THEORY_UF )->getRepresentative( a );
     if( d_int_rep.find( r )==d_int_rep.end() ){
       std::vector< Node > eqc;
       getEquivalenceClass( r, eqc );
@@ -678,10 +760,27 @@ Node EqualityQueryQuantifiersEngine::getInternalRepresentative( Node a ){
 }
 
 eq::EqualityEngine* EqualityQueryQuantifiersEngine::getEngine(){
+#ifdef NEW_EQ_ENGINE
+  return d_qe->getEqualityEngine();
+#else
   return ((uf::TheoryUF*)d_qe->getTheoryEngine()->theoryOf( THEORY_UF ))->getEqualityEngine();
+#endif
 }
 
 void EqualityQueryQuantifiersEngine::getEquivalenceClass( Node a, std::vector< Node >& eqc ){
+#ifdef NEW_EQ_ENGINE
+  eq::EqualityEngine* ee = getEngine();
+  if( ee->hasTerm( a ) ){
+    Node rep = ee->getRepresentative( a );
+    eq::EqClassIterator eqc_iter( rep, ee );
+    while( !eqc_iter.isFinished() ){
+      eqc.push_back( *eqc_iter );
+      eqc_iter++;
+    }
+  }else{
+    eqc.push_back( a );
+  }
+#else
   eq::EqualityEngine* ee = d_qe->getTheoryEngine()->getSharedTermsDatabase()->getEqualityEngine();
   if( ee->hasTerm( a ) ){
     Node rep = ee->getRepresentative( a );
@@ -701,6 +800,7 @@ void EqualityQueryQuantifiersEngine::getEquivalenceClass( Node a, std::vector< N
   }
   //a should be in its equivalence class
   Assert( std::find( eqc.begin(), eqc.end(), a )!=eqc.end() );
+#endif
 }
 
 //helper functions

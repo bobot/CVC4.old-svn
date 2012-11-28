@@ -83,66 +83,18 @@ void TheoryQuantifiers::check(Effort e) {
   while(!done()) {
     Node assertion = get();
     Debug("quantifiers-assert") << "quantifiers::assert(): " << assertion << std::endl;
-    switch(assertion.getKind()) {
-    case kind::FORALL:
-      assertUniversal( assertion );
-      break;
-    case kind::NOT:
-      {
-        switch( assertion[0].getKind()) {
-        case kind::FORALL:
-          assertExistential( assertion );
-          break;
-        default:
-          assertFact( assertion[0], false );
-          break;
-        }
-      }
-      break;
-    default:
-      assertFact( assertion, true );
-      break;
-    }
+    getQuantifiersEngine()->assertFact( assertion );
   }
   // call the quantifiers engine to check
   getQuantifiersEngine()->check( e );
 }
 
 void TheoryQuantifiers::propagate(Effort level){
-  //CodeTimer codeTimer(d_theoryTime);
-  //getQuantifiersEngine()->propagate( level );
+
 }
 
 Node TheoryQuantifiers::getNextDecisionRequest(){
   return getQuantifiersEngine()->getNextDecisionRequest();
-}
-
-void TheoryQuantifiers::assertUniversal( Node n ){
-  Assert( n.getKind()==FORALL );
-  if( !n.hasAttribute(InstConstantAttribute()) ){
-    getQuantifiersEngine()->registerQuantifier( n );
-    getQuantifiersEngine()->assertNode( n );
-  }
-}
-
-void TheoryQuantifiers::assertExistential( Node n ){
-  Assert( n.getKind()== NOT && n[0].getKind()==FORALL );
-  if( !n[0].hasAttribute(InstConstantAttribute()) ){
-    if( d_skolemized.find( n )==d_skolemized.end() ){
-      Node body = getQuantifiersEngine()->getTermDatabase()->getSkolemizedBody( n[0] );
-      NodeBuilder<> nb(kind::OR);
-      nb << n[0] << body.notNode();
-      Node lem = nb;
-      Debug("quantifiers-sk") << "Skolemize lemma : " << lem << std::endl;
-      d_out->lemma( lem );
-      d_skolemized[n] = true;
-    }
-  }
-}
-
-void TheoryQuantifiers::assertFact( Node n, bool pol ){
- // std::cout << n << " " << pol << std::endl;
-
 }
 
 bool TheoryQuantifiers::flipDecision(){
