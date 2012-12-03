@@ -17,7 +17,6 @@
 #include "theory/theory.h"
 #include "util/cvc4_assert.h"
 #include "theory/quantifiers_engine.h"
-#include "theory/quantifiers/instantiator_default.h"
 
 #include <vector>
 
@@ -49,11 +48,6 @@ std::ostream& operator<<(std::ostream& os, Theory::Effort level){
 }/* ostream& operator<<(ostream&, Theory::Effort) */
 
 Theory::~Theory() {
-  if(d_inst != NULL) {
-    delete d_inst;
-    d_inst = NULL;
-  }
-
   StatisticsRegistry::unregisterStat(&d_computeCareGraphTime);
 }
 
@@ -175,68 +169,6 @@ void Theory::debugPrintFacts() const{
   printFacts(DebugChannel.getStream());
 }
 
-Instantiator::Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th) :
-  d_quantEngine(qe),
-  d_th(th) {
-}
-
-Instantiator::~Instantiator() {
-}
-
-void Instantiator::resetInstantiationRound(Theory::Effort effort) {
-  for(int i = 0; i < (int) d_instStrategies.size(); ++i) {
-    if(isActiveStrategy(d_instStrategies[i])) {
-      d_instStrategies[i]->processResetInstantiationRound(effort);
-    }
-  }
-  processResetInstantiationRound(effort);
-}
-
-int Instantiator::doInstantiation(Node f, Theory::Effort effort, int e ) {
-  if( getQuantifierActive(f) ) {
-    int status = process(f, effort, e );
-    if(d_instStrategies.empty()) {
-      Debug("inst-engine-inst") << "There are no instantiation strategies allocated." << endl;
-    } else {
-      for(int i = 0; i < (int) d_instStrategies.size(); ++i) {
-        if(isActiveStrategy(d_instStrategies[i])) {
-          Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << endl;
-          //call the instantiation strategy's process method
-          int s_status = d_instStrategies[i]->process( f, effort, e );
-          Debug("inst-engine-inst") << "  -> status is " << s_status << endl;
-          InstStrategy::updateStatus(status, s_status);
-        } else {
-          Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " is not active." << endl;
-        }
-      }
-    }
-    return status;
-  } else {
-    Debug("inst-engine-inst") << "We have no constraints from this quantifier." << endl;
-    return InstStrategy::STATUS_SAT;
-  }
-}
-
-//void Instantiator::doInstantiation(int effort) {
-//  d_status = InstStrategy::STATUS_SAT;
-//  for( int q = 0; q < d_quantEngine->getNumQuantifiers(); ++q ) {
-//    Node f = d_quantEngine->getQuantifier(q);
-//    if( d_quantEngine->getActive(f) && hasConstraintsFrom(f) ) {
-//      int d_quantStatus = process( f, effort );
-//      InstStrategy::updateStatus( d_status, d_quantStatus );
-//      for( int i = 0; i < (int)d_instStrategies.size(); ++i ) {
-//        if( isActiveStrategy( d_instStrategies[i] ) ) {
-//          Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << endl;
-//          //call the instantiation strategy's process method
-//          d_quantStatus = d_instStrategies[i]->process( f, effort );
-//          Debug("inst-engine-inst") << "  -> status is " << d_quantStatus << endl;
-//          InstStrategy::updateStatus( d_status, d_quantStatus );
-//        }
-//      }
-//    }
-//  }
-//}
-
 std::hash_set<TNode, TNodeHashFunction> Theory::currentlySharedTerms() const{
   std::hash_set<TNode, TNodeHashFunction> currentlyShared;
   for(shared_terms_iterator i = shared_terms_begin(), i_end = shared_terms_end(); i != i_end; ++i){
@@ -244,6 +176,38 @@ std::hash_set<TNode, TNodeHashFunction> Theory::currentlySharedTerms() const{
   }
   return currentlyShared;
 }
+
+
+void Theory::collectTerms(TNode n, set<Node>& termSet)
+{
+  if (termSet.find(n) != termSet.end()) {
+    return;
+  }
+  Trace("theory::collectTerms") << "Theory::collectTerms: adding " << n << endl;
+  termSet.insert(n);
+  if (n.getKind() == kind::NOT || n.getKind() == kind::EQUAL || !isLeaf(n)) {
+    for(TNode::iterator child_it = n.begin(); child_it != n.end(); ++child_it) {
+      collectTerms(*child_it, termSet);
+    }
+  }
+}
+
+
+void Theory::computeRelevantTerms(set<Node>& termSet)
+{
+  // Collect all terms appearing in assertions
+  context::CDList<Assertion>::const_iterator assert_it = facts_begin(), assert_it_end = facts_end();
+  for (; assert_it != assert_it_end; ++assert_it) {
+    collectTerms(*assert_it, termSet);
+  }
+
+  // Add terms that are shared terms
+  context::CDList<TNode>::const_iterator shared_it = shared_terms_begin(), shared_it_end = shared_terms_end();
+  for (; shared_it != shared_it_end; ++shared_it) {
+    collectTerms(*shared_it, termSet);
+  }
+}
+
 
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

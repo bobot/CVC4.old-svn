@@ -18,6 +18,7 @@
 #include "theory/bv/theory_bv.h"
 #include "theory/bv/theory_bv_utils.h"
 #include "theory/model.h"
+
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::context;
@@ -64,6 +65,10 @@ EqualitySolver::EqualitySolver(context::Context* c, TheoryBV* bv)
     //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SGT);
     //    d_equalityEngine.addFunctionKind(kind::BITVECTOR_SGE);
   }
+}
+
+void EqualitySolver::setMasterEqualityEngine(eq::EqualityEngine* eq) {
+  d_equalityEngine.setMasterEqualityEngine(eq);
 }
 
 void EqualitySolver::preRegister(TNode node) {
@@ -174,5 +179,7 @@ void EqualitySolver::collectModelInfo(TheoryModel* m) {
                                << *it << ")\n";
     }
   }
-  m->assertEqualityEngine(&d_equalityEngine);
+  set<Node> termSet;
+  d_bv->computeRelevantTerms(termSet);
+  m->assertEqualityEngine(&d_equalityEngine, &termSet);
 }

@@ -38,6 +38,7 @@ class ExprManagerMapCollection;
 class SmtEngine;
 
 class Datatype;
+class Record;
 
 template <bool ref_count>
 class NodeTemplate;
@@ -54,10 +55,12 @@ class SelectorType;
 class TesterType;
 class FunctionType;
 class TupleType;
+class RecordType;
 class SExprType;
 class SortType;
 class SortConstructorType;
-class PredicateSubtype;
+// not in release 1.0
+//class PredicateSubtype;
 class SubrangeType;
 class Type;
 
@@ -322,6 +325,18 @@ public:
   operator TupleType() const throw(IllegalArgumentException);
 
   /**
+   * Is this a record type?
+   * @return true if the type is a record type
+   */
+  bool isRecord() const;
+
+  /**
+   * Cast this type to a record type
+   * @return the RecordType
+   */
+  operator RecordType() const throw(IllegalArgumentException);
+
+  /**
    * Is this a symbolic expression type?
    * @return true if the type is a symbolic expression type
    */
@@ -421,13 +436,15 @@ public:
    * Is this a predicate subtype?
    * @return true if this is a predicate subtype
    */
-  bool isPredicateSubtype() const;
+  // not in release 1.0
+  //bool isPredicateSubtype() const;
 
   /**
    * Cast this type to a predicate subtype
    * @return the predicate subtype
    */
-  operator PredicateSubtype() const throw(IllegalArgumentException);
+  // not in release 1.0
+  //operator PredicateSubtype() const throw(IllegalArgumentException);
 
   /**
    * Is this an integer subrange type?
@@ -524,9 +541,27 @@ public:
   /** Construct from the base type */
   TupleType(const Type& type = Type()) throw(IllegalArgumentException);
 
+  /** Get the length of the tuple.  The same as getTypes().size(). */
+  size_t getLength() const;
+
   /** Get the constituent types */
   std::vector<Type> getTypes() const;
+
 };/* class TupleType */
+
+/**
+ * Class encapsulating a record type.
+ */
+class CVC4_PUBLIC RecordType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  RecordType(const Type& type = Type()) throw(IllegalArgumentException);
+
+  /** Get the constituent types */
+  const Record& getRecord() const;
+};/* class RecordType */
 
 /**
  * Class encapsulating a tuple type.
@@ -601,6 +636,8 @@ public:
 
 };/* class SortConstructorType */
 
+// not in release 1.0
+#if 0
 /**
  * Class encapsulating a predicate subtype.
  */
@@ -621,6 +658,7 @@ public:
   Type getParentType() const;
 
 };/* class PredicateSubtype */
+#endif /* 0 */
 
 /**
  * Class encapsulating an integer subrange type.

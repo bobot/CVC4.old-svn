@@ -23,6 +23,7 @@
 #include "theory/bv/options.h"
 #include "theory/bv/theory_bv_rewrite_rules_normalization.h"
 #include "theory/model.h"
+
 using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::bv;
@@ -50,6 +51,11 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
   {}
 
 TheoryBV::~TheoryBV() {}
+
+
+void TheoryBV::setMasterEqualityEngine(eq::EqualityEngine* eq) {
+  d_equalitySolver.setMasterEqualityEngine(eq);
+}
 
 TheoryBV::Statistics::Statistics():
   d_avgConflictSize("theory::bv::AvgBVConflictSize"),

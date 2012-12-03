@@ -31,6 +31,7 @@ namespace CVC4 {
 class TheoryEngine;
 
 namespace theory {
+
 namespace quantifiers {
 
 class ModelEngine;
@@ -49,9 +50,13 @@ private:
 
   KEEP_STATISTIC(TimerStat, d_theoryTime, "theory::quantifiers::theoryTime");
 
+  eq::EqualityEngine* d_masterEqualityEngine;
+
 public:
   TheoryQuantifiers(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
   ~TheoryQuantifiers();
+
+  void setMasterEqualityEngine(eq::EqualityEngine* eq);
 
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);
@@ -66,6 +71,7 @@ public:
   std::string identify() const { return std::string("TheoryQuantifiers"); }
   bool flipDecision();
   void setUserAttribute( std::string& attr, Node n );
+  eq::EqualityEngine* getMasterEqualityEngine() { return d_masterEqualityEngine; }
 private:
   void assertUniversal( Node n );
   void assertExistential( Node n );

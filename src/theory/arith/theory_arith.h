@@ -50,9 +50,12 @@
 
 namespace CVC4 {
 namespace theory {
-namespace arith {
 
-class InstStrategySimplex;
+namespace quantifiers {
+  class InstStrategySimplex;
+}
+
+namespace arith {
 
 /**
  * Implementation of QF_LRA.
@@ -60,7 +63,7 @@ class InstStrategySimplex;
  * http://research.microsoft.com/en-us/um/people/leonardo/cav06.pdf
  */
 class TheoryArith : public Theory {
-  friend class InstStrategySimplex;
+  friend class quantifiers::InstStrategySimplex;
 private:
   bool d_nlIncomplete;
   // TODO A better would be:
@@ -75,7 +78,6 @@ private:
   //                     if unknown, the simplex priority queue cannot be emptied
   int d_unknownsInARow;
 
-  bool rowImplication(ArithVar v, bool upperBound, const DeltaRational& r);
 
   /**
    * This counter is false if nothing has been done since the last cut.
@@ -99,7 +101,7 @@ private:
 
 
   NodeSet d_setupNodes;
-  bool isSetup(Node n){
+  bool isSetup(Node n) const {
     return d_setupNodes.find(n) != d_setupNodes.end();
   }
   void markSetup(Node n){
@@ -298,14 +300,14 @@ private:
   /** The constraint database associated with the theory. */
   ConstraintDatabase d_constraintDatabase;
 
-  /** Internal model value for the atom */
-  bool getDeltaAtomValue(TNode n);
+  class ModelException : public Exception {
+  public:
+    ModelException(TNode n, const char* msg) throw ();
+    virtual ~ModelException() throw ();
+  };
 
   /** Internal model value for the node */
-  DeltaRational getDeltaValue(TNode n);
-
-  /** TODO : get rid of this. */
-  DeltaRational getDeltaValueWithNonlinear(TNode n, bool& failed);
+  DeltaRational getDeltaValue(TNode n) const throw (DeltaRationalException, ModelException);
 
   /** Uninterpretted function symbol for use when interpreting
    * division by zero.
@@ -341,6 +343,8 @@ public:
    * Does non-context dependent setup for a node connected to a theory.
    */
   void preRegisterTerm(TNode n);
+
+  void setMasterEqualityEngine(eq::EqualityEngine* eq);
 
   void check(Effort e);
   void propagate(Effort e);

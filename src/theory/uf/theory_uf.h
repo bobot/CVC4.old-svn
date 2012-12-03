@@ -35,12 +35,10 @@ namespace theory {
 namespace uf {
 
 class UfTermDb;
-class InstantiatorTheoryUf;
 class StrongSolverTheoryUf;
 
 class TheoryUF : public Theory {
 
-  friend class InstantiatorTheoryUf;
   friend class StrongSolverTheoryUf;
 
 public:
@@ -186,6 +184,8 @@ public:
       delete i->second;
     }
   }
+
+  void setMasterEqualityEngine(eq::EqualityEngine* eq);
 
   void check(Effort);
   void preRegisterTerm(TNode term);

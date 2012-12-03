@@ -115,19 +115,6 @@ public:
   }
 };/* class DistinctTypeRule */
 
-class TupleTypeRule {
-public:
-  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
-    std::vector<TypeNode> types;
-    for(TNode::iterator child_it = n.begin(), child_it_end = n.end();
-        child_it != child_it_end;
-        ++child_it) {
-      types.push_back((*child_it).getType(check));
-    }
-    return nodeManager->mkTupleType(types);
-  }
-};/* class TupleTypeRule */
-
 class SExprTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
@@ -152,9 +139,9 @@ class AbstractValueTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) {
     // An UnknownTypeException means that this node has no type.  For now,
-    // only abstract values are like this.  Assigning them a type in all
-    // cases is difficult, since then the parser and the SmtEngine must be
-    // more tightly coupled.
+    // only abstract values are like this---and then, only if they are created
+    // by the user and don't actually correspond to one that the SmtEngine gave
+    // them previously.
     throw UnknownTypeException(n);
   }
 };/* class AbstractValueTypeRule */
@@ -186,7 +173,7 @@ public:
 
   inline static bool computeIsConst(NodeManager* nodeManager, TNode n) {
     Assert(n.getKind() == kind::LAMBDA);
-    return true;
+    return false;
   }
 };/* class LambdaTypeRule */
 
@@ -268,58 +255,6 @@ public:
     return valueCard ^ argsCard;
   }
 };/* class FuctionProperties */
-
-class TupleProperties {
-public:
-  inline static Cardinality computeCardinality(TypeNode type) {
-    // Don't assert this; allow other theories to use this cardinality
-    // computation.
-    //
-    // Assert(type.getKind() == kind::TUPLE_TYPE);
-
-    Cardinality card(1);
-    for(TypeNode::iterator i = type.begin(),
-          i_end = type.end();
-        i != i_end;
-        ++i) {
-      card *= (*i).getCardinality();
-    }
-
-    return card;
-  }
-
-  inline static bool isWellFounded(TypeNode type) {
-    // Don't assert this; allow other theories to use this
-    // wellfoundedness computation.
-    //
-    // Assert(type.getKind() == kind::TUPLE_TYPE);
-
-    for(TypeNode::iterator i = type.begin(),
-          i_end = type.end();
-        i != i_end;
-        ++i) {
-      if(! (*i).isWellFounded()) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  inline static Node mkGroundTerm(TypeNode type) {
-    Assert(type.getKind() == kind::TUPLE_TYPE);
-
-    std::vector<Node> children;
-    for(TypeNode::iterator i = type.begin(),
-          i_end = type.end();
-        i != i_end;
-        ++i) {
-      children.push_back((*i).mkGroundTerm());
-    }
-
-    return NodeManager::currentNM()->mkNode(kind::TUPLE, children);
-  }
-};/* class TupleProperties */
 
 class SExprProperties {
 public:

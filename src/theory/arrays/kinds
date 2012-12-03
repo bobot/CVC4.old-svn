@@ -6,7 +6,6 @@
 
 theory THEORY_ARRAY ::CVC4::theory::arrays::TheoryArrays "theory/arrays/theory_arrays.h"
 typechecker "theory/arrays/theory_arrays_type_rules.h"
-instantiator ::CVC4::theory::arrays::InstantiatorTheoryArrays "theory/arrays/theory_arrays_instantiator.h"
 
 properties polite stable-infinite parametric
 properties check propagate presolve getNextDecisionRequest
@@ -40,7 +39,7 @@ constant STORE_ALL \
     "array store-all"
 
 # used internally by array theory
-operator ARR_TABLE_FUN 4 "array table function"
+operator ARR_TABLE_FUN 4 "array table function (internal symbol)"
 
 typerule SELECT ::CVC4::theory::arrays::ArraySelectTypeRule
 typerule STORE ::CVC4::theory::arrays::ArrayStoreTypeRule

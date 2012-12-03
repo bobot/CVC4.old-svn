@@ -1,4 +1,4 @@
-SUBDIRS = nra-translate hashsmt .
+SUBDIRS = nra-translate hashsmt api .
 
 AM_CPPFLAGS = \
 	-I@srcdir@/../src/include -I@srcdir@/../src -I@builddir@/../src $(ANTLR_INCLUDES)
@@ -27,6 +27,7 @@ noinst_DATA += \
 	SimpleVCCompat.class
 endif
 endif
+
 
 simple_vc_cxx_SOURCES = \
 	simple_vc_cxx.cpp
@@ -82,3 +83,4 @@ MOSTLYCLEANFILES = $(noinst_DATA)
 AM_V_JAVAC = $(am__v_JAVAC_$(V))
 am__v_JAVAC_ = $(am__v_JAVAC_$(AM_DEFAULT_VERBOSITY))
 am__v_JAVAC_0 = @echo "  JAVAC " $@;
+

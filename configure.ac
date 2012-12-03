@@ -1,10 +1,10 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-m4_define(_CVC4_MAJOR,          0)       dnl version (major)
+m4_define(_CVC4_MAJOR,          1)       dnl version (major)
 m4_define(_CVC4_MINOR,          0)       dnl version (minor)
 m4_define(_CVC4_RELEASE,        0)       dnl version (alpha)
-m4_define(_CVC4_EXTRAVERSION,   [prerelease])      dnl version (extra)
+m4_define(_CVC4_EXTRAVERSION,   [])      dnl version (extra)
 m4_define(_CVC4_RELEASE_STRING, _CVC4_MAJOR[.]_CVC4_MINOR[]m4_if(_CVC4_RELEASE,[0],,[.]_CVC4_RELEASE)_CVC4_EXTRAVERSION) dnl version string
 
 dnl Preprocess CL args. Defined in config/cvc4.m4
@@ -751,6 +751,15 @@ AC_SUBST([WNO_UNINITIALIZED])
 AC_SUBST([WNO_UNUSED_VARIABLE])
 AC_SUBST([FNO_STRICT_ALIASING])
 
+# On Mac, we have to fix the visibility of standard library symbols.
+# Otherwise, exported template instantiations---even though explicitly
+# CVC4_PUBLIC, can be generated as symbols with internal-only linkage.
+# Presumably, Apple is distributing a libstdc++ that is built *without*
+# --enable-libstdcxx-visibility (?)
+if test "$target_vendor" = apple; then
+  CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-D_GLIBCXX_VISIBILITY_DEFAULT=\"__attribute__((__visibility__(\\\"default\\\")))\""
+fi
+
 # Doxygen configuration
 AC_ARG_ENABLE([internals-documentation],
   [AS_HELP_STRING([--enable-internals-documentation],
@@ -891,6 +900,7 @@ fi
 AC_ARG_WITH([readline], [AS_HELP_STRING([--with-readline], [support the readline library])], [], [with_readline=check])
 CVC4_CHECK_FOR_READLINE
 AC_DEFINE_UNQUOTED([HAVE_LIBREADLINE], $have_libreadline, [Define to 1 to use libreadline])
+AC_DEFINE_UNQUOTED([READLINE_COMPENTRY_FUNC_RETURNS_CHARP], $readline_compentry_func_returns_charp, [Define to 1 if rl_completion_entry_function is declared to return pointer to char])
 AC_SUBST([READLINE_LIBS])
 
 AC_SEARCH_LIBS([clock_gettime], [rt],
@@ -1286,6 +1296,14 @@ Install into : $prefix
 ${licensewarn}Now just type make, followed by make check or make install, as you like.
 
 EOF
+
+if test -n "$CVC4_UNSUPPORTED_LANGUAGE_BINDINGS"; then
+  AC_MSG_WARN([])
+  AC_MSG_WARN([You are electing to build unsupported language binding(s): $CVC4_UNSUPPORTED_LANGUAGE_BINDINGS])
+  AC_MSG_WARN([Please be aware that these bindings may not compile, or work, and the interface to CVC4 via])
+  AC_MSG_WARN([these bindings may change drastically in upcoming releases of CVC4.])
+  AC_MSG_WARN([])
+fi
 
 if test -n "$CVC4_INTEGRITY_WARNING"; then
   AC_MSG_WARN([])

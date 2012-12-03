@@ -49,12 +49,17 @@ SMT2_TESTS = \
 	simple-uf.smt2 \
 	simplification_bug4.smt2 \
 	parallel-let.smt2 \
-	get-value-incremental.smt2
+	get-value-incremental.smt2 \
+	hung13sdk_output1.smt2 \
+	hung10_itesdk_output2.smt2 \
+	hung10_itesdk_output1.smt2 \
+	hung13sdk_output2.smt2
 
 # Regression tests for PL inputs
 CVC_TESTS = \
 	boolean.cvc \
 	boolean-prec.cvc \
+	boolean-terms.cvc \
 	hole6.cvc \
 	ite.cvc \
 	let.cvc \
@@ -90,7 +95,8 @@ CVC_TESTS = \
 	wiki.20.cvc \
 	wiki.21.cvc \
 	simplification_bug3.cvc \
-	queries0.cvc
+	queries0.cvc \
+	print_lambda.cvc
 
 # Regression tests for TPTP inputs
 TPTP_TESTS = \
@@ -115,6 +121,7 @@ BUG_TESTS = \
 	bug168.smt \
 	bug187.smt2 \
 	bug216.smt2 \
+	bug217.smt2 \
 	bug220.smt2 \
 	bug239.smt \
 	bug274.cvc \
@@ -132,6 +139,7 @@ BUG_TESTS = \
 	bug382.smt2 \
 	bug383.smt2 \
 	bug398.smt2 \
+	bug411.smt2 \
 	bug421.smt2 \
 	bug421b.smt2 \
 	bug425.cvc

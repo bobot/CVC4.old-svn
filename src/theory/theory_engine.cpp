@@ -42,11 +42,48 @@
 #include "theory/quantifiers/model_engine.h"
 #include "theory/quantifiers/first_order_model.h"
 
+#include "theory/uf/equality_engine.h"
+
+#include "theory/rewriterules/efficient_e_matching.h"
 
 using namespace std;
 
 using namespace CVC4;
 using namespace CVC4::theory;
+
+void TheoryEngine::finishInit() {
+  if (d_logicInfo.isQuantified()) {
+    d_quantEngine->finishInit();
+    Assert(d_masterEqualityEngine == 0);
+    d_masterEqualityEngine = new eq::EqualityEngine(d_masterEENotify,getSatContext(), "theory::master");
+
+    for(TheoryId theoryId = theory::THEORY_FIRST; theoryId != theory::THEORY_LAST; ++ theoryId) {
+      if (d_theoryTable[theoryId]) {
+        d_theoryTable[theoryId]->setMasterEqualityEngine(d_masterEqualityEngine);
+      }
+    }
+  }
+}
+
+void TheoryEngine::eqNotifyNewClass(TNode t){
+  d_quantEngine->addTermToDatabase( t );
+}
+
+void TheoryEngine::eqNotifyPreMerge(TNode t1, TNode t2){
+  //TODO: add notification to efficient E-matching
+  if (d_logicInfo.isQuantified()) {
+    d_quantEngine->getEfficientEMatcher()->merge( t1, t2 );
+  }
+}
+
+void TheoryEngine::eqNotifyPostMerge(TNode t1, TNode t2){
+
+}
+
+void TheoryEngine::eqNotifyDisequal(TNode t1, TNode t2, TNode reason){
+
+}
+
 
 TheoryEngine::TheoryEngine(context::Context* context,
                            context::UserContext* userContext,
@@ -58,6 +95,8 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_userContext(userContext),
   d_logicInfo(logicInfo),
   d_sharedTerms(this, context),
+  d_masterEqualityEngine(NULL),
+  d_masterEENotify(*this),
   d_quantEngine(NULL),
   d_curr_model(NULL),
   d_curr_model_builder(NULL),
@@ -91,8 +130,8 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_quantEngine = new QuantifiersEngine(context, this);
 
   // build model information if applicable
-  d_curr_model = new theory::TheoryModel( userContext, "DefaultModel", true );
-  d_curr_model_builder = new theory::TheoryEngineModelBuilder( this );
+  d_curr_model = new theory::TheoryModel(userContext, "DefaultModel", true);
+  d_curr_model_builder = new theory::TheoryEngineModelBuilder(this);
 
   StatisticsRegistry::registerStat(&d_combineTheoriesTime);
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
@@ -113,6 +152,8 @@ TheoryEngine::~TheoryEngine() {
   delete d_curr_model;
 
   delete d_quantEngine;
+
+  delete d_masterEqualityEngine;
 
   StatisticsRegistry::unregisterStat(&d_combineTheoriesTime);
 }
@@ -229,21 +270,6 @@ void TheoryEngine::dumpAssertions(const char* tag) {
   }
 }
 
-
-template<typename T, bool doAssert>
-class scoped_vector_clear {
-  vector<T>& d_v;
-public:
-  scoped_vector_clear(vector<T>& v)
-  : d_v(v) {
-    Assert(!doAssert || d_v.empty());
-  }
-  ~scoped_vector_clear() {
-    d_v.clear();
-  }
-
-};
-
 /**
  * Check all (currently-active) theories for conflicts.
  * @param effort the effort level to use
@@ -321,15 +347,12 @@ void TheoryEngine::check(Theory::Effort effort) {
     // Must consult quantifiers theory for last call to ensure sat, or otherwise add a lemma
     if( effort == Theory::EFFORT_FULL && ! d_inConflict && ! needCheck() ) {
       if(d_logicInfo.isQuantified()) {
-        bool prevIncomplete = d_incomplete;
         // quantifiers engine must pass effort last call check
         d_quantEngine->check(Theory::EFFORT_LAST_CALL);
         // if we have given up, then possibly flip decision
         if(options::flipDecision()) {
           if(d_incomplete && !d_inConflict && !needCheck()) {
-            if( ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ) {
-              d_incomplete = prevIncomplete;
-            }
+            ((theory::quantifiers::TheoryQuantifiers*) d_theoryTable[THEORY_QUANTIFIERS])->flipDecision();
           }
         }
         // if returning incomplete or SAT, we have ensured that the model in the quantifiers engine has been built
@@ -342,7 +365,7 @@ void TheoryEngine::check(Theory::Effort effort) {
     Debug("theory") << "TheoryEngine::check(" << effort << "): done, we are " << (d_inConflict ? "unsat" : "sat") << (d_lemmasAdded ? " with new lemmas" : " with no new lemmas") << std::endl;
 
   } catch(const theory::Interrupted&) {
-    Trace("theory") << "TheoryEngine::check() => conflict" << endl;
+    Trace("theory") << "TheoryEngine::check() => interrupted" << endl;
   }
 
   // If fulleffort, check all theories
@@ -520,7 +543,7 @@ bool TheoryEngine::properConflict(TNode conflict) const {
 }
 
 bool TheoryEngine::properPropagation(TNode lit) const {
-  if(!getPropEngine()->isTranslatedSatLiteral(lit)) {
+  if(!getPropEngine()->isSatLiteral(lit)) {
     return false;
   }
   bool b;
@@ -546,7 +569,7 @@ bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
 
 void TheoryEngine::collectModelInfo( theory::TheoryModel* m, bool fullModel ){
   //have shared term engine collectModelInfo
-  d_sharedTerms.collectModelInfo( m, fullModel );
+  //  d_sharedTerms.collectModelInfo( m, fullModel );
   // Consult each active theory to get all relevant information
   // concerning the model.
   for(TheoryId theoryId = theory::THEORY_FIRST; theoryId < theory::THEORY_LAST; ++theoryId) {
@@ -695,7 +718,9 @@ theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMa
     stringstream ss;
     ss << "The logic was specified as " << d_logicInfo.getLogicString()
        << ", which doesn't include " << Theory::theoryOf(atom)
-       << ", but got an asserted fact to that theory";
+       << ", but got a preprocessing-time fact for that theory." << endl
+       << "The fact:" << endl
+       << literal;
     throw LogicException(ss.str());
   }
 
@@ -793,7 +818,9 @@ Node TheoryEngine::preprocess(TNode assertion) {
       stringstream ss;
       ss << "The logic was specified as " << d_logicInfo.getLogicString()
          << ", which doesn't include " << Theory::theoryOf(current)
-         << ", but got an asserted fact to that theory";
+         << ", but got a preprocesing-time fact for that theory." << endl
+         << "The fact:" << endl
+         << current;
       throw LogicException(ss.str());
     }
 
@@ -883,7 +910,9 @@ void TheoryEngine::assertToTheory(TNode assertion, theory::TheoryId toTheoryId, 
     stringstream ss;
     ss << "The logic was specified as " << d_logicInfo.getLogicString()
        << ", which doesn't include " << toTheoryId
-       << ", but got an asserted fact to that theory";
+       << ", but got an asserted fact to that theory." << endl
+       << "The fact:" << endl
+       << assertion;
     throw LogicException(ss.str());
   }
 
@@ -1332,24 +1361,22 @@ void TheoryEngine::ppUnconstrainedSimp(vector<Node>& assertions)
 }
 
 
-void TheoryEngine::setUserAttribute( std::string& attr, Node n ){
+void TheoryEngine::setUserAttribute(const std::string& attr, Node n) {
   Trace("te-attr") << "set user attribute " << attr << " " << n << std::endl;
   if( d_attr_handle.find( attr )!=d_attr_handle.end() ){
     for( size_t i=0; i<d_attr_handle[attr].size(); i++ ){
-      d_attr_handle[attr][i]->setUserAttribute( attr, n );
+      d_attr_handle[attr][i]->setUserAttribute(attr, n);
     }
-  }else{
+  } else {
     //unhandled exception?
   }
 }
 
-
-void TheoryEngine::handleUserAttribute( const char* attr, Theory* t ){
+void TheoryEngine::handleUserAttribute(const char* attr, Theory* t) {
   Trace("te-attr") << "Handle user attribute " << attr << " " << t << std::endl;
   std::string str( attr );
   d_attr_handle[ str ].push_back( t );
 }
-
 
 void TheoryEngine::checkTheoryAssertionsWithModel()
 {

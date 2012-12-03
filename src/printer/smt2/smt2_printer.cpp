@@ -26,6 +26,7 @@
 #include "util/node_visitor.h"
 #include "theory/substitutions.h"
 #include "util/language.h"
+#include "smt/smt_engine.h"
 
 #include "theory/model.h"
 
@@ -281,6 +282,15 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     break;
 
     // datatypes
+  case kind::APPLY_TYPE_ASCRIPTION: {
+      out << "as ";
+      toStream(out, n[0], toDepth < 0 ? toDepth : toDepth - 1, types);
+      out << ' ';
+      TypeNode t = TypeNode::fromType(n.getOperator().getConst<AscriptionType>().getType());
+      out << (t.isFunctionLike() ? t.getRangeType() : t);
+      stillNeedToPrintParams = false;
+    }
+    break;
   case kind::APPLY_TESTER:
   case kind::APPLY_CONSTRUCTOR:
   case kind::APPLY_SELECTOR:
@@ -554,7 +564,11 @@ void Smt2Printer::toStream(std::ostream& out, Model& m, const Command* c) const 
     }
   } else if(dynamic_cast<const DeclareFunctionCommand*>(c) != NULL) {
     Node n = Node::fromExpr( ((const DeclareFunctionCommand*)c)->getFunction() );
-    Node val = tm.getValue( n );
+    if(n.getKind() == kind::SKOLEM) {
+      // don't print out internal stuff
+      return;
+    }
+    Node val = Node::fromExpr(tm.getSmtEngine()->getValue(n.toExpr()));
     if(val.getKind() == kind::LAMBDA) {
       out << "(define-fun " << n << " " << val[0]
           << " " << n.getType().getRangeType()
@@ -791,7 +805,13 @@ static void toStream(std::ostream& out, const DatatypeDeclarationCommand* c) thr
 }
 
 static void toStream(std::ostream& out, const CommentCommand* c) throw() {
-  out << "(set-info :notes \"" << c->getComment() << "\")";
+  string s = c->getComment();
+  size_t pos = 0;
+  while((pos = s.find_first_of('"', pos)) != string::npos) {
+    s.replace(pos, 1, "\\\"");
+    pos += 2;
+  }
+  out << "(set-info :notes \"" << s << "\")";
 }
 
 static void toStream(std::ostream& out, const EmptyCommand* c) throw() {

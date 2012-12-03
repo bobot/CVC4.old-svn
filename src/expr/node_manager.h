@@ -52,11 +52,19 @@ class TypeChecker;
 // TODO: hide this attribute behind a NodeManager interface.
 namespace attr {
   struct VarNameTag { };
+  struct GlobalVarTag { };
   struct SortArityTag { };
+  struct DatatypeTupleTag { };
+  struct DatatypeRecordTag { };
 }/* CVC4::expr::attr namespace */
 
 typedef Attribute<attr::VarNameTag, std::string> VarNameAttr;
+typedef Attribute<attr::GlobalVarTag(), bool> GlobalVarAttr;
 typedef Attribute<attr::SortArityTag, uint64_t> SortArityAttr;
+/** Attribute true for datatype types that are replacements for tuple types */
+typedef expr::Attribute<expr::attr::DatatypeTupleTag, TypeNode> DatatypeTupleAttr;
+/** Attribute true for datatype types that are replacements for record types */
+typedef expr::Attribute<expr::attr::DatatypeRecordTag, TypeNode> DatatypeRecordAttr;
 
 }/* CVC4::expr namespace */
 
@@ -71,8 +79,8 @@ public:
   virtual void nmNotifyNewSortConstructor(TypeNode tn) { }
   virtual void nmNotifyInstantiateSortConstructor(TypeNode ctor, TypeNode sort) { }
   virtual void nmNotifyNewDatatypes(const std::vector<DatatypeType>& datatypes) { }
-  virtual void nmNotifyNewVar(TNode n) { }
-  virtual void nmNotifyNewSkolem(TNode n, const std::string& comment) { }
+  virtual void nmNotifyNewVar(TNode n, bool isGlobal) { }
+  virtual void nmNotifyNewSkolem(TNode n, const std::string& comment, bool isGlobal) { }
 };/* class NodeManagerListener */
 
 class NodeManager {
@@ -82,8 +90,8 @@ class NodeManager {
   friend class expr::TypeChecker;
 
   // friends so they can access mkVar() here, which is private
-  friend Expr ExprManager::mkVar(const std::string&, Type);
-  friend Expr ExprManager::mkVar(Type);
+  friend Expr ExprManager::mkVar(const std::string&, Type, bool isGlobal);
+  friend Expr ExprManager::mkVar(Type, bool isGlobal);
 
   // friend so it can access NodeManager's d_listeners and notify clients
   friend std::vector<DatatypeType> ExprManager::mkMutualDatatypeTypes(const std::vector<Datatype>&, const std::set<Type>&);
@@ -156,6 +164,19 @@ class NodeManager {
    * A list of subscribers for NodeManager events.
    */
   std::vector<NodeManagerListener*> d_listeners;
+
+  /**
+   * A map of tuple and record types to their corresponding datatype.
+   */
+  std::hash_map<TypeNode, TypeNode, TypeNodeHashFunction> d_tupleAndRecordTypes;
+
+  /**
+   * Keep a count of all abstract values produced by this NodeManager.
+   * Abstract values have a type attribute, so if multiple SmtEngines
+   * are attached to this NodeManager, we don't want their abstract
+   * values to overlap.
+   */
+  unsigned d_abstractValueCount;
 
   /**
    * Look up a NodeValue in the pool associated to this NodeManager.
@@ -288,12 +309,12 @@ class NodeManager {
    * version of this is private to avoid internal uses of mkVar() from
    * within CVC4.  Such uses should employ mkSkolem() instead.
    */
-  Node mkVar(const std::string& name, const TypeNode& type);
-  Node* mkVarPtr(const std::string& name, const TypeNode& type);
+  Node mkVar(const std::string& name, const TypeNode& type, bool isGlobal = false);
+  Node* mkVarPtr(const std::string& name, const TypeNode& type, bool isGlobal = false);
 
   /** Create a variable with the given type. */
-  Node mkVar(const TypeNode& type);
-  Node* mkVarPtr(const TypeNode& type);
+  Node mkVar(const TypeNode& type, bool isGlobal = false);
+  Node* mkVarPtr(const TypeNode& type, bool isGlobal = false);
 
 public:
 
@@ -413,7 +434,8 @@ public:
   enum SkolemFlags {
     SKOLEM_DEFAULT = 0,   /**< default behavior */
     SKOLEM_NO_NOTIFY = 1, /**< do not notify subscribers */
-    SKOLEM_EXACT_NAME = 2 /**< do not make the name unique by adding the id */
+    SKOLEM_EXACT_NAME = 2,/**< do not make the name unique by adding the id */
+    SKOLEM_IS_GLOBAL = 4  /**< global vars appear in models even after a pop */
   };/* enum SkolemFlags */
 
   /**
@@ -440,6 +462,9 @@ public:
 
   /** Create a instantiation constant with the given type. */
   Node mkInstConstant(const TypeNode& type);
+
+  /** Make a new abstract value with the given type. */
+  Node mkAbstractValue(const TypeNode& type);
 
   /**
    * Create a constant of type T.  It will have the appropriate
@@ -717,6 +742,14 @@ public:
   inline TypeNode mkTupleType(const std::vector<TypeNode>& types);
 
   /**
+   * Make a record type with the description from rec.
+   *
+   * @param rec a description of the record
+   * @returns the record type
+   */
+  inline TypeNode mkRecordType(const Record& rec);
+
+  /**
    * Make a symbolic expression type with types from
    * <code>types</code>. <code>types</code> may have any number of
    * elements.
@@ -778,6 +811,12 @@ public:
    */
   TypeNode mkSubrangeType(const SubrangeBounds& bounds)
     throw(TypeCheckingExceptionPrivate);
+
+  /**
+   * Given a tuple or record type, get the internal datatype used for
+   * it.  Makes the DatatypeType if necessary.
+   */
+  TypeNode getDatatypeForTupleRecord(TypeNode tupleRecordType);
 
   /**
    * Get the type for the given node and optionally do type checking.
@@ -1029,9 +1068,6 @@ NodeManager::mkFunctionType(const std::vector<TypeNode>& sorts) {
   for (unsigned i = 0; i < sorts.size(); ++ i) {
     CheckArgument(!sorts[i].isFunctionLike(), sorts,
                   "cannot create higher-order function types");
-    if(i + 1 < sorts.size() && sorts[i].isBoolean()) {
-      WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a function type with a Boolean argument)" << std::endl;
-    }
     sortNodes.push_back(sorts[i]);
   }
   return mkTypeNode(kind::FUNCTION_TYPE, sortNodes);
@@ -1044,9 +1080,6 @@ NodeManager::mkPredicateType(const std::vector<TypeNode>& sorts) {
   for (unsigned i = 0; i < sorts.size(); ++ i) {
     CheckArgument(!sorts[i].isFunctionLike(), sorts,
                   "cannot create higher-order function types");
-    if(i + 1 < sorts.size() && sorts[i].isBoolean()) {
-      WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a predicate type with a Boolean argument)" << std::endl;
-    }
     sortNodes.push_back(sorts[i]);
   }
   sortNodes.push_back(booleanType());
@@ -1059,12 +1092,13 @@ inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
   for (unsigned i = 0; i < types.size(); ++ i) {
     CheckArgument(!types[i].isFunctionLike(), types,
                   "cannot put function-like types in tuples");
-    if(types[i].isBoolean()) {
-      WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a tuple type with a Boolean argument)" << std::endl;
-    }
     typeNodes.push_back(types[i]);
   }
   return mkTypeNode(kind::TUPLE_TYPE, typeNodes);
+}
+
+inline TypeNode NodeManager::mkRecordType(const Record& rec) {
+  return mkTypeConst(rec);
 }
 
 inline TypeNode NodeManager::mkSExprType(const std::vector<TypeNode>& types) {
@@ -1089,9 +1123,6 @@ inline TypeNode NodeManager::mkArrayType(TypeNode indexType,
                 "cannot index arrays by a function-like type");
   CheckArgument(!constituentType.isFunctionLike(), constituentType,
                 "cannot store function-like types in arrays");
-  if(indexType.isBoolean() || constituentType.isBoolean()) {
-    WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created an array type with a Boolean index or constituent type)" << std::endl;
-  }
   Debug("arrays") << "making array type " << indexType << " " << constituentType << std::endl;
   return mkTypeNode(kind::ARRAY_TYPE, indexType, constituentType);
 }
@@ -1456,25 +1487,27 @@ inline TypeNode NodeManager::mkTypeNode(Kind kind,
 }
 
 
-inline Node NodeManager::mkVar(const std::string& name, const TypeNode& type) {
+inline Node NodeManager::mkVar(const std::string& name, const TypeNode& type, bool isGlobal) {
   Node n = NodeBuilder<0>(this, kind::VARIABLE);
   setAttribute(n, TypeAttr(), type);
   setAttribute(n, TypeCheckedAttr(), true);
   setAttribute(n, expr::VarNameAttr(), name);
+  setAttribute(n, expr::GlobalVarAttr(), isGlobal);
   for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
-    (*i)->nmNotifyNewVar(n);
+    (*i)->nmNotifyNewVar(n, isGlobal);
   }
   return n;
 }
 
 inline Node* NodeManager::mkVarPtr(const std::string& name,
-                                   const TypeNode& type) {
+                                   const TypeNode& type, bool isGlobal) {
   Node* n = NodeBuilder<0>(this, kind::VARIABLE).constructNodePtr();
   setAttribute(*n, TypeAttr(), type);
   setAttribute(*n, TypeCheckedAttr(), true);
   setAttribute(*n, expr::VarNameAttr(), name);
+  setAttribute(*n, expr::GlobalVarAttr(), isGlobal);
   for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
-    (*i)->nmNotifyNewVar(*n);
+    (*i)->nmNotifyNewVar(*n, isGlobal);
   }
   return n;
 }
@@ -1492,22 +1525,24 @@ inline Node* NodeManager::mkBoundVarPtr(const std::string& name,
   return n;
 }
 
-inline Node NodeManager::mkVar(const TypeNode& type) {
+inline Node NodeManager::mkVar(const TypeNode& type, bool isGlobal) {
   Node n = NodeBuilder<0>(this, kind::VARIABLE);
   setAttribute(n, TypeAttr(), type);
   setAttribute(n, TypeCheckedAttr(), true);
+  setAttribute(n, expr::GlobalVarAttr(), isGlobal);
   for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
-    (*i)->nmNotifyNewVar(n);
+    (*i)->nmNotifyNewVar(n, isGlobal);
   }
   return n;
 }
 
-inline Node* NodeManager::mkVarPtr(const TypeNode& type) {
+inline Node* NodeManager::mkVarPtr(const TypeNode& type, bool isGlobal) {
   Node* n = NodeBuilder<0>(this, kind::VARIABLE).constructNodePtr();
   setAttribute(*n, TypeAttr(), type);
   setAttribute(*n, TypeCheckedAttr(), true);
+  setAttribute(*n, expr::GlobalVarAttr(), isGlobal);
   for(std::vector<NodeManagerListener*>::iterator i = d_listeners.begin(); i != d_listeners.end(); ++i) {
-    (*i)->nmNotifyNewVar(*n);
+    (*i)->nmNotifyNewVar(*n, isGlobal);
   }
   return n;
 }
@@ -1528,6 +1563,13 @@ inline Node* NodeManager::mkBoundVarPtr(const TypeNode& type) {
 
 inline Node NodeManager::mkInstConstant(const TypeNode& type) {
   Node n = NodeBuilder<0>(this, kind::INST_CONSTANT);
+  n.setAttribute(TypeAttr(), type);
+  n.setAttribute(TypeCheckedAttr(), true);
+  return n;
+}
+
+inline Node NodeManager::mkAbstractValue(const TypeNode& type) {
+  Node n = mkConst(AbstractValue(++d_abstractValueCount));
   n.setAttribute(TypeAttr(), type);
   n.setAttribute(TypeCheckedAttr(), true);
   return n;

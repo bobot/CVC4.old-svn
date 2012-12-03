@@ -22,7 +22,6 @@
 #include "theory/quantifiers/model_engine.h"
 #include "expr/kind.h"
 #include "util/cvc4_assert.h"
-#include "theory/quantifiers/theory_quantifiers_instantiator.h"
 #include "theory/quantifiers/options.h"
 #include "theory/quantifiers/term_database.h"
 #include "theory/quantifiers/quantifiers_attributes.h"
@@ -36,15 +35,20 @@ using namespace CVC4::theory::quantifiers;
 
 TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) :
   Theory(THEORY_QUANTIFIERS, c, u, out, valuation, logicInfo, qe),
-  d_numRestarts(0){
+  d_numRestarts(0),
+  d_masterEqualityEngine(0)
+{
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
   out.handleUserAttribute( "axiom", this );
   out.handleUserAttribute( "conjecture", this );
 }
 
-
 TheoryQuantifiers::~TheoryQuantifiers() {
+}
+
+void TheoryQuantifiers::setMasterEqualityEngine(eq::EqualityEngine* eq) {
+  d_masterEqualityEngine = eq;
 }
 
 void TheoryQuantifiers::addSharedTerm(TNode t) {

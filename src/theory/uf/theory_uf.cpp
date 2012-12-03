@@ -18,7 +18,6 @@
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/options.h"
 #include "theory/quantifiers/options.h"
-#include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_strong_solver.h"
 #include "theory/model.h"
 #include "theory/type_enumerator.h"
@@ -43,6 +42,10 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
+}
+
+void TheoryUF::setMasterEqualityEngine(eq::EqualityEngine* eq) {
+  d_equalityEngine.setMasterEqualityEngine(eq);
 }
 
 static Node mkAnd(const std::vector<TNode>& conjunctions) {
@@ -473,15 +476,11 @@ void TheoryUF::eqNotifyNewClass(TNode t) {
   if (d_thss != NULL) {
     d_thss->newEqClass(t);
   }
-  // this can be called very early, during initialization
-  if (!getLogicInfo().isLocked() || getLogicInfo().isQuantified()) {
-    ((InstantiatorTheoryUf*) getInstantiator())->newEqClass(t);
-  }
 }
 
 void TheoryUF::eqNotifyPreMerge(TNode t1, TNode t2) {
   if (getLogicInfo().isQuantified()) {
-    ((InstantiatorTheoryUf*) getInstantiator())->merge(t1, t2);
+    //getQuantifiersEngine()->getEfficientEMatcher()->merge( t1, t2 );
   }
 }
 
@@ -494,9 +493,6 @@ void TheoryUF::eqNotifyPostMerge(TNode t1, TNode t2) {
 void TheoryUF::eqNotifyDisequal(TNode t1, TNode t2, TNode reason) {
   if (d_thss != NULL) {
     d_thss->assertDisequal(t1, t2, reason);
-  }
-  if (getLogicInfo().isQuantified()) {
-    ((InstantiatorTheoryUf*) getInstantiator())->assertDisequal(t1, t2, reason);
   }
 }
 

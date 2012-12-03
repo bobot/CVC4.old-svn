@@ -141,20 +141,6 @@ class CVC4_PUBLIC Parser {
   /** Are we only parsing? */
   bool d_parseOnly;
 
-  /**
-   * We might see the same record type multiple times; we have
-   * to match always to the same Type.  This map contains all the
-   * record types we have.
-   */
-  std::map<std::vector< std::pair<std::string, Type> >, DatatypeType> d_recordTypes;
-
-  /**
-   * We might see the same tuple type multiple times; we have
-   * to match always to the same Type.  This map contains all the
-   * tuple types we have.
-   */
-  std::map<std::vector<Type>, DatatypeType> d_tupleTypes;
-
   /** The set of operators available in the current logic. */
   std::set<Kind> d_logicOperators;
 
@@ -349,6 +335,11 @@ public:
   /** Create a new CVC4 bound variable expression of the given type. */
   Expr mkBoundVar(const std::string& name, const Type& type);
 
+  /**
+   * Create a set of new CVC4 bound variable expressions of the given type.
+   */
+  std::vector<Expr> mkBoundVars(const std::vector<std::string> names, const Type& type);
+
   /** Create a new CVC4 function expression of the given type. */
   Expr mkFunction(const std::string& name, const Type& type,
                   bool levelZero = false);
@@ -418,16 +409,6 @@ public:
    */
   std::vector<DatatypeType>
   mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes);
-
-  /**
-   * Create a record type, or if there's already a matching one, return that one.
-   */
-  DatatypeType mkRecordType(const std::vector< std::pair<std::string, Type> >& typeIds);
-
-  /**
-   * Create a tuple type, or if there's already a matching one, return that one.
-   */
-  DatatypeType mkTupleType(const std::vector<Type>& types);
 
   /**
    * Add an operator to the current legal set.

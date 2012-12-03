@@ -20,7 +20,7 @@
 #include "expr/node_manager.h" // for VarNameAttr
 #include "expr/command.h"
 #include "theory/substitutions.h"
-
+#include "smt/smt_engine.h"
 #include "theory/model.h"
 
 #include <iostream>
@@ -207,13 +207,16 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << ']';
       return;
       break;
-    case kind::TUPLE:
     case kind::SEXPR:
       // no-op
       break;
     case kind::LAMBDA:
-      op << "LAMBDA";
-      opType = PREFIX;
+      out << "(LAMBDA";
+      toStream(out, n[0], depth, types, true);
+      out << ": ";
+      toStream(out, n[1], depth, types, true);
+      out << ")";
+      return;
       break;
     case kind::APPLY:
       toStream(op, n.getOperator(), depth, types, true);
@@ -287,6 +290,25 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       break;
 
     // DATATYPES
+    case kind::PARAMETRIC_DATATYPE:
+      out << n[0].getConst<Datatype>().getName() << '[';
+      for(unsigned i = 1; i < n.getNumChildren(); ++i) {
+        if(i > 1) {
+          out << ',';
+        }
+        out << n[i];
+      }
+      out << ']';
+      return;
+      break;
+    case kind::APPLY_TYPE_ASCRIPTION: {
+        toStream(out, n[0], depth, types, false);
+        out << "::";
+        TypeNode t = TypeNode::fromType(n.getOperator().getConst<AscriptionType>().getType());
+        out << (t.isFunctionLike() ? t.getRangeType() : t);
+      }
+      return;
+      break;
     case kind::APPLY_CONSTRUCTOR:
     case kind::APPLY_SELECTOR:
     case kind::APPLY_TESTER:
@@ -294,29 +316,71 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       break;
     case kind::CONSTRUCTOR_TYPE:
     case kind::SELECTOR_TYPE:
-      if (n.getNumChildren() > 1) {
-        if (n.getNumChildren() > 2) {
+      if(n.getNumChildren() > 1) {
+        if(n.getNumChildren() > 2) {
           out << '(';
         }
-        for (unsigned i = 0; i < n.getNumChildren(); ++ i) {
-          if (i > 0) {
+        for(unsigned i = 0; i < n.getNumChildren() - 1; ++i) {
+          if(i > 0) {
             out << ", ";
           }
           toStream(out, n[i], depth, types, false);
         }
-        if (n.getNumChildren() > 2) {
+        if(n.getNumChildren() > 2) {
           out << ')';
         }
+        out << " -> ";
       }
-      out << " -> ";
-      toStream(out, n[n.getNumChildren()-1], depth, types, false);
+      toStream(out, n[n.getNumChildren() - 1], depth, types, false);
       return;
-      break;
     case kind::TESTER_TYPE:
       toStream(out, n[0], depth, types, false);
       out << " -> BOOLEAN";
       return;
       break;
+    case kind::TUPLE_SELECT:
+      toStream(out, n[0], depth, types, true);
+      out << '.' << n.getOperator().getConst<TupleSelect>().getIndex();
+      return;
+      break;
+    case kind::RECORD_SELECT:
+      toStream(out, n[0], depth, types, true);
+      out << '.' << n.getOperator().getConst<RecordSelect>().getField();
+      return;
+      break;
+    case kind::TUPLE_UPDATE:
+      toStream(out, n[0], depth, types, true);
+      out << " WITH ." << n.getOperator().getConst<TupleUpdate>().getIndex() << " := ";
+      toStream(out, n[1], depth, types, true);
+      return;
+      break;
+    case kind::RECORD_UPDATE:
+      toStream(out, n[0], depth, types, true);
+      out << " WITH ." << n.getOperator().getConst<RecordUpdate>().getField() << " := ";
+      toStream(out, n[1], depth, types, true);
+      return;
+      break;
+    case kind::TUPLE:
+      // no-op
+      break;
+    case kind::RECORD: {
+      // (# _a := 2, _b := 2 #)
+      const Record& rec = n.getOperator().getConst<Record>();
+      out << "(# ";
+      TNode::iterator i = n.begin();
+      bool first = true;
+      for(Record::const_iterator j = rec.begin(); j != rec.end(); ++i, ++j) {
+        if(!first) {
+          out << ", ";
+        }
+        out << (*j).first << " := ";
+        toStream(out, *i, depth, types, false);
+        first = false;
+      }
+      out << " #)";
+      return;
+      break;
+    }
 
     // ARRAYS
     case kind::ARRAY_TYPE:
@@ -327,7 +391,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       return;
       break;
     case kind::SELECT:
-      toStream(out, n[0], depth, types, false);
+      toStream(out, n[0], depth, types, true);
       out << '[';
       toStream(out, n[1], depth, types, false);
       out << ']';
@@ -744,14 +808,14 @@ void CvcPrinter::toStream(std::ostream& out, Model& m, const Command* c) const t
   if(dynamic_cast<const DeclareTypeCommand*>(c) != NULL) {
     TypeNode tn = TypeNode::fromType( ((const DeclareTypeCommand*)c)->getType() );
     if( tn.isSort() ){
-      //print the cardinality
+      // print the cardinality
       if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
         out << "; cardinality of " << tn << " is " << (*tm.d_rep_set.d_type_reps.find(tn)).second.size() << std::endl;
       }
     }
     out << c << std::endl;
     if( tn.isSort() ){
-      //print the representatives
+      // print the representatives
       if( tm.d_rep_set.d_type_reps.find( tn )!=tm.d_rep_set.d_type_reps.end() ){
         for( size_t i=0; i<(*tm.d_rep_set.d_type_reps.find(tn)).second.size(); i++ ){
           if( (*tm.d_rep_set.d_type_reps.find(tn)).second[i].isVar() ){
@@ -764,6 +828,10 @@ void CvcPrinter::toStream(std::ostream& out, Model& m, const Command* c) const t
     }
   } else if(dynamic_cast<const DeclareFunctionCommand*>(c) != NULL) {
     Node n = Node::fromExpr( ((const DeclareFunctionCommand*)c)->getFunction() );
+    if(n.getKind() == kind::SKOLEM) {
+      // don't print out internal stuff
+      return;
+    }
     TypeNode tn = n.getType();
     out << n << " : ";
     if( tn.isFunction() || tn.isPredicate() ){
@@ -776,7 +844,7 @@ void CvcPrinter::toStream(std::ostream& out, Model& m, const Command* c) const t
     }else{
       out << tn;
     }
-    out << " = " << tm.getValue( n ) << ";" << std::endl;
+    out << " = " << Node::fromExpr(tm.getSmtEngine()->getValue(n.toExpr())) << ";" << std::endl;
 
 /*
     //for table format (work in progress)
@@ -912,14 +980,15 @@ static void toStream(std::ostream& out, const SimplifyCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const GetValueCommand* c) throw() {
-  out << "% (get-value ( ";
   const vector<Expr>& terms = c->getTerms();
-  copy(terms.begin(), terms.end(), ostream_iterator<Expr>(out, " "));
-  out << " ))";
+  Assert(!terms.empty());
+  out << "GET_VALUE ";
+  copy(terms.begin(), terms.end() - 1, ostream_iterator<Expr>(out, ";\nGET_VALUE "));
+  out << terms.back() << ";";
 }
 
 static void toStream(std::ostream& out, const GetModelCommand* c) throw() {
-  out << "% (get-model)";
+  out << "COUNTERMODEL;";
 }
 
 static void toStream(std::ostream& out, const GetAssignmentCommand* c) throw() {
@@ -927,7 +996,7 @@ static void toStream(std::ostream& out, const GetAssignmentCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const GetAssertionsCommand* c) throw() {
-  out << "% (get-assertions)";
+  out << "WHERE;";
 }
 
 static void toStream(std::ostream& out, const SetBenchmarkStatusCommand* c) throw() {
@@ -935,7 +1004,7 @@ static void toStream(std::ostream& out, const SetBenchmarkStatusCommand* c) thro
 }
 
 static void toStream(std::ostream& out, const SetBenchmarkLogicCommand* c) throw() {
-  out << "% (set-logic " << c->getLogic() << ")";
+  out << "OPTION \"logic\" \"" << c->getLogic() << "\";";
 }
 
 static void toStream(std::ostream& out, const SetInfoCommand* c) throw() {
@@ -949,9 +1018,9 @@ static void toStream(std::ostream& out, const GetInfoCommand* c) throw() {
 }
 
 static void toStream(std::ostream& out, const SetOptionCommand* c) throw() {
-  out << "% (set-option " << c->getFlag() << " ";
+  out << "OPTION \"" << c->getFlag() << "\" ";
   toStream(out, c->getSExpr());
-  out << ")";
+  out << ";";
 }
 
 static void toStream(std::ostream& out, const GetOptionCommand* c) throw() {

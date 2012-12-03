@@ -40,14 +40,17 @@
 #include "smt/modal_exception.h"
 #include "smt/smt_engine.h"
 #include "smt/smt_engine_scope.h"
+#include "smt/model_postprocessor.h"
 #include "theory/theory_engine.h"
 #include "theory/bv/theory_bv_rewriter.h"
 #include "proof/proof_manager.h"
 #include "util/proof.h"
 #include "util/boolean_simplification.h"
+#include "util/node_visitor.h"
 #include "util/configuration.h"
 #include "util/exception.h"
 #include "smt/command_list.h"
+#include "smt/boolean_terms.h"
 #include "smt/options.h"
 #include "options/option_exception.h"
 #include "util/output.h"
@@ -65,6 +68,7 @@
 #include "prop/options.h"
 #include "theory/arrays/options.h"
 #include "util/sort_inference.h"
+#include "theory/quantifiers/macros.h"
 
 using namespace std;
 using namespace CVC4;
@@ -102,6 +106,8 @@ public:
 struct SmtEngineStatistics {
   /** time spent in definition-expansion */
   TimerStat d_definitionExpansionTime;
+  /** time spent in Boolean term rewriting */
+  TimerStat d_rewriteBooleanTermsTime;
   /** time spent in non-clausal simplification */
   TimerStat d_nonclausalSimplificationTime;
   /** Num of constant propagations found during nonclausal simp */
@@ -127,6 +133,7 @@ struct SmtEngineStatistics {
 
   SmtEngineStatistics() :
     d_definitionExpansionTime("smt::SmtEngine::definitionExpansionTime"),
+    d_rewriteBooleanTermsTime("smt::SmtEngine::rewriteBooleanTermsTime"),
     d_nonclausalSimplificationTime("smt::SmtEngine::nonclausalSimplificationTime"),
     d_numConstantProps("smt::SmtEngine::numConstantProps", 0),
     d_staticLearningTime("smt::SmtEngine::staticLearningTime"),
@@ -140,6 +147,7 @@ struct SmtEngineStatistics {
     d_checkModelTime("smt::SmtEngine::checkModelTime") {
 
     StatisticsRegistry::registerStat(&d_definitionExpansionTime);
+    StatisticsRegistry::registerStat(&d_rewriteBooleanTermsTime);
     StatisticsRegistry::registerStat(&d_nonclausalSimplificationTime);
     StatisticsRegistry::registerStat(&d_numConstantProps);
     StatisticsRegistry::registerStat(&d_staticLearningTime);
@@ -155,6 +163,7 @@ struct SmtEngineStatistics {
 
   ~SmtEngineStatistics() {
     StatisticsRegistry::unregisterStat(&d_definitionExpansionTime);
+    StatisticsRegistry::unregisterStat(&d_rewriteBooleanTermsTime);
     StatisticsRegistry::unregisterStat(&d_nonclausalSimplificationTime);
     StatisticsRegistry::unregisterStat(&d_numConstantProps);
     StatisticsRegistry::unregisterStat(&d_staticLearningTime);
@@ -195,6 +204,9 @@ class SmtEnginePrivate : public NodeManagerListener {
   /** Size of assertions array when preprocessing starts */
   unsigned d_realAssertionsEnd;
 
+  /** The converter for Boolean terms -> BITVECTOR(1). */
+  BooleanTermConverter d_booleanTermConverter;
+
   /** A circuit propagator for non-clausal propositional deduction */
   booleans::CircuitPropagator d_propagator;
 
@@ -227,13 +239,13 @@ class SmtEnginePrivate : public NodeManagerListener {
    */
   Node d_divByZero;
 
-  /** 
+  /**
    * Maps from bit-vector width to divison-by-zero uninterpreted
-   * function symbols.  
+   * function symbols.
    */
   hash_map<unsigned, Node> d_BVDivByZero;
   hash_map<unsigned, Node> d_BVRemByZero;
-  
+
 
   /**
    * Function symbol used to implement uninterpreted
@@ -295,6 +307,17 @@ private:
    */
   void removeITEs();
 
+  /**
+   * Helper function to fix up assertion list to restore invariants needed after ite removal
+   */
+  void collectSkolems(TNode n, set<TNode>& skolemSet, hash_map<Node, bool, NodeHashFunction>& cache);
+
+  /**
+   * Helper function to fix up assertion list to restore invariants needed after ite removal
+   */
+  bool checkForBadSkolems(TNode n, TNode skolem, hash_map<Node, bool, NodeHashFunction>& cache);
+
+
   // Simplify ITE structure
   void simpITE();
 
@@ -325,6 +348,7 @@ public:
     d_assertionsToPreprocess(),
     d_nonClausalLearnedLiterals(),
     d_realAssertionsEnd(0),
+    d_booleanTermConverter(d_smt),
     d_propagator(d_nonClausalLearnedLiterals, true, true),
     d_assertionsToCheck(),
     d_fakeContext(),
@@ -359,14 +383,14 @@ public:
     d_smt.addToModelCommandAndDump(c);
   }
 
-  void nmNotifyNewVar(TNode n) {
+  void nmNotifyNewVar(TNode n, bool isGlobal) {
     DeclareFunctionCommand c(n.getAttribute(expr::VarNameAttr()),
                              n.toExpr(),
                              n.getType().toType());
-    d_smt.addToModelCommandAndDump(c);
+    d_smt.addToModelCommandAndDump(c, isGlobal);
   }
 
-  void nmNotifyNewSkolem(TNode n, const std::string& comment) {
+  void nmNotifyNewSkolem(TNode n, const std::string& comment, bool isGlobal) {
     std::string id = n.getAttribute(expr::VarNameAttr());
     DeclareFunctionCommand c(id,
                              n.toExpr(),
@@ -374,7 +398,7 @@ public:
     if(Dump.isOn("skolems") && comment != "") {
       Dump("skolems") << CommentCommand(id + " is " + comment);
     }
-    d_smt.addToModelCommandAndDump(c, "skolems");
+    d_smt.addToModelCommandAndDump(c, isGlobal, false, "skolems");
   }
 
   Node applySubstitutions(TNode node) const {
@@ -409,23 +433,25 @@ public:
   void addFormula(TNode n)
     throw(TypeCheckingException, LogicException);
 
-  /** 
+  /**
    * Return the uinterpreted function symbol corresponding to division-by-zero
-   * for this particular bit-wdith 
+   * for this particular bit-wdith
    * @param k should be UREM or UDIV
-   * @param width 
-   * 
-   * @return 
+   * @param width
+   *
+   * @return
    */
   Node getBVDivByZero(Kind k, unsigned width);
-  /** 
-   * Returns the node modeling the division-by-zero semantics of node n. 
-   * 
-   * @param n 
-   * 
-   * @return 
+
+  /**
+   * Returns the node modeling the division-by-zero semantics of node n.
+   *
+   * @param n
+   *
+   * @return
    */
   Node expandBVDivByZero(TNode n);
+
   /**
    * Expand definitions in n.
    */
@@ -469,7 +495,7 @@ public:
     Assert(options::abstractValues());
     Node& val = d_abstractValues[n];
     if(val.isNull()) {
-      val = d_smt.d_nodeManager->mkConst(AbstractValue(d_abstractValues.size()));
+      val = d_smt.d_nodeManager->mkAbstractValue(n.getType());
       d_abstractValueMap.addSubstitution(val, n);
     }
     return val;
@@ -493,6 +519,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw() :
   d_definedFunctions(NULL),
   d_assertionList(NULL),
   d_assignments(NULL),
+  d_modelGlobalCommands(),
   d_modelCommands(NULL),
   d_dumpCommands(),
   d_logic(),
@@ -545,6 +572,7 @@ void SmtEngine::finishInit() {
 
   d_theoryEngine->setPropEngine(d_propEngine);
   d_theoryEngine->setDecisionEngine(d_decisionEngine);
+  d_theoryEngine->finishInit();
 
   // [MGD 10/20/2011] keep around in incremental mode, due to a
   // cleanup ordering issue and Nodes/TNodes.  If SAT is popped
@@ -555,6 +583,15 @@ void SmtEngine::finishInit() {
     // In the case of incremental solving, we appear to need these to
     // ensure the relevant Nodes remain live.
     d_assertionList = new(true) AssertionList(d_userContext);
+  }
+
+  // dump out a set-logic command
+  if(Dump.isOn("benchmark")) {
+    // Dump("benchmark") << SetBenchmarkLogicCommand(logic.getLogicString());
+    LogicInfo everything;
+    everything.lock();
+    Dump("benchmark") << CommentCommand("CVC4 always dumps the most general, \"all-supported\" logic (below), as some internals might require the use of a logic more general than the input.")
+                      << SetBenchmarkLogicCommand(everything.getLogicString());
   }
 
   // dump out any pending declaration commands
@@ -688,10 +725,6 @@ SmtEngine::~SmtEngine() throw() {
 void SmtEngine::setLogic(const LogicInfo& logic) throw(ModalException) {
   SmtScope smts(this);
 
-  if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << SetBenchmarkLogicCommand(logic.getLogicString());
-  }
-
   d_logic = logic;
   setLogicInternal();
 }
@@ -700,6 +733,12 @@ void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
   SmtScope smts(this);
 
   setLogic(LogicInfo(s));
+}
+
+void SmtEngine::setLogic(const char* logic) throw(ModalException){
+  SmtScope smts(this);
+
+  setLogic(LogicInfo(string(logic)));
 }
 
 LogicInfo SmtEngine::getLogicInfo() const {
@@ -718,7 +757,7 @@ void SmtEngine::setLogicInternal() throw() {
 
   // may need to force uninterpreted functions to be on for non-linear
   if(((d_logic.isTheoryEnabled(theory::THEORY_ARITH) && !d_logic.isLinear()) ||
-       d_logic.isTheoryEnabled(theory::THEORY_BV)) &&
+      d_logic.isTheoryEnabled(theory::THEORY_BV)) &&
      !d_logic.isTheoryEnabled(theory::THEORY_UF)){
     d_logic = d_logic.getUnlockedCopy();
     d_logic.enableTheory(theory::THEORY_UF);
@@ -845,10 +884,10 @@ void SmtEngine::setLogicInternal() throw() {
         (not d_logic.isQuantified() &&
           d_logic.isPure(THEORY_BV)
           ) ||
-        // QF_AUFBV
+        // QF_AUFBV or QF_ABV or QF_UFBV
         (not d_logic.isQuantified() &&
-         d_logic.isTheoryEnabled(THEORY_ARRAY) &&
-         d_logic.isTheoryEnabled(THEORY_UF) &&
+         (d_logic.isTheoryEnabled(THEORY_ARRAY) ||
+          d_logic.isTheoryEnabled(THEORY_UF)) &&
          d_logic.isTheoryEnabled(THEORY_BV)
          ) ||
         // QF_AUFLIA (and may be ends up enabling QF_AUFLRA?)
@@ -1129,32 +1168,32 @@ void SmtEngine::defineFunction(Expr func,
 
 
 Node SmtEnginePrivate::getBVDivByZero(Kind k, unsigned width) {
-  NodeManager* nm = d_smt.d_nodeManager; 
+  NodeManager* nm = d_smt.d_nodeManager;
   if (k == kind::BITVECTOR_UDIV) {
     if (d_BVDivByZero.find(width) == d_BVDivByZero.end()) {
       // lazily create the function symbols
       std::ostringstream os;
-      os << "BVUDivByZero_" << width; 
+      os << "BVUDivByZero_" << width;
       Node divByZero = nm->mkSkolem(os.str(),
                                     nm->mkFunctionType(nm->mkBitVectorType(width), nm->mkBitVectorType(width)),
                                     "partial bvudiv", NodeManager::SKOLEM_EXACT_NAME);
-      d_BVDivByZero[width] = divByZero; 
+      d_BVDivByZero[width] = divByZero;
     }
-    return d_BVDivByZero[width]; 
+    return d_BVDivByZero[width];
   }
   else if (k == kind::BITVECTOR_UREM) {
     if (d_BVRemByZero.find(width) == d_BVRemByZero.end()) {
       std::ostringstream os;
-      os << "BVURemByZero_" << width; 
+      os << "BVURemByZero_" << width;
       Node divByZero = nm->mkSkolem(os.str(),
                                     nm->mkFunctionType(nm->mkBitVectorType(width), nm->mkBitVectorType(width)),
                                     "partial bvurem", NodeManager::SKOLEM_EXACT_NAME);
       d_BVRemByZero[width] = divByZero;
     }
-    return d_BVRemByZero[width]; 
-  } 
+    return d_BVRemByZero[width];
+  }
 
-  Unreachable(); 
+  Unreachable();
 }
 
 
@@ -1162,15 +1201,15 @@ Node SmtEnginePrivate::expandBVDivByZero(TNode n) {
   // we only deal wioth the unsigned division operators as the signed ones should have been
   // expanded in terms of the unsigned operators
   NodeManager* nm = d_smt.d_nodeManager;
-  unsigned width = n.getType().getBitVectorSize(); 
+  unsigned width = n.getType().getBitVectorSize();
   Node divByZero = getBVDivByZero(n.getKind(), width);
   TNode num = n[0], den = n[1];
-  Node den_eq_0 = nm->mkNode(kind::EQUAL, den, nm->mkConst(BitVector(width, Integer(0)))); 
+  Node den_eq_0 = nm->mkNode(kind::EQUAL, den, nm->mkConst(BitVector(width, Integer(0))));
   Node divByZeroNum = nm->mkNode(kind::APPLY_UF, divByZero, num);
   Node divTotalNumDen = nm->mkNode(n.getKind() == kind::BITVECTOR_UDIV ? kind::BITVECTOR_UDIV_TOTAL :
                                    kind::BITVECTOR_UREM_TOTAL, num, den);
-  Node node = nm->mkNode(kind::ITE, den_eq_0, divByZeroNum, divTotalNumDen); 
-  return node; 
+  Node node = nm->mkNode(kind::ITE, den_eq_0, divByZeroNum, divTotalNumDen);
+  return node;
 }
 
 
@@ -1180,6 +1219,15 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashF
   Kind k = n.getKind();
 
   if(k != kind::APPLY && n.getNumChildren() == 0) {
+    SmtEngine::DefinedFunctionMap::const_iterator i = d_smt.d_definedFunctions->find(n);
+    if(i != d_smt.d_definedFunctions->end()) {
+      // replacement must be closed
+      if((*i).second.getFormals().size() > 0) {
+        throw TypeCheckingException(n.toExpr(), std::string("Defined function requires arguments: `") + n.toString() + "'");
+      }
+      // don't bother putting in the cache
+      return (*i).second.getFormula();
+    }
     // don't bother putting in the cache
     return n;
   }
@@ -1203,12 +1251,12 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashF
     node = bv::TheoryBVRewriter::eliminateBVSDiv(node);
     break;
   }
-    
+
  case kind::BITVECTOR_UDIV:
  case kind::BITVECTOR_UREM: {
-   node = expandBVDivByZero(node); 
-    break; 
-  }    
+   node = expandBVDivByZero(node);
+    break;
+  }
   case kind::DIVISION: {
     // partial function: division
     if(d_smt.d_logic.isLinear()) {
@@ -1971,6 +2019,66 @@ Result SmtEngine::quickCheck() {
   return Result(Result::VALIDITY_UNKNOWN, Result::REQUIRES_FULL_CHECK);
 }
 
+
+void SmtEnginePrivate::collectSkolems(TNode n, set<TNode>& skolemSet, hash_map<Node, bool, NodeHashFunction>& cache)
+{
+  hash_map<Node, bool, NodeHashFunction>::iterator it;
+  it = cache.find(n);
+  if (it != cache.end()) {
+    return;
+  }
+
+  size_t sz = n.getNumChildren();
+  if (sz == 0) {
+    IteSkolemMap::iterator it = d_iteSkolemMap.find(n);
+    if (it != d_iteSkolemMap.end()) {
+      skolemSet.insert(n);
+    }
+    cache[n] = true;
+    return;
+  }
+
+  size_t k = 0;
+  for (; k < sz; ++k) {
+    collectSkolems(n[k], skolemSet, cache);
+  }
+  cache[n] = true;
+}
+
+
+bool SmtEnginePrivate::checkForBadSkolems(TNode n, TNode skolem, hash_map<Node, bool, NodeHashFunction>& cache)
+{
+  hash_map<Node, bool, NodeHashFunction>::iterator it;
+  it = cache.find(n);
+  if (it != cache.end()) {
+    return (*it).second;
+  }
+
+  size_t sz = n.getNumChildren();
+  if (sz == 0) {
+    IteSkolemMap::iterator it = d_iteSkolemMap.find(n);
+    bool bad = false;
+    if (it != d_iteSkolemMap.end()) {
+      if (!((*it).first < n)) {
+        bad = true;
+      }
+    }
+    cache[n] = bad;
+    return bad;
+  }
+
+  size_t k = 0;
+  for (; k < sz; ++k) {
+    if (checkForBadSkolems(n[k], skolem, cache)) {
+      cache[n] = true;
+      return true;
+    }
+  }
+
+  cache[n] = false;
+  return false;
+}
+
 void SmtEnginePrivate::processAssertions() {
   Assert(d_smt.d_fullyInited);
   Assert(d_smt.d_pendingPops == 0);
@@ -2007,6 +2115,25 @@ void SmtEnginePrivate::processAssertions() {
     }
   }
   dumpAssertions("post-definition-expansion", d_assertionsToPreprocess);
+
+  Debug("smt") << " d_assertionsToPreprocess: " << d_assertionsToPreprocess.size() << endl;
+  Debug("smt") << " d_assertionsToCheck     : " << d_assertionsToCheck.size() << endl;
+
+  dumpAssertions("pre-boolean-terms", d_assertionsToPreprocess);
+  {
+    Chat() << "rewriting Boolean terms..." << endl;
+    TimerStat::CodeTimer codeTimer(d_smt.d_stats->d_rewriteBooleanTermsTime);
+    for(unsigned i = 0, i_end = d_assertionsToPreprocess.size(); i != i_end; ++i) {
+      Node n = d_booleanTermConverter.rewriteBooleanTerms(d_assertionsToPreprocess[i]);
+      if(n != d_assertionsToPreprocess[i] && !d_smt.d_logic.isTheoryEnabled(theory::THEORY_BV)) {
+        d_smt.d_logic = d_smt.d_logic.getUnlockedCopy();
+        d_smt.d_logic.enableTheory(theory::THEORY_BV);
+        d_smt.d_logic.lock();
+      }
+      d_assertionsToPreprocess[i] = n;
+    }
+  }
+  dumpAssertions("post-boolean-terms", d_assertionsToPreprocess);
 
   Debug("smt") << " d_assertionsToPreprocess: " << d_assertionsToPreprocess.size() << endl;
   Debug("smt") << " d_assertionsToCheck     : " << d_assertionsToCheck.size() << endl;
@@ -2058,9 +2185,17 @@ void SmtEnginePrivate::processAssertions() {
   }
   dumpAssertions("post-skolem-quant", d_assertionsToPreprocess);
 
+  if( options::macrosQuant() ){
+    //quantifiers macro expansion
+    bool success;
+    do{
+      QuantifierMacros qm;
+      success = qm.simplify( d_assertionsToPreprocess, true );
+    }while( success );
+  }
+
   if( options::sortInference() ){
     //sort inference technique
-    //TODO: use this as a rewrite technique here?
     SortInference si;
     si.simplify( d_assertionsToPreprocess );
   }
@@ -2068,7 +2203,7 @@ void SmtEnginePrivate::processAssertions() {
   dumpAssertions("pre-simplify", d_assertionsToPreprocess);
   Chat() << "simplifying assertions..." << endl;
   bool noConflict = simplifyAssertions();
-  dumpAssertions("post-simplify", d_assertionsToPreprocess);
+  dumpAssertions("post-simplify", d_assertionsToCheck);
 
   dumpAssertions("pre-static-learning", d_assertionsToCheck);
   if(options::doStaticLearning()) {
@@ -2097,19 +2232,59 @@ void SmtEnginePrivate::processAssertions() {
     Chat() << "simplifying assertions..." << endl;
     noConflict &= simplifyAssertions();
     if (noConflict) {
-      // Some skolem variables may have been solved for - which is a good thing -
-      // but it means we have to move those ITE's back to the main set of assertions
+      // Need to fix up assertion list to maintain invariants:
+      // Let Sk be the set of Skolem variables introduced by ITE's.  Let <_sk be the order in which these variables were introduced
+      // during ite removal.
+      // For each skolem variable sk, let iteExpr = iteMap(sk) be the ite expr mapped to by sk.
+
+      // cache for expression traversal
+      hash_map<Node, bool, NodeHashFunction> cache;
+
+      // First, find all skolems that appear in the substitution map - their associated iteExpr will need
+      // to be moved to the main assertion set
+      set<TNode> skolemSet;
+      SubstitutionMap::iterator pos = d_topLevelSubstitutions.begin();
+      for (; pos != d_topLevelSubstitutions.end(); ++pos) {
+        collectSkolems((*pos).first, skolemSet, cache);
+        collectSkolems((*pos).second, skolemSet, cache);
+      }
+      
+      // We need to ensure:
+      // 1. iteExpr has the form (ite cond (sk = t) (sk = e))
+      // 2. if some sk' in Sk appears in cond, t, or e, then sk' <_sk sk
+      // If either of these is violated, we must add iteExpr as a proper assertion
       IteSkolemMap::iterator it = d_iteSkolemMap.begin();
       IteSkolemMap::iterator iend = d_iteSkolemMap.end();
       NodeBuilder<> builder(kind::AND);
       builder << d_assertionsToCheck[d_realAssertionsEnd - 1];
+      vector<TNode> toErase;
       for (; it != iend; ++it) {
-        if (d_topLevelSubstitutions.hasSubstitution((*it).first)) {
-          builder << d_assertionsToCheck[(*it).second];
-          d_assertionsToCheck[(*it).second] = NodeManager::currentNM()->mkConst<bool>(true);
+        if (skolemSet.find((*it).first) == skolemSet.end()) {
+          TNode iteExpr = d_assertionsToCheck[(*it).second];
+          if (iteExpr.getKind() == kind::ITE &&
+              iteExpr[1].getKind() == kind::EQUAL &&
+              iteExpr[1][0] == (*it).first &&
+              iteExpr[2].getKind() == kind::EQUAL &&
+              iteExpr[2][0] == (*it).first) {
+            cache.clear();
+            bool bad = checkForBadSkolems(iteExpr[0], (*it).first, cache);
+            bad = bad || checkForBadSkolems(iteExpr[1][1], (*it).first, cache);
+            bad = bad || checkForBadSkolems(iteExpr[2][1], (*it).first, cache);
+            if (!bad) {
+              continue;
+            }
+          }
         }
+        // Move this iteExpr into the main assertions
+        builder << d_assertionsToCheck[(*it).second];
+        d_assertionsToCheck[(*it).second] = NodeManager::currentNM()->mkConst<bool>(true);
+        toErase.push_back((*it).first);
       }
       if(builder.getNumChildren() > 1) {
+        while (!toErase.empty()) {
+          d_iteSkolemMap.erase(toErase.back());
+          toErase.pop_back();
+        }
         d_assertionsToCheck[d_realAssertionsEnd - 1] =
           Rewriter::rewrite(Node(builder));
       }
@@ -2236,6 +2411,9 @@ Result SmtEngine::checkSat(const Expr& ex) throw(TypeCheckingException, ModalExc
   // Add the formula
   if(!e.isNull()) {
     d_problemExtended = true;
+    if(d_assertionList != NULL) {
+      d_assertionList->push_back(e);
+    }
     d_private->addFormula(e.getNode());
   }
 
@@ -2304,6 +2482,9 @@ Result SmtEngine::query(const Expr& ex) throw(TypeCheckingException, ModalExcept
 
   // Add the formula
   d_problemExtended = true;
+  if(d_assertionList != NULL) {
+    d_assertionList->push_back(e.notExpr());
+  }
   d_private->addFormula(e.getNode().notNode());
 
   // Run the check
@@ -2355,6 +2536,12 @@ Result SmtEngine::assertFormula(const Expr& ex) throw(TypeCheckingException, Log
   return quickCheck().asValidityResult();
 }
 
+Node SmtEngine::postprocess(TNode node) {
+  ModelPostprocessor mpost;
+  NodeVisitor<ModelPostprocessor> visitor;
+  return visitor.run(mpost, node);
+}
+
 Expr SmtEngine::simplify(const Expr& ex) throw(TypeCheckingException, LogicException) {
   Assert(ex.getExprManager() == d_exprManager);
   SmtScope smts(this);
@@ -2373,7 +2560,9 @@ Expr SmtEngine::simplify(const Expr& ex) throw(TypeCheckingException, LogicExcep
 
   // Make sure all preprocessing is done
   d_private->processAssertions();
-  return d_private->simplify(Node::fromExpr(e)).toExpr();
+  Node n = d_private->simplify(Node::fromExpr(e));
+  n = postprocess(n);
+  return n.toExpr();
 }
 
 Expr SmtEngine::expandDefinitions(const Expr& ex) throw(TypeCheckingException, LogicException) {
@@ -2393,7 +2582,9 @@ Expr SmtEngine::expandDefinitions(const Expr& ex) throw(TypeCheckingException, L
     Dump("benchmark") << ExpandDefinitionsCommand(e);
   }
   hash_map<Node, Node, NodeHashFunction> cache;
-  return d_private->expandDefinitions(Node::fromExpr(e), cache).toExpr();
+  Node n = d_private->expandDefinitions(Node::fromExpr(e), cache);
+  n = postprocess(n);
+  return n.toExpr();
 }
 
 Expr SmtEngine::getValue(const Expr& ex) throw(ModalException, LogicException) {
@@ -2435,16 +2626,18 @@ Expr SmtEngine::getValue(const Expr& ex) throw(ModalException, LogicException) {
   Trace("smt") << "--- getting value of " << n << endl;
   TheoryModel* m = d_theoryEngine->getModel();
   Node resultNode;
-  if( m ){
-    resultNode = m->getValue( n );
+  if(m != NULL) {
+    resultNode = m->getValue(n);
   }
   Trace("smt") << "--- got value " << n << " = " << resultNode << endl;
+  resultNode = postprocess(resultNode);
+  Trace("smt") << "--- model-post returned " << resultNode << endl;
 
   // type-check the result we got
   Assert(resultNode.isNull() || resultNode.getType().isSubtypeOf(n.getType()));
 
   // ensure it's a constant
-  Assert(resultNode.isConst());
+  Assert(resultNode.getKind() == kind::LAMBDA || resultNode.isConst());
 
   if(options::abstractValues() && resultNode.getType().isArray()) {
     resultNode = d_private->mkAbstractValue(resultNode);
@@ -2545,8 +2738,8 @@ CVC4::SExpr SmtEngine::getAssignment() throw(ModalException) {
   return SExpr(sexprs);
 }
 
-void SmtEngine::addToModelCommandAndDump(const Command& c, const char* dumpTag) {
-  Trace("smt") << "SMT addToModelCommand(" << c << ")" << endl;
+void SmtEngine::addToModelCommandAndDump(const Command& c, bool isGlobal, bool userVisible, const char* dumpTag) {
+  Trace("smt") << "SMT addToModelCommandAndDump(" << c << ")" << endl;
   SmtScope smts(this);
   // If we aren't yet fully inited, the user might still turn on
   // produce-models.  So let's keep any commands around just in
@@ -2556,9 +2749,13 @@ void SmtEngine::addToModelCommandAndDump(const Command& c, const char* dumpTag) 
   // decouple SmtEngine and ExprManager if the user does a few
   // ExprManager::mkSort() before SmtEngine::setOption("produce-models")
   // and expects to find their cardinalities in the model.
-  if( !d_fullyInited || options::produceModels() ) {
+  if(/* userVisible && */ (!d_fullyInited || options::produceModels())) {
     doPendingPops();
-    d_modelCommands->push_back(c.clone());
+    if(isGlobal) {
+      d_modelGlobalCommands.push_back(c.clone());
+    } else {
+      d_modelCommands->push_back(c.clone());
+    }
   }
   if(Dump.isOn(dumpTag)) {
     if(d_fullyInited) {
@@ -2643,21 +2840,9 @@ void SmtEngine::checkModel(bool hardFailure) {
 
       Notice() << "SmtEngine::checkModel(): adding substitution: " << func << " |-> " << val << endl;
 
-      // (1) check that the value is actually a value
-      if(!val.isConst()) {
-        Notice() << "SmtEngine::checkModel(): *** PROBLEM: MODEL VALUE NOT A CONSTANT ***" << endl;
-        stringstream ss;
-        ss << "SmtEngine::checkModel(): ERRORS SATISFYING ASSERTIONS WITH MODEL:" << endl
-           << "model value for " << func << endl
-           << "             is " << val << endl
-           << "and that is not a constant (.isConst() == false)." << endl
-           << "Run with `--check-models -v' for additional diagnostics.";
-        InternalError(ss.str());
-      }
-
-      // (2) if the value is a lambda, ensure the lambda doesn't contain the
+      // (1) if the value is a lambda, ensure the lambda doesn't contain the
       // function symbol (since then the definition is recursive)
-      if(val.getKind() == kind::LAMBDA) {
+      if (val.getKind() == kind::LAMBDA) {
         // first apply the model substitutions we have so far
         Node n = substitutions.apply(val[1]);
         // now check if n contains func by doing a substitution
@@ -2679,6 +2864,18 @@ void SmtEngine::checkModel(bool hardFailure) {
              << "Run with `--check-models -v' for additional diagnostics.";
           InternalError(ss.str());
         }
+      }
+
+      // (2) check that the value is actually a value
+      else if (!val.isConst()) {
+        Notice() << "SmtEngine::checkModel(): *** PROBLEM: MODEL VALUE NOT A CONSTANT ***" << endl;
+        stringstream ss;
+        ss << "SmtEngine::checkModel(): ERRORS SATISFYING ASSERTIONS WITH MODEL:" << endl
+           << "model value for " << func << endl
+           << "             is " << val << endl
+           << "and that is not a constant (.isConst() == false)." << endl
+           << "Run with `--check-models -v' for additional diagnostics.";
+        InternalError(ss.str());
       }
 
       // (3) checks complete, add the substitution
@@ -2940,7 +3137,7 @@ SExpr SmtEngine::getStatistic(std::string name) const throw() {
   return d_statisticsRegistry->getStatistic(name);
 }
 
-void SmtEngine::setUserAttribute(std::string& attr, Expr expr) {
+void SmtEngine::setUserAttribute(const std::string& attr, Expr expr) {
   SmtScope smts(this);
   d_theoryEngine->setUserAttribute(attr, expr.getNode());
 }

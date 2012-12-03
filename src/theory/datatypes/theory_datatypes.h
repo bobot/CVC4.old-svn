@@ -34,11 +34,9 @@ namespace CVC4 {
 namespace theory {
 namespace datatypes {
 
-class InstantiatorTheoryDatatypes;
 class EqualityQueryTheory;
 
 class TheoryDatatypes : public Theory {
-  friend class InstantiatorTheoryDatatypes;
   friend class EqualityQueryTheory;
 private:
   typedef context::CDChunkList<Node> NodeList;
@@ -52,6 +50,7 @@ private:
   /** inferences */
   NodeList d_infer;
   NodeList d_infer_exp;
+
 private:
   //notification class for equality engine
   class NotifyClass : public eq::EqualityEngineNotify {
@@ -179,6 +178,9 @@ public:
   TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation,
                   const LogicInfo& logicInfo, QuantifiersEngine* qe);
   ~TheoryDatatypes();
+
+  void setMasterEqualityEngine(eq::EqualityEngine* eq);
+
   /** propagate */
   void propagate(Effort effort);
   /** propagate */
@@ -199,6 +201,7 @@ public:
 
   void check(Effort e);
   void preRegisterTerm(TNode n);
+  Node ppRewrite(TNode n);
   void presolve();
   void addSharedTerm(TNode t);
   EqualityStatus getEqualityStatus(TNode a, TNode b);

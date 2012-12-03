@@ -11,16 +11,12 @@ libquantifiers_la_SOURCES = \
 	quantifiers_rewriter.h \
 	quantifiers_rewriter.cpp \
 	theory_quantifiers.cpp \
-	theory_quantifiers_instantiator.h \
-	theory_quantifiers_instantiator.cpp \
 	instantiation_engine.h \
 	instantiation_engine.cpp \
 	trigger.h \
 	trigger.cpp \
 	candidate_generator.h \
 	candidate_generator.cpp \
-	instantiator_default.h \
-	instantiator_default.cpp \
 	inst_match.h \
 	inst_match.cpp \
 	model_engine.h \
@@ -42,7 +38,13 @@ libquantifiers_la_SOURCES = \
 	quant_util.h \
 	quant_util.cpp \
 	inst_match_generator.h \
-	inst_match_generator.cpp
+	inst_match_generator.cpp \
+	macros.h \
+	macros.cpp \
+	inst_strategy_e_matching.h \
+	inst_strategy_e_matching.cpp \
+	inst_strategy_cbqi.h \
+	inst_strategy_cbqi.cpp
 
 EXTRA_DIST = \
 	kinds \

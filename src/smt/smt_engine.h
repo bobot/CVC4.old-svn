@@ -19,6 +19,7 @@
 #ifndef __CVC4__SMT_ENGINE_H
 #define __CVC4__SMT_ENGINE_H
 
+#include <string>
 #include <vector>
 
 #include "context/cdlist_forward.h"
@@ -79,12 +80,17 @@ namespace smt {
   class SmtEngineStatistics;
   class SmtEnginePrivate;
   class SmtScope;
+  class BooleanTermConverter;
 
   void beforeSearch(std::string, bool, SmtEngine*) throw(ModalException);
 
   struct CommandCleanup;
   typedef context::CDList<Command*, CommandCleanup> CommandList;
 }/* CVC4::smt namespace */
+
+namespace theory {
+  class TheoryModel;
+}/* CVC4::theory namespace */
 
 namespace stats {
   StatisticsRegistry* getStatisticsRegistry(SmtEngine*);
@@ -143,8 +149,16 @@ class CVC4_PUBLIC SmtEngine {
   AssignmentSet* d_assignments;
 
   /**
-   * A list of commands that should be in the Model.  Only maintained
-   * if produce-models option is on.
+   * A list of commands that should be in the Model globally (i.e.,
+   * regardless of push/pop).  Only maintained if produce-models option
+   * is on.
+   */
+  std::vector<Command*> d_modelGlobalCommands;
+
+  /**
+   * A list of commands that should be in the Model locally (i.e.,
+   * it is context-dependent on push/pop).  Only maintained if
+   * produce-models option is on.
    */
   smt::CommandList* d_modelCommands;
 
@@ -231,6 +245,13 @@ class CVC4_PUBLIC SmtEngine {
   void checkModel(bool hardFailure = true);
 
   /**
+   * Postprocess a value for output to the user.  Involves doing things
+   * like turning datatypes back into tuples, length-1-bitvectors back
+   * into booleans, etc.
+   */
+  Node postprocess(TNode n);
+
+  /**
    * This is something of an "init" procedure, but is idempotent; call
    * as often as you like.  Should be called whenever the final options
    * and logic for the problem are set (at least, those options that are
@@ -288,10 +309,12 @@ class CVC4_PUBLIC SmtEngine {
 
   friend class ::CVC4::smt::SmtEnginePrivate;
   friend class ::CVC4::smt::SmtScope;
+  friend class ::CVC4::smt::BooleanTermConverter;
   friend ::CVC4::StatisticsRegistry* ::CVC4::stats::getStatisticsRegistry(SmtEngine*);
   friend void ::CVC4::smt::beforeSearch(std::string, bool, SmtEngine*) throw(ModalException);
   // to access d_modelCommands
   friend class ::CVC4::Model;
+  friend class ::CVC4::theory::TheoryModel;
   // to access getModel(), which is private (for now)
   friend class GetModelCommand;
 
@@ -303,7 +326,7 @@ class CVC4_PUBLIC SmtEngine {
    * Add to Model command.  This is used for recording a command
    * that should be reported during a get-model call.
    */
-  void addToModelCommandAndDump(const Command& c, const char* dumpTag = "declarations");
+  void addToModelCommandAndDump(const Command& c, bool isGlobal = false, bool userVisible = true, const char* dumpTag = "declarations");
 
   /**
    * Get the model (only if immediately preceded by a SAT
@@ -328,6 +351,11 @@ public:
    * Set the logic of the script.
    */
   void setLogic(const std::string& logic) throw(ModalException);
+
+  /**
+   * Set the logic of the script.
+   */
+  void setLogic(const char* logic) throw(ModalException);
 
   /**
    * Set the logic of the script.
@@ -586,7 +614,7 @@ public:
    * This function is called when an attribute is set by a user.
    * In SMT-LIBv2 this is done via the syntax (! expr :attr)
    */
-  void setUserAttribute( std::string& attr, Expr expr );
+  void setUserAttribute(const std::string& attr, Expr expr);
 
 };/* class SmtEngine */
 

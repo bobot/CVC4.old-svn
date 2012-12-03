@@ -517,6 +517,11 @@ TupleType ExprManager::mkTupleType(const std::vector<Type>& types) {
   return TupleType(Type(d_nodeManager, new TypeNode(d_nodeManager->mkTupleType(typeNodes))));
 }
 
+RecordType ExprManager::mkRecordType(const Record& rec) {
+  NodeManagerScope nms(d_nodeManager);
+  return RecordType(Type(d_nodeManager, new TypeNode(d_nodeManager->mkRecordType(rec))));
+}
+
 SExprType ExprManager::mkSExprType(const std::vector<Type>& types) {
   NodeManagerScope nms(d_nodeManager);
   std::vector<TypeNode> typeNodes;
@@ -695,10 +700,6 @@ void ExprManager::checkResolvedDatatype(DatatypeType dtt) const {
       // CVC4::Datatype class, but this actually needs to be checked.
       AlwaysAssert(!SelectorType(selectorType).getRangeType().d_typeNode->isFunctionLike(),
                    "cannot put function-like things in datatypes");
-      // currently don't play well with Boolean terms
-      if(SelectorType(selectorType).getRangeType().d_typeNode->isBoolean()) {
-        WarningOnce() << "Warning: CVC4 does not yet support Boolean terms (you have created a datatype containing a Boolean)" << std::endl;
-      }
     }
   }
 }
@@ -730,6 +731,7 @@ SortConstructorType ExprManager::mkSortConstructor(const std::string& name,
               new TypeNode(d_nodeManager->mkSortConstructor(name, arity))));
 }
 
+/* - not in release 1.0
 Type ExprManager::mkPredicateSubtype(Expr lambda)
   throw(TypeCheckingException) {
   NodeManagerScope nms(d_nodeManager);
@@ -740,7 +742,9 @@ Type ExprManager::mkPredicateSubtype(Expr lambda)
     throw TypeCheckingException(this, &e);
   }
 }
+*/
 
+/* - not in release 1.0
 Type ExprManager::mkPredicateSubtype(Expr lambda, Expr witness)
   throw(TypeCheckingException) {
   NodeManagerScope nms(d_nodeManager);
@@ -751,6 +755,7 @@ Type ExprManager::mkPredicateSubtype(Expr lambda, Expr witness)
     throw TypeCheckingException(this, &e);
   }
 }
+*/
 
 Type ExprManager::mkSubrangeType(const SubrangeBounds& bounds)
   throw(TypeCheckingException) {
@@ -800,20 +805,20 @@ Type ExprManager::getType(Expr e, bool check) throw (TypeCheckingException) {
   return t;
 }
 
-Expr ExprManager::mkVar(const std::string& name, Type type) {
+Expr ExprManager::mkVar(const std::string& name, Type type, bool isGlobal) {
   Assert(NodeManager::currentNM() == NULL, "ExprManager::mkVar() should only be called externally, not from within CVC4 code.  Please use mkSkolem().");
   NodeManagerScope nms(d_nodeManager);
-  Node* n = d_nodeManager->mkVarPtr(name, *type.d_typeNode);
+  Node* n = d_nodeManager->mkVarPtr(name, *type.d_typeNode, isGlobal);
   Debug("nm") << "set " << name << " on " << *n << std::endl;
   INC_STAT_VAR(type, false);
   return Expr(this, n);
 }
 
-Expr ExprManager::mkVar(Type type) {
+Expr ExprManager::mkVar(Type type, bool isGlobal) {
   Assert(NodeManager::currentNM() == NULL, "ExprManager::mkVar() should only be called externally, not from within CVC4 code.  Please use mkSkolem().");
   NodeManagerScope nms(d_nodeManager);
   INC_STAT_VAR(type, false);
-  return Expr(this, d_nodeManager->mkVarPtr(*type.d_typeNode));
+  return Expr(this, d_nodeManager->mkVarPtr(*type.d_typeNode, isGlobal));
 }
 
 Expr ExprManager::mkBoundVar(const std::string& name, Type type) {

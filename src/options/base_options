@@ -31,7 +31,7 @@
 #
 #     SPECIFICATIONs take this form:
 #
-#       SPECIFICATION ::= (internal-name | -) [-short-option/-alternate-short-option] [--long-option/--alternate-long-option] [smt-option-name] C++-type [ATTRIBUTEs...]
+#       SPECIFICATION ::= (internal-name | -) [smt-option-name] [-short-option/-alternate-short-option] [--long-option/--alternate-long-option] C++-type [ATTRIBUTEs...]
 #       ATTRIBUTE ::=   :include include-files..
 #                     | :default C++-expression
 #                     | :handler custom-option-handlers..
@@ -125,8 +125,7 @@ option - debug -d --debug=TAG argument :handler CVC4::options::addDebugTag
 option printSuccess print-success --print-success bool :predicate CVC4::options::setPrintSuccess :predicate-include "options/base_options_handlers.h"
  print the "success" output required of SMT-LIBv2
 
-alias --smtlib = --lang=smt2 --output-lang=smt2 --strict-parsing --default-expr-depth=-1 --print-success --incremental --abstract-values
+alias --smtlib-strict = --lang=smt2 --output-lang=smt2 --strict-parsing --default-expr-depth=-1 --print-success --incremental --abstract-values
  SMT-LIBv2 compliance mode (implies other options)
-undocumented-alias --smtlib2 = --smtlib
 
 endmodule

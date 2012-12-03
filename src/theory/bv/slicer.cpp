@@ -25,12 +25,101 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::bv;
 using namespace std; 
 
+/** 
+ * Adds a cutPoint at Index i and splits the corresponding Splinter
+ * 
+ * @param i the index where the cut point will be introduced
+ * @param sp the splinter pointer corresponding to the splinter to be sliced
+ * @param low_splinter the resulting bottom part of the splinter
+ * @param top_splinter the resulting top part of the splinter
+ */
+void Slice::split(Index i, SplinterPointer& sp, Splinter*& low_splinter, Splinter*& top_splinter) {
+  Assert (!d_base.isCutPoint(i));
+  d_base.sliceAt(i);
+  
+  Splinter* s = NULL;
+  std::map<Index, Splinter*>::iterator it = d_splinters.begin();
+  bool lt, gt; 
+  for (; it != d_splinters.end(); ++it) {
+    lt = (it->second)->getHigh() >= i;
+    gt = (it->second)->getLow() <= i;
+    if (gt && lt) {
+      s = it->second;
+      break; 
+    }
+  }
+  
+  Assert (s != NULL);
 
+  sp = s->getPointer();
+  Index low = s->getLow();
+  Index high = s->getHigh();
+  // creating the two splinter fragments 
+  low_splinter = new Splinter(i, low);
+  top_splinter = new Splinter(high, i+1);
+  
+  addSplinter(low, low_splinter);
+  addSplinter(i+1, top_splinter); 
+} 
+ 
+void Slice::addSplinter(Index i, Splinter* sp) {
+  Assert (i == sp->getLow() && sp->getHigh() < d_bitwidth);
+  // free the memory associated with the previous splinter
+  if (d_splinters.find(i) != d_splinters.end()) {
+    delete d_splinters[i];
+  }
+  d_splinters[i] = sp;
+}
+
+void SliceBlock::computeBlockBase(std::vector<RootId>& queue)  {
+  // at this point d_base has all the cut points in the individual slices
+  for (unsigned row = 0; row < d_block.size(); ++row) {
+    Slice* slice = d_block[row];
+    const Base base = slice->getBase();
+    Base new_cut_points = base.diffCutPoints(d_base);
+    // use the cut points from the base to split the current slice
+    for (unsigned i = 0; i < d_bitwidth; ++i) {
+      if (new_cut_points.isCutPoint(i)) {
+        // split this slice (this updates the slice's base)
+        Splinter* bottom, *top = NULL;
+        SplinterPointer sp;
+        slice->split(i, sp, bottom, top);
+          
+        if (sp != Undefined) {
+          // if we do need to split something else split it
+          if (sp.term == d_rootId) {
+            // TODO: special case
+            Assert(false); 
+          }
+          Slice* slice = d_slicer->getSlice(sp);
+          Splinter* s = d_slicer->getSplinter(sp);
+          Index cutPoint = s->getLow() + i; 
+          Splinter* new_bottom = new Splinter(cutPoint, s->getLow());
+          Splinter* new_top = new Splinter(s->getHigh(), cutPoint + 1);
+          new_bottom->setPointer(SplinterPointer(d_rootId, row, bottom->getLow()));
+          new_top->setPointer(SplinterPointer(d_rootId, row, top->getLow()));
+
+          slice->addSplinter(new_bottom->getLow(), new_bottom);
+          slice->addSplinter(new_top->getLow(), new_top); 
+          
+          bottom->setPointer(SplinterPointer(sp.term, sp.row, new_bottom->getLow()));
+          top->setPointer(SplinterPointer(sp.term, sp.row, new_top->getLow()));
+          // update base for block
+          d_slicer->getSliceBlock(sp)->sliceBaseAt(cutPoint);
+          // add to queue of blocks that have changed base
+          queue.push_back(sp.term); 
+        }
+      }
+    }
+  }
+}
+ 
 Slicer::Slicer()
   : d_simpleEqualities(),
     d_roots(),
     d_numRoots(0),
-    d_nodeRootMap()
+    d_nodeRootMap(),
+    d_sliceSet()
 {}
 
 RootId Slicer::makeRoot(TNode n)  {
@@ -38,12 +127,12 @@ RootId Slicer::makeRoot(TNode n)  {
   if (d_nodeRootMap.find(n) != d_nodeRootMap.end()) {
     return d_nodeRootMap[n];
   }
-  RootID id = d_numRoots;
+  RootId id = d_numRoots;
   d_numRoots++; 
   d_nodeRootMap[n] = id; 
   d_roots[id] = n;
   // initialize with an empty slice block
-  d_rootBlocks[id] = new SliceBlock(utils::getSize(n)); 
+  d_rootBlocks[id] = new SliceBlock(id, utils::getSize(n), this); 
   return d_numRoots - 1; 
 }
 
@@ -96,7 +185,7 @@ void Slicer::processEquality(TNode node) {
   Debug("bv-slicer") << "theory::bv::Slicer::processEquality " << node << endl; 
   std::vector<Node> equalities;
   splitEqualities(node, equalities); 
-  for (int i = 0; i < equalities.size(); ++i) {
+  for (unsigned i = 0; i < equalities.size(); ++i) {
     Debug("bv-slicer") << "    splitEqualities " << node << endl;
     registerSimpleEquality(equalities[i]); 
     d_simpleEqualities.push_back(equalities[i]);
@@ -123,8 +212,8 @@ void Slicer::registerSimpleEquality(TNode eq) {
     low_b  = utils::getExtractLow(b);
   }
 
-  Slice* slice_a = mkSlice(a);
-  Slice* slice_b = mkSlice(b); 
+  Slice* slice_a = makeSlice(a);
+  Slice* slice_b = makeSlice(b); 
 
   SliceBlock* block_a = d_rootBlocks[id_a];
   SliceBlock* block_b = d_rootBlocks[id_b];
@@ -137,60 +226,81 @@ void Slicer::registerSimpleEquality(TNode eq) {
 
   slice_a->getSplinter(low_a)->setPointer(sp_b);
   slice_b->getSplinter(low_b)->setPointer(sp_a); 
-
 }
 
-Slice* Slicer::mkSlice(TNode node) {
+Slice* Slicer::makeSlice(TNode node) {
   Assert (d_sliceSet.find(node) == d_sliceSet.end());
   
-  unsigned bitwidth = utils::getSize(node); 
-  usigned low = 0, high = bitwidth -1 ;
+  Index bitwidth = utils::getSize(node); 
+  Index low = 0;
+  Index high = bitwidth -1 ;
   if (node.getKind() == kind::BITVECTOR_EXTRACT) {
     low  = utils::getExtractLow(node);
     high = utils::getExtractHigh(node); 
   }
   Splinter* splinter = new Splinter(high, low);
-  Slice* slice = new Slice();
-  slice.addSplinter(low, splinter);
+  Slice* slice = new Slice(utils::getSize(node));
+  slice->addSplinter(low, splinter);
   if (low != 0) {
     Splinter* bottom_splinter = new Splinter(low-1, 0);
-    slice.addSplinter(0, bottom_splinter); 
+    slice->addSplinter(0, bottom_splinter); 
   }
   if (high != bitwidth - 1) {
     Splinter* top_splinter = new Splinter(bitwidth - 1, high + 1);
-    slice.addSplinter(high+1, top_splinter); 
+    slice->addSplinter(high+1, top_splinter); 
   }
   return slice; 
 }
 
 
-void Slicer::registerTerm(TNode node) {
+RootId Slicer::registerTerm(TNode node) {
   if (node.getKind() == kind::BITVECTOR_EXTRACT ) {
     node = node[0];
     Assert (isRootTerm(node)); 
   }
   // setting up the data-structures for the root term
-  RootId id = mkRoot(node);
+  RootId id = makeRoot(node);
+  return id; 
 }
 
-Base Slicer::getBase(TNode node) {
-  Assert (d_bases.find(node) != d_bases.end());
-  return d_bases[node]; 
+bool Slicer::isRootTerm(TNode node) {
+  Kind kind = node.getKind();
+  return kind != kind::BITVECTOR_EXTRACT && kind != kind::BITVECTOR_CONCAT;
 }
 
-void Slicer::updateBase(TNode node, const Base& base) {
-  Assert (d_bases.find(node) != d_bases.end());
-  d_bases[node] = d_bases[node].bitwiseOr(base); 
-}
+// Base Slicer::getBase(TNode node) {
+//   Assert (d_bases.find(node) != d_bases.end());
+//   return d_bases[node]; 
+// }
+
+// void Slicer::updateBase(TNode node, const Base& base) {
+//   Assert (d_bases.find(node) != d_bases.end());
+//   d_bases[node] = d_bases[node].bitwiseOr(base); 
+// }
 
 
 void Slicer::computeCoarsestBase() {
   Debug("bv-slicer") << "theory::bv::Slicer::computeCoarsestBase " << endl; 
   std::vector<RootId> queue;
-  for (unsigned i = 0; i < d_rootsBlocks.size(); ++i) {
-    SliceBlock* block = d_rootsBlocks[i];
-    block->
+  for (unsigned i = 0; i < d_rootBlocks.size(); ++i) {
+    SliceBlock* block = d_rootBlocks[i];
+    block->computeBlockBase(queue);
   }
+  
+  while (!queue.empty()) {
+    // process split candidate
+    RootId current = queue.back();
+    queue.pop_back();
+    SliceBlock* block = d_rootBlocks[current];
+    block->computeBlockBase(queue); 
+  }
+  //Assert ( debugCheckBase()); 
 }
+
+// bool Slicer::debugCheckBase() {
+  
+// }
+
+
 
 

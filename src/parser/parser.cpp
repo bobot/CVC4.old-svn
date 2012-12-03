@@ -138,8 +138,8 @@ bool Parser::isPredicate(const std::string& name) {
 Expr
 Parser::mkVar(const std::string& name, const Type& type,
               bool levelZero) {
-  Debug("parser") << "mkVar(" << name << ", " << type << ")" << std::endl;
-  Expr expr = d_exprManager->mkVar(name, type);
+  Debug("parser") << "mkVar(" << name << ", " << type << ", " << levelZero << ")" << std::endl;
+  Expr expr = d_exprManager->mkVar(name, type, levelZero);
   defineVar(name, expr, levelZero);
   return expr;
 }
@@ -156,7 +156,7 @@ Expr
 Parser::mkFunction(const std::string& name, const Type& type,
                    bool levelZero) {
   Debug("parser") << "mkVar(" << name << ", " << type << ")" << std::endl;
-  Expr expr = d_exprManager->mkVar(name, type);
+  Expr expr = d_exprManager->mkVar(name, type, levelZero);
   defineFunction(name, expr, levelZero);
   return expr;
 }
@@ -164,7 +164,7 @@ Parser::mkFunction(const std::string& name, const Type& type,
 Expr
 Parser::mkAnonymousFunction(const std::string& prefix, const Type& type) {
   stringstream name;
-  name << prefix << ':' << ++d_anonymousFunctionCount;
+  name << prefix << "_anon_" << ++d_anonymousFunctionCount;
   return mkFunction(name.str(), type);
 }
 
@@ -175,6 +175,16 @@ Parser::mkVars(const std::vector<std::string> names,
   std::vector<Expr> vars;
   for(unsigned i = 0; i < names.size(); ++i) {
     vars.push_back(mkVar(names[i], type, levelZero));
+  }
+  return vars;
+}
+
+std::vector<Expr>
+Parser::mkBoundVars(const std::vector<std::string> names,
+                    const Type& type) {
+  std::vector<Expr> vars;
+  for(unsigned i = 0; i < names.size(); ++i) {
+    vars.push_back(mkBoundVar(names[i], type));
   }
   return vars;
 }
@@ -277,97 +287,70 @@ bool Parser::isUnresolvedType(const std::string& name) {
 std::vector<DatatypeType>
 Parser::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes) {
 
-  std::vector<DatatypeType> types =
-    d_exprManager->mkMutualDatatypeTypes(datatypes, d_unresolved);
+  try {
+    std::vector<DatatypeType> types =
+      d_exprManager->mkMutualDatatypeTypes(datatypes, d_unresolved);
 
-  assert(datatypes.size() == types.size());
+    assert(datatypes.size() == types.size());
 
-  for(unsigned i = 0; i < datatypes.size(); ++i) {
-    DatatypeType t = types[i];
-    const Datatype& dt = t.getDatatype();
-    const std::string& name = dt.getName();
-    Debug("parser-idt") << "define " << name << " as " << t << std::endl;
-    if(isDeclared(name, SYM_SORT)) {
-      throw ParserException(name + " already declared");
-    }
-    if( t.isParametric() ) {
-      std::vector< Type > paramTypes = t.getParamTypes();
-      defineType(name, paramTypes, t );
-    } else {
-      defineType(name, t);
-    }
-    for(Datatype::const_iterator j = dt.begin(),
-          j_end = dt.end();
-        j != j_end;
-        ++j) {
-      const DatatypeConstructor& ctor = *j;
-      Expr::printtypes::Scope pts(Debug("parser-idt"), true);
-      Expr constructor = ctor.getConstructor();
-      Debug("parser-idt") << "+ define " << constructor << std::endl;
-      string constructorName = ctor.getName();
-      if(isDeclared(constructorName, SYM_VARIABLE)) {
-        throw ParserException(constructorName + " already declared");
+    for(unsigned i = 0; i < datatypes.size(); ++i) {
+      DatatypeType t = types[i];
+      const Datatype& dt = t.getDatatype();
+      const std::string& name = dt.getName();
+      Debug("parser-idt") << "define " << name << " as " << t << std::endl;
+      if(isDeclared(name, SYM_SORT)) {
+        throw ParserException(name + " already declared");
       }
-      defineVar(constructorName, constructor);
-      Expr tester = ctor.getTester();
-      Debug("parser-idt") << "+ define " << tester << std::endl;
-      string testerName = ctor.getTesterName();
-      if(isDeclared(testerName, SYM_VARIABLE)) {
-        throw ParserException(testerName + " already declared");
+      if( t.isParametric() ) {
+        std::vector< Type > paramTypes = t.getParamTypes();
+        defineType(name, paramTypes, t );
+      } else {
+        defineType(name, t);
       }
-      defineVar(testerName, tester);
-      for(DatatypeConstructor::const_iterator k = ctor.begin(),
-            k_end = ctor.end();
-          k != k_end;
-          ++k) {
-        Expr selector = (*k).getSelector();
-        Debug("parser-idt") << "+++ define " << selector << std::endl;
-        string selectorName = (*k).getName();
-        if(isDeclared(selectorName, SYM_VARIABLE)) {
-          throw ParserException(selectorName + " already declared");
+      for(Datatype::const_iterator j = dt.begin(),
+            j_end = dt.end();
+          j != j_end;
+          ++j) {
+        const DatatypeConstructor& ctor = *j;
+        Expr::printtypes::Scope pts(Debug("parser-idt"), true);
+        Expr constructor = ctor.getConstructor();
+        Debug("parser-idt") << "+ define " << constructor << std::endl;
+        string constructorName = ctor.getName();
+        if(isDeclared(constructorName, SYM_VARIABLE)) {
+          throw ParserException(constructorName + " already declared");
         }
-        defineVar(selectorName, selector);
+        defineVar(constructorName, constructor);
+        Expr tester = ctor.getTester();
+        Debug("parser-idt") << "+ define " << tester << std::endl;
+        string testerName = ctor.getTesterName();
+        if(isDeclared(testerName, SYM_VARIABLE)) {
+          throw ParserException(testerName + " already declared");
+        }
+        defineVar(testerName, tester);
+        for(DatatypeConstructor::const_iterator k = ctor.begin(),
+              k_end = ctor.end();
+            k != k_end;
+            ++k) {
+          Expr selector = (*k).getSelector();
+          Debug("parser-idt") << "+++ define " << selector << std::endl;
+          string selectorName = (*k).getName();
+          if(isDeclared(selectorName, SYM_VARIABLE)) {
+            throw ParserException(selectorName + " already declared");
+          }
+          defineVar(selectorName, selector);
+        }
       }
     }
+
+    // These are no longer used, and the ExprManager would have
+    // complained of a bad substitution if anything is left unresolved.
+    // Clear out the set.
+    d_unresolved.clear();
+
+    return types;
+  } catch(IllegalArgumentException& ie) {
+    throw ParserException(ie.getMessage());
   }
-
-  // These are no longer used, and the ExprManager would have
-  // complained of a bad substitution if anything is left unresolved.
-  // Clear out the set.
-  d_unresolved.clear();
-
-  return types;
-}
-
-DatatypeType Parser::mkRecordType(const std::vector< std::pair<std::string, Type> >& typeIds) {
-  DatatypeType& dtt = d_recordTypes[typeIds];
-  if(dtt.isNull()) {
-    Datatype dt("__cvc4_record");
-Debug("datatypes") << "make new record_ctor" << std::endl;
-    DatatypeConstructor c("__cvc4_record_ctor");
-    for(std::vector< std::pair<std::string, Type> >::const_iterator i = typeIds.begin(); i != typeIds.end(); ++i) {
-      c.addArg((*i).first, (*i).second);
-    }
-    dt.addConstructor(c);
-    dtt = d_exprManager->mkDatatypeType(dt);
-  } else {
-Debug("datatypes") << "use old record_ctor" << std::endl;
-}
-  return dtt;
-}
-
-DatatypeType Parser::mkTupleType(const std::vector<Type>& types) {
-  DatatypeType& dtt = d_tupleTypes[types];
-  if(dtt.isNull()) {
-    Datatype dt("__cvc4_tuple");
-    DatatypeConstructor c("__cvc4_tuple_ctor");
-    for(std::vector<Type>::const_iterator i = types.begin(); i != types.end(); ++i) {
-      c.addArg("__cvc4_tuple_stor", *i);
-    }
-    dt.addConstructor(c);
-    dtt = d_exprManager->mkDatatypeType(dt);
-  }
-  return dtt;
 }
 
 bool Parser::isDeclared(const std::string& name, SymbolType type) {

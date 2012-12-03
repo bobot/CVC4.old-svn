@@ -43,7 +43,7 @@
 #include "util/cvc4_assert.h"
 #include "theory/ite_simplifier.h"
 #include "theory/unconstrained_simplifier.h"
-#include "theory/model.h"
+#include "theory/uf/equality_engine.h"
 
 namespace CVC4 {
 
@@ -74,8 +74,14 @@ struct NodeTheoryPairHashFunction {
 };/* struct NodeTheoryPairHashFunction */
 
 namespace theory {
-  class Instantiator;
+  class TheoryModel;
+  class TheoryEngineModelBuilder;
+
+  namespace eq {
+    class EqualityEngine;
+  }
 }/* CVC4::theory namespace */
+
 
 class DecisionEngine;
 
@@ -121,6 +127,35 @@ class TheoryEngine {
    * The database of shared terms.
    */
   SharedTermsDatabase d_sharedTerms;
+
+  /**
+   * Master equality engine, to share with theories.
+   */
+  theory::eq::EqualityEngine* d_masterEqualityEngine;
+
+  /** notify class for master equality engine */
+  class NotifyClass : public theory::eq::EqualityEngineNotify {
+    TheoryEngine& d_te;
+  public:
+    NotifyClass(TheoryEngine& te): d_te(te) {}
+    bool eqNotifyTriggerEquality(TNode equality, bool value) { return true; }
+    bool eqNotifyTriggerPredicate(TNode predicate, bool value) { return true; }
+    bool eqNotifyTriggerTermEquality(theory::TheoryId tag, TNode t1, TNode t2, bool value) { return true; }
+    void eqNotifyConstantTermMerge(TNode t1, TNode t2) {}
+    void eqNotifyNewClass(TNode t) { d_te.eqNotifyNewClass(t); }
+    void eqNotifyPreMerge(TNode t1, TNode t2) { d_te.eqNotifyPreMerge(t1, t2); }
+    void eqNotifyPostMerge(TNode t1, TNode t2) { d_te.eqNotifyPostMerge(t1, t2); }
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason) { d_te.eqNotifyDisequal(t1, t2, reason); }
+  };/* class TheoryEngine::NotifyClass */
+  NotifyClass d_masterEENotify;
+
+  /**
+   * notification methods
+   */
+  void eqNotifyNewClass(TNode t);
+  void eqNotifyPreMerge(TNode t1, TNode t2);
+  void eqNotifyPostMerge(TNode t1, TNode t2);
+  void eqNotifyDisequal(TNode t1, TNode t2, TNode reason);
 
   /**
    * The quantifiers engine
@@ -427,6 +462,9 @@ public:
     d_decisionEngine = decisionEngine;
   }
 
+  /** Called when all initialization of options/logic is done */
+  void finishInit();
+
   /**
    * Get a pointer to the underlying propositional engine.
    */
@@ -702,13 +740,13 @@ public:
     * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
     *  via the syntax (! n :attr)
     */
-  void setUserAttribute( std::string& attr, Node n );
+  void setUserAttribute(const std::string& attr, Node n);
 
   /** Handle user attribute
     *   Associates theory t with the attribute attr.  Theory t will be
     *   notifed whenever an attribute of name attr is set.
     */
-  void handleUserAttribute( const char* attr, theory::Theory* t );
+  void handleUserAttribute(const char* attr, theory::Theory* t);
 
   /** Check that the theory assertions are satisfied in the model
    *  This function is called from the smt engine's checkModel routine

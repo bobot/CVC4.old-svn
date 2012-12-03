@@ -142,6 +142,9 @@ void CommandExecutorPortfolio::lemmaSharingCleanup()
 {
   assert(d_numThreads == d_options[options::threads]);
 
+  if(d_numThreads == 1)
+    return;
+
   // Channel cleanup
   assert(d_channelsIn.size() == d_numThreads);
   assert(d_channelsOut.size() == d_numThreads);
@@ -175,32 +178,40 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
    */
 
   int mode = 0;
-  // mode = 0 : run the first thread
-  // mode = 1 : run a porfolio
-  // mode = 2 : run the last winner
+  // mode = 0 : run command on lastWinner, saving the command
+  // to be run on all others
+  //
+  // mode = 1 : run a race of the command, update lastWinner
+  //
+  // mode = 2 : run _only_ the lastWinner thread, not saving the
+  // command
 
   if(dynamic_cast<CheckSatCommand*>(cmd) != NULL ||
     dynamic_cast<QueryCommand*>(cmd) != NULL) {
     mode = 1;
-  } else if(dynamic_cast<GetValueCommand*>(cmd) != NULL) {
+  } else if(dynamic_cast<GetValueCommand*>(cmd) != NULL ||
+            dynamic_cast<GetAssignmentCommand*>(cmd) != NULL ||
+            dynamic_cast<GetModelCommand*>(cmd) != NULL ||
+            dynamic_cast<GetProofCommand*>(cmd) != NULL ||
+            dynamic_cast<GetUnsatCoreCommand*>(cmd) != NULL ||
+            dynamic_cast<GetAssertionsCommand*>(cmd) != NULL ||
+            dynamic_cast<GetInfoCommand*>(cmd) != NULL ||
+            dynamic_cast<GetOptionCommand*>(cmd) != NULL ||
+            false) {
     mode = 2;
   }
 
   if(mode == 0) {
     d_seq->addCommand(cmd->clone());
-    return CommandExecutor::doCommandSingleton(cmd);
+    Command* cmdExported = 
+      d_lastWinner == 0 ?
+      cmd : cmd->exportTo(d_exprMgrs[d_lastWinner], *(d_vmaps[d_lastWinner]) );
+    bool ret = smtEngineInvoke(d_smts[d_lastWinner],
+                               cmdExported,
+                               d_threadOptions[d_lastWinner][options::out]);
+    if(d_lastWinner != 0) delete cmdExported;
+    return ret;
   } else if(mode == 1) {               // portfolio
-
-    // If quantified, stay sequential
-    LogicInfo logicInfo = d_smts[0]->getLogicInfo();
-    logicInfo.lock();
-    if(logicInfo.isQuantified()) {
-      if(d_options[options::fallbackSequential])
-        return CommandExecutor::doCommandSingleton(cmd);
-      else
-        throw Exception("Quantified formulas are (currenltly) unsupported in portfolio mode.\n"
-                        "Please see option --fallback-sequential to make this a soft error.");
-    }
 
     d_seq->addCommand(cmd->clone());
 
@@ -209,7 +220,10 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
     // can be acheived with not a lot of work
     Command *seqs[d_numThreads];
 
-    seqs[0] = cmd;
+    if(d_lastWinner == 0)
+      seqs[0] = cmd;
+    else
+      seqs[0] = d_seq;
 
     /* variable maps and exporting */
     for(unsigned i = 1; i < d_numThreads; ++i) {
@@ -223,10 +237,15 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
        *             first thread
        */
       try {
-        seqs[i] = d_seq->exportTo(d_exprMgrs[i], *(d_vmaps[i]) );
+        seqs[i] =
+          int(i) == d_lastWinner ?
+          cmd->exportTo(d_exprMgrs[i], *(d_vmaps[i])) :
+          d_seq->exportTo(d_exprMgrs[i], *(d_vmaps[i]) );
       }catch(ExportUnsupportedException& e){
-        if(d_options[options::fallbackSequential])
+        if(d_options[options::fallbackSequential]) {
+          Notice() << "Unsupported theory encountered, switching to sequential mode.";
           return CommandExecutor::doCommandSingleton(cmd);
+        }
         else
           throw Exception("Certain theories (e.g., datatypes) are (currently) unsupported in portfolio\n"
                           "mode. Please see option --fallback-sequential to make this a soft error.");
@@ -259,11 +278,14 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
                            );
     }
 
-    assert(d_channelsIn.size() == d_numThreads);
-    assert(d_channelsOut.size() == d_numThreads);
+    assert(d_channelsIn.size() == d_numThreads
+           || d_numThreads == 1);
+    assert(d_channelsOut.size() == d_numThreads
+           || d_numThreads == 1);
     assert(d_smts.size() == d_numThreads);
     boost::function<void()>
-      smFn = boost::bind(sharingManager<ChannelFormat>,
+      smFn = d_numThreads <= 1 ? boost::function<void()>() :
+             boost::bind(sharingManager<ChannelFormat>,
                          d_numThreads,
                          &d_channelsOut[0],
                          &d_channelsIn[0],
@@ -284,6 +306,18 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
       assert(portfolioReturn.first >= 0);
       assert(unsigned(portfolioReturn.first) < d_numThreads);
 
+      if(Debug.isOn("treat-unknown-error")) {
+        if(d_ostringstreams[portfolioReturn.first]->str() == "unknown\n") {
+          *d_options[options::out]
+            << "portfolioReturn = (" << portfolioReturn.first << ", " << portfolioReturn.second
+            << ")\n";
+          for(unsigned i = 0; i < d_numThreads; ++i)
+            *d_options[options::out]
+              << "thread " << i << ": " << d_ostringstreams[i]->str() << std::endl;
+          throw Exception("unknown encountered");
+        }
+      }
+
       *d_options[options::out]
         << d_ostringstreams[portfolioReturn.first]->str();
     }
@@ -296,9 +330,9 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
     Command* cmdExported = 
       d_lastWinner == 0 ?
       cmd : cmd->exportTo(d_exprMgrs[d_lastWinner], *(d_vmaps[d_lastWinner]) );
-    int ret = smtEngineInvoke(d_smts[d_lastWinner],
-                              cmdExported,
-                              d_threadOptions[d_lastWinner][options::out]);
+    bool ret = smtEngineInvoke(d_smts[d_lastWinner],
+                               cmdExported,
+                               d_threadOptions[d_lastWinner][options::out]);
     if(d_lastWinner != 0) delete cmdExported;
     return ret;
   } else {

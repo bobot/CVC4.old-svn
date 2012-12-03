@@ -46,12 +46,15 @@ class TheoryEngine;
 
 namespace theory {
 
-class Instantiator;
 class QuantifiersEngine;
 class TheoryModel;
 
 namespace rrinst{
 class CandidateGenerator;
+}
+
+namespace eq {
+class EqualityEngine;
 }
 
 /**
@@ -188,12 +191,6 @@ private:
    */
   QuantifiersEngine* d_quantEngine;
 
-  /**
-   * The instantiator for this theory, or NULL if quantifiers are not
-   * supported or not enabled.
-   */
-  Instantiator* d_inst;
-
   // === STATISTICS ===
   /** time spent in theory combination */
   TimerStat d_computeCareGraphTime;
@@ -203,12 +200,6 @@ private:
     ss << "theory<" << id << ">::" << statName;
     return ss.str();
   }
-
-  /**
-   * Construct and return the instantiator for the given theory.
-   * If there is no instantiator class, NULL is returned.
-   */
-  theory::Instantiator* makeInstantiator(context::Context* c, theory::QuantifiersEngine* qe);
 
 protected:
 
@@ -233,10 +224,21 @@ protected:
   context::CDList<TNode> d_sharedTerms;
 
   /**
+   * Helper function for computeRelevantTerms
+   */
+  void collectTerms(TNode n, std::set<Node>& termSet);
+  /**
+   * Scans the current set of assertions and shared terms top-down until a theory-leaf is reached, and adds all terms found to termSet.
+   * This is used by collectModelInfo to delimit the set of terms that should be used when constructing a model
+   */
+  void computeRelevantTerms(std::set<Node>& termSet);
+
+  /**
    * Construct a Theory.
    */
   Theory(TheoryId id, context::Context* satContext, context::UserContext* userContext,
-         OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe) throw()
+         OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo,
+         QuantifiersEngine* qe, eq::EqualityEngine* master = 0) throw()
   : d_id(id)
   , d_satContext(satContext)
   , d_userContext(userContext)
@@ -246,7 +248,6 @@ protected:
   , d_sharedTermsIndex(satContext, 0)
   , d_careGraph(0)
   , d_quantEngine(qe)
-  , d_inst(makeInstantiator(satContext, qe))
   , d_computeCareGraphTime(statName(id, "computeCareGraphTime"))
   , d_sharedTerms(satContext)
   , d_out(&out)
@@ -472,20 +473,6 @@ public:
   }
 
   /**
-   * Get the theory instantiator.
-   */
-  Instantiator* getInstantiator() {
-    return d_inst;
-  }
-
-  /**
-   * Get the theory instantiator (const version).
-   */
-  const Instantiator* getInstantiator() const {
-    return d_inst;
-  }
-
-  /**
    * Pre-register a term.  Done one time for a Node, ever.
    */
   virtual void preRegisterTerm(TNode) { }
@@ -503,6 +490,11 @@ public:
    * be considered a "shared term" by this theory
    */
   virtual void addSharedTerm(TNode n) { }
+
+  /**
+   * Called to set the master equality engine.
+   */
+  virtual void setMasterEqualityEngine(eq::EqualityEngine* eq) { }
 
   /**
    * Return the current theory care graph. Theories should overload computeCareGraph to do
@@ -659,7 +651,7 @@ public:
     * This function is called when an attribute is set by a user.  In SMT-LIBv2 this is done
     *  via the syntax (! n :attr)
     */
-  virtual void setUserAttribute( std::string& attr, Node n ) {
+  virtual void setUserAttribute(const std::string& attr, Node n) {
     Unimplemented("Theory %s doesn't support Theory::setUserAttribute interface",
                   identify().c_str());
   }
@@ -800,108 +792,6 @@ namespace eq{
   class EqualityEngine;
 }
 
-/** instantiation strategy class */
-class InstStrategy {
-public:
-  enum Status {
-    STATUS_UNFINISHED,
-    STATUS_UNKNOWN,
-    STATUS_SAT,
-  };/* enum Status */
-protected:
-  /** reference to the instantiation engine */
-  QuantifiersEngine* d_quantEngine;
-
-
-public:
-  InstStrategy( QuantifiersEngine* qe ) : d_quantEngine( qe ){}
-  virtual ~InstStrategy(){}
-
-  /** reset instantiation */
-  virtual void processResetInstantiationRound( Theory::Effort effort ) = 0;
-  /** process method, returns a status */
-  virtual int process( Node f, Theory::Effort effort, int e ) = 0;
-  /** update status */
-  static void updateStatus( int& currStatus, int addStatus ){
-    if( addStatus==STATUS_UNFINISHED ){
-      currStatus = STATUS_UNFINISHED;
-    }else if( addStatus==STATUS_UNKNOWN ){
-      if( currStatus==STATUS_SAT ){
-        currStatus = STATUS_UNKNOWN;
-      }
-    }
-  }
-  /** identify */
-  virtual std::string identify() const { return std::string("Unknown"); }
-};/* class InstStrategy */
-
-/** instantiator class */
-class Instantiator {
-  friend class QuantifiersEngine;
-protected:
-  /** reference to the quantifiers engine */
-  QuantifiersEngine* d_quantEngine;
-  /** reference to the theory that it looks at */
-  Theory* d_th;
-  /** instantiation strategies */
-  std::vector< InstStrategy* > d_instStrategies;
-  /** instantiation strategies active */
-  std::map< InstStrategy*, bool > d_instStrategyActive;
-  /** has constraints from quantifier */
-  std::map< Node, bool > d_quantActive;
-  /** is instantiation strategy active */
-  bool isActiveStrategy( InstStrategy* is ) {
-    return d_instStrategyActive.find( is )!=d_instStrategyActive.end() && d_instStrategyActive[is];
-  }
-  /** add inst strategy */
-  void addInstStrategy( InstStrategy* is ){
-    d_instStrategies.push_back( is );
-    d_instStrategyActive[is] = true;
-  }
-  /** reset instantiation round */
-  virtual void processResetInstantiationRound( Theory::Effort effort ) = 0;
-  /** process quantifier */
-  virtual int process( Node f, Theory::Effort effort, int e ) = 0;
-public:
-  Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th);
-  virtual ~Instantiator();
-
-  /** get quantifiers engine */
-  QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }
-  /** get corresponding theory for this instantiator */
-  Theory* getTheory() { return d_th; }
-  /** Pre-register a term.  */
-  virtual void preRegisterTerm( Node t ) { }
-  /** assertNode function, assertion was asserted to theory */
-  virtual void assertNode( Node assertion ){}
-  /** identify */
-  virtual std::string identify() const { return std::string("Unknown"); }
-  /** print debug information */
-  virtual void debugPrint( const char* c ) {}
-public:
-  /** set has constraints from quantifier f */
-  void setQuantifierActive( Node f ) { d_quantActive[f] = true; }
-  /** has constraints from */
-  bool getQuantifierActive( Node f ) { return d_quantActive.find(f) != d_quantActive.end() && d_quantActive[f]; }
-  /** reset instantiation round */
-  void resetInstantiationRound( Theory::Effort effort );
-  /** do instantiation method*/
-  int doInstantiation( Node f, Theory::Effort effort, int e );
-public:
-  /** general queries about equality */
-  virtual bool hasTerm( Node a ) { return false; }
-  virtual bool areEqual( Node a, Node b ) { return false; }
-  virtual bool areDisequal( Node a, Node b ) { return false; }
-  virtual Node getRepresentative( Node a ) { return a; }
-  virtual eq::EqualityEngine* getEqualityEngine() { return NULL; }
-  virtual void getEquivalenceClass( Node a, std::vector< Node >& eqc ) {}
-public:
-  /** A Creator of CandidateGenerator for classes (one element in each
-      equivalence class) and class (every element of one equivalence
-      class) */
-  virtual rrinst::CandidateGenerator* getRRCanGenClasses(){ return NULL; };
-  virtual rrinst::CandidateGenerator* getRRCanGenClass(){ return NULL; };
-};/* class Instantiator */
 
 inline Assertion Theory::get() {
   Assert( !done(), "Theory::get() called with assertion queue empty!" );
@@ -914,11 +804,6 @@ inline Assertion Theory::get() {
 
   if(Dump.isOn("state")) {
     Dump("state") << AssertCommand(fact.assertion.toExpr());
-  }
-
-  // if quantifiers are turned on and we have an instantiator, notify it
-  if(getLogicInfo().isQuantified() && getInstantiator() != NULL) {
-    getInstantiator()->assertNode(fact);
   }
 
   return fact;

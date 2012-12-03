@@ -21,15 +21,14 @@
 #include <vector>
 #include <list>
 #include <ext/hash_map>
+#include "util/bitvector.h"
 #include "expr/node.h"
-
+#include "theory/bv/theory_bv_utils.h"
 #ifndef __CVC4__THEORY__BV__SLICER_BV_H
 #define __CVC4__THEORY__BV__SLICER_BV_H
 
 
 namespace CVC4 {
-
-class Bitvector;
 
 namespace theory {
 namespace bv {
@@ -38,72 +37,22 @@ typedef uint32_t RootId;
 typedef uint32_t SplinterId;
 typedef uint32_t Index;
 
-struct SplinterPointer {
-  RootId term;
-  Index start_index;
-  uint32_t row; 
-  SplinterPointer(RootId t, uint32_t r,  Index i) :
-    term(t),
-    row(r),
-    start_index(i)
-  {}
-};
-
-static const SplinterPointer Undefined = SplinterPointer(-1, -1, -1); 
-
-class Splinter {
-  // start and end indices in block 
-  uint32_t d_low;
-  uint32_t d_high;
-
-  // keeps track of 
-  SplinterPointer d_pointer; 
-
-  Splinter(uint32_t high, uint32_t low) :
-    d_lowlow),
-    d_high(high),
-    d_pointer(Undefined)
-  {}
-
-    
-  void setPointer(SplinterPointer pointer) {
-    Assert (d_pointer === Undefined);
-    d_pointer = pointer; 
-  }
-
-  const SplinterPointer& getPointer() const {
-    return d_pointer; 
-  }
-  const uint32_t getLow() { return d_low; }
-  const uint32_t getHigh() {return d_high; }
-};
-
-
-class Slice {
-  // map from the beginning of a splinter to the actual splinter id
-  std::map<Index, Splinter*> d_splinters;
-  Base d_base; 
-  Slice()
-    : d_splinters()
-  {}
-  void split(Index start, Index length);
-  void addSplinter(Index start, Splinter* sp); 
-  Splinter* getSplinter(Index start);
-  Base getBase(); 
-};
-
-
-typedef CVC4::Bitvector Base; 
-
 class Base {
-  CVC4::Bitvector d_repr;
-  uint32_t d_size; 
-  Base(uint32_t size) :
-    d_size(size) {
+  uint32_t d_size;
+  CVC4::BitVector d_repr;  
+public:
+  Base(uint32_t size) 
+    : d_size(size) {
     Assert (size > 1);
-    d_repr = Bitvector(size - 1, 0);
+    d_repr = BitVector(size - 1, 0u);
   }
 
+  Base(const BitVector& repr) 
+    : d_size(repr.getSize()),
+      d_repr(repr) {
+    Assert (d_size > 1);
+  }
+  
   /** 
    * Marks the base by adding a cut between index and index + 1
    * 
@@ -126,51 +75,176 @@ class Base {
       uint32_t high = i + 1;
       index = high;
       Node slice = utils::mkExtract(root, low, high);
-      d_slices.push_back(slice); 
+      slices.push_back(slice); 
     }
   }
 
   bool isCutPoint(Index index) {
-    return d_repr.isBitSet(); 
+    return d_repr.isBitSet(index); 
   }
+
+  Base diffCutPoints(const Base& other) const {
+    return Base(other.d_repr ^ d_repr); 
+  }
+
+  bool operator==(const Base& other) const {
+    return d_repr == other.d_repr; 
+  }
+  bool operator!=(const Base& other) const {
+    return !(*this == other); 
+  }
+
 }; 
 
-class SliceBlock {
-  std::vector<Slice*> d_block;
-  Base d_base;
-  uint32_t d_bitwidth; 
-  SliceBlock(uint32_t bitwidth) :
-    d_bitwidth(bitwidth)
+
+struct SplinterPointer {
+  RootId term;
+  uint32_t row; 
+  Index index;
+
+  SplinterPointer()
+    : term(-1),
+      row(-1),
+      index(-1)
   {}
 
-  void addSlice(Slice* slice) {
+  SplinterPointer(RootId t, uint32_t r,  Index i)
+    : term(t),
+      row(r),
+      index(i)
+  {}
+  
+  bool operator==(const SplinterPointer& other) const {
+    return term == other.term && index == other.index && row == other.row; 
+  }
+  bool operator!=(const SplinterPointer& other) const {
+    return !(*this == other); 
+  }
+};
+
+static const SplinterPointer Undefined = SplinterPointer(-1, -1, -1); 
+
+class Splinter {
+  // start and end indices in slice
+  Index d_low;
+  Index d_high;
+
+  // keeps track of splinter this splinter is equal to
+  // equal to Undefined if there is none
+  SplinterPointer d_pointer;
+  
+public:
+  Splinter(uint32_t high, uint32_t low) :
+    d_low(low),
+    d_high(high),
+    d_pointer(Undefined)
+  {
+    Assert (high > low); 
+  }
+    
+  void setPointer(const SplinterPointer& pointer) {
+    Assert (d_pointer == Undefined);
+    d_pointer = pointer; 
+  }
+
+  const SplinterPointer& getPointer() const {
+    return d_pointer; 
+  }
+
+  Index getLow() const { return d_low; }
+  Index getHigh() const {return d_high; }
+};
+
+class Slice {
+  uint32_t d_bitwidth; 
+  // map from the beginning of a splinter to the actual splinter id
+  std::map<Index, Splinter*> d_splinters;
+  Base d_base;
+  
+public:
+  Slice(uint32_t bitwidth)
+    : d_bitwidth(bitwidth),
+      d_splinters(),
+      d_base(bitwidth)
+  {}
+  /** 
+   * Split the slice by adding a cut point between indices i and i+1
+   * 
+   * @param i index where to cut
+   * @param id the id of the root term this slice belongs to
+   * @param row the row of the SliceBlock this Slice belongs to
+   */
+  void split(Index i, SplinterPointer& sp, Splinter*& low_splinter, Splinter*& top_splinter);
+  /** 
+   * Add splinter sp at Index i. If a splinter already exists there
+   * replace it and free the memory it occupied. 
+   * 
+   * @param i index where splinter starts
+   * @param sp new splinter
+   */
+  void addSplinter(Index i, Splinter* sp); 
+  /** 
+   * Return the splinter starting at Index start.
+   * 
+   * @param start 
+   * 
+   * @return 
+   */
+  Splinter* getSplinter (Index start) {
+    Assert (d_splinters.find(start) != d_splinters.end()); 
+    return d_splinters[start]; 
+  }
+  /** 
+   * Return the base corresponding to this slice. 
+   * 
+   * 
+   * @return 
+   */
+  const Base& getBase() const { return d_base; }
+};
+
+class Slicer; 
+
+class SliceBlock {
+  uint32_t d_bitwidth; 
+  RootId d_rootId;                /**< the id of the root term this block corresponds to */
+  std::vector<Slice*> d_block;    /**< the slices in the block */
+  Base d_base;                    /**<  the base corresponding to this block containing all the cut points.
+                                   Invariant: the base should contain all the cut-points in the slices*/
+  Slicer* d_slicer; // FIXME: more elegant way to do this
+
+public:
+  
+  SliceBlock(RootId rootId, uint32_t bitwidth, Slicer* slicer)
+    : d_bitwidth(bitwidth),
+      d_rootId(rootId),
+      d_block(),
+      d_base(bitwidth),
+      d_slicer(slicer)
+  {}
+
+  uint32_t addSlice(Slice* slice) {
     // update the base with the cut-points in the slice
     d_base.sliceWith(slice->getBase()); 
-    d_block.push_back(slice); 
+    d_block.push_back(slice);
+    return d_block.size() - 1; 
   }
 
-  Slice& getSlice(unsigned index) {
-    return d_block(index); 
+  Slice* getSlice(uint32_t row) const {
+    Assert (row < d_block.size()); 
+    return d_block[row]; 
   }
+  /** 
+   * Propagate all the cut points in the Base to all the Slices. If one of the
+   * splinters that needs to get cut has a pointer to a splinter in a different
+   * block that splinter will also be split. 
+   * 
+   * @param queue other blocks that changed their base. 
+   */
+  void computeBlockBase(std::vector<RootId>& queue);
 
-  void computeBlockBase(std::vector<SplinterPointer> queue) {
-    // at this point d_base has all the cut points in the individual slices
-    for (unsigned i = 0; i < d_block.size(); ++i) {
-      Slice* slice = d_block[i];
-      Base base = slice->getBase();
-      Base new_cut_points = base.xor(d_base);
-      // use the cut points from the base to split the current slice
-      for (unsigned i = 0; i < d_bitwidth; ++i) {
-        if (new_cut_points.isCutPoint(i)) {
-          // split this slice
-          Splinter* sp = slice->split(i);
-          // potentially propagate cut to other root terms
-          if (sp->getPointer != Undefied)  {
-            queue.push_back(sp->getPointer()); 
-          }
-          
-      }
-    }
+  void sliceBaseAt(Index i) {
+    d_base.sliceAt(i); 
   }
 };
 
@@ -183,19 +257,13 @@ typedef std::vector<Splinter*> Splinters;
 typedef std::vector<SliceBlock*> SliceBlocks;
 
 class Slicer {
-  std::vector<TNode> d_simpleEqualities;
+  std::vector<TNode> d_simpleEqualities; /**< equalities of the form a[i0:j0] = b[i1:j1] */
   Roots d_roots;
   uint32_t d_numRoots; 
   NodeRootIdMap d_nodeRootMap;
   /* Indexed by Root Id */
   SliceBlocks d_rootBlocks; 
-  NodeSplinterIdMap d_nodeSplinterMap;
-  Splinterd d_splinters;
-  uint32_t d_numSplinters; 
-  
-private:
-  
-
+  __gnu_cxx::hash_set<TNode, TNodeHashFunction> d_sliceSet;   
 public:
   Slicer();
   void computeCoarsestBase();
@@ -209,18 +277,40 @@ public:
    */
   void processEquality(TNode node); 
 private:
-  void processSimpleEquality(TNode node);
+  void registerSimpleEquality(TNode node);
   void splitEqualities(TNode node, std::vector<Node>& equalities);
   TNode addSimpleTerm(TNode t);
+  bool isRootTerm(TNode node);
   TNode getRoot(RootId id) {return d_roots[id]; }
+
   RootId getRootId(TNode node) {
     Assert (d_nodeRootMap.find(node) != d_nodeRootMap.end());
-    return d_nodeRootMap(node); 
+    return d_nodeRootMap[node]; 
   }
 
-  RootId makeRoot(TNode n); 
+  RootId registerTerm(TNode node); 
+  RootId makeRoot(TNode n);
+  Slice* makeSlice(TNode node);
+public:
+  Slice* getSlice(const SplinterPointer& sp) {
+    Assert (sp != Undefined); 
+    SliceBlock* sb = d_rootBlocks[sp.term];
+    return sb->getSlice(sp.row); 
+  }
   
-  
+  Splinter* getSplinter(const SplinterPointer& sp) {
+    Slice* slice = getSlice(sp);
+    return slice->getSplinter(sp.index); 
+  }
+
+  SliceBlock* getSliceBlock(RootId id) {
+    Assert (id < d_rootBlocks.size());
+    return d_rootBlocks[id]; 
+  }
+
+  SliceBlock* getSliceBlock(const SplinterPointer& sp) {
+    return getSliceBlock(sp.term); 
+  }
 
 }; /* Slicer class */
 

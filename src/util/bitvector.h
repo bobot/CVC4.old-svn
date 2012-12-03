@@ -180,13 +180,13 @@ public:
   }
 
   BitVector setBit(uint32_t i) const {
-    CheckArgument(i < d_size);
+    CheckArgument(i < d_size, i);
     Integer res = d_value.setBit(i);
     return BitVector(d_size, res); 
   }
 
   bool isBitSet(uint32_t i) const {
-    CheckArgument(i < d_size); 
+    CheckArgument(i < d_size, i); 
     return d_value.isBitSet(i); 
   }
   

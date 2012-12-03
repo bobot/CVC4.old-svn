@@ -842,6 +842,20 @@ public:
   Constraint getConstraint(ArithVar v, ConstraintType t, const DeltaRational& r);
 
   /**
+   * Returns a constraint of the given type for the value and variable
+   * for the given ValueCollection, vc.
+   * This is made if there is no such constraint.
+   */
+  Constraint ensureConstraint(ValueCollection& vc, ConstraintType t){
+    if(vc.hasConstraintOfType(t)){
+      return vc.getConstraintOfType(t);
+    }else{
+      return getConstraint(vc.getVariable(), t, vc.getValue());
+    }
+  }
+
+
+  /**
    * Outputs a minimal set of unate implications onto the vector for the variable.
    * This outputs lemmas of the general forms
    *     (= p c) implies (<= p d) for c < d, or

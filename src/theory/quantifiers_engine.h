@@ -45,6 +45,8 @@ public:
   virtual ~QuantifiersModule(){}
   //get quantifiers engine
   QuantifiersEngine* getQuantifiersEngine() { return d_quantEngine; }
+  /** initialize */
+  virtual void finishInit() {}
   /* whether this module needs to check this round */
   virtual bool needsCheck( Theory::Effort e ) { return e>=Theory::EFFORT_LAST_CALL; }
   /* Call during quantifier engine's check */
@@ -65,6 +67,10 @@ namespace quantifiers {
 }/* CVC4::theory::quantifiers */
 
 namespace inst {
+  class TriggerTrie;
+}/* CVC4::theory::inst */
+
+namespace rrinst {
   class TriggerTrie;
 }/* CVC4::theory::inst */
 
@@ -108,6 +114,8 @@ private:
   quantifiers::TermDb* d_term_db;
   /** all triggers will be stored in this trie */
   inst::TriggerTrie* d_tr_trie;
+  /** all triggers for rewrite rules will be stored in this trie */
+  rrinst::TriggerTrie* d_rr_tr_trie;
   /** extended model object */
   quantifiers::FirstOrderModel* d_model;
 private:
@@ -116,7 +124,7 @@ public:
   QuantifiersEngine(context::Context* c, TheoryEngine* te);
   ~QuantifiersEngine();
   /** get instantiator for id */
-  Instantiator* getInstantiator( theory::TheoryId id );
+  //Instantiator* getInstantiator( theory::TheoryId id );
   /** get theory engine */
   TheoryEngine* getTheoryEngine() { return d_te; }
   /** get equality query object for the given type. The default is the
@@ -141,6 +149,8 @@ public:
   /** get efficient e-matching utility */
   EfficientEMatcher* getEfficientEMatcher() { return d_eem; }
 public:
+  /** initialize */
+  void finishInit();
   /** check at level */
   void check( Theory::Effort e );
   /** register quantifier */
@@ -193,8 +203,11 @@ public:
   quantifiers::TermDb* getTermDatabase() { return d_term_db; }
   /** get trigger database */
   inst::TriggerTrie* getTriggerDatabase() { return d_tr_trie; }
+  /** get rewrite trigger database */
+  rrinst::TriggerTrie* getRRTriggerDatabase() { return d_rr_tr_trie; }
   /** add term to database */
   void addTermToDatabase( Node n, bool withinQuant = false );
+  eq::EqualityEngine* getMasterEqualityEngine() ;
 public:
   /** statistics class */
   class Statistics {

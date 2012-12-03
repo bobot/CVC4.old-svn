@@ -79,8 +79,9 @@ EqualityEngine::~EqualityEngine() throw(AssertionException) {
 }
 
 
-EqualityEngine::EqualityEngine(context::Context* context, std::string name) 
+EqualityEngine::EqualityEngine(context::Context* context, std::string name)
 : ContextNotifyObj(context)
+, d_masterEqualityEngine(0)
 , d_context(context)
 , d_done(context, false)
 , d_performNotify(true)
@@ -102,6 +103,7 @@ EqualityEngine::EqualityEngine(context::Context* context, std::string name)
 
 EqualityEngine::EqualityEngine(EqualityEngineNotify& notify, context::Context* context, std::string name)
 : ContextNotifyObj(context)
+, d_masterEqualityEngine(0)
 , d_context(context)
 , d_done(context, false)
 , d_performNotify(true)
@@ -119,6 +121,11 @@ EqualityEngine::EqualityEngine(EqualityEngineNotify& notify, context::Context* c
 , d_name(name)
 {
   init();
+}
+
+void EqualityEngine::setMasterEqualityEngine(EqualityEngine* master) {
+  Assert(d_masterEqualityEngine == 0);
+  d_masterEqualityEngine = master;
 }
 
 void EqualityEngine::enqueue(const MergeCandidate& candidate, bool back) {
@@ -292,6 +299,11 @@ void EqualityEngine::addTerm(TNode t) {
     d_triggerTermSetUpdatesSize = d_triggerTermSetUpdatesSize + 1;
     // Mark the the new set as a trigger 
     d_nodeIndividualTrigger[tId] = newTriggerTermSet();
+  }
+
+  // If this is not an internal node, add it to the master
+  if (d_masterEqualityEngine && !d_isInternal[result]) {
+    d_masterEqualityEngine->addTerm(t);
   }
 
   propagate();
@@ -1213,9 +1225,34 @@ void EqualityEngine::propagate() {
       continue;
     }
 
-    // Depending on the merge preference (such as size, or being a constant), merge them
+    // Vector to collect the triggered events
     std::vector<TriggerId> triggers;
-    if ((node2.getSize() > node1.getSize() && !d_isConstant[t1classId]) || d_isConstant[t2classId]) {
+
+    // Figure out the merge preference
+    EqualityNodeId mergeInto = t1classId;
+    if (d_isInternal[t2classId] != d_isInternal[t1classId]) {
+      // We always keep non-internal nodes as representatives: if any node in
+      // the class is non-internal, then the representative will be non-internal
+      if (d_isInternal[t1classId]) {
+        mergeInto = t2classId;
+      } else {
+        mergeInto = t1classId;
+      }
+    } else if (d_isConstant[t2classId] != d_isConstant[t1classId]) {
+      // We always keep constants as representatives: if any (at most one) node
+      // in the class in a constant, then the representative will be a constant
+      if (d_isConstant[t2classId]) {
+        mergeInto = t2classId;
+      } else {
+        mergeInto = t1classId;
+      }
+    } else if (node2.getSize() > node1.getSize()) {
+      // We always merge into the bigger class to reduce the amount of traversing
+      // we need to do
+      mergeInto = t2classId;
+    }
+
+    if (mergeInto == t2classId) {
       Debug("equality") << d_name << "::eq::propagate(): merging " << d_nodes[current.t1Id]<< " into " << d_nodes[current.t2Id] << std::endl;
       d_assertedEqualities.push_back(Equality(t2classId, t1classId));
       d_assertedEqualitiesCount = d_assertedEqualitiesCount + 1;
@@ -1229,6 +1266,12 @@ void EqualityEngine::propagate() {
     if (!merge(node1, node2, triggers)) {
         d_done = true;
       }
+    }
+
+    // If not merging internal nodes, notify the master
+    if (d_masterEqualityEngine && !d_isInternal[mergeInto]) {
+      d_masterEqualityEngine->assertEqualityInternal(d_nodes[t1classId], d_nodes[t2classId], TNode::null());
+      d_masterEqualityEngine->propagate();
     }
 
     // Notify the triggers
@@ -1769,6 +1812,110 @@ bool EqualityEngine::propagateTriggerTermDisequalities(Theory::Set tags, Trigger
   
   return !d_done;
 }
+
+EqClassesIterator::EqClassesIterator() :
+    d_ee(NULL), d_it(0) {
+}
+
+EqClassesIterator::EqClassesIterator(const eq::EqualityEngine* ee)
+: d_ee(ee)
+{
+  Assert(d_ee->consistent());
+  d_it = 0;
+  // Go to the first non-internal node that is it's own representative
+  if(d_it < d_ee->d_nodesCount && (d_ee->d_isInternal[d_it] || d_ee->getEqualityNode(d_it).getFind() != d_it)) {
+    ++d_it;
+  }
+}
+
+Node EqClassesIterator::operator*() const {
+  return d_ee->d_nodes[d_it];
+}
+
+bool EqClassesIterator::operator==(const EqClassesIterator& i) const {
+  return d_ee == i.d_ee && d_it == i.d_it;
+}
+
+bool EqClassesIterator::operator!=(const EqClassesIterator& i) const {
+  return !(*this == i);
+}
+
+EqClassesIterator& EqClassesIterator::operator++() {
+  ++d_it;
+  while(d_it < d_ee->d_nodesCount && (d_ee->d_isInternal[d_it] || d_ee->getEqualityNode(d_it).getFind() != d_it)) {
+    ++d_it;
+  }
+  return *this;
+}
+
+EqClassesIterator EqClassesIterator::operator++(int) {
+  EqClassesIterator i = *this;
+  ++*this;
+  return i;
+}
+
+bool EqClassesIterator::isFinished() const {
+  return d_it >= d_ee->d_nodesCount;
+}
+
+EqClassIterator::EqClassIterator()
+: d_ee(NULL)
+, d_start(null_id)
+, d_current(null_id)
+{}
+
+EqClassIterator::EqClassIterator(Node eqc, const eq::EqualityEngine* ee)
+: d_ee(ee)
+{
+  Assert(d_ee->consistent());
+  d_current = d_start = d_ee->getNodeId(eqc);
+  Assert(d_start == d_ee->getEqualityNode(d_start).getFind());
+  Assert (!d_ee->d_isInternal[d_start]);
+}
+
+Node EqClassIterator::operator*() const {
+  return d_ee->d_nodes[d_current];
+}
+
+bool EqClassIterator::operator==(const EqClassIterator& i) const {
+  return d_ee == i.d_ee && d_current == i.d_current;
+}
+
+bool EqClassIterator::operator!=(const EqClassIterator& i) const {
+  return !(*this == i);
+}
+
+EqClassIterator& EqClassIterator::operator++() {
+  Assert(!isFinished());
+
+  Assert(d_start == d_ee->getEqualityNode(d_current).getFind());
+  Assert(!d_ee->d_isInternal[d_current]);
+
+  // Find the next one
+  do {
+    d_current = d_ee->getEqualityNode(d_current).getNext();
+  } while(d_ee->d_isInternal[d_current]);
+
+  Assert(d_start == d_ee->getEqualityNode(d_current).getFind());
+  Assert(!d_ee->d_isInternal[d_current]);
+
+  if(d_current == d_start) {
+    // we end when we have cycled back to the original representative
+    d_current = null_id;
+  }
+  return *this;
+}
+
+EqClassIterator EqClassIterator::operator++(int) {
+  EqClassIterator i = *this;
+  ++*this;
+  return i;
+}
+
+bool EqClassIterator::isFinished() const {
+  return d_current == null_id;
+}
+
 
 } // Namespace uf
 } // Namespace theory
