@@ -108,12 +108,17 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
   Debug("cnf") << "ensureLiteral(" << n << ")" << endl;
   if(hasLiteral(n)) {
     SatLiteral lit = getLiteral(n);
-    LiteralToNodeMap::iterator i = d_literalToNodeMap.find(lit);
-    if(i == d_literalToNodeMap.end()) {
+    if(!d_literalToNodeMap.contains(lit)){
       // Store backward-mappings
-      d_literalToNodeMap[lit] = n;
-      d_literalToNodeMap[~lit] = n.notNode();
+      AlwaysAssert(d_literalToNodeMap.insertSafe(lit, n));
+      AlwaysAssert(d_literalToNodeMap.insertSafe(~lit, n.notNode()));
     }
+    // LiteralToNodeMap::iterator i = d_literalToNodeMap.find(lit);
+    // if(i == d_literalToNodeMap.end()) {
+    //   // Store backward-mappings
+    //   d_literalToNodeMap[lit] = n;
+    //   d_literalToNodeMap[~lit] = n.notNode();
+    // }
     return;
   }
 
@@ -140,8 +145,9 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
     lit = toCNF(n, false);
 
     // Store backward-mappings
-    d_literalToNodeMap[lit] = n;
-    d_literalToNodeMap[~lit] = n.notNode();
+    // These may already exist
+    d_literalToNodeMap.insertSafe(lit, n);
+    d_literalToNodeMap.insertSafe(~lit, n.notNode());
   } else {
     // We have a theory atom or variable.
     lit = convertAtom(n);
@@ -168,8 +174,10 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
     } else {
       lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
     }
-    d_nodeToLiteralMap[node] = lit;
-    d_nodeToLiteralMap[node.notNode()] = ~lit;
+    AlwaysAssert(d_nodeToLiteralMap.insertSafe(node, lit));
+    AlwaysAssert(d_nodeToLiteralMap.insertSafe(node.notNode(), ~lit));
+    // d_nodeToLiteralMap[node] = lit;
+    // d_nodeToLiteralMap[node.notNode()] = ~lit;
   } else {
     lit = getLiteral(node);
   }
@@ -178,8 +186,14 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   if ( theoryLiteral || d_fullLitToNodeMap ||
        ( CVC4_USE_REPLAY && options::replayLog() != NULL ) ||
        (Dump.isOn("clauses")) ) {
-    d_literalToNodeMap[lit] = node;
-    d_literalToNodeMap[~lit] = node.notNode();
+
+    if(!d_literalToNodeMap.contains(lit)){
+      AlwaysAssert(d_literalToNodeMap.insertSafe(lit, node));
+      AlwaysAssert(d_literalToNodeMap.insertSafe(~lit, node.notNode()));
+    }
+
+    //d_literalToNodeMap[lit] = node;
+    //d_literalToNodeMap[~lit] = node.notNode();
   }
 
   // If a theory literal, we pre-register it
@@ -197,7 +211,8 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
 
 TNode CnfStream::getNode(const SatLiteral& literal) {
   Debug("cnf") << "getNode(" << literal << ")" << endl;
-  LiteralToNodeMap::iterator find = d_literalToNodeMap.find(literal);
+  //LiteralToNodeMap::iterator find = d_literalToNodeMap.find(literal);
+  LiteralToNodeMap::const_iterator find = d_literalToNodeMap.find(literal);
   Assert(find != d_literalToNodeMap.end());
   Assert(d_nodeToLiteralMap.find((*find).second) != d_nodeToLiteralMap.end());
   Debug("cnf") << "getNode(" << literal << ") => " << (*find).second << endl;
@@ -229,7 +244,8 @@ SatLiteral CnfStream::convertAtom(TNode node) {
 }
 
 SatLiteral CnfStream::getLiteral(TNode node) {
-  NodeToLiteralMap::iterator find = d_nodeToLiteralMap.find(node);
+  //NodeToLiteralMap::iterator find = d_nodeToLiteralMap.find(node);
+  NodeToLiteralMap::const_iterator find = d_nodeToLiteralMap.find(node);
   Assert(!node.isNull(), "CnfStream: can't getLiteral() of null node");
   Assert(find != d_nodeToLiteralMap.end(), "Literal not in the CNF Cache: %s\n", node.toString().c_str());
   SatLiteral literal = (*find).second;

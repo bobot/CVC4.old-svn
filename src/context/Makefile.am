@@ -16,6 +16,7 @@ libcontext_la_SOURCES = \
 	cdlist_forward.h \
 	cdqueue.h \
 	cdtrail_queue.h \
+	cdtrail_hashmap.h \
 	cdhashmap.h \
 	cdhashmap_forward.h \
 	cdhashset.h \

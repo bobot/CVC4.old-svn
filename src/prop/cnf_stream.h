@@ -29,6 +29,8 @@
 #include "prop/theory_proxy.h"
 #include "prop/registrar.h"
 #include "context/cdlist.h"
+#include "context/cdhashmap.h"
+#include "context/cdtrail_hashmap.h"
 
 #include <ext/hash_map>
 
@@ -47,12 +49,17 @@ class CnfStream {
 public:
 
   /** Cache of what nodes have been registered to a literal. */
-  typedef context::CDHashMap<SatLiteral, TNode, SatLiteralHashFunction> LiteralToNodeMap;
+  typedef context::CDTrailHashMap<SatLiteral, TNode, SatLiteralHashFunction> OtherLiteralToNodeMap;
+
+  /** Cache of what nodes have been registered to a literal. */
+  typedef context::CDTrailHashMap<SatLiteral, TNode, SatLiteralHashFunction> LiteralToNodeMap;
 
   /** Cache of what literals have been registered to a node. */
-  typedef context::CDHashMap<Node, SatLiteral, NodeHashFunction> NodeToLiteralMap;
+  typedef context::CDTrailHashMap<Node, SatLiteral, NodeHashFunction> NodeToLiteralMap;
 
 protected:
+
+  //OtherLiteralToNodeMap d_otherMap;
 
   /** The SAT solver we will be using */
   SatSolver *d_satSolver;
