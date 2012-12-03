@@ -43,6 +43,7 @@ namespace prop {
 
 
 CnfStream::CnfStream(SatSolver *satSolver, Registrar* registrar, context::Context* context, bool fullLitToNodeMap) :
+  d_otherMap(context),
   d_satSolver(satSolver),
   d_booleanVariables(context),
   d_nodeToLiteralMap(context),
@@ -110,8 +111,8 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
     SatLiteral lit = getLiteral(n);
     if(!d_literalToNodeMap.contains(lit)){
       // Store backward-mappings
-      AlwaysAssert(d_literalToNodeMap.insertSafe(lit, n));
-      AlwaysAssert(d_literalToNodeMap.insertSafe(~lit, n.notNode()));
+      d_literalToNodeMap.insert(lit, n);
+      d_literalToNodeMap.insert(~lit, n.notNode());
     }
     // LiteralToNodeMap::iterator i = d_literalToNodeMap.find(lit);
     // if(i == d_literalToNodeMap.end()) {
@@ -146,8 +147,8 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
 
     // Store backward-mappings
     // These may already exist
-    d_literalToNodeMap.insertSafe(lit, n);
-    d_literalToNodeMap.insertSafe(~lit, n.notNode());
+    d_literalToNodeMap.insert_safe(lit, n);
+    d_literalToNodeMap.insert_safe(~lit, n.notNode());
   } else {
     // We have a theory atom or variable.
     lit = convertAtom(n);
@@ -174,8 +175,8 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
     } else {
       lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
     }
-    AlwaysAssert(d_nodeToLiteralMap.insertSafe(node, lit));
-    AlwaysAssert(d_nodeToLiteralMap.insertSafe(node.notNode(), ~lit));
+    d_nodeToLiteralMap.insert(node, lit);
+    d_nodeToLiteralMap.insert(node.notNode(), ~lit);
     // d_nodeToLiteralMap[node] = lit;
     // d_nodeToLiteralMap[node.notNode()] = ~lit;
   } else {
@@ -187,10 +188,8 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
        ( CVC4_USE_REPLAY && options::replayLog() != NULL ) ||
        (Dump.isOn("clauses")) ) {
 
-    if(!d_literalToNodeMap.contains(lit)){
-      AlwaysAssert(d_literalToNodeMap.insertSafe(lit, node));
-      AlwaysAssert(d_literalToNodeMap.insertSafe(~lit, node.notNode()));
-    }
+    d_literalToNodeMap.insert_safe(lit, node);
+    d_literalToNodeMap.insert_safe(~lit, node.notNode());
 
     //d_literalToNodeMap[lit] = node;
     //d_literalToNodeMap[~lit] = node.notNode();
