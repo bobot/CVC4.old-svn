@@ -39,7 +39,7 @@ Node RemoveITE::run(TNode node, std::vector<Node>& output,
 
   // The result may be cached already
   NodeManager *nodeManager = NodeManager::currentNM();
-  ITECache::iterator i = d_iteCache.find(node);
+  ITECache::const_iterator i = d_iteCache.find(node);
   if(i != d_iteCache.end()) {
     Node cachedRewrite = (*i).second;
     Debug("ite") << "removeITEs: in-cache: " << cachedRewrite << endl;
@@ -60,7 +60,7 @@ Node RemoveITE::run(TNode node, std::vector<Node>& output,
       Debug("ite") << "removeITEs(" << node << ") => " << newAssertion << endl;
 
       // Attach the skolem
-      d_iteCache[node] = skolem;
+      d_iteCache.insert(node,  skolem);
 
       // Remove ITEs from the new assertion, rewrite it and push it to the output
       newAssertion = run(newAssertion, output, iteSkolemMap);
@@ -91,14 +91,14 @@ Node RemoveITE::run(TNode node, std::vector<Node>& output,
     // If changes, we rewrite
     if(somethingChanged) {
       Node cachedRewrite = nodeManager->mkNode(node.getKind(), newChildren);
-      d_iteCache[node] = cachedRewrite;
+      d_iteCache.insert(node, cachedRewrite);
       return cachedRewrite;
     } else {
-      d_iteCache[node] = Node::null();
+      d_iteCache.insert(node, Node::null());
       return node;
     }
   } else {
-    d_iteCache[node] = Node::null();
+    d_iteCache.insert(node, Node::null());
     return node;
   }
 }
