@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "context/cdlist_forward.h"
-#include "context/cdhashmap_forward.h"
+#include "context/cdinsert_hashmap_forward.h"
 #include "context/cdhashset_forward.h"
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
@@ -110,7 +110,7 @@ namespace stats {
 class CVC4_PUBLIC SmtEngine {
 
   /** The type of our internal map of defined functions */
-  typedef context::CDHashMap<Node, smt::DefinedFunction, NodeHashFunction>
+  typedef context::CDInsertHashMap<Node, smt::DefinedFunction, NodeHashFunction>
     DefinedFunctionMap;
   /** The type of our internal assertion list */
   typedef context::CDList<Expr> AssertionList;
