@@ -27,7 +27,7 @@
 
 #include "context/context.h"
 #include "context/cdlist.h"
-#include "context/cdhashmap.h"
+#include "context/cdtrail_hashmap.h"
 #include <set>
 
 namespace CVC4 {
@@ -42,7 +42,7 @@ private:
    * where c is a constant.
    */
   //typedef __gnu_cxx::hash_map<Node, std::set<Node>, NodeHashFunction> VarToNodeSetMap;
-  typedef context::CDHashMap<Node, Node, NodeHashFunction> CDNodeToNodeListMap;
+  typedef context::CDTrailHashMap<Node, Node, NodeHashFunction> CDNodeToNodeListMap;
   // The domain is an implicit list OR(x, OR(y, ..., FALSE ))
   // or FALSE
   CDNodeToNodeListMap d_miplibTrick;
@@ -51,7 +51,7 @@ private:
    * Map from a node to it's minimum and maximum.
    */
   //typedef __gnu_cxx::hash_map<Node, DeltaRational, NodeHashFunction> NodeToMinMaxMap;
-  typedef context::CDHashMap<Node, DeltaRational, NodeHashFunction> CDNodeToMinMaxMap;
+  typedef context::CDTrailHashMap<Node, DeltaRational, NodeHashFunction> CDNodeToMinMaxMap;
   CDNodeToMinMaxMap d_minMap;
   CDNodeToMinMaxMap d_maxMap;
 
