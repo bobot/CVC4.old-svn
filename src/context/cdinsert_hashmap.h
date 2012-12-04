@@ -119,12 +119,18 @@ public:
     }
   }
 
+  void push_front(const Key& k, const Data& d){
+    Assert(!contains(k));
+    d_hashMap.insert(std::make_pair(k, d));
+    d_keys.push_front(k);
+  }
+
   void pop_back(){
     Assert(!empty());
     const Key& back = d_keys.back();
     d_hashMap.erase(back);
 
-    Debug("TrailHashMap") <<"TrailHashMap pop_back " << size() << " " << back << std::endl;
+    Debug("TrailHashMap") <<"TrailHashMap pop_back " << size() << std::endl;
     d_keys.pop_back();
   }
 
@@ -148,6 +154,7 @@ private:
   IHM* d_insertMap;
 
   size_t d_size;
+  size_t d_pushFronts;
 
   /**
    * Private copy constructor used only by save().  d_list and
@@ -157,7 +164,9 @@ private:
   CDInsertHashMap(const CDInsertHashMap<Key, Data, HashFcn>& l) :
     ContextObj(l),
     d_insertMap(NULL),
-    d_size(l.d_size){
+    d_size(l.d_size),
+    d_pushFronts(l.d_pushFronts)
+  {
     Debug("CDInsertHashMap") << "copy ctor: " << this
                     << " from " << &l
                     << " size " << d_size << std::endl;
@@ -191,8 +200,11 @@ protected:
                             << " data == " << data
                             << " d_insertMap == " << this->d_insertMap << std::endl;
     size_t oldSize = ((CDInsertHashMap<Key, Data, HashFcn>*)data)->d_size;
-    d_insertMap->pop_to_size(oldSize);
-    d_size = oldSize;
+    size_t oldPushFronts = ((CDInsertHashMap<Key, Data, HashFcn>*)data)->d_pushFronts;
+    Assert(oldPushFronts <= d_pushFronts);
+    size_t restoreSize = oldSize + (d_pushFronts - oldPushFronts);
+    d_insertMap->pop_to_size(restoreSize);
+    d_size = restoreSize;
     Assert(d_insertMap->size() == d_size);
     Debug("CDInsertHashMap") << "restore " << this
                             << " level " << this->getContext()->getLevel()
@@ -206,7 +218,8 @@ public:
   CDInsertHashMap(Context* context) :
     ContextObj(context),
     d_insertMap(new IHM()),
-    d_size(0){
+    d_size(0),
+    d_pushFronts(0){
     Assert(d_insertMap->size() == d_size);
   }
 
@@ -244,6 +257,11 @@ public:
     return res;
   }
 
+  void insertAtContextLevelZero(const Key& k, const Data& d){
+    ++d_pushFronts;
+    return d_insertMap->push_front(k, d);
+  }
+
   bool contains(const Key& k) const {
     return d_insertMap->contains(k);
   }
@@ -262,6 +280,12 @@ public:
     return d_insertMap->end();
   }
 
+  key_iterator key_begin() const{
+    return d_insertMap->key_begin();
+  }
+  key_iterator key_end() const{
+    return d_insertMap->key_end();
+  }
 };/* class CDInsertHashMap<> */
 
 }/* CVC4::context namespace */

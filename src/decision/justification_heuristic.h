@@ -100,8 +100,8 @@ public:
     d_visited.clear();
 
     if(Trace.isOn("justified")) {
-      for(JustifiedSet::iterator i = d_justified.begin();
-          i != d_justified.end(); ++i) {
+      for(JustifiedSet::key_iterator i = d_justified.key_begin();
+          i != d_justified.key_end(); ++i) {
         TNode n = *i;
         SatLiteral l = d_decisionEngine->hasSatLiteral(n) ?
           d_decisionEngine->getSatLiteral(n) : -1;
