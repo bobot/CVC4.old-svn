@@ -35,15 +35,16 @@
 
 #include "cvc4_private.h"
 
-#pragma once
 
 #include "context/context.h"
+#include "context/cdinsert_hashmap_forward.h"
 #include <utility>
 #include <ext/hash_map>
 #include <deque>
 #include "util/cvc4_assert.h"
 #include "util/output.h"
 
+#pragma once
 
 namespace CVC4 {
 namespace context {
@@ -141,7 +142,7 @@ public:
   }
 };/* class TrailHashMap<> */
 
-template <class Key, class Data, class HashFcn = __gnu_cxx::hash<Key> >
+template <class Key, class Data, class HashFcn >
 class CDInsertHashMap : public ContextObj {
 private:
   typedef InsertHashMap<Key, Data, HashFcn> IHM;
@@ -202,6 +203,7 @@ protected:
     size_t oldSize = ((CDInsertHashMap<Key, Data, HashFcn>*)data)->d_size;
     size_t oldPushFronts = ((CDInsertHashMap<Key, Data, HashFcn>*)data)->d_pushFronts;
     Assert(oldPushFronts <= d_pushFronts);
+
     size_t restoreSize = oldSize + (d_pushFronts - oldPushFronts);
     d_insertMap->pop_to_size(restoreSize);
     d_size = restoreSize;

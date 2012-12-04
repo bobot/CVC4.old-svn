@@ -38,6 +38,7 @@
 #pragma once
 
 #include "context/context.h"
+#include "context/cdtrail_hashmap_forward.h"
 #include <utility>
 #include <ext/hash_map>
 #include <deque>
@@ -73,6 +74,11 @@ private:
   PositionMap d_posMap;
   KDTVec d_kdts;
   size_t d_uniqueKeys;
+
+
+  PM_iterator ncfind(const Key& k) {
+    return d_posMap.find(k);
+  }
 
   PM_const_iterator pmfind(const Key& k) const{
     return d_posMap.find(k);
@@ -139,12 +145,18 @@ public:
     return pmfind(k) != pmend();
   }
 
+  /** DO NOT USE THIS UNLESS YOU ARE CONFIDENT THE CHANGES MAKE SENSE.*/
+  Data& lookup(const Key& k){
+    PM_iterator ci = ncfind(k);
+    KDT& kdt = d_kdts[(*ci).second];
+    return kdt.d_kd.second;
+  }
+
   const Data& operator[](const Key& k) const {
     PM_const_iterator pci = pmfind(k);
     Assert(pci != pmend());
-    return d_kdts[(*pci).second].d_data;
+    return d_kdts[(*pci).second].d_kd.second;
   }
-
 
   const_iterator find(const Key& k) const {
     PM_const_iterator pci = pmfind(k);
@@ -156,22 +168,46 @@ public:
     }
   }
 
+  std::pair<bool, bool> hasAfter(const Key& k, size_t pos) {
+    PM_iterator it = ncfind(k);
+    if(it != d_posMap.end()){
+      return std::make_pair(true, (*it).second >= pos );
+    }
+    return std::make_pair(false, false);
+  }
+
   bool push_back(const Key& k, const Data& d){
+    std::pair<bool, bool> res = compacting_push_back(k, d, trailSize());
+    return res.first;
+  }
+
+  std::pair<bool, bool> compacting_push_back(const Key& k, const Data& d, size_t threshold){
     size_t backPos = d_kdts.size();
-    d_kdts.push_back(KDT(k,d, backPos));
     std::pair<PM_iterator, bool> res = d_posMap.insert(std::make_pair(k, backPos));
     if(!res.second){
       size_t& prevPosInPM = (*res.first).second;
-      d_kdts.back().d_prev = prevPosInPM;
-      d_kdts[prevPosInPM].d_head = false;
-      prevPosInPM = backPos;
+
+      Assert(d_kdts[prevPosInPM].d_head);
+
+      if(prevPosInPM < threshold){
+        d_kdts.push_back(KDT(k,d, prevPosInPM));
+        d_kdts[prevPosInPM].d_head = false;
+        prevPosInPM = backPos;
+
+        return std::make_pair(false, true);
+      }else{
+        d_kdts[prevPosInPM].d_kd.second = d;
+        return std::make_pair(false, false);
+      }
     }else{
+      d_kdts.push_back(KDT(k,d, backPos));
       ++d_uniqueKeys;
+      return std::make_pair(true, true);
     }
-    return res.second;
   }
 
-  bool insertSafe(const Key& k, const Data& d){
+
+  bool insert_no_overwrite(const Key& k, const Data& d){
     size_t backPos = d_kdts.size();
     std::pair<PM_iterator, bool> res = d_posMap.insert(std::make_pair(k, backPos));
     if(res.second){
@@ -189,10 +225,10 @@ public:
     if(selfLoop(trailSize()-1, back)){
       d_posMap.erase(k);
       --d_uniqueKeys;
-      Debug("TrailHashMap") <<"TrailHashMap pop_back erase " << trailSize() <<" " << k << std::endl;
+      Debug("TrailHashMap") <<"TrailHashMap pop_back erase " << trailSize() <<" " << std::endl;
 
     }else{
-      Debug("TrailHashMap") <<"TrailHashMap reset " << trailSize() <<" " << k << " " << back.d_prev << std::endl;
+      Debug("TrailHashMap") <<"TrailHashMap reset " << trailSize() <<" " << " " << back.d_prev << std::endl;
       d_posMap[k] = back.d_prev;
       d_kdts[back.d_prev].d_head = true;
     }
@@ -206,7 +242,7 @@ public:
   }
 };/* class TrailHashMap<> */
 
-template <class Key, class Data, class HashFcn = __gnu_cxx::hash<Key> >
+template <class Key, class Data, class HashFcn >
 class CDTrailHashMap : public ContextObj {
 private:
   typedef TrailHashMap<Key, Data, HashFcn> THM;
@@ -218,6 +254,7 @@ private:
   THM* d_trailMap;
 
   size_t d_trailSize;
+  size_t d_prevTrailSize;
 
   /**
    * Private copy constructor used only by save().  d_list and
@@ -227,8 +264,9 @@ private:
   CDTrailHashMap(const CDTrailHashMap<Key, Data, HashFcn>& l) :
     ContextObj(l),
     d_trailMap(NULL),
-    d_trailSize(l.d_trailSize){
-    Debug("cdlist") << "copy ctor: " << this
+    d_trailSize(l.d_trailSize),
+    d_prevTrailSize(l.d_prevTrailSize){
+    Debug("CDTrailHashMap") << "copy ctor: " << this
                     << " from " << &l
                     << " size " << d_trailSize << std::endl;
   }
@@ -264,6 +302,8 @@ protected:
     d_trailMap->pop_to_size(oldSize);
     d_trailSize = oldSize;
     Assert(d_trailMap->trailSize() == d_trailSize);
+
+    d_prevTrailSize = ((CDTrailHashMap<Key, Data, HashFcn>*)data)->d_prevTrailSize;
     Debug("CDTrailHashMap") << "restore " << this
                             << " level " << this->getContext()->getLevel()
                             << " size back to " << this->d_trailSize << std::endl;
@@ -276,7 +316,8 @@ public:
   CDTrailHashMap(Context* context) :
     ContextObj(context),
     d_trailMap(new THM()),
-    d_trailSize(0){
+    d_trailSize(0),
+    d_prevTrailSize(0){
     Assert(d_trailMap->trailSize() == d_trailSize);
   }
 
@@ -286,6 +327,13 @@ public:
   ~CDTrailHashMap() throw(AssertionException) {
     this->destroy();
     delete d_trailMap;
+  }
+
+  void internalMakeCurrent () {
+    if(!isCurrent()){
+      makeCurrent();
+      d_prevTrailSize = d_trailSize;
+    }
   }
 
   /** Returns true if the queue is empty in the current context. */
@@ -298,17 +346,19 @@ public:
   }
 
   bool insert(const Key& k, const Data& d){
-    makeCurrent();
-    ++d_trailSize;
-    bool res = d_trailMap->push_back(k, d);
+    internalMakeCurrent();
+    std::pair<bool, bool> res = d_trailMap->compacting_push_back(k, d, d_prevTrailSize);
+    if(res.second){
+      ++d_trailSize;
+    }
     Assert(d_trailMap->trailSize() == d_trailSize);
-    return res;
+    return res.first;
   }
 
-  bool insertSafe(const Key& k, const Data& d){
-    bool res = d_trailMap->insertSafe(k, d);
+  bool insert_no_overwrite(const Key& k, const Data& d){
+    bool res = d_trailMap->insert_no_overwrite(k, d);
     if(res){
-      makeCurrent();
+      internalMakeCurrent();
       ++d_trailSize;
     }
     Assert(d_trailMap->trailSize() == d_trailSize);
@@ -322,7 +372,24 @@ public:
   const Data& operator[](const Key& k) const {
     return (*d_trailMap)[k];
   }
-
+/*
+  Data& operator[](const Key& k) {
+    internalMakeCurrent();
+    std::pair<bool, bool> res = d_trailMap->hasAfter(k, d_prevTrailSize);
+    if(!res.first){
+      std::pair<bool, bool> res = d_trailMap->compacting_push_back(k, Data(), d_prevTrailSize);
+      if(res.second){
+        ++d_trailSize;
+      }
+    }else if(!res.second){
+      std::pair<bool, bool> res = d_trailMap->compacting_push_back(k, (*d_trailMap)[k], d_prevTrailSize);
+      if(res.second){
+        ++d_trailSize;
+      }
+    }
+    return d_trailMap->lookup(k);
+  }
+*/
   const_iterator find(const Key& k) const {
     return d_trailMap->find(k);
   }
