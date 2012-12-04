@@ -26,6 +26,7 @@
 #include "context/context.h"
 #include "util/hash.h"
 #include "expr/node.h"
+#include "context/cdinsert_hashmap.h"
 #include "context/cdhashset.h"
 #include "context/cdhashmap.h"
 #include "context/cdo.h"
@@ -118,12 +119,12 @@ private:
 
   /** Nodes that have been attached already (computed forward edges for) */
   // All the nodes we've visited so far
-  context::CDHashSet<TNode, TNodeHashFunction> d_seen;
+  context::CDHashSet<Node, NodeHashFunction> d_seen;
 
   /**
    * Assignment status of each node.
    */
-  typedef context::CDHashMap<TNode, AssignmentStatus, TNodeHashFunction> AssignmentMap;
+  typedef context::CDInsertHashMap<Node, AssignmentStatus, NodeHashFunction> AssignmentMap;
   AssignmentMap d_state;
 
   /**
@@ -142,16 +143,15 @@ private:
     }
 
     // Get the current assignement
-    AssignmentStatus state = d_state[n];
-
-    if(state != UNASSIGNED) {
+    if(d_state.contains(n)) {
+      AssignmentStatus state = d_state[n];
       // If the node is already assigned we might have a conflict
       if(value != (state == ASSIGNED_TO_TRUE)) {
         d_conflict = true;
       }
     } else {
       // If unassigned, mark it as assigned
-      d_state[n] = value ? ASSIGNED_TO_TRUE : ASSIGNED_TO_FALSE;
+      d_state.insert(n, value ? ASSIGNED_TO_TRUE : ASSIGNED_TO_FALSE);
       // Add for further propagation
       d_propagationQueue.push_back(n);
     }
@@ -166,15 +166,20 @@ private:
   /** True iff Node is assigned to the value. */
   bool isAssignedTo(TNode n, bool value) const {
     AssignmentMap::const_iterator i = d_state.find(n);
-    if (i == d_state.end()) return false;
-    if (value && ((*i).second == ASSIGNED_TO_TRUE)) return true;
-    if (!value && ((*i).second == ASSIGNED_TO_FALSE)) return true;
-    return false;
+    if (i == d_state.end()){
+      return false;
+    }else if (value && ((*i).second == ASSIGNED_TO_TRUE)){
+      return true;
+    }else if (!value && ((*i).second == ASSIGNED_TO_FALSE)){
+      return true;
+    }else {
+      return false;
+    }
   }
 
   /** Get Node assignment in circuit.  Assert-fails if Node is unassigned. */
   bool getAssignment(TNode n) const {
-    AssignmentMap::iterator i = d_state.find(n);
+    AssignmentMap::const_iterator i = d_state.find(n);
     Assert(i != d_state.end() && (*i).second != UNASSIGNED);
     return (*i).second == ASSIGNED_TO_TRUE;
   }
