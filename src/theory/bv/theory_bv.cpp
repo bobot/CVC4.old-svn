@@ -217,7 +217,7 @@ bool TheoryBV::storePropagation(TNode literal, SubTheory subtheory)
       // Safe to ignore this one, subtheory should produce a conflict
       return true;
     }
-    d_propagatedBy[literal] = subtheory;
+    d_propagatedBy.insert(literal, subtheory);
   }
 
   // Propagate differs depending on the subtheory
