@@ -63,11 +63,11 @@ private:
   SharedTermsTheoriesMap d_termsToTheories;
 
   /** Map from term to theories that have already been notified about the shared term */
-  typedef context::CDTrailHashMap<TNode, theory::Theory::Set, TNodeHashFunction> AlreadyNotifiedMap;
+  typedef context::CDTrailHashMap<Node, theory::Theory::Set, NodeHashFunction> AlreadyNotifiedMap;
   AlreadyNotifiedMap d_alreadyNotifiedMap;
 
   /** The registered equalities for propagation */
-  typedef context::CDHashSet<TNode, TNodeHashFunction> RegisteredEqualitiesSet;
+  typedef context::CDHashSet<Node, NodeHashFunction> RegisteredEqualitiesSet;
   RegisteredEqualitiesSet d_registeredEqualities;
 
 private:
