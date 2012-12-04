@@ -1645,8 +1645,8 @@ void EqualityEngine::storePropagatedDisequality(TheoryId tag, EqualityNodeId lhs
   } else {
     notified = Theory::setInsert(tag, (*find).second);
   }
-  d_propagatedDisequalities[pair1] = notified;
-  d_propagatedDisequalities[pair2] = notified;
+  d_propagatedDisequalities.insert(pair1, notified);
+  d_propagatedDisequalities.insert(pair2, notified);
 
   // Store the proof if provided
   if (d_deducedDisequalityReasons.size() > d_deducedDisequalityReasonsSize) {

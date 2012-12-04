@@ -27,6 +27,7 @@
 #include "expr/node.h"
 #include "expr/kind_map.h"
 #include "context/cdo.h"
+#include "context/cdtrail_hashmap.h"
 #include "util/output.h"
 #include "util/statistics_registry.h"
 #include "theory/rewriter.h"
@@ -604,7 +605,7 @@ private:
   /**
    * Map from equalities to the tags that have received the notification.
    */
-  typedef context::CDHashMap<EqualityPair, Theory::Set, EqualityPairHashFunction> PropagatedDisequalitiesMap;
+  typedef context::CDTrailHashMap<EqualityPair, Theory::Set, EqualityPairHashFunction> PropagatedDisequalitiesMap;
   PropagatedDisequalitiesMap d_propagatedDisequalities;
 
   /**
