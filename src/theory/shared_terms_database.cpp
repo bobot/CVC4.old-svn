@@ -53,16 +53,17 @@ void SharedTermsDatabase::addSharedTerm(TNode atom, TNode term, Theory::Set theo
   Debug("register") << "SharedTermsDatabase::addSharedTerm(" << atom << ", " << term << ", " << Theory::setToString(theories) << ")" << std::endl;
 
   std::pair<TNode, TNode> search_pair(atom, term);
-  SharedTermsTheoriesMap::iterator find = d_termsToTheories.find(search_pair);
+  SharedTermsTheoriesMap::const_iterator find = d_termsToTheories.find(search_pair);
   if (find == d_termsToTheories.end()) {
     // First time for this term and this atom
     d_atomsToTerms[atom].push_back(term);
     d_addedSharedTerms.push_back(atom);
     d_addedSharedTermsSize = d_addedSharedTermsSize + 1;
-    d_termsToTheories[search_pair] = theories;
+    d_termsToTheories.insert(search_pair, theories);
   } else {
     Assert(theories != (*find).second);
-    d_termsToTheories[search_pair] = Theory::setUnion(theories, (*find).second);
+    Theory::Set tmp = Theory::setUnion(theories, (*find).second);
+    d_termsToTheories.insert(search_pair, tmp);
   }
 }
 
@@ -95,12 +96,12 @@ void SharedTermsDatabase::backtrack() {
 Theory::Set SharedTermsDatabase::getTheoriesToNotify(TNode atom, TNode term) const {
   // Get the theories that share this term from this atom
   std::pair<TNode, TNode> search_pair(atom, term);
-  SharedTermsTheoriesMap::iterator find = d_termsToTheories.find(search_pair);
+  SharedTermsTheoriesMap::const_iterator find = d_termsToTheories.find(search_pair);
   Assert(find != d_termsToTheories.end());
 
   // Get the theories that were already notified
   Theory::Set alreadyNotified = 0;
-  AlreadyNotifiedMap::iterator theoriesFind = d_alreadyNotifiedMap.find(term);
+  AlreadyNotifiedMap::const_iterator theoriesFind = d_alreadyNotifiedMap.find(term);
   if (theoriesFind != d_alreadyNotifiedMap.end()) {
     alreadyNotified = (*theoriesFind).second;
   }
@@ -112,7 +113,7 @@ Theory::Set SharedTermsDatabase::getTheoriesToNotify(TNode atom, TNode term) con
 
 Theory::Set SharedTermsDatabase::getNotifiedTheories(TNode term) const {
   // Get the theories that were already notified
-  AlreadyNotifiedMap::iterator theoriesFind = d_alreadyNotifiedMap.find(term);
+  AlreadyNotifiedMap::const_iterator theoriesFind = d_alreadyNotifiedMap.find(term);
   if (theoriesFind != d_alreadyNotifiedMap.end()) {
     return (*theoriesFind).second;
   } else {
@@ -144,7 +145,7 @@ void SharedTermsDatabase::markNotified(TNode term, Theory::Set theories) {
 
   // Find out if there are any new theories that were notified about this term
   Theory::Set alreadyNotified = 0;
-  AlreadyNotifiedMap::iterator theoriesFind = d_alreadyNotifiedMap.find(term);
+  AlreadyNotifiedMap::const_iterator theoriesFind = d_alreadyNotifiedMap.find(term);
   if (theoriesFind != d_alreadyNotifiedMap.end()) {
     alreadyNotified = (*theoriesFind).second;
   }
@@ -158,7 +159,7 @@ void SharedTermsDatabase::markNotified(TNode term, Theory::Set theories) {
   Debug("shared-terms-database") << "SharedTermsDatabase::markNotified(" << term << ")" << endl;
 
   // First update the set of notified theories for this term
-  d_alreadyNotifiedMap[term] = Theory::setUnion(newlyNotified, alreadyNotified);
+  d_alreadyNotifiedMap.insert(term, Theory::setUnion(newlyNotified, alreadyNotified));
 
   // Mark the shared terms in the equality engine
   theory::TheoryId currentTheory;

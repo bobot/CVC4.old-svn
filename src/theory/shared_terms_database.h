@@ -22,6 +22,7 @@
 #include "theory/uf/equality_engine.h"
 #include "util/statistics_registry.h"
 #include "context/cdhashset.h"
+#include "context/cdtrail_hashmap.h"
 
 namespace CVC4 {
 
@@ -58,11 +59,11 @@ private:
   context::CDO<unsigned> d_addedSharedTermsSize;
 
   /** A map from atoms and subterms to the theories that use it */
-  typedef context::CDHashMap<std::pair<Node, TNode>, theory::Theory::Set, TNodePairHashFunction> SharedTermsTheoriesMap;
+  typedef context::CDTrailHashMap<std::pair<Node, TNode>, theory::Theory::Set, TNodePairHashFunction> SharedTermsTheoriesMap;
   SharedTermsTheoriesMap d_termsToTheories;
 
   /** Map from term to theories that have already been notified about the shared term */
-  typedef context::CDHashMap<TNode, theory::Theory::Set, TNodeHashFunction> AlreadyNotifiedMap;
+  typedef context::CDTrailHashMap<TNode, theory::Theory::Set, TNodeHashFunction> AlreadyNotifiedMap;
   AlreadyNotifiedMap d_alreadyNotifiedMap;
 
   /** The registered equalities for propagation */
