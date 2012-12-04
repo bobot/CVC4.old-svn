@@ -25,6 +25,7 @@
 
 #include "context/cdlist.h"
 #include "context/cdhashmap.h"
+#include "context/cdinsert_hashmap.h"
 #include "context/cdo.h"
 
 namespace CVC4 {
@@ -57,11 +58,11 @@ protected:
   CDBV* next() { return d_next; }
 
 public:
-  CDBV(context::Context* context) : 
+  CDBV(context::Context* context) :
     ContextObj(context), d_data(0), d_next(NULL)
   {}
 
-  ~CDBV() { 
+  ~CDBV() {
     if (d_next != NULL) {
       d_next->deleteSelf();
     }
@@ -88,7 +89,7 @@ public:
       makeCurrent();
       d_next = new(true) CDBV(getContext());
       d_next->write(index - 64);
-    }      
+    }
   }
 
   void merge(CDBV* pcdbv) {
@@ -126,12 +127,13 @@ public:
  */
 class TransitiveClosureNode : public TransitiveClosure{
   context::CDO< unsigned > d_counter;
-  context::CDHashMap< Node, unsigned, NodeHashFunction > nodeMap;
+  typedef context::CDInsertHashMap< Node, unsigned, NodeHashFunction > CDNodeUnsignedMap;
+  CDNodeUnsignedMap d_nodeMap;
   //for debugging
   context::CDList< std::pair< Node, Node > > currEdges;
 public:
-  TransitiveClosureNode(context::Context* context) : 
-    TransitiveClosure(context), d_counter( context, 0 ), nodeMap( context ), currEdges(context) {}
+  TransitiveClosureNode(context::Context* context) :
+    TransitiveClosure(context), d_counter( context, 0 ), d_nodeMap( context ), currEdges(context) {}
   ~TransitiveClosureNode(){}
 
   /** get id for node */

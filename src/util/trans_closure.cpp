@@ -92,14 +92,14 @@ void TransitiveClosure::debugPrintMatrix()
       else Debug("trans-closure") << "0 ";
     }
     Debug("trans-closure") << endl;
-  }      
+  }
 }
 
 unsigned TransitiveClosureNode::getId( Node i ){
-  context::CDHashMap< Node, unsigned, NodeHashFunction >::iterator it = nodeMap.find( i );
-  if( it==nodeMap.end() ){
+  CDNodeUnsignedMap::const_iterator it = d_nodeMap.find( i );
+  if( it == d_nodeMap.end() ){
     unsigned c = d_counter.get();
-    nodeMap[i] = c;
+    d_nodeMap.insert(i, c);
     d_counter.set( c + 1 );
     return c;
   }
@@ -108,7 +108,7 @@ unsigned TransitiveClosureNode::getId( Node i ){
 
 void TransitiveClosureNode::debugPrint(){
   for( int i=0; i<(int)currEdges.size(); i++ ){
-    Debug("trans-closure") << "currEdges[ " << i << " ] = " 
+    Debug("trans-closure") << "currEdges[ " << i << " ] = "
                            << currEdges[i].first << " -> " << currEdges[i].second;
     Debug("trans-closure") << std::endl;
   }
