@@ -135,7 +135,7 @@ private:
    * A superset of all of the assertions that currently are not the literal for
    * their constraint do not match constraint literals. Not just the witnesses.
    */
-  context::CDHashMap<TNode, Constraint, TNodeHashFunction> d_assertionsThatDoNotMatchTheirLiterals;
+  context::CDInsertHashMap<TNode, Constraint, TNodeHashFunction> d_assertionsThatDoNotMatchTheirLiterals;
 
   /**
    * (For the moment) the type hierarchy goes as:
