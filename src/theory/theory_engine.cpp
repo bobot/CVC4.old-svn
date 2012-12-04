@@ -893,7 +893,7 @@ bool TheoryEngine::markPropagation(TNode assertion, TNode originalAssertion, the
   Trace("theory::assertToTheory") << "TheoryEngine::markPropagation(): marking [" << d_propagationMapTimestamp << "] " << assertion << ", " << toTheoryId << " from " << originalAssertion << ", " << fromTheoryId << std::endl;
 
   // Mark the propagation
-  d_propagationMap[toAssert] = toExplain;
+  d_propagationMap.insert(toAssert, toExplain);
   d_propagationMapTimestamp = d_propagationMapTimestamp + 1;
 
   return true;

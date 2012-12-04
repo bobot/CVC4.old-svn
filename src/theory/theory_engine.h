@@ -27,6 +27,7 @@
 #include "expr/command.h"
 #include "prop/prop_engine.h"
 #include "context/cdhashset.h"
+#include "context/cdtrail_hashmap.h"
 #include "theory/theory.h"
 #include "theory/substitutions.h"
 #include "theory/rewriter.h"
@@ -363,7 +364,7 @@ class TheoryEngine {
   /**
    * Mapping of propagations from recievers to senders.
    */
-  typedef context::CDHashMap<NodeTheoryPair, NodeTheoryPair, NodeTheoryPairHashFunction> PropagationMap;
+  typedef context::CDTrailHashMap<NodeTheoryPair, NodeTheoryPair, NodeTheoryPairHashFunction> PropagationMap;
   PropagationMap d_propagationMap;
 
   /**
