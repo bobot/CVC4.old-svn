@@ -79,16 +79,16 @@ std::string Slice::debugPrint() {
   std::ostringstream os;
   os << "[ ";
   for (Slice::const_iterator it = begin(); it != end(); ++it) {
-    os << *it.first;
-    Splinter* s = *it.second;
-    Assert (*it.first == s->getLow);
-    SplinterPointer& sp = s->getPointer(); 
+    os << (*it).first;
+    Splinter* s = (*it).second;
+    Assert ((*it).first == s->getLow());
+    SplinterPointer sp = s->getPointer(); 
     if (s->getPointer() != Undefined) {
       os << "->" << sp.debugPrint(); 
     }
     os << " "; 
   }
-  os >> "]";
+  os << "]";
   return os.str(); 
 }
 
@@ -147,8 +147,9 @@ std::string SliceBlock::debugPrint() {
   os << "Width " << d_bitwidth << endl; 
   os << "Base " << d_base.debugPrint() << endl;
   for (SliceBlock::const_iterator it = begin(); it!= end(); ++it) {
-    os << *it.debugPrint() << endl;
+    os << (*it)->debugPrint() << endl;
   }
+  return os.str(); 
 }
 
 Slicer::Slicer()

@@ -108,7 +108,9 @@ public:
       }
     }
     os << "]"; 
+    return os.str(); 
   }
+  
 }; 
 
 
@@ -138,7 +140,7 @@ struct SplinterPointer {
 
   std::string debugPrint() {
     std::ostringstream os;
-    os << "(" << t <<", " << ", " << r <<", " << i << ")";
+    os << "(" << term <<", " << ", " << row <<", " << index << ")";
     return os.str();
   }
   
@@ -252,7 +254,7 @@ public:
 
   uint32_t addSlice(Slice* slice) {
     // update the base with the cut-points in the slice
-    Debug("bv-slice") << "SliceBlock::addSlice Block"<<rootId << " adding slice " << slice->debugPrint() << endl; 
+    Debug("bv-slice") << "SliceBlock::addSlice Block"<< d_rootId << " adding slice " << slice->debugPrint() << std::endl; 
     d_base.sliceWith(slice->getBase()); 
     d_block.push_back(slice);
     return d_block.size() - 1; 
@@ -274,7 +276,7 @@ public:
   void sliceBaseAt(Index i) {
     d_base.sliceAt(i); 
   }
-  typedef std::vector<Slice*>const_iterator const_iterator; 
+  typedef std::vector<Slice*>::const_iterator const_iterator; 
   std::vector<Slice*>::const_iterator begin() {
     return d_block.begin(); 
   }
