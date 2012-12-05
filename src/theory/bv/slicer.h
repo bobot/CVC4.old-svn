@@ -93,7 +93,22 @@ public:
   bool operator!=(const Base& other) const {
     return !(*this == other); 
   }
-
+  std::string debugPrint() {
+    std::ostringstream os;
+    os << "[";
+    bool first = true; 
+    for (Index i = 0; i < d_size; ++i) {
+      if (isCutPoint(i)) {
+        if (first)
+          first = false;
+        else
+          os <<"| "; 
+        
+        os << i ; 
+      }
+    }
+    os << "]"; 
+  }
 }; 
 
 
@@ -120,6 +135,13 @@ struct SplinterPointer {
   bool operator!=(const SplinterPointer& other) const {
     return !(*this == other); 
   }
+
+  std::string debugPrint() {
+    std::ostringstream os;
+    os << "(" << t <<", " << ", " << r <<", " << i << ")";
+    return os.str();
+  }
+  
 };
 
 static const SplinterPointer Undefined = SplinterPointer(-1, -1, -1); 
@@ -153,6 +175,7 @@ public:
 
   Index getLow() const { return d_low; }
   Index getHigh() const {return d_high; }
+  uint32_t getBitwidth() const { return d_high - d_low; }
 };
 
 class Slice {
@@ -194,13 +217,16 @@ public:
     Assert (d_splinters.find(start) != d_splinters.end()); 
     return d_splinters[start]; 
   }
-  /** 
-   * Return the base corresponding to this slice. 
-   * 
-   * 
-   * @return 
-   */
   const Base& getBase() const { return d_base; }
+
+  typedef std::map<Index, Splinter*>::const_iterator const_iterator; 
+  std::map<Index, Splinter*>::const_iterator begin() {
+    return d_splinters.begin(); 
+  }
+  std::map<Index, Splinter*>::const_iterator end() {
+    return d_splinters.end(); 
+  }
+  std::string debugPrint(); 
 };
 
 class Slicer; 
@@ -214,7 +240,8 @@ class SliceBlock {
   Slicer* d_slicer; // FIXME: more elegant way to do this
 
 public:
-  
+
+
   SliceBlock(RootId rootId, uint32_t bitwidth, Slicer* slicer)
     : d_bitwidth(bitwidth),
       d_rootId(rootId),
@@ -225,6 +252,7 @@ public:
 
   uint32_t addSlice(Slice* slice) {
     // update the base with the cut-points in the slice
+    Debug("bv-slice") << "SliceBlock::addSlice Block"<<rootId << " adding slice " << slice->debugPrint() << endl; 
     d_base.sliceWith(slice->getBase()); 
     d_block.push_back(slice);
     return d_block.size() - 1; 
@@ -246,6 +274,25 @@ public:
   void sliceBaseAt(Index i) {
     d_base.sliceAt(i); 
   }
+  typedef std::vector<Slice*>const_iterator const_iterator; 
+  std::vector<Slice*>::const_iterator begin() {
+    return d_block.begin(); 
+  }
+  std::vector<Slice*>::const_iterator end() {
+    return d_block.end(); 
+  }
+
+  uint32_t getBitwidth() const {
+    return d_bitwidth; 
+  }
+  Base& getBase() {
+    return d_base; 
+  }
+
+  unsigned getSize() const {
+    return d_block.size(); 
+  }
+  std::string debugPrint(); 
 };
 
 typedef __gnu_cxx::hash_map<TNode, RootId, TNodeHashFunction> NodeRootIdMap;
@@ -275,7 +322,7 @@ public:
    * 
    * @param node 
    */
-  void processEquality(TNode node); 
+  void processEquality(TNode node);
 private:
   void registerSimpleEquality(TNode node);
   void splitEqualities(TNode node, std::vector<Node>& equalities);
@@ -291,6 +338,8 @@ private:
   RootId registerTerm(TNode node); 
   RootId makeRoot(TNode n);
   Slice* makeSlice(TNode node);
+
+  void debugCheckBase(); 
 public:
   Slice* getSlice(const SplinterPointer& sp) {
     Assert (sp != Undefined); 
